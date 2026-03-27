@@ -7,7 +7,16 @@
       "Bash(git:*)",
       "WebFetch(domain:v3alpha.wails.io)",
       "Bash(go vet:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Read(//private/tmp/unipdf-debugger/frontend/**)",
+      "Read(//private/tmp/unipdf-debugger/build/**)",
+      "Bash(cp /tmp/unipdf-debugger/main.go .)",
+      "Bash(cp /tmp/unipdf-debugger/greetservice.go .)",
+      "Bash(cp /tmp/unipdf-debugger/Taskfile.yml .)",
+      "Bash(cp /tmp/unipdf-debugger/go.mod .)",
+      "Bash(cp /tmp/unipdf-debugger/go.sum .)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
