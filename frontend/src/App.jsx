@@ -20,11 +20,16 @@ function App() {
   }
 
   useEffect(() => {
-    Events.On('time', (timeValue) => {
+    const cancel = Events.On('time', (timeValue) => {
       setTime(timeValue.data);
     });
     // Reload WML so it picks up the wml tags
     WML.Reload();
+    return () => {
+      if (typeof cancel === 'function') {
+        cancel();
+      }
+    };
   }, []);
 
   return (

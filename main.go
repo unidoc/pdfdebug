@@ -66,16 +66,25 @@ func main() {
 
 	// Create a goroutine that emits an event containing the current time every second.
 	// The frontend can listen to this event and update the UI accordingly.
+	// The done channel ensures the goroutine exits when the application stops.
+	done := make(chan struct{})
 	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
+			select {
+			case <-done:
+				return
+			case t := <-ticker.C:
+				now := t.Format(time.RFC1123)
+				app.Event.Emit("time", now)
+			}
 		}
 	}()
 
 	// Run the application. This blocks until the application has been exited.
 	err := app.Run()
+	close(done)
 
 	// If an error occurred while running the application, log it and exit.
 	if err != nil {

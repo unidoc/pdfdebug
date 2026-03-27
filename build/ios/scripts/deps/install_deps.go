@@ -176,7 +176,7 @@ func main() {
 			}
 			if dep.Required {
 				hasErrors = true
-				if len(dep.InstallCmd) > 0 {
+				if len(dep.InstallCmd) > 0 && dep.InstallCmd[0] != "" {
 					fmt.Println()
 					fmt.Println("   " + dep.InstallMsg)
 					fmt.Printf("   Fix command: %s\n", strings.Join(dep.InstallCmd, " "))

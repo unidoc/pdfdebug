@@ -29,16 +29,23 @@ func main() {
 	}
 	if androidHome == "" {
 		// Try common default locations
-		home, _ := os.UserHomeDir()
-		possiblePaths := []string{
-			filepath.Join(home, "Android", "Sdk"),
-			filepath.Join(home, "Library", "Android", "sdk"),
-			"/usr/local/share/android-sdk",
+		home, err := os.UserHomeDir()
+		if err == nil && home != "" {
+			possiblePaths := []string{
+				filepath.Join(home, "Android", "Sdk"),
+				filepath.Join(home, "Library", "Android", "sdk"),
+			}
+			for _, p := range possiblePaths {
+				if _, err := os.Stat(p); err == nil {
+					androidHome = p
+					break
+				}
+			}
 		}
-		for _, p := range possiblePaths {
-			if _, err := os.Stat(p); err == nil {
-				androidHome = p
-				break
+		if androidHome == "" {
+			// Also check system-wide location
+			if _, err := os.Stat("/usr/local/share/android-sdk"); err == nil {
+				androidHome = "/usr/local/share/android-sdk"
 			}
 		}
 	}
