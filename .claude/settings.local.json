@@ -4,7 +4,8 @@
       "WebSearch",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "WebFetch(domain:v3alpha.wails.io)"
     ]
   }
 }
