@@ -5,7 +5,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git:*)",
-      "WebFetch(domain:v3alpha.wails.io)"
+      "WebFetch(domain:v3alpha.wails.io)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)"
     ]
   }
 }
