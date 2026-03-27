@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	_ "embed"
 	"log"
 	"time"
 
@@ -36,7 +35,7 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        "unipdf-debugger",
-		Description: "A demo of using raw HTML & CSS",
+		Description: "PDF structure inspector and debugger",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
 		},

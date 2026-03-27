@@ -21,7 +21,7 @@ import (
 
 // projectRoot returns the absolute path to the project root directory.
 // It walks upward from the test file location to find the project root
-// (identified by the presence of playwright.config.ts which already exists).
+// (identified by the presence of go.mod which exists at the project root).
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	// Start from the test file's directory and walk up to find project root
@@ -29,14 +29,14 @@ func projectRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	// Walk up until we find playwright.config.ts (known to exist at root)
+	// Walk up until we find go.mod (known to exist at project root)
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "playwright.config.ts")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no playwright.config.ts found)")
+			t.Fatalf("could not find project root (no go.mod found)")
 		}
 		dir = parent
 	}
@@ -48,8 +48,6 @@ func projectRoot(t *testing.T) string {
 // ---------------------------------------------------------------------------
 
 func TestWailsBuildProducesBinary(t *testing.T) {
-	t.Skip("TDD RED PHASE: Wails v3 project not scaffolded yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	// Verify wails3 build succeeds
@@ -60,8 +58,8 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 		t.Fatalf("[P0] wails3 build failed: %v\nOutput:\n%s", err, string(output))
 	}
 
-	// Verify binary was produced in build/bin/
-	binDir := filepath.Join(root, "build", "bin")
+	// Verify binary was produced in bin/ (Wails v3 alpha outputs to bin/, not build/bin/)
+	binDir := filepath.Join(root, "bin")
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
 		t.Fatalf("[P0] build/bin/ directory not found after build: %v", err)
@@ -85,8 +83,6 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGoModuleDependencies(t *testing.T) {
-	t.Skip("TDD RED PHASE: go.mod does not exist yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	// Verify go.mod exists
@@ -124,8 +120,6 @@ func TestGoModuleDependencies(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFrontendDependenciesAndTypeScript(t *testing.T) {
-	t.Skip("TDD RED PHASE: frontend/ directory does not exist yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 	frontendDir := filepath.Join(root, "frontend")
 
@@ -199,8 +193,6 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDirectoryStructure(t *testing.T) {
-	t.Skip("TDD RED PHASE: project directories not created yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	requiredDirs := []struct {
@@ -260,8 +252,6 @@ func TestDirectoryStructure(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestLegalFiles(t *testing.T) {
-	t.Skip("TDD RED PHASE: legal files not created yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	// Verify LICENSE file exists and contains Apache 2.0 text
@@ -297,8 +287,6 @@ func TestLegalFiles(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGitignoreCoverage(t *testing.T) {
-	t.Skip("TDD RED PHASE: .gitignore not configured for Wails project yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	gitignorePath := filepath.Join(root, ".gitignore")
@@ -328,7 +316,6 @@ func TestGitignoreCoverage(t *testing.T) {
 
 	// Verify important files are NOT ignored
 	mustNotIgnore := []string{
-		"wails.json",
 		"go.mod",
 		"go.sum",
 	}
@@ -355,15 +342,13 @@ func TestGitignoreCoverage(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestWailsProjectConfigFiles(t *testing.T) {
-	t.Skip("TDD RED PHASE: Wails project not scaffolded yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	configFiles := []struct {
 		path        string
 		description string
 	}{
-		{"wails.json", "Wails project configuration"},
+		{filepath.Join("build", "config.yml"), "Wails v3 project configuration"},
 		{"Taskfile.yml", "Wails v3 build system (Taskfile)"},
 		{"go.mod", "Go module definition"},
 		{"go.sum", "Go module checksums"},
@@ -386,8 +371,6 @@ func TestWailsProjectConfigFiles(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestViteConfigIncludesTailwind(t *testing.T) {
-	t.Skip("TDD RED PHASE: frontend/vite.config.ts does not exist yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	viteConfigPath := filepath.Join(root, "frontend", "vite.config.ts")
@@ -413,8 +396,6 @@ func TestViteConfigIncludesTailwind(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestPdfcpuBlankImport(t *testing.T) {
-	t.Skip("TDD RED PHASE: internal/pdfcore/doc.go does not exist yet -- Story 1.1 not implemented")
-
 	root := projectRoot(t)
 
 	docGoPath := filepath.Join(root, "internal", "pdfcore", "doc.go")
