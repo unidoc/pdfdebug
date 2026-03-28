@@ -1,0 +1,188 @@
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { getShortcutHint } from '../lib/platform';
+
+export interface EmptyStateProps {
+  hasDocument?: boolean;
+  onOpenFile?: () => void;
+}
+
+export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isInvalidFile, setIsInvalidFile] = useState(false);
+  const dragCounter = useRef<number>(0);
+  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up pending timeout on unmount to avoid state updates after unmount
+  useEffect(() => {
+    return () => {
+      if (invalidTimerRef.current !== null) {
+        clearTimeout(invalidTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    setIsDragOver(true);
+
+    // Reset invalid state from a previous rejected drop whose 2-second timer
+    // may still be pending -- a new drag should start with a clean slate
+    setIsInvalidFile(false);
+    if (invalidTimerRef.current !== null) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
+
+    // Check dataTransfer.items for file type if available
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const hasKnownType = Array.from(e.dataTransfer.items).some(
+        (item) => item.type !== ''
+      );
+      if (hasKnownType) {
+        const hasPdf = Array.from(e.dataTransfer.items).some(
+          (item) => item.type === 'application/pdf'
+        );
+        if (!hasPdf) {
+          setIsInvalidFile(true);
+        }
+      }
+      // If no known types exposed, default to valid state (blue highlight)
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Required to allow drop -- do NOT increment counter or update state
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    // Guard against negative counter from unpaired dragleave events
+    if (dragCounter.current < 0) {
+      dragCounter.current = 0;
+    }
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+      setIsInvalidFile(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith('.pdf')) {
+      // Valid PDF -- log to console (no backend processing yet)
+      setIsInvalidFile(false);
+      // Cancel any pending invalid-file timer from a previous drop
+      if (invalidTimerRef.current !== null) {
+        clearTimeout(invalidTimerRef.current);
+        invalidTimerRef.current = null;
+      }
+      console.log('Dropped PDF file:', file.name);
+    } else {
+      // Invalid file -- show error hint for 2 seconds then reset
+      // Cancel any previously pending timer to avoid premature reset
+      if (invalidTimerRef.current !== null) {
+        clearTimeout(invalidTimerRef.current);
+      }
+      setIsInvalidFile(true);
+      invalidTimerRef.current = setTimeout(() => {
+        setIsInvalidFile(false);
+        invalidTimerRef.current = null;
+      }, 2000);
+    }
+  }, []);
+
+  const handleOpenFileClick = useCallback(() => {
+    if (onOpenFile) {
+      onOpenFile();
+    } else {
+      console.log('Open file clicked');
+    }
+  }, [onOpenFile]);
+
+  if (hasDocument) {
+    return null;
+  }
+
+  // Drop zone border and background classes based on drag state
+  // Note: prefers-reduced-motion is handled by the global CSS rule in style.css
+  // which overrides transition-duration with !important -- no separate
+  // motion-reduce: Tailwind variants needed.
+  const dropZoneBorder =
+    isDragOver && !isInvalidFile
+      ? 'border-border-focus bg-surface-selected'
+      : isInvalidFile && isDragOver
+        ? 'border-border-focus'
+        : 'border-border';
+
+  // Hint text content and color
+  const hintText = isInvalidFile ? 'PDF files only' : 'Drop a PDF file here';
+  const hintColor = isInvalidFile ? 'text-error' : 'text-text-muted';
+
+  return (
+    <div
+      data-testid="empty-state"
+      className="flex flex-col items-center justify-center h-full"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <h1
+        data-testid="empty-state-title"
+        className="text-xl font-semibold text-text"
+      >
+        UniDoc PDF Debugger
+      </h1>
+
+      <p
+        data-testid="empty-state-subtitle"
+        className="text-sm text-text-secondary mt-2"
+      >
+        Inspect PDF internal structure
+      </p>
+
+      <div
+        data-testid="drop-zone"
+        role="region"
+        aria-label="File drop zone"
+        className={`mt-8 px-12 py-10 border-2 border-dashed rounded-lg transition-colors duration-150 ${dropZoneBorder}`}
+      >
+        <p
+          data-testid="drop-zone-hint"
+          aria-live="polite"
+          className={`text-sm ${hintColor}`}
+        >
+          {hintText}
+        </p>
+      </div>
+
+      <p className="text-text-muted text-sm my-4">or</p>
+
+      {/* bg-border-focus intentionally reuses Blue 500 as button-primary -- no dedicated token exists yet */}
+      <button
+        data-testid="open-file-button"
+        className="bg-border-focus text-white rounded px-4 py-2 font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+        onClick={handleOpenFileClick}
+      >
+        Open File...
+      </button>
+
+      <p
+        data-testid="shortcut-hint"
+        className="text-xs text-text-muted mt-2"
+      >
+        {getShortcutHint('O')}
+      </p>
+    </div>
+  );
+}

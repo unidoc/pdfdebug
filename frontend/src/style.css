@@ -96,6 +96,10 @@
   --tree-indent: 16px;
 }
 
+html, body, #root {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-ui);
   background-color: var(--color-bg);
