@@ -16,7 +16,10 @@
       "Bash(cp /tmp/unipdf-debugger/go.mod .)",
       "Bash(cp /tmp/unipdf-debugger/go.sum .)",
       "Bash(npm install:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(wails3 build:*)",
+      "Bash(go version:*)"
     ]
   }
 }

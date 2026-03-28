@@ -1,1 +1,115 @@
+/* Font imports - CDN for dev; production needs self-hosted fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @import "tailwindcss";
+
+/* Tailwind v4 theme extension -- registers tokens for utility class generation */
+/* Use @theme for static values (fonts, spacing, type scale) */
+@theme {
+  /* Fonts */
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+
+  /* Custom spacing scale (4px base) -- overrides Tailwind defaults */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+
+  /* Custom type scale from UX spec -- overrides Tailwind defaults */
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+}
+
+/* Use @theme inline for colors that reference :root CSS variables */
+/* @theme inline allows var() references; plain @theme does NOT */
+/* NOTE: These look self-referential but are not -- @theme inline registers
+   Tailwind-namespaced tokens that resolve to the :root custom properties
+   of the same name. This enables utility classes like bg-surface, text-type-name. */
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-surface-selected: var(--color-surface-selected);
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-border: var(--color-border);
+  --color-border-focus: var(--color-border-focus);
+  --color-tree-selected: var(--color-tree-selected);
+  --color-tree-hover: var(--color-tree-hover);
+  --color-type-name: var(--color-type-name);
+  --color-type-string: var(--color-type-string);
+  --color-type-number: var(--color-type-number);
+  --color-type-reference: var(--color-type-reference);
+  --color-type-boolean: var(--color-type-boolean);
+  --color-type-null: var(--color-type-null);
+  --color-type-stream: var(--color-type-stream);
+  --color-error: var(--color-error);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+}
+
+/* Design tokens as CSS custom properties -- ALL values listed explicitly */
+:root {
+  /* Light theme core colors */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-surface-selected: #eff6ff;
+  --color-text: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-border-focus: #3b82f6;
+  --color-tree-selected: #eff6ff;
+  --color-tree-hover: #f1f5f9;
+
+  /* PDF value type colors */
+  --color-type-name: #0d9488;
+  --color-type-string: #d97706;
+  --color-type-number: #2563eb;
+  --color-type-reference: #7c3aed;
+  --color-type-boolean: #db2777;
+  --color-type-null: #94a3b8;
+  --color-type-stream: #059669;
+
+  /* Semantic colors */
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-success: #22c55e;
+  --color-info: #3b82f6;
+
+  /* Spacing tokens */
+  --panel-padding: 12px;
+  --tree-indent: 16px;
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
