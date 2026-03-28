@@ -20,8 +20,9 @@ import (
 )
 
 // projectRoot returns the absolute path to the project root directory.
-// It walks upward from the test file location to find the project root
-// (identified by the presence of go.mod which exists at the project root).
+// It walks upward from the test file location to find the project root,
+// identified by the presence of a go.mod whose module name is "unipdf-debugger".
+// This distinguishes the project root from the test module's own go.mod.
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	// Start from the test file's directory and walk up to find project root
@@ -29,14 +30,17 @@ func projectRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	// Walk up until we find go.mod (known to exist at project root)
+	// Walk up until we find the project root's go.mod (module unipdf-debugger)
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
+		goModPath := filepath.Join(dir, "go.mod")
+		if content, err := os.ReadFile(goModPath); err == nil {
+			if strings.Contains(string(content), "module unipdf-debugger") {
+				return dir
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod found)")
+			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
 		}
 		dir = parent
 	}
@@ -62,7 +66,7 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 	binDir := filepath.Join(root, "bin")
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
-		t.Fatalf("[P0] build/bin/ directory not found after build: %v", err)
+		t.Fatalf("[P0] bin/ directory not found after build: %v", err)
 	}
 
 	foundBinary := false
@@ -73,7 +77,7 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 		}
 	}
 	if !foundBinary {
-		t.Fatalf("[P0] no binary found in build/bin/ after wails3 build")
+		t.Fatalf("[P0] no binary found in bin/ after wails3 build")
 	}
 }
 

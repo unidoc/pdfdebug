@@ -18,7 +18,7 @@
     /**
      * Enable checkJs if you'd like type checking in `.js(x)` files.
      */
-    "checkJs": false,
+    "checkJs": true,
     "strict": true,
     "skipLibCheck": true,
   },
