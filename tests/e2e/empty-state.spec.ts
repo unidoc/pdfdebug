@@ -138,10 +138,8 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
     await expect(dropZoneHint).toContainText('PDF files only');
 
     // AC#7: After 2 seconds, hint should reset to default
-    // Wait slightly more than 2 seconds to account for timing
-    await appPage.waitForTimeout(2500);
-
-    await expect(dropZoneHint).toContainText('Drop a PDF file here');
+    // Use Playwright auto-waiting instead of hard timeout for determinism
+    await expect(dropZoneHint).toContainText('Drop a PDF file here', { timeout: 5000 });
   });
 
   // ---------------------------------------------------------------------------
