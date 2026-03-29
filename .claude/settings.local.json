@@ -19,7 +19,9 @@
       "Bash(npx tsc:*)",
       "Bash(npx vitest:*)",
       "Bash(wails3 build:*)",
-      "Bash(go version:*)"
+      "Bash(go version:*)",
+      "Bash(find ~/go/pkg/mod/github.com/wailsapp/wails/v3@v3.0.0-alpha.74 -name *.go -exec grep -l SetApplicationMenu {})",
+      "Bash(2)"
     ]
   }
 }

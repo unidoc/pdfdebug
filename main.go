@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 	"log"
-	"time"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -16,29 +16,11 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
-}
-
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 func main() {
-
 	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        "unipdf-debugger",
 		Description: "PDF structure inspector and debugger",
-		Services: []application.Service{
-			application.NewService(&GreetService{}),
-		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -46,46 +28,49 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+	if app == nil {
+		log.Fatal("application.New returned nil")
+	}
 
-	// Create a new window with the necessary options.
-	// 'Title' is the title of the window.
-	// 'Mac' options tailor the window when running on macOS.
-	// 'BackgroundColour' is the background colour of the window.
-	// 'URL' is the URL that will be loaded into the webview.
+	// Build native menu bar
+	menu := application.NewMenu()
+
+	// macOS app menu (About, Services, Hide, Quit) -- AddRole is a no-op on non-macOS
+	menu.AddRole(application.AppMenu)
+
+	// File menu
+	fileMenu := menu.AddSubmenu("File")
+	fileMenu.Add("Open...").
+		SetAccelerator("CmdOrCtrl+o").
+		OnClick(func(ctx *application.Context) {
+			// TODO: Wire to file dialog in Story 2.4
+			log.Println("File > Open clicked")
+		})
+	fileMenu.AddSeparator()
+	fileMenu.AddRole(application.CloseWindow)
+	if runtime.GOOS != "darwin" {
+		fileMenu.AddSeparator()
+		fileMenu.AddRole(application.Quit)
+	}
+
+	// Edit menu (standard roles -- Cut, Copy, Paste, Select All, etc.)
+	menu.AddRole(application.EditMenu)
+
+	app.Menu.SetApplicationMenu(menu)
+
+	// Create main window
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "UniPDF Debugger",
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
-		BackgroundColour: application.NewRGB(27, 38, 54),
+		Title:            "UniPDF Debugger",
+		Width:            1024,
+		Height:           768,
+		MinWidth:         800,
+		MinHeight:        600,
+		BackgroundColour: application.NewRGB(248, 250, 252),
 		URL:              "/",
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	// The done channel ensures the goroutine exits when the application stops.
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case t := <-ticker.C:
-				now := t.Format(time.RFC1123)
-				app.Event.Emit("time", now)
-			}
-		}
-	}()
-
 	// Run the application. This blocks until the application has been exited.
 	err := app.Run()
-	close(done)
-
-	// If an error occurred while running the application, log it and exit.
 	if err != nil {
 		log.Fatal(err)
 	}
