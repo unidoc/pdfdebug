@@ -23,7 +23,8 @@
       "Bash(find ~/go/pkg/mod/github.com/wailsapp/wails/v3@v3.0.0-alpha.74 -name *.go -exec grep -l SetApplicationMenu {})",
       "Bash(2)",
       "Bash(cat /Users/ace/dev/unidoc/unipdf-debugger/_bmad/_config/*.yaml)",
-      "Bash(cat /Users/ace/dev/unidoc/unipdf-debugger/_bmad/_config/*.yml)"
+      "Bash(cat /Users/ace/dev/unidoc/unipdf-debugger/_bmad/_config/*.yml)",
+      "Bash(grep:*)"
     ]
   }
 }
