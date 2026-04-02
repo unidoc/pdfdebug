@@ -24,7 +24,10 @@
       "Bash(2)",
       "Bash(cat /Users/ace/dev/unidoc/unipdf-debugger/_bmad/_config/*.yaml)",
       "Bash(cat /Users/ace/dev/unidoc/unipdf-debugger/_bmad/_config/*.yml)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(go build:*)",
+      "Bash(go mod:*)",
+      "Bash(go list:*)"
     ]
   }
 }

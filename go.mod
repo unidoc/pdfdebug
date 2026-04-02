@@ -3,6 +3,7 @@ module unipdf-debugger
 go 1.25
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
 )
@@ -26,7 +27,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/hhrutter/pkcs7 v0.2.0 // indirect
 	github.com/hhrutter/tiff v1.0.2 // indirect

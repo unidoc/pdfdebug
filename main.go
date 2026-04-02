@@ -6,6 +6,8 @@ import (
 	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"unipdf-debugger/internal/pdfservice"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -17,6 +19,8 @@ import (
 var assets embed.FS
 
 func main() {
+	pdfService := pdfservice.NewPDFService()
+
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        "unipdf-debugger",
@@ -31,6 +35,8 @@ func main() {
 	if app == nil {
 		log.Fatal("application.New returned nil")
 	}
+
+	app.RegisterService(application.NewService(&pdfService))
 
 	// Build native menu bar
 	menu := application.NewMenu()
