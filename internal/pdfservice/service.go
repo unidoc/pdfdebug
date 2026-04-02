@@ -4,18 +4,36 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"unipdf-debugger/internal/pdfcore"
 )
 
 type PDFService struct {
 	inspector *pdfcore.Inspector
+	app       *application.App
 }
 
-func NewPDFService() PDFService {
+func NewPDFService(app *application.App) PDFService {
 	return PDFService{
 		inspector: pdfcore.NewInspector(),
+		app:       app,
 	}
+}
+
+func (s *PDFService) OpenFileDialog() (string, error) {
+	if s.app == nil {
+		return "", fmt.Errorf("app not initialized")
+	}
+	path, err := s.app.Dialog.OpenFile().
+		SetTitle("Open PDF").
+		AddFilter("PDF Files", "*.pdf").
+		AddFilter("All Files", "*.*").
+		PromptForSingleSelection()
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func (s *PDFService) OpenFile(path string) (*pdfcore.DocumentInfo, error) {

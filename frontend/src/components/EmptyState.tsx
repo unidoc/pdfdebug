@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
+import { useAppDispatch } from '../hooks/useDocumentState';
+import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
 
 export interface EmptyStateProps {
   hasDocument?: boolean;
@@ -101,13 +103,31 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
     }
   }, []);
 
-  const handleOpenFileClick = useCallback(() => {
+  const dispatch = useAppDispatch();
+
+  const handleOpenFileClick = useCallback(async () => {
     if (onOpenFile) {
       onOpenFile();
-    } else {
-      console.log('Open file clicked');
+      return;
     }
-  }, [onOpenFile]);
+    try {
+      const path = await openFileDialog();
+      if (!path) return;
+      const result = await openPDFFile(path);
+      dispatch({
+        type: 'OPEN_DOCUMENT',
+        payload: {
+          tabId: result.tabId,
+          fileName: result.fileName,
+          rootNode: result.rootNode,
+          rootChildren: result.rootChildren,
+        },
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });
+    }
+  }, [onOpenFile, dispatch]);
 
   if (hasDocument) {
     return null;
@@ -153,6 +173,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
       <div
         data-testid="drop-zone"
+        data-file-drop-target
         role="region"
         aria-label="File drop zone"
         className={`mt-8 px-12 py-10 border-2 border-dashed rounded-lg transition-colors duration-150 ${dropZoneBorder}`}

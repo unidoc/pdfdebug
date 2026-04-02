@@ -15,14 +15,14 @@ func testdataDir(t *testing.T) string {
 }
 
 func TestNewPDFService(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	if svc.inspector == nil {
-		t.Fatal("NewPDFService() returned service with nil inspector")
+		t.Fatal("NewPDFService(nil) returned service with nil inspector")
 	}
 }
 
 func TestOpenFileValidPDF(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
 	if err != nil {
 		t.Fatalf("OpenFile returned error: %v", err)
@@ -45,7 +45,7 @@ func TestOpenFileValidPDF(t *testing.T) {
 }
 
 func TestOpenFileNonExistent(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile("/nonexistent/path/fake.pdf")
 	if err == nil {
 		t.Fatal("OpenFile with nonexistent path should return error")
@@ -56,7 +56,7 @@ func TestOpenFileNonExistent(t *testing.T) {
 }
 
 func TestOpenFileMalformed(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "malformed.pdf"))
 	if err == nil {
 		t.Fatal("OpenFile with malformed PDF should return error")
@@ -70,7 +70,7 @@ func TestOpenFileMalformed(t *testing.T) {
 }
 
 func TestOpenFileEncrypted(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "encrypted.pdf"))
 	if err == nil {
 		t.Fatal("OpenFile with encrypted PDF should return error")
@@ -84,7 +84,7 @@ func TestOpenFileEncrypted(t *testing.T) {
 }
 
 func TestCloseDocumentValid(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
@@ -96,7 +96,7 @@ func TestCloseDocumentValid(t *testing.T) {
 }
 
 func TestCloseDocumentUnknown(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	err := svc.CloseDocument("nonexistent-tab-id")
 	if err == nil {
 		t.Fatal("CloseDocument with unknown tabID should return error")
@@ -107,7 +107,7 @@ func TestCloseDocumentUnknown(t *testing.T) {
 }
 
 func TestGetTreeRootValid(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
@@ -127,7 +127,7 @@ func TestGetTreeRootValid(t *testing.T) {
 }
 
 func TestGetTreeRootUnknown(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	root, err := svc.GetTreeRoot("nonexistent-tab-id")
 	if err == nil {
 		t.Fatal("GetTreeRoot with unknown tabID should return error")
@@ -138,7 +138,7 @@ func TestGetTreeRootUnknown(t *testing.T) {
 }
 
 func TestGetChildrenValid(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
@@ -155,7 +155,7 @@ func TestGetChildrenValid(t *testing.T) {
 }
 
 func TestGetChildrenUnknown(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	children, err := svc.GetChildren("nonexistent-tab-id", "root")
 	if err == nil {
 		t.Fatal("GetChildren with unknown tabID should return error")
@@ -166,7 +166,7 @@ func TestGetChildrenUnknown(t *testing.T) {
 }
 
 func TestGetObjectDetail(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 	detail, err := svc.GetObjectDetail("any-tab", "any-node")
 	if err == nil {
 		t.Fatal("GetObjectDetail should return error (not implemented)")
@@ -180,7 +180,7 @@ func TestGetObjectDetail(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	svc := NewPDFService()
+	svc := NewPDFService(nil)
 
 	// Open
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))

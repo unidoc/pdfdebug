@@ -162,9 +162,9 @@ func TestNativeMenuBarCreated(t *testing.T) {
 		t.Error("[P0] main.go missing CmdOrCtrl+o accelerator on Open menu item")
 	}
 
-	// Must have OnClick handler for Open that logs
-	if !strings.Contains(content, `File > Open clicked`) {
-		t.Error("[P0] main.go missing log.Println(\"File > Open clicked\") in Open OnClick handler")
+	// Must have OnClick handler for Open (either stub log or real dialog)
+	if !strings.Contains(content, `File > Open clicked`) && !strings.Contains(content, `Dialog.OpenFile()`) {
+		t.Error("[P0] main.go missing OnClick handler for Open menu item (expected log stub or Dialog.OpenFile())")
 	}
 
 	// Must add CloseWindow role

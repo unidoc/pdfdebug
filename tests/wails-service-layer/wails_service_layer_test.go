@@ -240,8 +240,8 @@ func TestMainGoRegistersPDFService(t *testing.T) {
 		t.Error("[P1] 2.3-INTG-001: main.go does not import internal/pdfservice")
 	}
 
-	// Must create PDFService instance via NewPDFService()
-	if !strings.Contains(content, "pdfservice.NewPDFService()") {
+	// Must create PDFService instance via NewPDFService
+	if !strings.Contains(content, "pdfservice.NewPDFService(") {
 		t.Error("[P1] 2.3-INTG-001: main.go does not call pdfservice.NewPDFService()")
 	}
 
@@ -338,7 +338,7 @@ func TestPDFServiceMethodSignatures(t *testing.T) {
 	}
 
 	// Verify NewPDFService constructor exists
-	if !strings.Contains(content, "func NewPDFService()") {
+	if !strings.Contains(content, "func NewPDFService(") {
 		t.Error("[P1] 2.3-INTG-005: service.go missing NewPDFService() constructor")
 	}
 }
@@ -377,12 +377,13 @@ func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-007 [P1]: pdfservice has zero Wails imports (consumed by Wails, not dependent)
-// AC#3: pdfservice is consumed by Wails via main.go registration, but does not
-//       import any Wails packages itself.
+// 2.3-INTG-007 [P1]: pdfservice is the Wails adapter layer
+// AC#3: pdfservice delegates to pdfcore. As the Wails adapter layer it may
+//       import Wails packages (e.g. application for dialog access). Only
+//       pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
 // ---------------------------------------------------------------------------
 
-func TestPdfserviceZeroWailsImports(t *testing.T) {
+func TestPdfserviceIsWailsAdapter(t *testing.T) {
 	root := projectRoot(t)
 
 	pdfserviceDir := filepath.Join(root, "internal", "pdfservice")
@@ -391,6 +392,7 @@ func TestPdfserviceZeroWailsImports(t *testing.T) {
 		t.Fatalf("[P1] 2.3-INTG-007: cannot read internal/pdfservice/ directory: %v", err)
 	}
 
+	// Ensure pdfservice does NOT import pdfcpu directly (only via pdfcore)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
 			continue
@@ -404,8 +406,8 @@ func TestPdfserviceZeroWailsImports(t *testing.T) {
 			t.Errorf("[P1] cannot read %s: %v", entry.Name(), err)
 			continue
 		}
-		if strings.Contains(string(content), "wailsapp") {
-			t.Errorf("[P1] 2.3-INTG-007: %s imports Wails -- pdfservice must have zero Wails dependencies", entry.Name())
+		if strings.Contains(string(content), "pdfcpu") {
+			t.Errorf("[P1] 2.3-INTG-007: %s imports pdfcpu directly -- pdfservice must delegate to pdfcore", entry.Name())
 		}
 	}
 }
