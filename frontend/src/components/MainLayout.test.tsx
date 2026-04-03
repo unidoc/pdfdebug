@@ -1,11 +1,10 @@
 /**
- * 2.4-UNIT-003 [P3]: File name displayed / tree content after open.
+ * 2.4-UNIT-003 / 2.5-INTG: MainLayout renders TreePanel component.
  *
- * Tests that MainLayout renders the root Catalog node and its children
- * when document state is populated.
+ * Updated for Story 2-5: MainLayout now uses TreePanel instead of inline static list.
  */
 import { render, screen, act } from '@testing-library/react';
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AppProvider,
   useAppDispatch,
@@ -26,6 +25,51 @@ vi.mock('allotment', () => {
 });
 
 vi.mock('allotment/dist/style.css', () => ({}));
+
+// Mock Wails bindings
+vi.mock(
+  '../../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  () => ({
+    OpenFile: vi.fn(),
+    GetTreeRoot: vi.fn(),
+    GetChildren: vi.fn(),
+    CloseDocument: vi.fn(),
+    OpenFileDialog: vi.fn(),
+    GetObjectDetail: vi.fn(),
+  })
+);
+
+// Mock ResizeObserver
+class MockResizeObserver {
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+  observe(target: Element) {
+    this.callback(
+      [
+        {
+          target,
+          contentRect: { width: 300, height: 600 } as DOMRectReadOnly,
+          borderBoxSize: [],
+          contentBoxSize: [],
+          devicePixelContentBoxSize: [],
+        } as ResizeObserverEntry,
+      ],
+      this
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeEach(() => {
+  (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
+});
+
+afterEach(() => {
+  delete (globalThis as Record<string, unknown>).ResizeObserver;
+});
 
 const catalogNode = {
   id: 'root',
@@ -75,13 +119,13 @@ function DispatchThenLayout({ action }: { action: AppAction }) {
 }
 
 describe('2.4-UNIT-003: MainLayout tree content', () => {
-  test('shows placeholder when no document is open', () => {
+  test('shows Document Structure header when no document is open', () => {
     render(
       <AppProvider>
         <MainLayout />
       </AppProvider>
     );
-    expect(screen.getByText('Tree Panel')).toBeInTheDocument();
+    expect(screen.getByText('Document Structure')).toBeInTheDocument();
   });
 
   test('shows Catalog root and children after OPEN_DOCUMENT', () => {
@@ -108,7 +152,7 @@ describe('2.4-UNIT-003: MainLayout tree content', () => {
     expect(screen.getByText('Pages')).toBeInTheDocument();
   });
 
-  test('shows expand indicator for nodes with children', () => {
+  test('uses TreePanel component with react-arborist tree', () => {
     const action: AppAction = {
       type: 'OPEN_DOCUMENT',
       payload: {
@@ -127,8 +171,8 @@ describe('2.4-UNIT-003: MainLayout tree content', () => {
 
     act(() => screen.getByTestId('dispatch').click());
 
-    // Catalog (hasChildren) and Pages (hasChildren) should show "v" indicator
-    const indicators = screen.getAllByText('v');
-    expect(indicators.length).toBeGreaterThanOrEqual(2);
+    // TreePanel uses react-arborist which provides role="tree"
+    expect(screen.getByRole('tree')).toBeInTheDocument();
+    expect(screen.getByTestId('tree-panel')).toBeInTheDocument();
   });
 });

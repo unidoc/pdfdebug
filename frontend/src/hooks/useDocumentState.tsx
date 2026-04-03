@@ -19,6 +19,7 @@ export interface TabState {
   fileName: string;
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
+  selectedNodeId: string | null;
 }
 
 export interface AppState {
@@ -30,6 +31,7 @@ export interface AppState {
 export type AppAction =
   | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
+  | { type: 'SELECT_NODE'; payload: { nodeId: string } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
   | { type: 'DISMISS_ERROR' };
 
@@ -49,6 +51,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         fileName: action.payload.fileName,
         rootNode: action.payload.rootNode,
         rootChildren: action.payload.rootChildren,
+        selectedNodeId: null,
       };
       // Single document at a time -- replace all tabs (multi-tab is Epic 4)
       return {
@@ -64,6 +67,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: filtered,
         activeTabId: filtered.length > 0 ? filtered[filtered.length - 1].tabId : null,
+      };
+    }
+    case 'SELECT_NODE': {
+      if (state.activeTabId === null) return state;
+      if (!action.payload.nodeId) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === state.activeTabId
+            ? { ...tab, selectedNodeId: action.payload.nodeId }
+            : tab
+        ),
       };
     }
     case 'SET_DOCUMENT_ERROR': {

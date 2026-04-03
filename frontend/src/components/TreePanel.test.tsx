@@ -1,0 +1,1177 @@
+/**
+ * Story 2.5: Tree Panel with Lazy-Loading Navigation
+ *
+ * TDD RED PHASE: Tests MUST fail until TreePanel.tsx is implemented.
+ *
+ * Test IDs: 2.5-UNIT-001 through 2.5-UNIT-004
+ * Run: cd frontend && npx vitest run src/components/TreePanel.test.tsx
+ */
+import { render, screen, act, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  AppProvider,
+  useAppDispatch,
+  useAppState,
+  type AppAction,
+} from '../hooks/useDocumentState';
+// RED PHASE: This import will fail until TreePanel.tsx is created.
+// That is the expected behavior -- all tests fail because the module does not exist.
+import { TreePanel } from './TreePanel';
+
+// Helper for tests that use dynamic import pattern (returns the already-imported component)
+async function importTreePanel() {
+  return TreePanel;
+}
+
+// Mock allotment -- jsdom has no layout APIs
+vi.mock('allotment', () => {
+  function Pane({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>;
+  }
+  function Allotment({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>;
+  }
+  Allotment.Pane = Pane;
+  return { Allotment };
+});
+
+vi.mock('allotment/dist/style.css', () => ({}));
+
+// Mock Wails bindings
+const mockGetChildren = vi.fn();
+vi.mock(
+  '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  () => ({
+    OpenFile: vi.fn(),
+    GetTreeRoot: vi.fn(),
+    GetChildren: (...args: unknown[]) => mockGetChildren(...args),
+    CloseDocument: vi.fn(),
+    OpenFileDialog: vi.fn(),
+    GetObjectDetail: vi.fn(),
+  })
+);
+
+// Mock ResizeObserver -- jsdom does not provide it
+class MockResizeObserver {
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+  observe(target: Element) {
+    // Fire immediately with a reasonable size so react-arborist has dimensions
+    this.callback(
+      [
+        {
+          target,
+          contentRect: { width: 300, height: 600 } as DOMRectReadOnly,
+          borderBoxSize: [],
+          contentBoxSize: [],
+          devicePixelContentBoxSize: [],
+        } as ResizeObserverEntry,
+      ],
+      this
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+}
+
+// --- Test data fixtures ---
+
+const catalogNode = {
+  id: 'root',
+  label: 'Catalog',
+  rawKey: '',
+  nodeType: 'dict',
+  valueType: '',
+  hasChildren: true,
+  childCount: 3,
+  iconHint: 'catalog',
+  error: '',
+};
+
+const childNodes = [
+  {
+    id: 'dict:root:Type',
+    label: 'Type',
+    rawKey: '/Type',
+    nodeType: 'scalar',
+    valueType: 'name',
+    hasChildren: false,
+    childCount: 0,
+    iconHint: 'default',
+    error: '',
+  },
+  {
+    id: 'obj:0:2',
+    label: 'Pages',
+    rawKey: '/Pages',
+    nodeType: 'dict',
+    valueType: 'reference',
+    hasChildren: true,
+    childCount: 2,
+    iconHint: 'page',
+    error: '',
+  },
+  {
+    id: 'obj:0:3',
+    label: 'Metadata',
+    rawKey: '/Metadata',
+    nodeType: 'stream',
+    valueType: 'reference',
+    hasChildren: true,
+    childCount: 1,
+    iconHint: 'stream',
+    error: '',
+  },
+];
+
+const errorChildNode = {
+  id: 'obj:0:99',
+  label: 'Error: malformed object',
+  rawKey: '/Broken',
+  nodeType: 'dict',
+  valueType: '',
+  hasChildren: false,
+  childCount: 0,
+  iconHint: 'default',
+  error: 'malformed object at offset 1234',
+};
+
+const pagesChildren = [
+  {
+    id: 'obj:0:4',
+    label: 'Page 1',
+    rawKey: '/Page',
+    nodeType: 'dict',
+    valueType: 'reference',
+    hasChildren: true,
+    childCount: 5,
+    iconHint: 'page',
+    error: '',
+  },
+  {
+    id: 'obj:0:5',
+    label: 'Page 2',
+    rawKey: '/Page',
+    nodeType: 'dict',
+    valueType: 'reference',
+    hasChildren: false,
+    childCount: 0,
+    iconHint: 'page',
+    error: '',
+  },
+];
+
+const openAction: AppAction = {
+  type: 'OPEN_DOCUMENT',
+  payload: {
+    tabId: 'tab-1',
+    fileName: 'test.pdf',
+    rootNode: catalogNode,
+    rootChildren: childNodes,
+  },
+};
+
+const openActionWithError: AppAction = {
+  type: 'OPEN_DOCUMENT',
+  payload: {
+    tabId: 'tab-err',
+    fileName: 'broken.pdf',
+    rootNode: catalogNode,
+    rootChildren: [...childNodes, errorChildNode],
+  },
+};
+
+// --- Helper to dispatch an action then render a component ---
+
+function DispatchAndRender({
+  action,
+  children,
+}: {
+  action: AppAction;
+  children: React.ReactNode;
+}) {
+  const dispatch = useAppDispatch();
+  return (
+    <div>
+      <button data-testid="dispatch" onClick={() => dispatch(action)} />
+      {children}
+    </div>
+  );
+}
+
+// --- Helper to read selectedNodeId from state ---
+
+function SelectedNodeIdReader() {
+  const state = useAppState();
+  const activeTab = state.tabs.find((t) => t.tabId === state.activeTabId);
+  return (
+    <span data-testid="selected-node-id">
+      {activeTab && 'selectedNodeId' in activeTab
+        ? String((activeTab as Record<string, unknown>).selectedNodeId ?? '')
+        : ''}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  delete (globalThis as Record<string, unknown>).ResizeObserver;
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-001 [P0]: TreePanel renders root node and expands on click
+// AC#1: Given a PDF is opened, the tree root is displayed. When the user
+//       clicks the expand arrow, child nodes load from the Go backend.
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-001: TreePanel renders root and expands on click', () => {
+  test('renders tree-panel container with data-testid', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    expect(screen.getByTestId('tree-panel')).toBeInTheDocument();
+  });
+
+  test('renders root Catalog node after OPEN_DOCUMENT', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+  });
+
+  test('renders immediate children of the root (pre-loaded from story 2-4)', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Root children should be visible (root is pre-expanded with children from story 2-4)
+    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(screen.getByText('Pages')).toBeInTheDocument();
+    expect(screen.getByText('Metadata')).toBeInTheDocument();
+  });
+
+  test('expanding a child node calls GetChildren and renders fetched children', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Find the "Pages" node and click to expand it
+    const pagesNode = screen.getByText('Pages');
+    const pagesRow = pagesNode.closest('[data-testid="tree-node"]');
+    expect(pagesRow).toBeTruthy();
+
+    // Click the row to select, then Right arrow to expand
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(mockGetChildren).toHaveBeenCalledWith('tab-1', 'obj:0:2');
+    });
+
+    // After expansion, children should appear
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+    });
+  });
+
+  test('tree nodes have data-testid="tree-node" and data-node-id attributes', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const treeNodes = screen.getAllByTestId('tree-node');
+    expect(treeNodes.length).toBeGreaterThanOrEqual(1);
+
+    // At least one node should have data-node-id
+    const hasNodeId = treeNodes.some(
+      (node) => node.getAttribute('data-node-id') !== null
+    );
+    expect(hasNodeId).toBe(true);
+  });
+
+  test('has "Document Structure" header', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    expect(screen.getByText('Document Structure')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-002 [P1]: TreePanel keyboard navigation
+// AC#2: Arrow keys move selection, Right expands, Left collapses.
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-002: TreePanel keyboard navigation', () => {
+  test('Down arrow moves focus/selection to next node', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+          <SelectedNodeIdReader />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click Catalog to focus the tree
+    const catalogRow = screen.getByText('Catalog').closest('[data-testid="tree-node"]');
+    await user.click(catalogRow!);
+
+    // Press Down arrow to move to next sibling (Type)
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      // The selection should have moved -- check via aria-selected or state
+      const selectedNodeId = screen.getByTestId('selected-node-id').textContent;
+      expect(selectedNodeId).toBeTruthy();
+      expect(selectedNodeId).not.toBe('root');
+    });
+  });
+
+  test('Right arrow expands a collapsed node', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click Pages node to select it
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+
+    // Press Right to expand
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(mockGetChildren).toHaveBeenCalledWith('tab-1', 'obj:0:2');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+    });
+  });
+
+  test('Left arrow collapses an expanded node', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Expand Pages first
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+    });
+
+    // Now press Left to collapse
+    await user.keyboard('{ArrowLeft}');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Page 1')).not.toBeInTheDocument();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-003 [P2]: ARIA roles and attributes
+// AC#2: container has role="tree", nodes have role="treeitem",
+//       aria-expanded, aria-level.
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-003: TreePanel ARIA accessibility', () => {
+  test('tree container has role="tree"', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const treeContainer = screen.getByRole('tree');
+    expect(treeContainer).toBeInTheDocument();
+  });
+
+  test('tree nodes have role="treeitem"', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const treeItems = screen.getAllByRole('treeitem');
+    expect(treeItems.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('expandable nodes have aria-expanded attribute', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const treeItems = screen.getAllByRole('treeitem');
+    // At least one node (Catalog, Pages, Metadata) should have aria-expanded
+    const hasExpanded = treeItems.some(
+      (item) => item.getAttribute('aria-expanded') !== null
+    );
+    expect(hasExpanded).toBe(true);
+  });
+
+  test('nodes have aria-level attribute', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const treeItems = screen.getAllByRole('treeitem');
+    const hasLevel = treeItems.some(
+      (item) => item.getAttribute('aria-level') !== null
+    );
+    expect(hasLevel).toBe(true);
+  });
+
+  test('selected node has aria-selected="true"', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click a node to select it
+    const catalogRow = screen.getByText('Catalog').closest('[role="treeitem"]');
+    if (catalogRow) {
+      await user.click(catalogRow);
+
+      await waitFor(() => {
+        expect(catalogRow.getAttribute('aria-selected')).toBe('true');
+      });
+    } else {
+      // If treeitem is not directly the clickable element, find by testid
+      const treeNode = screen.getByText('Catalog').closest('[data-testid="tree-node"]');
+      await user.click(treeNode!);
+
+      await waitFor(() => {
+        const selected = screen
+          .getAllByRole('treeitem')
+          .find((item) => item.getAttribute('aria-selected') === 'true');
+        expect(selected).toBeTruthy();
+      });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-004 [P2]: Loading indicator appears only after 200ms delay
+// AC#1: A subtle loading indicator (pulse animation) appears only if
+//       loading takes more than 200ms.
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-004: Loading indicator with 200ms threshold', () => {
+  test('no loading indicator for fast responses (< 200ms)', async () => {
+    vi.useFakeTimers();
+
+    // GetChildren resolves immediately
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    await act(async () => screen.getByTestId('dispatch').click());
+
+    // Select Pages, then expand via ArrowRight
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await act(async () => {
+      pagesRow?.click();
+    });
+    // Trigger expand via keyboard (Right arrow on the focused tree container)
+    const treeContainer = screen.getByRole('tree');
+    await act(async () => {
+      treeContainer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+
+    // Advance less than 200ms
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // No loading indicator should be visible
+    const loadingIndicator = screen.queryByTestId('tree-loading-indicator');
+    // If there is a loading indicator element, it should not be visible
+    // If there is none, that is also correct (no indicator for fast loads)
+    if (loadingIndicator) {
+      expect(loadingIndicator).not.toBeVisible();
+    }
+
+    // Let the promise resolve
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    vi.useRealTimers();
+  });
+
+  test('loading indicator appears after 200ms for slow responses', async () => {
+    vi.useFakeTimers();
+
+    // GetChildren that never resolves (simulates slow backend)
+    let resolveGetChildren!: (value: unknown) => void;
+    mockGetChildren.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveGetChildren = resolve;
+      })
+    );
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    await act(async () => screen.getByTestId('dispatch').click());
+
+    // Select Pages, then expand via ArrowRight
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await act(async () => {
+      pagesRow?.click();
+    });
+    const treeContainer = screen.getByRole('tree');
+    await act(async () => {
+      treeContainer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    });
+
+    // Before 200ms: no indicator
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    // After 200ms: indicator should appear
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Look for animate-pulse class or a loading indicator element
+    const treePanel = screen.getByTestId('tree-panel');
+    const hasPulse =
+      treePanel.querySelector('.animate-pulse') !== null ||
+      screen.queryByTestId('tree-loading-indicator') !== null;
+    expect(hasPulse).toBe(true);
+
+    // Resolve to clean up
+    await act(async () => {
+      resolveGetChildren(pagesChildren);
+      vi.advanceTimersByTime(100);
+    });
+
+    vi.useRealTimers();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC#4: SELECT_NODE dispatch on selection change
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-SEL: SELECT_NODE dispatch on selection', () => {
+  test('clicking a node dispatches SELECT_NODE with the node ID', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+          <SelectedNodeIdReader />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click the Type leaf node
+    const typeNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
+    await user.click(typeNode!);
+
+    await waitFor(() => {
+      const selectedId = screen.getByTestId('selected-node-id').textContent;
+      expect(selectedId).toBe('dict:root:Type');
+    });
+  });
+
+  test('selected node has visible highlight styling', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const typeNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
+    await user.click(typeNode!);
+
+    await waitFor(() => {
+      // Re-query after re-render since react-window may replace DOM nodes
+      const updatedNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
+      // Selected node should have bg-surface-selected class
+      expect(updatedNode!.className).toContain('bg-surface-selected');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC#5: Error nodes display with muted text and warning icon
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-ERR: Error node rendering', () => {
+  test('error node displays with text-text-muted label', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openActionWithError}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const errorLabel = screen.getByText('Error: malformed object');
+    expect(errorLabel).toBeInTheDocument();
+    // Error node label should have muted text styling
+    const errorRow = errorLabel.closest('[data-testid="tree-node"]');
+    expect(errorRow).toBeTruthy();
+    expect(errorRow!.innerHTML).toMatch(/text-text-muted/);
+  });
+
+  test('error node displays with text-error warning icon', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openActionWithError}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const errorRow = screen
+      .getByText('Error: malformed object')
+      .closest('[data-testid="tree-node"]');
+    expect(errorRow).toBeTruthy();
+    // Must have a text-error colored warning icon
+    expect(errorRow!.innerHTML).toMatch(/text-error/);
+  });
+
+  test('error node is navigable and does not crash the tree', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openActionWithError}>
+          <TreePanel />
+          <SelectedNodeIdReader />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click the error node -- should not throw
+    const errorRow = screen
+      .getByText('Error: malformed object')
+      .closest('[data-testid="tree-node"]');
+    await user.click(errorRow!);
+
+    await waitFor(() => {
+      const selectedId = screen.getByTestId('selected-node-id').textContent;
+      expect(selectedId).toBe('obj:0:99');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC#3: Node labels show rawKey alongside label when different
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-LABEL: Node label display with rawKey', () => {
+  test('shows rawKey in muted text when different from label', async () => {
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Pages node has rawKey="/Pages" which differs from label "Pages"
+    // The rawKey should be shown alongside the label
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    expect(pagesRow).toBeTruthy();
+    expect(within(pagesRow!).getByText('/Pages')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useDocumentState: SELECT_NODE action type must exist
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-STATE: SELECT_NODE action in useDocumentState', () => {
+  test('TabState has selectedNodeId field initialized to null on OPEN_DOCUMENT', async () => {
+    // This test validates that the state shape is correct after story 2-5 changes.
+    // The reducer must initialize selectedNodeId: null on OPEN_DOCUMENT.
+
+    function StateInspector() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      const activeTab = state.tabs.find((t) => t.tabId === state.activeTabId);
+      const hasField = activeTab && 'selectedNodeId' in activeTab;
+      const value = hasField
+        ? String((activeTab as Record<string, unknown>).selectedNodeId)
+        : 'MISSING';
+
+      return (
+        <div>
+          <button
+            data-testid="open"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: {
+                  tabId: 'tab-state-test',
+                  fileName: 'test.pdf',
+                  rootNode: catalogNode,
+                  rootChildren: childNodes,
+                },
+              })
+            }
+          />
+          <span data-testid="field-value">{value}</span>
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <StateInspector />
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('open').click());
+
+    // selectedNodeId must exist and be null (displayed as "null")
+    expect(screen.getByTestId('field-value').textContent).toBe('null');
+  });
+
+  test('SELECT_NODE action updates selectedNodeId on active tab', async () => {
+    function StateInspector() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      const activeTab = state.tabs.find((t) => t.tabId === state.activeTabId);
+      const value =
+        activeTab && 'selectedNodeId' in activeTab
+          ? String((activeTab as Record<string, unknown>).selectedNodeId ?? '')
+          : 'MISSING';
+
+      return (
+        <div>
+          <button
+            data-testid="open"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: {
+                  tabId: 'tab-sel',
+                  fileName: 'test.pdf',
+                  rootNode: catalogNode,
+                  rootChildren: childNodes,
+                },
+              })
+            }
+          />
+          <button
+            data-testid="select"
+            onClick={() =>
+              dispatch({
+                type: 'SELECT_NODE',
+                payload: { nodeId: 'obj:0:2' },
+              } as AppAction)
+            }
+          />
+          <span data-testid="selected">{value}</span>
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <StateInspector />
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('open').click());
+    act(() => screen.getByTestId('select').click());
+
+    expect(screen.getByTestId('selected').textContent).toBe('obj:0:2');
+  });
+
+  test('SELECT_NODE is no-op when no active tab', async () => {
+    function StateInspector() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      return (
+        <div>
+          <button
+            data-testid="select-no-tab"
+            onClick={() =>
+              dispatch({
+                type: 'SELECT_NODE',
+                payload: { nodeId: 'obj:0:2' },
+              } as AppAction)
+            }
+          />
+          <span data-testid="tabs-count">{state.tabs.length}</span>
+          <span data-testid="active-tab">{String(state.activeTabId)}</span>
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <StateInspector />
+      </AppProvider>
+    );
+
+    // No OPEN_DOCUMENT dispatched -- no tabs, no activeTabId
+    expect(screen.getByTestId('tabs-count').textContent).toBe('0');
+    expect(screen.getByTestId('active-tab').textContent).toBe('null');
+
+    // SELECT_NODE should be a no-op, not crash
+    act(() => screen.getByTestId('select-no-tab').click());
+
+    expect(screen.getByTestId('tabs-count').textContent).toBe('0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-KB-EXT: Extended keyboard navigation (Space, Home, End)
+// AC#2: Space on leaf selects, Space on internal toggles, Home/End jumps.
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-KB-EXT: Extended keyboard navigation', () => {
+  test('Home key jumps to first visible node', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+          <SelectedNodeIdReader />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click the last visible child to select it
+    const metadataRow = screen.getByText('Metadata').closest('[data-testid="tree-node"]');
+    await user.click(metadataRow!);
+
+    await waitFor(() => {
+      const selectedId = screen.getByTestId('selected-node-id').textContent;
+      expect(selectedId).toBe('obj:0:3');
+    });
+
+    // Press Home to jump to the first node
+    await user.keyboard('{Home}');
+
+    await waitFor(() => {
+      const selectedId = screen.getByTestId('selected-node-id').textContent;
+      expect(selectedId).toBe('root');
+    });
+  });
+
+  test('End key jumps to last visible node', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+          <SelectedNodeIdReader />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Click first node
+    const catalogRow = screen.getByText('Catalog').closest('[data-testid="tree-node"]');
+    await user.click(catalogRow!);
+
+    // Press End to jump to last visible node
+    await user.keyboard('{End}');
+
+    await waitFor(() => {
+      const selectedId = screen.getByTestId('selected-node-id').textContent;
+      // Last visible node is Metadata (obj:0:3)
+      expect(selectedId).toBe('obj:0:3');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-FETCH-ERR: GetChildren failure does not crash the tree
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-FETCH-ERR: GetChildren error handling', () => {
+  test('GetChildren rejection does not crash the tree', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    mockGetChildren.mockRejectedValueOnce(new Error('backend unavailable'));
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Try to expand Pages -- GetChildren will reject
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    // Wait for the rejection to settle
+    await waitFor(() => {
+      expect(mockGetChildren).toHaveBeenCalledWith('tab-1', 'obj:0:2');
+    });
+
+    // Tree should still be intact -- Catalog and children still visible
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.getByText('Pages')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-REEXPAND: Collapsing and re-expanding does not re-fetch
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-REEXPAND: Re-expand does not re-fetch', () => {
+  test('collapsing and re-expanding a loaded node does not call GetChildren again', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Expand Pages (first time -- triggers GetChildren)
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+    });
+
+    expect(mockGetChildren).toHaveBeenCalledTimes(1);
+
+    // Collapse Pages
+    await user.keyboard('{ArrowLeft}');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Page 1')).not.toBeInTheDocument();
+    });
+
+    // Re-expand Pages (second time -- should NOT re-fetch)
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+    });
+
+    // GetChildren should still have been called only once
+    expect(mockGetChildren).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.5-UNIT-EMPTY-ROOT: TreePanel handles null rootChildren gracefully
+// ---------------------------------------------------------------------------
+
+describe('2.5-UNIT-EMPTY-ROOT: TreePanel with null rootChildren', () => {
+  test('renders root node when rootChildren is null', async () => {
+    const openWithNullChildren: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: {
+        tabId: 'tab-null',
+        fileName: 'empty.pdf',
+        rootNode: catalogNode,
+        rootChildren: null,
+      },
+    };
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openWithNullChildren}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    // Root node should be visible
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    // No children should be rendered since rootChildren is null
+    expect(screen.queryByText('Type')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pages')).not.toBeInTheDocument();
+  });
+});
