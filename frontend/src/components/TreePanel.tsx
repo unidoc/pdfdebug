@@ -215,12 +215,15 @@ export function TreePanel() {
     }
   }, [activeTabId]);
 
-  const handleSelect = useCallback((nodes: { id: string }[]) => {
+  const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {
     if (nodes.length !== 1) return;
-    const nodeId = nodes[0].id;
-    if (nodeId === selectedNodeIdRef.current) return;
-    selectedNodeIdRef.current = nodeId;
-    dispatch({ type: 'SELECT_NODE', payload: { nodeId } });
+    const node = nodes[0];
+    if (node.id === selectedNodeIdRef.current) return;
+    selectedNodeIdRef.current = node.id;
+    dispatch({
+      type: 'SELECT_NODE',
+      payload: { nodeId: node.id, label: node.data.name, rawKey: node.data.rawKey },
+    });
   }, [dispatch]);
 
   return (

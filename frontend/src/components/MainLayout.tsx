@@ -3,6 +3,7 @@ import 'allotment/dist/style.css';
 import { ErrorBoundary } from './ErrorBoundary';
 import { TreePanel } from './TreePanel';
 import { ObjectInfoPanel } from './ObjectInfoPanel';
+import { DetailPanel } from './DetailPanel';
 
 export function MainLayout() {
   return (
@@ -24,8 +25,10 @@ export function MainLayout() {
             </aside>
           </Allotment.Pane>
           <Allotment.Pane>
-            <main className="h-full p-3 overflow-auto" data-testid="right-panel">
-              <span className="text-text-muted text-sm">Detail Panel</span>
+            <main className="h-full" data-testid="right-panel">
+              <ErrorBoundary>
+                <DetailPanel />
+              </ErrorBoundary>
             </main>
           </Allotment.Pane>
         </Allotment>

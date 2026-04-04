@@ -20,6 +20,8 @@ export interface TabState {
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
   selectedNodeId: string | null;
+  selectedNodeLabel: string | null;
+  selectedNodeRawKey: string | null;
 }
 
 export interface AppState {
@@ -31,7 +33,7 @@ export interface AppState {
 export type AppAction =
   | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
-  | { type: 'SELECT_NODE'; payload: { nodeId: string } }
+  | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
   | { type: 'DISMISS_ERROR' };
 
@@ -52,6 +54,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         rootNode: action.payload.rootNode,
         rootChildren: action.payload.rootChildren,
         selectedNodeId: null,
+        selectedNodeLabel: null,
+        selectedNodeRawKey: null,
       };
       // Single document at a time -- replace all tabs (multi-tab is Epic 4)
       return {
@@ -76,7 +80,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: state.tabs.map((tab) =>
           tab.tabId === state.activeTabId
-            ? { ...tab, selectedNodeId: action.payload.nodeId }
+            ? { ...tab, selectedNodeId: action.payload.nodeId, selectedNodeLabel: action.payload.label ?? null, selectedNodeRawKey: action.payload.rawKey ?? null }
             : tab
         ),
       };
