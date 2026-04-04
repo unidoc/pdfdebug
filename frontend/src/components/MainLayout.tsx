@@ -2,6 +2,7 @@ import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { ErrorBoundary } from './ErrorBoundary';
 import { TreePanel } from './TreePanel';
+import { ObjectInfoPanel } from './ObjectInfoPanel';
 
 export function MainLayout() {
   return (
@@ -10,7 +11,16 @@ export function MainLayout() {
         <Allotment>
           <Allotment.Pane preferredSize={300} minSize={200}>
             <aside className="h-full" data-testid="left-panel">
-              <TreePanel />
+              <Allotment vertical>
+                <Allotment.Pane>
+                  <TreePanel />
+                </Allotment.Pane>
+                <Allotment.Pane preferredSize="30%" minSize={100}>
+                  <ErrorBoundary>
+                    <ObjectInfoPanel />
+                  </ErrorBoundary>
+                </Allotment.Pane>
+              </Allotment>
             </aside>
           </Allotment.Pane>
           <Allotment.Pane>

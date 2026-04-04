@@ -54,5 +54,5 @@ func (s *PDFService) GetChildren(tabID string, nodeID string) ([]*pdfcore.TreeNo
 }
 
 func (s *PDFService) GetObjectDetail(tabID string, nodeID string) (*pdfcore.ObjectDetail, error) {
-	return nil, fmt.Errorf("not implemented")
+	return s.inspector.GetObjectDetail(tabID, nodeID)
 }
