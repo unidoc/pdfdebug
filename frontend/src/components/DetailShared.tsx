@@ -34,16 +34,26 @@ export const TYPE_CLASS_MAP: Record<string, string> = {
   null: 'text-type-null',
 };
 
-export function ValueDisplay({ value }: { value: ValueEntryData }) {
+export function ValueDisplay({ value, onReferenceClick }: {
+  value: ValueEntryData;
+  onReferenceClick?: (refTarget: string) => void;
+}) {
   const colorClass = TYPE_CLASS_MAP[value.type] ?? 'text-text';
 
   if (value.type === 'reference') {
     return (
       <span
         role="button"
+        tabIndex={0}
         className={`font-mono text-xs ${colorClass}`}
         data-ref-target={value.refTarget}
-        onClick={() => {}}
+        onClick={() => { onReferenceClick?.(value.refTarget); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onReferenceClick?.(value.refTarget);
+          }
+        }}
       >
         {value.display}
       </span>
@@ -57,7 +67,10 @@ export function ValueDisplay({ value }: { value: ValueEntryData }) {
   );
 }
 
-export function DictView({ properties }: { properties: PropertyEntryData[] | null }) {
+export function DictView({ properties, onReferenceClick }: {
+  properties: PropertyEntryData[] | null;
+  onReferenceClick?: (refTarget: string) => void;
+}) {
   if (!properties || properties.length === 0) {
     return <div className="text-text-muted text-sm p-3">Empty dictionary</div>;
   }
@@ -71,7 +84,7 @@ export function DictView({ properties }: { properties: PropertyEntryData[] | nul
                 {prop.key}
               </td>
               <td className="py-1 px-3">
-                <ValueDisplay value={prop.value} />
+                <ValueDisplay value={prop.value} onReferenceClick={onReferenceClick} />
               </td>
             </tr>
           ))}
@@ -81,7 +94,10 @@ export function DictView({ properties }: { properties: PropertyEntryData[] | nul
   );
 }
 
-export function ArrayView({ elements }: { elements: ValueEntryData[] | null }) {
+export function ArrayView({ elements, onReferenceClick }: {
+  elements: ValueEntryData[] | null;
+  onReferenceClick?: (refTarget: string) => void;
+}) {
   if (!elements || elements.length === 0) {
     return <div className="text-text-muted text-sm p-3">Empty array</div>;
   }
@@ -95,7 +111,7 @@ export function ArrayView({ elements }: { elements: ValueEntryData[] | null }) {
                 [{i}]
               </td>
               <td className="py-1 px-3">
-                <ValueDisplay value={elem} />
+                <ValueDisplay value={elem} onReferenceClick={onReferenceClick} />
               </td>
             </tr>
           ))}
@@ -105,11 +121,14 @@ export function ArrayView({ elements }: { elements: ValueEntryData[] | null }) {
   );
 }
 
-export function ScalarView({ value }: { value: ValueEntryData }) {
+export function ScalarView({ value, onReferenceClick }: {
+  value: ValueEntryData;
+  onReferenceClick?: (refTarget: string) => void;
+}) {
   return (
     <div className="p-3">
       <div className="text-text-muted text-xs mb-1">Type: {value.type}</div>
-      <ValueDisplay value={value} />
+      <ValueDisplay value={value} onReferenceClick={onReferenceClick} />
     </div>
   );
 }

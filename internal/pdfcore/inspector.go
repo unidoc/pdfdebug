@@ -267,6 +267,167 @@ func buildArrayEntries(arr pdfcpu_types.Array) []ValueEntry {
 	return entries
 }
 
+func (ins *Inspector) GetAncestorPath(tabID, nodeID string) ([]string, error) {
+	if nodeID == "" {
+		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
+	}
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, err
+	}
+	return ins.getAncestorPathDepth(doc, tabID, nodeID, 0)
+}
+
+func (ins *Inspector) getAncestorPathDepth(doc *DocumentState, tabID, nodeID string, depth int) ([]string, error) {
+	if depth > maxNodeIDDepth {
+		return nil, fmt.Errorf("ancestor path nesting too deep (>%d) for %q", maxNodeIDDepth, nodeID)
+	}
+	if nodeID == "root" {
+		return []string{"root"}, nil
+	}
+	kind, parentID, _ := parseNodeID(nodeID)
+	switch kind {
+	case "obj":
+		var path []string
+		err := safeCall(func() error {
+			var e error
+			path, e = findPathToObject(doc, nodeID)
+			return e
+		})
+		if err != nil {
+			return nil, wrapPDFError(err)
+		}
+		return path, nil
+	case "dict", "arr":
+		parentPath, err := ins.getAncestorPathDepth(doc, tabID, parentID, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		return append(parentPath, nodeID), nil
+	default:
+		return nil, fmt.Errorf("unknown node ID kind %q", kind)
+	}
+}
+
+func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error) {
+	type queueEntry struct {
+		nodeID string
+		obj    pdfcpu_types.Object
+		path   []string
+		depth  int
+	}
+
+	rootDict, err := doc.PDFContext.Catalog()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	visited := map[string]bool{"root": true}
+	queue := []queueEntry{{nodeID: "root", obj: rootDict, path: []string{"root"}, depth: 0}}
+
+	for len(queue) > 0 {
+		entry := queue[0]
+		queue = queue[1:]
+
+		if entry.depth >= maxRefDepth {
+			continue
+		}
+
+		switch v := entry.obj.(type) {
+		case pdfcpu_types.Dict:
+			for _, val := range v {
+				ref, ok := val.(pdfcpu_types.IndirectRef)
+				if !ok {
+					// Descend into inline dicts/arrays to find nested IndirectRefs
+					if isContainer(val) {
+						queue = append(queue, queueEntry{
+							nodeID: entry.nodeID,
+							obj:    val,
+							path:   entry.path,
+							depth:  entry.depth + 1,
+						})
+					}
+					continue
+				}
+				childID := fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value())
+				if childID == targetNodeID {
+					return append(entry.path, targetNodeID), nil
+				}
+				if visited[childID] {
+					continue
+				}
+				visited[childID] = true
+				resolved, resolveErr := doc.PDFContext.Dereference(ref)
+				if resolveErr != nil || resolved == nil {
+					continue
+				}
+				if isContainer(resolved) {
+					queue = append(queue, queueEntry{
+						nodeID: childID,
+						obj:    resolved,
+						path:   append(append([]string{}, entry.path...), childID),
+						depth:  entry.depth + 1,
+					})
+				}
+			}
+		case pdfcpu_types.Array:
+			for _, elem := range v {
+				ref, ok := elem.(pdfcpu_types.IndirectRef)
+				if !ok {
+					// Descend into inline dicts/arrays to find nested IndirectRefs
+					if isContainer(elem) {
+						queue = append(queue, queueEntry{
+							nodeID: entry.nodeID,
+							obj:    elem,
+							path:   entry.path,
+							depth:  entry.depth + 1,
+						})
+					}
+					continue
+				}
+				childID := fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value())
+				if childID == targetNodeID {
+					return append(entry.path, targetNodeID), nil
+				}
+				if visited[childID] {
+					continue
+				}
+				visited[childID] = true
+				resolved, resolveErr := doc.PDFContext.Dereference(ref)
+				if resolveErr != nil || resolved == nil {
+					continue
+				}
+				if isContainer(resolved) {
+					queue = append(queue, queueEntry{
+						nodeID: childID,
+						obj:    resolved,
+						path:   append(append([]string{}, entry.path...), childID),
+						depth:  entry.depth + 1,
+					})
+				}
+			}
+		case pdfcpu_types.StreamDict:
+			queue = append(queue, queueEntry{nodeID: entry.nodeID, obj: v.Dict, path: entry.path, depth: entry.depth + 1})
+		case pdfcpu_types.ObjectStreamDict:
+			queue = append(queue, queueEntry{nodeID: entry.nodeID, obj: v.StreamDict.Dict, path: entry.path, depth: entry.depth + 1})
+		case pdfcpu_types.XRefStreamDict:
+			queue = append(queue, queueEntry{nodeID: entry.nodeID, obj: v.StreamDict.Dict, path: entry.path, depth: entry.depth + 1})
+		}
+	}
+
+	return nil, fmt.Errorf("object %s not found in PDF object graph", targetNodeID)
+}
+
+func isContainer(obj pdfcpu_types.Object) bool {
+	switch obj.(type) {
+	case pdfcpu_types.Dict, pdfcpu_types.Array,
+		pdfcpu_types.StreamDict, pdfcpu_types.ObjectStreamDict, pdfcpu_types.XRefStreamDict:
+		return true
+	default:
+		return false
+	}
+}
+
 func objectRefFromNodeID(nodeID string) string {
 	if !strings.HasPrefix(nodeID, "obj:") {
 		return ""

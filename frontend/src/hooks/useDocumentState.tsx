@@ -22,6 +22,8 @@ export interface TabState {
   selectedNodeId: string | null;
   selectedNodeLabel: string | null;
   selectedNodeRawKey: string | null;
+  pendingNavTarget: string | null;
+  navError: string | null;
 }
 
 export interface AppState {
@@ -35,7 +37,11 @@ export type AppAction =
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
   | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
-  | { type: 'DISMISS_ERROR' };
+  | { type: 'DISMISS_ERROR' }
+  | { type: 'NAVIGATE_TO_REF'; payload: { targetNodeId: string } }
+  | { type: 'CLEAR_NAV_TARGET' }
+  | { type: 'NAV_ERROR'; payload: { message: string } }
+  | { type: 'DISMISS_NAV_ERROR' };
 
 // --- Reducer ---
 
@@ -56,6 +62,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         selectedNodeId: null,
         selectedNodeLabel: null,
         selectedNodeRawKey: null,
+        pendingNavTarget: null,
+        navError: null,
       };
       // Single document at a time -- replace all tabs (multi-tab is Epic 4)
       return {
@@ -97,6 +105,50 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         documentError: null,
+      };
+    }
+    case 'NAVIGATE_TO_REF': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === state.activeTabId
+            ? { ...tab, pendingNavTarget: action.payload.targetNodeId, navError: null }
+            : tab
+        ),
+      };
+    }
+    case 'CLEAR_NAV_TARGET': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === state.activeTabId
+            ? { ...tab, pendingNavTarget: null }
+            : tab
+        ),
+      };
+    }
+    case 'NAV_ERROR': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === state.activeTabId
+            ? { ...tab, navError: action.payload.message, pendingNavTarget: null }
+            : tab
+        ),
+      };
+    }
+    case 'DISMISS_NAV_ERROR': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === state.activeTabId
+            ? { ...tab, navError: null }
+            : tab
+        ),
       };
     }
     default: {

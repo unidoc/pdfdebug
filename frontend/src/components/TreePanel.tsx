@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Tree, type NodeRendererProps } from 'react-arborist';
-import { GetChildren } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
+import { GetChildren, GetAncestorPath } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 
 interface TreeNodeData {
@@ -54,18 +54,21 @@ function updateNodeChildren(
   });
 }
 
-function NodeRenderer({ node, style, dragHandle, isLoading }: NodeRendererProps<TreeNodeData> & { isLoading?: boolean }) {
+function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: NodeRendererProps<TreeNodeData> & { isLoading?: boolean; flashNodeIdRef?: React.RefObject<string | null> }) {
   const data = node.data;
   const isError = data.error !== '';
   const isSelected = node.isSelected;
   const isInternal = node.isInternal;
+  const isFlashing = data.id === flashNodeIdRef?.current;
 
   const showRawKey = data.rawKey !== '' && data.rawKey !== data.name;
 
   const rowClasses = [
     'flex items-center h-[28px] text-sm font-ui cursor-pointer',
-    isSelected ? 'bg-surface-selected border-l-2 border-l-border-focus' : 'border-l-2 border-l-transparent',
-    !isSelected ? 'hover:bg-surface-hover' : '',
+    isFlashing ? 'bg-surface-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
+    isSelected && !isFlashing ? 'bg-surface-selected border-l-2 border-l-border-focus' : '',
+    !isSelected && !isFlashing ? 'border-l-2 border-l-transparent' : '',
+    !isSelected && !isFlashing ? 'hover:bg-surface-hover' : '',
   ].join(' ');
 
   return (
@@ -113,6 +116,8 @@ export function TreePanel() {
   const rootNode = activeTab?.rootNode ?? null;
   const rootChildren = activeTab?.rootChildren ?? null;
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
+  const pendingNavTarget = activeTab?.pendingNavTarget ?? null;
+  const navError = activeTab?.navError ?? null;
 
   const [treeData, setTreeData] = useState<TreeNodeData[]>([]);
   const [initialOpenState] = useState<Record<string, boolean>>(() => ({ root: true }));
@@ -121,6 +126,9 @@ export function TreePanel() {
   const requestRef = useRef<number>(0);
   const selectedNodeIdRef = useRef<string | null>(null);
   const treeDataRef = useRef<TreeNodeData[]>([]);
+  const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
+  const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
+  const flashNodeIdRef = useRef<string | null>(null);
 
   // Container sizing for react-arborist
   const containerRef = useRef<HTMLDivElement>(null);
@@ -165,6 +173,87 @@ export function TreePanel() {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  // Navigation effect: watch pendingNavTarget
+  useEffect(() => {
+    if (!pendingNavTarget || !activeTabId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const ancestorPath = await GetAncestorPath(activeTabId, pendingNavTarget);
+        if (cancelled) return;
+
+        // Load children for each ancestor and expand
+        function findNode(data: TreeNodeData[], nodeId: string): TreeNodeData | null {
+          for (const n of data) {
+            if (n.id === nodeId) return n;
+            if (n.children) {
+              const found = findNode(n.children, nodeId);
+              if (found) return found;
+            }
+          }
+          return null;
+        }
+
+        for (let i = 0; i < ancestorPath.length - 1; i++) {
+          const ancestorId = ancestorPath[i];
+          const node = findNode(treeDataRef.current, ancestorId);
+          if (node && Array.isArray(node.children) && node.children.length === 0) {
+            const children = await GetChildren(activeTabId, ancestorId);
+            if (cancelled) return;
+            const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map(toTreeNodeData);
+            setTreeData((prev) => {
+              const updated = updateNodeChildren(prev, ancestorId, mapped);
+              treeDataRef.current = updated;
+              return updated;
+            });
+          }
+          treeRef.current?.open(ancestorId);
+        }
+
+        // Scroll to target
+        await treeRef.current?.scrollTo(pendingNavTarget);
+        if (cancelled) return;
+
+        // Find target node data for SELECT_NODE
+        const targetNode = findNode(treeDataRef.current, pendingNavTarget);
+        if (!targetNode) {
+          dispatch({ type: 'NAV_ERROR', payload: { message: `Target node ${pendingNavTarget} not found in tree` } });
+          return;
+        }
+
+        dispatch({
+          type: 'SELECT_NODE',
+          payload: { nodeId: targetNode.id, label: targetNode.name, rawKey: targetNode.rawKey },
+        });
+
+        // Flash effect
+        flashNodeIdRef.current = pendingNavTarget;
+        setFlashNodeId(pendingNavTarget);
+        setTimeout(() => {
+          flashNodeIdRef.current = null;
+          setFlashNodeId(null);
+        }, 100);
+
+        dispatch({ type: 'CLEAR_NAV_TARGET' });
+      } catch (err: unknown) {
+        if (cancelled) return;
+        dispatch({ type: 'NAV_ERROR', payload: { message: String(err) } });
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [pendingNavTarget, activeTabId, dispatch]);
+
+  // Auto-dismiss navError after 3 seconds
+  useEffect(() => {
+    if (!navError) return;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'DISMISS_NAV_ERROR' });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [navError, dispatch]);
 
   const handleToggle = useCallback(async (id: string) => {
     if (!activeTabId) return;
@@ -234,6 +323,7 @@ export function TreePanel() {
       <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
         {dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0 && (
           <Tree<TreeNodeData>
+            ref={treeRef}
             data={treeData}
             selection={selectedNodeId ?? undefined}
             onSelect={handleSelect}
@@ -251,9 +341,17 @@ export function TreePanel() {
             height={dimensions.height}
           >
             {(props: NodeRendererProps<TreeNodeData>) => (
-              <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} />
+              <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} flashNodeIdRef={flashNodeIdRef} />
             )}
           </Tree>
+        )}
+        {navError && (
+          <div
+            className="absolute bottom-2 left-2 right-2 text-error text-xs bg-surface p-2 border border-error rounded"
+            data-testid="nav-error-toast"
+          >
+            {navError}
+          </div>
         )}
       </div>
     </div>

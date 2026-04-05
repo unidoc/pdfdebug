@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GetObjectDetail } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
-import { useAppState } from '../hooks/useDocumentState';
+import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
   type ObjectDetailData,
   DictView,
@@ -11,6 +11,7 @@ import {
 
 export function ObjectInfoPanel() {
   const { tabs, activeTabId } = useAppState();
+  const dispatch = useAppDispatch();
   const activeTab = tabs.find((t) => t.tabId === activeTabId);
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
 
@@ -44,6 +45,12 @@ export function ObjectInfoPanel() {
       });
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
+
+  const handleReferenceClick = useCallback((refTarget: string) => {
+    if (refTarget) {
+      dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: refTarget } });
+    }
+  }, [dispatch]);
 
   return (
     <div className="h-full flex flex-col" data-testid="object-info-panel">
@@ -79,15 +86,15 @@ export function ObjectInfoPanel() {
               <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
             )}
           </div>
-          {detail.type === 'dict' && <DictView properties={detail.properties} />}
-          {detail.type === 'array' && <ArrayView elements={detail.elements} />}
+          {detail.type === 'dict' && <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />}
+          {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} />}
           {detail.type === 'scalar' && (detail.scalarValue
-            ? <ScalarView value={detail.scalarValue} />
+            ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
             : <div className="text-text-muted text-sm p-3">No value</div>
           )}
           {detail.type === 'stream' && (
             <>
-              <DictView properties={detail.properties} />
+              <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
               {detail.streamInfo && <StreamMetadata info={detail.streamInfo} />}
             </>
           )}

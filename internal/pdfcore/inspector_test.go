@@ -525,6 +525,156 @@ func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 	// as long as there's no panic. The main goal is no crash.
 }
 
+// --- GetAncestorPath tests ---
+
+func TestGetAncestorPathRoot(t *testing.T) {
+	ins, tabID := openMinimal(t)
+	path, err := ins.GetAncestorPath(tabID, "root")
+	if err != nil {
+		t.Fatalf("GetAncestorPath(root) failed: %v", err)
+	}
+	if len(path) != 1 || path[0] != "root" {
+		t.Errorf("path = %v, want [root]", path)
+	}
+}
+
+func TestGetAncestorPath(t *testing.T) {
+	ins, tabID := openMinimal(t)
+
+	// Find an indirect object child of root
+	children, err := ins.GetChildren(tabID, "root")
+	if err != nil {
+		t.Fatalf("GetChildren(root) failed: %v", err)
+	}
+
+	var objNodeID string
+	for _, c := range children {
+		if strings.HasPrefix(c.ID, "obj:") {
+			objNodeID = c.ID
+			break
+		}
+	}
+	if objNodeID == "" {
+		t.Fatal("no obj: child found under root")
+	}
+
+	path, err := ins.GetAncestorPath(tabID, objNodeID)
+	if err != nil {
+		t.Fatalf("GetAncestorPath(%s) failed: %v", objNodeID, err)
+	}
+	if len(path) < 2 {
+		t.Fatalf("path length = %d, want >= 2", len(path))
+	}
+	if path[0] != "root" {
+		t.Errorf("path[0] = %q, want %q", path[0], "root")
+	}
+	if path[len(path)-1] != objNodeID {
+		t.Errorf("path[last] = %q, want %q", path[len(path)-1], objNodeID)
+	}
+}
+
+func TestGetAncestorPathDangling(t *testing.T) {
+	ins, tabID := openMinimal(t)
+	_, err := ins.GetAncestorPath(tabID, "obj:0:99999")
+	if err == nil {
+		t.Fatal("expected error for dangling reference, got nil")
+	}
+}
+
+func TestGetAncestorPathDictNode(t *testing.T) {
+	ins, tabID := openMinimal(t)
+
+	// dict:root:Type should return ["root", "dict:root:Type"]
+	path, err := ins.GetAncestorPath(tabID, "dict:root:Type")
+	if err != nil {
+		t.Fatalf("GetAncestorPath(dict:root:Type) failed: %v", err)
+	}
+	if len(path) != 2 {
+		t.Fatalf("path length = %d, want 2", len(path))
+	}
+	if path[0] != "root" {
+		t.Errorf("path[0] = %q, want %q", path[0], "root")
+	}
+	if path[1] != "dict:root:Type" {
+		t.Errorf("path[1] = %q, want %q", path[1], "dict:root:Type")
+	}
+}
+
+func TestGetAncestorPathUnknownTabID(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.GetAncestorPath("nonexistent", "root")
+	if err == nil {
+		t.Fatal("expected error for unknown tabID, got nil")
+	}
+}
+
+func TestGetAncestorPathEmptyNodeID(t *testing.T) {
+	ins, tabID := openMinimal(t)
+	_, err := ins.GetAncestorPath(tabID, "")
+	if err == nil {
+		t.Fatal("expected error for empty nodeID, got nil")
+	}
+}
+
+func TestGetAncestorPathUnknownKind(t *testing.T) {
+	ins, tabID := openMinimal(t)
+	_, err := ins.GetAncestorPath(tabID, "bogus:0:1")
+	if err == nil {
+		t.Fatal("expected error for unknown node ID kind, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown node ID kind") {
+		t.Errorf("error = %q, want to contain 'unknown node ID kind'", err.Error())
+	}
+}
+
+func TestGetAncestorPathArrayNode(t *testing.T) {
+	ins, tabID := openMultipage(t)
+
+	// Walk the tree looking for any arr: prefixed node
+	var arrNodeID string
+	var findArr func(parentID string, depth int) bool
+	findArr = func(parentID string, depth int) bool {
+		if depth > 4 {
+			return false
+		}
+		children, err := ins.GetChildren(tabID, parentID)
+		if err != nil {
+			return false
+		}
+		for _, c := range children {
+			if strings.HasPrefix(c.ID, "arr:") {
+				arrNodeID = c.ID
+				return true
+			}
+		}
+		for _, c := range children {
+			if c.HasChildren {
+				if findArr(c.ID, depth+1) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if !findArr("root", 0) {
+		t.Skip("no arr: node found in test PDF -- skipping arr path test")
+	}
+
+	path, err := ins.GetAncestorPath(tabID, arrNodeID)
+	if err != nil {
+		t.Fatalf("GetAncestorPath(%s) failed: %v", arrNodeID, err)
+	}
+	if len(path) < 2 {
+		t.Fatalf("path length = %d, want >= 2", len(path))
+	}
+	if path[0] != "root" {
+		t.Errorf("path[0] = %q, want %q", path[0], "root")
+	}
+	if path[len(path)-1] != arrNodeID {
+		t.Errorf("path[last] = %q, want %q", path[len(path)-1], arrNodeID)
+	}
+}
+
 // --- valueEntryFromObject direct unit tests ---
 
 func TestValueEntryFromObjectAllTypes(t *testing.T) {

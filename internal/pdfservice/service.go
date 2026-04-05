@@ -56,3 +56,7 @@ func (s *PDFService) GetChildren(tabID string, nodeID string) ([]*pdfcore.TreeNo
 func (s *PDFService) GetObjectDetail(tabID string, nodeID string) (*pdfcore.ObjectDetail, error) {
 	return s.inspector.GetObjectDetail(tabID, nodeID)
 }
+
+func (s *PDFService) GetAncestorPath(tabID string, nodeID string) ([]string, error) {
+	return s.inspector.GetAncestorPath(tabID, nodeID)
+}
