@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -103,8 +104,16 @@ func buildChildrenDepth(doc *DocumentState, parentID string, obj pdfcpu_types.Ob
 }
 
 func buildDictChildren(doc *DocumentState, parentID string, d pdfcpu_types.Dict) []*TreeNode {
+	// Sort keys for deterministic child order across runs
+	keys := make([]string, 0, len(d))
+	for k := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	nodes := make([]*TreeNode, 0, len(d))
-	for bareKey, val := range d {
+	for _, bareKey := range keys {
+		val := d[bareKey]
 		var node *TreeNode
 		err := safeCall(func() error {
 			node = buildChildFromDictEntry(doc, parentID, bareKey, val)
