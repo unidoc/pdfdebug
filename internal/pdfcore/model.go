@@ -1,5 +1,6 @@
 package pdfcore
 
+// TreeNode represents a single node in the PDF object tree shown in the UI.
 type TreeNode struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
@@ -12,6 +13,7 @@ type TreeNode struct {
 	Error       string `json:"error"`
 }
 
+// ObjectDetail holds the full inspection data for a single PDF object.
 type ObjectDetail struct {
 	NodeID      string          `json:"nodeId"`
 	ObjectRef   string          `json:"objectRef"`
@@ -22,11 +24,13 @@ type ObjectDetail struct {
 	StreamInfo  *StreamInfo     `json:"streamInfo"`
 }
 
+// PropertyEntry is a key-value pair from a PDF dictionary.
 type PropertyEntry struct {
 	Key   string     `json:"key"`
 	Value ValueEntry `json:"value"`
 }
 
+// ValueEntry describes a single PDF value with its type and display form.
 type ValueEntry struct {
 	Type      string `json:"type"`
 	Display   string `json:"display"`
@@ -34,6 +38,7 @@ type ValueEntry struct {
 	RefTarget string `json:"refTarget"`
 }
 
+// ContentStreamData holds raw and tokenized content stream data for a page.
 type ContentStreamData struct {
 	NodeID    string  `json:"nodeId"`
 	Raw       string  `json:"raw"`
@@ -41,11 +46,13 @@ type ContentStreamData struct {
 	Error     string  `json:"error"`
 }
 
+// StreamInfo describes the length and filter pipeline of a PDF stream.
 type StreamInfo struct {
 	Length  int64    `json:"length"`
 	Filters []string `json:"filters"`
 }
 
+// Token is a single lexical token from a content stream.
 type Token struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`
@@ -53,6 +60,7 @@ type Token struct {
 	Col   int    `json:"col"`
 }
 
+// DocumentInfo summarizes an opened PDF document for the frontend.
 type DocumentInfo struct {
 	TabID     string `json:"tabId"`
 	FileName  string `json:"fileName"`

@@ -6,13 +6,20 @@ import (
 	"strings"
 )
 
+// Sentinel errors for PDF processing failures.
 var (
+	// ErrDocumentNotFound indicates a requested document or tab does not exist.
 	ErrDocumentNotFound = errors.New("document not found")
-	ErrMalformedPDF     = errors.New("malformed PDF")
-	ErrEncryptedPDF     = errors.New("encrypted PDF: password required")
-	ErrUnsupportedPDF   = errors.New("unsupported PDF version or feature")
+	// ErrMalformedPDF indicates the PDF structure is invalid or corrupt.
+	ErrMalformedPDF = errors.New("malformed PDF")
+	// ErrEncryptedPDF indicates the PDF requires a password to open.
+	ErrEncryptedPDF = errors.New("encrypted PDF: password required")
+	// ErrUnsupportedPDF indicates the PDF uses a version or feature not handled.
+	ErrUnsupportedPDF = errors.New("unsupported PDF version or feature")
 )
 
+// safeCall executes fn inside a panic-recovery wrapper. pdfcpu can panic on
+// malformed input, so every call into the library goes through this.
 func safeCall(fn func() error) error {
 	var err error
 	func() {
@@ -26,6 +33,8 @@ func safeCall(fn func() error) error {
 	return err
 }
 
+// wrapPDFError classifies a raw error into the appropriate sentinel category
+// (encrypted, malformed) so callers can match with errors.Is.
 func wrapPDFError(err error) error {
 	msg := err.Error()
 	if strings.HasPrefix(msg, "pdf parsing panic:") {

@@ -14,23 +14,29 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
+// DocumentState holds the parsed pdfcpu context and metadata for one open PDF.
 type DocumentState struct {
 	FilePath   string
 	PDFContext *pdfcpu_model.Context
 	PageCount  int
 }
 
+// Inspector manages open PDF documents keyed by tab ID. All methods are
+// safe for concurrent use; the internal mutex serializes document map access.
 type Inspector struct {
 	mu        sync.Mutex
 	documents map[string]*DocumentState
 }
 
+// NewInspector creates an Inspector with an empty document map.
 func NewInspector() *Inspector {
 	return &Inspector{
 		documents: make(map[string]*DocumentState),
 	}
 }
 
+// Open parses a PDF file and registers it under the given tab ID. Returns
+// document metadata including page count and file size.
 func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	if tabID == "" {
 		return nil, fmt.Errorf("%w: empty tab ID", ErrDocumentNotFound)
@@ -95,6 +101,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	}, nil
 }
 
+// Close removes the document associated with tabID from the inspector.
 func (ins *Inspector) Close(tabID string) error {
 	ins.mu.Lock()
 	defer ins.mu.Unlock()
@@ -105,6 +112,7 @@ func (ins *Inspector) Close(tabID string) error {
 	return nil
 }
 
+// GetDocument returns the DocumentState for a tab, or ErrDocumentNotFound.
 func (ins *Inspector) GetDocument(tabID string) (*DocumentState, error) {
 	ins.mu.Lock()
 	defer ins.mu.Unlock()
@@ -115,6 +123,8 @@ func (ins *Inspector) GetDocument(tabID string) (*DocumentState, error) {
 	return doc, nil
 }
 
+// GetObjectDetail resolves a node ID to its full object representation,
+// including properties for dicts, elements for arrays, or a scalar value.
 func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
@@ -165,6 +175,7 @@ func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, erro
 		ObjectRef: objectRefFromNodeID(nodeID),
 	}
 
+	// Stream types must be matched before Dict because StreamDict embeds Dict.
 	switch v := obj.(type) {
 	case pdfcpu_types.StreamDict:
 		detail.Type = "stream"
@@ -284,6 +295,8 @@ func buildArrayEntries(arr pdfcpu_types.Array) []ValueEntry {
 	return entries
 }
 
+// GetAncestorPath returns the sequence of node IDs from the catalog root down
+// to nodeID, used by the frontend to expand the tree to a given object.
 func (ins *Inspector) GetAncestorPath(tabID, nodeID string) ([]string, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
@@ -329,6 +342,8 @@ func (ins *Inspector) getAncestorPathDepth(doc *DocumentState, tabID, nodeID str
 	}
 }
 
+// findPathToObject performs a BFS from the catalog root to locate targetNodeID
+// in the PDF object graph, returning the path of node IDs from root to target.
 func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error) {
 	type queueEntry struct {
 		nodeID string

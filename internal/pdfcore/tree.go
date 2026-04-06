@@ -8,6 +8,7 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
+// GetTreeRoot returns the top-level catalog node for the document in tabID.
 func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -40,6 +41,7 @@ func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 	}, nil
 }
 
+// GetChildren returns the immediate child tree nodes for a given node ID.
 func (ins *Inspector) GetChildren(tabID string, nodeID string) ([]*TreeNode, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
