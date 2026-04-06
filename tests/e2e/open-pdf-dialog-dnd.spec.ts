@@ -38,8 +38,8 @@ test.describe('Story 2.4: Open PDF via File Dialog and Drag-and-Drop (ATDD)', ()
     const dropZone = appPage.getByTestId('drop-zone');
     await expect(dropZone).toBeVisible();
 
-    // Verify drop zone has data-file-drop-target attribute (Wails requirement)
-    await expect(dropZone).toHaveAttribute('data-file-drop-target', '');
+    // data-file-drop-target is on the root app container (window-wide drop)
+    // The drop zone is the visual indicator only.
 
     // Simulate file drop via Wails runtime -- in a real Wails app, the Go-side
     // handler fires and emits document:opened. For E2E, we verify the UI

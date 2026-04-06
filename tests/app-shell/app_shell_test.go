@@ -591,22 +591,12 @@ func TestMainLayoutPlaceholderContent(t *testing.T) {
 
 	content := readFile(t, "frontend/src/components/MainLayout.tsx")
 
-	// Left panel placeholder text
-	if !strings.Contains(content, "Tree Panel") {
-		t.Error("[P1] MainLayout.tsx left panel missing placeholder text: 'Tree Panel'")
+	// Epic 2 replaced placeholders with real components (TreePanel, DetailPanel)
+	if !strings.Contains(content, "TreePanel") {
+		t.Error("[P1] MainLayout.tsx left panel missing TreePanel component")
 	}
-
-	// Right panel placeholder text
-	if !strings.Contains(content, "Detail Panel") {
-		t.Error("[P1] MainLayout.tsx right panel missing placeholder text: 'Detail Panel'")
-	}
-
-	// Placeholder text uses muted styling
-	if !strings.Contains(content, "text-text-muted") {
-		t.Error("[P1] MainLayout.tsx placeholder text missing 'text-text-muted' class")
-	}
-	if !strings.Contains(content, "text-sm") {
-		t.Error("[P1] MainLayout.tsx placeholder text missing 'text-sm' class")
+	if !strings.Contains(content, "DetailPanel") {
+		t.Error("[P1] MainLayout.tsx right panel missing DetailPanel component")
 	}
 }
 

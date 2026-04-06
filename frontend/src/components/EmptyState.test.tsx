@@ -46,10 +46,13 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     vi.clearAllMocks();
   });
 
-  test('drop zone has data-file-drop-target attribute', () => {
+  test('data-file-drop-target attribute exists on app container (window-wide drop)', () => {
+    // data-file-drop-target is on the root app container (App.jsx),
+    // not on the drop zone itself, so the entire window is a drop surface.
+    // EmptyState drop zone is the visual indicator only.
     renderEmptyState();
     const dropZone = screen.getByTestId('drop-zone');
-    expect(dropZone).toHaveAttribute('data-file-drop-target');
+    expect(dropZone).not.toHaveAttribute('data-file-drop-target');
   });
 
   test('drop zone shows blue border on drag-over with PDF', () => {

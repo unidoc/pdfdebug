@@ -442,8 +442,10 @@ func TestErrorBannerHasTestIDs(t *testing.T) {
 
 	content := readFile(t, "frontend/src/components/ErrorBanner.tsx")
 
+	// Story 2-9 made the root testid severity-aware (error-banner / warning-banner)
+	// so check for the dynamic pattern and the static child testids.
 	testIDs := []string{
-		`data-testid="error-banner"`,
+		`data-testid={testId}`,
 		`data-testid="error-banner-message"`,
 		`data-testid="error-banner-dismiss"`,
 	}
@@ -497,19 +499,20 @@ func TestErrorBannerProps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2: EmptyState has data-file-drop-target for Wails drop recognition
+// AC#2: App container has data-file-drop-target for window-wide Wails drop
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.4-INTG-019 [P0]: EmptyState drop zone has data-file-drop-target attribute
-// AC#2: Wails requires this attribute to intercept OS file drops.
+// 2.4-INTG-019 [P0]: App container has data-file-drop-target attribute
+// AC#2: Wails requires this attribute to intercept OS file drops. Placed on
+// the root app container so the entire window is a valid drop surface.
 // ---------------------------------------------------------------------------
 
-func TestEmptyStateHasFileDropTarget(t *testing.T) {
-	content := readFile(t, "frontend/src/components/EmptyState.tsx")
+func TestAppHasFileDropTarget(t *testing.T) {
+	content := readFile(t, "frontend/src/App.jsx")
 
 	if !strings.Contains(content, "data-file-drop-target") {
-		t.Error("[P0] 2.4-INTG-019: EmptyState.tsx must have data-file-drop-target attribute on drop zone")
+		t.Error("[P0] 2.4-INTG-019: App.jsx must have data-file-drop-target on root container")
 	}
 }
 
@@ -574,10 +577,9 @@ func TestAppRendersErrorBanner(t *testing.T) {
 func TestMainLayoutDisplaysTreeContent(t *testing.T) {
 	content := readFile(t, "frontend/src/components/MainLayout.tsx")
 
-	// The placeholder "Tree Panel" text should be replaced or augmented
-	// with actual node rendering capability
-	if !strings.Contains(content, "rootNode") && !strings.Contains(content, "TreeNode") {
-		t.Error("[P1] 2.4-INTG-023: MainLayout must accept/display rootNode data in the left panel")
+	// MainLayout delegates tree rendering to TreePanel (story 2-5+)
+	if !strings.Contains(content, "TreePanel") {
+		t.Error("[P1] 2.4-INTG-023: MainLayout must include TreePanel in the left panel")
 	}
 }
 
