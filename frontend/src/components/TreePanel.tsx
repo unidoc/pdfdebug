@@ -9,7 +9,8 @@ import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocument
 
 /** Shape consumed by react-arborist. Mapped from backend TreeNode. */
 interface TreeNodeData {
-  id: string;
+  id: string;         // path-unique display ID for react-arborist
+  backendId: string;  // original backend ID for API calls
   name: string;
   children: TreeNodeData[] | null;
   rawKey: string;
@@ -21,10 +22,17 @@ interface TreeNodeData {
   error: string;
 }
 
-/** Convert a backend TreeNode to the react-arborist data shape. */
-function toTreeNodeData(node: TreeNode): TreeNodeData {
+/**
+ * Convert a backend TreeNode to the react-arborist data shape.
+ * parentTreeId is prepended to create a path-unique display ID so that
+ * the same PDF object appearing in multiple places (e.g., /Parent back-ref)
+ * gets distinct IDs and react-arborist doesn't collapse the wrong node.
+ */
+function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
+  const displayId = parentTreeId ? `${parentTreeId}>${node.id}` : node.id;
   return {
-    id: node.id,
+    id: displayId,
+    backendId: node.id,
     name: node.label,
     rawKey: node.rawKey,
     nodeType: node.nodeType,
@@ -40,7 +48,7 @@ function toTreeNodeData(node: TreeNode): TreeNodeData {
 /** Build the top-level tree data array from the root node and its pre-fetched children. */
 function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): TreeNodeData[] {
   const root = toTreeNodeData(rootNode);
-  root.children = rootChildren ? rootChildren.map(toTreeNodeData) : [];
+  root.children = rootChildren ? rootChildren.map((c) => toTreeNodeData(c, root.id)) : [];
   return [root];
 }
 
@@ -202,12 +210,12 @@ export function TreePanel() {
         const ancestorPath = await GetAncestorPath(activeTabId, pendingNavTarget);
         if (cancelled) return;
 
-        // Load children for each ancestor and expand
-        function findNode(data: TreeNodeData[], nodeId: string): TreeNodeData | null {
+        // Search by backendId since ancestor path contains backend IDs
+        function findByBackendId(data: TreeNodeData[], backendId: string): TreeNodeData | null {
           for (const n of data) {
-            if (n.id === nodeId) return n;
+            if (n.backendId === backendId) return n;
             if (n.children) {
-              const found = findNode(n.children, nodeId);
+              const found = findByBackendId(n.children, backendId);
               if (found) return found;
             }
           }
@@ -215,40 +223,41 @@ export function TreePanel() {
         }
 
         for (let i = 0; i < ancestorPath.length - 1; i++) {
-          const ancestorId = ancestorPath[i];
-          const node = findNode(treeDataRef.current, ancestorId);
+          const ancestorBackendId = ancestorPath[i];
+          const node = findByBackendId(treeDataRef.current, ancestorBackendId);
           if (node && Array.isArray(node.children) && node.children.length === 0) {
-            const children = await GetChildren(activeTabId, ancestorId);
+            const children = await GetChildren(activeTabId, ancestorBackendId);
             if (cancelled) return;
-            const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map(toTreeNodeData);
+            const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
             setTreeData((prev) => {
-              const updated = updateNodeChildren(prev, ancestorId, mapped);
+              const updated = updateNodeChildren(prev, node.id, mapped);
               treeDataRef.current = updated;
               return updated;
             });
           }
-          treeRef.current?.open(ancestorId);
+          // Open by display id (react-arborist uses display ids)
+          if (node) treeRef.current?.open(node.id);
         }
 
-        // Scroll to target
-        await treeRef.current?.scrollTo(pendingNavTarget);
-        if (cancelled) return;
-
-        // Find target node data for SELECT_NODE
-        const targetNode = findNode(treeDataRef.current, pendingNavTarget);
+        // Find target node by backendId
+        const targetNode = findByBackendId(treeDataRef.current, pendingNavTarget);
         if (!targetNode) {
           dispatch({ type: 'NAV_ERROR', payload: { message: `Target node ${pendingNavTarget} not found in tree` } });
           return;
         }
 
+        // Scroll and select by display id
+        await treeRef.current?.scrollTo(targetNode.id);
+        if (cancelled) return;
+
         dispatch({
           type: 'SELECT_NODE',
-          payload: { nodeId: targetNode.id, label: targetNode.name, rawKey: targetNode.rawKey },
+          payload: { nodeId: targetNode.backendId, label: targetNode.name, rawKey: targetNode.rawKey },
         });
 
         // Flash effect
-        flashNodeIdRef.current = pendingNavTarget;
-        setFlashNodeId(pendingNavTarget);
+        flashNodeIdRef.current = targetNode.id;
+        setFlashNodeId(targetNode.id);
         setTimeout(() => {
           flashNodeIdRef.current = null;
           setFlashNodeId(null);
@@ -302,9 +311,10 @@ export function TreePanel() {
       timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
 
       try {
-        const children = await GetChildren(activeTabId, id);
+        // Use backendId for API call, display id for tree state updates
+        const children = await GetChildren(activeTabId, node.backendId);
         if (requestRef.current !== generation) return;
-        const mapped = (children || []).filter((c): c is TreeNode => c !== null).map(toTreeNodeData);
+        const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
         setTreeData((prev) => {
           const updated = updateNodeChildren(prev, id, mapped);
           treeDataRef.current = updated;
@@ -323,17 +333,30 @@ export function TreePanel() {
     }
   }, [activeTabId]);
 
-  /** Dispatch SELECT_NODE on single-node selection. Skips if already selected. */
+  /** Dispatch SELECT_NODE on single-node selection. Uses backendId for API calls. */
   const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {
     if (nodes.length !== 1) return;
     const node = nodes[0];
-    if (node.id === selectedNodeIdRef.current) return;
-    selectedNodeIdRef.current = node.id;
+    if (node.data.backendId === selectedNodeIdRef.current) return;
+    selectedNodeIdRef.current = node.data.backendId;
     dispatch({
       type: 'SELECT_NODE',
-      payload: { nodeId: node.id, label: node.data.name, rawKey: node.data.rawKey },
+      payload: { nodeId: node.data.backendId, label: node.data.name, rawKey: node.data.rawKey },
     });
   }, [dispatch]);
+
+  // Map backendId to display id for react-arborist's selection prop
+  function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
+    for (const n of data) {
+      if (n.backendId === backendId) return n.id;
+      if (n.children) {
+        const found = findDisplayId(n.children, backendId);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  const selectionDisplayId = selectedNodeId ? findDisplayId(treeData, selectedNodeId) : undefined;
 
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
@@ -343,9 +366,10 @@ export function TreePanel() {
       <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
         {dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0 && (
           <Tree<TreeNodeData>
+            key={activeTabId ?? ''}
             ref={treeRef}
             data={treeData}
-            selection={selectedNodeId ?? undefined}
+            selection={selectionDisplayId}
             onSelect={handleSelect}
             onToggle={handleToggle}
             selectionFollowsFocus={true}
