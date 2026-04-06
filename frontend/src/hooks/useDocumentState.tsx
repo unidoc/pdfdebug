@@ -30,6 +30,7 @@ export interface AppState {
   tabs: TabState[];
   activeTabId: string | null;
   documentError: string | null;
+  documentWarning: string | null;
 }
 
 export type AppAction =
@@ -41,7 +42,9 @@ export type AppAction =
   | { type: 'NAVIGATE_TO_REF'; payload: { targetNodeId: string } }
   | { type: 'CLEAR_NAV_TARGET' }
   | { type: 'NAV_ERROR'; payload: { message: string } }
-  | { type: 'DISMISS_NAV_ERROR' };
+  | { type: 'DISMISS_NAV_ERROR' }
+  | { type: 'SET_DOCUMENT_WARNING'; payload: { message: string } }
+  | { type: 'DISMISS_WARNING' };
 
 // --- Reducer ---
 
@@ -49,6 +52,7 @@ const initialState: AppState = {
   tabs: [],
   activeTabId: null,
   documentError: null,
+  documentWarning: null,
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -71,6 +75,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         tabs: [newTab],
         activeTabId: action.payload.tabId,
         documentError: null,
+        documentWarning: null,
       };
     }
     case 'CLOSE_DOCUMENT': {
@@ -79,6 +84,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: filtered,
         activeTabId: filtered.length > 0 ? filtered[filtered.length - 1].tabId : null,
+        documentWarning: null,
       };
     }
     case 'SELECT_NODE': {
@@ -98,6 +104,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: [],
         documentError: action.payload.message,
+        documentWarning: null,
         activeTabId: null,
       };
     }
@@ -150,6 +157,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : tab
         ),
       };
+    }
+    case 'SET_DOCUMENT_WARNING': {
+      return { ...state, documentWarning: action.payload.message };
+    }
+    case 'DISMISS_WARNING': {
+      return { ...state, documentWarning: null };
     }
     default: {
       const _exhaustive: never = action;

@@ -123,6 +123,9 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           rootChildren: result.rootChildren,
         },
       });
+      if (result.warning) {
+        dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: result.warning } });
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });

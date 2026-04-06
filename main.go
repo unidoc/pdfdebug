@@ -63,7 +63,7 @@ func main() {
 		if err != nil {
 			log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
 		}
-		app.Event.Emit("document:opened", map[string]any{
+		payload := map[string]any{
 			"tabId":        docInfo.TabID,
 			"fileName":     docInfo.FileName,
 			"filePath":     docInfo.FilePath,
@@ -71,7 +71,11 @@ func main() {
 			"fileSize":     docInfo.FileSize,
 			"rootNode":     root,
 			"rootChildren": children,
-		})
+		}
+		if docInfo.Error != "" {
+			payload["warning"] = docInfo.Error
+		}
+		app.Event.Emit("document:opened", payload)
 	}
 
 	// Build native menu bar

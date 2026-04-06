@@ -7,7 +7,7 @@ import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 
 function AppContent() {
-  const { tabs, activeTabId, documentError } = useAppState()
+  const { tabs, activeTabId, documentError, documentWarning } = useAppState()
   const dispatch = useAppDispatch()
   const hasDocument = activeTabId !== null
   const activeTab = tabs.find((t) => t.tabId === activeTabId)
@@ -25,6 +25,9 @@ function AppContent() {
           rootChildren: data.rootChildren ?? null,
         },
       })
+      if (data.warning) {
+        dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: data.warning } })
+      }
     })
 
     const offError = Events.On('document:error', (event) => {
@@ -46,6 +49,13 @@ function AppContent() {
           message={documentError}
           severity="error"
           onDismiss={() => dispatch({ type: 'DISMISS_ERROR' })}
+        />
+      )}
+      {documentWarning && (
+        <ErrorBanner
+          message={documentWarning}
+          severity="warning"
+          onDismiss={() => dispatch({ type: 'DISMISS_WARNING' })}
         />
       )}
       {activeTab && (

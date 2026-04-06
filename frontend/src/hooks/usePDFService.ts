@@ -26,6 +26,7 @@ export interface OpenPDFResult {
   fileSize: number;
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
+  warning: string | null;
 }
 
 export async function openPDFFile(path: string): Promise<OpenPDFResult> {
@@ -54,6 +55,7 @@ export async function openPDFFile(path: string): Promise<OpenPDFResult> {
     fileSize: docInfo.fileSize,
     rootNode,
     rootChildren,
+    warning: docInfo.error || null,
   };
 }
 

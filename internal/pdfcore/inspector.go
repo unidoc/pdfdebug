@@ -61,11 +61,15 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, wrapPDFError(err)
 	}
 
+	var warning string
+	pageCount := 0
 	err = safeCall(func() error {
 		return ctx.XRefTable.EnsurePageCount()
 	})
 	if err != nil {
-		return nil, wrapPDFError(err)
+		warning = "This PDF has structural errors. Some objects may display incorrectly."
+	} else {
+		pageCount = ctx.PageCount
 	}
 
 	absPath, err := filepath.Abs(filePath)
@@ -77,7 +81,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	ins.documents[tabID] = &DocumentState{
 		FilePath:   absPath,
 		PDFContext: ctx,
-		PageCount:  ctx.PageCount,
+		PageCount:  pageCount,
 	}
 	ins.mu.Unlock()
 
@@ -85,8 +89,9 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		TabID:     tabID,
 		FileName:  filepath.Base(filePath),
 		FilePath:  absPath,
-		PageCount: ctx.PageCount,
+		PageCount: pageCount,
 		FileSize:  fileSize,
+		Error:     warning,
 	}, nil
 }
 
@@ -113,6 +118,18 @@ func (ins *Inspector) GetDocument(tabID string) (*DocumentState, error) {
 func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
+	}
+
+	if strings.HasPrefix(nodeID, "error:") {
+		return &ObjectDetail{
+			NodeID: nodeID,
+			Type:   "scalar",
+			ScalarValue: &ValueEntry{
+				Type:    "string",
+				Display: "Parse error on this object",
+				Raw:     nodeID,
+			},
+		}, nil
 	}
 
 	doc, err := ins.GetDocument(tabID)
@@ -270,6 +287,9 @@ func buildArrayEntries(arr pdfcpu_types.Array) []ValueEntry {
 func (ins *Inspector) GetAncestorPath(tabID, nodeID string) ([]string, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
+	}
+	if strings.HasPrefix(nodeID, "error:") {
+		return nil, fmt.Errorf("cannot resolve ancestor path for error node %q", nodeID)
 	}
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {

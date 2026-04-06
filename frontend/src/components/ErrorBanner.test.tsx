@@ -32,9 +32,35 @@ describe('ErrorBanner', () => {
     render(
       <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
     );
-    const banner = screen.getByTestId('error-banner');
+    const banner = screen.getByTestId('warning-banner');
     expect(banner.className).toContain('bg-amber-50');
     expect(banner.className).toContain('text-warning');
+  });
+
+  test('warning banner has correct dismiss aria-label', () => {
+    render(
+      <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
+    );
+    expect(screen.getByTestId('error-banner-dismiss')).toHaveAttribute(
+      'aria-label',
+      'Dismiss warning'
+    );
+  });
+
+  test('error banner shows (x) icon', () => {
+    render(
+      <ErrorBanner message="err" severity="error" onDismiss={() => {}} />
+    );
+    const banner = screen.getByTestId('error-banner');
+    expect(banner.textContent).toContain('(x)');
+  });
+
+  test('warning banner shows (!) icon', () => {
+    render(
+      <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
+    );
+    const banner = screen.getByTestId('warning-banner');
+    expect(banner.textContent).toContain('(!)');
   });
 
   test('calls onDismiss when dismiss button is clicked', async () => {
