@@ -1,3 +1,7 @@
+/**
+ * @file Bottom-left panel showing properties of the currently selected
+ * PDF object (dict entries, array elements, scalar value, or stream metadata).
+ */
 import { useState, useEffect, useCallback } from 'react';
 import { GetObjectDetail } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
@@ -9,6 +13,10 @@ import {
   StreamMetadata,
 } from './DetailShared';
 
+/**
+ * Compact property inspector for the selected tree node.
+ * Fetches object detail from the backend whenever the selection changes.
+ */
 export function ObjectInfoPanel() {
   const { tabs, activeTabId } = useAppState();
   const dispatch = useAppDispatch();
@@ -29,6 +37,8 @@ export function ObjectInfoPanel() {
     setDetail(null);
     setError(null);
     setLoading(true);
+    // Stale-fetch guard: if the selection changes before the promise
+    // resolves, the old response is discarded.
     let cancelled = false;
     GetObjectDetail(activeTabId, selectedNodeId)
       .then((result: unknown) => {
@@ -46,6 +56,7 @@ export function ObjectInfoPanel() {
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
 
+  /** Navigate the tree to the referenced PDF object. */
   const handleReferenceClick = useCallback((refTarget: string) => {
     if (refTarget) {
       dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: refTarget } });

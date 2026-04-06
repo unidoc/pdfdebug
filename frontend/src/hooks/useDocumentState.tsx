@@ -1,7 +1,12 @@
+/**
+ * @file Global application state via React context + useReducer.
+ * Manages document tabs, node selection, navigation, and error banners.
+ */
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
 
 // --- Types ---
 
+/** A node in the PDF object tree returned by the backend. */
 export interface TreeNode {
   id: string;
   label: string;
@@ -14,6 +19,7 @@ export interface TreeNode {
   error: string;
 }
 
+/** Per-document tab state including tree root, selection, and navigation. */
 export interface TabState {
   tabId: string;
   fileName: string;
@@ -26,6 +32,7 @@ export interface TabState {
   navError: string | null;
 }
 
+/** Top-level application state. */
 export interface AppState {
   tabs: TabState[];
   activeTabId: string | null;
@@ -33,6 +40,7 @@ export interface AppState {
   documentWarning: string | null;
 }
 
+/** Union of all actions the app reducer handles. */
 export type AppAction =
   | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
@@ -55,6 +63,10 @@ const initialState: AppState = {
   documentWarning: null,
 };
 
+/**
+ * Pure reducer for all app state transitions.
+ * Exhaustive switch ensures every action is handled at compile time.
+ */
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
@@ -69,7 +81,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         pendingNavTarget: null,
         navError: null,
       };
-      // Single document at a time -- replace all tabs (multi-tab is Epic 4)
+      // Single-document mode: replaces all tabs. Multi-tab planned for Epic 4.
       return {
         ...state,
         tabs: [newTab],
@@ -178,6 +190,7 @@ const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 
 // --- Provider ---
 
+/** Context provider that makes app state and dispatch available to the tree. */
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
@@ -192,6 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 // --- Hooks ---
 
+/** Read the current app state. Must be called inside AppProvider. */
 export function useAppState(): AppState {
   const context = useContext(AppStateContext);
   if (context === null) {
@@ -200,6 +214,7 @@ export function useAppState(): AppState {
   return context;
 }
 
+/** Get the dispatch function for app actions. Must be called inside AppProvider. */
 export function useAppDispatch(): Dispatch<AppAction> {
   const context = useContext(AppDispatchContext);
   if (context === null) {

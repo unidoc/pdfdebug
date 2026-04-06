@@ -1,6 +1,14 @@
+/**
+ * @file PDF service layer. Wraps Wails-generated bindings with
+ * user-friendly error mapping and a structured open-file workflow.
+ */
 import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
 
+/**
+ * Map raw backend error strings to user-facing messages.
+ * Matches common failure categories (encrypted, malformed, not found).
+ */
 export function mapErrorMessage(rawMessage: string): string {
   if (/encrypted|password/i.test(rawMessage)) {
     return 'This PDF could not be opened. The file appears to be encrypted.';
@@ -14,10 +22,12 @@ export function mapErrorMessage(rawMessage: string): string {
   return 'This PDF could not be opened. An unexpected error occurred.';
 }
 
+/** Show the native OS file picker and return the selected path (or empty string). */
 export async function openFileDialog(): Promise<string> {
   return _OpenFileDialog();
 }
 
+/** Result of opening a PDF: document metadata plus the pre-fetched tree root. */
 export interface OpenPDFResult {
   tabId: string;
   fileName: string;
@@ -29,6 +39,11 @@ export interface OpenPDFResult {
   warning: string | null;
 }
 
+/**
+ * Open a PDF file at the given path, fetch its tree root and first-level
+ * children, and return a structured result. Cleans up the backend document
+ * if tree fetching fails to avoid resource leaks.
+ */
 export async function openPDFFile(path: string): Promise<OpenPDFResult> {
   if (!path) {
     throw new Error('No file path provided');

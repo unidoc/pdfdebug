@@ -1,3 +1,7 @@
+/**
+ * @file Three-panel resizable layout for document inspection.
+ * Left: tree + object-info (vertical split). Right: detail panel.
+ */
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -5,6 +9,11 @@ import { TreePanel } from './TreePanel';
 import { ObjectInfoPanel } from './ObjectInfoPanel';
 import { DetailPanel } from './DetailPanel';
 
+/**
+ * Resizable three-panel layout using Allotment.
+ * Each panel is wrapped in an ErrorBoundary so a crash in one panel
+ * does not tear down the others.
+ */
 export function MainLayout() {
   return (
     <div className="h-full" data-testid="main-layout">

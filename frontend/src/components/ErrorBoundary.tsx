@@ -1,3 +1,7 @@
+/**
+ * @file React error boundary. Catches render errors in child components
+ * and shows a fallback UI instead of crashing the entire app.
+ */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
@@ -9,6 +13,10 @@ interface State {
   hasError: boolean;
 }
 
+/**
+ * Class-based error boundary (hooks cannot catch render errors).
+ * Wraps panels so a crash in one does not tear down siblings.
+ */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);

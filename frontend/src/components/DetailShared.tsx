@@ -1,3 +1,9 @@
+/**
+ * @file Shared data types and presentational components for rendering
+ * PDF object details (dict, array, scalar, stream) in both panels.
+ */
+
+/** A single value in a PDF object (name, string, number, reference, etc.). */
 export interface ValueEntryData {
   type: string;
   display: string;
@@ -5,16 +11,19 @@ export interface ValueEntryData {
   refTarget: string;
 }
 
+/** A key-value pair in a PDF dictionary. */
 export interface PropertyEntryData {
   key: string;
   value: ValueEntryData;
 }
 
+/** Metadata for a PDF stream object (byte length + compression filters). */
 export interface StreamInfoData {
   length: number;
   filters: string[];
 }
 
+/** Full detail payload returned by GetObjectDetail for a single PDF object. */
 export interface ObjectDetailData {
   nodeId: string;
   objectRef: string;
@@ -25,6 +34,7 @@ export interface ObjectDetailData {
   streamInfo: StreamInfoData | null;
 }
 
+/** Maps PDF value types to Tailwind color classes for syntax highlighting. */
 export const TYPE_CLASS_MAP: Record<string, string> = {
   name: 'text-type-name',
   string: 'text-type-string',
@@ -34,6 +44,7 @@ export const TYPE_CLASS_MAP: Record<string, string> = {
   null: 'text-type-null',
 };
 
+/** Renders a single PDF value with type-based coloring. References are clickable. */
 export function ValueDisplay({ value, onReferenceClick }: {
   value: ValueEntryData;
   onReferenceClick?: (refTarget: string) => void;
@@ -67,6 +78,7 @@ export function ValueDisplay({ value, onReferenceClick }: {
   );
 }
 
+/** Table view of a PDF dictionary's key-value pairs. */
 export function DictView({ properties, onReferenceClick }: {
   properties: PropertyEntryData[] | null;
   onReferenceClick?: (refTarget: string) => void;
@@ -94,6 +106,7 @@ export function DictView({ properties, onReferenceClick }: {
   );
 }
 
+/** Table view of a PDF array's indexed elements. */
 export function ArrayView({ elements, onReferenceClick }: {
   elements: ValueEntryData[] | null;
   onReferenceClick?: (refTarget: string) => void;
@@ -121,6 +134,7 @@ export function ArrayView({ elements, onReferenceClick }: {
   );
 }
 
+/** Displays a single scalar PDF value with its type label. */
 export function ScalarView({ value, onReferenceClick }: {
   value: ValueEntryData;
   onReferenceClick?: (refTarget: string) => void;
@@ -133,6 +147,7 @@ export function ScalarView({ value, onReferenceClick }: {
   );
 }
 
+/** Renders stream byte-length and applied compression filters. */
 export function StreamMetadata({ info }: { info: StreamInfoData }) {
   const filters = info.filters ?? [];
   return (

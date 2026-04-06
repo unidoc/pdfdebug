@@ -1,3 +1,6 @@
+/**
+ * @file Application entry point. Mounts the React root into the DOM.
+ */
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './style.css'

@@ -1,3 +1,7 @@
+/**
+ * @file Root application component. Wires Wails runtime events to app state
+ * and renders either the empty state or the main three-panel layout.
+ */
 import { useEffect } from 'react'
 import { Events } from '@wailsio/runtime'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
@@ -6,12 +10,18 @@ import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 
+/**
+ * Inner shell that subscribes to Wails backend events and delegates
+ * document open/error handling to the app reducer.
+ */
 function AppContent() {
   const { tabs, activeTabId, documentError, documentWarning } = useAppState()
   const dispatch = useAppDispatch()
   const hasDocument = activeTabId !== null
   const activeTab = tabs.find((t) => t.tabId === activeTabId)
 
+  // Subscribe to Wails runtime events for backend-initiated document opens
+  // and errors. Returns cleanup functions to unsubscribe on unmount.
   useEffect(() => {
     const offOpened = Events.On('document:opened', (event) => {
       const data = event?.data
@@ -70,6 +80,10 @@ function AppContent() {
   )
 }
 
+/**
+ * Top-level App component. Wraps the content in AppProvider for global state.
+ * @returns {JSX.Element}
+ */
 function App() {
   return (
     <AppProvider>

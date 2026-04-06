@@ -1,3 +1,7 @@
+/**
+ * @file Right-hand detail panel. Shows the full object detail for the
+ * selected tree node, with a contextual header label.
+ */
 import { useState, useEffect, useCallback, memo } from 'react';
 import { GetObjectDetail } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
@@ -9,6 +13,7 @@ import {
   StreamMetadata,
 } from './DetailShared';
 
+/** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
   dict: 'Properties',
   array: 'Array',
@@ -16,6 +21,7 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   scalar: 'Value',
 };
 
+/** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
   const { tabs, activeTabId } = useAppState();
   const dispatch = useAppDispatch();
@@ -38,6 +44,7 @@ function DetailPanelInner() {
     setDetail(null);
     setError(null);
     setLoading(true);
+    // Stale-fetch guard: discard response if selection changed before resolve
     let cancelled = false;
     GetObjectDetail(activeTabId, selectedNodeId)
       .then((result: unknown) => {
@@ -55,6 +62,7 @@ function DetailPanelInner() {
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
 
+  /** Navigate the tree to the referenced PDF object. */
   const handleReferenceClick = useCallback((refTarget: string) => {
     if (refTarget) {
       dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: refTarget } });
@@ -116,4 +124,8 @@ function DetailPanelInner() {
   );
 }
 
+/**
+ * Memoized detail panel. Re-renders only when props change (none currently),
+ * relying on internal hooks for state updates.
+ */
 export const DetailPanel = memo(DetailPanelInner);

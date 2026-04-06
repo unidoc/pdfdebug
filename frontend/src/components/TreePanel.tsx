@@ -1,8 +1,13 @@
+/**
+ * @file PDF object-tree panel. Renders the hierarchical document structure
+ * using react-arborist with lazy child loading and cross-reference navigation.
+ */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { GetChildren, GetAncestorPath } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 
+/** Shape consumed by react-arborist. Mapped from backend TreeNode. */
 interface TreeNodeData {
   id: string;
   name: string;
@@ -16,6 +21,7 @@ interface TreeNodeData {
   error: string;
 }
 
+/** Convert a backend TreeNode to the react-arborist data shape. */
 function toTreeNodeData(node: TreeNode): TreeNodeData {
   return {
     id: node.id,
@@ -31,13 +37,14 @@ function toTreeNodeData(node: TreeNode): TreeNodeData {
   };
 }
 
+/** Build the top-level tree data array from the root node and its pre-fetched children. */
 function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): TreeNodeData[] {
   const root = toTreeNodeData(rootNode);
   root.children = rootChildren ? rootChildren.map(toTreeNodeData) : [];
   return [root];
 }
 
-// Recursively find and update a node's children immutably
+/** Recursively find a node by ID and replace its children immutably. */
 function updateNodeChildren(
   data: TreeNodeData[],
   parentId: string,
@@ -54,6 +61,7 @@ function updateNodeChildren(
   });
 }
 
+/** Custom row renderer for tree nodes. Handles selection, flash, and error styling. */
 function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: NodeRendererProps<TreeNodeData> & { isLoading?: boolean; flashNodeIdRef?: React.RefObject<string | null> }) {
   const data = node.data;
   const isError = data.error !== '';
@@ -109,6 +117,11 @@ function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: No
   );
 }
 
+/**
+ * PDF document structure tree with lazy child loading and reference navigation.
+ * Children are fetched on-demand when a node is expanded. Cross-reference
+ * navigation expands ancestor path, scrolls to the target, and flashes it.
+ */
 export function TreePanel() {
   const { tabs, activeTabId } = useAppState();
   const dispatch = useAppDispatch();
@@ -122,8 +135,11 @@ export function TreePanel() {
   const [treeData, setTreeData] = useState<TreeNodeData[]>([]);
   const [initialOpenState] = useState<Record<string, boolean>>(() => ({ root: true }));
   const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
+  // timerRef delays the loading spinner by 200ms to avoid flicker on fast loads
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // requestRef is a generation counter to cancel stale child-fetch responses
   const requestRef = useRef<number>(0);
+  // Refs mirror state for use inside async callbacks without stale closures
   const selectedNodeIdRef = useRef<string | null>(null);
   const treeDataRef = useRef<TreeNodeData[]>([]);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
@@ -174,7 +190,9 @@ export function TreePanel() {
     };
   }, []);
 
-  // Navigation effect: watch pendingNavTarget
+  // Navigate to a cross-reference target: fetch ancestor path, expand each
+  // ancestor, scroll to the node, select it, and flash-highlight briefly.
+  // Uses a `cancelled` flag so an outdated navigation is discarded on cleanup.
   useEffect(() => {
     if (!pendingNavTarget || !activeTabId) return;
     let cancelled = false;
@@ -255,6 +273,7 @@ export function TreePanel() {
     return () => clearTimeout(timer);
   }, [navError, dispatch]);
 
+  /** Lazy-load children when a node is expanded for the first time. */
   const handleToggle = useCallback(async (id: string) => {
     if (!activeTabId) return;
 
@@ -304,6 +323,7 @@ export function TreePanel() {
     }
   }, [activeTabId]);
 
+  /** Dispatch SELECT_NODE on single-node selection. Skips if already selected. */
   const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {
     if (nodes.length !== 1) return;
     const node = nodes[0];

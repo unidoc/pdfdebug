@@ -1,16 +1,27 @@
+/**
+ * @file Landing screen shown when no document is open.
+ * Provides drag-and-drop PDF import and an "Open File" button.
+ */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch } from '../hooks/useDocumentState';
 import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
 
+/** Props for {@link EmptyState}. */
 export interface EmptyStateProps {
   hasDocument?: boolean;
   onOpenFile?: () => void;
 }
 
+/**
+ * Empty-state landing screen with a drag-and-drop zone and open-file button.
+ * Validates that only PDF files are accepted during drag and on drop.
+ */
 export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isInvalidFile, setIsInvalidFile] = useState(false);
+  // dragCounter tracks nested dragenter/dragleave pairs to avoid
+  // premature reset when dragging over child elements.
   const dragCounter = useRef<number>(0);
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -105,7 +116,9 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
   const dispatch = useAppDispatch();
 
+  /** Opens the native file dialog, loads the PDF, and dispatches to state. */
   const handleOpenFileClick = useCallback(async () => {
+    // Allow parent to override with a custom handler (used in tests)
     if (onOpenFile) {
       onOpenFile();
       return;
