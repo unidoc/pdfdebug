@@ -14,9 +14,15 @@ CLAUDE.md - Coding Profile
 - No abstractions for single-use operations.
 - No speculative features or "you might also want..."
 - Read the file before modifying it. Never edit blind.
-- No docstrings or type annotations on code not being changed.
 - No error handling for scenarios that cannot happen.
 - Three similar lines is better than a premature abstraction.
+
+## Documentation Rules
+- Go: godoc comment on every exported type, function, method, and constant.
+- TypeScript/React: JSDoc comment on every exported component, hook, and utility function.
+- Add brief inline comments on non-obvious logic blocks (e.g., why a guard exists, what a bitwise op does, why order matters).
+- One line where one line suffices. Not verbose.
+- Skip: test files, unexported helpers where the name is self-explanatory, auto-generated bindings.
 
 ## Review Rules
 - State the bug. Show the fix. Stop.
