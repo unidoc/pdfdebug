@@ -133,6 +133,10 @@ func main() {
 			}
 		}
 		if pdfPath == "" {
+			// Non-PDF file dropped -- notify frontend
+			app.Event.Emit("document:error", map[string]any{
+				"message": "Only PDF files can be opened.",
+			})
 			return
 		}
 		openFileAndEmit(pdfPath)

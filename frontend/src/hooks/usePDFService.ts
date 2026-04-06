@@ -10,6 +10,9 @@ import type { TreeNode } from './useDocumentState';
  * Matches common failure categories (encrypted, malformed, not found).
  */
 export function mapErrorMessage(rawMessage: string): string {
+  if (/only.*pdf/i.test(rawMessage)) {
+    return rawMessage;
+  }
   if (/encrypted|password/i.test(rawMessage)) {
     return 'This PDF could not be opened. The file appears to be encrypted.';
   }
