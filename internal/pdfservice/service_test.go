@@ -3,7 +3,6 @@ package pdfservice
 import (
 	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"unipdf-debugger/internal/pdfcore"
@@ -165,17 +164,74 @@ func TestGetChildrenUnknown(t *testing.T) {
 	}
 }
 
-func TestGetObjectDetail(t *testing.T) {
+func TestGetObjectDetailValid(t *testing.T) {
 	svc := NewPDFService(nil)
-	detail, err := svc.GetObjectDetail("any-tab", "any-node")
-	if err == nil {
-		t.Fatal("GetObjectDetail should return error (not implemented)")
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
 	}
-	if !strings.Contains(err.Error(), "not implemented") {
-		t.Errorf("expected 'not implemented' error, got: %v", err)
+	defer svc.CloseDocument(info.TabID)
+
+	detail, err := svc.GetObjectDetail(info.TabID, "root")
+	if err != nil {
+		t.Fatalf("GetObjectDetail returned error: %v", err)
+	}
+	if detail == nil {
+		t.Fatal("GetObjectDetail returned nil")
+	}
+	if detail.Type != "dict" {
+		t.Errorf("Type = %q, want %q", detail.Type, "dict")
+	}
+	if detail.NodeID != "root" {
+		t.Errorf("NodeID = %q, want %q", detail.NodeID, "root")
+	}
+	if len(detail.Properties) == 0 {
+		t.Error("Properties is empty for catalog dict")
+	}
+}
+
+func TestGetObjectDetailUnknown(t *testing.T) {
+	svc := NewPDFService(nil)
+	detail, err := svc.GetObjectDetail("nonexistent-tab-id", "root")
+	if err == nil {
+		t.Fatal("GetObjectDetail with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
 	}
 	if detail != nil {
-		t.Error("GetObjectDetail should return nil")
+		t.Error("GetObjectDetail with unknown tabID should return nil")
+	}
+}
+
+func TestGetAncestorPathValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer svc.CloseDocument(info.TabID)
+
+	path, err := svc.GetAncestorPath(info.TabID, "root")
+	if err != nil {
+		t.Fatalf("GetAncestorPath returned error: %v", err)
+	}
+	if len(path) != 1 || path[0] != "root" {
+		t.Errorf("path = %v, want [root]", path)
+	}
+}
+
+func TestGetAncestorPathUnknown(t *testing.T) {
+	svc := NewPDFService(nil)
+	path, err := svc.GetAncestorPath("nonexistent-tab-id", "root")
+	if err == nil {
+		t.Fatal("GetAncestorPath with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+	if path != nil {
+		t.Error("GetAncestorPath with unknown tabID should return nil")
 	}
 }
 
