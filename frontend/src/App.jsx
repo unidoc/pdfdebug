@@ -53,7 +53,7 @@ function AppContent() {
   }, [dispatch])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-file-drop-target>
       {documentError && (
         <ErrorBanner
           message={documentError}

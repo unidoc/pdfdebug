@@ -189,7 +189,6 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
       <div
         data-testid="drop-zone"
-        data-file-drop-target
         role="region"
         aria-label="File drop zone"
         className={`mt-8 px-12 py-10 border-2 border-dashed rounded-lg transition-colors duration-150 ${dropZoneBorder}`}

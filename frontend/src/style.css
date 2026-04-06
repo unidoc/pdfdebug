@@ -106,6 +106,14 @@ body {
   color: var(--color-text);
 }
 
+/* Wails native file drop feedback -- Wails automatically toggles
+   file-drop-target-active on elements with data-file-drop-target
+   during OS-level file drags. This highlights the drop zone. */
+.file-drop-target-active [data-testid="drop-zone"] {
+  border-color: var(--color-border-focus);
+  background-color: var(--color-surface-selected);
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
