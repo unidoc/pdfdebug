@@ -84,6 +84,33 @@ func contentStreamPDFContent() []byte {
 	return []byte(body + xref + trailer)
 }
 
+// emptyStreamPDFContent returns a valid single-page PDF with a zero-length content stream.
+func emptyStreamPDFContent() []byte {
+	pdf := "%PDF-1.4\n"
+
+	stream := ""
+	streamLen := len(stream)
+
+	obj1 := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n"
+	obj2 := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n"
+	obj3 := fmt.Sprintf("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n\n")
+	obj4 := fmt.Sprintf("4 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n\n", streamLen, stream)
+
+	body := pdf + obj1 + obj2 + obj3 + obj4
+
+	o1 := len(pdf)
+	o2 := o1 + len(obj1)
+	o3 := o2 + len(obj2)
+	o4 := o3 + len(obj3)
+	xrefOffset := len(body)
+
+	xref := fmt.Sprintf("xref\n0 5\n0000000000 65535 f \n%010d 00000 n \n%010d 00000 n \n%010d 00000 n \n%010d 00000 n \n",
+		o1, o2, o3, o4)
+	trailer := fmt.Sprintf("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", xrefOffset)
+
+	return []byte(body + xref + trailer)
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -131,6 +158,21 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("content-stream.pdf is not valid according to pdfcpu: %v", err)
 		}
 		t.Logf("content-stream.pdf created: %d pages", ctx.PageCount)
+	})
+
+	t.Run("empty-stream.pdf", func(t *testing.T) {
+		if _, err := os.Stat("empty-stream.pdf"); err == nil {
+			t.Skip("empty-stream.pdf already exists")
+		}
+		if err := os.WriteFile("empty-stream.pdf", emptyStreamPDFContent(), 0644); err != nil {
+			t.Fatalf("failed to create empty-stream.pdf: %v", err)
+		}
+		ctx, err := pdfcpu_api.ReadContextFile("empty-stream.pdf")
+		if err != nil {
+			os.Remove("empty-stream.pdf")
+			t.Fatalf("empty-stream.pdf is not valid according to pdfcpu: %v", err)
+		}
+		t.Logf("empty-stream.pdf created: %d pages", ctx.PageCount)
 	})
 
 	t.Run("malformed.pdf", func(t *testing.T) {

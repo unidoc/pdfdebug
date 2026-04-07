@@ -235,6 +235,73 @@ func TestGetAncestorPathUnknown(t *testing.T) {
 	}
 }
 
+// --- GetContentStream tests (Story 3-1) ---
+
+func TestGetContentStreamValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer svc.CloseDocument(info.TabID)
+
+	// Walk the tree to find a stream node
+	var findStream func(nodeID string, depth int) string
+	findStream = func(nodeID string, depth int) string {
+		if depth > 4 {
+			return ""
+		}
+		children, err := svc.GetChildren(info.TabID, nodeID)
+		if err != nil {
+			return ""
+		}
+		for _, c := range children {
+			if c.NodeType == "stream" {
+				return c.ID
+			}
+		}
+		for _, c := range children {
+			if c.HasChildren {
+				found := findStream(c.ID, depth+1)
+				if found != "" {
+					return found
+				}
+			}
+		}
+		return ""
+	}
+
+	streamNodeID := findStream("root", 0)
+	if streamNodeID == "" {
+		t.Fatal("no stream node found in content-stream.pdf")
+	}
+
+	result, err := svc.GetContentStream(info.TabID, streamNodeID)
+	if err != nil {
+		t.Fatalf("GetContentStream returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetContentStream returned nil")
+	}
+	if result.Error != "" {
+		t.Fatalf("ContentStreamData.Error = %q, want empty", result.Error)
+	}
+	if result.Raw == "" {
+		t.Fatal("Raw is empty, want decoded content stream text")
+	}
+}
+
+func TestGetContentStreamUnknown(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetContentStream("nonexistent-tab-id", "root")
+	if err == nil {
+		t.Fatal("GetContentStream with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	svc := NewPDFService(nil)
 

@@ -71,3 +71,8 @@ func (s *PDFService) GetObjectDetail(tabID string, nodeID string) (*pdfcore.Obje
 func (s *PDFService) GetAncestorPath(tabID string, nodeID string) ([]string, error) {
 	return s.inspector.GetAncestorPath(tabID, nodeID)
 }
+
+// GetContentStream returns decoded content stream data for the given node.
+func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.ContentStreamData, error) {
+	return s.inspector.GetContentStream(tabID, nodeID)
+}

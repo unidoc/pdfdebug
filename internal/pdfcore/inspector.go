@@ -16,9 +16,11 @@ import (
 
 // DocumentState holds the parsed pdfcpu context and metadata for one open PDF.
 type DocumentState struct {
-	FilePath   string
-	PDFContext *pdfcpu_model.Context
-	PageCount  int
+	FilePath    string
+	PDFContext  *pdfcpu_model.Context
+	PageCount   int
+	streamMu    sync.Mutex
+	streamCache map[string]*ContentStreamData
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are
@@ -85,9 +87,10 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 
 	ins.mu.Lock()
 	ins.documents[tabID] = &DocumentState{
-		FilePath:   absPath,
-		PDFContext: ctx,
-		PageCount:  pageCount,
+		FilePath:    absPath,
+		PDFContext:  ctx,
+		PageCount:   pageCount,
+		streamCache: make(map[string]*ContentStreamData),
 	}
 	ins.mu.Unlock()
 
