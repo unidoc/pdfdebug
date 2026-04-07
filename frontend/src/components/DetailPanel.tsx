@@ -3,7 +3,8 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, memo } from 'react';
-import { GetObjectDetail } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { ContentStreamData } from '../../bindings/unipdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
   type ObjectDetailData,
@@ -12,12 +13,13 @@ import {
   ScalarView,
   StreamMetadata,
 } from './DetailShared';
+import { ContentStreamViewer } from './ContentStreamViewer';
 
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
   dict: 'Properties',
   array: 'Array',
-  stream: 'Stream',
+  stream: 'Content Stream',
   scalar: 'Value',
 };
 
@@ -33,17 +35,26 @@ function DetailPanelInner() {
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
+  const [contentStreamLoading, setContentStreamLoading] = useState(false);
+  const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
 
   useEffect(() => {
     if (!activeTabId || !selectedNodeId) {
       setDetail(null);
       setError(null);
       setLoading(false);
+      setContentStream(null);
+      setContentStreamLoading(false);
+      setShowContentStreamLoading(false);
       return;
     }
     setDetail(null);
     setError(null);
     setLoading(true);
+    setContentStream(null);
+    setContentStreamLoading(false);
+    setShowContentStreamLoading(false);
     // Stale-fetch guard: discard response if selection changed before resolve
     let cancelled = false;
     GetObjectDetail(activeTabId, selectedNodeId)
@@ -61,6 +72,40 @@ function DetailPanelInner() {
       });
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
+
+  // Fetch content stream when detail resolves to a stream node
+  useEffect(() => {
+    if (!detail || detail.type !== 'stream' || !activeTabId) {
+      setContentStream(null);
+      return;
+    }
+    setContentStreamLoading(true);
+    let cancelled = false;
+    GetContentStream(activeTabId, detail.nodeId)
+      .then((result: unknown) => {
+        if (!cancelled) {
+          setContentStream(result as ContentStreamData);
+          setContentStreamLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setContentStream(new ContentStreamData({ nodeId: detail.nodeId, raw: '', tokenized: [], error: String(err) }));
+          setContentStreamLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [detail, activeTabId]);
+
+  // Debounce loading indicator by 200ms
+  useEffect(() => {
+    if (!contentStreamLoading) {
+      setShowContentStreamLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowContentStreamLoading(true), 200);
+    return () => clearTimeout(timer);
+  }, [contentStreamLoading]);
 
   /** Navigate the tree to the referenced PDF object. */
   const handleReferenceClick = useCallback((refTarget: string) => {
@@ -115,6 +160,17 @@ function DetailPanelInner() {
               <>
                 <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
                 {detail.streamInfo && <StreamMetadata info={detail.streamInfo} />}
+                {contentStream && (
+                  <ContentStreamViewer
+                    raw={contentStream.raw}
+                    error={contentStream.error}
+                  />
+                )}
+                {showContentStreamLoading && !contentStream && (
+                  <div className="p-3 text-text-muted text-sm" data-testid="content-stream-loading">
+                    Decoding stream...
+                  </div>
+                )}
               </>
             )}
           </div>

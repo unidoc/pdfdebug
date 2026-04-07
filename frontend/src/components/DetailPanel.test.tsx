@@ -6,8 +6,8 @@
  * Test IDs: 2.7-UNIT-001 through 2.7-UNIT-005 (Vitest)
  * Run: cd frontend && npx vitest run src/components/DetailPanel.test.tsx
  */
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AppProvider,
   useAppDispatch,
@@ -32,6 +32,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 
 // Mock Wails bindings
 const mockGetObjectDetail = vi.fn();
+const mockGetContentStream = vi.fn();
 vi.mock(
   '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -41,6 +42,7 @@ vi.mock(
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
+    GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
   })
 );
 
@@ -523,6 +525,7 @@ describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
   });
 
   test('renders stream dictionary properties', async () => {
@@ -552,12 +555,12 @@ describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
     });
   });
 
-  test('header shows context label "Stream"', async () => {
+  test('header shows context label "Content Stream"', async () => {
     renderWithState('obj:0:10');
 
     await waitFor(() => {
       const header = screen.getByTestId('detail-panel-header');
-      expect(header).toHaveTextContent('Stream');
+      expect(header).toHaveTextContent('Content Stream');
     });
   });
 
@@ -697,6 +700,7 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
       streamInfo: { length: 500, filters: [] },
     };
     mockGetObjectDetail.mockResolvedValue(noFilterStream);
+    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
     renderWithState('obj:0:10');
 
     await waitFor(() => {
@@ -712,6 +716,7 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
       streamInfo: { length: 2000, filters: ['FlateDecode', 'ASCII85Decode'] },
     };
     mockGetObjectDetail.mockResolvedValue(multiFilterStream);
+    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
     renderWithState('obj:0:10');
 
     await waitFor(() => {
@@ -762,5 +767,359 @@ describe('2.7-UNIT-008: DetailPanel React.memo export', () => {
     expect(DetailPanel).toBeDefined();
     // React.memo components are objects with a $$typeof Symbol and a .type property
     expect((DetailPanel as unknown as { type: unknown }).type).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story 3.2: Content Stream Viewer integration tests
+// ---------------------------------------------------------------------------
+
+const contentStreamData = {
+  nodeId: 'obj:0:10',
+  raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
+  tokenized: null,
+  error: '',
+};
+
+const contentStreamErrorData = {
+  nodeId: 'obj:0:10',
+  raw: '',
+  tokenized: null,
+  error: 'failed to decode: unsupported filter JBIG2Decode',
+};
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-001 [P1]: DetailPanel renders ContentStreamViewer for stream nodes
+// AC#1: When a stream node is selected AND GetContentStream returns raw text,
+//       ContentStreamViewer renders with line numbers and content.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-001: DetailPanel content stream integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockResolvedValue(contentStreamData);
+  });
+
+  test('renders ContentStreamViewer with raw text when stream node selected', async () => {
+    renderWithState('obj:0:10');
+
+    // Stream dict properties still render
+    await waitFor(() => {
+      expect(screen.getByText('/Filter')).toBeInTheDocument();
+    });
+
+    // Content stream viewer renders with content
+    await waitFor(() => {
+      expect(screen.getByTestId('content-stream-viewer')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      const content = screen.getByTestId('content-stream-content');
+      expect(content).toHaveTextContent('BT');
+      expect(content).toHaveTextContent('/F1 12 Tf');
+      expect(content).toHaveTextContent('ET');
+    });
+  });
+
+  test('renders line numbers in gutter for content stream', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const gutter = screen.getByTestId('content-stream-gutter');
+      expect(gutter).toHaveTextContent('1');
+      expect(gutter).toHaveTextContent('5');
+    });
+  });
+
+  test('calls GetContentStream with correct tab and node arguments', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      expect(mockGetContentStream).toHaveBeenCalledWith('tab-1', 'obj:0:10');
+    });
+  });
+
+  test('header shows "Content Stream" label for stream nodes', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Content Stream');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-002 [P1]: DetailPanel shows content stream error
+// AC#3: When GetContentStream returns an error, the error is displayed.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-002: DetailPanel content stream error', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockResolvedValue(contentStreamErrorData);
+  });
+
+  test('renders content stream error message when decode fails', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const errorEl = screen.getByTestId('content-stream-error');
+      expect(errorEl).toHaveTextContent('failed to decode: unsupported filter JBIG2Decode');
+    });
+  });
+
+  test('does not render content stream content when error is present', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-stream-error')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('content-stream-content')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-003 [P1]: GetContentStream NOT called for non-stream nodes
+// AC#1: Content stream fetch is only triggered for stream-type nodes.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-003: DetailPanel does not fetch content stream for non-stream nodes', () => {
+  test('GetContentStream is not called when a dict node is selected', async () => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(dictDetail);
+    renderWithState('root');
+
+    await waitFor(() => {
+      expect(screen.getByText('/Type')).toBeInTheDocument();
+    });
+
+    expect(mockGetContentStream).not.toHaveBeenCalled();
+  });
+
+  test('GetContentStream is not called when an array node is selected', async () => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(arrayDetail);
+    renderWithState('obj:0:5');
+
+    await waitFor(() => {
+      expect(screen.getByText('[0]')).toBeInTheDocument();
+    });
+
+    expect(mockGetContentStream).not.toHaveBeenCalled();
+  });
+
+  test('GetContentStream is not called when a scalar node is selected', async () => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(scalarDetail);
+    renderWithState('dict:root:Type');
+
+    await waitFor(() => {
+      expect(screen.getByText('/Catalog')).toBeInTheDocument();
+    });
+
+    expect(mockGetContentStream).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-004 [P1]: Stale content stream fetch cancelled on node change
+// AC: Content stream fetch uses stale-fetch guard; changing node discards
+//     the previous in-flight content stream response.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-004: DetailPanel stale content stream cancellation', () => {
+  test('stale content stream result is discarded when node changes', async () => {
+    vi.clearAllMocks();
+
+    // First node: stream that returns slowly
+    let resolveFirstStream: (v: unknown) => void;
+    const firstStreamPromise = new Promise((resolve) => {
+      resolveFirstStream = resolve;
+    });
+    mockGetObjectDetail
+      .mockResolvedValueOnce(streamDetail)
+      .mockResolvedValueOnce(dictDetail);
+    mockGetContentStream.mockReturnValueOnce(firstStreamPromise);
+
+    const { rerender } = renderWithState('obj:0:10');
+
+    // Wait for stream detail to render
+    await waitFor(() => {
+      expect(screen.getByText('/Filter')).toBeInTheDocument();
+    });
+
+    // Switch to a dict node before content stream resolves
+    rerender(
+      <AppProvider>
+        <DispatchHelper
+          action={{
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: 'tab-1',
+              fileName: 'test.pdf',
+              rootNode: catalogNode,
+              rootChildren: rootChildren,
+            },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'root' },
+          }}
+        />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    // Now resolve the stale content stream
+    resolveFirstStream!(contentStreamData);
+
+    // The dict detail should render, not the content stream
+    await waitFor(() => {
+      expect(screen.getByText('/Pages')).toBeInTheDocument();
+    });
+
+    // Content stream viewer should NOT be present
+    expect(
+      screen.queryByTestId('content-stream-viewer')
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-005 [P2]: Loading indicator appears after 200ms delay
+// AC#2: When loading takes more than 200ms, a subtle loading indicator appears.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-005: DetailPanel content stream loading indicator', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('loading indicator does NOT appear before 200ms', async () => {
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    // Content stream hangs indefinitely
+    mockGetContentStream.mockReturnValue(new Promise(() => {}));
+
+    renderWithState('obj:0:10');
+
+    // Flush pending microtasks (resolved promises) so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Advance 199ms -- loading indicator should NOT be visible yet
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(199);
+    });
+
+    expect(
+      screen.queryByTestId('content-stream-loading')
+    ).not.toBeInTheDocument();
+  });
+
+  test('loading indicator appears after 200ms when stream fetch is pending', async () => {
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockReturnValue(new Promise(() => {}));
+
+    renderWithState('obj:0:10');
+
+    // Flush microtasks so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Advance past 200ms debounce
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(201);
+    });
+
+    expect(
+      screen.getByTestId('content-stream-loading')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('content-stream-loading')
+    ).toHaveTextContent('Decoding stream...');
+  });
+
+  test('loading indicator disappears when content stream resolves', async () => {
+    let resolveStream: (v: unknown) => void;
+    const streamPromise = new Promise((resolve) => {
+      resolveStream = resolve;
+    });
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockReturnValue(streamPromise);
+
+    renderWithState('obj:0:10');
+
+    // Flush microtasks so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Show loading indicator
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(201);
+    });
+
+    expect(
+      screen.getByTestId('content-stream-loading')
+    ).toBeInTheDocument();
+
+    // Resolve the stream and flush
+    await act(async () => {
+      resolveStream!(contentStreamData);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(
+      screen.queryByTestId('content-stream-loading')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('content-stream-viewer')
+    ).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.2-INTG-006 [P1]: GetContentStream IPC rejection renders error
+// AC#3: When the IPC call itself rejects (not a struct-level error),
+//       the error is wrapped and displayed via ContentStreamViewer.
+// ---------------------------------------------------------------------------
+
+describe('3.2-INTG-006: DetailPanel content stream IPC rejection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockRejectedValue(new Error('IPC call failed: service unavailable'));
+  });
+
+  test('renders content stream error when GetContentStream promise rejects', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const errorEl = screen.getByTestId('content-stream-error');
+      expect(errorEl).toHaveTextContent('IPC call failed: service unavailable');
+    });
+  });
+
+  test('does not render content stream viewer when IPC rejects', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-stream-error')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('content-stream-content')).not.toBeInTheDocument();
   });
 });
