@@ -1123,3 +1123,91 @@ describe('3.2-INTG-006: DetailPanel content stream IPC rejection', () => {
     expect(screen.queryByTestId('content-stream-content')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story 3.3: Syntax highlighting integration tests
+// ---------------------------------------------------------------------------
+
+const contentStreamDataWithTokens = {
+  nodeId: 'obj:0:10',
+  raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
+  tokenized: [
+    { type: 'operator', value: 'BT', line: 1, col: 1 },
+    { type: 'name', value: '/F1', line: 2, col: 1 },
+    { type: 'number', value: '12', line: 2, col: 5 },
+    { type: 'operator', value: 'Tf', line: 2, col: 8 },
+    { type: 'number', value: '100', line: 3, col: 1 },
+    { type: 'number', value: '700', line: 3, col: 5 },
+    { type: 'operator', value: 'Td', line: 3, col: 9 },
+    { type: 'string', value: '(Hello World)', line: 4, col: 1 },
+    { type: 'operator', value: 'Tj', line: 4, col: 15 },
+    { type: 'operator', value: 'ET', line: 5, col: 1 },
+  ],
+  error: '',
+};
+
+// ---------------------------------------------------------------------------
+// 3.3-INTG-001 [P1]: DetailPanel passes tokenized data to ContentStreamViewer
+// and renders syntax-highlighted tokens.
+// AC#1: When stream node selected with tokenized data, operator tokens have
+//       text-token-operator class.
+// ---------------------------------------------------------------------------
+
+describe('3.3-INTG-001: DetailPanel syntax highlighting integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(streamDetail);
+    mockGetContentStream.mockResolvedValue(contentStreamDataWithTokens);
+  });
+
+  test('renders syntax-highlighted tokens with type-based CSS classes', async () => {
+    renderWithState('obj:0:10');
+
+    // Wait for content stream viewer to render
+    await waitFor(() => {
+      expect(screen.getByTestId('content-stream-viewer')).toBeInTheDocument();
+    });
+
+    // Operator tokens should have the operator CSS class
+    await waitFor(() => {
+      const btEl = screen.getByText('BT');
+      expect(btEl.className).toMatch(/text-token-operator/);
+    });
+  });
+
+  test('name tokens have text-token-name class in integration', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const nameEl = screen.getByText('/F1');
+      expect(nameEl.className).toMatch(/text-token-name/);
+    });
+  });
+
+  test('number tokens have text-token-number class in integration', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const numEl = screen.getByText('12');
+      expect(numEl.className).toMatch(/text-token-number/);
+    });
+  });
+
+  test('string tokens have text-token-string class in integration', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const strEl = screen.getByText('(Hello World)');
+      expect(strEl.className).toMatch(/text-token-string/);
+    });
+  });
+
+  test('operator tokens have font-semibold for non-color differentiation', async () => {
+    renderWithState('obj:0:10');
+
+    await waitFor(() => {
+      const btEl = screen.getByText('BT');
+      expect(btEl.className).toMatch(/font-semibold/);
+    });
+  });
+});

@@ -59,6 +59,11 @@
   --color-warning: var(--color-warning);
   --color-success: var(--color-success);
   --color-info: var(--color-info);
+  --color-token-operator: var(--color-token-operator);
+  --color-token-number: var(--color-token-number);
+  --color-token-string: var(--color-token-string);
+  --color-token-name: var(--color-token-name);
+  --color-token-comment: var(--color-token-comment);
 }
 
 /* Design tokens as CSS custom properties -- ALL values listed explicitly */
@@ -84,6 +89,13 @@
   --color-type-boolean: #db2777;
   --color-type-null: #94a3b8;
   --color-type-stream: #059669;
+
+  /* Content stream token colors */
+  --color-token-operator: #7c3aed;
+  --color-token-number: #2563eb;
+  --color-token-string: #b45309;
+  --color-token-name: #0f766e;
+  --color-token-comment: #64748b;
 
   /* Semantic colors */
   --color-error: #ef4444;

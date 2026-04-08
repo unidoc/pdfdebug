@@ -163,6 +163,7 @@ function DetailPanelInner() {
                 {contentStream && (
                   <ContentStreamViewer
                     raw={contentStream.raw}
+                    tokenized={contentStream.tokenized}
                     error={contentStream.error}
                   />
                 )}
