@@ -243,10 +243,12 @@ func TestDirectoryStructure(t *testing.T) {
 		}
 	}
 
-	// Verify testdata/.gitkeep exists
-	gitkeepPath := filepath.Join(root, "testdata", ".gitkeep")
-	if _, err := os.Stat(gitkeepPath); err != nil {
-		t.Errorf("[P2] testdata/.gitkeep not found: %v", err)
+	// Verify testdata/ directory exists (originally had .gitkeep, now has real PDF fixtures)
+	testdataPath := filepath.Join(root, "testdata")
+	if info, err := os.Stat(testdataPath); err != nil {
+		t.Errorf("[P2] testdata/ directory not found: %v", err)
+	} else if !info.IsDir() {
+		t.Errorf("[P2] testdata is not a directory")
 	}
 }
 
