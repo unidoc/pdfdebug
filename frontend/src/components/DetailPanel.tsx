@@ -11,7 +11,6 @@ import {
   DictView,
   ArrayView,
   ScalarView,
-  StreamMetadata,
 } from './DetailShared';
 import { ContentStreamViewer } from './ContentStreamViewer';
 
@@ -158,8 +157,6 @@ function DetailPanelInner() {
             )}
             {detail.type === 'stream' && (
               <>
-                <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
-                {detail.streamInfo && <StreamMetadata info={detail.streamInfo} />}
                 {contentStream && (
                   <ContentStreamViewer
                     raw={contentStream.raw}
