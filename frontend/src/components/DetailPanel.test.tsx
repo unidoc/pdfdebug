@@ -528,31 +528,17 @@ describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
     mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
   });
 
-  test('renders stream dictionary properties', async () => {
+  test('does not render stream dictionary properties (shown in ObjectInfoPanel)', async () => {
     renderWithState('obj:0:10');
 
     await waitFor(() => {
-      expect(screen.getByText('/Filter')).toBeInTheDocument();
-      expect(screen.getByText('/FlateDecode')).toBeInTheDocument();
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Content Stream');
     });
-  });
 
-  test('renders stream metadata length', async () => {
-    renderWithState('obj:0:10');
-
-    await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Length: 1234 bytes');
-    });
-  });
-
-  test('renders stream filter names', async () => {
-    renderWithState('obj:0:10');
-
-    await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: FlateDecode');
-    });
+    // Properties and metadata are in ObjectInfoPanel, not DetailPanel
+    expect(screen.queryByText('/Filter')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stream-metadata')).not.toBeInTheDocument();
   });
 
   test('header shows context label "Content Stream"', async () => {
@@ -694,7 +680,7 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
     });
   });
 
-  test('stream metadata shows "None" when filters list is empty', async () => {
+  test('stream metadata not rendered in DetailPanel (shown in ObjectInfoPanel)', async () => {
     const noFilterStream = {
       ...streamDetail,
       streamInfo: { length: 500, filters: [] },
@@ -704,25 +690,11 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
     renderWithState('obj:0:10');
 
     await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: None');
-      expect(metadata).toHaveTextContent('Length: 500 bytes');
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Content Stream');
     });
-  });
 
-  test('stream metadata shows comma-separated filter names for multiple filters', async () => {
-    const multiFilterStream = {
-      ...streamDetail,
-      streamInfo: { length: 2000, filters: ['FlateDecode', 'ASCII85Decode'] },
-    };
-    mockGetObjectDetail.mockResolvedValue(multiFilterStream);
-    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
-    renderWithState('obj:0:10');
-
-    await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: FlateDecode, ASCII85Decode');
-    });
+    expect(screen.queryByTestId('stream-metadata')).not.toBeInTheDocument();
   });
 
   test('scalar with null scalarValue shows "No value" fallback', async () => {
@@ -803,11 +775,6 @@ describe('3.2-INTG-001: DetailPanel content stream integration', () => {
 
   test('renders ContentStreamViewer with raw text when stream node selected', async () => {
     renderWithState('obj:0:10');
-
-    // Stream dict properties still render
-    await waitFor(() => {
-      expect(screen.getByText('/Filter')).toBeInTheDocument();
-    });
 
     // Content stream viewer renders with content
     await waitFor(() => {
@@ -947,9 +914,10 @@ describe('3.2-INTG-004: DetailPanel stale content stream cancellation', () => {
 
     const { rerender } = renderWithState('obj:0:10');
 
-    // Wait for stream detail to render
+    // Wait for stream detail to render (header shows Content Stream)
     await waitFor(() => {
-      expect(screen.getByText('/Filter')).toBeInTheDocument();
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Content Stream');
     });
 
     // Switch to a dict node before content stream resolves
