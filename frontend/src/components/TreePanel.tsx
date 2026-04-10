@@ -199,7 +199,8 @@ export function TreePanel() {
   }, []);
 
   // Navigate to a cross-reference target: fetch ancestor path, expand each
-  // ancestor, scroll to the node, select it, and flash-highlight briefly.
+  // ancestor (including intermediate dict/arr nodes), scroll to the target,
+  // select it, and flash-highlight briefly.
   // Uses a `cancelled` flag so an outdated navigation is discarded on cleanup.
   useEffect(() => {
     if (!pendingNavTarget || !activeTabId) return;
@@ -222,12 +223,11 @@ export function TreePanel() {
           return null;
         }
 
-        for (let i = 0; i < ancestorPath.length - 1; i++) {
-          const ancestorBackendId = ancestorPath[i];
-          const node = findByBackendId(treeDataRef.current, ancestorBackendId);
-          if (node && Array.isArray(node.children) && node.children.length === 0) {
-            const children = await GetChildren(activeTabId, ancestorBackendId);
-            if (cancelled) return;
+        // Expand a single node: fetch children if not loaded, open in tree
+        async function expandNode(node: TreeNodeData): Promise<boolean> {
+          if (node.hasChildren && Array.isArray(node.children) && node.children.length === 0) {
+            const children = await GetChildren(activeTabId!, node.backendId);
+            if (cancelled) return false;
             const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
             setTreeData((prev) => {
               const updated = updateNodeChildren(prev, node.id, mapped);
@@ -235,14 +235,59 @@ export function TreePanel() {
               return updated;
             });
           }
-          // Open by display id (react-arborist uses display ids)
-          if (node) treeRef.current?.open(node.id);
+          treeRef.current?.open(node.id);
+          return !cancelled;
+        }
+
+        // Expand intermediate container children (dict:/arr: nodes) between
+        // two obj: ancestors until nextId is reachable in the tree. The backend
+        // ancestor path only contains obj: IDs but the frontend tree has
+        // inline dict/arr nodes between them that also need expanding.
+        async function expandIntermediates(parentBackendId: string, nextId: string): Promise<boolean> {
+          if (findByBackendId(treeDataRef.current, nextId)) return true;
+          const parent = findByBackendId(treeDataRef.current, parentBackendId);
+          if (!parent?.children) return false;
+          const queue = parent.children.filter(
+            (c) => c.hasChildren && !c.backendId.startsWith('obj:')
+          );
+          for (const child of queue) {
+            if (!(await expandNode(child))) return false;
+            if (findByBackendId(treeDataRef.current, nextId)) return true;
+            // Check one more level: nested inline containers
+            const expanded = findByBackendId(treeDataRef.current, child.backendId);
+            if (expanded?.children) {
+              for (const grandchild of expanded.children) {
+                if (grandchild.hasChildren && !grandchild.backendId.startsWith('obj:')) {
+                  if (!(await expandNode(grandchild))) return false;
+                  if (findByBackendId(treeDataRef.current, nextId)) return true;
+                }
+              }
+            }
+          }
+          return !!findByBackendId(treeDataRef.current, nextId);
+        }
+
+        for (let i = 0; i < ancestorPath.length - 1; i++) {
+          const ancestorBackendId = ancestorPath[i];
+          const node = findByBackendId(treeDataRef.current, ancestorBackendId);
+          if (!node) break;
+          if (!(await expandNode(node))) return;
+
+          // Expand intermediate dict/arr children to reach the next node
+          const nextId = ancestorPath[i + 1];
+          if (!findByBackendId(treeDataRef.current, nextId)) {
+            await expandIntermediates(ancestorBackendId, nextId);
+            if (cancelled) return;
+          }
         }
 
         // Find target node by backendId
         const targetNode = findByBackendId(treeDataRef.current, pendingNavTarget);
         if (!targetNode) {
-          dispatch({ type: 'NAV_ERROR', payload: { message: `Target node ${pendingNavTarget} not found in tree` } });
+          // Extract object number for user-friendly message
+          const parts = pendingNavTarget.split(':');
+          const objNum = parts.length >= 3 ? parts[2] : pendingNavTarget;
+          dispatch({ type: 'NAV_ERROR', payload: { message: `Object ${objNum} not found in the document` } });
           return;
         }
 
