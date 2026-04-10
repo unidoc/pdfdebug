@@ -2,6 +2,7 @@
  * @file Presentational component that renders decoded PDF content stream
  * text with line numbers in a scrollable, monospace view. When tokenized
  * data is available, renders syntax-highlighted tokens instead of plain text.
+ * Supports toggling between "formatted" (syntax-highlighted) and "raw" (plain text) views.
  */
 import * as Tooltip from '@radix-ui/react-tooltip';
 
@@ -13,10 +14,14 @@ interface TokenData {
   col: number;
 }
 
+export type StreamViewMode = 'formatted' | 'raw';
+
 interface ContentStreamViewerProps {
   raw: string;
   tokenized?: TokenData[] | null;
   error?: string;
+  viewMode?: StreamViewMode;
+  onViewModeChange?: (mode: StreamViewMode) => void;
 }
 
 /** PDF operator descriptions for tooltip display. */
@@ -122,7 +127,7 @@ function OperatorToken({ token }: { token: TokenData }) {
       <Tooltip.Trigger asChild>{span}</Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content
-          className="bg-surface border border-border rounded px-2 py-1 text-xs text-text shadow-md"
+          className="bg-surface border border-border rounded px-2 py-1 text-xs text-text shadow-md z-50"
           data-testid="operator-tooltip"
           sideOffset={5}
         >
@@ -133,8 +138,59 @@ function OperatorToken({ token }: { token: TokenData }) {
   );
 }
 
-/** Renders decoded content stream as plain text with a line-number gutter. */
-export function ContentStreamViewer({ raw, tokenized, error }: ContentStreamViewerProps) {
+/** View mode segmented control above the stream content. */
+function ViewModeControl({
+  viewMode,
+  onViewModeChange,
+  hasTokens,
+}: {
+  viewMode: StreamViewMode;
+  onViewModeChange: (mode: StreamViewMode) => void;
+  hasTokens: boolean;
+}) {
+  return (
+    <div
+      className="flex-shrink-0 flex gap-0 border-b border-border px-3 py-1.5"
+      role="tablist"
+      aria-label="Content stream view mode"
+      data-testid="view-mode-control"
+    >
+      <button
+        role="tab"
+        aria-selected={viewMode === 'formatted'}
+        aria-disabled={!hasTokens}
+        disabled={!hasTokens}
+        className={`relative px-3 py-1 text-xs border rounded-l transition-colors ${
+          viewMode === 'formatted'
+            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10'
+            : hasTokens
+              ? 'bg-surface text-text-secondary border-border hover:bg-hover'
+              : 'bg-surface text-text-muted border-border cursor-not-allowed opacity-50'
+        }`}
+        onClick={() => onViewModeChange('formatted')}
+        data-testid="view-mode-formatted"
+      >
+        Formatted
+      </button>
+      <button
+        role="tab"
+        aria-selected={viewMode === 'raw'}
+        className={`relative px-3 py-1 text-xs border rounded-r transition-colors -ml-px ${
+          viewMode === 'raw'
+            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10'
+            : 'bg-surface text-text-secondary border-border hover:bg-hover'
+        }`}
+        onClick={() => onViewModeChange('raw')}
+        data-testid="view-mode-raw"
+      >
+        Raw
+      </button>
+    </div>
+  );
+}
+
+/** Renders decoded content stream with a view mode toggle and line-number gutter. */
+export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlledMode, onViewModeChange }: ContentStreamViewerProps) {
   if (error) {
     return (
       <div
@@ -146,7 +202,10 @@ export function ContentStreamViewer({ raw, tokenized, error }: ContentStreamView
     );
   }
 
-  const useTokens = tokenized && tokenized.length > 0;
+  const hasTokens = !!(tokenized && tokenized.length > 0);
+  // If no tokens available, force raw mode regardless of controlled value
+  const effectiveMode = hasTokens ? (controlledMode ?? 'formatted') : 'raw';
+  const useTokens = hasTokens && effectiveMode === 'formatted';
   const rawLines = raw ? raw.split('\n') : [];
 
   // Group tokens by line number
@@ -161,19 +220,35 @@ export function ContentStreamViewer({ raw, tokenized, error }: ContentStreamView
 
   // Avoid Math.max(...spread) -- large token arrays blow the call stack.
   let maxTokenLine = 0;
+  // Strip leading whitespace: find the minimum column of any first-on-line token
+  let minCol = Infinity;
   if (useTokens) {
     for (const t of tokenized) {
       if (t.line > maxTokenLine) maxTokenLine = t.line;
     }
+    for (const [, toks] of tokensByLine) {
+      if (toks.length > 0 && toks[0].col < minCol) {
+        minCol = toks[0].col;
+      }
+    }
   }
+  const colOffset = minCol === Infinity ? 0 : minCol - 1;
   const lineCount = Math.max(maxTokenLine, rawLines.length);
 
   return (
     <Tooltip.Provider delayDuration={300}>
       <div
-        className="flex-1 min-h-0 overflow-auto"
+        className="flex-1 min-h-0 flex flex-col"
         data-testid="content-stream-viewer"
       >
+        {onViewModeChange && (
+          <ViewModeControl
+            viewMode={effectiveMode}
+            onViewModeChange={onViewModeChange}
+            hasTokens={hasTokens}
+          />
+        )}
+        <div className="flex-1 min-h-0 overflow-auto">
         <div className="flex">
           <div
             className="flex-shrink-0 text-right pr-3 select-none text-text-muted text-xs font-mono border-r border-border"
@@ -196,10 +271,10 @@ export function ContentStreamViewer({ raw, tokenized, error }: ContentStreamView
                     return <div key={i}>{''}</div>;
                   }
                   const spans: React.ReactNode[] = [];
-                  let cursor = 1; // current column position
+                  let cursor = 1 + colOffset; // shift start by common indent
                   for (let ti = 0; ti < lineToks.length; ti++) {
                     const tok = lineToks[ti];
-                    // Insert spacing
+                    // Insert spacing (adjusted for stripped leading whitespace)
                     const gap = tok.col - cursor;
                     if (gap > 0) {
                       spans.push(' '.repeat(gap));
@@ -222,6 +297,7 @@ export function ContentStreamViewer({ raw, tokenized, error }: ContentStreamView
                 ))
             }
           </div>
+        </div>
         </div>
       </div>
     </Tooltip.Provider>

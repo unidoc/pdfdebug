@@ -12,7 +12,7 @@ import {
   ArrayView,
   ScalarView,
 } from './DetailShared';
-import { ContentStreamViewer } from './ContentStreamViewer';
+import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -37,6 +37,7 @@ function DetailPanelInner() {
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
   const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
+  const [streamViewMode, setStreamViewMode] = useState<StreamViewMode>('formatted');
 
   useEffect(() => {
     if (!activeTabId || !selectedNodeId) {
@@ -162,6 +163,8 @@ function DetailPanelInner() {
                     raw={contentStream.raw}
                     tokenized={contentStream.tokenized}
                     error={contentStream.error}
+                    viewMode={streamViewMode}
+                    onViewModeChange={setStreamViewMode}
                   />
                 )}
                 {showContentStreamLoading && !contentStream && (
