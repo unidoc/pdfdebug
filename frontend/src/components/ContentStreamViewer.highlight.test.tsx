@@ -228,6 +228,8 @@ describe('3.3-UNIT-LINENUMS: Line numbers with tokenized data', () => {
 
     const viewer = screen.getByTestId('content-stream-viewer');
     expect(viewer).toBeInTheDocument();
-    expect(viewer.className).toMatch(/overflow-auto/);
+    // overflow-auto is on the inner scroll container
+    const scrollArea = viewer.querySelector('.overflow-auto');
+    expect(scrollArea).not.toBeNull();
   });
 });

@@ -8,9 +8,9 @@
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 // RED PHASE: This import will fail until ContentStreamViewer.tsx is created.
-import { ContentStreamViewer } from './ContentStreamViewer';
+import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
 const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 
@@ -126,11 +126,13 @@ describe('3.2-UNIT-003: ContentStreamViewer gutter styling', () => {
 // ---------------------------------------------------------------------------
 
 describe('3.2-UNIT-004: ContentStreamViewer scrollable container', () => {
-  test('outer wrapper has overflow-auto for scrollability', () => {
+  test('content area has overflow-auto for scrollability', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
     const viewer = screen.getByTestId('content-stream-viewer');
-    expect(viewer.className).toMatch(/overflow-auto/);
+    // overflow-auto is on the inner scroll container (child of the outer wrapper)
+    const scrollArea = viewer.querySelector('.overflow-auto');
+    expect(scrollArea).not.toBeNull();
   });
 
   test('outer wrapper fills available height', () => {
@@ -435,5 +437,189 @@ describe('3.3-UNIT-EDGE: ContentStreamViewer edge cases', () => {
     const gutter = screen.getByTestId('content-stream-gutter');
     // raw.split('\n') gives 3 entries for "BT\nET\n", so 3 lines
     expect(gutter).toHaveTextContent('3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story 3.4: View mode toggle unit tests
+// ---------------------------------------------------------------------------
+
+// Helper to render with controlled view mode
+function renderWithToggle(
+  props: {
+    raw: string;
+    tokenized?: typeof tokenizedFixture | null;
+    error?: string;
+    viewMode?: StreamViewMode;
+  },
+) {
+  const onViewModeChange = vi.fn();
+  const result = render(
+    <ContentStreamViewer
+      raw={props.raw}
+      tokenized={props.tokenized}
+      error={props.error}
+      viewMode={props.viewMode ?? 'formatted'}
+      onViewModeChange={onViewModeChange}
+    />
+  );
+  return { ...result, onViewModeChange };
+}
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-001 [P0]: Segmented control renders with Formatted and Raw options
+// AC#1: Segmented control appears above stream content.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-001: View mode segmented control rendering', () => {
+  test('renders Formatted and Raw buttons when onViewModeChange is provided', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+
+    expect(screen.getByTestId('view-mode-control')).toBeInTheDocument();
+    expect(screen.getByTestId('view-mode-formatted')).toHaveTextContent('Formatted');
+    expect(screen.getByTestId('view-mode-raw')).toHaveTextContent('Raw');
+  });
+
+  test('does not render segmented control when onViewModeChange is not provided', () => {
+    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+
+    expect(screen.queryByTestId('view-mode-control')).not.toBeInTheDocument();
+  });
+
+  test('segmented control has tablist role', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+
+    expect(screen.getByTestId('view-mode-control')).toHaveAttribute('role', 'tablist');
+  });
+
+  test('buttons have tab role with aria-selected', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'formatted' });
+
+    expect(screen.getByTestId('view-mode-formatted')).toHaveAttribute('role', 'tab');
+    expect(screen.getByTestId('view-mode-formatted')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('view-mode-raw')).toHaveAttribute('role', 'tab');
+    expect(screen.getByTestId('view-mode-raw')).toHaveAttribute('aria-selected', 'false');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-002 [P0]: Default view mode is Formatted
+// AC#1: Default selection is "Formatted" when tokenized data is available.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-002: Default view mode is Formatted', () => {
+  test('Formatted is selected by default when tokens available', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+
+    expect(screen.getByTestId('view-mode-formatted')).toHaveAttribute('aria-selected', 'true');
+    // Should render syntax-highlighted tokens
+    const content = screen.getByTestId('content-stream-content');
+    expect(content.querySelector('.text-token-operator')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-003 [P0]: Clicking Raw switches to plain text rendering
+// AC#2: Stream content switches to plain text with no syntax highlighting.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-003: Switching to Raw mode', () => {
+  test('clicking Raw calls onViewModeChange with "raw"', async () => {
+    const user = userEvent.setup();
+    const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+
+    await user.click(screen.getByTestId('view-mode-raw'));
+    expect(onViewModeChange).toHaveBeenCalledWith('raw');
+  });
+
+  test('raw mode renders plain text without token CSS classes', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'raw' });
+
+    const content = screen.getByTestId('content-stream-content');
+    expect(content.querySelector('.text-token-operator')).toBeNull();
+    expect(content.querySelector('.text-token-number')).toBeNull();
+    expect(content).toHaveTextContent('BT');
+    expect(content).toHaveTextContent('ET');
+  });
+
+  test('raw mode still renders line numbers', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'raw' });
+
+    const gutter = screen.getByTestId('content-stream-gutter');
+    expect(gutter).toHaveTextContent('1');
+    expect(gutter).toHaveTextContent('5');
+  });
+
+  test('Raw button shows as selected in raw mode', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'raw' });
+
+    expect(screen.getByTestId('view-mode-raw')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('view-mode-formatted')).toHaveAttribute('aria-selected', 'false');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-004 [P0]: Clicking Formatted switches back to highlighted view
+// AC#2: Toggling back restores syntax highlighting.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-004: Switching back to Formatted mode', () => {
+  test('clicking Formatted calls onViewModeChange with "formatted"', async () => {
+    const user = userEvent.setup();
+    const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'raw' });
+
+    await user.click(screen.getByTestId('view-mode-formatted'));
+    expect(onViewModeChange).toHaveBeenCalledWith('formatted');
+  });
+
+  test('formatted mode renders syntax-highlighted tokens', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'formatted' });
+
+    const content = screen.getByTestId('content-stream-content');
+    expect(content.querySelector('.text-token-operator')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-005 [P1]: Formatted disabled when tokenized data is unavailable
+// AC#4: Formatted option is disabled, defaults to Raw.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-005: Formatted disabled when no tokens', () => {
+  test('Formatted button is disabled when tokenized is null', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: null });
+
+    const btn = screen.getByTestId('view-mode-formatted');
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('Formatted button is disabled when tokenized is empty', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: [] });
+
+    expect(screen.getByTestId('view-mode-formatted')).toBeDisabled();
+  });
+
+  test('forces raw mode when no tokens even if viewMode is formatted', () => {
+    renderWithToggle({ raw: multiLineRaw, tokenized: null, viewMode: 'formatted' });
+
+    // Should render raw despite viewMode prop
+    const content = screen.getByTestId('content-stream-content');
+    expect(content.querySelector('.text-token-operator')).toBeNull();
+    expect(screen.getByTestId('view-mode-raw')).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3.4-UNIT-006 [P1]: Error state takes priority over view mode
+// AC#5: Error display shown regardless of view mode.
+// ---------------------------------------------------------------------------
+
+describe('3.4-UNIT-006: Error state priority over view mode', () => {
+  test('error renders error display, no segmented control', () => {
+    renderWithToggle({ raw: '', error: 'decode failed' });
+
+    expect(screen.getByTestId('content-stream-error')).toHaveTextContent('decode failed');
+    expect(screen.queryByTestId('view-mode-control')).not.toBeInTheDocument();
   });
 });
