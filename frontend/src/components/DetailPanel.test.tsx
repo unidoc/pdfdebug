@@ -194,6 +194,7 @@ function renderWithState(
     payload: {
       tabId: 'tab-1',
       fileName: 'test.pdf',
+      filePath: '/path/to/test.pdf',
       rootNode: catalogNode,
       rootChildren: rootChildren,
     },
@@ -590,7 +591,7 @@ describe('2.7-UNIT-009: DetailPanel stale fetch cancellation', () => {
       <AppProvider>
         <DispatchHelper action={{
           type: 'OPEN_DOCUMENT',
-          payload: { tabId: 'tab-1', fileName: 'test.pdf', rootNode: catalogNode, rootChildren: rootChildren },
+          payload: { tabId: 'tab-1', fileName: 'test.pdf', filePath: '/path/to/test.pdf', rootNode: catalogNode, rootChildren: rootChildren },
         }} />
         <DispatchHelper action={{
           type: 'SELECT_NODE',
@@ -636,7 +637,7 @@ describe('2.7-UNIT-010: DetailPanel clears on node change', () => {
       <AppProvider>
         <DispatchHelper action={{
           type: 'OPEN_DOCUMENT',
-          payload: { tabId: 'tab-1', fileName: 'test.pdf', rootNode: catalogNode, rootChildren: rootChildren },
+          payload: { tabId: 'tab-1', fileName: 'test.pdf', filePath: '/path/to/test.pdf', rootNode: catalogNode, rootChildren: rootChildren },
         }} />
         <DispatchHelper action={{
           type: 'SELECT_NODE',
@@ -929,6 +930,7 @@ describe('3.2-INTG-004: DetailPanel stale content stream cancellation', () => {
             payload: {
               tabId: 'tab-1',
               fileName: 'test.pdf',
+              filePath: '/path/to/test.pdf',
               rootNode: catalogNode,
               rootChildren: rootChildren,
             },

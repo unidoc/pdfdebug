@@ -196,6 +196,7 @@ const openAction: AppAction = {
   payload: {
     tabId: 'tab-1',
     fileName: 'test.pdf',
+    filePath: '/path/to/test.pdf',
     rootNode: catalogNode,
     rootChildren: rootChildren,
   },

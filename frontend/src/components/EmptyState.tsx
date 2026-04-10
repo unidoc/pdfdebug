@@ -132,6 +132,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
         payload: {
           tabId: result.tabId,
           fileName: result.fileName,
+          filePath: result.filePath,
           rootNode: result.rootNode,
           rootChildren: result.rootChildren,
         },

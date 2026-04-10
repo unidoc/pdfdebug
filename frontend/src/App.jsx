@@ -9,6 +9,7 @@ import { mapErrorMessage } from './hooks/usePDFService'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
+import { TabBar } from './components/TabBar'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -44,6 +45,7 @@ function AppContent() {
         payload: {
           tabId: data.tabId,
           fileName: data.fileName,
+          filePath: data.filePath ?? '',
           rootNode: data.rootNode ?? null,
           rootChildren: data.rootChildren ?? null,
         },
@@ -91,11 +93,7 @@ function AppContent() {
           onDismiss={() => dispatch({ type: 'DISMISS_WARNING' })}
         />
       )}
-      {activeTab && (
-        <div className="px-3 py-1.5 text-sm text-text-secondary border-b border-border truncate" data-testid="document-header">
-          {activeTab.fileName}
-        </div>
-      )}
+      {tabs.length > 0 && <TabBar />}
       <div className="flex-1 min-h-0">
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>

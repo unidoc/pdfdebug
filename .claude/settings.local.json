@@ -29,7 +29,8 @@
       "Bash(go mod:*)",
       "Bash(go list:*)",
       "mcp__plugin_context7_context7__query-docs",
-      "Bash(go doc:*)"
+      "Bash(go doc:*)",
+      "Bash(ls:*)"
     ]
   }
 }

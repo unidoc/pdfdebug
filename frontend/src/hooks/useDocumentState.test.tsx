@@ -80,6 +80,7 @@ describe('2.4-UNIT-001: appReducer', () => {
       payload: {
         tabId: 'tab-1',
         fileName: 'test.pdf',
+        filePath: '/path/to/test.pdf',
         rootNode: catalogNode,
         rootChildren: childNodes,
       },
@@ -128,6 +129,7 @@ describe('2.4-UNIT-001: appReducer', () => {
                 payload: {
                   tabId: 'tab-2',
                   fileName: 'good.pdf',
+                  filePath: '/path/to/good.pdf',
                   rootNode: catalogNode,
                   rootChildren: childNodes,
                 },
@@ -168,6 +170,7 @@ describe('2.4-UNIT-001: appReducer', () => {
                 payload: {
                   tabId: 'tab-x',
                   fileName: 'x.pdf',
+                  filePath: '/path/to/x.pdf',
                   rootNode: null,
                   rootChildren: null,
                 },
@@ -198,7 +201,7 @@ describe('2.4-UNIT-001: appReducer', () => {
     expect(screen.getByTestId('active').textContent).toBe('null');
   });
 
-  test('SET_DOCUMENT_ERROR sets error and clears tabs/activeTabId', () => {
+  test('SET_DOCUMENT_ERROR sets error and clears warning (from empty state)', () => {
     const action: AppAction = {
       type: 'SET_DOCUMENT_ERROR',
       payload: { message: 'encrypted file' },

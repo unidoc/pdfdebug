@@ -30,6 +30,7 @@ export interface NavHistoryEntry {
 export interface TabState {
   tabId: string;
   fileName: string;
+  filePath: string;
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
   selectedNodeId: string | null;
@@ -51,7 +52,8 @@ export interface AppState {
 
 /** Union of all actions the app reducer handles. */
 export type AppAction =
-  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
+  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
+  | { type: 'ACTIVATE_TAB'; payload: { tabId: string } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
   | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; isHistoryNav?: boolean } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
@@ -81,9 +83,25 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
+      // Duplicate file detection: if a tab with the same filePath exists, activate it.
+      // TODO(4-2): The backend has already parsed the PDF for the new tabId. When
+      // dedup fires, that backend DocumentState leaks. Call CloseDocument outside
+      // the reducer in story 4-2 to free it.
+      if (action.payload.filePath) {
+        const existing = state.tabs.find((t) => t.filePath === action.payload.filePath);
+        if (existing) {
+          return {
+            ...state,
+            activeTabId: existing.tabId,
+            documentError: null,
+            documentWarning: null,
+          };
+        }
+      }
       const newTab: TabState = {
         tabId: action.payload.tabId,
         fileName: action.payload.fileName,
+        filePath: action.payload.filePath,
         rootNode: action.payload.rootNode,
         rootChildren: action.payload.rootChildren,
         selectedNodeId: null,
@@ -94,23 +112,40 @@ function appReducer(state: AppState, action: AppAction): AppState {
         navHistory: [],
         navHistoryIndex: -1,
       };
-      // Single-document mode: replaces all tabs. Multi-tab planned for Epic 4.
       return {
         ...state,
-        tabs: [newTab],
+        tabs: [...state.tabs, newTab],
         activeTabId: action.payload.tabId,
         documentError: null,
         documentWarning: null,
       };
     }
     case 'CLOSE_DOCUMENT': {
+      const closingActive = state.activeTabId === action.payload.tabId;
+      const closedIndex = state.tabs.findIndex((t) => t.tabId === action.payload.tabId);
       const filtered = state.tabs.filter((t) => t.tabId !== action.payload.tabId);
+      let nextActiveId = state.activeTabId;
+      if (closingActive) {
+        if (filtered.length === 0) {
+          nextActiveId = null;
+        } else {
+          // Prefer the tab that was to the right; fall back to the one to the left
+          const adjacentIndex = Math.min(closedIndex, filtered.length - 1);
+          nextActiveId = filtered[adjacentIndex].tabId;
+        }
+      }
       return {
         ...state,
         tabs: filtered,
-        activeTabId: filtered.length > 0 ? filtered[filtered.length - 1].tabId : null,
-        documentWarning: null,
+        activeTabId: nextActiveId,
+        documentError: closingActive ? null : state.documentError,
+        documentWarning: closingActive ? null : state.documentWarning,
       };
+    }
+    case 'ACTIVATE_TAB': {
+      const tabExists = state.tabs.some((t) => t.tabId === action.payload.tabId);
+      if (!tabExists) return state;
+      return { ...state, activeTabId: action.payload.tabId };
     }
     case 'SELECT_NODE': {
       if (state.activeTabId === null) return state;
@@ -157,12 +192,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SET_DOCUMENT_ERROR': {
+      // In multi-tab mode, preserve existing tabs -- the error banner is
+      // informational about the failed open attempt, not a reason to close
+      // every open document.
       return {
         ...state,
-        tabs: [],
         documentError: action.payload.message,
         documentWarning: null,
-        activeTabId: null,
       };
     }
     case 'DISMISS_ERROR': {

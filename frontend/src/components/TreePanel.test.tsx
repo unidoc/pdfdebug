@@ -169,6 +169,7 @@ const openAction: AppAction = {
   payload: {
     tabId: 'tab-1',
     fileName: 'test.pdf',
+    filePath: '/path/to/test.pdf',
     rootNode: catalogNode,
     rootChildren: childNodes,
   },
@@ -179,6 +180,7 @@ const openActionWithError: AppAction = {
   payload: {
     tabId: 'tab-err',
     fileName: 'broken.pdf',
+    filePath: '/path/to/broken.pdf',
     rootNode: catalogNode,
     rootChildren: [...childNodes, errorChildNode],
   },
@@ -871,6 +873,7 @@ describe('2.5-UNIT-STATE: SELECT_NODE action in useDocumentState', () => {
                 payload: {
                   tabId: 'tab-state-test',
                   fileName: 'test.pdf',
+                  filePath: '/path/to/test.pdf',
                   rootNode: catalogNode,
                   rootChildren: childNodes,
                 },
@@ -914,6 +917,7 @@ describe('2.5-UNIT-STATE: SELECT_NODE action in useDocumentState', () => {
                 payload: {
                   tabId: 'tab-sel',
                   fileName: 'test.pdf',
+                  filePath: '/path/to/test-sel.pdf',
                   rootNode: catalogNode,
                   rootChildren: childNodes,
                 },
@@ -1153,6 +1157,7 @@ describe('2.5-UNIT-EMPTY-ROOT: TreePanel with null rootChildren', () => {
       payload: {
         tabId: 'tab-null',
         fileName: 'empty.pdf',
+        filePath: '/path/to/empty.pdf',
         rootNode: catalogNode,
         rootChildren: null,
       },
