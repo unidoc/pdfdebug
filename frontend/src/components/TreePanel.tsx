@@ -223,17 +223,18 @@ export function TreePanel() {
           return null;
         }
 
-        // Expand a single node: fetch children if not loaded, open in tree
+        // Expand a single node: fetch children if not loaded, open in tree.
+        // Updates treeDataRef directly so subsequent reads within this async
+        // flow see the new children immediately (React 18 batching defers
+        // the setState updater to the render phase).
         async function expandNode(node: TreeNodeData): Promise<boolean> {
           if (node.hasChildren && Array.isArray(node.children) && node.children.length === 0) {
             const children = await GetChildren(activeTabId!, node.backendId);
             if (cancelled) return false;
             const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
-            setTreeData((prev) => {
-              const updated = updateNodeChildren(prev, node.id, mapped);
-              treeDataRef.current = updated;
-              return updated;
-            });
+            const updated = updateNodeChildren(treeDataRef.current, node.id, mapped);
+            treeDataRef.current = updated;
+            setTreeData(updated);
           }
           treeRef.current?.open(node.id);
           return !cancelled;
