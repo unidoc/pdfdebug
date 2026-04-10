@@ -2,7 +2,7 @@
  * @file Right-hand detail panel. Shows the full object detail for the
  * selected tree node, with a contextual header label.
  */
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { GetObjectDetail, GetContentStream } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData } from '../../bindings/unipdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
@@ -30,6 +30,11 @@ function DetailPanelInner() {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeLabel = activeTab?.selectedNodeLabel ?? null;
   const selectedNodeRawKey = activeTab?.selectedNodeRawKey ?? null;
+  const navHistory = activeTab?.navHistory ?? [];
+  const navHistoryIndex = activeTab?.navHistoryIndex ?? -1;
+  const canGoBack = navHistoryIndex > 0;
+  const canGoForward = navHistoryIndex < navHistory.length - 1;
+  const isMac = useMemo(() => navigator.platform.startsWith('Mac'), []);
 
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +112,23 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [contentStreamLoading]);
 
+  // Keyboard shortcuts: Cmd+[ / Ctrl+[ for back, Cmd+] / Ctrl+] for forward
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === '[') {
+        e.preventDefault();
+        if (canGoBack) dispatch({ type: 'NAVIGATE_BACK' });
+      } else if (e.key === ']') {
+        e.preventDefault();
+        if (canGoForward) dispatch({ type: 'NAVIGATE_FORWARD' });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [canGoBack, canGoForward, dispatch]);
+
   /** Navigate the tree to the referenced PDF object. */
   const handleReferenceClick = useCallback((refTarget: string) => {
     if (refTarget) {
@@ -145,7 +167,31 @@ function DetailPanelInner() {
               className="px-3 py-1.5 border-b border-border flex-shrink-0 flex items-center justify-between"
               data-testid="detail-panel-header"
             >
-              <span className="text-sm font-medium text-text-secondary">{headerLabel}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => dispatch({ type: 'NAVIGATE_BACK' })}
+                    disabled={!canGoBack}
+                    title={`Back (${isMac ? 'Cmd+[' : 'Ctrl+['})`}
+                    className={`p-0.5 rounded text-sm ${canGoBack ? 'text-text-secondary hover:bg-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
+                    data-testid="nav-back-button"
+                    aria-label="Navigate back"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'NAVIGATE_FORWARD' })}
+                    disabled={!canGoForward}
+                    title={`Forward (${isMac ? 'Cmd+]' : 'Ctrl+]'})`}
+                    className={`p-0.5 rounded text-sm ${canGoForward ? 'text-text-secondary hover:bg-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
+                    data-testid="nav-forward-button"
+                    aria-label="Navigate forward"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                  </button>
+                </div>
+                <span className="text-sm font-medium text-text-secondary">{headerLabel}</span>
+              </div>
               {detail.objectRef && (
                 <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
               )}

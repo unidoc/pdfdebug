@@ -19,6 +19,13 @@ export interface TreeNode {
   error: string;
 }
 
+/** Entry in the navigation history stack. */
+export interface NavHistoryEntry {
+  nodeId: string;
+  label: string | null;
+  rawKey: string | null;
+}
+
 /** Per-document tab state including tree root, selection, and navigation. */
 export interface TabState {
   tabId: string;
@@ -30,6 +37,8 @@ export interface TabState {
   selectedNodeRawKey: string | null;
   pendingNavTarget: string | null;
   navError: string | null;
+  navHistory: NavHistoryEntry[];
+  navHistoryIndex: number;
 }
 
 /** Top-level application state. */
@@ -44,7 +53,7 @@ export interface AppState {
 export type AppAction =
   | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
-  | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string } }
+  | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; isHistoryNav?: boolean } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
   | { type: 'DISMISS_ERROR' }
   | { type: 'NAVIGATE_TO_REF'; payload: { targetNodeId: string } }
@@ -52,7 +61,9 @@ export type AppAction =
   | { type: 'NAV_ERROR'; payload: { message: string } }
   | { type: 'DISMISS_NAV_ERROR' }
   | { type: 'SET_DOCUMENT_WARNING'; payload: { message: string } }
-  | { type: 'DISMISS_WARNING' };
+  | { type: 'DISMISS_WARNING' }
+  | { type: 'NAVIGATE_BACK' }
+  | { type: 'NAVIGATE_FORWARD' };
 
 // --- Reducer ---
 
@@ -80,6 +91,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         selectedNodeRawKey: null,
         pendingNavTarget: null,
         navError: null,
+        navHistory: [],
+        navHistoryIndex: -1,
       };
       // Single-document mode: replaces all tabs. Multi-tab planned for Epic 4.
       return {
@@ -104,11 +117,43 @@ function appReducer(state: AppState, action: AppAction): AppState {
       if (!action.payload.nodeId) return state;
       return {
         ...state,
-        tabs: state.tabs.map((tab) =>
-          tab.tabId === state.activeTabId
-            ? { ...tab, selectedNodeId: action.payload.nodeId, selectedNodeLabel: action.payload.label ?? null, selectedNodeRawKey: action.payload.rawKey ?? null }
-            : tab
-        ),
+        tabs: state.tabs.map((tab) => {
+          if (tab.tabId !== state.activeTabId) return tab;
+          const entry: NavHistoryEntry = {
+            nodeId: action.payload.nodeId,
+            label: action.payload.label ?? null,
+            rawKey: action.payload.rawKey ?? null,
+          };
+          // History navigation: just update selection, don't push
+          if (action.payload.isHistoryNav) {
+            return {
+              ...tab,
+              selectedNodeId: entry.nodeId,
+              selectedNodeLabel: entry.label,
+              selectedNodeRawKey: entry.rawKey,
+            };
+          }
+          // Skip duplicate if same node is already current
+          const current = tab.navHistoryIndex >= 0 ? tab.navHistory[tab.navHistoryIndex] : null;
+          if (current && current.nodeId === entry.nodeId) {
+            return {
+              ...tab,
+              selectedNodeId: entry.nodeId,
+              selectedNodeLabel: entry.label,
+              selectedNodeRawKey: entry.rawKey,
+            };
+          }
+          // Normal navigation: truncate forward history, push new entry
+          const truncated = tab.navHistory.slice(0, tab.navHistoryIndex + 1);
+          return {
+            ...tab,
+            selectedNodeId: entry.nodeId,
+            selectedNodeLabel: entry.label,
+            selectedNodeRawKey: entry.rawKey,
+            navHistory: [...truncated, entry],
+            navHistoryIndex: truncated.length,
+          };
+        }),
       };
     }
     case 'SET_DOCUMENT_ERROR': {
@@ -175,6 +220,44 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'DISMISS_WARNING': {
       return { ...state, documentWarning: null };
+    }
+    case 'NAVIGATE_BACK': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) => {
+          if (tab.tabId !== state.activeTabId) return tab;
+          if (tab.navHistoryIndex <= 0) return tab;
+          const newIndex = tab.navHistoryIndex - 1;
+          const entry = tab.navHistory[newIndex];
+          return {
+            ...tab,
+            navHistoryIndex: newIndex,
+            selectedNodeId: entry.nodeId,
+            selectedNodeLabel: entry.label,
+            selectedNodeRawKey: entry.rawKey,
+          };
+        }),
+      };
+    }
+    case 'NAVIGATE_FORWARD': {
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) => {
+          if (tab.tabId !== state.activeTabId) return tab;
+          if (tab.navHistoryIndex >= tab.navHistory.length - 1) return tab;
+          const newIndex = tab.navHistoryIndex + 1;
+          const entry = tab.navHistory[newIndex];
+          return {
+            ...tab,
+            navHistoryIndex: newIndex,
+            selectedNodeId: entry.nodeId,
+            selectedNodeLabel: entry.label,
+            selectedNodeRawKey: entry.rawKey,
+          };
+        }),
+      };
     }
     default: {
       const _exhaustive: never = action;

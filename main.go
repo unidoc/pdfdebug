@@ -109,6 +109,35 @@ func main() {
 	// Edit menu (standard roles -- Cut, Copy, Paste, Select All, etc.)
 	menu.AddRole(application.EditMenu)
 
+	// Navigate menu
+	navMenu := menu.AddSubmenu("Navigate")
+	navBackItem := navMenu.Add("Back").
+		SetAccelerator("CmdOrCtrl+[").
+		SetEnabled(false).
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("navigate:back", nil)
+		})
+	navForwardItem := navMenu.Add("Forward").
+		SetAccelerator("CmdOrCtrl+]").
+		SetEnabled(false).
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("navigate:forward", nil)
+		})
+
+	// Frontend sends navigation state changes to sync menu enabled state
+	app.Event.On("navigate:state-changed", func(event *application.CustomEvent) {
+		data, ok := event.Data.(map[string]any)
+		if !ok {
+			return
+		}
+		if canBack, ok := data["canGoBack"].(bool); ok {
+			navBackItem.SetEnabled(canBack)
+		}
+		if canFwd, ok := data["canGoForward"].(bool); ok {
+			navForwardItem.SetEnabled(canFwd)
+		}
+	})
+
 	app.Menu.SetApplicationMenu(menu)
 
 	// Create main window
