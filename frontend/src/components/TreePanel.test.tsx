@@ -1330,3 +1330,153 @@ describe('4.2-UNIT-004: Tree expansion state preserved across tab switches', () 
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story 4.3 supplemental: Tree cache cleanup on tab close
+//
+// Verifies that the treeDataCache cleanup useEffect (TreePanel.tsx lines
+// 235-246) evicts entries for closed tabs. Since the cache is a useRef
+// (not directly accessible from tests), we verify indirectly: open two tabs,
+// expand a node in tab-1, close tab-1, open a NEW tab with a different
+// tabId+filePath, and verify the new tab's tree starts fully collapsed
+// (only root expanded) rather than inheriting tab-1's expanded state.
+// ---------------------------------------------------------------------------
+
+describe('4.3 supplemental: Tree cache cleanup on tab close', () => {
+  test('closed tab cache is evicted; new tab starts with fresh tree state', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    // First GetChildren call for expanding Pages in tab-1
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    const catalogNodeC = {
+      id: 'root',
+      label: 'Catalog C',
+      rawKey: '',
+      nodeType: 'dict',
+      valueType: '',
+      hasChildren: true,
+      childCount: 1,
+      iconHint: 'catalog',
+      error: '',
+    };
+
+    const childNodesC = [
+      {
+        id: 'dict:root:Type',
+        label: 'TypeC',
+        rawKey: '/Type',
+        nodeType: 'scalar',
+        valueType: 'name',
+        hasChildren: false,
+        childCount: 0,
+        iconHint: 'default',
+        error: '',
+      },
+    ];
+
+    function MultiTabTree() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      return (
+        <div>
+          <button
+            data-testid="open-tab1"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: catalogNode, rootChildren: childNodes },
+              })
+            }
+          />
+          <button
+            data-testid="open-tab2"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: catalogNodeC, rootChildren: childNodesC },
+              })
+            }
+          />
+          <button
+            data-testid="close-tab1"
+            onClick={() =>
+              dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })
+            }
+          />
+          <button
+            data-testid="open-tab3"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: catalogNode, rootChildren: childNodes },
+              })
+            }
+          />
+          <button
+            data-testid="activate-tab3"
+            onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-3' } })}
+          />
+          <span data-testid="active-tab">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <TreePanel />
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <MultiTabTree />
+      </AppProvider>
+    );
+
+    // Step 1: Open tab-1 and expand Pages
+    act(() => screen.getByTestId('open-tab1').click());
+
+    await waitFor(() => {
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+    });
+
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+    });
+
+    // Step 2: Open tab-2 (switches away from tab-1)
+    act(() => screen.getByTestId('open-tab2').click());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-tab').textContent).toBe('tab-2');
+    });
+
+    // Step 3: Close tab-1 (triggers cache eviction)
+    act(() => screen.getByTestId('close-tab1').click());
+
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+
+    // Step 4: Open a NEW tab with the same rootNode/rootChildren as tab-1
+    // but a DIFFERENT tabId and filePath (to avoid dedup)
+    act(() => screen.getByTestId('open-tab3').click());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-tab').textContent).toBe('tab-3');
+    });
+
+    // Step 5: The new tab (tab-3) should show only root-level children,
+    // NOT the expanded Pages grandchildren. If the cache was not cleaned up,
+    // tab-3 might inherit tab-1's expanded state.
+    await waitFor(() => {
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+    });
+
+    // Page 1 and Page 2 should NOT be visible (they were expanded in tab-1,
+    // which is now closed and its cache evicted)
+    expect(screen.queryByText('Page 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Page 2')).not.toBeInTheDocument();
+  });
+});

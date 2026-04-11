@@ -672,6 +672,371 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Story 4.3: Close Document and Tab Management
+//
+// These tests verify CLOSE_DOCUMENT reducer behavior with 3+ tabs, focus
+// transfer logic, and return-to-empty-state. The reducer is already
+// implemented (story 4-1). These tests are verification-only.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-001 [P0]: CLOSE_DOCUMENT removes only the target tab; other
+// tabs remain.
+// AC#1: Document is closed, tab is removed, other tabs unaffected.
+//
+// Given 3 tabs are open (tab-1, tab-2, tab-3) with tab-3 active,
+// When CLOSE_DOCUMENT is dispatched for tab-2 (non-active),
+// Then state.tabs.length === 2,
+// And tab-1 and tab-3 are still present,
+// And tab-2 is gone.
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-001: CLOSE_DOCUMENT removes only the target tab', () => {
+  test('closing a tab leaves other tabs intact', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tabIds = state.tabs.map((t) => t.tabId).join(',');
+      return (
+        <div>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <span data-testid="tab-ids">{tabIds}</span>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="close-2" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-2' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('3');
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+
+    // Close tab-2 (non-active)
+    act(() => screen.getByTestId('close-2').click());
+
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+    expect(screen.getByTestId('tab-ids').textContent).toBe('tab-1,tab-3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-002 [P0]: Closing active tab moves activeTabId to the next tab
+// (or previous if last).
+// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
+//       was the last one).
+//
+// (a) Close the last-in-array tab (tab-3): activeTabId -> tab-2 (previous).
+// (b) Close the first-in-array tab (tab-1): activeTabId -> tab-2 (next).
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
+  test('(a) closing last-in-array active tab falls back to previous', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="close-3" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-3' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+
+    // Close tab-3 (active, last in array)
+    // Reducer: closedIndex=2, filtered=[tab-1,tab-2], Math.min(2,1)=1 -> tab-2
+    act(() => screen.getByTestId('close-3').click());
+
+    expect(screen.getByTestId('active').textContent).toBe('tab-2');
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+  });
+
+  test('(b) closing first-in-array active tab moves to next', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="activate-1" onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } })} />
+          <button data-testid="close-1" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+
+    // Activate tab-1 so it is active
+    act(() => screen.getByTestId('activate-1').click());
+    expect(screen.getByTestId('active').textContent).toBe('tab-1');
+
+    // Close tab-1 (active, first in array)
+    // Reducer: closedIndex=0, filtered=[tab-2,tab-3], Math.min(0,1)=0 -> tab-2
+    act(() => screen.getByTestId('close-1').click());
+
+    expect(screen.getByTestId('active').textContent).toBe('tab-2');
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-003 [P0]: Closing the last tab sets activeTabId to null (empty state).
+// AC#2: When no documents remain open, the empty state is shown again.
+//
+// Given 1 tab is open,
+// When CLOSE_DOCUMENT is dispatched for that tab,
+// Then state.tabs.length === 0,
+// And state.activeTabId === null.
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
+  test('closing the only tab sets activeTabId to null', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="close" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+    expect(screen.getByTestId('active').textContent).toBe('tab-1');
+
+    act(() => screen.getByTestId('close').click());
+
+    expect(screen.getByTestId('tab-count').textContent).toBe('0');
+    expect(screen.getByTestId('active').textContent).toBe('null');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-007 [P2]: Closing a non-active tab does not change the active tab.
+// AC#1: Tab is removed, focus stays on the current active tab.
+//
+// Given 3 tabs are open with tab-3 active,
+// When CLOSE_DOCUMENT is dispatched for tab-1 (non-active),
+// Then activeTabId is still 'tab-3',
+// And state.tabs.length === 2.
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
+  test('closing a background tab does not change active tab', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="close-1" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+
+    act(() => screen.getByTestId('close-1').click());
+
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-008 [P2]: Rapidly closing multiple tabs does not corrupt state.
+// AC#1: Tab management handles rapid sequential closes gracefully.
+//
+// Given 4 tabs are open (tab-1..tab-4, tab-4 active),
+// When CLOSE_DOCUMENT is dispatched for tab-2, tab-3, tab-4 in rapid
+//   succession (synchronous dispatches within a single act() block),
+// Then state.tabs.length === 1, only tab-1 remains,
+// And activeTabId === 'tab-1'.
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
+  test('closing 3 of 4 tabs in rapid succession leaves correct state', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tabIds = state.tabs.map((t) => t.tabId).join(',');
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <span data-testid="tab-ids">{tabIds}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-4" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-4', fileName: 'd.pdf', filePath: '/d.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="close-2" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-2' } })} />
+          <button data-testid="close-3" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-3' } })} />
+          <button data-testid="close-4" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-4' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+    act(() => screen.getByTestId('open-4').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('4');
+    expect(screen.getByTestId('active').textContent).toBe('tab-4');
+
+    // Rapid close: tab-2 (non-active), tab-3 (non-active), tab-4 (active)
+    act(() => {
+      screen.getByTestId('close-2').click();
+      screen.getByTestId('close-3').click();
+      screen.getByTestId('close-4').click();
+    });
+
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+    expect(screen.getByTestId('tab-ids').textContent).toBe('tab-1');
+    expect(screen.getByTestId('active').textContent).toBe('tab-1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3-UNIT-002 supplemental: Closing middle active tab prefers the next tab.
+// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
+//       was the last one).
+//
+// Given 3 tabs are open with tab-2 active (middle),
+// When CLOSE_DOCUMENT is dispatched for tab-2,
+// Then activeTabId === 'tab-3' (next tab, not previous).
+// Reducer: closedIndex=1, filtered=[tab-1,tab-3], Math.min(1,1)=1 -> tab-3.
+// ---------------------------------------------------------------------------
+
+describe('4.3-UNIT-002 supplemental: Closing middle active tab prefers next', () => {
+  test('closing middle active tab activates the next tab to the right', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="activate-2" onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } })} />
+          <button data-testid="close-2" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-2' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+
+    // Activate tab-2 (middle)
+    act(() => screen.getByTestId('activate-2').click());
+    expect(screen.getByTestId('active').textContent).toBe('tab-2');
+
+    // Close tab-2: closedIndex=1, filtered=[tab-1,tab-3], Math.min(1,1)=1 -> tab-3
+    act(() => screen.getByTestId('close-2').click());
+
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.3 supplemental: CLOSE_DOCUMENT clears documentError only when closing
+// the active tab. When closing a non-active tab, documentError is preserved.
+// AC#1: Resources are freed; state cleanup is correct.
+//
+// Reducer logic: documentError: closingActive ? null : state.documentError
+// ---------------------------------------------------------------------------
+
+describe('4.3 supplemental: CLOSE_DOCUMENT clears documentError conditionally', () => {
+  test('closing active tab clears documentError; closing non-active preserves it', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="active">{state.activeTabId ?? 'null'}</span>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <span data-testid="error">{state.documentError ?? 'null'}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-3" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-3', fileName: 'c.pdf', filePath: '/c.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="set-error" onClick={() => dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: 'corrupt PDF' } })} />
+          <button data-testid="close-1" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+          <button data-testid="close-3" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-3' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('open-3').click());
+    expect(screen.getByTestId('active').textContent).toBe('tab-3');
+
+    // Set an error
+    act(() => screen.getByTestId('set-error').click());
+    expect(screen.getByTestId('error').textContent).toBe('corrupt PDF');
+
+    // Close tab-1 (non-active) -- error should be preserved
+    act(() => screen.getByTestId('close-1').click());
+    expect(screen.getByTestId('error').textContent).toBe('corrupt PDF');
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+
+    // Close tab-3 (active) -- error should be cleared
+    act(() => screen.getByTestId('close-3').click());
+    expect(screen.getByTestId('error').textContent).toBe('null');
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+  });
+});
+
 describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
   test('history navigation only affects active tab', () => {
     function Inspector() {

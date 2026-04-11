@@ -376,6 +376,7 @@ describe('4.1 TabBar Component Tests', () => {
   /**
    * 4.1-UNIT-006 supplemental: clicking close button dispatches CLOSE_DOCUMENT
    * and calls backend CloseDocument.
+   * // Also covers 4.3-UNIT-004
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -408,6 +409,7 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * 4.1-UNIT-007 supplemental: Ctrl+W closes the active tab.
+   * // Also covers 4.3-UNIT-005
    *
    * RED PHASE: TabBar.tsx does not exist yet. Keyboard handler not registered.
    */
@@ -436,6 +438,39 @@ describe('4.1 TabBar Component Tests', () => {
     expect(mockCloseDocument).toHaveBeenCalledWith('tab-2');
     // Tab-1 should now be active (fallback)
     expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-1');
+  });
+
+  /**
+   * 4.3-UNIT-006 [P1]: No confirmation dialog on tab close (read-only app,
+   * nothing to lose).
+   * AC#3: No confirmation dialog is shown when closing a tab.
+   *
+   * Given a tab is open,
+   * When the close button is clicked,
+   * Then the tab is removed immediately with no dialog rendered.
+   */
+  test('4.3-UNIT-006 [P1]: no confirmation dialog on tab close', () => {
+    render(
+      <AppProvider>
+        <SetupAndRenderTabBar tabCount={1} />
+      </AppProvider>
+    );
+
+    openTabs(1);
+    expect(screen.getByTestId('tab-tab-1')).toBeInTheDocument();
+
+    // Click close button
+    act(() => {
+      screen.getByTestId('tab-close-tab-1').click();
+    });
+
+    // Tab should be removed immediately
+    expect(screen.getByTestId('tab-count').textContent).toBe('0');
+    expect(screen.queryByTestId('tab-tab-1')).not.toBeInTheDocument();
+
+    // No confirmation dialog should exist in the DOM
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   /**
