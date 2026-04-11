@@ -1180,3 +1180,153 @@ describe('2.5-UNIT-EMPTY-ROOT: TreePanel with null rootChildren', () => {
     expect(screen.queryByText('Pages')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story 4.2: Multi-Document State Isolation
+//
+// 4.2-UNIT-004 [P1]: Each tab maintains independent tree expansion state
+// after switching away and back.
+// AC#3: Each TabState is independent. Tree expansion is preserved per tab.
+//
+// Given tab-1 is open with the root expanded (children visible),
+// And a child node "Pages" is expanded (grandchildren visible),
+// When the user switches to tab-2 and then back to tab-1,
+// Then tab-1's tree still shows the expanded Pages children.
+// ---------------------------------------------------------------------------
+
+describe('4.2-UNIT-004: Tree expansion state preserved across tab switches', () => {
+  test('expanded children survive tab switch round-trip', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    // GetChildren for Pages node when expanded
+    mockGetChildren.mockResolvedValueOnce(pagesChildren);
+
+    const catalogNodeB = {
+      id: 'root',
+      label: 'Catalog B',
+      rawKey: '',
+      nodeType: 'dict',
+      valueType: '',
+      hasChildren: true,
+      childCount: 1,
+      iconHint: 'catalog',
+      error: '',
+    };
+
+    const childNodesB = [
+      {
+        id: 'dict:root:Type',
+        label: 'TypeB',
+        rawKey: '/Type',
+        nodeType: 'scalar',
+        valueType: 'name',
+        hasChildren: false,
+        childCount: 0,
+        iconHint: 'default',
+        error: '',
+      },
+    ];
+
+    // Open two tabs, switch between them, verify tree state
+    function MultiTabTree() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      return (
+        <div>
+          <button
+            data-testid="open-tab1"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: {
+                  tabId: 'tab-1',
+                  fileName: 'a.pdf',
+                  filePath: '/a.pdf',
+                  rootNode: catalogNode,
+                  rootChildren: childNodes,
+                },
+              })
+            }
+          />
+          <button
+            data-testid="open-tab2"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: {
+                  tabId: 'tab-2',
+                  fileName: 'b.pdf',
+                  filePath: '/b.pdf',
+                  rootNode: catalogNodeB,
+                  rootChildren: childNodesB,
+                },
+              })
+            }
+          />
+          <button
+            data-testid="activate-tab1"
+            onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } })}
+          />
+          <button
+            data-testid="activate-tab2"
+            onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } })}
+          />
+          <span data-testid="active-tab">{state.activeTabId ?? 'null'}</span>
+          <TreePanel />
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <MultiTabTree />
+      </AppProvider>
+    );
+
+    // Step 1: Open tab-1 and expand the Pages node
+    act(() => screen.getByTestId('open-tab1').click());
+
+    await waitFor(() => {
+      expect(screen.getByText('Catalog')).toBeInTheDocument();
+      expect(screen.getByText('Pages')).toBeInTheDocument();
+    });
+
+    // Expand Pages node to load its children
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+    });
+
+    // Step 2: Open tab-2 (switches away from tab-1)
+    act(() => screen.getByTestId('open-tab2').click());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-tab').textContent).toBe('tab-2');
+      expect(screen.getByText('Catalog B')).toBeInTheDocument();
+    });
+
+    // Page 1 / Page 2 from tab-1 should NOT be visible
+    expect(screen.queryByText('Page 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Page 2')).not.toBeInTheDocument();
+
+    // Step 3: Switch back to tab-1
+    act(() => screen.getByTestId('activate-tab1').click());
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-tab').textContent).toBe('tab-1');
+    });
+
+    // The expanded Pages children must be preserved (this is the key assertion).
+    // Without tree data caching per tab, the tree remounts from rootNode/rootChildren
+    // and Pages would appear collapsed again.
+    await waitFor(() => {
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+    });
+  });
+});

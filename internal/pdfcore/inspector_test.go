@@ -897,3 +897,189 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 		t.Error("no reference property found in catalog dict")
 	}
 }
+
+// --- Story 4.2: Multi-Document State Isolation ---
+
+// 4.2-INTG-001 [P0]: Two independent DocumentState entries.
+func TestTwoDocumentStatesIndependent(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-1 failed: %v", err)
+	}
+	_, err = ins.Open("tab-2", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-2 failed: %v", err)
+	}
+
+	doc1, err := ins.GetDocument("tab-1")
+	if err != nil {
+		t.Fatalf("GetDocument(tab-1) failed: %v", err)
+	}
+	doc2, err := ins.GetDocument("tab-2")
+	if err != nil {
+		t.Fatalf("GetDocument(tab-2) failed: %v", err)
+	}
+
+	// Distinct DocumentState pointers
+	if doc1 == doc2 {
+		t.Fatal("tab-1 and tab-2 share the same DocumentState pointer")
+	}
+
+	root1, err := ins.GetTreeRoot("tab-1")
+	if err != nil {
+		t.Fatalf("GetTreeRoot(tab-1) failed: %v", err)
+	}
+	root2, err := ins.GetTreeRoot("tab-2")
+	if err != nil {
+		t.Fatalf("GetTreeRoot(tab-2) failed: %v", err)
+	}
+
+	if root1.ChildCount == 0 {
+		t.Error("tab-1 root has no children")
+	}
+	if root2.ChildCount == 0 {
+		t.Error("tab-2 root has no children")
+	}
+
+	// Both are Catalog roots
+	if root1.ID != "root" || root2.ID != "root" {
+		t.Errorf("root IDs = %q, %q, want both 'root'", root1.ID, root2.ID)
+	}
+}
+
+// 4.2-INTG-002 [P0]: Close removes only the specified tabID.
+func TestCloseRemovesOnlyTargetTab(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-1 failed: %v", err)
+	}
+	_, err = ins.Open("tab-2", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-2 failed: %v", err)
+	}
+
+	if err := ins.Close("tab-1"); err != nil {
+		t.Fatalf("Close(tab-1) failed: %v", err)
+	}
+
+	_, err = ins.GetDocument("tab-1")
+	if err == nil {
+		t.Fatal("GetDocument(tab-1) should fail after Close, got nil error")
+	}
+	if !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got %v", err)
+	}
+
+	// tab-2 must still work
+	root2, err := ins.GetTreeRoot("tab-2")
+	if err != nil {
+		t.Fatalf("GetTreeRoot(tab-2) failed after closing tab-1: %v", err)
+	}
+	if root2.ID != "root" {
+		t.Errorf("tab-2 root ID = %q, want 'root'", root2.ID)
+	}
+}
+
+// 4.2-INTG-003 [P1]: Malformed PDF in one tab does not affect other tab.
+func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-1 failed: %v", err)
+	}
+
+	// malformed.pdf may fail to open or open with warnings
+	_, malErr := ins.Open("tab-2", filepath.Join(testdataDir(t), "malformed.pdf"))
+
+	// Regardless of whether tab-2 opened, tab-1 must remain queryable
+	detail, err := ins.GetObjectDetail("tab-1", "root")
+	if err != nil {
+		t.Fatalf("GetObjectDetail(tab-1, root) failed: %v (malformed open err: %v)", err, malErr)
+	}
+	if detail.Type != "dict" {
+		t.Errorf("tab-1 root Type = %q, want 'dict'", detail.Type)
+	}
+	if len(detail.Properties) == 0 {
+		t.Error("tab-1 root Properties is empty")
+	}
+}
+
+// 4.2-INTG-004 [P1]: Encrypted PDF failure does not affect other tabs.
+func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-1 failed: %v", err)
+	}
+
+	// encrypted.pdf should fail with ErrEncryptedPDF
+	_, encErr := ins.Open("tab-2", filepath.Join(testdataDir(t), "encrypted.pdf"))
+	if encErr == nil {
+		t.Fatal("expected error for encrypted PDF, got nil")
+	}
+	if !errors.Is(encErr, ErrEncryptedPDF) {
+		t.Errorf("expected ErrEncryptedPDF, got %v", encErr)
+	}
+
+	// tab-1 must still work
+	root, err := ins.GetTreeRoot("tab-1")
+	if err != nil {
+		t.Fatalf("GetTreeRoot(tab-1) failed after encrypted fail: %v", err)
+	}
+	if root.ID != "root" {
+		t.Errorf("tab-1 root ID = %q, want 'root'", root.ID)
+	}
+
+	detail, err := ins.GetObjectDetail("tab-1", "root")
+	if err != nil {
+		t.Fatalf("GetObjectDetail(tab-1, root) failed: %v", err)
+	}
+	if detail.Type != "dict" {
+		t.Errorf("tab-1 root Type = %q, want 'dict'", detail.Type)
+	}
+}
+
+// 4.2-UNIT-006 [P2]: Content stream cache isolation after closing another tab.
+func TestStreamCacheIsolationAfterClose(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "content-stream.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-1 failed: %v", err)
+	}
+	_, err = ins.Open("tab-2", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("Open tab-2 failed: %v", err)
+	}
+
+	// Find a stream node in tab-1
+	streamNodeID := findStreamNode(t, ins, "tab-1", "root", 0)
+	if streamNodeID == "" {
+		t.Skip("no stream node found in content-stream.pdf")
+	}
+
+	// First call: populates cache
+	result1, err := ins.GetContentStream("tab-1", streamNodeID)
+	if err != nil {
+		t.Fatalf("GetContentStream(tab-1) failed: %v", err)
+	}
+
+	// Close tab-2
+	if err := ins.Close("tab-2"); err != nil {
+		t.Fatalf("Close(tab-2) failed: %v", err)
+	}
+
+	// Second call: should hit cache, still works
+	result2, err := ins.GetContentStream("tab-1", streamNodeID)
+	if err != nil {
+		t.Fatalf("GetContentStream(tab-1) after closing tab-2 failed: %v", err)
+	}
+
+	if result1.NodeID != result2.NodeID {
+		t.Errorf("NodeID mismatch: %q vs %q", result1.NodeID, result2.NodeID)
+	}
+	if result1.Raw != result2.Raw {
+		t.Error("Raw content differs between cached calls")
+	}
+}

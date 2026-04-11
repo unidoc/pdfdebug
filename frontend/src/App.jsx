@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { Events } from '@wailsio/runtime'
+import { CloseDocument } from '../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
 import { mapErrorMessage } from './hooks/usePDFService'
 import { EmptyState } from './components/EmptyState'
@@ -25,6 +26,14 @@ function AppContent() {
   const canGoBack = navHistoryIndex > 0
   const canGoForward = navHistoryIndex < navHistory.length - 1
 
+  // Ref mirrors tabs for use inside event handler closures without stale captures
+  const tabsRef = useRef(tabs)
+  useEffect(() => { tabsRef.current = tabs }, [tabs])
+
+  // Tracks the tabId from the most recent OPEN_DOCUMENT dispatch so the
+  // post-dispatch fallback can detect when dedup fired in the reducer.
+  const lastOpenedTabIdRef = useRef(null)
+
   // Sync navigation menu enabled state with backend
   const prevNavState = useRef({ canGoBack: false, canGoForward: false })
   useEffect(() => {
@@ -34,18 +43,50 @@ function AppContent() {
     }
   }, [canGoBack, canGoForward])
 
+  // Post-dispatch fallback: if reducer dedup fired, activeTabId won't match
+  // lastOpenedTabIdRef. Free the orphaned backend state only if the tabId
+  // was actually rejected (not present in any tab). This prevents a race
+  // where ACTIVATE_TAB changes activeTabId between dispatch and effect.
+  useEffect(() => {
+    const pendingTabId = lastOpenedTabIdRef.current
+    if (!pendingTabId) return
+    lastOpenedTabIdRef.current = null
+    const wasAdded = tabsRef.current.some((t) => t.tabId === pendingTabId)
+    if (!wasAdded) {
+      Promise.resolve(CloseDocument(pendingTabId)).catch(() => {})
+    }
+  }, [activeTabId])
+
   // Subscribe to Wails runtime events for backend-initiated document opens
   // and errors. Returns cleanup functions to unsubscribe on unmount.
   useEffect(() => {
     const offOpened = Events.On('document:opened', (event) => {
       const data = event?.data
       if (!data || !data.tabId || !data.fileName) return
+
+      // Pre-dispatch dedup check: if a tab with the same filePath exists,
+      // free the backend state for the new tabId before dispatching.
+      // When dedup fires here, skip setting lastOpenedTabIdRef so the
+      // post-dispatch fallback doesn't double-close the same tabId.
+      const filePath = data.filePath ?? ''
+      let dedupHandled = false
+      if (filePath) {
+        const existing = tabsRef.current.find((t) => t.filePath === filePath)
+        if (existing) {
+          Promise.resolve(CloseDocument(data.tabId)).catch(() => {})
+          dedupHandled = true
+        }
+      }
+
+      if (!dedupHandled) {
+        lastOpenedTabIdRef.current = data.tabId
+      }
       dispatch({
         type: 'OPEN_DOCUMENT',
         payload: {
           tabId: data.tabId,
           fileName: data.fileName,
-          filePath: data.filePath ?? '',
+          filePath: filePath,
           rootNode: data.rootNode ?? null,
           rootChildren: data.rootChildren ?? null,
         },

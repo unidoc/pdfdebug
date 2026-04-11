@@ -86,6 +86,9 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	}
 
 	ins.mu.Lock()
+	// Guard: if a document is already registered under this tabID, remove
+	// the old entry first to avoid leaking its state.
+	delete(ins.documents, tabID)
 	ins.documents[tabID] = &DocumentState{
 		FilePath:    absPath,
 		PDFContext:  ctx,

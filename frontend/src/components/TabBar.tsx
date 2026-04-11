@@ -49,6 +49,9 @@ export function TabBar() {
       if (e.key === 'w' || e.key === 'W') {
         e.preventDefault();
         if (!activeTabId) return;
+        // Guard: only close if the tab still exists in state
+        const tabExists = tabs.some((t) => t.tabId === activeTabId);
+        if (!tabExists) return;
         dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: activeTabId } });
         Promise.resolve(CloseDocument(activeTabId)).catch(() => {});
       }

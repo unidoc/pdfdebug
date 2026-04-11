@@ -116,7 +116,9 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
   const dispatch = useAppDispatch();
 
-  /** Opens the native file dialog, loads the PDF, and dispatches to state. */
+  // Opens the native file dialog, loads the PDF, and dispatches to state.
+  // Dedup cleanup (freeing backend state for duplicate tabIds) is handled in
+  // App.jsx and does not apply here -- EmptyState only renders when no tabs exist.
   const handleOpenFileClick = useCallback(async () => {
     // Allow parent to override with a custom handler (used in tests)
     if (onOpenFile) {

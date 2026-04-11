@@ -45,6 +45,31 @@ function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
   };
 }
 
+/**
+ * Derive a react-arborist openState map from tree data. A node is "open"
+ * if it has children and its children array is non-empty (i.e., children
+ * were fetched and the node was expanded).
+ */
+function deriveOpenState(data: TreeNodeData[]): Record<string, boolean> {
+  const state: Record<string, boolean> = {};
+  function walk(nodes: TreeNodeData[]) {
+    for (const n of nodes) {
+      if (n.hasChildren && Array.isArray(n.children) && n.children.length > 0) {
+        state[n.id] = true;
+        walk(n.children);
+      }
+    }
+  }
+  walk(data);
+  return state;
+}
+
+/** Per-tab tree state cache entry. */
+interface TabTreeCache {
+  data: TreeNodeData[];
+  openState: Record<string, boolean>;
+}
+
 /** Build the top-level tree data array from the root node and its pre-fetched children. */
 function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): TreeNodeData[] {
   const root = toTreeNodeData(rootNode);
@@ -140,8 +165,19 @@ export function TreePanel() {
   const pendingNavTarget = activeTab?.pendingNavTarget ?? null;
   const navError = activeTab?.navError ?? null;
 
+  // Per-tab cache preserves expanded tree state across tab switches.
+  // Stored in a ref (not context) to avoid re-renders of every consumer.
+  const treeDataCache = useRef<Record<string, TabTreeCache>>({});
   const [treeData, setTreeData] = useState<TreeNodeData[]>([]);
-  const [initialOpenState] = useState<Record<string, boolean>>(() => ({ root: true }));
+
+  // Compute openState synchronously during render so it's available when
+  // react-arborist mounts (key={activeTabId} forces remount on tab switch).
+  // Must be synchronous -- useEffect would fire after the first render,
+  // missing the mount when initialOpenState is read.
+  let openState: Record<string, boolean> = { root: true };
+  if (activeTabId && treeDataCache.current[activeTabId]) {
+    openState = treeDataCache.current[activeTabId].openState;
+  }
   const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
   // timerRef delays the loading spinner by 200ms to avoid flicker on fast loads
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,17 +210,40 @@ export function TreePanel() {
     return () => ro.disconnect();
   }, []);
 
-  // Build initial tree data from rootNode + rootChildren
+  // Build initial tree data from rootNode + rootChildren, or restore from cache
   useEffect(() => {
-    if (rootNode) {
+    if (!activeTabId) {
+      setTreeData([]);
+      treeDataRef.current = [];
+      return;
+    }
+    const cached = treeDataCache.current[activeTabId];
+    if (cached && cached.data.length > 0) {
+      setTreeData(cached.data);
+      treeDataRef.current = cached.data;
+    } else if (rootNode) {
       const data = buildInitialData(rootNode, rootChildren);
       setTreeData(data);
       treeDataRef.current = data;
+      treeDataCache.current[activeTabId] = { data, openState: { root: true } };
     } else {
       setTreeData([]);
       treeDataRef.current = [];
     }
-  }, [rootNode, rootChildren]);
+  }, [rootNode, rootChildren, activeTabId]);
+
+  // Evict closed tabs from treeDataCache. Uses a stable string key derived
+  // from tab IDs to avoid running on every reducer action (tabs is a new
+  // reference on most dispatches, not just CLOSE_DOCUMENT).
+  const tabIdKey = tabs.map((t) => t.tabId).join(',');
+  useEffect(() => {
+    const liveIds = new Set(tabs.map((t) => t.tabId));
+    for (const cachedId of Object.keys(treeDataCache.current)) {
+      if (!liveIds.has(cachedId)) {
+        delete treeDataCache.current[cachedId];
+      }
+    }
+  }, [tabIdKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep ref in sync
   useEffect(() => {
@@ -234,6 +293,10 @@ export function TreePanel() {
             const mapped = (children || []).filter((c: TreeNode | null): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
             const updated = updateNodeChildren(treeDataRef.current, node.id, mapped);
             treeDataRef.current = updated;
+            if (activeTabId) {
+              const os = deriveOpenState(updated);
+              treeDataCache.current[activeTabId] = { data: updated, openState: os };
+            }
             setTreeData(updated);
           }
           treeRef.current?.open(node.id);
@@ -364,6 +427,10 @@ export function TreePanel() {
         setTreeData((prev) => {
           const updated = updateNodeChildren(prev, id, mapped);
           treeDataRef.current = updated;
+          if (activeTabId) {
+            const os = deriveOpenState(updated);
+            treeDataCache.current[activeTabId] = { data: updated, openState: os };
+          }
           return updated;
         });
       } catch {
@@ -420,7 +487,7 @@ export function TreePanel() {
             onToggle={handleToggle}
             selectionFollowsFocus={true}
             openByDefault={false}
-            initialOpenState={initialOpenState}
+            initialOpenState={openState}
             disableMultiSelection={true}
             disableDrag={true}
             disableDrop={true}

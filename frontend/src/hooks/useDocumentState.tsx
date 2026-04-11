@@ -84,9 +84,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
       // Duplicate file detection: if a tab with the same filePath exists, activate it.
-      // TODO(4-2): The backend has already parsed the PDF for the new tabId. When
-      // dedup fires, that backend DocumentState leaks. Call CloseDocument outside
-      // the reducer in story 4-2 to free it.
+      // Backend resource cleanup for the discarded tabId is handled in App.jsx.
       if (action.payload.filePath) {
         const existing = state.tabs.find((t) => t.filePath === action.payload.filePath);
         if (existing) {
