@@ -26,6 +26,14 @@ vi.mock('allotment', () => {
 
 vi.mock('allotment/dist/style.css', () => ({}));
 
+// Mock useWindowPersistence -- returns no persisted sizes for these tests
+vi.mock('../hooks/useWindowPersistence', () => ({
+  useWindowPersistence: () => ({
+    panelSizes: null,
+    savePanelSizes: vi.fn(),
+  }),
+}));
+
 // Mock Wails bindings
 vi.mock(
   '../../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',

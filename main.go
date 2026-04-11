@@ -21,7 +21,29 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// extractPDFPaths returns all arguments (after the first, which is the binary
+// name) that end in .pdf (case-insensitive). Returns nil if args has fewer
+// than 2 elements.
+func extractPDFPaths(args []string) []string {
+	if len(args) < 2 {
+		return nil
+	}
+	var paths []string
+	for _, arg := range args[1:] {
+		if strings.EqualFold(filepath.Ext(arg), ".pdf") {
+			paths = append(paths, arg)
+		}
+	}
+	return paths
+}
+
 func main() {
+	// Declare variables before application.New() so the SingleInstance callback
+	// can capture them by reference. They are assigned after app/window creation
+	// but before app.Run(), so they are safe to use in the async callback.
+	var openFileAndEmit func(string)
+	var window *application.WebviewWindow
+
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        "unipdf-debugger",
@@ -31,6 +53,23 @@ func main() {
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		FileAssociations: []string{".pdf"},
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "com.unidoc.unipdf-debugger",
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				// Guard: openFileAndEmit and window are assigned after app
+				// creation but before app.Run(). If this fires unexpectedly
+				// early, skip rather than panic.
+				if openFileAndEmit == nil || window == nil {
+					return
+				}
+				pdfPaths := extractPDFPaths(data.Args)
+				for _, p := range pdfPaths {
+					openFileAndEmit(p)
+				}
+				window.Focus()
+			},
 		},
 	})
 	if app == nil {
@@ -42,8 +81,9 @@ func main() {
 	app.RegisterService(application.NewService(&pdfService))
 
 	// openFileAndEmit handles the shared logic for opening a PDF and emitting
-	// the result to the frontend. Used by both menu and file drop handlers.
-	openFileAndEmit := func(path string) {
+	// the result to the frontend. Used by menu, file drop, file association,
+	// and single-instance handlers.
+	openFileAndEmit = func(path string) {
 		docInfo, err := pdfService.OpenFile(path)
 		if err != nil {
 			app.Event.Emit("document:error", map[string]any{
@@ -77,6 +117,20 @@ func main() {
 		}
 		app.Event.Emit("document:opened", payload)
 	}
+
+	// Handle files opened via OS file association (right-click > "Open with").
+	// On macOS this fires for both cold and warm starts. On Windows/Linux cold
+	// start only -- warm start is handled by OnSecondInstanceLaunch.
+	app.Event.OnApplicationEvent(events.Common.ApplicationOpenedWithFile, func(event *application.ApplicationEvent) {
+		if openFileAndEmit == nil || window == nil {
+			return
+		}
+		filePath := event.Context().Filename()
+		if filePath != "" && strings.EqualFold(filepath.Ext(filePath), ".pdf") {
+			openFileAndEmit(filePath)
+			window.Focus()
+		}
+	})
 
 	// Build native menu bar
 	menu := application.NewMenu()
@@ -141,7 +195,7 @@ func main() {
 	app.Menu.SetApplicationMenu(menu)
 
 	// Create main window
-	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
+	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "UniPDF Debugger",
 		Width:            1024,
 		Height:           768,

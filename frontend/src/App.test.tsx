@@ -7,6 +7,12 @@
  * arrives with the same filePath as an existing tab, the new tabId's backend
  * state is freed via CloseDocument.
  *
+ * 4.4-UNIT-006 [P2] annotation: The OS file association path in main.go calls
+ * openFileAndEmit, which emits the same document:opened event tested here.
+ * The frontend event listener dispatches OPEN_DOCUMENT regardless of the
+ * originating open path (menu, drag-and-drop, or file association). No
+ * separate test is needed for the file association event flow.
+ *
  * Run: cd frontend && npx vitest run src/App.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';

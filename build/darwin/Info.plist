@@ -1,0 +1,44 @@
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>CFBundlePackageType</key>
+            <string>APPL</string>
+        <key>CFBundleName</key>
+            <string>UniPDF Debugger</string>
+        <key>CFBundleExecutable</key>
+            <string>unipdf-debugger</string>
+        <key>CFBundleIdentifier</key>
+            <string>com.unidoc.unipdf-debugger</string>
+        <key>CFBundleVersion</key>
+            <string>0.0.1</string>
+        <key>CFBundleGetInfoString</key>
+            <string>PDF structure inspector and debugging tool</string>
+        <key>CFBundleShortVersionString</key>
+            <string>0.0.1</string>
+        <key>CFBundleIconFile</key>
+            <string>icons</string>
+        <key>CFBundleIconName</key>
+            <string>appicon</string>
+        <key>LSMinimumSystemVersion</key>
+            <string>10.15.0</string>
+        <key>NSHighResolutionCapable</key>
+            <string>true</string>
+        <key>NSHumanReadableCopyright</key>
+            <string>(c) 2026, UniDoc ehf.</string>
+        <key>CFBundleDocumentTypes</key>
+        <array>
+            <dict>
+                <key>CFBundleTypeExtensions</key>
+                <array>
+                    <string>pdf</string>
+                </array>
+                <key>CFBundleTypeName</key>
+                <string>PDF Document</string>
+                <key>CFBundleTypeRole</key>
+                <string>Viewer</string>
+                <key>LSHandlerRank</key>
+                <string>Alternate</string>
+            </dict>
+        </array>
+    </dict>
+</plist>

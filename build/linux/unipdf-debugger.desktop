@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=UniPDF Debugger
+Comment=PDF structure inspector and debugger
+Exec=unipdf-debugger %f
+Icon=unipdf-debugger
+Categories=Development;
+Terminal=false
+Keywords=pdf;debugger;inspector;
+Version=1.0
+StartupNotify=false
+MimeType=application/pdf;
