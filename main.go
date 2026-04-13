@@ -153,11 +153,18 @@ func main() {
 			}
 			openFileAndEmit(path)
 		})
-	fileMenu.AddSeparator()
-	fileMenu.AddRole(application.CloseWindow)
+	fileMenu.Add("Close Document").
+		SetAccelerator("CmdOrCtrl+w").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("document:close-active", nil)
+		})
 	if runtime.GOOS != "darwin" {
 		fileMenu.AddSeparator()
-		fileMenu.AddRole(application.Quit)
+		fileMenu.Add("Quit").
+			SetAccelerator("Ctrl+q").
+			OnClick(func(ctx *application.Context) {
+				app.Quit()
+			})
 	}
 
 	// Edit menu (standard roles -- Cut, Copy, Paste, Select All, etc.)
@@ -176,6 +183,18 @@ func main() {
 		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit("navigate:forward", nil)
+		})
+
+	navMenu.AddSeparator()
+	navMenu.Add("Next Tab").
+		SetAccelerator("CmdOrCtrl+Right").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("tab:next", nil)
+		})
+	navMenu.Add("Previous Tab").
+		SetAccelerator("CmdOrCtrl+Left").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("tab:prev", nil)
 		})
 
 	// Frontend sends navigation state changes to sync menu enabled state

@@ -5,6 +5,7 @@
  */
 import { useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
+import { Events } from '@wailsio/runtime';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 
@@ -29,37 +30,65 @@ export function TabBar() {
     [dispatch],
   );
 
-  // Keyboard shortcuts: Cmd/Ctrl+Tab, Cmd/Ctrl+Shift+Tab, Cmd/Ctrl+W
+  // Cycle to adjacent tab (wrapping). direction: 1 = next, -1 = prev.
+  const cycleTab = useCallback(
+    (direction: 1 | -1) => {
+      if (tabs.length < 2 || !activeTabId) return;
+      const idx = tabs.findIndex((t) => t.tabId === activeTabId);
+      if (idx === -1) return;
+      const nextIdx = (idx + direction + tabs.length) % tabs.length;
+      dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: tabs[nextIdx].tabId } });
+    },
+    [tabs, activeTabId, dispatch],
+  );
+
+  // Close active document (shared by keyboard shortcut and native menu)
+  const closeActiveTab = useCallback(() => {
+    if (!activeTabId) return;
+    const tabExists = tabs.some((t) => t.tabId === activeTabId);
+    if (!tabExists) return;
+    dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: activeTabId } });
+    Promise.resolve(CloseDocument(activeTabId)).catch(() => {});
+  }, [tabs, activeTabId, dispatch]);
+
+  // Keyboard shortcuts: Cmd/Ctrl+Arrow (tab switch), Cmd/Ctrl+W (close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
-      if (e.key === 'Tab') {
+      // Cmd/Ctrl+Right -- next tab
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (tabs.length < 2 || !activeTabId) return;
-        const idx = tabs.findIndex((t) => t.tabId === activeTabId);
-        if (idx === -1) return;
-        const nextIdx = e.shiftKey
-          ? (idx - 1 + tabs.length) % tabs.length
-          : (idx + 1) % tabs.length;
-        dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: tabs[nextIdx].tabId } });
+        cycleTab(1);
+        return;
       }
 
+      // Cmd/Ctrl+Left -- previous tab
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        cycleTab(-1);
+        return;
+      }
+
+      // Cmd+W (macOS) or Ctrl+W (Windows/Linux) -- close document
       if (e.key === 'w' || e.key === 'W') {
         e.preventDefault();
-        if (!activeTabId) return;
-        // Guard: only close if the tab still exists in state
-        const tabExists = tabs.some((t) => t.tabId === activeTabId);
-        if (!tabExists) return;
-        dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: activeTabId } });
-        Promise.resolve(CloseDocument(activeTabId)).catch(() => {});
+        closeActiveTab();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [tabs, activeTabId, dispatch]);
+  }, [cycleTab, closeActiveTab]);
+
+  // Native menu: Navigate > Next Tab / Previous Tab, File > Close Document
+  useEffect(() => {
+    const offNext = Events.On('tab:next', () => cycleTab(1));
+    const offPrev = Events.On('tab:prev', () => cycleTab(-1));
+    const offClose = Events.On('document:close-active', () => closeActiveTab());
+    return () => { offNext(); offPrev(); offClose(); };
+  }, [cycleTab, closeActiveTab]);
 
   return (
     <Tabs.Root

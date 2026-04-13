@@ -27,6 +27,14 @@ import {
 // RED PHASE: This import will fail until TabBar.tsx is created.
 import { TabBar } from './TabBar';
 
+// Mock Wails runtime -- TabBar listens for native menu events
+vi.mock('@wailsio/runtime', () => ({
+  Events: {
+    On: vi.fn(() => vi.fn()),
+    Emit: vi.fn(),
+  },
+}));
+
 // Mock Wails bindings -- TabBar calls CloseDocument on tab close
 const mockCloseDocument = vi.fn();
 vi.mock(
@@ -201,10 +209,8 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-007 [P1]: Cmd/Ctrl+Tab cycles to next tab;
-   * Cmd/Ctrl+Shift+Tab cycles to previous.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet. Keyboard handler not registered.
+   * 4.1-UNIT-007 [P1]: Cmd/Ctrl+Right cycles to next tab;
+   * Cmd/Ctrl+Left cycles to previous.
    */
   test('4.1-UNIT-007 [P1]: Ctrl+Tab cycles to next tab, Ctrl+Shift+Tab cycles to previous', () => {
     render(
@@ -218,37 +224,36 @@ describe('4.1 TabBar Component Tests', () => {
     // Tab 3 is active (last opened)
     expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-3');
 
-    // Ctrl+Tab -> next tab (wraps to tab-1)
+    // Cmd/Ctrl+Right -> next tab (wraps to tab-1)
     act(() => {
       document.dispatchEvent(
         new KeyboardEvent('keydown', {
-          key: 'Tab',
-          ctrlKey: true,
+          key: 'ArrowRight',
+          metaKey: true,
           bubbles: true,
         })
       );
     });
     expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-1');
 
-    // Ctrl+Tab -> tab-2
+    // Cmd/Ctrl+Right -> tab-2
     act(() => {
       document.dispatchEvent(
         new KeyboardEvent('keydown', {
-          key: 'Tab',
-          ctrlKey: true,
+          key: 'ArrowRight',
+          metaKey: true,
           bubbles: true,
         })
       );
     });
     expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-2');
 
-    // Ctrl+Shift+Tab -> back to tab-1
+    // Cmd/Ctrl+Left -> back to tab-1
     act(() => {
       document.dispatchEvent(
         new KeyboardEvent('keydown', {
-          key: 'Tab',
-          ctrlKey: true,
-          shiftKey: true,
+          key: 'ArrowLeft',
+          metaKey: true,
           bubbles: true,
         })
       );
