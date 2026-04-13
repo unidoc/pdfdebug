@@ -35,6 +35,11 @@ func (s *PDFService) OpenFileDialog() (string, error) {
 		AddFilter("PDF Files", "*.pdf").
 		AddFilter("All Files", "*.*").
 		PromptForSingleSelection()
+	// On Windows, cancelling the dialog returns an ole.Error instead of nil.
+	// Treat empty path as cancel regardless of error.
+	if path == "" {
+		return "", nil
+	}
 	if err != nil {
 		return "", err
 	}

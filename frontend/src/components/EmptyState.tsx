@@ -36,7 +36,6 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
     dragCounter.current += 1;
     setIsDragOver(true);
 
@@ -68,7 +67,6 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     // Required to allow drop -- do NOT increment counter or update state
     e.preventDefault();
-    e.stopPropagation();
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -85,24 +83,24 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Only preventDefault to stop navigation, but do NOT stopPropagation --
+    // the Wails runtime registers its own drop handler on the window that
+    // uses WebView2's postMessageWithAdditionalObjects to send file paths
+    // to the Go backend. Stopping propagation blocks that handler on Windows.
     e.preventDefault();
-    e.stopPropagation();
     dragCounter.current = 0;
     setIsDragOver(false);
 
     const file = e.dataTransfer.files[0];
     if (file && file.name.toLowerCase().endsWith('.pdf')) {
-      // Valid PDF -- log to console (no backend processing yet)
       setIsInvalidFile(false);
-      // Cancel any pending invalid-file timer from a previous drop
       if (invalidTimerRef.current !== null) {
         clearTimeout(invalidTimerRef.current);
         invalidTimerRef.current = null;
       }
-      console.log('Dropped PDF file:', file.name);
+      // File is processed by the Wails runtime's native drop handler
+      // which emits WindowFilesDropped to the Go backend (main.go).
     } else {
-      // Invalid file -- show error hint for 2 seconds then reset
-      // Cancel any previously pending timer to avoid premature reset
       if (invalidTimerRef.current !== null) {
         clearTimeout(invalidTimerRef.current);
       }
