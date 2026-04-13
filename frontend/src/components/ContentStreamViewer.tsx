@@ -220,20 +220,36 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
 
   // Avoid Math.max(...spread) -- large token arrays blow the call stack.
   let maxTokenLine = 0;
-  // Strip leading whitespace: find the minimum column of any first-on-line token
-  let minCol = Infinity;
   if (useTokens) {
     for (const t of tokenized) {
       if (t.line > maxTokenLine) maxTokenLine = t.line;
     }
-    for (const [, toks] of tokensByLine) {
-      if (toks.length > 0 && toks[0].col < minCol) {
-        minCol = toks[0].col;
+  }
+  const lineCount = Math.max(maxTokenLine, rawLines.length);
+
+  // Compute structural indentation per line based on block-opening/closing
+  // operators (BT/ET, q/Q, BDC/BMC/EMC). This produces consistent
+  // indentation regardless of how the PDF generator wrote the stream.
+  const INDENT_OPEN = new Set(['BT', 'q', 'BDC', 'BMC']);
+  const INDENT_CLOSE = new Set(['ET', 'Q', 'EMC']);
+  const lineIndent: Map<number, number> = new Map();
+  if (useTokens) {
+    let depth = 0;
+    for (let ln = 1; ln <= lineCount; ln++) {
+      const toks = tokensByLine.get(ln);
+      if (!toks || toks.length === 0) {
+        lineIndent.set(ln, depth);
+        continue;
       }
+      // Check if this line has a closing operator -- dedent before rendering
+      const hasClose = toks.some((t) => t.type === 'operator' && INDENT_CLOSE.has(t.value));
+      if (hasClose) depth = Math.max(0, depth - 1);
+      lineIndent.set(ln, depth);
+      // Check if this line has an opening operator -- indent after rendering
+      const hasOpen = toks.some((t) => t.type === 'operator' && INDENT_OPEN.has(t.value));
+      if (hasOpen) depth += 1;
     }
   }
-  const colOffset = minCol === Infinity ? 0 : minCol - 1;
-  const lineCount = Math.max(maxTokenLine, rawLines.length);
 
   return (
     <Tooltip.Provider delayDuration={300}>
@@ -267,18 +283,17 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
               ? Array.from({ length: lineCount }, (_, i) => {
                   const lineNum = i + 1;
                   const lineToks = tokensByLine.get(lineNum);
+                  const indent = lineIndent.get(lineNum) ?? 0;
+                  const indentStr = indent > 0 ? '  '.repeat(indent) : '';
                   if (!lineToks || lineToks.length === 0) {
                     return <div key={i}>{''}</div>;
                   }
                   const spans: React.ReactNode[] = [];
-                  let cursor = 1 + colOffset; // shift start by common indent
+                  if (indentStr) spans.push(indentStr);
                   for (let ti = 0; ti < lineToks.length; ti++) {
                     const tok = lineToks[ti];
-                    // Insert spacing (adjusted for stripped leading whitespace)
-                    const gap = tok.col - cursor;
-                    if (gap > 0) {
-                      spans.push(' '.repeat(gap));
-                    }
+                    // Space between tokens on the same line
+                    if (ti > 0) spans.push(' ');
                     if (tok.type === 'operator') {
                       spans.push(<OperatorToken key={`${lineNum}-${ti}`} token={tok} />);
                     } else {
@@ -288,7 +303,6 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
                         </span>
                       );
                     }
-                    cursor = tok.col + tok.value.length;
                   }
                   return <div key={i}>{spans}</div>;
                 })
