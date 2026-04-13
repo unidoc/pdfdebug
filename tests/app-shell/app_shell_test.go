@@ -30,7 +30,7 @@ import (
 
 // projectRoot returns the absolute path to the project root directory.
 // It walks upward from the test file location to find the project root,
-// identified by the presence of a go.mod whose module name is "unipdf-debugger".
+// identified by the presence of a go.mod whose module name is "unidoc-pdf-debugger".
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -40,13 +40,13 @@ func projectRoot(t *testing.T) string {
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}
@@ -279,10 +279,10 @@ func TestWindowConfigMinimumSize(t *testing.T) {
 func TestWindowConfigOptions(t *testing.T) {
 	content := readFile(t, "main.go")
 
-	// Must set Title to "UniPDF Debugger"
-	titleRe := regexp.MustCompile(`Title\s*:\s*"UniPDF Debugger"`)
+	// Must set Title to "UniDOC PDF Debugger"
+	titleRe := regexp.MustCompile(`Title\s*:\s*"UniDOC PDF Debugger"`)
 	if !titleRe.MatchString(content) {
-		t.Error("[P1] main.go missing Title: \"UniPDF Debugger\" in window options")
+		t.Error("[P1] main.go missing Title: \"UniDOC PDF Debugger\" in window options")
 	}
 
 	// Must set Width: 1024

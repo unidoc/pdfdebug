@@ -2,7 +2,7 @@
  * @file PDF service layer. Wraps Wails-generated bindings with
  * user-friendly error mapping and a structured open-file workflow.
  */
-import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
 
 /**

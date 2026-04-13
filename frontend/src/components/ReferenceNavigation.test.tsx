@@ -38,7 +38,7 @@ const mockGetObjectDetail = vi.fn();
 const mockGetChildren = vi.fn();
 const mockGetAncestorPath = vi.fn();
 vi.mock(
-  '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),

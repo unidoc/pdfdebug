@@ -41,7 +41,7 @@ vi.mock('@wailsio/runtime', () => ({
 const mockCloseDocument = vi.fn().mockResolvedValue(undefined);
 
 vi.mock(
-  '../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),

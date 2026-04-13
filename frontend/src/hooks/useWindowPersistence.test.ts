@@ -15,7 +15,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useWindowPersistence } from './useWindowPersistence';
 
-const STORAGE_KEY = 'unipdf-debugger:window-state';
+const STORAGE_KEY = 'unidoc-pdf-debugger:window-state';
 
 // Node 25+ has a built-in localStorage without .clear(). Provide a shim
 // so tests run consistently across Node versions and jsdom environments.

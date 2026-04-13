@@ -32,13 +32,13 @@ func projectRoot(t *testing.T) string {
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}
@@ -115,8 +115,8 @@ func TestSingleInstanceConfigured(t *testing.T) {
 	if !strings.Contains(s, "SingleInstance") {
 		t.Error("[P2] 4.4-STRUCT-002: main.go missing SingleInstance option in application.Options")
 	}
-	if !strings.Contains(s, "com.unidoc.unipdf-debugger") {
-		t.Error("[P2] 4.4-STRUCT-002: main.go missing UniqueID 'com.unidoc.unipdf-debugger'")
+	if !strings.Contains(s, "com.unidoc.unidoc-pdf-debugger") {
+		t.Error("[P2] 4.4-STRUCT-002: main.go missing UniqueID 'com.unidoc.unidoc-pdf-debugger'")
 	}
 }
 
@@ -182,10 +182,10 @@ func TestUseWindowPersistenceHookExists(t *testing.T) {
 func TestLinuxDesktopFileAssociation(t *testing.T) {
 	root := projectRoot(t)
 
-	desktopPath := filepath.Join(root, "build", "linux", "unipdf-debugger.desktop")
+	desktopPath := filepath.Join(root, "build", "linux", "unidoc-pdf-debugger.desktop")
 	content, err := os.ReadFile(desktopPath)
 	if err != nil {
-		t.Fatalf("[P2] 4.4-STRUCT-006: cannot read unipdf-debugger.desktop: %v", err)
+		t.Fatalf("[P2] 4.4-STRUCT-006: cannot read unidoc-pdf-debugger.desktop: %v", err)
 	}
 	s := string(content)
 	if !strings.Contains(s, "MimeType=application/pdf") {

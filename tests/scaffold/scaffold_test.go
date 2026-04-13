@@ -21,7 +21,7 @@ import (
 
 // projectRoot returns the absolute path to the project root directory.
 // It walks upward from the test file location to find the project root,
-// identified by the presence of a go.mod whose module name is "unipdf-debugger".
+// identified by the presence of a go.mod whose module name is "unidoc-pdf-debugger".
 // This distinguishes the project root from the test module's own go.mod.
 func projectRoot(t *testing.T) string {
 	t.Helper()
@@ -30,17 +30,17 @@ func projectRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	// Walk up until we find the project root's go.mod (module unipdf-debugger)
+	// Walk up until we find the project root's go.mod (module unidoc-pdf-debugger)
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}

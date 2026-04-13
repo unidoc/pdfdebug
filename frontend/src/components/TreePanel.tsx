@@ -4,7 +4,7 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
-import { GetChildren, GetAncestorPath } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 
 /** Shape consumed by react-arborist. Mapped from backend TreeNode. */

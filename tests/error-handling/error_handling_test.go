@@ -29,13 +29,13 @@ func projectRoot(t *testing.T) string {
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}

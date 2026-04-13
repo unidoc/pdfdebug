@@ -32,7 +32,7 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
 
     await expect(
       appPage.getByTestId('empty-state-title'),
-    ).toHaveText('UniDoc PDF Debugger');
+    ).toHaveText('UniDOC PDF Debugger');
 
     await expect(
       appPage.getByTestId('empty-state-subtitle'),

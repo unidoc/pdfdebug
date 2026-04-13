@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
 
 /**
- * Playwright configuration for UniPDF Debugger E2E tests.
+ * Playwright configuration for UniDOC PDF Debugger E2E tests.
  *
  * Default target: Chromium only.
  * Multi-browser testing is NOT enabled by default. To add Firefox or WebKit,

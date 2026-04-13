@@ -6,8 +6,8 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "UniDoc ehf." # The name of the company
-  productName: "UniPDF Debugger" # The name of the application
-  productIdentifier: "com.unidoc.unipdf-debugger" # The unique product identifier
+  productName: "UniDOC PDF Debugger" # The name of the application
+  productIdentifier: "com.unidoc.unidoc-pdf-debugger" # The unique product identifier
   description: "PDF structure inspector and debugger" # The application description
   copyright: "(c) 2026, UniDoc ehf." # Copyright text
   comments: "PDF structure inspector and debugging tool" # Comments

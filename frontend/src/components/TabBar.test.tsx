@@ -30,7 +30,7 @@ import { TabBar } from './TabBar';
 // Mock Wails bindings -- TabBar calls CloseDocument on tab close
 const mockCloseDocument = vi.fn();
 vi.mock(
-  '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),

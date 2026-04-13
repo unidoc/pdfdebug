@@ -17,7 +17,7 @@ func TestExtractPDFPaths(t *testing.T) {
 	}{
 		{
 			name: "single pdf arg",
-			args: []string{"unipdf-debugger", "/path/to/file.pdf"},
+			args: []string{"unidoc-pdf-debugger", "/path/to/file.pdf"},
 			want: []string{"/path/to/file.pdf"},
 		},
 		{
@@ -32,42 +32,42 @@ func TestExtractPDFPaths(t *testing.T) {
 		},
 		{
 			name: "no args beyond binary name",
-			args: []string{"unipdf-debugger"},
+			args: []string{"unidoc-pdf-debugger"},
 			want: nil,
 		},
 		{
 			name: "non-pdf arg",
-			args: []string{"unipdf-debugger", "/path/to/file.txt"},
+			args: []string{"unidoc-pdf-debugger", "/path/to/file.txt"},
 			want: nil,
 		},
 		{
 			name: "mixed extensions including uppercase PDF",
-			args: []string{"unipdf-debugger", "/a.pdf", "/b.PDF", "/c.txt"},
+			args: []string{"unidoc-pdf-debugger", "/a.pdf", "/b.PDF", "/c.txt"},
 			want: []string{"/a.pdf", "/b.PDF"},
 		},
 		{
 			name: "multiple pdfs",
-			args: []string{"unipdf-debugger", "/doc1.pdf", "/doc2.pdf"},
+			args: []string{"unidoc-pdf-debugger", "/doc1.pdf", "/doc2.pdf"},
 			want: []string{"/doc1.pdf", "/doc2.pdf"},
 		},
 		{
 			name: "mixed case extension",
-			args: []string{"unipdf-debugger", "/file.Pdf"},
+			args: []string{"unidoc-pdf-debugger", "/file.Pdf"},
 			want: []string{"/file.Pdf"},
 		},
 		{
 			name: "path with spaces",
-			args: []string{"unipdf-debugger", "/my docs/my file.pdf"},
+			args: []string{"unidoc-pdf-debugger", "/my docs/my file.pdf"},
 			want: []string{"/my docs/my file.pdf"},
 		},
 		{
 			name: "arg with no extension",
-			args: []string{"unipdf-debugger", "noext"},
+			args: []string{"unidoc-pdf-debugger", "noext"},
 			want: nil,
 		},
 		{
 			name: "bare .pdf extension only",
-			args: []string{"unipdf-debugger", ".pdf"},
+			args: []string{"unidoc-pdf-debugger", ".pdf"},
 			want: []string{".pdf"},
 		},
 	}

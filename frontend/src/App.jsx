@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { Events } from '@wailsio/runtime'
-import { CloseDocument } from '../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js'
+import { CloseDocument } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
 import { mapErrorMessage } from './hooks/usePDFService'
 import { EmptyState } from './components/EmptyState'

@@ -6,7 +6,7 @@
 import { useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
-import { CloseDocument } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 
 /** Tab bar displaying all open documents with switch and close controls. */
 export function TabBar() {

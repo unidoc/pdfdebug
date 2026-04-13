@@ -1,4 +1,4 @@
-module unipdf-debugger
+module unidoc-pdf-debugger
 
 go 1.25
 

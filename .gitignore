@@ -25,6 +25,10 @@ frontend/dist/
 # Wails auto-generated bindings
 frontend/bindings/
 
+# Symlinks to docs repo
+_bmad
+_bmad-output
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -45,7 +49,7 @@ build/darwin/*
 !build/darwin/Info.plist
 !build/linux
 build/linux/*
-!build/linux/unipdf-debugger.desktop
+!build/linux/unidoc-pdf-debugger.desktop
 !build/windows
 build/windows/*
 !build/windows/info.json

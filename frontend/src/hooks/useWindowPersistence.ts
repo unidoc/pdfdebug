@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-const STORAGE_KEY = 'unipdf-debugger:window-state';
+const STORAGE_KEY = 'unidoc-pdf-debugger:window-state';
 
 /** Shape stored in window.localStorage. */
 interface PersistedWindowState {

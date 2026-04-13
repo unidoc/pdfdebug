@@ -34,7 +34,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 const mockGetObjectDetail = vi.fn();
 const mockGetContentStream = vi.fn();
 vi.mock(
-  '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js',
+  '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),

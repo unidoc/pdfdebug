@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"unipdf-debugger/internal/pdfcore"
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 func testdataDir(t *testing.T) string {

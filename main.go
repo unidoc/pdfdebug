@@ -10,7 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"unipdf-debugger/internal/pdfservice"
+	"unidoc-pdf-debugger/internal/pdfservice"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -46,8 +46,8 @@ func main() {
 
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
-		Name:        "unipdf-debugger",
-		Description: "PDF structure inspector and debugger",
+		Name:        "UniDOC PDF Debugger",
+		Description: "PDF structure inspector and debugger\n\nUniDoc ehf. -- https://unidoc.io",
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -56,7 +56,7 @@ func main() {
 		},
 		FileAssociations: []string{".pdf"},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.unidoc.unipdf-debugger",
+			UniqueID: "com.unidoc.unidoc-pdf-debugger",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// Guard: openFileAndEmit and window are assigned after app
 				// creation but before app.Run(). If this fires unexpectedly
@@ -196,7 +196,7 @@ func main() {
 
 	// Create main window
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "UniPDF Debugger",
+		Title:            "UniDOC PDF Debugger",
 		Width:            1024,
 		Height:           768,
 		MinWidth:         800,

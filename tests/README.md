@@ -1,6 +1,6 @@
-# UniPDF Debugger - Test Framework
+# UniDOC PDF Debugger - Test Framework
 
-End-to-end test framework for the UniPDF Debugger desktop application, built with Playwright targeting Chromium.
+End-to-end test framework for the UniDOC PDF Debugger desktop application, built with Playwright targeting Chromium.
 
 ## Setup
 

@@ -22,7 +22,7 @@ import (
 
 // projectRoot returns the absolute path to the project root directory.
 // It walks upward from the test file location to find the project root,
-// identified by the presence of a go.mod whose module name is "unipdf-debugger".
+// identified by the presence of a go.mod whose module name is "unidoc-pdf-debugger".
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -32,13 +32,13 @@ func projectRoot(t *testing.T) string {
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}
@@ -68,7 +68,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // 1.3-UNIT-001 (P0): EmptyState component renders title, subtitle, drop zone,
 //                     and Open File button
-// AC#1: Centered empty state with "UniDoc PDF Debugger" title and
+// AC#1: Centered empty state with "UniDOC PDF Debugger" title and
 //       "Inspect PDF internal structure" subtitle
 // AC#2: Dashed-border drop zone with "Drop a PDF file here" text
 // AC#3: "or" divider + "Open File..." primary button (blue bg, white text)
@@ -83,8 +83,8 @@ func TestEmptyStateComponentRendersRequiredElements(t *testing.T) {
 	content := readFile(t, "frontend/src/components/EmptyState.tsx")
 
 	// AC#1: App title text
-	if !strings.Contains(content, "UniDoc PDF Debugger") {
-		t.Error("[P0] EmptyState.tsx missing app title text: 'UniDoc PDF Debugger'")
+	if !strings.Contains(content, "UniDOC PDF Debugger") {
+		t.Error("[P0] EmptyState.tsx missing app title text: 'UniDOC PDF Debugger'")
 	}
 
 	// AC#1: Subtitle text

@@ -27,13 +27,13 @@ func projectRoot(t *testing.T) string {
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if content, err := os.ReadFile(goModPath); err == nil {
-			if strings.Contains(string(content), "module unipdf-debugger") {
+			if strings.Contains(string(content), "module unidoc-pdf-debugger") {
 				return dir
 			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find project root (no go.mod with module unipdf-debugger found)")
+			t.Fatalf("could not find project root (no go.mod with module unidoc-pdf-debugger found)")
 		}
 		dir = parent
 	}
@@ -236,7 +236,7 @@ func TestMainGoRegistersPDFService(t *testing.T) {
 	content := readFile(t, "main.go")
 
 	// Must import pdfservice package
-	if !strings.Contains(content, `"unipdf-debugger/internal/pdfservice"`) {
+	if !strings.Contains(content, `"unidoc-pdf-debugger/internal/pdfservice"`) {
 		t.Error("[P1] 2.3-INTG-001: main.go does not import internal/pdfservice")
 	}
 

@@ -3,7 +3,7 @@
  * PDF object (dict entries, array elements, scalar value, or stream metadata).
  */
 import { useState, useEffect, useCallback } from 'react';
-import { GetObjectDetail } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
   type ObjectDetailData,

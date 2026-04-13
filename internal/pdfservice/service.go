@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"unipdf-debugger/internal/pdfcore"
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the

@@ -3,8 +3,8 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream } from '../../bindings/unipdf-debugger/internal/pdfservice/pdfservice.js';
-import { ContentStreamData } from '../../bindings/unipdf-debugger/internal/pdfcore/models.js';
+import { GetObjectDetail, GetContentStream } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { ContentStreamData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
   type ObjectDetailData,

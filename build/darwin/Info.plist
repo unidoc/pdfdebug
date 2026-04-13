@@ -4,11 +4,11 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>UniPDF Debugger</string>
+            <string>UniDOC PDF Debugger</string>
         <key>CFBundleExecutable</key>
-            <string>unipdf-debugger</string>
+            <string>unidoc-pdf-debugger</string>
         <key>CFBundleIdentifier</key>
-            <string>com.unidoc.unipdf-debugger</string>
+            <string>com.unidoc.unidoc-pdf-debugger</string>
         <key>CFBundleVersion</key>
             <string>0.0.1</string>
         <key>CFBundleGetInfoString</key>

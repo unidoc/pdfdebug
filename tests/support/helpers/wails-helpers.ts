@@ -1,5 +1,5 @@
 /**
- * Wails-specific test helpers for UniPDF Debugger.
+ * Wails-specific test helpers for UniDOC PDF Debugger.
  *
  * Pure functions that wrap common interactions with the Wails desktop app
  * running in a browser context via Playwright.
