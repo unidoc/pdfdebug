@@ -616,12 +616,13 @@ describe('2.7-UNIT-009: DetailPanel stale fetch cancellation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-010 [P1]: DetailPanel clears previous detail on node change
-// AC#2-#5: Selecting a new node clears previous detail before new data loads.
+// 2.7-UNIT-010 [P1]: DetailPanel keeps previous detail visible during load
+// Previous detail stays visible until the new fetch resolves, avoiding a
+// flash of empty/error state during tab switches.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-010: DetailPanel clears on node change', () => {
-  test('previous detail is cleared while new node loads', async () => {
+describe('2.7-UNIT-010: DetailPanel keeps previous detail during load', () => {
+  test('previous detail remains visible while new node loads', async () => {
     // First call resolves immediately
     mockGetObjectDetail.mockResolvedValueOnce(dictDetail);
     const { rerender } = renderWithState('root');
@@ -647,11 +648,8 @@ describe('2.7-UNIT-010: DetailPanel clears on node change', () => {
       </AppProvider>
     );
 
-    // Old detail should be cleared -- no dict keys visible, no error, no empty state
-    await waitFor(() => {
-      expect(screen.queryByText('/Type')).not.toBeInTheDocument();
-      expect(screen.queryByText('/Pages')).not.toBeInTheDocument();
-    });
+    // Old detail stays visible while new fetch is pending (no flash of empty state)
+    expect(screen.getByText('/Type')).toBeInTheDocument();
   });
 });
 

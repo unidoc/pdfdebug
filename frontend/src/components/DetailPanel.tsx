@@ -37,6 +37,7 @@ function DetailPanelInner() {
   const isMac = useMemo(() => navigator.platform.startsWith('Mac'), []);
 
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
+  const [detailTabId, setDetailTabId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
@@ -54,18 +55,17 @@ function DetailPanelInner() {
       setShowContentStreamLoading(false);
       return;
     }
-    setDetail(null);
+    // Keep previous detail/contentStream visible until the new fetch resolves
+    // to avoid a flash of empty or error state during tab switches.
     setError(null);
     setLoading(true);
-    setContentStream(null);
-    setContentStreamLoading(false);
-    setShowContentStreamLoading(false);
     // Stale-fetch guard: discard response if selection changed before resolve
     let cancelled = false;
     GetObjectDetail(activeTabId, selectedNodeId)
       .then((result: unknown) => {
         if (!cancelled) {
           setDetail(result as ObjectDetailData);
+          setDetailTabId(activeTabId);
           setLoading(false);
         }
       })
@@ -78,15 +78,18 @@ function DetailPanelInner() {
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
 
-  // Fetch content stream when detail resolves to a stream node
+  // Fetch content stream when detail resolves to a stream node.
+  // Uses detailTabId (the tab that produced this detail) to avoid a
+  // mismatched fetch when activeTabId changes before detail updates.
   useEffect(() => {
-    if (!detail || detail.type !== 'stream' || !activeTabId) {
+    if (!detail || !detailTabId) return;
+    if (detail.type !== 'stream') {
       setContentStream(null);
       return;
     }
     setContentStreamLoading(true);
     let cancelled = false;
-    GetContentStream(activeTabId, detail.nodeId)
+    GetContentStream(detailTabId, detail.nodeId)
       .then((result: unknown) => {
         if (!cancelled) {
           setContentStream(result as ContentStreamData);
@@ -100,7 +103,7 @@ function DetailPanelInner() {
         }
       });
     return () => { cancelled = true; };
-  }, [detail, activeTabId]);
+  }, [detail, detailTabId]);
 
   // Debounce loading indicator by 200ms
   useEffect(() => {
