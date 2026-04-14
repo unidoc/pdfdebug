@@ -493,32 +493,29 @@ func TestTreeDump_NegativeDepth_Error(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.1-UNIT-012 [P2]: `pdfdebug dump object` stub returns JSON error on stderr
-// and exit code 1.
-// AC#2: Stubs for unimplemented commands report "not implemented".
+// 5.1-UNIT-012 [P2]: `pdfdebug dump object` is implemented (story 5-2).
+// Verify it produces a JSON error for a non-existent file (exit code 2).
 // ---------------------------------------------------------------------------
 
-func TestObjectDumpStub_ReturnsNotImplemented(t *testing.T) {
+func TestObjectDump_NonexistentFile_JSONError(t *testing.T) {
 	bin := buildCLI(t)
 
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", "dummy.pdf")
 
-	if exitCode != 1 {
-		t.Errorf("[P2] 5.1-UNIT-012: expected exit code 1 for stub, got %d", exitCode)
+	if exitCode != 2 {
+		t.Errorf("[P2] 5.1-UNIT-012: expected exit code 2 for file error, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-012: stdout should be empty for stub, got: %s", stdout)
+		t.Errorf("[P2] 5.1-UNIT-012: stdout should be empty for error, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
 		t.Fatalf("[P2] 5.1-UNIT-012: stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
-	if msg, ok := errObj["error"]; !ok {
+	if _, ok := errObj["error"]; !ok {
 		t.Error("[P2] 5.1-UNIT-012: stderr JSON missing 'error' key")
-	} else if !strings.Contains(strings.ToLower(msg), "not implemented") {
-		t.Errorf("[P2] 5.1-UNIT-012: expected 'not implemented' error, got: %s", msg)
 	}
 }
 
