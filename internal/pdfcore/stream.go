@@ -7,6 +7,52 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
+// GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
+// its content stream. Returns empty string (no error) when the page has no
+// Contents entry. For pages with an array of content stream refs, returns the
+// first ref's node ID.
+func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return "", err
+	}
+
+	var pageDict pdfcpu_types.Dict
+	err = safeCall(func() error {
+		var e error
+		pageDict, _, _, e = doc.PDFContext.PageDict(pageNum, false)
+		return e
+	})
+	if err != nil {
+		return "", wrapPDFError(err)
+	}
+
+	if pageDict == nil {
+		return "", nil
+	}
+
+	contents, found := pageDict.Find("Contents")
+	if !found || contents == nil {
+		return "", nil
+	}
+
+	switch v := contents.(type) {
+	case pdfcpu_types.IndirectRef:
+		return fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value()), nil
+	case pdfcpu_types.Array:
+		if len(v) == 0 {
+			return "", nil
+		}
+		ref, ok := v[0].(pdfcpu_types.IndirectRef)
+		if !ok {
+			return "", fmt.Errorf("Contents array element is not an indirect reference")
+		}
+		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), nil
+	default:
+		return "", fmt.Errorf("unexpected Contents type: %T", contents)
+	}
+}
+
 // GetContentStream decodes and returns the content stream data for the given
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.

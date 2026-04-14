@@ -326,6 +326,79 @@ func TestGetContentStreamCacheClearedOnClose(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// 5.3-UNIT: GetPageContentStreamNodeID resolves a page number to the node ID
+// of its content stream.
+// ---------------------------------------------------------------------------
+
+func TestGetPageContentStreamNodeID_ContentStreamPDF(t *testing.T) {
+	ins, tabID := openContentStream(t)
+	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nodeID == "" {
+		t.Fatal("expected non-empty node ID for content-stream.pdf page 1")
+	}
+	if !strings.HasPrefix(nodeID, "obj:") {
+		t.Errorf("node ID should start with 'obj:', got: %s", nodeID)
+	}
+	parts := strings.SplitN(nodeID, ":", 3)
+	if len(parts) != 3 {
+		t.Fatalf("node ID should have 3 colon-separated parts, got: %s", nodeID)
+	}
+}
+
+func TestGetPageContentStreamNodeID_OutOfRange(t *testing.T) {
+	ins, tabID := openContentStream(t)
+	_, err := ins.GetPageContentStreamNodeID(tabID, 999)
+	if err == nil {
+		t.Fatal("expected error for out-of-range page, got nil")
+	}
+}
+
+func TestGetPageContentStreamNodeID_EmptyStream(t *testing.T) {
+	ins := NewInspector()
+	tabID := "test-empty"
+	_, err := ins.Open(tabID, filepath.Join(testdataDir(t), "empty-stream.pdf"))
+	if err != nil {
+		t.Fatalf("failed to open empty-stream.pdf: %v", err)
+	}
+	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(nodeID, "obj:") {
+		t.Errorf("expected valid node ID starting with 'obj:', got: %q", nodeID)
+	}
+}
+
+func TestGetPageContentStreamNodeID_UnknownTab(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.GetPageContentStreamNodeID("nonexistent", 1)
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+}
+
+// 5.3-PDFCORE-005 [P1]: GetPageContentStreamNodeID returns empty string (no
+// error) for a page with no Contents entry. Uses minimal.pdf whose page 1 has
+// no Contents key in its page dict.
+// AC#4: page with no content stream returns non-fatal empty result.
+func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
+	ins, tabID := openMinimal(t)
+	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nodeID != "" {
+		t.Errorf("expected empty node ID for page with no Contents entry, got: %q", nodeID)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 3.3-UNIT-001 [P0]: Tokenizer produces correct Token structs for a reference
 // content stream line: "BT /F1 12 Tf (Hello) Tj ET".
 // AC#1: tokenizeContentStream produces Token structs with type, value, line, col.
