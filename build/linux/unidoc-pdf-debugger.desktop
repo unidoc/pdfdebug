@@ -1,12 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=UniDOC PDF Debugger
-Comment=PDF structure inspector and debugger
-Exec=unidoc-pdf-debugger %f
+Exec=unidoc-pdf-debugger
 Icon=unidoc-pdf-debugger
 Categories=Development;
 Terminal=false
 Keywords=pdf;debugger;inspector;
 Version=1.0
 StartupNotify=false
-MimeType=application/pdf;
