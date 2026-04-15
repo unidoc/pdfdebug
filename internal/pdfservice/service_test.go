@@ -302,6 +302,76 @@ func TestGetContentStreamUnknown(t *testing.T) {
 	}
 }
 
+// --- GetImageData tests (Story 6-1) ---
+
+func TestGetImageData(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "image-xobject.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer svc.CloseDocument(info.TabID)
+
+	// Walk tree to find an image node
+	var findImage func(nodeID string, depth int) string
+	findImage = func(nodeID string, depth int) string {
+		if depth > 5 {
+			return ""
+		}
+		children, err := svc.GetChildren(info.TabID, nodeID)
+		if err != nil {
+			return ""
+		}
+		for _, c := range children {
+			if c.IconHint == "image" {
+				return c.ID
+			}
+		}
+		for _, c := range children {
+			if c.HasChildren {
+				found := findImage(c.ID, depth+1)
+				if found != "" {
+					return found
+				}
+			}
+		}
+		return ""
+	}
+
+	imageNodeID := findImage("root", 0)
+	if imageNodeID == "" {
+		t.Fatal("no image node found in image-xobject.pdf")
+	}
+
+	result, err := svc.GetImageData(info.TabID, imageNodeID)
+	if err != nil {
+		t.Fatalf("GetImageData returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("GetImageData returned nil")
+	}
+	if result.Error != "" {
+		t.Fatalf("ImageData.Error = %q, want empty", result.Error)
+	}
+	if result.Base64 == "" {
+		t.Fatal("Base64 is empty")
+	}
+	if result.MimeType != "image/jpeg" && result.MimeType != "image/png" {
+		t.Errorf("MimeType = %q, want image/jpeg or image/png", result.MimeType)
+	}
+}
+
+func TestGetImageDataUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetImageData("nonexistent-tab-id", "root")
+	if err == nil {
+		t.Fatal("GetImageData with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	svc := NewPDFService(nil)
 

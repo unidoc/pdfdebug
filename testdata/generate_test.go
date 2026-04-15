@@ -1,7 +1,11 @@
 package testdata_test
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"os"
 	"testing"
 
@@ -111,6 +115,47 @@ func emptyStreamPDFContent() []byte {
 	return []byte(body + xref + trailer)
 }
 
+// imageXObjectPDFContent returns a valid single-page PDF with an embedded
+// DCTDecode (JPEG) XObject image. The image is 4x4 pixels, DeviceRGB, 8bpc.
+func imageXObjectPDFContent() []byte {
+	// Create a 4x4 JPEG image
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for y := 0; y < 4; y++ {
+		for x := 0; x < 4; x++ {
+			img.Set(x, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		}
+	}
+	var jpegBuf bytes.Buffer
+	_ = jpeg.Encode(&jpegBuf, img, &jpeg.Options{Quality: 90})
+	jpegBytes := jpegBuf.Bytes()
+
+	pdf := "%PDF-1.4\n"
+
+	obj1 := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n"
+	obj2 := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n"
+	obj3 := "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n\n"
+	obj4 := fmt.Sprintf("4 0 obj\n<< /Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n", len(jpegBytes))
+	obj4end := "\nendstream\nendobj\n\n"
+
+	body := pdf + obj1 + obj2 + obj3 + obj4
+	bodyBytes := []byte(body)
+	bodyBytes = append(bodyBytes, jpegBytes...)
+	bodyBytes = append(bodyBytes, []byte(obj4end)...)
+
+	o1 := len(pdf)
+	o2 := o1 + len(obj1)
+	o3 := o2 + len(obj2)
+	o4 := o3 + len(obj3)
+	xrefOffset := len(bodyBytes)
+
+	xref := fmt.Sprintf("xref\n0 5\n0000000000 65535 f \n%010d 00000 n \n%010d 00000 n \n%010d 00000 n \n%010d 00000 n \n",
+		o1, o2, o3, o4)
+	trailer := fmt.Sprintf("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", xrefOffset)
+
+	bodyBytes = append(bodyBytes, []byte(xref+trailer)...)
+	return bodyBytes
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -199,5 +244,20 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := pdfcpu_api.EncryptFile("minimal.pdf", "encrypted.pdf", conf); err != nil {
 			t.Fatalf("failed to create encrypted.pdf: %v", err)
 		}
+	})
+
+	t.Run("image-xobject.pdf", func(t *testing.T) {
+		if _, err := os.Stat("image-xobject.pdf"); err == nil {
+			t.Skip("image-xobject.pdf already exists")
+		}
+		if err := os.WriteFile("image-xobject.pdf", imageXObjectPDFContent(), 0644); err != nil {
+			t.Fatalf("failed to create image-xobject.pdf: %v", err)
+		}
+		ctx, err := pdfcpu_api.ReadContextFile("image-xobject.pdf")
+		if err != nil {
+			os.Remove("image-xobject.pdf")
+			t.Fatalf("image-xobject.pdf is not valid according to pdfcpu: %v", err)
+		}
+		t.Logf("image-xobject.pdf created: %d pages", ctx.PageCount)
 	})
 }

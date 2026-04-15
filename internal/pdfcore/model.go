@@ -46,6 +46,21 @@ type ContentStreamData struct {
 	Error     string  `json:"error"`
 }
 
+// ImageData holds extracted image data and metadata for frontend display.
+type ImageData struct {
+	NodeID           string `json:"nodeId"`
+	ObjectRef        string `json:"objectRef"`
+	MimeType         string `json:"mimeType"`
+	Base64           string `json:"base64"`
+	Width            int    `json:"width"`
+	Height           int    `json:"height"`
+	ColorSpace       string `json:"colorSpace"`
+	BitsPerComponent int    `json:"bitsPerComponent"`
+	Filter           string `json:"filter"`
+	Warning          string `json:"warning"`
+	Error            string `json:"error"`
+}
+
 // StreamInfo describes the length and filter pipeline of a PDF stream.
 type StreamInfo struct {
 	Length  int64    `json:"length"`

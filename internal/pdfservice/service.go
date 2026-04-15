@@ -81,3 +81,8 @@ func (s *PDFService) GetAncestorPath(tabID string, nodeID string) ([]string, err
 func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.ContentStreamData, error) {
 	return s.inspector.GetContentStream(tabID, nodeID)
 }
+
+// GetImageData extracts and encodes an image from the given node.
+func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error) {
+	return s.inspector.GetImageData(tabID, nodeID)
+}
