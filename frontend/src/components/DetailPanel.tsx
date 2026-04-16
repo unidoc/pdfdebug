@@ -3,8 +3,8 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { ContentStreamData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
+import { GetObjectDetail, GetContentStream, GetImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
   type ObjectDetailData,
@@ -13,6 +13,7 @@ import {
   ScalarView,
 } from './DetailShared';
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
+import { ImagePreview } from './ImagePreview';
 
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -30,6 +31,7 @@ function DetailPanelInner() {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeLabel = activeTab?.selectedNodeLabel ?? null;
   const selectedNodeRawKey = activeTab?.selectedNodeRawKey ?? null;
+  const selectedNodeIconHint = activeTab?.selectedNodeIconHint ?? null;
   const navHistory = activeTab?.navHistory ?? [];
   const navHistoryIndex = activeTab?.navHistoryIndex ?? -1;
   const canGoBack = navHistoryIndex > 0;
@@ -44,6 +46,9 @@ function DetailPanelInner() {
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
   const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
   const [streamViewMode, setStreamViewMode] = useState<StreamViewMode>('formatted');
+  const [imageData, setImageData] = useState<PdfImageData | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [showImageLoading, setShowImageLoading] = useState(false);
 
   useEffect(() => {
     if (!activeTabId || !selectedNodeId) {
@@ -53,6 +58,9 @@ function DetailPanelInner() {
       setContentStream(null);
       setContentStreamLoading(false);
       setShowContentStreamLoading(false);
+      setImageData(null);
+      setImageLoading(false);
+      setShowImageLoading(false);
       return;
     }
     // Keep previous detail/contentStream visible until the new fetch resolves
@@ -78,13 +86,14 @@ function DetailPanelInner() {
     return () => { cancelled = true; };
   }, [activeTabId, selectedNodeId]);
 
-  // Fetch content stream when detail resolves to a stream node.
+  // Fetch content stream when detail resolves to a non-image stream node.
   // Uses detailTabId (the tab that produced this detail) to avoid a
   // mismatched fetch when activeTabId changes before detail updates.
   useEffect(() => {
     if (!detail || !detailTabId) return;
-    if (detail.type !== 'stream') {
+    if (detail.type !== 'stream' || selectedNodeIconHint === 'image') {
       setContentStream(null);
+      setContentStreamLoading(false);
       return;
     }
     setContentStreamLoading(true);
@@ -103,9 +112,9 @@ function DetailPanelInner() {
         }
       });
     return () => { cancelled = true; };
-  }, [detail, detailTabId]);
+  }, [detail, detailTabId, selectedNodeIconHint]);
 
-  // Debounce loading indicator by 200ms
+  // Debounce content stream loading indicator by 200ms
   useEffect(() => {
     if (!contentStreamLoading) {
       setShowContentStreamLoading(false);
@@ -114,6 +123,45 @@ function DetailPanelInner() {
     const timer = setTimeout(() => setShowContentStreamLoading(true), 200);
     return () => clearTimeout(timer);
   }, [contentStreamLoading]);
+
+  // Fetch image data when detail resolves to a stream node with image iconHint.
+  useEffect(() => {
+    if (selectedNodeIconHint !== 'image' || !detail || detail.type !== 'stream' || !detailTabId) {
+      setImageData(null);
+      setImageLoading(false);
+      return;
+    }
+    setImageData(null);
+    setImageLoading(true);
+    let cancelled = false;
+    GetImageData(detailTabId, detail.nodeId)
+      .then((result: unknown) => {
+        if (!cancelled) {
+          setImageData(result as PdfImageData);
+          setImageLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setImageData(new PdfImageData({
+            nodeId: detail.nodeId,
+            error: String(err ?? 'Unknown error'),
+          }));
+          setImageLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [detail, detailTabId, selectedNodeIconHint]);
+
+  // Debounce image loading indicator by 200ms
+  useEffect(() => {
+    if (!imageLoading) {
+      setShowImageLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowImageLoading(true), 200);
+    return () => clearTimeout(timer);
+  }, [imageLoading]);
 
   // Keyboard shortcuts: Cmd+[ / Ctrl+[ for back, Cmd+] / Ctrl+] for forward
   useEffect(() => {
@@ -139,7 +187,9 @@ function DetailPanelInner() {
     }
   }, [dispatch]);
 
-  const typeLabel = detail ? (TYPE_LABEL_MAP[detail.type] ?? 'Details') : null;
+  const typeLabel = detail
+    ? (selectedNodeIconHint === 'image' ? 'Image Preview' : (TYPE_LABEL_MAP[detail.type] ?? 'Details'))
+    : null;
   const contextSuffix = selectedNodeRawKey || selectedNodeLabel;
   const headerLabel = typeLabel && contextSuffix
     ? `${typeLabel} - ${contextSuffix}`
@@ -205,7 +255,29 @@ function DetailPanelInner() {
               ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
               : <div className="text-text-muted text-sm p-3">No value</div>
             )}
-            {detail.type === 'stream' && (
+            {detail.type === 'stream' && selectedNodeIconHint === 'image' && (
+              <>
+                {imageData && (
+                  <ImagePreview
+                    base64={imageData.base64}
+                    mimeType={imageData.mimeType}
+                    width={imageData.width}
+                    height={imageData.height}
+                    colorSpace={imageData.colorSpace}
+                    bitsPerComponent={imageData.bitsPerComponent}
+                    filter={imageData.filter}
+                    warning={imageData.warning}
+                    error={imageData.error}
+                  />
+                )}
+                {showImageLoading && !imageData && (
+                  <div className="p-3 text-text-muted text-sm" data-testid="image-loading">
+                    Loading image...
+                  </div>
+                )}
+              </>
+            )}
+            {detail.type === 'stream' && selectedNodeIconHint !== 'image' && (
               <>
                 {contentStream && (
                   <ContentStreamViewer

@@ -361,7 +361,7 @@ export function TreePanel() {
 
         dispatch({
           type: 'SELECT_NODE',
-          payload: { nodeId: targetNode.backendId, label: targetNode.name, rawKey: targetNode.rawKey },
+          payload: { nodeId: targetNode.backendId, label: targetNode.name, rawKey: targetNode.rawKey, iconHint: targetNode.iconHint },
         });
 
         // Flash effect
@@ -454,7 +454,7 @@ export function TreePanel() {
     selectedNodeIdRef.current = node.data.backendId;
     dispatch({
       type: 'SELECT_NODE',
-      payload: { nodeId: node.data.backendId, label: node.data.name, rawKey: node.data.rawKey },
+      payload: { nodeId: node.data.backendId, label: node.data.name, rawKey: node.data.rawKey, iconHint: node.data.iconHint },
     });
   }, [dispatch]);
 

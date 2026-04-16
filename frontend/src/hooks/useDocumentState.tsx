@@ -24,6 +24,7 @@ export interface NavHistoryEntry {
   nodeId: string;
   label: string | null;
   rawKey: string | null;
+  iconHint?: string;
 }
 
 /** Per-document tab state including tree root, selection, and navigation. */
@@ -36,6 +37,7 @@ export interface TabState {
   selectedNodeId: string | null;
   selectedNodeLabel: string | null;
   selectedNodeRawKey: string | null;
+  selectedNodeIconHint: string | null;
   pendingNavTarget: string | null;
   navError: string | null;
   navHistory: NavHistoryEntry[];
@@ -55,7 +57,7 @@ export type AppAction =
   | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'ACTIVATE_TAB'; payload: { tabId: string } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
-  | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; isHistoryNav?: boolean } }
+  | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; iconHint?: string; isHistoryNav?: boolean } }
   | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
   | { type: 'DISMISS_ERROR' }
   | { type: 'NAVIGATE_TO_REF'; payload: { targetNodeId: string } }
@@ -105,6 +107,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         selectedNodeId: null,
         selectedNodeLabel: null,
         selectedNodeRawKey: null,
+        selectedNodeIconHint: null,
         pendingNavTarget: null,
         navError: null,
         navHistory: [],
@@ -156,6 +159,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             nodeId: action.payload.nodeId,
             label: action.payload.label ?? null,
             rawKey: action.payload.rawKey ?? null,
+            iconHint: action.payload.iconHint,
           };
           // History navigation: just update selection, don't push
           if (action.payload.isHistoryNav) {
@@ -164,6 +168,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
               selectedNodeId: entry.nodeId,
               selectedNodeLabel: entry.label,
               selectedNodeRawKey: entry.rawKey,
+              selectedNodeIconHint: action.payload.iconHint ?? null,
             };
           }
           // Skip duplicate if same node is already current
@@ -174,6 +179,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
               selectedNodeId: entry.nodeId,
               selectedNodeLabel: entry.label,
               selectedNodeRawKey: entry.rawKey,
+              selectedNodeIconHint: action.payload.iconHint ?? null,
             };
           }
           // Normal navigation: truncate forward history, push new entry
@@ -183,6 +189,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             selectedNodeId: entry.nodeId,
             selectedNodeLabel: entry.label,
             selectedNodeRawKey: entry.rawKey,
+            selectedNodeIconHint: action.payload.iconHint ?? null,
             navHistory: [...truncated, entry],
             navHistoryIndex: truncated.length,
           };
@@ -270,6 +277,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             selectedNodeId: entry.nodeId,
             selectedNodeLabel: entry.label,
             selectedNodeRawKey: entry.rawKey,
+            selectedNodeIconHint: entry.iconHint ?? null,
           };
         }),
       };
@@ -289,6 +297,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             selectedNodeId: entry.nodeId,
             selectedNodeLabel: entry.label,
             selectedNodeRawKey: entry.rawKey,
+            selectedNodeIconHint: entry.iconHint ?? null,
           };
         }),
       };

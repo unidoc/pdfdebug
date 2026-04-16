@@ -33,6 +33,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 // Mock Wails bindings
 const mockGetObjectDetail = vi.fn();
 const mockGetContentStream = vi.fn();
+const mockGetImageData = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -43,6 +44,7 @@ vi.mock(
     OpenFileDialog: vi.fn(),
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
+    GetImageData: (...args: unknown[]) => mockGetImageData(...args),
   })
 );
 
@@ -187,7 +189,7 @@ function DispatchHelper({
 
 function renderWithState(
   selectedNodeId: string | null,
-  selectPayload?: { label?: string; rawKey?: string },
+  selectPayload?: { label?: string; rawKey?: string; iconHint?: string },
 ) {
   const openAction: AppAction = {
     type: 'OPEN_DOCUMENT',
@@ -1177,5 +1179,484 @@ describe('3.3-INTG-001: DetailPanel syntax highlighting integration', () => {
       const btEl = screen.getByText('BT');
       expect(btEl.className).toMatch(/font-semibold/);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story 6.2: Image Preview in Detail Panel -- Integration Tests
+// ---------------------------------------------------------------------------
+
+// Minimal 1x1 PNG for test rendering
+const TINY_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+const imageStreamDetail = {
+  nodeId: 'obj:0:20',
+  objectRef: '20 0 R',
+  type: 'stream',
+  properties: [
+    {
+      key: '/Subtype',
+      value: {
+        type: 'name',
+        display: '/Image',
+        raw: '/Image',
+        refTarget: '',
+      },
+    },
+  ],
+  elements: [],
+  scalarValue: null,
+  streamInfo: {
+    length: 5000,
+    filters: ['DCTDecode'],
+  },
+};
+
+const mockImageDataResponse = {
+  nodeId: 'obj:0:20',
+  objectRef: '20 0 R',
+  mimeType: 'image/png',
+  base64: TINY_PNG_BASE64,
+  width: 320,
+  height: 240,
+  colorSpace: 'DeviceRGB',
+  bitsPerComponent: 8,
+  filter: 'DCTDecode',
+  warning: '',
+  error: '',
+};
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-004 [P1]: DetailPanel renders ImagePreview when selected node
+// has iconHint "image".
+// AC#1: When an XObject image node is selected, the DetailPanel switches to
+//       image preview mode showing the rendered image.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-004: DetailPanel image preview mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockResolvedValue(mockImageDataResponse);
+  });
+
+  test('renders ImagePreview when node has iconHint "image"', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+    });
+
+    // Should NOT render content stream viewer
+    expect(screen.queryByTestId('content-stream-viewer')).not.toBeInTheDocument();
+  });
+
+  test('calls GetImageData with correct tab and node arguments', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      expect(mockGetImageData).toHaveBeenCalledWith('tab-1', 'obj:0:20');
+    });
+  });
+
+  test('does NOT call GetContentStream for image nodes', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+    });
+
+    expect(mockGetContentStream).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-005 [P1]: DetailPanel header shows "Image Preview" with
+// object reference for image nodes.
+// AC#1: The panel header shows "Image Preview" with the object reference.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-005: DetailPanel image preview header', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockResolvedValue(mockImageDataResponse);
+  });
+
+  test('header shows "Image Preview" instead of "Content Stream" for image nodes', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Image Preview');
+    });
+  });
+
+  test('header shows object reference for image nodes', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('20 0 R');
+    });
+  });
+
+  test('header does NOT show "Content Stream" for image nodes', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).not.toHaveTextContent('Content Stream');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-008 [P1]: Loading state shown while image data is being fetched
+// AC#5: When fetch takes longer than 200ms, a "Loading image..." indicator
+//       appears (same debounce pattern as content stream loading).
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-008: DetailPanel image loading state', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('loading indicator does NOT appear before 200ms', async () => {
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    // Image data hangs indefinitely
+    mockGetImageData.mockReturnValue(new Promise(() => {}));
+
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    // Flush pending microtasks so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Advance 199ms -- loading indicator should NOT be visible yet
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(199);
+    });
+
+    expect(screen.queryByTestId('image-loading')).not.toBeInTheDocument();
+  });
+
+  test('loading indicator appears after 200ms when image fetch is pending', async () => {
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockReturnValue(new Promise(() => {}));
+
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    // Flush microtasks so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Advance past 200ms debounce
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(201);
+    });
+
+    expect(screen.getByTestId('image-loading')).toBeInTheDocument();
+    expect(screen.getByTestId('image-loading')).toHaveTextContent('Loading image...');
+  });
+
+  test('loading indicator disappears when image data resolves', async () => {
+    let resolveImage: (v: unknown) => void;
+    const imagePromise = new Promise((resolve) => {
+      resolveImage = resolve;
+    });
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockReturnValue(imagePromise);
+
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    // Flush microtasks so detail state settles
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Show loading indicator
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(201);
+    });
+
+    expect(screen.getByTestId('image-loading')).toBeInTheDocument();
+
+    // Resolve image data and flush
+    await act(async () => {
+      resolveImage!(mockImageDataResponse);
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.queryByTestId('image-loading')).not.toBeInTheDocument();
+    expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-009 [P2]: Switching from image node to dict node clears image
+// preview and shows the appropriate view.
+// AC#6: When a non-image node is selected after an image node, the image
+//       preview is cleared and the dict/array/scalar/stream view is shown.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-009: DetailPanel clears image on node switch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('switching from image node to dict node clears image preview', async () => {
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockResolvedValue(mockImageDataResponse);
+
+    const { rerender } = renderWithState('obj:0:20', { iconHint: 'image' });
+
+    // Image preview should appear
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+    });
+
+    // Switch to a dict node
+    mockGetObjectDetail.mockResolvedValue(dictDetail);
+
+    rerender(
+      <AppProvider>
+        <DispatchHelper
+          action={{
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: 'tab-1',
+              fileName: 'test.pdf',
+              filePath: '/path/to/test.pdf',
+              rootNode: catalogNode,
+              rootChildren: rootChildren,
+            },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'root' },
+          }}
+        />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    // Dict properties should appear, image preview should be gone
+    await waitFor(() => {
+      expect(screen.getByText('/Type')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('image-preview-img')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-011 [P2]: Navigating back to an image node restores image preview
+// AC: NavHistoryEntry.iconHint is preserved and restored on NAVIGATE_BACK.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-011: DetailPanel navigate back restores image', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('navigating back to image node restores image preview', async () => {
+    // First: select image node
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockResolvedValue(mockImageDataResponse);
+
+    const { rerender } = renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+    });
+
+    // Then: navigate to a dict node (non-image)
+    mockGetObjectDetail.mockResolvedValue(dictDetail);
+
+    rerender(
+      <AppProvider>
+        <DispatchHelper
+          action={{
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: 'tab-1',
+              fileName: 'test.pdf',
+              filePath: '/path/to/test.pdf',
+              rootNode: catalogNode,
+              rootChildren: rootChildren,
+            },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'obj:0:20', iconHint: 'image' },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'root' },
+          }}
+        />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('/Type')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('image-preview-img')).not.toBeInTheDocument();
+
+    // Then: navigate back
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockResolvedValue(mockImageDataResponse);
+
+    rerender(
+      <AppProvider>
+        <DispatchHelper
+          action={{
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: 'tab-1',
+              fileName: 'test.pdf',
+              filePath: '/path/to/test.pdf',
+              rootNode: catalogNode,
+              rootChildren: rootChildren,
+            },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'obj:0:20', iconHint: 'image' },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'root' },
+          }}
+        />
+        <DispatchHelper action={{ type: 'NAVIGATE_BACK' }} />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    // Image preview should reappear after navigating back
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-img')).toBeInTheDocument();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-013: GetImageData IPC rejection renders error in ImagePreview
+// AC#3: When GetImageData promise rejects (IPC-level failure), the error is
+//       wrapped and displayed via ImagePreview's error state.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-013: DetailPanel image data IPC rejection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
+    mockGetImageData.mockRejectedValue(new Error('IPC call failed: service unavailable'));
+  });
+
+  test('renders image preview error when GetImageData promise rejects', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      const errorEl = screen.getByTestId('image-preview-error');
+      expect(errorEl).toHaveTextContent('IPC call failed: service unavailable');
+    });
+  });
+
+  test('does not render img element when GetImageData IPC rejects', async () => {
+    renderWithState('obj:0:20', { iconHint: 'image' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('image-preview-error')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('image-preview-img')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.2-UNIT-014: Stale image fetch cancelled on node change
+// AC: Image data fetch uses stale-fetch guard; changing node discards
+//     the previous in-flight image response.
+// ---------------------------------------------------------------------------
+
+describe('6.2-UNIT-014: DetailPanel stale image fetch cancellation', () => {
+  test('stale image data result is discarded when node changes', async () => {
+    vi.clearAllMocks();
+
+    // First node: image stream that returns slowly
+    let resolveFirstImage: (v: unknown) => void;
+    const firstImagePromise = new Promise((resolve) => {
+      resolveFirstImage = resolve;
+    });
+    mockGetObjectDetail
+      .mockResolvedValueOnce(imageStreamDetail)
+      .mockResolvedValueOnce(dictDetail);
+    mockGetImageData.mockReturnValueOnce(firstImagePromise);
+
+    const { rerender } = renderWithState('obj:0:20', { iconHint: 'image' });
+
+    // Wait for detail to load (header shows Image Preview)
+    await waitFor(() => {
+      const header = screen.getByTestId('detail-panel-header');
+      expect(header).toHaveTextContent('Image Preview');
+    });
+
+    // Switch to a dict node before image data resolves
+    rerender(
+      <AppProvider>
+        <DispatchHelper
+          action={{
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: 'tab-1',
+              fileName: 'test.pdf',
+              filePath: '/path/to/test.pdf',
+              rootNode: catalogNode,
+              rootChildren: rootChildren,
+            },
+          }}
+        />
+        <DispatchHelper
+          action={{
+            type: 'SELECT_NODE',
+            payload: { nodeId: 'root' },
+          }}
+        />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    // Now resolve the stale image data
+    resolveFirstImage!(mockImageDataResponse);
+
+    // The dict detail should render, not the image preview
+    await waitFor(() => {
+      expect(screen.getByText('/Pages')).toBeInTheDocument();
+    });
+
+    // Image preview should NOT be present
+    expect(screen.queryByTestId('image-preview-img')).not.toBeInTheDocument();
   });
 });
