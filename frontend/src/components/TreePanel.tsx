@@ -187,7 +187,7 @@ export function TreePanel() {
   const selectedNodeIdRef = useRef<string | null>(null);
   const treeDataRef = useRef<TreeNodeData[]>([]);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
-  const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
+  const [, setFlashNodeId] = useState<string | null>(null);
   const flashNodeIdRef = useRef<string | null>(null);
 
   // Container sizing for react-arborist

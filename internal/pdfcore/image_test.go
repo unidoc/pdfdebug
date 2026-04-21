@@ -171,11 +171,8 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 		if result == nil {
 			t.Fatal("GetImageData returned nil")
 		}
-		// Should have an error because the stream is not an Image XObject
-		if result.Error == "" {
-			// It's possible the stream IS an image in this PDF.
-			// That's fine -- the main point is no panic.
-		}
+		// If result.Error is "" the stream IS an image -- fine, main point is no panic.
+		_ = result.Error
 	}
 
 	// Test with a completely bogus node ID that resolves to nothing useful.
@@ -185,9 +182,8 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 		// A Go error is acceptable for unresolvable refs
 		return
 	}
-	if result != nil && result.Error == "" {
-		// If no error, the object was resolved (unlikely for obj 99999)
-	}
+	// If no error, the object was resolved (unlikely for obj 99999) -- just ensure no panic.
+	_ = result
 
 	// Verify safeCall actually catches panics: open malformed.pdf, which has
 	// a corrupt xref. Any attempt to resolve objects will panic inside pdfcpu.

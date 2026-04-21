@@ -58,7 +58,7 @@ export async function openPDFFile(path: string): Promise<OpenPDFResult> {
   let rootNode: TreeNode | null = null;
   let rootChildren: TreeNode[] | null = null;
   try {
-    rootNode = await GetTreeRoot(docInfo.tabId) as TreeNode | null;
+    rootNode = await GetTreeRoot(docInfo.tabId);
     rootChildren = (await GetChildren(docInfo.tabId, 'root')) as TreeNode[] | null;
   } catch (err) {
     // Clean up the backend document so it doesn't leak

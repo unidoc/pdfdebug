@@ -27,7 +27,7 @@ func main() {
 		printUsage(os.Stderr)
 		os.Exit(0)
 	case "--version", "-v":
-		fmt.Fprintf(os.Stdout, "pdfdebug version %s\n", version)
+		_, _ = fmt.Fprintf(os.Stdout, "pdfdebug version %s\n", version)
 		os.Exit(0)
 	case "dump":
 		if len(os.Args) < 3 {
@@ -57,26 +57,26 @@ func main() {
 
 // printUsage writes the CLI help text to w.
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintln(w, "  dump tree [--json] [--depth N] <file>   Dump PDF object tree as JSON")
-	fmt.Fprintln(w, "  dump object [--json] --ref \"N G R\" <file>  Dump a single PDF object")
-	fmt.Fprintln(w, "  dump stream [--json] --page N <file>    Dump page content stream")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Flags:")
-	fmt.Fprintln(w, "  --help      Show this help message")
-	fmt.Fprintln(w, "  --version   Show version information")
+	_, _ = fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "Commands:")
+	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] <file>   Dump PDF object tree as JSON")
+	_, _ = fmt.Fprintln(w, "  dump object [--json] --ref \"N G R\" <file>  Dump a single PDF object")
+	_, _ = fmt.Fprintln(w, "  dump stream [--json] --page N <file>    Dump page content stream")
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "Flags:")
+	_, _ = fmt.Fprintln(w, "  --help      Show this help message")
+	_, _ = fmt.Fprintln(w, "  --version   Show version information")
 }
 
 // writeJSONError writes a JSON error object to w.
 func writeJSONError(w io.Writer, msg string) {
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
 // writeJSONWarning writes a JSON warning object to w.
 func writeJSONWarning(w io.Writer, msg string) {
-	json.NewEncoder(w).Encode(map[string]string{"warning": msg})
+	_ = json.NewEncoder(w).Encode(map[string]string{"warning": msg})
 }
 
 // parseDumpFlags creates a FlagSet for dump subcommands with common flags.

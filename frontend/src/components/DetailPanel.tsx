@@ -41,7 +41,7 @@ function DetailPanelInner() {
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [detailTabId, setDetailTabId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
   const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
@@ -143,9 +143,10 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
           setImageData(new PdfImageData({
             nodeId: detail.nodeId,
-            error: String(err ?? 'Unknown error'),
+            error: msg,
           }));
           setImageLoading(false);
         }

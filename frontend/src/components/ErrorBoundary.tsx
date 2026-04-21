@@ -28,6 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    // eslint-disable-next-line no-console -- legitimate diagnostics in an error boundary
     console.error('ErrorBoundary caught:', error, info);
   }
 

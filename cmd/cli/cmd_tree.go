@@ -62,7 +62,7 @@ func execTreeDump(filePath string, maxDepth int) (exitCode int) {
 	if err != nil {
 		return handleOpenError(err)
 	}
-	defer inspector.Close("cli")
+	defer func() { _ = inspector.Close("cli") }()
 
 	// Non-fatal warning for structurally damaged but parseable PDFs.
 	if info.Error != "" {

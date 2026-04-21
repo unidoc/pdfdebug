@@ -111,7 +111,7 @@ func TestGetTreeRootValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	root, err := svc.GetTreeRoot(info.TabID)
 	if err != nil {
@@ -142,7 +142,7 @@ func TestGetChildrenValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	children, err := svc.GetChildren(info.TabID, "root")
 	if err != nil {
@@ -170,7 +170,7 @@ func TestGetObjectDetailValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	detail, err := svc.GetObjectDetail(info.TabID, "root")
 	if err != nil {
@@ -210,7 +210,7 @@ func TestGetAncestorPathValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	path, err := svc.GetAncestorPath(info.TabID, "root")
 	if err != nil {
@@ -243,7 +243,7 @@ func TestGetContentStreamValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	// Walk the tree to find a stream node
 	var findStream func(nodeID string, depth int) string
@@ -310,7 +310,7 @@ func TestGetImageData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFile failed: %v", err)
 	}
-	defer svc.CloseDocument(info.TabID)
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	// Walk tree to find an image node
 	var findImage func(nodeID string, depth int) string

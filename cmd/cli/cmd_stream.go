@@ -51,7 +51,7 @@ func execStreamDump(filePath string, pageNum int) (exitCode int) {
 	if err != nil {
 		return handleOpenError(err)
 	}
-	defer inspector.Close("cli")
+	defer func() { _ = inspector.Close("cli") }()
 
 	if info.Error != "" {
 		writeJSONWarning(os.Stderr, info.Error)

@@ -45,7 +45,7 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 		}
 		ref, ok := v[0].(pdfcpu_types.IndirectRef)
 		if !ok {
-			return "", fmt.Errorf("Contents array element is not an indirect reference")
+			return "", fmt.Errorf("contents array element is not an indirect reference")
 		}
 		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), nil
 	default:
