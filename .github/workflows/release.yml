@@ -1,0 +1,444 @@
+name: release
+
+on:
+  push:
+    # Per AC #1 / Task 1.1: glob-match any `v*` tag. The `Resolve version` step
+    # rejects non-SemVer tags at runtime as defense-in-depth.
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (must already exist, e.g. v1.2.3 or v1.2.3-rc.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  # Group by resolved tag so push:tag and workflow_dispatch for the same tag serialize.
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest,   arch: arm64, goos: darwin,  platform: darwin-arm64 }
+          - { os: macos-13,       arch: amd64, goos: darwin,  platform: darwin-amd64 }
+          - { os: windows-latest, arch: amd64, goos: windows, platform: windows-amd64 }
+          - { os: ubuntu-latest,  arch: amd64, goos: linux,   platform: linux-amd64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For push:tags, `github.ref` is the tag ref (correct).
+          # For workflow_dispatch, default `github.ref` is the dispatch branch,
+          # so the build would use branch HEAD instead of the tag commit.
+          # Explicitly check out the requested tag when dispatched.
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache-dependency-path: |
+            go.sum
+            tests/**/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Linux native deps
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential
+
+      - name: Install Wails v3 CLI
+        shell: bash
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.74
+
+      - name: Install frontend deps
+        shell: bash
+        run: npm ci --prefix frontend
+
+      - name: Generate Wails bindings
+        shell: bash
+        run: wails3 generate bindings -clean=true
+
+      - name: Resolve version
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          raw="${INPUT_TAG:-${GITHUB_REF_NAME:-}}"
+          # Reject empty tag and tags that don't match SemVer-ish v<MAJOR>.<MINOR>.<PATCH>[-pre][+build].
+          # Prevents shell/ldflag/PlistBuddy injection via crafted tags.
+          if [ -z "$raw" ]; then
+            echo "Refusing to build: no tag resolved (INPUT_TAG and GITHUB_REF_NAME both empty)" >&2
+            exit 1
+          fi
+          if ! [[ "$raw" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Refusing to build: tag '$raw' is not a valid SemVer tag (expected vX.Y.Z[-pre][+build])" >&2
+            exit 1
+          fi
+          echo "VERSION=${raw#v}" >> "$GITHUB_ENV"
+
+      - name: Detect Apple signing secrets
+        id: apple_secrets
+        shell: bash
+        env:
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPLE_CERT_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_CERT_PASS: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # All six secrets are required for signed + notarized builds. Partial sets would
+          # otherwise enter the sign/notarize steps and fail with opaque errors; mark
+          # available=false so the build produces an UNSIGNED artifact instead.
+          if [ -n "${APPLE_DEVELOPER_ID:-}" ] \
+             && [ -n "${APPLE_CERT_P12:-}" ] \
+             && [ -n "${APPLE_CERT_PASS:-}" ] \
+             && [ -n "${APPLE_ID:-}" ] \
+             && [ -n "${APPLE_TEAM_ID:-}" ] \
+             && [ -n "${APPLE_ID_APP_PASSWORD:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            if [ -n "${APPLE_DEVELOPER_ID:-}" ]; then
+              echo "::warning::Apple signing partially configured; producing UNSIGNED macOS artifacts." >&2
+            fi
+          fi
+
+      - name: Import Apple Developer ID cert
+        if: startsWith(matrix.os, 'macos') && steps.apple_secrets.outputs.available == 'true'
+        shell: bash
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_CERT_PASS: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASS="$(openssl rand -base64 32)"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          # KEYCHAIN_PASS is only needed within this step; do NOT write to $GITHUB_ENV
+          # (values there are not auto-masked and would leak to every downstream step's env).
+          EXISTING_KEYCHAINS="$(security list-keychains -d user | tr -d '"' | xargs)"
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          echo "$APPLE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$APPLE_CERT_PASS" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN"
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING_KEYCHAINS
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Set Info.plist version
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          set -euo pipefail
+          # CFBundle*Version must be dot-separated integers for Apple validators.
+          # Strip both SemVer pre-release (`-rc1`) and build-metadata (`+build.1`)
+          # suffixes; full semver stays in the artifact filename and CLI --version.
+          PLIST_VERSION="${VERSION%%-*}"
+          PLIST_VERSION="${PLIST_VERSION%%+*}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${PLIST_VERSION}" build/darwin/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${PLIST_VERSION}" build/darwin/Info.plist
+
+      - name: Build macOS GUI
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          wails3 task darwin:package ARCH="$ARCH"
+          test -d "bin/unidoc-pdf-debugger.app"
+
+      - name: Sign macOS app bundle
+        if: startsWith(matrix.os, 'macos') && steps.apple_secrets.outputs.available == 'true'
+        timeout-minutes: 10
+        shell: bash
+        env:
+          IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID }}
+        run: |
+          set -euo pipefail
+          APP="bin/unidoc-pdf-debugger.app"
+          # Verify the imported signing identity is actually present before invoking
+          # codesign; otherwise the failure reads as "no identity found" with no context.
+          # `grep -F` matches literally: IDENTITY contains regex metacharacters
+          # (`.` and `()`) that would otherwise be interpreted as regex syntax.
+          if ! security find-identity -v -p codesigning "${KEYCHAIN:-}" | grep -qF "$IDENTITY"; then
+            echo "Signing identity '$IDENTITY' not found in keychain; aborting." >&2
+            exit 1
+          fi
+          # Retry codesign up to 3 times: transient TSA (--timestamp) failures are common.
+          for attempt in 1 2 3; do
+            if codesign --force --deep --options runtime \
+                 --entitlements build/darwin/entitlements.plist \
+                 --sign "$IDENTITY" \
+                 --timestamp \
+                 "$APP"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "codesign failed after 3 attempts" >&2
+              exit 1
+            fi
+            echo "codesign attempt $attempt failed; retrying in $((attempt * 10))s" >&2
+            sleep $((attempt * 10))
+          done
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Notarize and staple
+        if: startsWith(matrix.os, 'macos') && steps.apple_secrets.outputs.available == 'true'
+        timeout-minutes: 30
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APP="bin/unidoc-pdf-debugger.app"
+          ditto -c -k --keepParent "$APP" "$APP.zip"
+          # `x=$(cmd)` does NOT trip `set -e` on cmd failure, so capture to a temp file
+          # and explicitly fail on non-zero exit. Cap Apple's --wait so a stuck queue
+          # doesn't consume the full job timeout.
+          SUBMIT_OUT="$RUNNER_TEMP/notary-submit.json"
+          if ! xcrun notarytool submit "$APP.zip" \
+                 --apple-id "$APPLE_ID" \
+                 --team-id "$APPLE_TEAM_ID" \
+                 --password "$APPLE_ID_APP_PASSWORD" \
+                 --wait \
+                 --timeout 20m \
+                 --output-format json > "$SUBMIT_OUT"; then
+            echo "notarytool submit failed or timed out" >&2
+            cat "$SUBMIT_OUT" >&2 || true
+            rm -f "$APP.zip"
+            exit 1
+          fi
+          cat "$SUBMIT_OUT"
+          # Defensive JSON extraction: tolerate missing keys without a Python KeyError
+          # swallowing the real notarization status.
+          SUBMISSION_ID="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("id",""))' "$SUBMIT_OUT")"
+          STATUS="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("status",""))' "$SUBMIT_OUT")"
+          if [ -n "$SUBMISSION_ID" ]; then
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_ID_APP_PASSWORD" || true
+          fi
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization failed: status='${STATUS:-<unknown>}' id='${SUBMISSION_ID:-<unknown>}'" >&2
+            rm -f "$APP.zip"
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          rm -f "$APP.zip"
+          ditto -c -k --keepParent "$APP" "$APP.zip"
+
+      - name: Build Windows GUI
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          wails3 task windows:build ARCH="$ARCH"
+          test -f "bin/unidoc-pdf-debugger.exe"
+
+      - name: Build Linux GUI
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          wails3 task linux:build ARCH="$ARCH"
+          test -f "bin/unidoc-pdf-debugger"
+
+      - name: Build CLI
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          out="pdfdebug"
+          if [ "$GOOS" = "windows" ]; then out="pdfdebug.exe"; fi
+          go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "bin/${out}" ./cmd/cli
+
+      - name: CLI smoke test
+        shell: bash
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          bin="pdfdebug"
+          if [ "$RUNNER_OS_NAME" = "Windows" ]; then bin="pdfdebug.exe"; fi
+          "./bin/$bin" --help >/dev/null
+
+      - name: Stage artifacts
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          SIGNED: ${{ steps.apple_secrets.outputs.available }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          case "$PLATFORM" in
+            darwin-arm64|darwin-amd64)
+              APP="bin/unidoc-pdf-debugger.app"
+              # Drive the suffix from SIGNED (source of truth) rather than zip presence,
+              # so an unexpected stale zip can't mislabel an unsigned build as signed.
+              if [ "$SIGNED" = "true" ]; then
+                SUFFIX=""
+              else
+                SUFFIX="-UNSIGNED"
+              fi
+              if [ ! -f "${APP}.zip" ]; then
+                ditto -c -k --keepParent "$APP" "${APP}.zip"
+              fi
+              cp "${APP}.zip" \
+                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}${SUFFIX}.app.zip"
+              cp "bin/pdfdebug" \
+                 "dist/pdfdebug-${VERSION}-${PLATFORM}"
+              ;;
+            windows-amd64)
+              cp "bin/unidoc-pdf-debugger.exe" \
+                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.exe"
+              cp "bin/pdfdebug.exe" \
+                 "dist/pdfdebug-${VERSION}-${PLATFORM}.exe"
+              ;;
+            linux-amd64)
+              tar -czf "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.tar.gz" \
+                  -C bin unidoc-pdf-debugger
+              tar -czf "dist/pdfdebug-${VERSION}-${PLATFORM}.tar.gz" \
+                  -C bin pdfdebug
+              ;;
+          esac
+          ls -la dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: dist/
+          retention-days: 7
+
+      - name: Cleanup keychain
+        if: always() && startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          if [ -n "${KEYCHAIN:-}" ] && [ -f "$KEYCHAIN" ]; then
+            security delete-keychain "$KEYCHAIN" || true
+          fi
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          pattern: build-*
+          merge-multiple: true
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-${GITHUB_REF_NAME:-}}"
+          # Re-validate here so a caller can't bypass the build-job regex via inputs
+          # on a workflow_dispatch re-run and publish a release with an arbitrary name.
+          if [ -z "$tag" ]; then
+            echo "No release tag resolved" >&2
+            exit 1
+          fi
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Refusing to publish: tag '$tag' is not a valid SemVer tag" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | LC_ALL=C sort -z \
+            | xargs -0 shasum -a 256 \
+            | sed 's| \./| |' > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          # Manifest integrity guard: refuse to publish if the manifest is empty, the
+          # line count drifts from the number of files staged for release, or the file
+          # count drifts from AC #7's contractual "8 assets" invariant (4 matrix cells
+          # x 2 artifacts/cell). Catches any future staging regression that drops or
+          # duplicates an artifact before it reaches the Release page.
+          EXPECTED_FILES=8
+          FILES=$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | wc -l | tr -d ' ')
+          LINES=$(wc -l < SHA256SUMS.txt | tr -d ' ')
+          if [ "$FILES" -eq 0 ]; then
+            echo "No release artifacts found in dist/; refusing to publish empty release." >&2
+            exit 1
+          fi
+          if [ "$FILES" != "$LINES" ]; then
+            echo "SHA256SUMS line count ($LINES) does not match artifact count ($FILES)." >&2
+            exit 1
+          fi
+          if [ "$FILES" != "$EXPECTED_FILES" ]; then
+            echo "Expected $EXPECTED_FILES release artifacts (AC #7: 4 platforms x 2 artifacts), got $FILES." >&2
+            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | LC_ALL=C sort >&2
+            exit 1
+          fi
+          shasum -a 256 -c SHA256SUMS.txt
+
+      - name: Determine pre-release flag
+        id: prerelease
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Per AC #7: mark as pre-release when the tag carries an rc/alpha/beta
+          # suffix; otherwise promote to "latest".
+          if [[ "$TAG" =~ -(rc|alpha|beta) ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*

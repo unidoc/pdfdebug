@@ -47,9 +47,11 @@ build/*
 !build/darwin
 build/darwin/*
 !build/darwin/Info.plist
+!build/darwin/entitlements.plist
 !build/linux
 build/linux/*
 !build/linux/unidoc-pdf-debugger.desktop
 !build/windows
 build/windows/*
 !build/windows/info.json
+/cli

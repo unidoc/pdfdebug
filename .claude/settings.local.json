@@ -35,7 +35,9 @@
       "Bash(npm test *)",
       "Bash(git diff *)",
       "Read(//tmp/**)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(/usr/bin/python3 -c \"import yaml; yaml.safe_load\\(open\\('/Users/ace/dev/unidoc/unidoc-pdf-debugger/code/.github/workflows/release.yml'\\)\\); print\\('OK'\\)\")",
+      "Bash(python3 -c \"import sys,json; import subprocess; r=subprocess.run\\(['ruby','-e','require \\\\\"yaml\\\\\"; YAML.load_file\\(\\\\\"/Users/ace/dev/unidoc/unidoc-pdf-debugger/code/.github/workflows/release.yml\\\\\"\\); puts \\\\\"OK\\\\\"']\\); print\\(r.returncode\\)\")"
     ]
   }
 }
