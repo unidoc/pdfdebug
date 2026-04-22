@@ -1,3 +1,32 @@
-UniDOC PDF Debugger
-Copyright 2026 UniDoc ehf.
-Licensed under the Apache License, Version 2.0
+UniDoc PDF Debugger
+Copyright (c) 2026 UniDoc ehf.
+
+This product is licensed under the Apache License, Version 2.0.
+A copy of the License is available in the LICENSE file at the root of this
+distribution and at http://www.apache.org/licenses/LICENSE-2.0.
+
+This product includes software developed by third parties:
+
+- pdfcpu (github.com/pdfcpu/pdfcpu)
+  Apache License 2.0. Copyright (c) 2018 Horst Rutter.
+
+- wails v3 (github.com/wailsapp/wails)
+  MIT License. Copyright (c) 2018-Present Lea Anthony.
+
+- @wailsio/runtime (github.com/wailsapp/wails)
+  MIT License. Copyright (c) 2018-Present Lea Anthony.
+
+- react, react-dom (github.com/facebook/react)
+  MIT License. Copyright (c) Meta Platforms, Inc. and affiliates.
+
+- @radix-ui/react-* (github.com/radix-ui/primitives)
+  MIT License. Copyright (c) 2022 WorkOS Inc.
+
+- react-arborist (github.com/brimdata/react-arborist)
+  MIT License.
+
+- allotment (github.com/johnwalley/allotment)
+  MIT License. Copyright (c) 2022 Ben Pryde.
+
+- tailwindcss (github.com/tailwindlabs/tailwindcss)
+  MIT License. Copyright (c) Tailwind Labs, Inc.
