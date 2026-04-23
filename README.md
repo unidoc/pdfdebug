@@ -66,8 +66,6 @@ brew tap unidoc/tap
 brew install unipdf-debugger
 ```
 
-> Note: Homebrew tap is under construction; ships with v0.1.0.
-
 ### From source
 
 See the [Build from Source](#build-from-source) section below.

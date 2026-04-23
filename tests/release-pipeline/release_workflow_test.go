@@ -50,8 +50,10 @@ package release_pipeline_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -869,6 +871,629 @@ func TestEntitlementsPlistExists(t *testing.T) {
 	} {
 		if !strings.Contains(raw, key) {
 			t.Errorf("build/darwin/entitlements.plist missing required key %q (Task 6.1)", key)
+		}
+	}
+}
+
+// ===========================================================================
+// Story 7.4: Homebrew Tap for macOS/Linux Distribution -- appended tests
+// ===========================================================================
+//
+// These 19 test functions extend this suite for Story 7.4 (appended 2026-04-17).
+// They are TDD RED PHASE: they MUST fail until Story 7.4 is implemented. No
+// t.Skip() sentinels except for the two Ruby-gated tests (per story 7-4 Task
+// 4.1 directive).
+//
+// Trace (AC -> test):
+//   AC #2  -> TestHomebrewFormulaTemplateExists,
+//              TestHomebrewFormulaTemplateIsSyntacticallyValid
+//   AC #3  -> TestHomebrewJobFetchesSHA256SUMS,
+//              TestHomebrewJobRendersFormula,
+//              TestHomebrewJobPushesToTap,
+//              TestHomebrewJobCommitAuthor
+//   AC #4  -> TestHomebrewJobNeedsBuildAndRelease,
+//              TestHomebrewJobHasAssetReachabilityCheck
+//   AC #5  -> TestHomebrewJobSkipsOnPrerelease,
+//              TestReleaseJobExposesPrereleaseOutput
+//   AC #6  -> TestHomebrewJobRunsOnMacos,
+//              TestHomebrewJobSmokeTestsBrewInstall
+//   AC #8  -> TestHomebrewJobTokenGateExists,
+//              TestHomebrewJobSecretsNotLoggedOutsideSecretsExpr
+//   AC #9  -> TestHomebrewFormulaTemplateExists,
+//              TestHomebrewFormulaTemplateIsSyntacticallyValid,
+//              TestRenderFormulaScriptExistsAndExecutable,
+//              TestRenderFormulaScriptProducesValidRuby
+//   AC #11 -> TestHomebrewJobRejectsUnsignedMacosAssets
+//   AC #12 -> TestHomebrewJobIdempotentPush
+//   AC #1 (job existence) -> TestHomebrewJobExists
+//
+// Test design scenarios (epic-7-test-design.md):
+//   7.4-STATIC-001 -> TestHomebrewFormulaTemplateExists,
+//                     TestHomebrewFormulaTemplateIsSyntacticallyValid
+//   7.4-STATIC-002 -> TestHomebrewFormulaTemplateExists (class name assertion)
+//   7.4-INTG-001   -> TestHomebrewJobExists, TestHomebrewJobNeedsBuildAndRelease,
+//                     TestHomebrewJobFetchesSHA256SUMS,
+//                     TestHomebrewJobRendersFormula,
+//                     TestHomebrewJobPushesToTap,
+//                     TestHomebrewJobCommitAuthor,
+//                     TestHomebrewJobHasAssetReachabilityCheck
+//   7.4-INTG-002   -> TestHomebrewJobIdempotentPush
+//   7.4-E2E-001    -> TestHomebrewJobSmokeTestsBrewInstall (the job's own
+//                     post-push brew-install step; no separate E2E suite)
+//
+// Helper: homebrewJobBlock returns the raw YAML substring of the `homebrew:`
+// job block, bounded by the next top-level `<id>:` job header at the same
+// indentation (two spaces). Failing the test if the job block is missing.
+
+// homebrewJobBlock extracts the raw YAML slice that begins at `  homebrew:`
+// and runs until the next job header at the same indentation (or EOF). This
+// gives the 7-4 assertions a targeted substring to grep without regressing
+// accidentally into adjacent jobs.
+func homebrewJobBlock(t *testing.T) string {
+	t.Helper()
+	raw := readReleaseWorkflow(t)
+	// Anchor at two-space indent to match the existing `build:` / `release:`
+	// jobs in release.yml (top-level `jobs:` map, two-space child indent).
+	start := strings.Index(raw, "\n  homebrew:\n")
+	if start == -1 {
+		t.Fatalf("release.yml: `homebrew:` job block not found at jobs.<> indentation (AC #1, #3, #4)")
+	}
+	body := raw[start+1:]
+	// Find next top-level job header at same indent; the regex matches two-space
+	// indent + identifier + colon + newline.
+	re := regexp.MustCompile(`(?m)^  [A-Za-z][A-Za-z0-9_-]*:\n`)
+	if loc := re.FindStringIndex(body[len("  homebrew:\n"):]); loc != nil {
+		return body[:len("  homebrew:\n")+loc[0]]
+	}
+	return body
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): release.yml declares a `homebrew` job
+// Covers AC #1 (job exists so Homebrew publication path is present)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobExists asserts that release.yml defines a `homebrew` job
+// under the top-level `jobs:` map. Red-phase: job does not yet exist.
+func TestHomebrewJobExists(t *testing.T) {
+	parsed := parseReleaseWorkflow(t)
+	jobs, ok := parsed["jobs"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("release.yml: jobs block missing (AC #1)")
+	}
+	if _, ok := jobs["homebrew"]; !ok {
+		t.Errorf("release.yml: jobs.homebrew missing (AC #1, #3 -- Homebrew publication job)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job needs: [build, release]
+// Covers AC #4 (ordering: homebrew runs AFTER build matrix AND release publish)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobNeedsBuildAndRelease asserts the `homebrew` job's `needs:`
+// contains BOTH `build` AND `release`, enforcing AC #4's strict ordering
+// (build matrix completes, then release publishes, THEN homebrew runs).
+func TestHomebrewJobNeedsBuildAndRelease(t *testing.T) {
+	job := jobMap(t, "homebrew")
+	needs, ok := job["needs"]
+	if !ok {
+		t.Fatalf("release.yml: jobs.homebrew.needs missing (AC #4 requires needs: [build, release])")
+	}
+	required := map[string]bool{"build": false, "release": false}
+	switch n := needs.(type) {
+	case string:
+		if _, ok := required[n]; ok {
+			required[n] = true
+		}
+	case []interface{}:
+		for _, v := range n {
+			if s, ok := v.(string); ok {
+				if _, expected := required[s]; expected {
+					required[s] = true
+				}
+			}
+		}
+	default:
+		t.Fatalf("release.yml: jobs.homebrew.needs has unexpected type %T (AC #4)", needs)
+	}
+	for name, found := range required {
+		if !found {
+			t.Errorf("release.yml: jobs.homebrew.needs must include %q (AC #4)", name)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job is skipped on pre-release tags
+// Covers AC #5 (pre-release suffix -> formula update SKIPPED)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobSkipsOnPrerelease asserts the `homebrew` job's `if:` gate is
+// exactly `needs.release.outputs.prerelease == 'false'`. This short-circuits
+// formula publication on rc/alpha/beta tags (AC #5).
+func TestHomebrewJobSkipsOnPrerelease(t *testing.T) {
+	job := jobMap(t, "homebrew")
+	ifExpr, _ := job["if"].(string)
+	expected := "needs.release.outputs.prerelease == 'false'"
+	if !strings.Contains(ifExpr, expected) {
+		t.Errorf("release.yml: jobs.homebrew.if must gate on %q (AC #5), got %q", expected, ifExpr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): release job exposes `prerelease` + `tag` as job outputs
+// Covers AC #5 (homebrew `if:` cannot evaluate without release-level output
+// mapping; Task 3.2 adds the `outputs:` section)
+// ---------------------------------------------------------------------------
+
+// TestReleaseJobExposesPrereleaseOutput asserts jobs.release.outputs declares
+// keys `prerelease` and `tag`. Without these, the `homebrew` job's
+// `needs.release.outputs.prerelease` reference evaluates to empty string and
+// the `== 'false'` check silently evaluates false, skipping the job on every
+// run (including real releases).
+func TestReleaseJobExposesPrereleaseOutput(t *testing.T) {
+	job := jobMap(t, "release")
+	outputsRaw, ok := job["outputs"]
+	if !ok {
+		t.Fatalf("release.yml: jobs.release.outputs missing (Task 3.2; AC #5 gate)")
+	}
+	outputs, ok := outputsRaw.(map[string]interface{})
+	if !ok {
+		t.Fatalf("release.yml: jobs.release.outputs is not a map")
+	}
+	for _, key := range []string{"prerelease", "tag"} {
+		if _, ok := outputs[key]; !ok {
+			t.Errorf("release.yml: jobs.release.outputs.%s missing (Task 3.2; AC #5 gate)", key)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-E2E-001 (P0): homebrew job runs on macos-latest (required for the
+// brew-install smoke test in AC #6)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobRunsOnMacos asserts `jobs.homebrew.runs-on` is
+// `macos-latest`. AC #6's smoke test (`brew install --build-from-source`)
+// requires a macOS runner; running the job on ubuntu-latest would fail the
+// final step.
+func TestHomebrewJobRunsOnMacos(t *testing.T) {
+	job := jobMap(t, "homebrew")
+	runsOn, _ := job["runs-on"].(string)
+	if runsOn != "macos-latest" {
+		t.Errorf("release.yml: jobs.homebrew.runs-on must be \"macos-latest\" (AC #6 smoke test requires macOS), got %q", runsOn)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job verifies release assets are reachable via
+// curl -fsI before rendering the formula (AC #4 E7-R-003 mitigation)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobHasAssetReachabilityCheck asserts the homebrew job block
+// contains a curl-based reachability probe against the four expected asset
+// filenames (three GUI assets + SHA256SUMS.txt) BEFORE formula computation.
+// This is AC #4's explicit guard against E7-R-003 "Homebrew formula
+// auto-update race" (CDN staging delay / missing asset).
+func TestHomebrewJobHasAssetReachabilityCheck(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	if !strings.Contains(block, "curl -fsI") {
+		t.Errorf("release.yml jobs.homebrew: must invoke `curl -fsI` for asset reachability (AC #4 / E7-R-003)")
+	}
+	for _, asset := range []string{
+		"darwin-arm64.app.zip",
+		"darwin-amd64.app.zip",
+		"linux-amd64.tar.gz",
+		"SHA256SUMS.txt",
+	} {
+		if !strings.Contains(block, asset) {
+			t.Errorf("release.yml jobs.homebrew: asset-reachability step missing expected asset token %q (AC #4)", asset)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job fetches SHA256SUMS.txt from the release
+// Covers AC #3 (job must download SHA256SUMS.txt via gh release download)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobFetchesSHA256SUMS asserts the homebrew job block includes
+// a `gh release download` invocation targeting SHA256SUMS.txt. The rendered
+// formula's sha256 fields are extracted from this file.
+func TestHomebrewJobFetchesSHA256SUMS(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	if !strings.Contains(block, "gh release download") {
+		t.Errorf("release.yml jobs.homebrew: must call `gh release download` to fetch SHA256SUMS.txt (AC #3)")
+	}
+	if !strings.Contains(block, "SHA256SUMS.txt") {
+		t.Errorf("release.yml jobs.homebrew: must reference `SHA256SUMS.txt` filename (AC #3)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job renders the formula via render-formula.sh
+// and syntax-checks the output via `ruby -c`
+// Covers AC #3 + AC #9 (template renders to valid-shape Ruby)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobRendersFormula asserts the homebrew job invokes
+// `scripts/homebrew/render-formula.sh` AND runs `ruby -c` on the rendered
+// output before publishing. Without `ruby -c` the job can push syntactically
+// broken Ruby to the tap repo and the failure only surfaces at `brew install`
+// time, which is the wrong layer.
+func TestHomebrewJobRendersFormula(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	if !strings.Contains(block, "scripts/homebrew/render-formula.sh") {
+		t.Errorf("release.yml jobs.homebrew: must invoke `scripts/homebrew/render-formula.sh` (AC #3, #9)")
+	}
+	if !strings.Contains(block, "ruby -c") {
+		t.Errorf("release.yml jobs.homebrew: must syntax-check rendered formula via `ruby -c` before publish (AC #3, #9)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job pushes the rendered formula to the tap
+// Covers AC #3 + AC #8 (push target + token-based auth via gh)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobPushesToTap asserts the homebrew job clones/pushes to
+// `unidoc/homebrew-tap`, writes the rendered file to
+// `Formula/unipdf-debugger.rb`, and authenticates via `gh auth login
+// --with-token` (stdin-fed token, never env-exposed) per AC #8's secret
+// handling contract.
+func TestHomebrewJobPushesToTap(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	for _, token := range []string{
+		"unidoc/homebrew-tap",
+		"Formula/unipdf-debugger.rb",
+		"gh auth login --with-token",
+	} {
+		if !strings.Contains(block, token) {
+			t.Errorf("release.yml jobs.homebrew: missing required token %q (AC #3, #8)", token)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job commits as unidoc-release-bot
+// Covers AC #3 (commit author identity on the external tap repo)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobCommitAuthor asserts the homebrew job configures the git
+// commit author as `unidoc-release-bot <release-bot@unidoc.io>`. A bot
+// identity keeps human maintainers' emails off external-repo commit history
+// and makes the tap commit log self-documenting.
+func TestHomebrewJobCommitAuthor(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	for _, needle := range []string{
+		"unidoc-release-bot",
+		"release-bot@unidoc.io",
+	} {
+		if !strings.Contains(block, needle) {
+			t.Errorf("release.yml jobs.homebrew: must configure git commit author %q (AC #3)", needle)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-E2E-001 (P0): homebrew job smoke-tests `brew install` after push
+// Covers AC #6 (post-publish `brew install` smoke test of the tap)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobSmokeTestsBrewInstall asserts the homebrew job runs, as its
+// last step, `brew tap unidoc/tap` + `brew install --build-from-source
+// unidoc/tap/unipdf-debugger` and exercises `--version` against the installed
+// binary (AC #6).
+func TestHomebrewJobSmokeTestsBrewInstall(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	for _, needle := range []string{
+		"brew tap unidoc/tap",
+		"brew install --build-from-source unidoc/tap/unipdf-debugger",
+		"--version",
+	} {
+		if !strings.Contains(block, needle) {
+			t.Errorf("release.yml jobs.homebrew: missing brew-install smoke-test token %q (AC #6)", needle)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job gates downstream steps on tap-token presence
+// Covers AC #8 (fork without HOMEBREW_TAP_TOKEN: warn + skip, do not fail)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobTokenGateExists asserts the homebrew job contains a step
+// that checks HOMEBREW_TAP_TOKEN presence and emits an `available=...` step
+// output, and that a downstream step is gated via `if: ... == 'true'`.
+// Rationale: a fork running the release workflow without the secret should
+// surface a warning and exit 0, not fail the release (AC #8).
+func TestHomebrewJobTokenGateExists(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	if !strings.Contains(block, "HOMEBREW_TAP_TOKEN") {
+		t.Errorf("release.yml jobs.homebrew: must reference HOMEBREW_TAP_TOKEN (AC #8)")
+	}
+	// Gate-step signature: writes an `available=...` step-output, keyed on
+	// token presence.
+	if !regexp.MustCompile(`available=(true|false)`).MatchString(block) {
+		t.Errorf("release.yml jobs.homebrew: token gate must emit `available=true|false` step output (AC #8)")
+	}
+	// At least one downstream step must consume the gate via `if:` expr
+	// referencing the gate's output.
+	if !regexp.MustCompile(`if:\s*steps\.[a-zA-Z_][a-zA-Z_0-9]*\.outputs\.available\s*==\s*'true'`).MatchString(block) {
+		t.Errorf("release.yml jobs.homebrew: downstream steps must be gated via `if: steps.<id>.outputs.available == 'true'` (AC #8)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): HOMEBREW_TAP_TOKEN never mapped to a plaintext literal
+// Covers AC #8 (mirrors TestSecretsNotLoggedOutsideSecretsExpr pattern)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobSecretsNotLoggedOutsideSecretsExpr asserts every YAML-level
+// `HOMEBREW_TAP_TOKEN:` mapping has a value starting with `${{`. Shell-level
+// references (`$HOMEBREW_TAP_TOKEN`, `${HOMEBREW_TAP_TOKEN:-}`) inside `run:`
+// scripts are NOT flagged: they are runtime env expansions, not YAML keys.
+func TestHomebrewJobSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
+	raw := readReleaseWorkflow(t)
+
+	re := regexp.MustCompile(`(?m)^\s*HOMEBREW_TAP_TOKEN:\s*(.+)$`)
+	matches := re.FindAllStringSubmatch(raw, -1)
+	if len(matches) == 0 {
+		t.Errorf("release.yml: no HOMEBREW_TAP_TOKEN: YAML mapping found; homebrew job must reference the secret (AC #8)")
+		return
+	}
+	for _, m := range matches {
+		val := strings.TrimSpace(m[1])
+		if !strings.HasPrefix(val, "${{") {
+			t.Errorf("release.yml: secret HOMEBREW_TAP_TOKEN mapped to non-secrets-expression value %q (plaintext leak risk; AC #8)", val)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-001 (P0): homebrew job rejects UNSIGNED macOS assets
+// Covers AC #11 (fail fast if release contains `...-UNSIGNED.app.zip`)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobRejectsUnsignedMacosAssets asserts the homebrew job contains
+// a gate that detects `...-UNSIGNED.app.zip` assets on the release and fails
+// fast with `exit 1` before formula render. Publishing a formula that points
+// at unsigned .app assets ships Gatekeeper-blocked binaries to `brew install`
+// users.
+func TestHomebrewJobRejectsUnsignedMacosAssets(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	// The substring `-UNSIGNED.app.zip` (possibly within a regex or a
+	// single-quoted grep pattern) must appear inside a step that calls
+	// `gh release view` and includes an `exit 1`. Grep for all three.
+	if !strings.Contains(block, "-UNSIGNED") || !strings.Contains(block, ".app.zip") {
+		t.Errorf("release.yml jobs.homebrew: must detect `-UNSIGNED.app.zip` assets (AC #11)")
+	}
+	if !strings.Contains(block, "gh release view") {
+		t.Errorf("release.yml jobs.homebrew: UNSIGNED-asset gate must use `gh release view` to enumerate assets (AC #11)")
+	}
+	if !strings.Contains(block, "exit 1") {
+		t.Errorf("release.yml jobs.homebrew: UNSIGNED-asset gate must fail fast via `exit 1` (AC #11)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-INTG-002 (P1): homebrew job is idempotent on re-run against same tag
+// Covers AC #12 (workflow_dispatch re-run of same tag -> no duplicate commit)
+// ---------------------------------------------------------------------------
+
+// TestHomebrewJobIdempotentPush asserts the homebrew job's publish step
+// stages the formula (`git add`) BEFORE checking for staged changes (`git
+// diff --cached --quiet`). This pattern correctly handles BOTH first-ever
+// publish (new untracked file) AND no-op re-runs (byte-identical content ->
+// no commit). A bare `git diff --quiet` without the prior `git add` would
+// silently skip the first-ever publish for untracked new files (AC #12).
+func TestHomebrewJobIdempotentPush(t *testing.T) {
+	block := homebrewJobBlock(t)
+
+	addIdx := strings.Index(block, "git add Formula/unipdf-debugger.rb")
+	if addIdx == -1 {
+		t.Errorf("release.yml jobs.homebrew: publish step must `git add Formula/unipdf-debugger.rb` before diff check (AC #12 first-publish safety)")
+		return
+	}
+	diffIdx := strings.Index(block, "git diff --cached --quiet")
+	if diffIdx == -1 {
+		t.Errorf("release.yml jobs.homebrew: publish step must guard commit via `git diff --cached --quiet` (AC #12 idempotent re-run)")
+		return
+	}
+	if diffIdx < addIdx {
+		t.Errorf("release.yml jobs.homebrew: `git add` must precede `git diff --cached --quiet` (AC #12; order matters for untracked files)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-STATIC-001 + 7.4-STATIC-002 (P0): Homebrew formula template exists with
+// required placeholder tokens, class name, and core attributes
+// Covers AC #2 + AC #9
+// ---------------------------------------------------------------------------
+
+// TestHomebrewFormulaTemplateExists asserts the template ships at
+// `scripts/homebrew/unipdf-debugger.rb.tmpl` and contains the canonical
+// class header + all seven `@@...@@` placeholder tokens that the render
+// step substitutes.
+func TestHomebrewFormulaTemplateExists(t *testing.T) {
+	root := projectRoot(t)
+	p := filepath.Join(root, "scripts", "homebrew", "unipdf-debugger.rb.tmpl")
+	content, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("scripts/homebrew/unipdf-debugger.rb.tmpl not found: %v (AC #2, #9)", err)
+	}
+	raw := string(content)
+
+	// 7.4-STATIC-002: class name convention (filename-derived camelCase).
+	if !strings.Contains(raw, "class UnipdfDebugger < Formula") {
+		t.Errorf("template missing `class UnipdfDebugger < Formula` (AC #2; 7.4-STATIC-002 class-name convention)")
+	}
+
+	// AC #2 core attributes.
+	for _, attr := range []string{
+		`desc "`,
+		`homepage "https://github.com/unidoc/unipdf-debugger"`,
+		`license "Apache-2.0"`,
+		`on_macos`,
+		`on_linux`,
+	} {
+		if !strings.Contains(raw, attr) {
+			t.Errorf("template missing required attribute %q (AC #2)", attr)
+		}
+	}
+
+	// AC #9: seven placeholder tokens (3 SHAs + 3 URLs + 1 version).
+	placeholders := []string{
+		"@@VERSION@@",
+		"@@DARWIN_ARM64_SHA256@@",
+		"@@DARWIN_AMD64_SHA256@@",
+		"@@LINUX_AMD64_SHA256@@",
+		"@@DARWIN_ARM64_URL@@",
+		"@@DARWIN_AMD64_URL@@",
+		"@@LINUX_AMD64_URL@@",
+	}
+	for _, ph := range placeholders {
+		if !strings.Contains(raw, ph) {
+			t.Errorf("template missing placeholder token %q (AC #9)", ph)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-STATIC-001 (P0): template is syntactically valid Ruby after placeholder
+// substitution (`ruby -c` passes). Skipped if Ruby is not on PATH (local dev).
+// ---------------------------------------------------------------------------
+
+// TestHomebrewFormulaTemplateIsSyntacticallyValid reads the template,
+// substitutes every `@@...@@` with a safe stub (SemVer zeroes, example URL,
+// 64-char hex), writes the stubbed content to t.TempDir, and runs `ruby -c`.
+// Must exit 0.
+func TestHomebrewFormulaTemplateIsSyntacticallyValid(t *testing.T) {
+	if _, err := exec.LookPath("ruby"); err != nil {
+		t.Skip("ruby not on PATH; CI runners (macos-latest, ubuntu-latest) ship Ruby -- skipping locally")
+	}
+	root := projectRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "scripts", "homebrew", "unipdf-debugger.rb.tmpl"))
+	if err != nil {
+		t.Fatalf("template not readable: %v (AC #2, #9)", err)
+	}
+
+	stub := string(raw)
+	sha := strings.Repeat("0", 64)
+	repls := map[string]string{
+		"@@VERSION@@":             "0.0.0",
+		"@@DARWIN_ARM64_URL@@":    "https://example.com/x",
+		"@@DARWIN_AMD64_URL@@":    "https://example.com/x",
+		"@@LINUX_AMD64_URL@@":     "https://example.com/x",
+		"@@DARWIN_ARM64_SHA256@@": sha,
+		"@@DARWIN_AMD64_SHA256@@": sha,
+		"@@LINUX_AMD64_SHA256@@":  sha,
+	}
+	for k, v := range repls {
+		stub = strings.ReplaceAll(stub, k, v)
+	}
+
+	tmp := filepath.Join(t.TempDir(), "formula-stub.rb")
+	if err := os.WriteFile(tmp, []byte(stub), 0o644); err != nil {
+		t.Fatalf("write stubbed formula: %v", err)
+	}
+	cmd := exec.Command("ruby", "-c", tmp)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("template is not syntactically valid Ruby after stub-substitution (AC #2, #9)\n%s", string(out))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-STATIC-001 (P0): render-formula.sh exists and is executable
+// Covers AC #3 + AC #9 (render script present in repo)
+// ---------------------------------------------------------------------------
+
+// TestRenderFormulaScriptExistsAndExecutable asserts
+// `scripts/homebrew/render-formula.sh` exists and has the executable bit set
+// on Unix (Windows skipped per story 7-3 precedent).
+func TestRenderFormulaScriptExistsAndExecutable(t *testing.T) {
+	root := projectRoot(t)
+	p := filepath.Join(root, "scripts", "homebrew", "render-formula.sh")
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("scripts/homebrew/render-formula.sh not found: %v (AC #3, #9)", err)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	// Executable bit set for owner (at minimum).
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("scripts/homebrew/render-formula.sh is not executable (perm=%v); `chmod +x` required (AC #3, #9)", info.Mode().Perm())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7.4-STATIC-001 (P0): render-formula.sh produces valid Ruby when invoked
+// with stub arguments. Skipped if Ruby is not on PATH.
+// ---------------------------------------------------------------------------
+
+// TestRenderFormulaScriptProducesValidRuby invokes the render script with
+// documented stub arguments (version, three SHA256 stubs, tag), pipes stdout
+// through `ruby -c`, and verifies (a) exit 0, (b) the output contains the
+// expected version literal + stub SHAs + three github.com release URLs.
+func TestRenderFormulaScriptProducesValidRuby(t *testing.T) {
+	if _, err := exec.LookPath("ruby"); err != nil {
+		t.Skip("ruby not on PATH; CI runners ship Ruby -- skipping locally")
+	}
+	root := projectRoot(t)
+	script := filepath.Join(root, "scripts", "homebrew", "render-formula.sh")
+	if _, err := os.Stat(script); err != nil {
+		t.Fatalf("render-formula.sh missing: %v (AC #3, #9)", err)
+	}
+
+	sha1 := strings.Repeat("a", 64)
+	sha2 := strings.Repeat("b", 64)
+	sha3 := strings.Repeat("c", 64)
+	version := "0.1.0"
+	tag := "v0.1.0"
+
+	cmd := exec.Command("bash", script, version, sha1, sha2, sha3, tag)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("render-formula.sh failed with args (%s, %s..., %s..., %s..., %s): %v", version, sha1[:4], sha2[:4], sha3[:4], tag, err)
+	}
+	rendered := string(out)
+
+	// Syntax check via `ruby -c /dev/stdin`.
+	rcheck := exec.Command("ruby", "-c", "/dev/stdin")
+	rcheck.Stdin = strings.NewReader(rendered)
+	if rout, rerr := rcheck.CombinedOutput(); rerr != nil {
+		t.Errorf("rendered formula is not valid Ruby (AC #3, #9)\n%s", string(rout))
+	}
+
+	// Content assertions: version literal + three SHAs + three asset URLs.
+	if !strings.Contains(rendered, `version "0.1.0"`) {
+		t.Errorf("rendered formula missing `version \"0.1.0\"` (AC #3)")
+	}
+	for _, sha := range []string{sha1, sha2, sha3} {
+		if !strings.Contains(rendered, sha) {
+			t.Errorf("rendered formula missing injected SHA256 %s... (AC #3)", sha[:8])
+		}
+	}
+	baseURL := "https://github.com/unidoc/unipdf-debugger/releases/download/v0.1.0/"
+	for _, asset := range []string{
+		baseURL + "unidoc-pdf-debugger-0.1.0-darwin-arm64.app.zip",
+		baseURL + "unidoc-pdf-debugger-0.1.0-darwin-amd64.app.zip",
+		baseURL + "unidoc-pdf-debugger-0.1.0-linux-amd64.tar.gz",
+	} {
+		if !strings.Contains(rendered, asset) {
+			t.Errorf("rendered formula missing expected asset URL %q (AC #3)", asset)
 		}
 	}
 }

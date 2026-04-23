@@ -5,8 +5,15 @@ includes:
   windows: ./build/windows/Taskfile.yml
   darwin: ./build/darwin/Taskfile.yml
   linux: ./build/linux/Taskfile.yml
-  ios: ./build/ios/Taskfile.yml
-  android: ./build/android/Taskfile.yml
+  # ios and android scaffolding is not shipped in git (not part of the release
+  # matrix); mark optional so `task` loads cleanly on a fresh checkout where
+  # these directories do not exist.
+  ios:
+    taskfile: ./build/ios/Taskfile.yml
+    optional: true
+  android:
+    taskfile: ./build/android/Taskfile.yml
+    optional: true
 
 vars:
   APP_NAME: "unidoc-pdf-debugger"

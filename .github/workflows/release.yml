@@ -355,6 +355,12 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      # Exposed for the downstream `homebrew` job (see AC #5): the homebrew
+      # job gates its execution on `needs.release.outputs.prerelease == 'false'`
+      # and reuses `tag` without re-parsing $GITHUB_REF_NAME.
+      prerelease: ${{ steps.prerelease.outputs.prerelease }}
+      tag:        ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -442,3 +448,229 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/*
+
+  homebrew:
+    needs: [build, release]
+    if: needs.release.outputs.prerelease == 'false'
+    runs-on: macos-latest  # brew install smoke test (AC #6) requires macOS
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Resolve version string
+        id: ver
+        shell: bash
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Homebrew `version "..."` accepts SemVer-ish strings but chokes on
+          # SemVer build-metadata (`+build.x`) suffixes. Reject them up front:
+          # the release workflow itself permits build metadata for general
+          # SemVer compatibility, but Homebrew publication does not.
+          raw="${TAG#v}"
+          if [[ "$raw" == *+* ]]; then
+            echo "ERROR: SemVer build-metadata suffix (+...) is not supported by Homebrew formulas: $TAG" >&2
+            echo "Cut the release with a plain or pre-release tag instead." >&2
+            exit 1
+          fi
+          echo "version=${raw}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Homebrew tap token
+        id: tap_token
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN not set; skipping formula update."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject UNSIGNED macOS assets (AC #11)
+        # Intentionally NOT gated on tap_token availability: shipping an
+        # UNSIGNED .app.zip via a GitHub Release is a release-pipeline defect
+        # regardless of whether this run can publish a formula. Fail the job
+        # on every real release so a fork without HOMEBREW_TAP_TOKEN still
+        # surfaces the misconfiguration instead of silently succeeding.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" \
+                     --json assets -q '.assets[].name')"
+          if echo "$assets" | grep -q -- '-UNSIGNED\.app\.zip$'; then
+            echo "ERROR: release $TAG contains UNSIGNED macOS assets:" >&2
+            echo "$assets" | grep -- '-UNSIGNED\.app\.zip$' >&2
+            echo "Configure APPLE_DEVELOPER_ID_CERT_P12_BASE64 + APPLE_DEVELOPER_ID +" >&2
+            echo "APPLE_DEVELOPER_ID_CERT_PASSWORD + APPLE_ID + APPLE_TEAM_ID +" >&2
+            echo "APPLE_ID_APP_PASSWORD on this repo, re-run the release workflow," >&2
+            echo "then the Homebrew formula can be published." >&2
+            exit 1
+          fi
+          # Also guard the inverse: if signing silently failed upstream and the
+          # release carries NO darwin .app.zip assets at all, the UNSIGNED grep
+          # passes trivially. Require the canonical signed assets to be present
+          # before we declare this release Homebrew-publishable. Linux is
+          # included because a missing Linux artifact is a release-pipeline
+          # defect regardless of tap_token availability (consistent with the
+          # UNSIGNED-macOS gate's "real releases must be well-formed" rationale).
+          for required in \
+            "darwin-arm64.app.zip" \
+            "darwin-amd64.app.zip" \
+            "linux-amd64.tar.gz"; do
+            if ! echo "$assets" | grep -q -- "${required}\$"; then
+              echo "ERROR: release $TAG is missing required asset matching *${required}" >&2
+              echo "Assets present:" >&2
+              echo "$assets" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify release assets are reachable
+        if: steps.tap_token.outputs.available == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          for asset in \
+            "unidoc-pdf-debugger-${VERSION}-darwin-arm64.app.zip" \
+            "unidoc-pdf-debugger-${VERSION}-darwin-amd64.app.zip" \
+            "unidoc-pdf-debugger-${VERSION}-linux-amd64.tar.gz" \
+            "SHA256SUMS.txt"; do
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${asset}"
+            echo "Checking $url"
+            curl -fsI --retry 3 -L "$url" >/dev/null \
+              || { echo "ERROR: asset unreachable: $url" >&2; exit 1; }
+          done
+
+      - name: Fetch SHA256SUMS.txt
+        if: steps.tap_token.outputs.available == 'true'
+        id: shas
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+            --pattern 'SHA256SUMS.txt' --dir "$RUNNER_TEMP"
+          # SHA256SUMS.txt format (per story 7-2 Task 5): "<sha>  <filename>"
+          extract() {
+            local asset="$1"
+            local sha
+            sha="$(awk -v f="$asset" '$2==f {print $1}' "$RUNNER_TEMP/SHA256SUMS.txt")"
+            if [ -z "$sha" ]; then
+              echo "ERROR: SHA256 for $asset not found in SHA256SUMS.txt" >&2
+              exit 1
+            fi
+            # Reject malformed entries (truncated hash, extra whitespace, duplicate
+            # lines joined by awk). A bad hash here would render a formula that
+            # fails `brew install` with an opaque mismatch for every end user.
+            if ! [[ "$sha" =~ ^[0-9a-fA-F]{64}$ ]]; then
+              echo "ERROR: extracted SHA256 for $asset is not 64 hex chars: $sha" >&2
+              exit 1
+            fi
+            echo "$sha"
+          }
+          echo "darwin_arm64=$(extract unidoc-pdf-debugger-${VERSION}-darwin-arm64.app.zip)" >> "$GITHUB_OUTPUT"
+          echo "darwin_amd64=$(extract unidoc-pdf-debugger-${VERSION}-darwin-amd64.app.zip)" >> "$GITHUB_OUTPUT"
+          echo "linux_amd64=$(extract unidoc-pdf-debugger-${VERSION}-linux-amd64.tar.gz)" >> "$GITHUB_OUTPUT"
+
+      - name: Render formula
+        if: steps.tap_token.outputs.available == 'true'
+        shell: bash
+        env:
+          TAG:             ${{ needs.release.outputs.tag }}
+          VERSION:         ${{ steps.ver.outputs.version }}
+          SHA_DARWIN_ARM:  ${{ steps.shas.outputs.darwin_arm64 }}
+          SHA_DARWIN_AMD:  ${{ steps.shas.outputs.darwin_amd64 }}
+          SHA_LINUX_AMD:   ${{ steps.shas.outputs.linux_amd64 }}
+        run: |
+          set -euo pipefail
+          ./scripts/homebrew/render-formula.sh \
+            "$VERSION" "$SHA_DARWIN_ARM" "$SHA_DARWIN_AMD" "$SHA_LINUX_AMD" "$TAG" \
+            > "$RUNNER_TEMP/unipdf-debugger.rb"
+          ruby -c "$RUNNER_TEMP/unipdf-debugger.rb"  # syntax check before pushing
+          echo "---- rendered formula ----"
+          cat "$RUNNER_TEMP/unipdf-debugger.rb"
+
+      - name: Publish formula to unidoc/homebrew-tap
+        if: steps.tap_token.outputs.available == 'true'
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION:            ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Use a fresh clone in RUNNER_TEMP; do NOT pollute the checkout of this repo.
+          TAP_DIR="$RUNNER_TEMP/homebrew-tap"
+          # Authenticate gh via stdin so the token never lands in the process env
+          # for any downstream step. `gh auth login --with-token` reads from stdin.
+          gh auth login --with-token <<< "$HOMEBREW_TAP_TOKEN"
+          gh repo clone unidoc/homebrew-tap "$TAP_DIR"
+          mkdir -p "$TAP_DIR/Formula"
+          cp "$RUNNER_TEMP/unipdf-debugger.rb" "$TAP_DIR/Formula/unipdf-debugger.rb"
+          cd "$TAP_DIR"
+          git config user.name  "unidoc-release-bot"
+          git config user.email "release-bot@unidoc.io"
+          # Stage first so the staged-diff check picks up BOTH new-file
+          # (first ever publish) and modified-file (subsequent version bump)
+          # states. A plain `git diff --quiet` on an untracked file reports
+          # "no diff" and would silently skip the first-ever push (AC #12).
+          git add Formula/unipdf-debugger.rb
+          # Defense-in-depth: assert the file is actually staged before the
+          # diff check. If a tap-side .gitignore silently excludes the
+          # formula, plain `git add` is a no-op (no warning, no error). The
+          # downstream `git diff --cached --quiet` would then report "no
+          # changes" and the publish step would exit 0 without pushing --
+          # a hidden failure mode (formula goes stale on the tap forever).
+          # `git ls-files --error-unmatch` on a staged-only (cached) path
+          # exits 0 when staged and non-zero when not, catching the gap.
+          git ls-files --error-unmatch Formula/unipdf-debugger.rb >/dev/null
+          if git diff --cached --quiet Formula/unipdf-debugger.rb; then
+            echo "Formula unchanged; nothing to commit."
+          else
+            git commit -m "unipdf-debugger ${VERSION}"
+            # `gh auth setup-git` is implicit after `gh auth login --with-token`,
+            # but invoke explicitly so `git push` uses the HTTPS credential helper.
+            gh auth setup-git
+            git push origin HEAD:main
+          fi
+
+      - name: Smoke test via brew install
+        if: steps.tap_token.outputs.available == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          # Suppress brew's chatty auto-update during `brew install`; the
+          # macos-latest runner's Homebrew is already fresh enough for our
+          # formula and a stale core cache cannot affect a tap we just pushed.
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+          brew tap unidoc/tap
+          brew install --build-from-source unidoc/tap/unipdf-debugger
+          # Capture the full stdout+stderr: a leading warning line (e.g. Wails
+          # app-translocation notice on first launch) would knock the version
+          # off line 1 and defeat a `head -n 1` filter, so grep the whole blob.
+          installed="$(unipdf-debugger --version 2>&1)"
+          echo "installed:"
+          echo "$installed"
+          # Accept any output containing the version substring; exact format
+          # varies by Wails/Go print behaviour. Strict version-string regex
+          # would be brittle.
+          echo "$installed" | grep -qF "$VERSION" \
+            || { echo "ERROR: installed binary did not report version $VERSION" >&2; exit 1; }

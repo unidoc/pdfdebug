@@ -40,18 +40,24 @@ Thumbs.db
 dist
 
 # Wails build scaffolding -- ignore everything except config files we customize.
-# Tracked config files: config.yml, darwin/Info.plist, linux/*.desktop, windows/info.json
+# Tracked config files: config.yml, Taskfile.yml (common tasks included by per-platform
+# Taskfiles), darwin/Info.plist, linux/*.desktop, windows/info.json, plus the
+# per-platform Taskfile.yml (customised with -X main.version ldflag for AC #6).
 # These are force-added with git add -f.
 build/*
 !build/config.yml
+!build/Taskfile.yml
 !build/darwin
 build/darwin/*
 !build/darwin/Info.plist
 !build/darwin/entitlements.plist
+!build/darwin/Taskfile.yml
 !build/linux
 build/linux/*
 !build/linux/unidoc-pdf-debugger.desktop
+!build/linux/Taskfile.yml
 !build/windows
 build/windows/*
 !build/windows/info.json
+!build/windows/Taskfile.yml
 /cli

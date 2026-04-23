@@ -2,7 +2,9 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -12,6 +14,12 @@ import (
 
 	"unidoc-pdf-debugger/internal/pdfservice"
 )
+
+// version is the release version of the GUI binary. It is overridden at build
+// time via `-ldflags "-X main.version=x.y.z"` (see build/{darwin,linux,windows}/
+// Taskfile.yml) so the Homebrew smoke test's `unipdf-debugger --version` check
+// prints the release tag. Default `"dev"` applies to untagged local builds.
+var version = "dev"
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
@@ -38,6 +46,14 @@ func extractPDFPaths(args []string) []string {
 }
 
 func main() {
+	// --version short-circuit: must run BEFORE application.New so that the
+	// Homebrew formula's post-install smoke test (`unipdf-debugger --version`)
+	// does not spin up a Wails webview/window on headless CI runners.
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	// Declare variables before application.New() so the SingleInstance callback
 	// can capture them by reference. They are assigned after app/window creation
 	// but before app.Run(), so they are safe to use in the async callback.
