@@ -31,7 +31,7 @@ jobs:
           - { os: windows-latest, arch: amd64, goos: windows, platform: windows-amd64 }
           - { os: ubuntu-latest,  arch: amd64, goos: linux,   platform: linux-amd64 }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,20 +100,14 @@ jobs:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
           APPLE_CERT_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
           APPLE_CERT_PASS: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
         run: |
           set -euo pipefail
-          # All six secrets are required for signed + notarized builds. Partial sets would
-          # otherwise enter the sign/notarize steps and fail with opaque errors; mark
-          # available=false so the build produces an UNSIGNED artifact instead.
+          # Notarization is disabled, so only the three codesign secrets are required.
+          # A partial set marks available=false so the build produces an UNSIGNED
+          # artifact instead of failing the sign step with opaque errors.
           if [ -n "${APPLE_DEVELOPER_ID:-}" ] \
              && [ -n "${APPLE_CERT_P12:-}" ] \
-             && [ -n "${APPLE_CERT_PASS:-}" ] \
-             && [ -n "${APPLE_ID:-}" ] \
-             && [ -n "${APPLE_TEAM_ID:-}" ] \
-             && [ -n "${APPLE_ID_APP_PASSWORD:-}" ]; then
+             && [ -n "${APPLE_CERT_PASS:-}" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
@@ -203,56 +197,6 @@ jobs:
             sleep $((attempt * 10))
           done
           codesign --verify --deep --strict --verbose=2 "$APP"
-
-      - name: Notarize and staple
-        if: startsWith(matrix.os, 'macos') && steps.apple_secrets.outputs.available == 'true'
-        timeout-minutes: 30
-        shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
-        run: |
-          set -euo pipefail
-          APP="bin/unidoc-pdf-debugger.app"
-          ditto -c -k --keepParent "$APP" "$APP.zip"
-          # `x=$(cmd)` does NOT trip `set -e` on cmd failure, so capture to a temp file
-          # and explicitly fail on non-zero exit. Cap Apple's --wait so a stuck queue
-          # doesn't consume the full job timeout.
-          SUBMIT_OUT="$RUNNER_TEMP/notary-submit.json"
-          if ! xcrun notarytool submit "$APP.zip" \
-                 --apple-id "$APPLE_ID" \
-                 --team-id "$APPLE_TEAM_ID" \
-                 --password "$APPLE_ID_APP_PASSWORD" \
-                 --wait \
-                 --timeout 20m \
-                 --output-format json > "$SUBMIT_OUT"; then
-            echo "notarytool submit failed or timed out" >&2
-            cat "$SUBMIT_OUT" >&2 || true
-            rm -f "$APP.zip"
-            exit 1
-          fi
-          cat "$SUBMIT_OUT"
-          # Defensive JSON extraction: tolerate missing keys without a Python KeyError
-          # swallowing the real notarization status.
-          SUBMISSION_ID="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("id",""))' "$SUBMIT_OUT")"
-          STATUS="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("status",""))' "$SUBMIT_OUT")"
-          if [ -n "$SUBMISSION_ID" ]; then
-            xcrun notarytool log "$SUBMISSION_ID" \
-              --apple-id "$APPLE_ID" \
-              --team-id "$APPLE_TEAM_ID" \
-              --password "$APPLE_ID_APP_PASSWORD" || true
-          fi
-          if [ "$STATUS" != "Accepted" ]; then
-            echo "Notarization failed: status='${STATUS:-<unknown>}' id='${SUBMISSION_ID:-<unknown>}'" >&2
-            rm -f "$APP.zip"
-            exit 1
-          fi
-          xcrun stapler staple "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          spctl --assess --type execute --verbose=4 "$APP"
-          rm -f "$APP.zip"
-          ditto -c -k --keepParent "$APP" "$APP.zip"
 
       - name: Build Windows GUI
         if: matrix.os == 'windows-latest'

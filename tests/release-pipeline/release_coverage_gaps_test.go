@@ -126,8 +126,8 @@ func TestUploadArtifactNamePattern(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Build job has an explicit timeout-minutes budget.
-// Covers Task 1.2 (macOS notarize can legit take 10+ minutes; budget 45 min
-// total so a single stuck cell cannot eat the job indefinitely).
+// Notarization is currently disabled, so the budget is sized for build + sign
+// only. Re-raise the upper bound when notarization is re-enabled.
 // ---------------------------------------------------------------------------
 
 func TestBuildJobTimeoutMinutes(t *testing.T) {
@@ -136,10 +136,8 @@ func TestBuildJobTimeoutMinutes(t *testing.T) {
 	if !ok {
 		t.Fatalf("release.yml: jobs.build.timeout-minutes missing or not an int (Task 1.2)")
 	}
-	// Allow a reasonable range; exact value is 45 per Task 1.2, but any sane
-	// budget that accommodates macOS notarization is acceptable.
-	if timeout < 30 || timeout > 90 {
-		t.Errorf("release.yml: jobs.build.timeout-minutes should be ~45 (Task 1.2: macOS notarize budget), got %d", timeout)
+	if timeout < 15 || timeout > 60 {
+		t.Errorf("release.yml: jobs.build.timeout-minutes should be in [15, 60] (build+sign budget, no notarize), got %d", timeout)
 	}
 }
 
@@ -316,12 +314,12 @@ func TestAppleSignGatingOutput(t *testing.T) {
 		t.Errorf("release.yml: apple_secrets probe must emit both `available=true` and `available=false` via GITHUB_OUTPUT (Task 2.6)")
 	}
 
-	// Every codesign/notarize step must gate on the output.
+	// Every codesign step must gate on the output. Notarization is currently
+	// disabled; re-add `xcrun notarytool submit` here when re-enabled.
 	gateExpr := "steps.apple_secrets.outputs.available == 'true'"
 	gatedNeedles := []string{
 		"security create-keychain",   // Import Apple Developer ID cert
 		"codesign --force",           // Sign macOS app bundle
-		"xcrun notarytool submit",    // Notarize and staple
 	}
 	for _, needle := range gatedNeedles {
 		for _, s := range steps {

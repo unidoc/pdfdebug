@@ -25,8 +25,8 @@
 //              (7.2-STATIC-002)
 //   AC #3  -> TestMatrixContainsAllFourPlatforms, TestMatrixFailFastFalse
 //              (7.2-STATIC-002)
-//   AC #4  -> TestCodesignStepPresent, TestNotarizeAndStaplePresent,
-//              TestMacOSVerificationCommands (7.2-STATIC-003)
+//   AC #4  -> TestCodesignStepPresent, TestMacOSVerificationCommands
+//              (7.2-STATIC-003) -- notarization currently disabled.
 //   AC #5  -> TestAppleKeychainImport, TestKeychainCleanupAlways,
 //              TestAppleSecretsReferenced (7.2-STATIC-003)
 //   AC #6  -> TestCLIBuildUsesTrimpathAndLdflags,
@@ -398,30 +398,9 @@ func TestCodesignStepPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): notarytool submit + log + stapler staple present
-// Covers AC #4 (submit to Apple Notary, fetch log, staple)
-// ---------------------------------------------------------------------------
-
-func TestNotarizeAndStaplePresent(t *testing.T) {
-	run := jobRunBodies(t, "build")
-
-	for _, needle := range []string{
-		"xcrun notarytool submit",
-		"--wait",
-		"--output-format json",
-		"xcrun notarytool log",
-		"xcrun stapler staple",
-	} {
-		if !strings.Contains(run, needle) {
-			t.Errorf("release.yml build job: notarize/staple token %q missing (AC #4)", needle)
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): both codesign --verify and spctl --assess run post-staple
-// Covers AC #4 (all five steps must exit 0: sign, notarize, staple, codesign
-// --verify, spctl --assess)
+// 7.2-STATIC-003 (P0): codesign --verify runs after the sign step.
+// Covers AC #4 (signed bundle is verified). Notarization is currently
+// disabled, so notarytool/stapler/spctl assertions are not required.
 // ---------------------------------------------------------------------------
 
 func TestMacOSVerificationCommands(t *testing.T) {
@@ -429,9 +408,6 @@ func TestMacOSVerificationCommands(t *testing.T) {
 
 	if !strings.Contains(run, "codesign --verify --deep --strict") {
 		t.Errorf("release.yml build job: `codesign --verify --deep --strict` missing (AC #4)")
-	}
-	if !strings.Contains(run, "spctl --assess --type execute") {
-		t.Errorf("release.yml build job: `spctl --assess --type execute` missing (AC #4 -- both verify AND assess required)")
 	}
 }
 
@@ -493,13 +469,13 @@ func TestKeychainCleanupAlways(t *testing.T) {
 func TestAppleSecretsReferenced(t *testing.T) {
 	raw := readReleaseWorkflow(t)
 
+	// Notarization is currently disabled; only the three codesign-related
+	// secrets are wired up. Re-add APPLE_ID, APPLE_ID_APP_PASSWORD, and
+	// APPLE_TEAM_ID here when notarization is re-enabled.
 	required := []string{
 		"APPLE_DEVELOPER_ID_CERT_P12_BASE64",
 		"APPLE_DEVELOPER_ID_CERT_PASSWORD",
 		"APPLE_DEVELOPER_ID",
-		"APPLE_ID",
-		"APPLE_ID_APP_PASSWORD",
-		"APPLE_TEAM_ID",
 	}
 	for _, name := range required {
 		expr := "secrets." + name
@@ -523,7 +499,6 @@ func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
 	// whitespace). We disallow bare `NAME: somevalue` mappings where
 	// the value is not a secrets expression.
 	sensitive := []string{
-		"APPLE_ID_APP_PASSWORD",
 		"APPLE_DEVELOPER_ID_CERT_PASSWORD",
 	}
 	for _, name := range sensitive {

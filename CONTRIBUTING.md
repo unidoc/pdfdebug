@@ -88,7 +88,7 @@ golangci-lint run ./...
    - Update the `APPLE_DEVELOPER_ID_CERT_P12_BASE64` secret in repo Settings -> Secrets and variables -> Actions.
    - If the DUNS changes (rare), also update `APPLE_DEVELOPER_ID`.
 
-3. **App-specific passwords** (used for notarization) are permanent. If one leaks, revoke it at [appleid.apple.com](https://appleid.apple.com) and update `APPLE_ID_APP_PASSWORD`.
+3. **Notarization is currently disabled.** macOS artifacts are codesigned but not notarized, so first-launch from Finder will trigger a Gatekeeper warning that the user must dismiss via right-click -> Open. The Apple Developer ID cert above is sufficient for codesign. To re-enable notarization later, restore the `Notarize and staple` step in `release.yml`, restore the secret detection requirement for `APPLE_ID`, `APPLE_ID_APP_PASSWORD`, and `APPLE_TEAM_ID`, and configure those three secrets.
 
 ## Reporting Issues
 
