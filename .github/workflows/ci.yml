@@ -29,30 +29,6 @@ jobs:
         shell: bash
         run: ./scripts/verify-license.sh
 
-      - name: Verify Homebrew formula template
-        # Ruby ships preinstalled on ubuntu-latest and macos-latest runners
-        # but may not on windows-latest; Homebrew users never install from
-        # Windows, so Linux + macOS coverage is sufficient (story 7-4 Task 5.2).
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Stub out @@...@@ tokens so `ruby -c` sees syntactically valid Ruby.
-          # Real CI render + push happens in release.yml on version tags.
-          tmpl=scripts/homebrew/unipdf-debugger.rb.tmpl
-          [ -f "$tmpl" ] || { echo "formula template missing"; exit 1; }
-          stubbed="$(mktemp -t formula.rb.XXXXXX)"
-          sed -e 's|@@VERSION@@|0.0.0|g' \
-              -e 's|@@DARWIN_ARM64_URL@@|https://example.com/arm64|g' \
-              -e 's|@@DARWIN_AMD64_URL@@|https://example.com/amd64|g' \
-              -e 's|@@LINUX_AMD64_URL@@|https://example.com/linux|g' \
-              -e "s|@@DARWIN_ARM64_SHA256@@|$(printf '0%.0s' {1..64})|g" \
-              -e "s|@@DARWIN_AMD64_SHA256@@|$(printf '1%.0s' {1..64})|g" \
-              -e "s|@@LINUX_AMD64_SHA256@@|$(printf '2%.0s' {1..64})|g" \
-              "$tmpl" > "$stubbed"
-          ruby -c "$stubbed"
-          rm -f "$stubbed"
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'

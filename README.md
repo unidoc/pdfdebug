@@ -59,13 +59,6 @@ Download from [github.com/unidoc/unipdf-debugger/releases/latest](https://github
 
   CLI archive: `pdfdebug-<version>-linux-amd64.tar.gz`.
 
-### Homebrew (macOS and Linux)
-
-```bash
-brew tap unidoc/tap
-brew install unipdf-debugger
-```
-
 ### From source
 
 See the [Build from Source](#build-from-source) section below.

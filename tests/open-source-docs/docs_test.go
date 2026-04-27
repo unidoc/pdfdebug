@@ -297,8 +297,8 @@ func TestReadmeHasScreenshotReference(t *testing.T) {
 }
 
 // TestReadmeHasInstallationSubsections asserts that the ## Installation section
-// references the three V1 distribution channels per AC #6: GitHub Releases,
-// Homebrew tap, and Build from Source.
+// references the V1 distribution channels per AC #6: GitHub Releases and
+// Build from Source.
 func TestReadmeHasInstallationSubsections(t *testing.T) {
 	content := readFileAtRoot(t, "README.md")
 
@@ -318,7 +318,6 @@ func TestReadmeHasInstallationSubsections(t *testing.T) {
 
 	required := []string{
 		"github.com/unidoc/unipdf-debugger/releases", // GitHub Releases link
-		"brew tap unidoc/tap",                        // Homebrew tap command
 		"Build from Source",                          // reference to build section
 	}
 	for _, s := range required {
@@ -716,25 +715,5 @@ func TestVerifyLicenseScriptUsesStrictMode(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "set -euo pipefail") {
 		t.Errorf("scripts/verify-license.sh missing `set -euo pipefail` strict-mode pragma (Task 5.1)")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Story 7.4 AC #10: README Homebrew subsection promoted from "under
-// construction" placeholder to first-class status.
-// ---------------------------------------------------------------------------
-
-// TestReadmeHomebrewSectionNoUnderConstruction asserts README.md does not
-// contain the literal substring `under construction`. Story 7-3 shipped the
-// Homebrew subsection with the blockquote `> Note: Homebrew tap is under
-// construction; ships with v0.1.0.` as a forward-reference to 7-4. Once 7-4
-// lands the tap is live, so the placeholder MUST be removed. This negative
-// assertion also guards against future re-introduction of similar
-// "under-construction"-style placeholders in README.
-func TestReadmeHomebrewSectionNoUnderConstruction(t *testing.T) {
-	content := readFileAtRoot(t, "README.md")
-	if strings.Contains(strings.ToLower(content), "under construction") {
-		t.Errorf("README.md still contains `under construction` placeholder; story 7-4 AC #10 requires removal " +
-			"(the Homebrew subsection is now first-class, not forward-referenced)")
 	}
 }

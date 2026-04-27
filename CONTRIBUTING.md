@@ -90,14 +90,6 @@ golangci-lint run ./...
 
 3. **App-specific passwords** (used for notarization) are permanent. If one leaks, revoke it at [appleid.apple.com](https://appleid.apple.com) and update `APPLE_ID_APP_PASSWORD`.
 
-4. **Homebrew formula:** the `homebrew` job in `.github/workflows/release.yml` renders `Formula/unipdf-debugger.rb` from `scripts/homebrew/unipdf-debugger.rb.tmpl` and pushes it to `github.com/unidoc/homebrew-tap` on every non-pre-release tag. Pre-release tags (`-rc`, `-alpha`, `-beta`) skip the formula update -- they publish as pre-release GitHub Releases only. No manual formula edits are required.
-
-   **`HOMEBREW_TAP_TOKEN` rotation:** the token is a fine-grained PAT scoped to `Contents: Read and write` on `unidoc/homebrew-tap` only, with a 1-year expiry. Rotation steps:
-   1. Generate a new fine-grained PAT via GitHub Settings -> Developer settings -> Personal access tokens -> Fine-grained tokens.
-   2. Scope it to `unidoc/homebrew-tap` only; grant `Contents: Read and write`; set 1-year expiry.
-   3. Update the `HOMEBREW_TAP_TOKEN` Actions secret on `unidoc/unipdf-debugger`.
-   4. Verify with a `workflow_dispatch` re-run of the most recent non-pre-release tag; the `homebrew` job should exit 0 with "Formula unchanged; nothing to commit."
-
 ## Reporting Issues
 
 - File a GitHub Issue with a minimal reproducer: attach a PDF file (redact sensitive content) and the CLI or GUI output.
