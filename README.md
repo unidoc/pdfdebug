@@ -2,7 +2,7 @@
 
 > Open-source, cross-platform PDF structure inspector for PDF developers, forensics analysts, and compliance engineers.
 
-[![CI](https://github.com/unidoc/unipdf-debugger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/unidoc/unipdf-debugger/actions/workflows/ci.yml)
+[![CI](https://github.com/unidoc/unidoc-pdf-debugger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/unidoc/unidoc-pdf-debugger/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 ![Platforms: macOS | Windows | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
@@ -31,24 +31,24 @@ Pre-built binaries from GitHub Releases are the fastest path; building from sour
 
 ### Pre-built binaries (GitHub Releases)
 
-Download from [github.com/unidoc/unipdf-debugger/releases/latest](https://github.com/unidoc/unipdf-debugger/releases/latest). Binary base name is `unipdf-debugger`.
+Download from [github.com/unidoc/unidoc-pdf-debugger/releases/latest](https://github.com/unidoc/unidoc-pdf-debugger/releases/latest). Binary base name is `unidoc-pdf-debugger`.
 
-- **macOS (arm64 or amd64)**: download `unipdf-debugger-<version>-darwin-<arch>.dmg`, double-click to mount, and drag `unipdf-debugger.app` onto the `Applications` shortcut. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
+- **macOS (arm64 or amd64)**: download `unidoc-pdf-debugger-<version>-darwin-<arch>.dmg`, double-click to mount, and drag `unidoc-pdf-debugger.app` onto the `Applications` shortcut. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
 
   ```bash
-  sudo xattr -cr /Applications/unipdf-debugger.app
+  sudo xattr -cr /Applications/unidoc-pdf-debugger.app
   ```
 
   Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
 
-- **Windows (amd64)**: download `unipdf-debugger-<version>-windows-amd64.exe` and double-click. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway".
+- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.exe` and double-click. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway".
 
-- **Linux (amd64)**: download `unipdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
+- **Linux (amd64)**: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
 
   ```bash
-  tar -xzf unipdf-debugger-<version>-linux-amd64.tar.gz
-  chmod +x unipdf-debugger
-  ./unipdf-debugger
+  tar -xzf unidoc-pdf-debugger-<version>-linux-amd64.tar.gz
+  chmod +x unidoc-pdf-debugger
+  ./unidoc-pdf-debugger
   ```
 
   Requires `libwebkit2gtk-4.1`:
@@ -70,7 +70,7 @@ All macOS releases are currently distributed unsigned. Apple Developer Program e
 What this means for end users:
 
 - **First launch fails with a Gatekeeper warning.** macOS attaches a quarantine attribute to anything downloaded via browser, and Gatekeeper blocks unsigned bundles by default.
-- **Workaround**: either run `sudo xattr -cr /Applications/unipdf-debugger.app` once after install (recommended), or right-click the `.app` -> Open -> "Open" in the warning dialog.
+- **Workaround**: either run `sudo xattr -cr /Applications/unidoc-pdf-debugger.app` once after install (recommended), or right-click the `.app` -> Open -> "Open" in the warning dialog.
 - **CLI binary (`pdfdebug`) is unaffected.** Gatekeeper only fires on GUI launches from Finder. Running the CLI from a terminal works without any bypass.
 - **No security implication beyond the trust signal.** The bundle is the same code as a signed build would be; only the cryptographic identity from Apple is missing.
 
@@ -96,7 +96,7 @@ Per-platform prerequisites:
 
 ```bash
 # 1. Clone
-git clone https://github.com/unidoc/unipdf-debugger && cd unipdf-debugger
+git clone https://github.com/unidoc/unidoc-pdf-debugger && cd unidoc-pdf-debugger
 
 # 2. Install the pinned Wails v3 CLI (version suffix MUST match go.mod)
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.74

@@ -47,7 +47,7 @@ func extractPDFPaths(args []string) []string {
 
 func main() {
 	// --version short-circuit: must run BEFORE application.New so that
-	// `unipdf-debugger --version` does not spin up a Wails webview/window
+	// `unidoc-pdf-debugger --version` does not spin up a Wails webview/window
 	// on headless runners.
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
 		fmt.Println(version)

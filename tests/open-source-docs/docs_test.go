@@ -317,7 +317,7 @@ func TestReadmeHasInstallationSubsections(t *testing.T) {
 	}
 
 	required := []string{
-		"github.com/unidoc/unipdf-debugger/releases", // GitHub Releases link
+		"github.com/unidoc/unidoc-pdf-debugger/releases", // GitHub Releases link
 		"Build from Source",                          // reference to build section
 	}
 	for _, s := range required {
@@ -609,12 +609,12 @@ func TestReadmeInstallationHasPerPlatformArtifacts(t *testing.T) {
 
 	required := []string{
 		"darwin-",         // darwin architecture suffix
-		".app.zip",        // macOS artifact extension
+		".dmg",            // macOS artifact extension
 		"windows-amd64",   // Windows arch token
 		".exe",            // Windows extension
 		"linux-amd64",     // Linux arch token
 		".tar.gz",         // Linux extension
-		"sudo xattr -cr",  // Gatekeeper bypass command for unsigned RC builds (AC #6)
+		"sudo xattr -cr",  // Gatekeeper bypass command for unsigned macOS builds (AC #6)
 		"libwebkit2gtk",   // Linux dep hint mandated by AC #6 / PRD section 14
 	}
 	for _, s := range required {

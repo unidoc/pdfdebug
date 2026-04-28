@@ -259,7 +259,7 @@ jobs:
               cp -R "$APP" "$STAGE/"
               ln -s /Applications "$STAGE/Applications"
               hdiutil create \
-                -volname "unipdf-debugger" \
+                -volname "unidoc-pdf-debugger" \
                 -srcfolder "$STAGE" \
                 -ov -format UDZO \
                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
