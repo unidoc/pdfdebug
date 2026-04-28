@@ -18,7 +18,6 @@
 //   - Platform-specific GUI build steps invoke `wails3 task <os>:build|package`
 //     with ARCH from matrix (Task 3.1, 3.2)
 //   - CLI `--help` smoke-test step per cell (Task 3.4)
-//   - UNSIGNED suffix applied when SIGNED != true (Task 4.2)
 //   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=8, line-count invariant,
 //     and `shasum -a 256 -c` self-verify (Review #3 Medium)
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
@@ -401,26 +400,6 @@ func TestCLISmokeTestStep(t *testing.T) {
 		if strings.Contains(ifClause, "matrix.os") && strings.Contains(ifClause, "==") {
 			t.Errorf("release.yml: CLI smoke test step restricts to a single platform via `%s` -- must run on all 4 cells (Task 3.4)", ifClause)
 		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Staging step marks the macOS `.app.zip` as `-UNSIGNED` when
-// steps.apple_secrets.outputs.available != 'true'.
-// Covers Task 4.2 (users downloading pre-release artifacts must know they
-// must bypass Gatekeeper manually).
-// ---------------------------------------------------------------------------
-
-func TestStagingUnsignedSuffix(t *testing.T) {
-	run := jobRunBodies(t, "build")
-
-	// Look for SUFFIX assignment driven by SIGNED.
-	if !strings.Contains(run, "SUFFIX=\"-UNSIGNED\"") {
-		t.Errorf("release.yml build job: staging step must set `SUFFIX=\"-UNSIGNED\"` when signed=false (Task 4.2)")
-	}
-	// And the darwin-* branch must interpolate ${SUFFIX} into the .app.zip name.
-	if !regexp.MustCompile(`darwin-[^"}]+\$\{SUFFIX\}\.app\.zip|\$\{PLATFORM\}\$\{SUFFIX\}\.app\.zip`).MatchString(run) {
-		t.Errorf("release.yml build job: staging step must interpolate ${SUFFIX} into darwin .app.zip filename (Task 4.2)")
 	}
 }
 

@@ -27,19 +27,19 @@ It is built for three audiences: PDF developers building SDKs and generators who
 
 ## Installation
 
-Three V1 distribution channels are supported. Pre-built binaries are the fastest path; building from source is required for contributors.
+Pre-built binaries from GitHub Releases are the fastest path; building from source is required for contributors.
 
 ### Pre-built binaries (GitHub Releases)
 
 Download from [github.com/unidoc/unipdf-debugger/releases/latest](https://github.com/unidoc/unipdf-debugger/releases/latest). Binary base name is `unipdf-debugger`.
 
-- **macOS (arm64 or amd64)**: download `unipdf-debugger-<version>-darwin-<arch>.app.zip`, unzip, and drag the `.app` to `/Applications`. Pre-release builds (`-rc*`, `-alpha*`, `-beta*`) are labelled `-UNSIGNED` and require a Gatekeeper bypass:
+- **macOS (arm64 or amd64)**: download `unipdf-debugger-<version>-darwin-<arch>.app.zip`, unzip, and drag the `.app` to `/Applications`. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
 
   ```bash
   sudo xattr -cr /Applications/unipdf-debugger.app
   ```
 
-  Non-RC releases are signed and notarized and need no bypass.
+  Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
 
 - **Windows (amd64)**: download `unipdf-debugger-<version>-windows-amd64.exe` and double-click. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway".
 
@@ -62,6 +62,19 @@ Download from [github.com/unidoc/unipdf-debugger/releases/latest](https://github
 ### From source
 
 See the [Build from Source](#build-from-source) section below.
+
+### macOS unsigned builds
+
+All macOS releases are currently distributed unsigned. Apple Developer Program enrollment is not yet set up for this project, so the release pipeline ships .app bundles without a Developer ID signature and without notarization.
+
+What this means for end users:
+
+- **First launch fails with a Gatekeeper warning.** macOS attaches a quarantine attribute to anything downloaded via browser, and Gatekeeper blocks unsigned bundles by default.
+- **Workaround**: either run `sudo xattr -cr /Applications/unipdf-debugger.app` once after install (recommended), or right-click the `.app` -> Open -> "Open" in the warning dialog.
+- **CLI binary (`pdfdebug`) is unaffected.** Gatekeeper only fires on GUI launches from Finder. Running the CLI from a terminal works without any bypass.
+- **No security implication beyond the trust signal.** The bundle is the same code as a signed build would be; only the cryptographic identity from Apple is missing.
+
+When Apple Developer Program enrollment is set up, this section will be removed and releases will ship signed (and possibly notarized) without requiring any user-side workaround. See `CONTRIBUTING.md` for the maintainer-side steps to enable signing.
 
 ## Build from Source
 

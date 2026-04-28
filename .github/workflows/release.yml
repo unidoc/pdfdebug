@@ -103,8 +103,10 @@ jobs:
         run: |
           set -euo pipefail
           # Notarization is disabled, so only the three codesign secrets are required.
-          # A partial set marks available=false so the build produces an UNSIGNED
-          # artifact instead of failing the sign step with opaque errors.
+          # A partial or empty set marks available=false so the build produces an
+          # unsigned artifact instead of failing the sign step with opaque errors.
+          # Filenames do not encode signing state -- see README "macOS unsigned
+          # builds" for what end users should expect.
           if [ -n "${APPLE_DEVELOPER_ID:-}" ] \
              && [ -n "${APPLE_CERT_P12:-}" ] \
              && [ -n "${APPLE_CERT_PASS:-}" ]; then
@@ -112,7 +114,7 @@ jobs:
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
             if [ -n "${APPLE_DEVELOPER_ID:-}" ]; then
-              echo "::warning::Apple signing partially configured; producing UNSIGNED macOS artifacts." >&2
+              echo "::warning::Apple signing partially configured; producing unsigned macOS artifacts." >&2
             fi
           fi
 
@@ -244,25 +246,17 @@ jobs:
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}
-          SIGNED: ${{ steps.apple_secrets.outputs.available }}
         run: |
           set -euo pipefail
           mkdir -p dist
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
               APP="bin/unidoc-pdf-debugger.app"
-              # Drive the suffix from SIGNED (source of truth) rather than zip presence,
-              # so an unexpected stale zip can't mislabel an unsigned build as signed.
-              if [ "$SIGNED" = "true" ]; then
-                SUFFIX=""
-              else
-                SUFFIX="-UNSIGNED"
-              fi
               if [ ! -f "${APP}.zip" ]; then
                 ditto -c -k --keepParent "$APP" "${APP}.zip"
               fi
               cp "${APP}.zip" \
-                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}${SUFFIX}.app.zip"
+                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.app.zip"
               cp "bin/pdfdebug" \
                  "dist/pdfdebug-${VERSION}-${PLATFORM}"
               ;;
