@@ -252,11 +252,17 @@ jobs:
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
               APP="bin/unidoc-pdf-debugger.app"
-              if [ ! -f "${APP}.zip" ]; then
-                ditto -c -k --keepParent "$APP" "${APP}.zip"
-              fi
-              cp "${APP}.zip" \
-                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.app.zip"
+              # Build a DMG with the .app and an Applications symlink so the
+              # mounted volume shows the standard drag-to-install layout.
+              STAGE="$RUNNER_TEMP/dmg-stage"
+              rm -rf "$STAGE" && mkdir -p "$STAGE"
+              cp -R "$APP" "$STAGE/"
+              ln -s /Applications "$STAGE/Applications"
+              hdiutil create \
+                -volname "unipdf-debugger" \
+                -srcfolder "$STAGE" \
+                -ov -format UDZO \
+                "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
               cp "bin/pdfdebug" \
                  "dist/pdfdebug-${VERSION}-${PLATFORM}"
               ;;

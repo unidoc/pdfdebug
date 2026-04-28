@@ -33,7 +33,7 @@ Pre-built binaries from GitHub Releases are the fastest path; building from sour
 
 Download from [github.com/unidoc/unipdf-debugger/releases/latest](https://github.com/unidoc/unipdf-debugger/releases/latest). Binary base name is `unipdf-debugger`.
 
-- **macOS (arm64 or amd64)**: download `unipdf-debugger-<version>-darwin-<arch>.app.zip`, unzip, and drag the `.app` to `/Applications`. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
+- **macOS (arm64 or amd64)**: download `unipdf-debugger-<version>-darwin-<arch>.dmg`, double-click to mount, and drag `unipdf-debugger.app` onto the `Applications` shortcut. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
 
   ```bash
   sudo xattr -cr /Applications/unipdf-debugger.app

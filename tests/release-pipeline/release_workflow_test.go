@@ -804,16 +804,16 @@ func TestArtifactStagingNaming(t *testing.T) {
 		}
 	}
 
-	// macOS GUI must be packaged as .app.zip; Windows as .exe; Linux as .tar.gz
-	for _, needle := range []string{".app.zip", ".exe", ".tar.gz"} {
+	// macOS GUI must be packaged as .dmg; Windows as .exe; Linux as .tar.gz
+	for _, needle := range []string{".dmg", ".exe", ".tar.gz"} {
 		if !strings.Contains(run, needle) {
 			t.Errorf("release.yml build job: artifact extension %q missing (AC #2, Task 4.3)", needle)
 		}
 	}
 
-	// macOS must use ditto -c -k --keepParent (not plain `zip`) per Task 2.3 / Anti-Patterns
-	if !strings.Contains(run, "ditto -c -k --keepParent") {
-		t.Errorf("release.yml build job: macOS artifact must be zipped via `ditto -c -k --keepParent` (Task 2.3)")
+	// macOS DMG must be built via hdiutil (native macOS disk-image tool).
+	if !strings.Contains(run, "hdiutil create") {
+		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create` (Task 2.3)")
 	}
 }
 
