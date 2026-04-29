@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/lockup.svg" alt="UniDoc PDF Debugger" width="600"/>
+</p>
+
 # UniDoc PDF Debugger
 
 > Open-source, cross-platform PDF structure inspector for PDF developers, forensics analysts, and compliance engineers.
