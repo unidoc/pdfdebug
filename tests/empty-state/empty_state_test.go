@@ -71,7 +71,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // 1.3-UNIT-001 (P0): EmptyState component renders title, subtitle, drop zone,
 //                     and Open File button
-// AC#1: Centered empty state with "UniDOC PDF Debugger" title and
+// AC#1: Centered empty state with "UniDoc PDF Debugger" title and
 //       "Inspect PDF internal structure" subtitle
 // AC#2: Dashed-border drop zone with "Drop a PDF file here" text
 // AC#3: "or" divider + "Open File..." primary button (blue bg, white text)
@@ -86,8 +86,8 @@ func TestEmptyStateComponentRendersRequiredElements(t *testing.T) {
 	content := readFile(t, "frontend/src/components/EmptyState.tsx")
 
 	// AC#1: App title text
-	if !strings.Contains(content, "UniDOC PDF Debugger") {
-		t.Error("[P0] EmptyState.tsx missing app title text: 'UniDOC PDF Debugger'")
+	if !strings.Contains(content, "UniDoc PDF Debugger") {
+		t.Error("[P0] EmptyState.tsx missing app title text: 'UniDoc PDF Debugger'")
 	}
 
 	// AC#1: Subtitle text

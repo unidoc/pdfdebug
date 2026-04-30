@@ -163,7 +163,7 @@ jobs:
         run: |
           set -euo pipefail
           wails3 task darwin:package ARCH="$ARCH"
-          test -d "bin/unidoc-pdf-debugger.app"
+          test -d "bin/UniDoc PDF Debugger.app"
 
       - name: Sign macOS app bundle
         if: startsWith(matrix.os, 'macos') && steps.apple_secrets.outputs.available == 'true'
@@ -173,7 +173,7 @@ jobs:
           IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID }}
         run: |
           set -euo pipefail
-          APP="bin/unidoc-pdf-debugger.app"
+          APP="bin/UniDoc PDF Debugger.app"
           # Verify the imported signing identity is actually present before invoking
           # codesign; otherwise the failure reads as "no identity found" with no context.
           # `grep -F` matches literally: IDENTITY contains regex metacharacters
@@ -251,7 +251,7 @@ jobs:
           mkdir -p dist
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
-              APP="bin/unidoc-pdf-debugger.app"
+              APP="bin/UniDoc PDF Debugger.app"
               # Build a DMG with the .app and an Applications symlink so the
               # mounted volume shows the standard drag-to-install layout.
               STAGE="$RUNNER_TEMP/dmg-stage"
@@ -259,7 +259,7 @@ jobs:
               cp -R "$APP" "$STAGE/"
               ln -s /Applications "$STAGE/Applications"
               hdiutil create \
-                -volname "unidoc-pdf-debugger" \
+                -volname "UniDoc PDF Debugger" \
                 -srcfolder "$STAGE" \
                 -ov -format UDZO \
                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"

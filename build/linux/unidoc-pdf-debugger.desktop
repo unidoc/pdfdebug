@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=UniDOC PDF Debugger
+Name=UniDoc PDF Debugger
 Exec=unidoc-pdf-debugger %f
 Icon=unidoc-pdf-debugger
 Categories=Development;

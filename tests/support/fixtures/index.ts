@@ -1,5 +1,5 @@
 /**
- * Merged fixture index for UniDOC PDF Debugger E2E tests.
+ * Merged fixture index for UniDoc PDF Debugger E2E tests.
  *
  * Compose all project fixtures here using mergeTests.
  * Tests import { test, expect } from this module.

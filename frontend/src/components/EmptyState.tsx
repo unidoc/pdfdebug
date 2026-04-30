@@ -178,7 +178,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
         data-testid="empty-state-title"
         className="text-xl font-semibold text-text"
       >
-        UniDOC PDF Debugger
+        UniDoc PDF Debugger
       </h1>
 
       <p

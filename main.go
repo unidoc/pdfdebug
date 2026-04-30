@@ -62,7 +62,7 @@ func main() {
 
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
-		Name:        "UniDOC PDF Debugger",
+		Name:        "UniDoc PDF Debugger",
 		Description: "PDF structure inspector and debugger\n\nUniDoc ehf. -- https://unidoc.io",
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -231,7 +231,7 @@ func main() {
 
 	// Create main window
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "UniDOC PDF Debugger",
+		Title:            "UniDoc PDF Debugger",
 		Width:            1024,
 		Height:           768,
 		MinWidth:         800,

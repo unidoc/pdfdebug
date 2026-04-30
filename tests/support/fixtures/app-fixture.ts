@@ -1,5 +1,5 @@
 /**
- * Application-level fixture for UniDOC PDF Debugger.
+ * Application-level fixture for UniDoc PDF Debugger.
  *
  * Provides helpers scoped to the Wails desktop application context.
  * The Wails dev server exposes the app at BASE_URL (default http://localhost:34115).

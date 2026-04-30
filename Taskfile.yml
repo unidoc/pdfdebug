@@ -16,7 +16,8 @@ includes:
     optional: true
 
 vars:
-  APP_NAME: "unidoc-pdf-debugger"
+  APP_NAME: "unidoc-pdf-debugger"          # binary name (CFBundleExecutable, hyphenated for shell)
+  BUNDLE_NAME: "UniDoc PDF Debugger"       # macOS .app dir display name (CFBundleName, with spaces)
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
