@@ -1,0 +1,6 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="D2 PDF red colorway">
+  <rect width="1024" height="1024" rx="200" fill="#7F1D1D"/>
+  <path d="M 240 200 L 640 200 L 800 360 L 800 824 L 240 824 Z" fill="#FAF1DD"/>
+  <polygon points="640,200 640,360 800,360" fill="#CBC0A4"/>
+  <path d="M 380 480 L 540 600 L 380 720" stroke="#7F1D1D" stroke-width="80" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
