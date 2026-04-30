@@ -1,3 +1,6 @@
+// 4-5: deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
+//      console.log fallback; real behaviour covered by Playwright E2E).
+
 // Package empty_state_test provides acceptance tests for Story 1.3:
 // Empty State with Drag-and-Drop Zone.
 //
@@ -306,34 +309,11 @@ func TestHasDocumentPropConditionalRendering(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 1.3-INTG-001 (P1): Open File button onClick behavior
-// AC#8: Button calls onOpenFile prop if provided, otherwise console.log
-// ---------------------------------------------------------------------------
-
-func TestOpenFileButtonOnClickBehavior(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/EmptyState.tsx") {
-		t.Fatal("[P1] frontend/src/components/EmptyState.tsx does not exist")
-	}
-
-	content := readFile(t, "frontend/src/components/EmptyState.tsx")
-
-	// Must accept onOpenFile prop
-	if !strings.Contains(content, "onOpenFile") {
-		t.Error("[P1] EmptyState.tsx missing onOpenFile prop")
-	}
-
-	// Must have console.log fallback for when onOpenFile is not provided
-	consoleLogRe := regexp.MustCompile(`console\.log\s*\(`)
-	if !consoleLogRe.MatchString(content) {
-		t.Error("[P1] EmptyState.tsx must have console.log fallback when onOpenFile prop is not provided")
-	}
-
-	// Must have onClick handler on button
-	if !strings.Contains(content, "onClick") {
-		t.Error("[P1] EmptyState.tsx button must have onClick handler")
-	}
-}
+// 1.3-INTG-001 (Story 4-5): TestOpenFileButtonOnClickBehavior was a source-grep
+// asserting EmptyState.tsx still calls `console.log` as a fallback when no
+// onOpenFile prop is supplied. The console.log was placeholder scaffolding;
+// real file-open behaviour is covered by tests/e2e/open-pdf-dialog-dnd.spec.ts.
+// Delete-only, no replacement.
 
 // ---------------------------------------------------------------------------
 // 1.3-INTG-002 (P1): App.jsx integrates EmptyState component

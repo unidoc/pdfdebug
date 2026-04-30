@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential xvfb
 
       - name: Install Wails v3 CLI
         shell: bash
@@ -91,7 +91,7 @@ jobs:
           for mod in "${mods[@]}"; do
             dir="$(dirname "$mod")"
             case "$(basename "$dir")" in
-              e2e|support) continue ;;
+              e2e|support|boot-smoke) continue ;;
             esac
             echo "::group::go test $dir"
             (cd "$dir" && go test ./... -timeout 5m)
@@ -113,6 +113,16 @@ jobs:
       - name: Wails build (GUI)
         shell: bash
         run: wails3 build
+
+      - name: Boot-smoke
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            cd tests/boot-smoke && xvfb-run -a go test -count=1 -timeout 3m ./...
+          else
+            cd tests/boot-smoke && go test -count=1 -timeout 3m ./...
+          fi
 
       - name: CLI build sanity check
         shell: bash

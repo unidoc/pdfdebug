@@ -33,11 +33,12 @@ The project has a Go root module plus per-suite acceptance modules under `tests/
 go test ./...
 
 # Go acceptance test suites (per-module, under tests/*/go.mod;
-# e2e and support directories are skipped to match CI)
+# e2e, support, and boot-smoke directories are skipped to match CI --
+# boot-smoke has its own dedicated step that wraps with xvfb-run on Linux)
 for mod in tests/*/go.mod; do
   dir="$(dirname "$mod")"
   case "$(basename "$dir")" in
-    e2e|support) continue ;;
+    e2e|support|boot-smoke) continue ;;
   esac
   (cd "$dir" && go test ./...)
 done
@@ -54,6 +55,14 @@ npm run typecheck --prefix frontend
 # Go lint (golangci-lint v2.1.6)
 golangci-lint run ./...
 ```
+
+## Tests Must Not Grep Production Source
+
+Do NOT add new `strings.Contains`, `regexp.Match`, or other file-content assertions against `main.go`, `frontend/src/components/MainLayout.tsx`, or `frontend/src/components/EmptyState.tsx` from any test under `tests/`. If you find yourself reaching for that pattern, write a behavioural test (Vitest, Playwright, or `tests/boot-smoke`) instead.
+
+Pre-existing structural greps in those files are grandfathered (see `docs/_bmad-output/implementation-artifacts/deferred-work.md` for the bulk-removal follow-up tracked under story 4-5). Do not extend the pattern. Reviewers must flag new source-greps at PR time.
+
+Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, etc.) are exempt -- parsing those is legitimate behavioural testing on a build output, not source.
 
 ## Code Style
 

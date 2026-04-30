@@ -48,7 +48,6 @@ tasks:
           DEV:
             ref: .DEV
       - task: common:generate:icons
-      - task: generate:dotdesktop
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
     vars:
@@ -69,7 +68,6 @@ tasks:
     deps:
       - task: common:build:frontend
       - task: common:generate:icons
-      - task: generate:dotdesktop
     preconditions:
       - sh: docker info > /dev/null 2>&1
         msg: "Docker is required for cross-compilation to Linux. Please install Docker."
@@ -119,7 +117,6 @@ tasks:
     dir: build/linux/appimage
     deps:
       - task: build
-      - task: generate:dotdesktop
     cmds:
       - cp "{{.APP_BINARY}}" "{{.APP_NAME}}"
       - cp ../../appicon.png "{{.APP_NAME}}.png"
@@ -136,7 +133,6 @@ tasks:
     deps:
       - task: build
     cmds:
-      - task: generate:dotdesktop
       - task: generate:deb
 
   create:rpm:
@@ -144,7 +140,6 @@ tasks:
     deps:
       - task: build
     cmds:
-      - task: generate:dotdesktop
       - task: generate:rpm
 
   create:aur:
@@ -152,7 +147,6 @@ tasks:
     deps:
       - task: build
     cmds:
-      - task: generate:dotdesktop
       - task: generate:aur
 
   generate:deb:
@@ -170,18 +164,11 @@ tasks:
     cmds:
       - wails3 tool package -name "{{.APP_NAME}}" -format archlinux -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
 
-  generate:dotdesktop:
-    summary: Generates a `.desktop` file
-    dir: build
-    cmds:
-      - mkdir -p {{.ROOT_DIR}}/build/linux/appimage
-      - wails3 generate .desktop -name "{{.APP_NAME}}" -exec "{{.EXEC}}" -icon "{{.ICON}}" -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop" -categories "{{.CATEGORIES}}"
-    vars:
-      APP_NAME: '{{.APP_NAME}}'
-      EXEC: '{{.APP_NAME}}'
-      ICON: '{{.APP_NAME}}'
-      CATEGORIES: 'Development;'
-      OUTPUTFILE: '{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop'
+  # NOTE (Story 4-5): the `generate:dotdesktop` task has been removed. The
+  # `wails3 generate .desktop` generator does not support `--mime-type` or
+  # `--exec-suffix`, so it stripped the manually-edited `MimeType=application/pdf;`
+  # and `Exec=unidoc-pdf-debugger %f` from `unidoc-pdf-debugger.desktop` (commit
+  # 97174a4). The `.desktop` file is now hand-maintained and version-controlled.
 
   run:
     cmds:

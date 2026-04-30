@@ -1,3 +1,6 @@
+// 4-5: deleted TestAppShellNoRegression (meta-test that subprocess-ran the
+//      app-shell suite; CI already runs that suite -- pure overhead).
+
 // Package open_pdf_dialog_dnd_test provides acceptance tests for Story 2.4:
 // Open PDF via File Dialog and Drag-and-Drop.
 //
@@ -133,36 +136,11 @@ func TestPDFServiceImportsWailsApplication(t *testing.T) {
 // AC#1: main.go creates PDFService with app after application.New()
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// 2.4-INTG-004 [P0]: main.go passes app to NewPDFService after app creation
-// AC#1: PDFService must receive *application.App via constructor, created
-//       after application.New() but before app.Run().
-// ---------------------------------------------------------------------------
-
-func TestMainGoCallsSetApp(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must create PDFService with app argument (constructor injection)
-	if !strings.Contains(content, "pdfservice.NewPDFService(app)") {
-		t.Error("[P0] 2.4-INTG-004: main.go must call pdfservice.NewPDFService(app)")
-	}
-
-	// NewPDFService must come after application.New and before app.Run
-	newIdx := strings.Index(content, "application.New(")
-	newSvcIdx := strings.Index(content, "pdfservice.NewPDFService(app)")
-	runIdx := strings.Index(content, "app.Run()")
-
-	if newIdx < 0 || newSvcIdx < 0 || runIdx < 0 {
-		t.Fatal("[P0] 2.4-INTG-004: main.go missing application.New, NewPDFService(app), or app.Run")
-	}
-
-	if newSvcIdx < newIdx {
-		t.Error("[P0] 2.4-INTG-004: NewPDFService(app) must come after application.New()")
-	}
-	if newSvcIdx > runIdx {
-		t.Error("[P0] 2.4-INTG-004: NewPDFService(app) must come before app.Run()")
-	}
-}
+// 2.4-INTG-004 (Story 4-5): TestMainGoCallsSetApp was a source-grep asserting
+// `pdfservice.NewPDFService(app)` appears between `application.New(` and
+// `app.Run()`. Replaced by tests/boot-smoke (boot path runs to event loop
+// without panic; the registration crashing or being misordered would surface
+// as a panic).
 
 // ---------------------------------------------------------------------------
 // AC#2: Drag-and-drop -- EnableFileDrop + window event handler
@@ -771,23 +749,6 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 2.4-INTG-033 [P1]: App-shell acceptance tests still pass
-// AC: Existing app-shell tests must not regress.
-// ---------------------------------------------------------------------------
-
-func TestAppShellNoRegression(t *testing.T) {
-	root := projectRoot(t)
-
-	appShellDir := filepath.Join(root, "tests", "app-shell")
-	cmd := exec.Command("go", "test", "-v", "-count=1", "./...")
-	cmd.Dir = appShellDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("[P1] 2.4-INTG-033: app-shell tests regressed:\n%s", string(output))
-	}
-
-	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.4-INTG-033: expected PASS in output but got:\n%s", string(output))
-	}
-}
+// 2.4-INTG-033 (Story 4-5): TestAppShellNoRegression was a meta-test that
+// subprocess-ran the app-shell suite. CI already runs that suite, so this is
+// pure overhead and a flake-risk amplifier. Delete-only, no replacement.

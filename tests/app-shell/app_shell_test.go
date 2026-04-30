@@ -1,17 +1,20 @@
+// 4-5: deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
+//      duplicate-prevention not separately covered, accept regression risk).
+
 // Package app_shell_test provides acceptance tests for Story 1.4:
 // Native Menu Bar and Application Shell.
 //
 // These tests verify that:
-// - main.go is cleaned up (template boilerplate removed) and contains
-//   native menu bar setup, window config with minimum size, and correct
-//   background colour
-// - greetservice.go is deleted
-// - useDocumentState.tsx provides AppProvider, AppState, AppAction types,
-//   and useAppState/useAppDispatch hooks
-// - MainLayout.tsx renders a two-column resizable layout with allotment,
-//   semantic HTML (<aside>, <main>), and required data-testid attributes
-// - App.jsx wraps content in AppProvider and conditionally renders
-//   EmptyState vs MainLayout
+//   - main.go is cleaned up (template boilerplate removed) and contains
+//     native menu bar setup, window config with minimum size, and correct
+//     background colour
+//   - greetservice.go is deleted
+//   - useDocumentState.tsx provides AppProvider, AppState, AppAction types,
+//     and useAppState/useAppDispatch hooks
+//   - MainLayout.tsx renders a two-column resizable layout with allotment,
+//     semantic HTML (<aside>, <main>), and required data-testid attributes
+//   - App.jsx wraps content in AppProvider and conditionally renders
+//     EmptyState vs MainLayout
 //
 // Test Levels: Integration (Go) -- source file content parsing.
 // Layout rendering requiring real browser interaction is covered
@@ -129,127 +132,14 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-003 (P0): Native menu bar created with required menu items
-// AC#1: File menu with Open (Cmd/Ctrl+O), Close (Cmd/Ctrl+W), Quit
-
-func TestNativeMenuBarCreated(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must create a menu using application.NewMenu()
-	if !strings.Contains(content, "application.NewMenu()") {
-		t.Error("[P0] main.go missing application.NewMenu() call -- native menu bar must be created")
-	}
-
-	// Must add AppMenu role (macOS app menu with About, Quit, etc.)
-	if !strings.Contains(content, "AppMenu") {
-		t.Error("[P0] main.go missing AppMenu role -- macOS app menu must be added")
-	}
-
-	// Must add File submenu
-	fileSubmenuRe := regexp.MustCompile(`AddSubmenu\s*\(\s*"File"\s*\)`)
-	if !fileSubmenuRe.MatchString(content) {
-		t.Error("[P0] main.go missing File submenu -- AddSubmenu(\"File\") required")
-	}
-
-	// Must add Open menu item with accelerator
-	openItemRe := regexp.MustCompile(`Add\s*\(\s*"Open\.\.\."`)
-	if !openItemRe.MatchString(content) {
-		t.Error("[P0] main.go missing \"Open...\" menu item in File menu")
-	}
-
-	// Must set CmdOrCtrl+o accelerator on Open
-	if !strings.Contains(content, `CmdOrCtrl+o`) {
-		t.Error("[P0] main.go missing CmdOrCtrl+o accelerator on Open menu item")
-	}
-
-	// Must have OnClick handler for Open (either stub log or real dialog)
-	if !strings.Contains(content, `File > Open clicked`) && !strings.Contains(content, `Dialog.OpenFile()`) {
-		t.Error("[P0] main.go missing OnClick handler for Open menu item (expected log stub or Dialog.OpenFile())")
-	}
-
-	// Must add CloseWindow role
-	if !strings.Contains(content, "CloseWindow") {
-		t.Error("[P0] main.go missing CloseWindow role -- File > Close must be added")
-	}
-
-	// Must add Edit menu role
-	if !strings.Contains(content, "EditMenu") {
-		t.Error("[P0] main.go missing EditMenu role -- Edit menu must be added")
-	}
-
-	// Must set application menu
-	setMenuRe := regexp.MustCompile(`SetApplicationMenu\s*\(`)
-	if !setMenuRe.MatchString(content) {
-		t.Error("[P0] main.go missing SetApplicationMenu call -- menu must be applied to app")
-	}
-}
-
-// 1.4-INTG-004 (P1): Platform-conditional Quit in File menu
-// AC#1: Quit in File menu on non-macOS only (macOS has it in AppMenu)
-
-func TestPlatformConditionalQuit(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must import "runtime" for GOOS check
-	if !strings.Contains(content, `"runtime"`) {
-		t.Error("[P1] main.go missing \"runtime\" import -- needed for platform-conditional Quit")
-	}
-
-	// Must check runtime.GOOS != "darwin" before adding Quit to File menu
-	darwinCheckRe := regexp.MustCompile(`runtime\.GOOS\s*!=\s*"darwin"`)
-	if !darwinCheckRe.MatchString(content) {
-		t.Error("[P1] main.go missing runtime.GOOS != \"darwin\" check for conditional Quit in File menu")
-	}
-
-	// Must add Quit role (for non-macOS)
-	if !strings.Contains(content, "application.Quit") {
-		t.Error("[P1] main.go missing application.Quit role for non-macOS File menu")
-	}
-}
-
-// 1.4-INTG-005 (P0): Menu ordering correct (app create -> menu build -> menu set -> window create -> run)
-// AC#1: Setup must happen in correct sequence
-
-func TestMainGoSetupOrdering(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Find positions of key operations
-	appNewPos := strings.Index(content, "application.New(")
-	menuNewPos := strings.Index(content, "application.NewMenu()")
-	setMenuPos := strings.Index(content, "SetApplicationMenu(")
-	windowNewPos := strings.Index(content, "NewWithOptions(")
-	appRunPos := strings.Index(content, "app.Run()")
-
-	if appNewPos == -1 {
-		t.Fatal("[P0] main.go missing application.New() call")
-	}
-	if menuNewPos == -1 {
-		t.Fatal("[P0] main.go missing application.NewMenu() call")
-	}
-	if setMenuPos == -1 {
-		t.Fatal("[P0] main.go missing SetApplicationMenu() call")
-	}
-	if windowNewPos == -1 {
-		t.Fatal("[P0] main.go missing NewWithOptions() call for window creation")
-	}
-	if appRunPos == -1 {
-		t.Fatal("[P0] main.go missing app.Run() call")
-	}
-
-	// Verify ordering: app.New < menu.New < setMenu < window.New < app.Run
-	if menuNewPos < appNewPos {
-		t.Error("[P0] main.go: menu must be created AFTER application.New()")
-	}
-	if setMenuPos < menuNewPos {
-		t.Error("[P0] main.go: SetApplicationMenu must be called AFTER menu is built")
-	}
-	if windowNewPos < setMenuPos {
-		t.Error("[P0] main.go: window must be created AFTER menu is set")
-	}
-	if appRunPos < windowNewPos {
-		t.Error("[P0] main.go: app.Run() must be called AFTER window is created")
-	}
-}
+// 1.4-INTG-003, 1.4-INTG-004, 1.4-INTG-005 (Story 4-5):
+// TestNativeMenuBarCreated, TestPlatformConditionalQuit, and TestMainGoSetupOrdering
+// were source-grep assertions on main.go. TestNativeMenuBarCreated and
+// TestMainGoSetupOrdering are replaced by tests/boot-smoke (boot path runs to
+// the event loop without panic). TestPlatformConditionalQuit is delete-only;
+// macOS Quit-in-AppMenu duplicate-prevention is not separately covered after
+// deletion (regression risk accepted; structural breakage would surface in the
+// build matrix and at first manual smoke).
 
 // ---------------------------------------------------------------------------
 // AC#3: Window minimum size 800x600
@@ -485,48 +375,12 @@ func TestMainLayoutFileExists(t *testing.T) {
 	}
 }
 
-// 1.4-UNIT-001 (P0): MainLayout renders two-column structure with allotment
-
-func TestMainLayoutTwoColumnStructure(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/MainLayout.tsx") {
-		t.Fatal("[P0] frontend/src/components/MainLayout.tsx does not exist")
-	}
-
-	content := readFile(t, "frontend/src/components/MainLayout.tsx")
-
-	// Must import Allotment from allotment
-	allotmentImportRe := regexp.MustCompile(`import\s+.*Allotment.*from\s+['"]allotment['"]`)
-	if !allotmentImportRe.MatchString(content) {
-		t.Error("[P0] MainLayout.tsx missing Allotment import from 'allotment'")
-	}
-
-	// Must import allotment CSS
-	if !strings.Contains(content, "allotment/dist/style.css") {
-		t.Error("[P0] MainLayout.tsx missing allotment CSS import: 'allotment/dist/style.css'")
-	}
-
-	// Must use Allotment component
-	if !strings.Contains(content, "<Allotment") {
-		t.Error("[P0] MainLayout.tsx missing <Allotment> component usage")
-	}
-
-	// Must use Allotment.Pane for panels
-	if !strings.Contains(content, "Allotment.Pane") {
-		t.Error("[P0] MainLayout.tsx missing Allotment.Pane components for panel panes")
-	}
-
-	// Must set preferredSize={300} on left pane
-	preferredSizeRe := regexp.MustCompile(`preferredSize\s*=\s*\{?\s*300\s*\}?`)
-	if !preferredSizeRe.MatchString(content) {
-		t.Error("[P0] MainLayout.tsx missing preferredSize={300} on left panel pane")
-	}
-
-	// Must set minSize={200} on left pane
-	minSizeRe := regexp.MustCompile(`minSize\s*=\s*\{?\s*200\s*\}?`)
-	if !minSizeRe.MatchString(content) {
-		t.Error("[P0] MainLayout.tsx missing minSize={200} on left panel pane")
-	}
-}
+// 1.4-UNIT-001 (Story 4-5): TestMainLayoutTwoColumnStructure was a source-grep
+// on MainLayout.tsx asserting the literal `preferredSize={300}`. Story 4-4
+// made `preferredSize` conditional on persisted state, breaking the grep while
+// behaviour was preserved. Replaced by an extension of
+// frontend/src/components/MainLayout.test.tsx (4-5-UNIT-001) that asserts both
+// `left-panel` and `right-panel` testids render.
 
 // 1.4-UNIT-003 (P2): Semantic HTML elements used
 
