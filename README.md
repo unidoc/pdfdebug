@@ -26,8 +26,7 @@ It is built for three audiences: PDF developers building SDKs and generators who
 
 ## Screenshot
 
-<!-- TODO: replace with real screenshot after next UI sync -->
-> Screenshot pending -- will be captured once the UI stabilizes. See `docs/screenshots/README.md`.
+![UniDoc PDF Debugger main window: document structure tree on the left, object properties and stream metadata stacked below it, syntax-highlighted content stream on the right.](docs/screenshots/main-window.png)
 
 ## Installation
 
