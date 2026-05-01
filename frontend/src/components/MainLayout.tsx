@@ -49,37 +49,21 @@ export function MainLayout() {
     [savePanelSizes],
   );
 
-  // Compute vertical defaultSizes from persisted state.
-  // Both pane heights are needed for Allotment's proportional scaling.
-  const verticalDefaults =
-    panelSizes?.treePaneHeight != null
-      ? [panelSizes.treePaneHeight, panelSizes.subPanelHeight]
-      : panelSizes
-        ? [panelSizes.subPanelHeight * 2, panelSizes.subPanelHeight]
-        : undefined;
-
   return (
     <div className="h-full" data-testid="main-layout">
       <ErrorBoundary>
-        <Allotment
-          defaultSizes={panelSizes ? [panelSizes.treeWidth] : undefined}
-          onChange={handleHorizontalChange}
-        >
+        <Allotment onChange={handleHorizontalChange}>
           <Allotment.Pane
-            {...(panelSizes ? {} : { preferredSize: 300 })}
+            preferredSize={panelSizes?.treeWidth ?? 300}
             minSize={200}
           >
             <aside className="h-full" data-testid="left-panel">
-              <Allotment
-                vertical
-                defaultSizes={verticalDefaults}
-                onChange={handleVerticalChange}
-              >
+              <Allotment vertical onChange={handleVerticalChange}>
                 <Allotment.Pane>
                   <TreePanel />
                 </Allotment.Pane>
                 <Allotment.Pane
-                  {...(panelSizes ? {} : { preferredSize: '30%' })}
+                  preferredSize={panelSizes?.subPanelHeight ?? '30%'}
                   minSize={100}
                 >
                   <ErrorBoundary>

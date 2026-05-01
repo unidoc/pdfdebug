@@ -18,35 +18,39 @@ import {
 } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
 
-// Track props passed to Allotment to verify defaultSizes and onChange
+// Track props passed to Allotment to verify wiring. `panePreferredSizes`
+// holds, per Allotment instance, the preferredSize prop on each direct Pane
+// child read from the React element tree (so the parent->child relationship
+// is preserved without depending on Pane render order).
+import { Children, isValidElement } from 'react';
+
 const allotmentInstances: Array<{
-  defaultSizes?: number[];
   onChange?: (sizes: number[]) => void;
   vertical?: boolean;
+  panePreferredSizes: Array<number | string | undefined>;
 }> = [];
 
-// Mock allotment -- capture props for verification
 vi.mock('allotment', () => {
   function Pane({ children }: { children: React.ReactNode }) {
     return <div data-testid="allotment-pane">{children}</div>;
   }
   function Allotment({
     children,
-    defaultSizes,
     onChange,
     vertical,
   }: {
     children: React.ReactNode;
-    defaultSizes?: number[];
     onChange?: (sizes: number[]) => void;
     vertical?: boolean;
   }) {
-    allotmentInstances.push({ defaultSizes, onChange, vertical });
+    const panePreferredSizes = Children.toArray(children).map((child) =>
+      isValidElement<{ preferredSize?: number | string }>(child)
+        ? child.props.preferredSize
+        : undefined,
+    );
+    allotmentInstances.push({ onChange, vertical: !!vertical, panePreferredSizes });
     return (
-      <div
-        data-testid={vertical ? 'allotment-vertical' : 'allotment-horizontal'}
-        data-default-sizes={defaultSizes ? JSON.stringify(defaultSizes) : undefined}
-      >
+      <div data-testid={vertical ? 'allotment-vertical' : 'allotment-horizontal'}>
         {children}
       </div>
     );
@@ -118,12 +122,11 @@ afterEach(() => {
 
 describe('4.4 MainLayout Panel Persistence', () => {
   /**
-   * MainLayout passes persisted defaultSizes to horizontal Allotment
-   * when useWindowPersistence returns panel sizes.
+   * MainLayout passes persisted treeWidth as the left pane's preferredSize.
    *
    * AC#3: Panel sizes restored from localStorage on app start.
    */
-  test('passes persisted treeWidth as defaultSizes to horizontal Allotment', () => {
+  test('passes persisted treeWidth as preferredSize on left horizontal pane', () => {
     mockPanelSizes = { treeWidth: 400, subPanelHeight: 200 };
 
     render(
@@ -132,20 +135,17 @@ describe('4.4 MainLayout Panel Persistence', () => {
       </AppProvider>
     );
 
-    // Find the horizontal Allotment instance (vertical=undefined or false)
     const horizontal = allotmentInstances.find((a) => !a.vertical);
     expect(horizontal).toBeDefined();
-    expect(horizontal!.defaultSizes).toBeDefined();
-    // First entry should be the persisted tree width
-    expect(horizontal!.defaultSizes![0]).toBe(400);
+    expect(horizontal!.panePreferredSizes[0]).toBe(400);
   });
 
   /**
-   * MainLayout passes persisted subPanelHeight as defaultSizes to vertical Allotment.
+   * MainLayout passes persisted subPanelHeight as the bottom vertical pane's preferredSize.
    *
    * AC#3: Sub-panel height is restored.
    */
-  test('passes persisted subPanelHeight as defaultSizes to vertical Allotment', () => {
+  test('passes persisted subPanelHeight as preferredSize on bottom vertical pane', () => {
     mockPanelSizes = { treeWidth: 400, subPanelHeight: 200 };
 
     render(
@@ -154,21 +154,18 @@ describe('4.4 MainLayout Panel Persistence', () => {
       </AppProvider>
     );
 
-    // Find the vertical Allotment instance
     const vertical = allotmentInstances.find((a) => a.vertical);
     expect(vertical).toBeDefined();
-    expect(vertical!.defaultSizes).toBeDefined();
-    // The sub-panel height (second pane) should be in the defaultSizes
-    const lastSize = vertical!.defaultSizes![vertical!.defaultSizes!.length - 1];
-    expect(lastSize).toBe(200);
+    // Second pane is the ObjectInfoPanel (sub-panel)
+    expect(vertical!.panePreferredSizes[1]).toBe(200);
   });
 
   /**
-   * MainLayout omits defaultSizes when no persisted values exist.
+   * MainLayout uses fallback preferredSize values when no persisted state exists.
    *
-   * AC#3: Falls back to default panel sizes (preferredSize props).
+   * AC#3: Falls back to default panel sizes (300px tree, 30% sub-panel).
    */
-  test('omits defaultSizes when panelSizes is null (no persisted state)', () => {
+  test('uses fallback preferredSize when panelSizes is null', () => {
     mockPanelSizes = null;
 
     render(
@@ -177,10 +174,10 @@ describe('4.4 MainLayout Panel Persistence', () => {
       </AppProvider>
     );
 
-    // Both Allotment instances should have no defaultSizes
-    for (const instance of allotmentInstances) {
-      expect(instance.defaultSizes).toBeUndefined();
-    }
+    const horizontal = allotmentInstances.find((a) => !a.vertical);
+    const vertical = allotmentInstances.find((a) => a.vertical);
+    expect(horizontal!.panePreferredSizes[0]).toBe(300);
+    expect(vertical!.panePreferredSizes[1]).toBe('30%');
   });
 
   /**
@@ -252,44 +249,6 @@ describe('4.4 MainLayout Panel Persistence', () => {
     );
 
     expect(screen.getByTestId('main-layout')).toBeInTheDocument();
-  });
-
-  /**
-   * When treePaneHeight is persisted, vertical Allotment gets
-   * [treePaneHeight, subPanelHeight] as defaultSizes.
-   */
-  test('passes treePaneHeight as first vertical defaultSize when persisted', () => {
-    mockPanelSizes = { treeWidth: 350, subPanelHeight: 180 } as any;
-    // Patch in treePaneHeight (the mock type is simplified)
-    (mockPanelSizes as any).treePaneHeight = 420;
-
-    render(
-      <AppProvider>
-        <MainLayout />
-      </AppProvider>
-    );
-
-    const vertical = allotmentInstances.find((a) => a.vertical);
-    expect(vertical).toBeDefined();
-    expect(vertical!.defaultSizes).toEqual([420, 180]);
-  });
-
-  /**
-   * When treePaneHeight is absent, vertical Allotment uses the
-   * [subPanelHeight * 2, subPanelHeight] fallback.
-   */
-  test('uses subPanelHeight*2 fallback for vertical when treePaneHeight is absent', () => {
-    mockPanelSizes = { treeWidth: 350, subPanelHeight: 180 };
-
-    render(
-      <AppProvider>
-        <MainLayout />
-      </AppProvider>
-    );
-
-    const vertical = allotmentInstances.find((a) => a.vertical);
-    expect(vertical).toBeDefined();
-    expect(vertical!.defaultSizes).toEqual([360, 180]);
   });
 
   /**
