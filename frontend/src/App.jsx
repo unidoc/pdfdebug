@@ -3,10 +3,12 @@
  * and renders either the empty state or the main three-panel layout.
  */
 import { useEffect, useRef } from 'react'
-import { Events } from '@wailsio/runtime'
+import { Events, Screens, Window } from '@wailsio/runtime'
 import { CloseDocument } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
 import { mapErrorMessage } from './hooks/usePDFService'
+import { useWindowPersistence } from './hooks/useWindowPersistence'
+import { computeRestorePlan } from './lib/windowGeometryGuard'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
@@ -25,6 +27,13 @@ function AppContent() {
   const navHistoryIndex = activeTab?.navHistoryIndex ?? -1
   const canGoBack = navHistoryIndex > 0
   const canGoForward = navHistoryIndex < navHistory.length - 1
+
+  // Window geometry persistence: load on mount, save on move/resize.
+  const { windowGeometry, saveWindowGeometry } = useWindowPersistence()
+  // Suppresses the restore-feedback loop: SetSize/SetPosition trigger the same
+  // events we listen for, which would re-save the just-restored values.
+  const restoreInProgressRef = useRef(false)
+  const windowGeometryOnMountRef = useRef(windowGeometry)
 
   // Ref mirrors tabs for use inside event handler closures without stale captures
   const tabsRef = useRef(tabs)
@@ -117,6 +126,119 @@ function AppContent() {
       offNavForward()
     }
   }, [dispatch])
+
+  // Restore window geometry on startup. Apply size first, then position --
+  // on Windows, the reverse order can transiently push the window off-screen.
+  // Off-screen guard skips position restore (but not size) when the persisted
+  // rectangle does not intersect any currently-connected display's WorkArea.
+  useEffect(() => {
+    const stored = windowGeometryOnMountRef.current
+    if (!stored) return
+    /** @type {{ x: number, y: number, width: number, height: number }} */
+    const geometry = stored
+
+    // Set the flag synchronously here (not inside the async restore body) to
+    // close the microtask-sized gap between this effect and the listener
+    // effect that registers the move/resize handlers. Otherwise an echo
+    // event arriving before the first await could slip through with the
+    // flag still false.
+    restoreInProgressRef.current = true
+
+    let cancelled = false
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let restoreFlagTimer = null
+
+    async function restore() {
+      try {
+        // Optional clamp + off-screen guard: query screens for WorkArea info.
+        let screens = null
+        try {
+          screens = await Screens.GetAll()
+        } catch {
+          screens = null
+        }
+        if (cancelled) return
+
+        const fallback =
+          typeof window !== 'undefined' && window.screen
+            ? { availWidth: window.screen.availWidth, availHeight: window.screen.availHeight }
+            : null
+        const { width, height, positionAllowed } = computeRestorePlan(geometry, screens, fallback)
+
+        await Window.SetSize(width, height)
+        if (cancelled) return
+        if (positionAllowed) {
+          await Window.SetPosition(geometry.x, geometry.y)
+        }
+      } catch {
+        // Wails runtime not ready or platform error -- fall back to defaults.
+      } finally {
+        // If unmounted mid-restore, the cleanup function has already cleared
+        // the flag and is no longer tracking timers. Skip scheduling a new
+        // timeout (would leak past unmount). Otherwise schedule a 750ms
+        // delay so echo events from SetSize/SetPosition do not re-save.
+        if (!cancelled) {
+          restoreFlagTimer = setTimeout(() => {
+            restoreFlagTimer = null
+            restoreInProgressRef.current = false
+          }, 750)
+        }
+      }
+    }
+
+    restore()
+
+    return () => {
+      cancelled = true
+      if (restoreFlagTimer != null) {
+        clearTimeout(restoreFlagTimer)
+        restoreFlagTimer = null
+      }
+      // If unmount happens before the flag-clear timer was scheduled (i.e.
+      // mid-await), force the flag off so a remount sees a clean slate.
+      restoreInProgressRef.current = false
+    }
+  }, [])
+
+  // Subscribe to OS window-move / window-resize events. Each event reads
+  // the current geometry via the JS runtime and forwards to the debounced
+  // saver. Echoes from the startup restore are suppressed via the flag.
+  useEffect(() => {
+    let unmounted = false
+
+    async function captureAndSave() {
+      if (restoreInProgressRef.current) return
+      try {
+        const [pos, size] = await Promise.all([Window.Position(), Window.Size()])
+        // The promise above may resolve after unmount; if so, drop the
+        // result so we don't schedule a write through a torn-down hook.
+        if (unmounted) return
+        if (
+          pos &&
+          size &&
+          Number.isFinite(pos.x) &&
+          Number.isFinite(pos.y) &&
+          Number.isFinite(size.width) &&
+          Number.isFinite(size.height) &&
+          size.width > 0 &&
+          size.height > 0
+        ) {
+          saveWindowGeometry({ x: pos.x, y: pos.y, width: size.width, height: size.height })
+        }
+      } catch {
+        // Runtime unavailable -- skip this event.
+      }
+    }
+
+    const offMove = Events.On('common:WindowDidMove', captureAndSave)
+    const offResize = Events.On('common:WindowDidResize', captureAndSave)
+
+    return () => {
+      unmounted = true
+      offMove()
+      offResize()
+    }
+  }, [saveWindowGeometry])
 
   return (
     <div className="flex flex-col h-full" data-file-drop-target>
