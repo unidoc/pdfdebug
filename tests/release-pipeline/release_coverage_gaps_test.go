@@ -670,3 +670,60 @@ func TestWorkflowDispatchTagInputTyped(t *testing.T) {
 		t.Errorf("release.yml: workflow_dispatch.inputs.tag.type must be \"string\", got %q", ty)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Apple-secrets probe emits a `::warning::` on partial-secret state.
+// Covers Story 8-5 AC #1 pre-flight (the dry-run pre-flight relies on a
+// partial state being noisy so it isn't accidentally taken for fully-absent;
+// release.yml line 117 emits this warning only when SOME but not ALL of the
+// three codesign secrets are set).
+// ---------------------------------------------------------------------------
+
+func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
+	step := findStepByPredicate(t, "build", func(m map[string]interface{}) bool {
+		id, _ := m["id"].(string)
+		return id == "apple_secrets"
+	})
+	if step == nil {
+		t.Fatalf("release.yml build job: step with `id: apple_secrets` missing (Story 8-5 AC #1 pre-flight)")
+	}
+	run, _ := step["run"].(string)
+
+	// Must emit a `::warning::` annotation when partial-secret state is detected.
+	// The annotation surfaces in the Actions UI so a partial state is not
+	// silently treated as "fully absent" (see Story 8-5 AC #1 + Task 1.1).
+	if !strings.Contains(run, "::warning::") {
+		t.Errorf("release.yml: apple_secrets probe must emit `::warning::` on partial-secret state (Story 8-5 AC #1; otherwise partial config silently degrades to unsigned)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Linux native runtime deps are installed in the build job.
+// Covers Story 8-5 AC #5: the Linux artifact must be runnable, which depends
+// on `libgtk-3` and `libwebkit2gtk-4.1` being present on the runner. The
+// install step at release.yml lines 62-63 is also the README's source of
+// truth for the runtime-deps note end users follow.
+// ---------------------------------------------------------------------------
+
+func TestLinuxRuntimeDepsInstalled(t *testing.T) {
+	step := findStepByPredicate(t, "build", func(m map[string]interface{}) bool {
+		name, _ := m["name"].(string)
+		return strings.Contains(strings.ToLower(name), "linux") && strings.Contains(strings.ToLower(name), "deps")
+	})
+	if step == nil {
+		t.Fatalf("release.yml build job: Linux native deps install step missing (Story 8-5 AC #5)")
+	}
+	run, _ := step["run"].(string)
+
+	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev"} {
+		if !strings.Contains(run, pkg) {
+			t.Errorf("release.yml Linux deps step: missing apt package %q (Story 8-5 AC #5; runtime deps documented in README)", pkg)
+		}
+	}
+
+	// Must be gated to Linux runners so macOS/Windows cells don't spin on apt-get.
+	ifClause, _ := step["if"].(string)
+	if !strings.Contains(ifClause, "Linux") && !strings.Contains(ifClause, "ubuntu") {
+		t.Errorf("release.yml Linux deps step: must gate on `runner.os == 'Linux'` or matrix.os == 'ubuntu-*', got %q", ifClause)
+	}
+}
