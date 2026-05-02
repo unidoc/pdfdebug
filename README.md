@@ -6,7 +6,7 @@
 
 > Open-source, cross-platform PDF structure inspector for PDF developers, forensics analysts, and compliance engineers.
 
-[![CI](https://github.com/unidoc/unidoc-pdf-debugger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/unidoc/unidoc-pdf-debugger/actions/workflows/ci.yml)
+[![CI](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 ![Platforms: macOS | Windows | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
@@ -34,7 +34,7 @@ Pre-built binaries from GitHub Releases are the fastest path; building from sour
 
 ### Pre-built binaries (GitHub Releases)
 
-Download from [github.com/unidoc/unidoc-pdf-debugger/releases/latest](https://github.com/unidoc/unidoc-pdf-debugger/releases/latest). Binary base name is `unidoc-pdf-debugger`.
+Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/unidoc/pdfdebug/releases/latest). Binary base name is `unidoc-pdf-debugger`.
 
 - **macOS (arm64 or amd64)**: download `unidoc-pdf-debugger-<version>-darwin-<arch>.dmg`, double-click to mount, and drag `UniDoc PDF Debugger.app` onto the `Applications` shortcut. **macOS builds are currently unsigned** (see [macOS unsigned builds](#macos-unsigned-builds) below) -- first launch requires a Gatekeeper bypass:
 
@@ -99,7 +99,7 @@ Per-platform prerequisites:
 
 ```bash
 # 1. Clone
-git clone https://github.com/unidoc/unidoc-pdf-debugger && cd unidoc-pdf-debugger
+git clone https://github.com/unidoc/pdfdebug && cd pdfdebug
 
 # 2. Install the pinned Wails v3 CLI (version suffix MUST match go.mod)
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.74

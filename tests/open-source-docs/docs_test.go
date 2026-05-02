@@ -317,8 +317,8 @@ func TestReadmeHasInstallationSubsections(t *testing.T) {
 	}
 
 	required := []string{
-		"github.com/unidoc/unidoc-pdf-debugger/releases", // GitHub Releases link
-		"Build from Source",                          // reference to build section
+		"github.com/unidoc/pdfdebug/releases", // GitHub Releases link
+		"Build from Source",                   // reference to build section
 	}
 	for _, s := range required {
 		if !strings.Contains(sectionBody, s) {
