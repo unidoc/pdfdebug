@@ -73,13 +73,13 @@ Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, e
 
 ## Submitting Pull Requests
 
-1. Fork the repository and create a branch from `dev` (not `main`).
+1. Fork the repository and create a branch from `dev` (not `master`).
 2. Write tests first where practical -- the project uses a story-based TDD pattern, but writing tests up-front is optional for contributor PRs.
 3. Open your PR against the `dev` branch.
 4. CI must pass on all three runners: `build-and-test (macos-latest)`, `build-and-test (windows-latest)`, and `build-and-test (ubuntu-latest)`.
 5. At least one maintainer review plus green CI are required before merge.
 
-**Maintainers**: configure required status checks on the `main` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs. This replaces the one-line deferred note from story 7-1 Task 7.5.
+**Maintainers**: configure required status checks on the `master` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs. This replaces the one-line deferred note from story 7-1 Task 7.5.
 
 ## Release Process
 

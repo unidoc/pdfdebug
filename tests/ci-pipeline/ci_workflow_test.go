@@ -182,7 +182,7 @@ func TestCIWorkflowTriggers(t *testing.T) {
 		t.Errorf("ci.yml: `on.push` trigger missing (AC #1 requires push trigger)")
 	}
 
-	// Both pull_request and push must target main AND dev
+	// Both pull_request and push must target master AND dev
 	for label, block := range map[string]interface{}{"pull_request": pr, "push": pu} {
 		if block == nil {
 			continue
@@ -202,8 +202,8 @@ func TestCIWorkflowTriggers(t *testing.T) {
 				has[s] = true
 			}
 		}
-		if !has["main"] {
-			t.Errorf("ci.yml: `on.%s.branches` missing `main`", label)
+		if !has["master"] {
+			t.Errorf("ci.yml: `on.%s.branches` missing `master`", label)
 		}
 		if !has["dev"] {
 			t.Errorf("ci.yml: `on.%s.branches` missing `dev`", label)

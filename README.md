@@ -6,7 +6,7 @@
 
 > Open-source, cross-platform PDF structure inspector for PDF developers, forensics analysts, and compliance engineers.
 
-[![CI](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml)
+[![CI](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/unidoc/pdfdebug/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 ![Platforms: macOS | Windows | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
