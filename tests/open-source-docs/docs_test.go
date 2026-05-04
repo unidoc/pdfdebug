@@ -599,8 +599,8 @@ func TestReadmeLicenseSectionHasRelativeLinksAndBrandBlurb(t *testing.T) {
 
 // TestReadmeInstallationHasPerPlatformArtifacts asserts the ## Installation
 // section documents the three per-platform release artifact naming patterns
-// per AC #6 (macOS `.app.zip`, Windows `.exe`, Linux `.tar.gz`) plus the
-// `sudo xattr -cr` Gatekeeper bypass command for RC builds.
+// (macOS `.dmg`, Windows `.zip` containing `.exe`, Linux `.tar.gz`) plus the
+// `sudo xattr -cr` Gatekeeper bypass command for unsigned macOS builds.
 func TestReadmeInstallationHasPerPlatformArtifacts(t *testing.T) {
 	body := sectionBody(readFileAtRoot(t, "README.md"), "## Installation")
 	if body == "" {
@@ -611,11 +611,12 @@ func TestReadmeInstallationHasPerPlatformArtifacts(t *testing.T) {
 		"darwin-",         // darwin architecture suffix
 		".dmg",            // macOS artifact extension
 		"windows-amd64",   // Windows arch token
-		".exe",            // Windows extension
+		".zip",            // Windows artifact extension (zip contains the .exe + LICENSE + NOTICE)
+		".exe",            // Windows binary inside the zip
 		"linux-amd64",     // Linux arch token
 		".tar.gz",         // Linux extension
-		"sudo xattr -cr",  // Gatekeeper bypass command for unsigned macOS builds (AC #6)
-		"libwebkit2gtk",   // Linux dep hint mandated by AC #6 / PRD section 14
+		"sudo xattr -cr",  // Gatekeeper bypass command for unsigned macOS builds
+		"libwebkit2gtk",   // Linux dep hint
 	}
 	for _, s := range required {
 		if !strings.Contains(body, s) {
