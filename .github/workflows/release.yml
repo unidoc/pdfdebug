@@ -271,7 +271,7 @@ jobs:
               rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"
               cp "bin/pdfdebug" "$CLI_STAGE/"
               cp LICENSE NOTICE "$CLI_STAGE/"
-              tar -czf "dist/pdfdebug-${VERSION}-${PLATFORM}.tar.gz" \
+              tar -czf "dist/pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz" \
                   -C "$CLI_STAGE" .
               ;;
             windows-amd64)
@@ -289,7 +289,7 @@ jobs:
               cp "bin/pdfdebug.exe" "$CLI_STAGE/"
               cp LICENSE NOTICE "$CLI_STAGE/"
               ( cd "$CLI_STAGE" && 7z a -tzip -bd \
-                  "$GITHUB_WORKSPACE/dist/pdfdebug-${VERSION}-${PLATFORM}.zip" . )
+                  "$GITHUB_WORKSPACE/dist/pdfdebug-cli-${VERSION}-${PLATFORM}.zip" . )
               ;;
             linux-amd64)
               # GUI: tar.gz with LICENSE/NOTICE bundled.
@@ -304,7 +304,7 @@ jobs:
               rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"
               cp "bin/pdfdebug" "$CLI_STAGE/"
               cp LICENSE NOTICE "$CLI_STAGE/"
-              tar -czf "dist/pdfdebug-${VERSION}-${PLATFORM}.tar.gz" \
+              tar -czf "dist/pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz" \
                   -C "$CLI_STAGE" .
               ;;
           esac

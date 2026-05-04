@@ -42,9 +42,9 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"
   ```
 
-  Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
+  Or use the GUI: double-click the `.app` and dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security`, scroll to the message that says `"UniDoc PDF Debugger" was blocked to protect your Mac`, and click `Open Anyway`. (Note: pre-Sequoia macOS supported a right-click -> Open shortcut here; Apple removed that path in macOS 15. The Privacy & Security flow above is the current supported route.)
 
-- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
+- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-cli-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
 - **Linux (amd64)**: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
 
@@ -60,7 +60,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   sudo apt-get install -y libwebkit2gtk-4.1-0
   ```
 
-  CLI archive: `pdfdebug-<version>-linux-amd64.tar.gz`.
+  CLI archive: `pdfdebug-cli-<version>-linux-amd64.tar.gz`.
 
 Every archive ships `LICENSE` and `NOTICE` alongside the binary (Apache 2.0 attribution).
 
@@ -75,8 +75,17 @@ All macOS releases are currently distributed unsigned. Apple Developer Program e
 What this means for end users:
 
 - **First launch fails with a Gatekeeper warning.** macOS attaches a quarantine attribute to anything downloaded via browser, and Gatekeeper blocks unsigned bundles by default.
-- **Workaround**: either run `sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"` once after install (recommended), or right-click the `.app` -> Open -> "Open" in the warning dialog.
-- **CLI binary (`pdfdebug`) is unaffected.** Gatekeeper only fires on GUI launches from Finder. Running the CLI from a terminal works without any bypass.
+- **Workaround**: run `sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"` once after install (recommended; works on every macOS version). GUI alternative on macOS 15 (Sequoia) and later: double-click the `.app`, dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security` and click `Open Anyway` next to the security message. Apple removed the older right-click -> Open shortcut in Sequoia.
+- **CLI binary (`pdfdebug`) is also Gatekeeper-blocked on macOS 15 (Sequoia) and later.** Browser downloads carry `com.apple.quarantine`, which `tar` propagates to the extracted binary; Sequoia tightened enforcement so even terminal invocations are blocked on first run. After extracting the CLI archive, clear the quarantine attribute before running:
+
+  ```bash
+  tar -xzf pdfdebug-cli-<version>-darwin-arm64.tar.gz
+  xattr -d com.apple.quarantine pdfdebug
+  chmod +x pdfdebug
+  ./pdfdebug --help
+  ```
+
+  GUI alternative: try to run the CLI, dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security` and click `Allow Anyway` next to the security message for `pdfdebug`. Earlier macOS versions did not block CLI binaries this way; this section will simplify back to "CLI is unaffected" if Apple eases the policy or once the project ships notarized binaries.
 - **No security implication beyond the trust signal.** The bundle is the same code as a signed build would be; only the cryptographic identity from Apple is missing.
 
 When Apple Developer Program enrollment is set up, this section will be removed and releases will ship signed (and possibly notarized) without requiring any user-side workaround. See `CONTRIBUTING.md` for the maintainer-side steps to enable signing.
@@ -85,9 +94,9 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.25.x (see `go.mod` line 3; do not use 1.22 -- the older PRD pin is outdated)
+- Go 1.25.x
 - Node.js 20 LTS (CI pin; matches release artifacts)
-- Wails v3 CLI `v3.0.0-alpha.74` (pin must match `go.mod`)
+- Wails v3 CLI `v3.0.0-alpha.74`
 
 > Node version note: `.nvmrc` sets Node 24 for local dev convenience, but CI runs Node 20 LTS -- either works locally, but CI is the authoritative pin.
 

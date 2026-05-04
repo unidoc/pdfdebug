@@ -57,6 +57,8 @@ func main() {
 
 // printUsage writes the CLI help text to w.
 func printUsage(w io.Writer) {
+	_, _ = fmt.Fprintf(w, "pdfdebug version %s\n", version)
+	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Commands:")
