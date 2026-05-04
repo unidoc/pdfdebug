@@ -3,7 +3,6 @@
 bin/
 build/bin/
 build/linux/appimage/build
-build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 
 # Go binaries
 *.exe
