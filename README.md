@@ -44,7 +44,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
 
   Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
 
-- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
+- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-cli-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
 - **Linux (amd64)**: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
 
@@ -60,7 +60,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   sudo apt-get install -y libwebkit2gtk-4.1-0
   ```
 
-  CLI archive: `pdfdebug-<version>-linux-amd64.tar.gz`.
+  CLI archive: `pdfdebug-cli-<version>-linux-amd64.tar.gz`.
 
 Every archive ships `LICENSE` and `NOTICE` alongside the binary (Apache 2.0 attribution).
 
@@ -85,9 +85,9 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.25.x (see `go.mod` line 3; do not use 1.22 -- the older PRD pin is outdated)
+- Go 1.25.x
 - Node.js 20 LTS (CI pin; matches release artifacts)
-- Wails v3 CLI `v3.0.0-alpha.74` (pin must match `go.mod`)
+- Wails v3 CLI `v3.0.0-alpha.74`
 
 > Node version note: `.nvmrc` sets Node 24 for local dev convenience, but CI runs Node 20 LTS -- either works locally, but CI is the authoritative pin.
 
