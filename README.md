@@ -44,7 +44,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
 
   Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
 
-- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.exe` and double-click. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway".
+- **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
 - **Linux (amd64)**: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
 
@@ -61,6 +61,8 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   ```
 
   CLI archive: `pdfdebug-<version>-linux-amd64.tar.gz`.
+
+Every archive ships `LICENSE` and `NOTICE` alongside the binary (Apache 2.0 attribution).
 
 ### From source
 

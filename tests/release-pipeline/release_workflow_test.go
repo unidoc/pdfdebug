@@ -804,8 +804,10 @@ func TestArtifactStagingNaming(t *testing.T) {
 		}
 	}
 
-	// macOS GUI must be packaged as .dmg; Windows as .exe; Linux as .tar.gz
-	for _, needle := range []string{".dmg", ".exe", ".tar.gz"} {
+	// macOS GUI as .dmg; Windows as .zip; Linux/CLI as .tar.gz. Note .exe still
+	// appears as the source filename copied INTO the Windows zip stage, but the
+	// shipped artifact extension is .zip.
+	for _, needle := range []string{".dmg", ".zip", ".tar.gz"} {
 		if !strings.Contains(run, needle) {
 			t.Errorf("release.yml build job: artifact extension %q missing (AC #2, Task 4.3)", needle)
 		}

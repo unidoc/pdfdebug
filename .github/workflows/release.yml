@@ -252,31 +252,59 @@ jobs:
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
               APP="bin/UniDoc PDF Debugger.app"
-              # Build a DMG with the .app and an Applications symlink so the
-              # mounted volume shows the standard drag-to-install layout.
+              # GUI: DMG with the .app, LICENSE/NOTICE, and an Applications
+              # symlink so the mounted volume shows the standard drag-to-install
+              # layout. LICENSE/NOTICE ship at DMG root for Apache 2.0 sec 4.
               STAGE="$RUNNER_TEMP/dmg-stage"
               rm -rf "$STAGE" && mkdir -p "$STAGE"
               cp -R "$APP" "$STAGE/"
+              cp LICENSE NOTICE "$STAGE/"
               ln -s /Applications "$STAGE/Applications"
               hdiutil create \
                 -volname "UniDoc PDF Debugger" \
                 -srcfolder "$STAGE" \
                 -ov -format UDZO \
                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
-              cp "bin/pdfdebug" \
-                 "dist/pdfdebug-${VERSION}-${PLATFORM}"
+              # CLI: tar.gz with LICENSE/NOTICE bundled.
+              CLI_STAGE="$RUNNER_TEMP/darwin-cli-stage"
+              rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"
+              cp "bin/pdfdebug" "$CLI_STAGE/"
+              cp LICENSE NOTICE "$CLI_STAGE/"
+              tar -czf "dist/pdfdebug-${VERSION}-${PLATFORM}.tar.gz" \
+                  -C "$CLI_STAGE" .
               ;;
             windows-amd64)
-              cp "bin/unidoc-pdf-debugger.exe" \
-                 "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.exe"
-              cp "bin/pdfdebug.exe" \
-                 "dist/pdfdebug-${VERSION}-${PLATFORM}.exe"
+              # GUI: ZIP with the .exe renamed to "UniDoc PDF Debugger.exe"
+              # (matches the macOS .app bundle display name) + LICENSE/NOTICE.
+              GUI_STAGE="$RUNNER_TEMP/win-gui-stage"
+              rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
+              cp "bin/unidoc-pdf-debugger.exe" "$GUI_STAGE/UniDoc PDF Debugger.exe"
+              cp LICENSE NOTICE "$GUI_STAGE/"
+              ( cd "$GUI_STAGE" && 7z a -tzip -bd \
+                  "$GITHUB_WORKSPACE/dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.zip" . )
+              # CLI: ZIP with pdfdebug.exe (lowercase; shell-typed) + LICENSE/NOTICE.
+              CLI_STAGE="$RUNNER_TEMP/win-cli-stage"
+              rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"
+              cp "bin/pdfdebug.exe" "$CLI_STAGE/"
+              cp LICENSE NOTICE "$CLI_STAGE/"
+              ( cd "$CLI_STAGE" && 7z a -tzip -bd \
+                  "$GITHUB_WORKSPACE/dist/pdfdebug-${VERSION}-${PLATFORM}.zip" . )
               ;;
             linux-amd64)
+              # GUI: tar.gz with LICENSE/NOTICE bundled.
+              GUI_STAGE="$RUNNER_TEMP/linux-gui-stage"
+              rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
+              cp "bin/unidoc-pdf-debugger" "$GUI_STAGE/"
+              cp LICENSE NOTICE "$GUI_STAGE/"
               tar -czf "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.tar.gz" \
-                  -C bin unidoc-pdf-debugger
+                  -C "$GUI_STAGE" .
+              # CLI: tar.gz with LICENSE/NOTICE bundled.
+              CLI_STAGE="$RUNNER_TEMP/linux-cli-stage"
+              rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"
+              cp "bin/pdfdebug" "$CLI_STAGE/"
+              cp LICENSE NOTICE "$CLI_STAGE/"
               tar -czf "dist/pdfdebug-${VERSION}-${PLATFORM}.tar.gz" \
-                  -C bin pdfdebug
+                  -C "$CLI_STAGE" .
               ;;
           esac
           ls -la dist/
