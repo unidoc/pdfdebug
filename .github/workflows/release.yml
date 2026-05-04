@@ -26,8 +26,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS Intel (darwin-amd64) was dropped after the v0.1.0-rc1 dry-run
+          # found macos-13 runner queue times unreliable. Re-add if user demand surfaces.
           - { os: macos-latest,   arch: arm64, goos: darwin,  platform: darwin-arm64 }
-          - { os: macos-13,       arch: amd64, goos: darwin,  platform: darwin-amd64 }
           - { os: windows-latest, arch: amd64, goos: windows, platform: windows-amd64 }
           - { os: ubuntu-latest,  arch: amd64, goos: linux,   platform: linux-amd64 }
     runs-on: ${{ matrix.os }}
@@ -377,7 +378,7 @@ jobs:
           # count drifts from AC #7's contractual "8 assets" invariant (4 matrix cells
           # x 2 artifacts/cell). Catches any future staging regression that drops or
           # duplicates an artifact before it reaches the Release page.
-          EXPECTED_FILES=8
+          EXPECTED_FILES=6
           FILES=$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | wc -l | tr -d ' ')
           LINES=$(wc -l < SHA256SUMS.txt | tr -d ' ')
           if [ "$FILES" -eq 0 ]; then
@@ -389,7 +390,7 @@ jobs:
             exit 1
           fi
           if [ "$FILES" != "$EXPECTED_FILES" ]; then
-            echo "Expected $EXPECTED_FILES release artifacts (AC #7: 4 platforms x 2 artifacts), got $FILES." >&2
+            echo "Expected $EXPECTED_FILES release artifacts (3 platforms x 2 artifacts), got $FILES." >&2
             find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | LC_ALL=C sort >&2
             exit 1
           fi

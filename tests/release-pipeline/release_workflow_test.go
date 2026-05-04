@@ -306,17 +306,17 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 	if !ok {
 		t.Fatalf("release.yml: matrix.include is not a list (AC #3 requires include-only matrix)")
 	}
-	if len(includeRaw) != 4 {
-		t.Errorf("release.yml: matrix.include must have exactly 4 cells (AC #3), got %d", len(includeRaw))
+	if len(includeRaw) != 3 {
+		t.Errorf("release.yml: matrix.include must have exactly 3 cells, got %d", len(includeRaw))
 	}
 
-	// Expected 4 tuples, keyed by os+arch for uniqueness.
+	// Expected 3 tuples, keyed by os+arch for uniqueness. macOS Intel (macos-13)
+	// was dropped after the v0.1.0-rc1 dry-run found unreliable runner queue times.
 	expected := map[string]struct {
 		goos     string
 		platform string
 	}{
 		"macos-latest|arm64":   {goos: "darwin", platform: "darwin-arm64"},
-		"macos-13|amd64":       {goos: "darwin", platform: "darwin-amd64"},
 		"windows-latest|amd64": {goos: "windows", platform: "windows-amd64"},
 		"ubuntu-latest|amd64":  {goos: "linux", platform: "linux-amd64"},
 	}
@@ -793,7 +793,6 @@ func TestArtifactStagingNaming(t *testing.T) {
 		"unidoc-pdf-debugger-",       // GUI prefix
 		"pdfdebug-",                  // CLI prefix
 		"darwin-arm64",               // platform tokens appear via matrix.platform
-		"darwin-amd64",
 		"windows-amd64",
 		"linux-amd64",
 	}
