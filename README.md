@@ -42,7 +42,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"
   ```
 
-  Or, equivalently, right-click the `.app` in Finder -> Open -> confirm the warning dialog.
+  Or use the GUI: double-click the `.app` and dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security`, scroll to the message that says `"UniDoc PDF Debugger" was blocked to protect your Mac`, and click `Open Anyway`. (Note: pre-Sequoia macOS supported a right-click -> Open shortcut here; Apple removed that path in macOS 15. The Privacy & Security flow above is the current supported route.)
 
 - **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-cli-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
@@ -75,7 +75,7 @@ All macOS releases are currently distributed unsigned. Apple Developer Program e
 What this means for end users:
 
 - **First launch fails with a Gatekeeper warning.** macOS attaches a quarantine attribute to anything downloaded via browser, and Gatekeeper blocks unsigned bundles by default.
-- **Workaround**: either run `sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"` once after install (recommended), or right-click the `.app` -> Open -> "Open" in the warning dialog.
+- **Workaround**: run `sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"` once after install (recommended; works on every macOS version). GUI alternative on macOS 15 (Sequoia) and later: double-click the `.app`, dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security` and click `Open Anyway` next to the security message. Apple removed the older right-click -> Open shortcut in Sequoia.
 - **CLI binary (`pdfdebug`) is unaffected.** Gatekeeper only fires on GUI launches from Finder. Running the CLI from a terminal works without any bypass.
 - **No security implication beyond the trust signal.** The bundle is the same code as a signed build would be; only the cryptographic identity from Apple is missing.
 
