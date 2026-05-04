@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -43,7 +44,11 @@ func buildCLI(t *testing.T) string {
 	t.Helper()
 	root := projectRoot(t)
 	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "pdfdebug")
+	binName := "pdfdebug"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tmpDir, binName)
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli/")
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()

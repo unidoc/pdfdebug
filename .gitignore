@@ -3,7 +3,6 @@
 bin/
 build/bin/
 build/linux/appimage/build
-build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 
 # Go binaries
 *.exe
@@ -60,5 +59,6 @@ build/linux/*
 build/windows/*
 !build/windows/info.json
 !build/windows/Taskfile.yml
+!build/windows/wails.exe.manifest
 /cli
 /output/

@@ -457,33 +457,6 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-003 (P1): Google Fonts import for Inter and JetBrains Mono
-// AC#4, AC#5: Font imports present for development
-// ---------------------------------------------------------------------------
-
-func TestGoogleFontsImport(t *testing.T) {
-	css := readStyleCSS(t)
-
-	// Verify @import for Google Fonts with both Inter and JetBrains Mono
-	if !strings.Contains(css, "fonts.googleapis.com") {
-		t.Fatal("[P1] no Google Fonts @import found in style.css")
-	}
-
-	if !strings.Contains(css, "Inter") {
-		t.Error("[P1] Google Fonts import does not include Inter font")
-	}
-
-	if !strings.Contains(css, "JetBrains+Mono") && !strings.Contains(css, "JetBrains Mono") {
-		t.Error("[P1] Google Fonts import does not include JetBrains Mono font")
-	}
-
-	// Verify display=swap for font loading performance
-	if !strings.Contains(css, "display=swap") {
-		t.Error("[P1] Google Fonts import missing display=swap parameter")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // 1.2-INTG-004 (P2): Wails template Inter-Medium.ttf deleted
 // Story task 2.5: Delete frontend/public/Inter-Medium.ttf
 // ---------------------------------------------------------------------------

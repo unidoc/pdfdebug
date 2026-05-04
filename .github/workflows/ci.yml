@@ -65,6 +65,14 @@ jobs:
         shell: bash
         run: wails3 generate bindings -clean=true
 
+      - name: Build frontend
+        # Required before any Go build/vet/test: main.go has `//go:embed
+        # all:frontend/dist`, which fails to resolve on a clean checkout where
+        # frontend/dist does not yet exist. The smoke `wails3 build` step later
+        # rebuilds, but vet/lint/test all need the embed satisfied first.
+        shell: bash
+        run: npm run build --prefix frontend
+
       - name: Go vet
         shell: bash
         run: go vet ./...
