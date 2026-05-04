@@ -18,7 +18,7 @@
 //   - Platform-specific GUI build steps invoke `wails3 task <os>:build|package`
 //     with ARCH from matrix (Task 3.1, 3.2)
 //   - CLI `--help` smoke-test step per cell (Task 3.4)
-//   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=8, line-count invariant,
+//   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=6, line-count invariant,
 //     and `shasum -a 256 -c` self-verify (Review #3 Medium)
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
 //     (AC #7 / Task 5.2)
@@ -73,7 +73,7 @@ func findStepByPredicate(t *testing.T, jobName string, predicate func(map[string
 
 // ---------------------------------------------------------------------------
 // 7.2-STATIC-004 (P1): download-artifact uses merge-multiple: true
-// Covers AC #9 + Task 1.4 (single `dist/` merges all four matrix cells)
+// Covers AC #9 + Task 1.4 (single `dist/` merges all three matrix cells)
 // ---------------------------------------------------------------------------
 
 func TestDownloadArtifactMergeMultiple(t *testing.T) {
@@ -404,7 +404,7 @@ func TestCLISmokeTestStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// SHA256SUMS integrity guard: asserts EXPECTED_FILES=8, line-count invariant,
+// SHA256SUMS integrity guard: asserts EXPECTED_FILES=6, line-count invariant,
 // and `shasum -a 256 -c` self-verify.
 // Covers Review #3 Medium (AC #7 "all 8 assets MUST be attached" invariant).
 // ---------------------------------------------------------------------------
@@ -412,9 +412,9 @@ func TestCLISmokeTestStep(t *testing.T) {
 func TestSHA256SumsIntegrityGuard(t *testing.T) {
 	run := jobRunBodies(t, "release")
 
-	// Explicit artifact-count assertion (8 = 4 platforms x 2 artifacts).
-	if !strings.Contains(run, "EXPECTED_FILES=8") {
-		t.Errorf("release.yml release job: SHA256SUMS step must assert `EXPECTED_FILES=8` (Review #3 Medium; AC #7 invariant)")
+	// Explicit artifact-count assertion (6 = 3 platforms x 2 artifacts).
+	if !strings.Contains(run, "EXPECTED_FILES=6") {
+		t.Errorf("release.yml release job: SHA256SUMS step must assert `EXPECTED_FILES=6` (3 platforms x 2 artifacts)")
 	}
 	// Line-count vs file-count consistency check.
 	if !regexp.MustCompile(`\$FILES.*!=.*\$LINES|\$LINES.*!=.*\$FILES`).MatchString(run) {
