@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -589,7 +590,11 @@ func BenchmarkStreamDump_ContentStreamPDF(b *testing.B) {
 	}
 
 	tmpDir := b.TempDir()
-	binPath := filepath.Join(tmpDir, "pdfdebug")
+	binName := "pdfdebug"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tmpDir, binName)
 	buildCmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli/")
 	buildCmd.Dir = root
 	if output, err := buildCmd.CombinedOutput(); err != nil {
