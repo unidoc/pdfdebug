@@ -76,7 +76,16 @@ What this means for end users:
 
 - **First launch fails with a Gatekeeper warning.** macOS attaches a quarantine attribute to anything downloaded via browser, and Gatekeeper blocks unsigned bundles by default.
 - **Workaround**: run `sudo xattr -cr "/Applications/UniDoc PDF Debugger.app"` once after install (recommended; works on every macOS version). GUI alternative on macOS 15 (Sequoia) and later: double-click the `.app`, dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security` and click `Open Anyway` next to the security message. Apple removed the older right-click -> Open shortcut in Sequoia.
-- **CLI binary (`pdfdebug`) is unaffected.** Gatekeeper only fires on GUI launches from Finder. Running the CLI from a terminal works without any bypass.
+- **CLI binary (`pdfdebug`) is also Gatekeeper-blocked on macOS 15 (Sequoia) and later.** Browser downloads carry `com.apple.quarantine`, which `tar` propagates to the extracted binary; Sequoia tightened enforcement so even terminal invocations are blocked on first run. After extracting the CLI archive, clear the quarantine attribute before running:
+
+  ```bash
+  tar -xzf pdfdebug-cli-<version>-darwin-arm64.tar.gz
+  xattr -d com.apple.quarantine pdfdebug
+  chmod +x pdfdebug
+  ./pdfdebug --help
+  ```
+
+  GUI alternative: try to run the CLI, dismiss the "blocked" dialog, then open `System Settings -> Privacy & Security` and click `Allow Anyway` next to the security message for `pdfdebug`. Earlier macOS versions did not block CLI binaries this way; this section will simplify back to "CLI is unaffected" if Apple eases the policy or once the project ships notarized binaries.
 - **No security implication beyond the trust signal.** The bundle is the same code as a signed build would be; only the cryptographic identity from Apple is missing.
 
 When Apple Developer Program enrollment is set up, this section will be removed and releases will ship signed (and possibly notarized) without requiring any user-side workaround. See `CONTRIBUTING.md` for the maintainer-side steps to enable signing.
