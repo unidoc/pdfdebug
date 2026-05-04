@@ -60,5 +60,6 @@ build/linux/*
 build/windows/*
 !build/windows/info.json
 !build/windows/Taskfile.yml
+!build/windows/wails.exe.manifest
 /cli
 /output/
