@@ -19,6 +19,7 @@ const STORAGE_KEY = 'unidoc-pdf-debugger:window-state';
 
 // Node 25+ has a built-in localStorage without .clear(). Provide a shim
 // so tests run consistently across Node versions and jsdom environments.
+// See https://nodejs.org/api/webstorage.html#storageclear (added jsdom 29.1.0).
 function clearStorage() {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
@@ -528,7 +529,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    * Supplemental (AC#5 reverse direction): saving panel sizes does not erase
    * a previously-stored windowGeometry value.
    */
-  test('saving panel sizes preserves existing windowGeometry in localStorage (read-merge-write)', () => {
+  test('8.4-UNIT-009 [P1]: saving panel sizes preserves existing windowGeometry in localStorage (read-merge-write)', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -556,7 +557,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   /**
    * Supplemental: hook return shape includes windowGeometry and saveWindowGeometry.
    */
-  test('hook returns windowGeometry and saveWindowGeometry', () => {
+  test('8.4-UNIT-010 [P2]: hook returns windowGeometry and saveWindowGeometry', () => {
     const { result } = renderHook(() => useWindowPersistence());
 
     expect(result.current).toHaveProperty('windowGeometry');
@@ -572,7 +573,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    * panel save from instance A and the geometry save from instance B
    * would each fire their own setTimeout and produce two writes.
    */
-  test('AC#4: shared timer coalesces saves across multiple hook instances into one write', () => {
+  test('8.4-UNIT-011 [P1]: AC#4 - shared timer coalesces saves across multiple hook instances into one write', () => {
     // Asserts via localStorage state. Two checkpoints prove the timer is shared
     // across instances (not per-instance): if timers were per-instance, instance
     // A's geometry would have written its own state at +500ms and we'd see a
