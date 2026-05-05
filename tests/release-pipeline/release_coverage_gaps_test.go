@@ -4,7 +4,7 @@
 // These tests target concrete behaviors mandated by Story 7.2 tasks and Review
 // findings that were not asserted by the original 26 acceptance tests:
 //
-//   - actions/download-artifact@v4 uses merge-multiple: true (AC #9 / Task 1.4)
+//   - actions/download-artifact@v5 uses merge-multiple: true (AC #9 / Task 1.4)
 //   - build-job artifact name pattern `build-${{ matrix.platform }}` (Task 4.4)
 //   - build-job timeout-minutes: 45 budget for macOS notarize (Task 1.2)
 //   - Wails CLI pin matches go.mod direct dependency (Task 1.3 #5)
@@ -79,10 +79,10 @@ func findStepByPredicate(t *testing.T, jobName string, predicate func(map[string
 func TestDownloadArtifactMergeMultiple(t *testing.T) {
 	step := findStepByPredicate(t, "release", func(m map[string]interface{}) bool {
 		u, _ := m["uses"].(string)
-		return strings.HasPrefix(u, "actions/download-artifact@v4")
+		return strings.HasPrefix(u, "actions/download-artifact@v5")
 	})
 	if step == nil {
-		t.Fatalf("release.yml: actions/download-artifact@v4 step missing in release job (AC #9)")
+		t.Fatalf("release.yml: actions/download-artifact@v5 step missing in release job (AC #9)")
 	}
 	with, ok := step["with"].(map[string]interface{})
 	if !ok {
@@ -107,10 +107,10 @@ func TestDownloadArtifactMergeMultiple(t *testing.T) {
 func TestUploadArtifactNamePattern(t *testing.T) {
 	step := findStepByPredicate(t, "build", func(m map[string]interface{}) bool {
 		u, _ := m["uses"].(string)
-		return strings.HasPrefix(u, "actions/upload-artifact@v4")
+		return strings.HasPrefix(u, "actions/upload-artifact@v5")
 	})
 	if step == nil {
-		t.Fatalf("release.yml: actions/upload-artifact@v4 step missing in build job (AC #9)")
+		t.Fatalf("release.yml: actions/upload-artifact@v5 step missing in build job (AC #9)")
 	}
 	with, ok := step["with"].(map[string]interface{})
 	if !ok {

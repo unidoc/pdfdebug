@@ -361,8 +361,8 @@ func TestCIWorkflowConcurrency(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-009 (P0): Go pinned to 1.25.x via setup-go@v5 with cache-dependency-path
-// Covers AC #2 (Go pinned to 1.25.x via actions/setup-go@v5) and AC #6 (caching)
+// 7.1-STATIC-009 (P0): Go pinned to 1.25.x via setup-go@v6 with cache-dependency-path
+// Covers AC #2 (Go pinned to 1.25.x via actions/setup-go@v6) and AC #6 (caching)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
@@ -375,8 +375,8 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 		}
 		if u, ok := m["uses"].(string); ok && strings.HasPrefix(u, "actions/setup-go@") {
 			goStep = m
-			if !strings.HasPrefix(u, "actions/setup-go@v5") {
-				t.Errorf("ci.yml: setup-go must be @v5, got %q (AC #2)", u)
+			if !strings.HasPrefix(u, "actions/setup-go@v6") {
+				t.Errorf("ci.yml: setup-go must be @v6, got %q (AC #2)", u)
 			}
 			break
 		}
@@ -426,8 +426,8 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-010 (P0): Node pinned to 20 via setup-node@v4 with npm cache
-// Covers AC #2 (Node pinned to 20 via actions/setup-node@v4) and AC #6 (npm caching)
+// 7.1-STATIC-010 (P0): Node pinned to 20 via setup-node@v5 with npm cache
+// Covers AC #2 (Node pinned to 20 via actions/setup-node@v5) and AC #6 (npm caching)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
@@ -440,8 +440,8 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 		}
 		if u, ok := m["uses"].(string); ok && strings.HasPrefix(u, "actions/setup-node@") {
 			nodeStep = m
-			if !strings.HasPrefix(u, "actions/setup-node@v4") {
-				t.Errorf("ci.yml: setup-node must be @v4, got %q (AC #2)", u)
+			if !strings.HasPrefix(u, "actions/setup-node@v5") {
+				t.Errorf("ci.yml: setup-node must be @v5, got %q (AC #2)", u)
 			}
 			break
 		}
@@ -751,7 +751,7 @@ func TestCIWorkflowCLIBuildStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-021 (P1): checkout@v4 is the first action step
+// 7.1-STATIC-021 (P1): checkout@v5 is the first action step
 // Covers Task 1.5 step 1 (ordering requirement)
 // ---------------------------------------------------------------------------
 
@@ -761,7 +761,7 @@ func TestCIWorkflowCheckoutIsFirst(t *testing.T) {
 	if len(uses) == 0 {
 		t.Fatalf("ci.yml: no `uses:` steps found")
 	}
-	if !strings.HasPrefix(uses[0], "actions/checkout@v4") {
-		t.Errorf("ci.yml: first step must be actions/checkout@v4, got %q", uses[0])
+	if !strings.HasPrefix(uses[0], "actions/checkout@v5") {
+		t.Errorf("ci.yml: first step must be actions/checkout@v5, got %q", uses[0])
 	}
 }

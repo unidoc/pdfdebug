@@ -6,7 +6,7 @@
 // macOS amd64, Windows amd64, Linux amd64) producing 8 artifacts + SHA256SUMS,
 // codesign/notarize/staple/verify flow on macOS, CLI built with -trimpath and
 // version ldflag, two-stage job layout (build matrix -> release publish),
-// softprops/action-gh-release@v2 publication with prerelease detection, and
+// softprops/action-gh-release@v3 publication with prerelease detection, and
 // the Apple Developer ID keychain import + cleanup pattern.
 //
 // These are TDD RED PHASE tests -- they MUST fail until Story 7.2 is
@@ -606,7 +606,7 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): upload-artifact@v4 in build, download-artifact@v4 in release
+// 7.2-STATIC-004 (P1): upload-artifact@v5 in build, download-artifact@v5 in release
 // Covers AC #9 (artifact staging via v4 actions)
 // ---------------------------------------------------------------------------
 
@@ -616,20 +616,20 @@ func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
 
 	var hasUpload, hasDownload bool
 	for _, u := range buildUses {
-		if strings.HasPrefix(u, "actions/upload-artifact@v4") {
+		if strings.HasPrefix(u, "actions/upload-artifact@v5") {
 			hasUpload = true
 		}
 	}
 	for _, u := range releaseUses {
-		if strings.HasPrefix(u, "actions/download-artifact@v4") {
+		if strings.HasPrefix(u, "actions/download-artifact@v5") {
 			hasDownload = true
 		}
 	}
 	if !hasUpload {
-		t.Errorf("release.yml: jobs.build must use actions/upload-artifact@v4 (AC #9)")
+		t.Errorf("release.yml: jobs.build must use actions/upload-artifact@v5 (AC #9)")
 	}
 	if !hasDownload {
-		t.Errorf("release.yml: jobs.release must use actions/download-artifact@v4 (AC #9)")
+		t.Errorf("release.yml: jobs.release must use actions/download-artifact@v5 (AC #9)")
 	}
 }
 
@@ -667,7 +667,7 @@ func TestSHA256SumsExcludesSelf(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): release publication step uses softprops/action-gh-release@v2
+// 7.2-STATIC-006 (P2): release publication step uses softprops/action-gh-release@v3
 // Covers AC #7
 // ---------------------------------------------------------------------------
 
@@ -675,13 +675,13 @@ func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
 	uses := jobUses(t, "release")
 	var found bool
 	for _, u := range uses {
-		if strings.HasPrefix(u, "softprops/action-gh-release@v2") {
+		if strings.HasPrefix(u, "softprops/action-gh-release@v3") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("release.yml: jobs.release must use softprops/action-gh-release@v2 (AC #7)")
+		t.Errorf("release.yml: jobs.release must use softprops/action-gh-release@v3 (AC #7)")
 	}
 }
 
