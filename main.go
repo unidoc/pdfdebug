@@ -227,18 +227,24 @@ func main() {
 		}
 	})
 
+	// macOS uses the screen-top system menu bar via SetApplicationMenu.
+	// Windows requires UseApplicationMenu: true on each window to opt in
+	// (Wails alpha.74 windowsWebviewWindow only honors the app menu when
+	// UseApplicationMenu is set; Windows.Menu would also work but is more
+	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
 
 	// Create main window
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "UniDoc PDF Debugger",
-		Width:            1024,
-		Height:           768,
-		MinWidth:         800,
-		MinHeight:        600,
-		BackgroundColour: application.NewRGB(248, 250, 252),
-		URL:              "/",
-		EnableFileDrop:   true,
+		Title:              "UniDoc PDF Debugger",
+		Width:              1024,
+		Height:             768,
+		MinWidth:           800,
+		MinHeight:          600,
+		BackgroundColour:   application.NewRGB(248, 250, 252),
+		URL:                "/",
+		EnableFileDrop:     true,
+		UseApplicationMenu: true,
 	})
 
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
