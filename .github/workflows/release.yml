@@ -156,6 +156,26 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${PLIST_VERSION}" build/darwin/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${PLIST_VERSION}" build/darwin/Info.plist
 
+      - name: Set Windows info.json version
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Windows FileVersion / ProductVersion are dot-separated integers,
+          # same shape as Apple's CFBundle versions. Strip the SemVer
+          # pre-release and build-metadata suffixes from $VERSION, then
+          # rewrite build/windows/info.json so wails3 generate syso embeds
+          # the correct version into the .exe resource (visible in File
+          # Explorer hover + the Properties dialog). Without this step the
+          # static 0.1.0 fallback ships unchanged on every release.
+          INFO_VERSION="${VERSION%%-*}"
+          INFO_VERSION="${INFO_VERSION%%+*}"
+          jq --arg v "$INFO_VERSION" \
+            '.fixed.file_version = $v | .info["0000"].ProductVersion = $v' \
+            build/windows/info.json > build/windows/info.json.tmp
+          mv build/windows/info.json.tmp build/windows/info.json
+          cat build/windows/info.json
+
       - name: Build macOS GUI
         if: startsWith(matrix.os, 'macos')
         shell: bash
