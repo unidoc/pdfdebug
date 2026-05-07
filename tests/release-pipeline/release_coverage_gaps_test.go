@@ -10,7 +10,7 @@
 //   - Wails CLI pin matches go.mod direct dependency (Task 1.3 #5)
 //   - `wails3 generate bindings -clean=true` present BEFORE any frontend build
 //     (Task 1.3 #7; story 7-1 Review #1 lesson carried forward)
-//   - Go 1.25.x and Node 20 pins match ci.yml (cross-workflow consistency;
+//   - Go 1.26.x and Node 20 pins match ci.yml (cross-workflow consistency;
 //     Dev Notes "Reuse Everything from Story 7-1")
 //   - SemVer validation in Resolve version step (Task 1.3 #8; rejects crafted tags)
 //   - Apple secret gate idiom (`steps.apple_secrets.outputs.available == 'true'`)
