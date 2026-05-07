@@ -86,3 +86,11 @@ func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.Con
 func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error) {
 	return s.inspector.GetImageData(tabID, nodeID)
 }
+
+// GoToPage resolves a 1-based page number to the node ID of that page's
+// content stream, suitable for the frontend to dispatch as a NAVIGATE_TO_REF
+// target. Returns an error if the page number is out of range, the page has
+// no content stream, or the document/tab is unknown.
+func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
+	return s.inspector.GetPageContentStreamNodeID(tabID, pageNum)
+}
