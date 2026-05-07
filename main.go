@@ -202,6 +202,13 @@ func main() {
 		})
 
 	navMenu.AddSeparator()
+	navMenu.Add("Go to Page...").
+		SetAccelerator("CmdOrCtrl+G").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("navigate:goToPage", nil)
+		})
+
+	navMenu.AddSeparator()
 	navMenu.Add("Next Tab").
 		SetAccelerator("CmdOrCtrl+Right").
 		OnClick(func(ctx *application.Context) {

@@ -9,10 +9,12 @@ import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentSta
 import { mapErrorMessage } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
+import { getPlatformModifier } from './lib/platform'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
+import { GoToPageDialog } from './components/GoToPageDialog'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -120,11 +122,16 @@ function AppContent() {
       dispatch({ type: 'NAVIGATE_FORWARD' })
     })
 
+    const offGoToPage = Events.On('navigate:goToPage', () => {
+      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+    })
+
     return () => {
       offOpened()
       offError()
       offNavBack()
       offNavForward()
+      offGoToPage()
     }
   }, [dispatch])
 
@@ -241,6 +248,35 @@ function AppContent() {
     }
   }, [saveWindowGeometry])
 
+  // Cmd+G (macOS) / Ctrl+G (Win/Linux) opens the Go to Page dialog. Skip
+  // when focus is in a text input/area so the shortcut never steals typing,
+  // and skip when no document is loaded (the reducer is also a no-op).
+  // The native menu item in main.go also emits navigate:goToPage; this
+  // listener exists so the shortcut works even before the menu is opened.
+  useEffect(() => {
+    /** @param {EventTarget | null} target */
+    function isInTextField(target) {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+      if (target.isContentEditable) return true
+      return false
+    }
+    const wantsMeta = getPlatformModifier() === 'Cmd'
+    /** @param {KeyboardEvent} e */
+    function handler(e) {
+      const mod = wantsMeta ? e.metaKey : e.ctrlKey
+      if (!mod) return
+      if (e.key !== 'g' && e.key !== 'G') return
+      if (isInTextField(e.target)) return
+      if (!hasDocument) return
+      e.preventDefault()
+      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [hasDocument, dispatch])
+
   return (
     <div className="flex flex-col h-full" data-file-drop-target>
       {documentError && (
@@ -261,6 +297,7 @@ function AppContent() {
       <div className="flex-1 min-h-0">
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>
+      <GoToPageDialog />
     </div>
   )
 }
