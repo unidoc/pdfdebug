@@ -292,7 +292,7 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 	bin := buildSmokeBinary(t)
 
 	deadline := platformLaunchDeadline()
-	ctx, cancel := context.WithTimeout(context.Background(), deadline)
+	ctx, cancel := context.WithTimeout(t.Context(), deadline)
 	defer cancel()
 
 	name, extraArgs := requireXvfbOnLinux(t, bin)
@@ -375,8 +375,7 @@ probeLoop:
 	// after we initiated shutdown is therefore expected; panics and
 	// runtime errors are caught above by `scanForFatalOutput`.
 	if shutdownErr != nil {
-		var exitErr *exec.ExitError
-		if errors.As(shutdownErr, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](shutdownErr); ok {
 			if runtime.GOOS == "windows" {
 				return
 			}
