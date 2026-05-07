@@ -1111,3 +1111,79 @@ describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
     expect(screen.getByTestId('tab2-selected').textContent).toBe('node-a');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 9.4-UNIT-001: OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
+// ---------------------------------------------------------------------------
+
+function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openAction: AppAction }) {
+  const state = useAppState();
+  const dispatch = useAppDispatch();
+  return (
+    <div>
+      <span data-testid="goto-open">{String(state.goToPageOpen)}</span>
+      <button data-testid="open-doc" onClick={() => dispatch(openAction)}>open</button>
+      <button data-testid="open-goto" onClick={() => dispatch({ type: 'OPEN_GO_TO_PAGE' })}>open-goto</button>
+      <button data-testid="close-goto" onClick={() => dispatch({ type: 'CLOSE_GO_TO_PAGE' })}>close-goto</button>
+      <span data-testid="page-count">{state.tabs[0]?.pageCount ?? -1}</span>
+      <span data-testid="page-count-fallback">{pageCount}</span>
+    </div>
+  );
+}
+
+describe('9.4-UNIT-001: Go to Page dialog state', () => {
+  test('initial state has goToPageOpen = false', () => {
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
+      </AppProvider>
+    );
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE is a no-op when no document is loaded', () => {
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE is a no-op when active tab has pageCount = 0', () => {
+    const open: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 0, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={open} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-doc').click());
+    expect(screen.getByTestId('page-count').textContent).toBe('0');
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE flips goToPageOpen to true when a document with pages is active; CLOSE flips it back', () => {
+    const open: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 5, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={5} openAction={open} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-doc').click());
+    expect(screen.getByTestId('page-count').textContent).toBe('5');
+
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('true');
+
+    act(() => screen.getByTestId('close-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+});

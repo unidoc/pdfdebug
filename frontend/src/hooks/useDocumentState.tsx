@@ -32,6 +32,7 @@ export interface TabState {
   tabId: string;
   fileName: string;
   filePath: string;
+  pageCount: number;
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
   selectedNodeId: string | null;
@@ -50,11 +51,12 @@ export interface AppState {
   activeTabId: string | null;
   documentError: string | null;
   documentWarning: string | null;
+  goToPageOpen: boolean;
 }
 
 /** Union of all actions the app reducer handles. */
 export type AppAction =
-  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
+  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; pageCount?: number; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
   | { type: 'ACTIVATE_TAB'; payload: { tabId: string } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
   | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; iconHint?: string; isHistoryNav?: boolean } }
@@ -67,7 +69,9 @@ export type AppAction =
   | { type: 'SET_DOCUMENT_WARNING'; payload: { message: string } }
   | { type: 'DISMISS_WARNING' }
   | { type: 'NAVIGATE_BACK' }
-  | { type: 'NAVIGATE_FORWARD' };
+  | { type: 'NAVIGATE_FORWARD' }
+  | { type: 'OPEN_GO_TO_PAGE' }
+  | { type: 'CLOSE_GO_TO_PAGE' };
 
 // --- Reducer ---
 
@@ -76,6 +80,7 @@ const initialState: AppState = {
   activeTabId: null,
   documentError: null,
   documentWarning: null,
+  goToPageOpen: false,
 };
 
 /**
@@ -102,6 +107,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         tabId: action.payload.tabId,
         fileName: action.payload.fileName,
         filePath: action.payload.filePath,
+        pageCount: action.payload.pageCount ?? 0,
         rootNode: action.payload.rootNode,
         rootChildren: action.payload.rootChildren,
         selectedNodeId: null,
@@ -301,6 +307,17 @@ function appReducer(state: AppState, action: AppAction): AppState {
           };
         }),
       };
+    }
+    case 'OPEN_GO_TO_PAGE': {
+      // No-op when no document is loaded; the dialog needs an active tab and
+      // a positive pageCount to be useful.
+      if (state.activeTabId === null) return state;
+      const active = state.tabs.find((t) => t.tabId === state.activeTabId);
+      if (!active || active.pageCount <= 0) return state;
+      return { ...state, goToPageOpen: true };
+    }
+    case 'CLOSE_GO_TO_PAGE': {
+      return { ...state, goToPageOpen: false };
     }
     default: {
       const _exhaustive: never = action;

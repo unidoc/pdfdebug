@@ -133,6 +133,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           tabId: result.tabId,
           fileName: result.fileName,
           filePath: result.filePath,
+          pageCount: result.pageCount,
           rootNode: result.rootNode,
           rootChildren: result.rootChildren,
         },

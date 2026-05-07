@@ -2,7 +2,7 @@
  * @file PDF service layer. Wraps Wails-generated bindings with
  * user-friendly error mapping and a structured open-file workflow.
  */
-import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog, GoToPage as _GoToPage } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
 
 /**
@@ -28,6 +28,26 @@ export function mapErrorMessage(rawMessage: string): string {
 /** Show the native OS file picker and return the selected path (or empty string). */
 export async function openFileDialog(): Promise<string> {
   return _OpenFileDialog();
+}
+
+/**
+ * Resolve a 1-based page number to the node ID of that page's content stream.
+ * Surfaces backend errors (out of range, missing content stream, unknown tab)
+ * with user-friendly messages so the calling dialog can render them inline.
+ */
+export async function goToPage(tabId: string, pageNum: number): Promise<string> {
+  try {
+    return await _GoToPage(tabId, pageNum);
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    if (/out of range/i.test(raw)) {
+      throw new Error(`Page number ${pageNum} is out of range for this document.`);
+    }
+    if (/no content stream|empty/i.test(raw)) {
+      throw new Error(`Page ${pageNum} has no content stream.`);
+    }
+    throw new Error(mapErrorMessage(raw));
+  }
 }
 
 /** Result of opening a PDF: document metadata plus the pre-fetched tree root. */

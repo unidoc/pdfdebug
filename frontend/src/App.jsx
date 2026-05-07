@@ -96,6 +96,7 @@ function AppContent() {
           tabId: data.tabId,
           fileName: data.fileName,
           filePath: filePath,
+          pageCount: data.pageCount ?? 0,
           rootNode: data.rootNode ?? null,
           rootChildren: data.rootChildren ?? null,
         },
