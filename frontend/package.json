@@ -22,11 +22,13 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@wailsio/runtime": "^3.0.0-alpha.79",
     "allotment": "^1.20.5",
+    "lucide-react": "^1.14.0",
     "react": "^18.2.0",
     "react-arborist": "^3.4.3",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@tailwindcss/vite": "^4.2.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -34,7 +36,6 @@
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^6.0.0",
-    "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.1.0",

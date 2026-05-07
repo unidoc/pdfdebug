@@ -4,8 +4,26 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
+import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
+
+/**
+ * Map a backend iconHint to a lucide-react icon component. Returns null for
+ * "default" and unknown hints so untyped scalars/arrays render without
+ * decoration and the tree stays visually quiet.
+ */
+function iconForHint(hint: string): LucideIcon | null {
+  switch (hint) {
+    case 'catalog': return BookOpen;
+    case 'pages':   return FolderTree;
+    case 'page':    return FileText;
+    case 'stream':  return FileCode;
+    case 'image':   return ImageIcon;
+    case 'font':    return Type;
+    default:        return null;
+  }
+}
 
 /** Shape consumed by react-arborist. Mapped from backend TreeNode. */
 interface TreeNodeData {
@@ -138,6 +156,13 @@ function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: No
       {isError && (
         <span className="text-error mr-1 flex-shrink-0" aria-hidden="true">!</span>
       )}
+
+      {/* Type icon driven by backend iconHint */}
+      {(() => {
+        const Icon = iconForHint(data.iconHint);
+        if (Icon === null) return null;
+        return <Icon size={14} className="text-text-muted mr-1.5 flex-shrink-0" aria-hidden="true" />;
+      })()}
 
       {/* Label */}
       <span className={isError ? 'text-text-muted' : 'text-text'}>{data.name}</span>
