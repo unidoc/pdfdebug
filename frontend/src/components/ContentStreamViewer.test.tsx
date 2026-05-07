@@ -12,6 +12,25 @@ import { describe, test, expect, vi } from 'vitest';
 // RED PHASE: This import will fail until ContentStreamViewer.tsx is created.
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
+// 9-6: tests previously passed flat token arrays via the old `tokenized` prop;
+// the component now consumes pre-grouped FormattedLine[] from the Go formatter.
+// toFormatted wraps a token fixture into a single formatted row so the
+// per-token highlighting/tooltip assertions still hold without re-deriving
+// operator boundaries in the test layer.
+type TokFixture = ReadonlyArray<{ type: string; value: string; line: number; col: number }>;
+function toFormatted(toks: TokFixture | null | undefined) {
+  if (!toks || toks.length === 0) return [];
+  const lines = toks.map(t => t.line);
+  const last = toks[toks.length - 1];
+  return [{
+    tokens: [...toks],
+    indent: 0,
+    operator: last.type === 'operator' ? last.value : '',
+    srcLineStart: Math.min(...lines),
+    srcLineEnd: Math.max(...lines),
+  }];
+}
+
 const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 
 // ---------------------------------------------------------------------------
@@ -212,28 +231,28 @@ const commentTokenFixture = [
 
 describe('3.3-UNIT-001: ContentStreamViewer syntax highlighting', () => {
   test('operator tokens have text-token-operator class', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const btEl = screen.getByText('BT');
     expect(btEl.className).toMatch(/text-token-operator/);
   });
 
   test('number tokens have text-token-number class', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const numEl = screen.getByText('12');
     expect(numEl.className).toMatch(/text-token-number/);
   });
 
   test('string tokens have text-token-string class', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const strEl = screen.getByText('(Hello World)');
     expect(strEl.className).toMatch(/text-token-string/);
   });
 
   test('name tokens have text-token-name class', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const nameEl = screen.getByText('/F1');
     expect(nameEl.className).toMatch(/text-token-name/);
@@ -243,7 +262,7 @@ describe('3.3-UNIT-001: ContentStreamViewer syntax highlighting', () => {
     render(
       <ContentStreamViewer
         raw="% a comment\nBT"
-        tokenized={commentTokenFixture}
+        formatted={toFormatted(commentTokenFixture)}
       />
     );
 
@@ -259,7 +278,7 @@ describe('3.3-UNIT-001: ContentStreamViewer syntax highlighting', () => {
 
 describe('3.3-UNIT-002: ContentStreamViewer non-color differentiation', () => {
   test('operator tokens have font-semibold class', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const btEl = screen.getByText('BT');
     expect(btEl.className).toMatch(/font-semibold/);
@@ -269,7 +288,7 @@ describe('3.3-UNIT-002: ContentStreamViewer non-color differentiation', () => {
     render(
       <ContentStreamViewer
         raw="% a comment\nBT"
-        tokenized={commentTokenFixture}
+        formatted={toFormatted(commentTokenFixture)}
       />
     );
 
@@ -285,7 +304,7 @@ describe('3.3-UNIT-002: ContentStreamViewer non-color differentiation', () => {
 
 describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
   test('operator with description renders a tooltip trigger', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     // BT has a description -- its span should be wrapped in a tooltip trigger
     const btEl = screen.getByText('BT');
@@ -296,7 +315,7 @@ describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
 
   test('hovering over operator shows tooltip with description', async () => {
     const user = userEvent.setup();
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     const btEl = screen.getByText('BT');
     await user.hover(btEl);
@@ -311,7 +330,7 @@ describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
     const unknownOpTokens = [
       { type: 'operator', value: 'ZZ', line: 1, col: 1 },
     ];
-    render(<ContentStreamViewer raw="ZZ" tokenized={unknownOpTokens} />);
+    render(<ContentStreamViewer raw="ZZ" formatted={toFormatted(unknownOpTokens)} />);
 
     const zzEl = screen.getByText('ZZ');
     // No tooltip trigger wrapper -- no data-state attribute
@@ -326,7 +345,7 @@ describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
 
 describe('3.3-UNIT-004: ContentStreamViewer fallback to plain text', () => {
   test('falls back to plain text when tokenized is null', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={null} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(null)} />);
 
     const content = screen.getByTestId('content-stream-content');
     // Plain text path: no token-colored spans
@@ -343,7 +362,7 @@ describe('3.3-UNIT-004: ContentStreamViewer fallback to plain text', () => {
   });
 
   test('falls back to plain text when tokenized is empty array', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={[]} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={[]} />);
 
     const content = screen.getByTestId('content-stream-content');
     expect(content).toHaveTextContent('BT');
@@ -357,10 +376,19 @@ describe('3.3-UNIT-004: ContentStreamViewer fallback to plain text', () => {
 // ---------------------------------------------------------------------------
 
 describe('3.3-UNIT-005: ContentStreamViewer line numbers with tokens', () => {
-  test('renders correct line count from tokenized data', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+  test('renders one gutter row per formatted line (story 9-6 semantics)', () => {
+    // 5-row formatted fixture: BT, Tf, Td, Tj, ET -- one logical operation each.
+    const fiveRows = [
+      { tokens: [{ type: 'operator', value: 'BT', line: 1, col: 1 }], indent: 0, operator: 'BT', srcLineStart: 1, srcLineEnd: 1 },
+      { tokens: [{ type: 'operator', value: 'Tf', line: 2, col: 8 }], indent: 0, operator: 'Tf', srcLineStart: 2, srcLineEnd: 2 },
+      { tokens: [{ type: 'operator', value: 'Td', line: 3, col: 9 }], indent: 0, operator: 'Td', srcLineStart: 3, srcLineEnd: 3 },
+      { tokens: [{ type: 'operator', value: 'Tj', line: 4, col: 15 }], indent: 0, operator: 'Tj', srcLineStart: 4, srcLineEnd: 4 },
+      { tokens: [{ type: 'operator', value: 'ET', line: 5, col: 1 }], indent: 0, operator: 'ET', srcLineStart: 5, srcLineEnd: 5 },
+    ];
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={fiveRows} />);
 
     const gutter = screen.getByTestId('content-stream-gutter');
+    // Gutter is keyed by formatted-row index, not source line, so 1..5.
     expect(gutter).toHaveTextContent('1');
     expect(gutter).toHaveTextContent('5');
   });
@@ -393,7 +421,7 @@ describe('3.3-UNIT-014: Tooltip map completeness', () => {
     for (const op of pdfSpecOperators) {
       const tokens = [{ type: 'operator', value: op, line: 1, col: 1 }];
       const { unmount } = render(
-        <ContentStreamViewer raw={op} tokenized={tokens} />
+        <ContentStreamViewer raw={op} formatted={toFormatted(tokens)} />
       );
 
       const el = screen.getByText(op);
@@ -413,29 +441,25 @@ describe('3.3-UNIT-014: Tooltip map completeness', () => {
 // ---------------------------------------------------------------------------
 
 describe('3.3-UNIT-EDGE: ContentStreamViewer edge cases', () => {
-  test('blank lines in raw are preserved in highlighted view', () => {
+  // Story 9-6: in formatted view the gutter is keyed by formatted-row index,
+  // not source line, so blank source lines no longer map to a gutter row.
+  // The Raw view (which is byte-faithful) preserves source-line semantics
+  // including blanks; assert there.
+  test('blank source lines are preserved in raw view', () => {
     const rawWithBlank = 'BT\n\nET';
-    const tokens = [
-      { type: 'operator', value: 'BT', line: 1, col: 1 },
-      { type: 'operator', value: 'ET', line: 3, col: 1 },
-    ];
-    render(<ContentStreamViewer raw={rawWithBlank} tokenized={tokens} />);
+    render(<ContentStreamViewer raw={rawWithBlank} />);
 
     const gutter = screen.getByTestId('content-stream-gutter');
-    // Should have 3 lines including the blank
+    // raw.split('\n') -> ['BT','','ET'] -> gutter shows 1, 2, 3
     expect(gutter).toHaveTextContent('3');
   });
 
-  test('trailing blank lines from raw are preserved', () => {
+  test('trailing blank lines from raw are preserved in raw view', () => {
     const rawTrailing = 'BT\nET\n';
-    const tokens = [
-      { type: 'operator', value: 'BT', line: 1, col: 1 },
-      { type: 'operator', value: 'ET', line: 2, col: 1 },
-    ];
-    render(<ContentStreamViewer raw={rawTrailing} tokenized={tokens} />);
+    render(<ContentStreamViewer raw={rawTrailing} />);
 
     const gutter = screen.getByTestId('content-stream-gutter');
-    // raw.split('\n') gives 3 entries for "BT\nET\n", so 3 lines
+    // raw.split('\n') -> ['BT','ET',''] -> 3 gutter rows
     expect(gutter).toHaveTextContent('3');
   });
 });
@@ -444,20 +468,22 @@ describe('3.3-UNIT-EDGE: ContentStreamViewer edge cases', () => {
 // Story 3.4: View mode toggle unit tests
 // ---------------------------------------------------------------------------
 
-// Helper to render with controlled view mode
+// Helper to render with controlled view mode. Accepts a flat token fixture
+// for ergonomic test authoring; the helper wraps it via toFormatted().
 function renderWithToggle(
   props: {
     raw: string;
-    tokenized?: typeof tokenizedFixture | null;
+    tokenized?: TokFixture | null;
     error?: string;
     viewMode?: StreamViewMode;
   },
 ) {
   const onViewModeChange = vi.fn();
+  const formatted = props.tokenized ? toFormatted(props.tokenized) : null;
   const result = render(
     <ContentStreamViewer
       raw={props.raw}
-      tokenized={props.tokenized}
+      formatted={formatted}
       error={props.error}
       viewMode={props.viewMode ?? 'formatted'}
       onViewModeChange={onViewModeChange}
@@ -473,7 +499,7 @@ function renderWithToggle(
 
 describe('3.4-UNIT-001: View mode segmented control rendering', () => {
   test('renders Formatted and Raw buttons when onViewModeChange is provided', () => {
-    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
     expect(screen.getByTestId('view-mode-control')).toBeInTheDocument();
     expect(screen.getByTestId('view-mode-formatted')).toHaveTextContent('Formatted');
@@ -481,13 +507,13 @@ describe('3.4-UNIT-001: View mode segmented control rendering', () => {
   });
 
   test('does not render segmented control when onViewModeChange is not provided', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={tokenizedFixture} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
     expect(screen.queryByTestId('view-mode-control')).not.toBeInTheDocument();
   });
 
   test('segmented control has tablist role', () => {
-    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
     expect(screen.getByTestId('view-mode-control')).toHaveAttribute('role', 'tablist');
   });
@@ -509,7 +535,7 @@ describe('3.4-UNIT-001: View mode segmented control rendering', () => {
 
 describe('3.4-UNIT-002: Default view mode is Formatted', () => {
   test('Formatted is selected by default when tokens available', () => {
-    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+    renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
     expect(screen.getByTestId('view-mode-formatted')).toHaveAttribute('aria-selected', 'true');
     // Should render syntax-highlighted tokens
@@ -526,7 +552,7 @@ describe('3.4-UNIT-002: Default view mode is Formatted', () => {
 describe('3.4-UNIT-003: Switching to Raw mode', () => {
   test('clicking Raw calls onViewModeChange with "raw"', async () => {
     const user = userEvent.setup();
-    const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture });
+    const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
     await user.click(screen.getByTestId('view-mode-raw'));
     expect(onViewModeChange).toHaveBeenCalledWith('raw');

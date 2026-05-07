@@ -107,7 +107,7 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setContentStream(new ContentStreamData({ nodeId: detail.nodeId, raw: '', tokenized: [], error: String(err) }));
+          setContentStream(new ContentStreamData({ nodeId: detail.nodeId, raw: '', tokenized: [], formatted: [], error: String(err) }));
           setContentStreamLoading(false);
         }
       });
@@ -283,7 +283,7 @@ function DetailPanelInner() {
                 {contentStream && (
                   <ContentStreamViewer
                     raw={contentStream.raw}
-                    tokenized={contentStream.tokenized}
+                    formatted={contentStream.formatted}
                     error={contentStream.error}
                     viewMode={streamViewMode}
                     onViewModeChange={setStreamViewMode}
