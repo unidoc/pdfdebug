@@ -17,13 +17,14 @@ package pdfcore
 // frontend uses this range to scroll-sync the formatted view with the raw
 // view.
 //
-// Indent rules (v1):
-//   - q -> indent++ AFTER the q line is emitted (so q itself sits at the
-//     enclosing indent and its body is one level deeper).
-//   - Q -> indent-- BEFORE the Q line is emitted (so Q sits at the
-//     enclosing indent, not nested). Floor-clamped at zero on extra Q.
-//   - BT/ET, BMC/EMC, BDC/EMC are NOT indented in v1; defer to v2 if user
-//     feedback warrants.
+// Indent rules:
+//   - Open operators (q, BT, BMC, BDC) -> indent++ AFTER their own line is
+//     emitted, so the open sits at the enclosing indent and its body is one
+//     level deeper.
+//   - Close operators (Q, ET, EMC) -> indent-- BEFORE their own line is
+//     emitted, so the close sits at the enclosing indent, not nested.
+//     Floor-clamped at zero on an unbalanced extra close.
+//   - EMC closes both BMC and BDC since the PDF spec uses one closer for both.
 //
 // Inline images (BI..EI) collapse into one line. Per the tokenizer contract
 // (locked by TestTokenizeInlineImagePayloadOpaque), the binary payload is
@@ -100,9 +101,9 @@ func Format(tokens []Token) []FormattedLine {
 			continue
 		}
 
-		// Q dedents BEFORE its own line is emitted, so Q sits at the
-		// enclosing indent rather than the nested-one.
-		if tk.Value == "Q" {
+		// Close operators dedent BEFORE their own line is emitted, so the
+		// close sits at the enclosing indent rather than the nested one.
+		if isCloseOp(tk.Value) {
 			if indent > 0 {
 				indent--
 			}
@@ -119,9 +120,9 @@ func Format(tokens []Token) []FormattedLine {
 		})
 		pending = nil
 
-		// q indents AFTER its own line is emitted, so q sits at the enclosing
-		// indent and the next line is one level deeper.
-		if tk.Value == "q" {
+		// Open operators indent AFTER their own line is emitted, so the open
+		// sits at the enclosing indent and the next line is one level deeper.
+		if isOpenOp(tk.Value) {
 			indent++
 		}
 		i++
@@ -133,6 +134,27 @@ func Format(tokens []Token) []FormattedLine {
 	}
 
 	return lines
+}
+
+// isOpenOp reports whether op opens a structural block whose body should be
+// indented one level deeper. q opens a graphics-state block; BT opens a text
+// block; BMC/BDC open a marked-content block.
+func isOpenOp(op string) bool {
+	switch op {
+	case "q", "BT", "BMC", "BDC":
+		return true
+	}
+	return false
+}
+
+// isCloseOp reports whether op closes a structural block. Q closes q's
+// graphics state; ET closes BT's text block; EMC closes both BMC and BDC.
+func isCloseOp(op string) bool {
+	switch op {
+	case "Q", "ET", "EMC":
+		return true
+	}
+	return false
 }
 
 // dangling builds a FormattedLine for a tail run of operands that never met

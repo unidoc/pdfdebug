@@ -91,6 +91,65 @@ func TestFormatIndent_ExtraQClampsAtZero(t *testing.T) {
 	}
 }
 
+func TestFormatIndent_TextBlockBTET(t *testing.T) {
+	// BT and ET are open/close operators just like q/Q. Body of the text
+	// block must indent.
+	input := "BT /F1 12 Tf (hi) Tj ET"
+	tokens := tokenizeContentStream(input)
+	lines := Format(tokens)
+
+	wantOps := []string{"BT", "Tf", "Tj", "ET"}
+	wantIndent := []int{0, 1, 1, 0}
+	if len(lines) != len(wantOps) {
+		t.Fatalf("got %d lines, want %d", len(lines), len(wantOps))
+	}
+	for i := range wantOps {
+		if lines[i].Operator != wantOps[i] || lines[i].Indent != wantIndent[i] {
+			t.Errorf("line[%d] = (%q, indent %d), want (%q, indent %d)",
+				i, lines[i].Operator, lines[i].Indent, wantOps[i], wantIndent[i])
+		}
+	}
+}
+
+func TestFormatIndent_MarkedContent(t *testing.T) {
+	// BMC and BDC open a marked-content block; EMC closes either.
+	input := "BMC (a) Tj EMC BDC /Foo (b) Tj EMC"
+	tokens := tokenizeContentStream(input)
+	lines := Format(tokens)
+
+	wantOps := []string{"BMC", "Tj", "EMC", "BDC", "Tj", "EMC"}
+	wantIndent := []int{0, 1, 0, 0, 1, 0}
+	if len(lines) != len(wantOps) {
+		t.Fatalf("got %d lines, want %d", len(lines), len(wantOps))
+	}
+	for i := range wantOps {
+		if lines[i].Operator != wantOps[i] || lines[i].Indent != wantIndent[i] {
+			t.Errorf("line[%d] = (%q, indent %d), want (%q, indent %d)",
+				i, lines[i].Operator, lines[i].Indent, wantOps[i], wantIndent[i])
+		}
+	}
+}
+
+func TestFormatIndent_QInsideBT(t *testing.T) {
+	// Mixed nesting: graphics state inside a text block. Each contributes
+	// one level of indent.
+	input := "BT q (a) Tj Q ET"
+	tokens := tokenizeContentStream(input)
+	lines := Format(tokens)
+
+	wantOps := []string{"BT", "q", "Tj", "Q", "ET"}
+	wantIndent := []int{0, 1, 2, 1, 0}
+	if len(lines) != len(wantOps) {
+		t.Fatalf("got %d lines, want %d", len(lines), len(wantOps))
+	}
+	for i := range wantOps {
+		if lines[i].Operator != wantOps[i] || lines[i].Indent != wantIndent[i] {
+			t.Errorf("line[%d] = (%q, indent %d), want (%q, indent %d)",
+				i, lines[i].Operator, lines[i].Indent, wantOps[i], wantIndent[i])
+		}
+	}
+}
+
 func TestFormatInlineImage_OneLine(t *testing.T) {
 	// BI..ID..<binary>..EI must collapse into ONE line. The binary payload
 	// (with embedded "EI" lookalike bytes) must not split the row.
