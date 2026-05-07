@@ -40,6 +40,7 @@ func Format(tokens []Token) []FormattedLine {
 
 	lines := make([]FormattedLine, 0, len(tokens)/4+1)
 	indent := 0
+	delimDepth := 0
 	var pending []Token
 	i := 0
 	for i < len(tokens) {
@@ -65,6 +66,36 @@ func Format(tokens []Token) []FormattedLine {
 		}
 
 		if tk.Type != "operator" {
+			pending = append(pending, tk)
+			i++
+			continue
+		}
+
+		// Array and dict delimiters ([ ] << >>) are tokenized as operators
+		// by the lexer but semantically they bound an operand (e.g. the
+		// array argument to TJ: `[ (P) 25 (ostScript) ] TJ`). They must NOT
+		// flush a row; accumulate them as part of pending so the real
+		// operator that follows the closing delimiter flushes the whole
+		// thing as one logical operation. delimDepth tracks nesting so a
+		// stray closing delimiter in malformed input doesn't silently flip
+		// flushing behavior elsewhere in the stream.
+		if tk.Value == "[" || tk.Value == "<<" {
+			delimDepth++
+			pending = append(pending, tk)
+			i++
+			continue
+		}
+		if tk.Value == "]" || tk.Value == ">>" {
+			if delimDepth > 0 {
+				delimDepth--
+			}
+			pending = append(pending, tk)
+			i++
+			continue
+		}
+		// Any operator inside a still-open array/dict is part of the operand
+		// payload, not a row terminator. (Rare but possible; defensive.)
+		if delimDepth > 0 {
 			pending = append(pending, tk)
 			i++
 			continue

@@ -172,6 +172,47 @@ func TestFormatInlineImage_OneLine(t *testing.T) {
 	validateLineRanges(t, lines)
 }
 
+func TestFormatArrayOperandStaysOneLine(t *testing.T) {
+	// TJ takes a single array argument: `[ (str) num (str) ... ] TJ`.
+	// The lexer emits [ and ] as operator tokens, but the formatter must
+	// treat them as delimiters of an operand and keep the whole array +
+	// TJ on one logical line.
+	input := "[ (P) 25 (ostScript) ] TJ"
+	tokens := tokenizeContentStream(input)
+	lines := Format(tokens)
+
+	if len(lines) != 1 {
+		t.Fatalf("got %d lines, want 1; ops: %+v", len(lines), opsOf(lines))
+	}
+	if lines[0].Operator != "TJ" {
+		t.Errorf("Operator = %q, want %q", lines[0].Operator, "TJ")
+	}
+	// The row must contain the [ and ] tokens plus all operands and TJ.
+	wantValues := []string{"[", "(P)", "25", "(ostScript)", "]", "TJ"}
+	if len(lines[0].Tokens) != len(wantValues) {
+		t.Fatalf("got %d tokens in row, want %d", len(lines[0].Tokens), len(wantValues))
+	}
+	for i, want := range wantValues {
+		if lines[0].Tokens[i].Value != want {
+			t.Errorf("token[%d].Value = %q, want %q", i, lines[0].Tokens[i].Value, want)
+		}
+	}
+}
+
+func TestFormatNestedArrays_SingleLine(t *testing.T) {
+	// Nested arrays should still collapse into one row at the outer-array
+	// closing delimiter.
+	input := "[ [ 1 2 ] [ 3 4 ] ] TJ"
+	tokens := tokenizeContentStream(input)
+	lines := Format(tokens)
+	if len(lines) != 1 {
+		t.Fatalf("got %d lines, want 1; ops: %+v", len(lines), opsOf(lines))
+	}
+	if lines[0].Operator != "TJ" {
+		t.Errorf("Operator = %q, want %q", lines[0].Operator, "TJ")
+	}
+}
+
 func TestFormatString_NewlineDoesNotSplit(t *testing.T) {
 	// String literals containing newlines stay one operand and the Tj row
 	// stays one line.
