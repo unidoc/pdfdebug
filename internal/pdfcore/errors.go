@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 )
 
@@ -19,12 +20,20 @@ var (
 )
 
 // safeCall executes fn inside a panic-recovery wrapper. pdfcpu can panic on
-// malformed input, so every call into the library goes through this.
+// malformed input (string panics from internal validation and the os.Exit ->
+// panic library-safety fix), so every call into the library goes through this.
+//
+// A runtime.Error (nil deref, slice OOB, bad type assertion) signals a genuine
+// Go bug in our code path, not a malformed PDF. It is re-panicked so it
+// surfaces loudly instead of being laundered into ErrMalformedPDF.
 func safeCall(fn func() error) error {
 	var err error
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				if _, ok := r.(runtime.Error); ok {
+					panic(r)
+				}
 				err = fmt.Errorf("pdf parsing panic: %v", r)
 			}
 		}()

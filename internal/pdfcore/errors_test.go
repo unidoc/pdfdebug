@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -42,6 +43,24 @@ func TestSafeCallCatchesErrorPanic(t *testing.T) {
 	if !strings.Contains(err.Error(), "pdf parsing panic:") {
 		t.Fatalf("expected 'pdf parsing panic:' in error, got %v", err)
 	}
+}
+
+func TestSafeCallPropagatesRuntimeError(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected runtime.Error to propagate, got nil")
+		}
+		if _, ok := r.(runtime.Error); !ok {
+			t.Fatalf("expected runtime.Error, got %T: %v", r, r)
+		}
+	}()
+	_ = safeCall(func() error {
+		var s []int
+		_ = s[5] // slice OOB -> runtime.Error
+		return nil
+	})
+	t.Fatal("expected runtime.Error to propagate, safeCall returned normally")
 }
 
 func TestWrapPDFErrorPasswordBecomesEncrypted(t *testing.T) {
