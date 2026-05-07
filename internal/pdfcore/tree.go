@@ -2,7 +2,7 @@ package pdfcore
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -109,7 +109,7 @@ func buildDictChildren(doc *DocumentState, parentID string, d pdfcpu_types.Dict)
 	for k := range d {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	nodes := make([]*TreeNode, 0, len(d))
 	for _, bareKey := range keys {

@@ -1,10 +1,11 @@
 package pdfcore
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -287,8 +288,8 @@ func buildPropertyEntries(d pdfcpu_types.Dict) []PropertyEntry {
 			Value: valueEntryFromObject(val),
 		})
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Key < entries[j].Key
+	slices.SortFunc(entries, func(a, b PropertyEntry) int {
+		return cmp.Compare(a.Key, b.Key)
 	})
 	return entries
 }
