@@ -354,7 +354,7 @@ func scalarDisplay(obj pdfcpu_types.Object) string {
 func iconHint(bareKey, nodeType string, obj pdfcpu_types.Object) string {
 	switch bareKey {
 	case "Pages":
-		return "page"
+		return "pages"
 	case "Page":
 		return "page"
 	case "Font":
@@ -367,7 +367,9 @@ func iconHint(bareKey, nodeType string, obj pdfcpu_types.Object) string {
 		if typeVal, ok := d["Type"]; ok {
 			if name, ok := typeVal.(pdfcpu_types.Name); ok {
 				switch string(name) {
-				case "Pages", "Page":
+				case "Pages":
+					return "pages"
+				case "Page":
 					return "page"
 				case "Font":
 					return "font"

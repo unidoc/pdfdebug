@@ -244,8 +244,8 @@ func TestSemanticLabelPages(t *testing.T) {
 			if c.Label != "Pages" {
 				t.Errorf("Pages Label = %q, want %q", c.Label, "Pages")
 			}
-			if c.IconHint != "page" {
-				t.Errorf("Pages IconHint = %q, want %q", c.IconHint, "page")
+			if c.IconHint != "pages" {
+				t.Errorf("Pages IconHint = %q, want %q", c.IconHint, "pages")
 			}
 			return
 		}
@@ -605,6 +605,34 @@ func TestIconHintContents(t *testing.T) {
 	hint := iconHint("Contents", "ref", nil)
 	if hint != "stream" {
 		t.Errorf("iconHint for Contents = %q, want %q", hint, "stream")
+	}
+}
+
+// TestIconHintPagesVsPage verifies intermediate /Pages and leaf /Page get
+// distinct iconHints so the frontend can render different icons.
+func TestIconHintPagesVsPage(t *testing.T) {
+	pagesDict := pdfcpu_types.Dict{
+		"Type":  pdfcpu_types.Name("Pages"),
+		"Count": pdfcpu_types.Integer(10),
+	}
+	pageDict := pdfcpu_types.Dict{
+		"Type": pdfcpu_types.Name("Page"),
+	}
+
+	// bareKey-driven path: catalog's /Pages reference and explicit /Pages key.
+	if hint := iconHint("Pages", "dict", pagesDict); hint != "pages" {
+		t.Errorf("iconHint(\"Pages\", ...) = %q, want %q", hint, "pages")
+	}
+	if hint := iconHint("Page", "dict", pageDict); hint != "page" {
+		t.Errorf("iconHint(\"Page\", ...) = %q, want %q", hint, "page")
+	}
+
+	// Type-driven path: array-element resolution where bareKey == "".
+	if hint := iconHint("", "dict", pagesDict); hint != "pages" {
+		t.Errorf("iconHint(empty, /Type=Pages) = %q, want %q", hint, "pages")
+	}
+	if hint := iconHint("", "dict", pageDict); hint != "page" {
+		t.Errorf("iconHint(empty, /Type=Page) = %q, want %q", hint, "page")
 	}
 }
 
