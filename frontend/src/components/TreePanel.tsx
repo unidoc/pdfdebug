@@ -165,7 +165,7 @@ function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: No
       })()}
 
       {/* Label */}
-      <span className={isError ? 'text-text-muted' : 'text-text'}>{data.name}</span>
+      <span className={`whitespace-nowrap ${isError ? 'text-text-muted' : 'text-text'}`}>{data.name}</span>
 
       {/* Raw key */}
       {showRawKey && (
