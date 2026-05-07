@@ -842,7 +842,7 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 	input := buf.String()
 	b.SetBytes(int64(len(input)))
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		tokenizeContentStream(input)
 	}
 }
