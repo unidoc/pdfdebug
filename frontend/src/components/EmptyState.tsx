@@ -209,7 +209,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
       {/* bg-border-focus intentionally reuses Blue 500 as button-primary -- no dedicated token exists yet */}
       <button
         data-testid="open-file-button"
-        className="bg-border-focus text-white rounded px-4 py-2 font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+        className="bg-border-focus text-white rounded px-4 py-2 font-medium cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
         onClick={handleOpenFileClick}
       >
         Open File...
