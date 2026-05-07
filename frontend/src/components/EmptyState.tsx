@@ -114,32 +114,55 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
   const dispatch = useAppDispatch();
 
-  // Opens the native file dialog, loads the PDF, and dispatches to state.
+  // Opens the native file dialog, loads each selected PDF, and dispatches to
+  // state. Multi-select parity with drag-drop: when more than one file is
+  // chosen, drives the BatchOpenDialog progress state machine the same way
+  // the backend file-drop handler does.
   // Dedup cleanup (freeing backend state for duplicate tabIds) is handled in
-  // App.jsx and does not apply here -- EmptyState only renders when no tabs exist.
+  // App.jsx and does not apply here -- EmptyState only renders when no tabs
+  // exist, so the cross-tab dedup path can't trigger.
   const handleOpenFileClick = useCallback(async () => {
-    // Allow parent to override with a custom handler (used in tests)
     if (onOpenFile) {
       onOpenFile();
       return;
     }
     try {
-      const path = await openFileDialog();
-      if (!path) return;
-      const result = await openPDFFile(path);
-      dispatch({
-        type: 'OPEN_DOCUMENT',
-        payload: {
-          tabId: result.tabId,
-          fileName: result.fileName,
-          filePath: result.filePath,
-          pageCount: result.pageCount,
-          rootNode: result.rootNode,
-          rootChildren: result.rootChildren,
-        },
-      });
-      if (result.warning) {
-        dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: result.warning } });
+      const paths = await openFileDialog();
+      if (paths.length === 0) return;
+
+      const isBatch = paths.length > 1;
+      if (isBatch) dispatch({ type: 'BATCH_OPEN_START', payload: { total: paths.length } });
+
+      let lastWarning: string | null = null;
+      try {
+        for (let i = 0; i < paths.length; i++) {
+          try {
+            const result = await openPDFFile(paths[i]);
+            dispatch({
+              type: 'OPEN_DOCUMENT',
+              payload: {
+                tabId: result.tabId,
+                fileName: result.fileName,
+                filePath: result.filePath,
+                pageCount: result.pageCount,
+                rootNode: result.rootNode,
+                rootChildren: result.rootChildren,
+              },
+            });
+            if (result.warning) lastWarning = result.warning;
+          } catch (err: unknown) {
+            // Surface the failure but keep iterating; otherwise one bad file
+            // blocks the rest of the batch.
+            const msg = err instanceof Error ? err.message : String(err);
+            dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });
+          }
+          if (isBatch) dispatch({ type: 'BATCH_OPEN_PROGRESS', payload: { completed: i + 1 } });
+        }
+      } finally {
+        if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });
+      }
+      if (lastWarning !== null) {
+        dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: lastWarning } });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
