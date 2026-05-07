@@ -134,6 +134,44 @@ func main() {
 		app.Event.Emit("document:opened", payload)
 	}
 
+	// openFilesBatch opens a slice of PDF paths sequentially and emits
+	// document:batch-* progress events when more than one file is in flight.
+	// Optionally emits a soft document:warning for unsupported files in a
+	// mixed batch. Used by both the file-drop handler and the menu Open...
+	// item so the multi-file UX is identical regardless of how the user
+	// selected the batch.
+	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
+		if len(pdfPaths) == 0 {
+			return
+		}
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-start", map[string]any{
+				"total": len(pdfPaths),
+			})
+		}
+		for i, p := range pdfPaths {
+			openFileAndEmit(p)
+			if len(pdfPaths) > 1 {
+				app.Event.Emit("document:batch-progress", map[string]any{
+					"completed": i + 1,
+					"total":     len(pdfPaths),
+				})
+			}
+		}
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-complete", nil)
+		}
+		if unsupportedCount > 0 {
+			noun := "files"
+			if unsupportedCount == 1 {
+				noun = "file"
+			}
+			app.Event.Emit("document:warning", map[string]any{
+				"message": fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun),
+			})
+		}
+	}
+
 	// Handle files opened via OS file association (right-click > "Open with").
 	// On macOS this fires for both cold and warm starts. On Windows/Linux cold
 	// start only -- warm start is handled by OnSecondInstanceLaunch.
@@ -159,15 +197,30 @@ func main() {
 	fileMenu.Add("Open...").
 		SetAccelerator("CmdOrCtrl+o").
 		OnClick(func(ctx *application.Context) {
-			path, err := app.Dialog.OpenFile().
+			paths, err := app.Dialog.OpenFile().
 				SetTitle("Open PDF").
 				AddFilter("PDF Files", "*.pdf").
 				AddFilter("All Files", "*.*").
-				PromptForSingleSelection()
-			if err != nil || path == "" {
+				PromptForMultipleSelection()
+			if err != nil || len(paths) == 0 {
 				return
 			}
-			openFileAndEmit(path)
+			// Filter on extension defensively in case the user picked
+			// non-PDFs via the "All Files" filter.
+			var pdfPaths []string
+			for _, p := range paths {
+				if strings.EqualFold(filepath.Ext(p), ".pdf") {
+					pdfPaths = append(pdfPaths, p)
+				}
+			}
+			unsupported := len(paths) - len(pdfPaths)
+			if len(pdfPaths) == 0 {
+				app.Event.Emit("document:error", map[string]any{
+					"message": "Only PDF files can be opened.",
+				})
+				return
+			}
+			openFilesBatch(pdfPaths, unsupported)
 		})
 	fileMenu.Add("Close Document").
 		SetAccelerator("CmdOrCtrl+w").
@@ -262,49 +315,14 @@ func main() {
 				pdfPaths = append(pdfPaths, f)
 			}
 		}
-		unsupportedCount := len(files) - len(pdfPaths)
-
+		unsupported := len(files) - len(pdfPaths)
 		if len(pdfPaths) == 0 {
-			// Drop contained no PDFs -- error banner.
 			app.Event.Emit("document:error", map[string]any{
 				"message": "Only PDF files can be opened.",
 			})
 			return
 		}
-
-		// Multi-file drops fire a progress dialog so the user knows the
-		// batch is being processed and can wait for the last tab to land.
-		// Single-file drops keep the original silent path.
-		if len(pdfPaths) > 1 {
-			app.Event.Emit("document:batch-start", map[string]any{
-				"total": len(pdfPaths),
-			})
-		}
-		for i, p := range pdfPaths {
-			openFileAndEmit(p)
-			if len(pdfPaths) > 1 {
-				app.Event.Emit("document:batch-progress", map[string]any{
-					"completed": i + 1,
-					"total":     len(pdfPaths),
-				})
-			}
-		}
-		if len(pdfPaths) > 1 {
-			app.Event.Emit("document:batch-complete", nil)
-		}
-
-		// Soft warning for non-PDF files in a mixed-batch drop. Doesn't
-		// block; doesn't list filenames -- just acknowledges the rejection
-		// so users with mixed selections know we noticed.
-		if unsupportedCount > 0 {
-			noun := "files"
-			if unsupportedCount == 1 {
-				noun = "file"
-			}
-			app.Event.Emit("document:warning", map[string]any{
-				"message": fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun),
-			})
-		}
+		openFilesBatch(pdfPaths, unsupported)
 	})
 
 	// Run the application. This blocks until the application has been exited.
