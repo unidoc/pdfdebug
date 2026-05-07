@@ -45,6 +45,56 @@ func extractPDFPaths(args []string) []string {
 	return paths
 }
 
+// openFileAndEmitWithWarning opens a PDF, fetches the tree root + children,
+// and emits document:opened with the result. If extraWarning is non-empty,
+// it is appended to (or replaces) the per-document warning field in the
+// payload. This lets callers piggyback advisory messages (e.g. "2
+// unsupported files could not be opened") onto a document's open event so
+// the frontend handler dispatches SET_DOCUMENT_WARNING in the same tick as
+// the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
+// warning survives regardless of event-bus ordering.
+func openFileAndEmitWithWarning(svc pdfservice.PDFService, app *application.App, path string, extraWarning string) {
+	docInfo, err := svc.OpenFile(path)
+	if err != nil {
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	root, err := svc.GetTreeRoot(docInfo.TabID)
+	if err != nil {
+		_ = svc.CloseDocument(docInfo.TabID)
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	children, err := svc.GetChildren(docInfo.TabID, "root")
+	if err != nil {
+		log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+	}
+	payload := map[string]any{
+		"tabId":        docInfo.TabID,
+		"fileName":     docInfo.FileName,
+		"filePath":     docInfo.FilePath,
+		"pageCount":    docInfo.PageCount,
+		"fileSize":     docInfo.FileSize,
+		"rootNode":     root,
+		"rootChildren": children,
+	}
+	warnings := make([]string, 0, 2)
+	if docInfo.Error != "" {
+		warnings = append(warnings, docInfo.Error)
+	}
+	if extraWarning != "" {
+		warnings = append(warnings, extraWarning)
+	}
+	if len(warnings) > 0 {
+		payload["warning"] = strings.Join(warnings, " ")
+	}
+	app.Event.Emit("document:opened", payload)
+}
+
 func main() {
 	// --version short-circuit: must run BEFORE application.New so that
 	// `unidoc-pdf-debugger --version` does not spin up a Wails webview/window
@@ -100,38 +150,7 @@ func main() {
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
 	openFileAndEmit = func(path string) {
-		docInfo, err := pdfService.OpenFile(path)
-		if err != nil {
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
-			})
-			return
-		}
-		root, err := pdfService.GetTreeRoot(docInfo.TabID)
-		if err != nil {
-			_ = pdfService.CloseDocument(docInfo.TabID)
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
-			})
-			return
-		}
-		children, err := pdfService.GetChildren(docInfo.TabID, "root")
-		if err != nil {
-			log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
-		}
-		payload := map[string]any{
-			"tabId":        docInfo.TabID,
-			"fileName":     docInfo.FileName,
-			"filePath":     docInfo.FilePath,
-			"pageCount":    docInfo.PageCount,
-			"fileSize":     docInfo.FileSize,
-			"rootNode":     root,
-			"rootChildren": children,
-		}
-		if docInfo.Error != "" {
-			payload["warning"] = docInfo.Error
-		}
-		app.Event.Emit("document:opened", payload)
+		openFileAndEmitWithWarning(pdfService, app, path, "")
 	}
 
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
@@ -144,13 +163,30 @@ func main() {
 		if len(pdfPaths) == 0 {
 			return
 		}
+		// Compose the unsupported-files advisory once; injected into the
+		// LAST document:opened payload so the frontend handler sets the
+		// warning in the same handler tick as the OPEN_DOCUMENT that would
+		// otherwise clear it. Keeping it on document:opened (vs a separate
+		// document:warning event) sidesteps any event-bus ordering risk.
+		var unsupportedMsg string
+		if unsupportedCount > 0 {
+			noun := "files"
+			if unsupportedCount == 1 {
+				noun = "file"
+			}
+			unsupportedMsg = fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun)
+		}
 		if len(pdfPaths) > 1 {
 			app.Event.Emit("document:batch-start", map[string]any{
 				"total": len(pdfPaths),
 			})
 		}
 		for i, p := range pdfPaths {
-			openFileAndEmit(p)
+			extra := ""
+			if i == len(pdfPaths)-1 {
+				extra = unsupportedMsg
+			}
+			openFileAndEmitWithWarning(pdfService, app, p, extra)
 			if len(pdfPaths) > 1 {
 				app.Event.Emit("document:batch-progress", map[string]any{
 					"completed": i + 1,
@@ -160,15 +196,6 @@ func main() {
 		}
 		if len(pdfPaths) > 1 {
 			app.Event.Emit("document:batch-complete", nil)
-		}
-		if unsupportedCount > 0 {
-			noun := "files"
-			if unsupportedCount == 1 {
-				noun = "file"
-			}
-			app.Event.Emit("document:warning", map[string]any{
-				"message": fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun),
-			})
 		}
 	}
 
