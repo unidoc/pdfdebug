@@ -51,7 +51,7 @@ jobs:
 
       - name: Install Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.86
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.85
 
       - name: Install golangci-lint v2
         shell: bash
