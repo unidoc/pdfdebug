@@ -83,18 +83,6 @@ func TestExtractPDFPaths(t *testing.T) {
 // AC#2: The helper must be defined so OnSecondInstanceLaunch can use it.
 // ---------------------------------------------------------------------------
 
-func TestExtractPDFPathsFunctionExists(t *testing.T) {
-	root := projectRoot(t)
-
-	mainPath := filepath.Join(root, "main.go")
-	content, err := os.ReadFile(mainPath)
-	if err != nil {
-		t.Fatalf("[P2] 4.4-STRUCT-001: cannot read main.go: %v", err)
-	}
-	if !strings.Contains(string(content), "func extractPDFPaths(") {
-		t.Error("[P2] 4.4-STRUCT-001: main.go missing extractPDFPaths function")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 4.4-STRUCT-002: SingleInstance option configured in main.go.
@@ -103,22 +91,6 @@ func TestExtractPDFPathsFunctionExists(t *testing.T) {
 //       with the correct UniqueID.
 // ---------------------------------------------------------------------------
 
-func TestSingleInstanceConfigured(t *testing.T) {
-	root := projectRoot(t)
-
-	mainPath := filepath.Join(root, "main.go")
-	content, err := os.ReadFile(mainPath)
-	if err != nil {
-		t.Fatalf("[P2] 4.4-STRUCT-002: cannot read main.go: %v", err)
-	}
-	s := string(content)
-	if !strings.Contains(s, "SingleInstance") {
-		t.Error("[P2] 4.4-STRUCT-002: main.go missing SingleInstance option in application.Options")
-	}
-	if !strings.Contains(s, "com.unidoc.unidoc-pdf-debugger") {
-		t.Error("[P2] 4.4-STRUCT-002: main.go missing UniqueID 'com.unidoc.unidoc-pdf-debugger'")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 4.4-STRUCT-003: FileAssociations configured in main.go.
@@ -126,18 +98,6 @@ func TestSingleInstanceConfigured(t *testing.T) {
 // AC#1: The application must register .pdf file association.
 // ---------------------------------------------------------------------------
 
-func TestFileAssociationsConfigured(t *testing.T) {
-	root := projectRoot(t)
-
-	mainPath := filepath.Join(root, "main.go")
-	content, err := os.ReadFile(mainPath)
-	if err != nil {
-		t.Fatalf("[P1] 4.4-STRUCT-003: cannot read main.go: %v", err)
-	}
-	if !strings.Contains(string(content), "FileAssociations") {
-		t.Error("[P1] 4.4-STRUCT-003: main.go missing FileAssociations option")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 4.4-STRUCT-004: ApplicationOpenedWithFile event handler in main.go.
@@ -145,18 +105,6 @@ func TestFileAssociationsConfigured(t *testing.T) {
 // AC#1: The handler must exist to process files opened via OS association.
 // ---------------------------------------------------------------------------
 
-func TestApplicationOpenedWithFileHandler(t *testing.T) {
-	root := projectRoot(t)
-
-	mainPath := filepath.Join(root, "main.go")
-	content, err := os.ReadFile(mainPath)
-	if err != nil {
-		t.Fatalf("[P1] 4.4-STRUCT-004: cannot read main.go: %v", err)
-	}
-	if !strings.Contains(string(content), "ApplicationOpenedWithFile") {
-		t.Error("[P1] 4.4-STRUCT-004: main.go missing ApplicationOpenedWithFile event handler")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 4.4-STRUCT-005: useWindowPersistence hook file exists.
@@ -164,14 +112,6 @@ func TestApplicationOpenedWithFileHandler(t *testing.T) {
 // AC#3: Panel persistence hook must be created.
 // ---------------------------------------------------------------------------
 
-func TestUseWindowPersistenceHookExists(t *testing.T) {
-	root := projectRoot(t)
-
-	hookPath := filepath.Join(root, "frontend", "src", "hooks", "useWindowPersistence.ts")
-	if _, err := os.Stat(hookPath); os.IsNotExist(err) {
-		t.Fatal("[P1] 4.4-STRUCT-005: frontend/src/hooks/useWindowPersistence.ts does not exist")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 4.4-STRUCT-006: Linux .desktop file has MimeType and %f.

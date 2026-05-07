@@ -54,61 +54,13 @@ var readFunctionNames = map[string]bool{
 	"ReadFile": true,
 }
 
-// grandfatheredAllowlist enumerates pre-existing source-grep test functions
-// that existed when Story 4-5 landed. Format: "<relpath-from-repo-root>::<TestFunc>".
-// New entries are FORBIDDEN (this test fails). Entries that no longer match
-// are also FORBIDDEN (prune them when the underlying test is deleted).
-//
-// Snapshot date: 2026-04-29 (post-Story 4-5 deletions).
-var grandfatheredAllowlist = []string{
-	"tests/app-shell/app_shell_test.go::TestFocusIndicatorOnInteractiveElements",
-	"tests/app-shell/app_shell_test.go::TestMainGoTemplateBoilerplateRemoved",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutDataTestIds",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutErrorBoundary",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutExported",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutFullHeight",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutPlaceholderContent",
-	"tests/app-shell/app_shell_test.go::TestMainLayoutSemanticHTML",
-	"tests/app-shell/app_shell_test.go::TestPlatformShortcutHintInEmptyState",
-	"tests/app-shell/app_shell_test.go::TestServicesFieldRemoved",
-	"tests/app-shell/app_shell_test.go::TestWindowConfigMinimumSize",
-	"tests/app-shell/app_shell_test.go::TestWindowConfigOptions",
-	"tests/app-shell/app_shell_test.go::TestWindowStylingOptions",
-	"tests/detail-panel/detail_panel_test.go::TestMainLayoutImportsDetailPanel",
-	"tests/empty-state/empty_state_test.go::TestCaseInsensitivePdfValidation",
-	"tests/empty-state/empty_state_test.go::TestDragCounterNegativeGuard",
-	"tests/empty-state/empty_state_test.go::TestDragEventHandlersOnOuterContainer",
-	"tests/empty-state/empty_state_test.go::TestDragOverHandlerMinimal",
-	"tests/empty-state/empty_state_test.go::TestDropZoneHintTestId",
-	"tests/empty-state/empty_state_test.go::TestDropZoneVisualFeedbackClasses",
-	"tests/empty-state/empty_state_test.go::TestEmptyStateAccessibilityAttributes",
-	"tests/empty-state/empty_state_test.go::TestEmptyStateCenteringLayout",
-	"tests/empty-state/empty_state_test.go::TestEmptyStateComponentRendersRequiredElements",
-	"tests/empty-state/empty_state_test.go::TestEmptyStateDataTestIds",
-	"tests/empty-state/empty_state_test.go::TestEmptyStateVerticalStacking",
-	"tests/empty-state/empty_state_test.go::TestHasDocumentPropConditionalRendering",
-	"tests/empty-state/empty_state_test.go::TestNewDragResetsStaleInvalidState",
-	"tests/empty-state/empty_state_test.go::TestNonPdfDropRejectionTimeout",
-	"tests/empty-state/empty_state_test.go::TestShortcutHintRenderedInEmptyState",
-	"tests/empty-state/empty_state_test.go::TestTimeoutCleanupOnUnmount",
-	"tests/error-handling/error_handling_test.go::TestMainGoWarningPropagation",
-	"tests/file-association-persistence/file_association_persistence_test.go::TestApplicationOpenedWithFileHandler",
-	"tests/file-association-persistence/file_association_persistence_test.go::TestExtractPDFPathsFunctionExists",
-	"tests/file-association-persistence/file_association_persistence_test.go::TestFileAssociationsConfigured",
-	"tests/file-association-persistence/file_association_persistence_test.go::TestSingleInstanceConfigured",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestEmptyStateWiresOpenFile",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainGoCapturesWindowReference",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainGoEnableFileDrop",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainGoFileDropEmitsEvents",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainGoFileDropFiltersPDF",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainGoRegistersFileDropHandler",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMainLayoutDisplaysTreeContent",
-	"tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go::TestMenuFileOpenWired",
-	"tests/tree-panel-lazy/tree_panel_lazy_test.go::TestMainLayoutImportsTreePanel",
-	"tests/tree-panel-lazy/tree_panel_lazy_test.go::TestMainLayoutNoInlineTreeNodeItem",
-	"tests/wails-service-layer/wails_service_layer_test.go::TestMainGoNoServicesField",
-	"tests/wails-service-layer/wails_service_layer_test.go::TestMainGoRegistersPDFService",
-}
+// grandfatheredAllowlist is now empty: Story 9-2 (2026-05-07) deleted every
+// pre-existing source-grep test from the suite, so AC#7 graduated from
+// "forward-looking only" to strict mode -- ANY source-grep test against
+// main.go / MainLayout.tsx / EmptyState.tsx anywhere under tests/ is a
+// failure. Behavioral coverage at the right layer (Vitest, Playwright,
+// boot-smoke, integration) replaced the deleted tests.
+var grandfatheredAllowlist = []string{}
 
 // projectRoot walks upward from the test working directory to find the repo
 // root identified by go.mod's `module unidoc-pdf-debugger`.

@@ -73,29 +73,6 @@ func fileExists(t *testing.T, relPath string) bool {
 //       OpenFileDialog() method that returns (string, error).
 // ---------------------------------------------------------------------------
 
-func TestPDFServiceHasOpenFileDialog(t *testing.T) {
-	content := readFile(t, "internal/pdfservice/service.go")
-
-	if !strings.Contains(content, "func (s *PDFService) OpenFileDialog(") {
-		t.Fatal("[P0] 2.4-INTG-001: service.go missing OpenFileDialog method on PDFService")
-	}
-
-	// Return type should include string and error
-	// Look for the method signature line
-	lines := strings.Split(content, "\n")
-	found := false
-	for _, line := range lines {
-		if strings.Contains(line, "func (s *PDFService) OpenFileDialog(") {
-			if strings.Contains(line, "string") && strings.Contains(line, "error") {
-				found = true
-			}
-			break
-		}
-	}
-	if !found {
-		t.Error("[P0] 2.4-INTG-001: OpenFileDialog should return (string, error)")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-002 [P0]: PDFService has SetApp method and app field
@@ -103,19 +80,6 @@ func TestPDFServiceHasOpenFileDialog(t *testing.T) {
 //       SetApp(app *application.App) method and app field must exist.
 // ---------------------------------------------------------------------------
 
-func TestPDFServiceHasSetAppAndAppField(t *testing.T) {
-	content := readFile(t, "internal/pdfservice/service.go")
-
-	// Must have app field of type *application.App
-	if !strings.Contains(content, "app ") || !strings.Contains(content, "*application.App") {
-		t.Error("[P0] 2.4-INTG-002: service.go missing app *application.App field in PDFService struct")
-	}
-
-	// Must accept *application.App via constructor (not SetApp, to avoid exposing it as a Wails binding)
-	if !strings.Contains(content, "func NewPDFService(app *application.App)") {
-		t.Error("[P0] 2.4-INTG-002: service.go NewPDFService must accept *application.App parameter")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-003 [P0]: PDFService imports wails application package
@@ -124,13 +88,6 @@ func TestPDFServiceHasSetAppAndAppField(t *testing.T) {
 //       service.go must import application for *application.App type.
 // ---------------------------------------------------------------------------
 
-func TestPDFServiceImportsWailsApplication(t *testing.T) {
-	content := readFile(t, "internal/pdfservice/service.go")
-
-	if !strings.Contains(content, `"github.com/wailsapp/wails/v3/pkg/application"`) {
-		t.Error("[P0] 2.4-INTG-003: service.go must import wails application package for dialog API")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#1: main.go creates PDFService with app after application.New()
@@ -151,29 +108,6 @@ func TestPDFServiceImportsWailsApplication(t *testing.T) {
 // AC#2: WebviewWindowOptions must include EnableFileDrop: true.
 // ---------------------------------------------------------------------------
 
-func TestMainGoEnableFileDrop(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	if !strings.Contains(content, "EnableFileDrop") {
-		t.Fatal("[P0] 2.4-INTG-005: main.go missing EnableFileDrop in WebviewWindowOptions")
-	}
-
-	// Must be set to true
-	// Find the line containing EnableFileDrop and check it has "true"
-	lines := strings.Split(content, "\n")
-	found := false
-	for _, line := range lines {
-		if strings.Contains(line, "EnableFileDrop") {
-			if strings.Contains(line, "true") {
-				found = true
-			}
-			break
-		}
-	}
-	if !found {
-		t.Error("[P0] 2.4-INTG-005: EnableFileDrop must be set to true")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-006 [P0]: main.go captures window reference
@@ -181,81 +115,18 @@ func TestMainGoEnableFileDrop(t *testing.T) {
 //       to register OnWindowEvent handler for file drop.
 // ---------------------------------------------------------------------------
 
-func TestMainGoCapturesWindowReference(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// The window reference must be captured, not discarded.
-	// Current code: app.Window.NewWithOptions(...) -- return value discarded.
-	// After: window := app.Window.NewWithOptions(...) or similar.
-	if strings.Contains(content, "app.Window.NewWithOptions(") {
-		// Check it's assigned to a variable (not just called)
-		lines := strings.Split(content, "\n")
-		captured := false
-		for _, line := range lines {
-			trimmed := strings.TrimSpace(line)
-			if strings.Contains(trimmed, "NewWithOptions(") || strings.Contains(trimmed, "NewWithOptions(application.WebviewWindowOptions") {
-				// Check that the line has an assignment (= or :=)
-				if strings.Contains(trimmed, ":=") || (strings.Contains(trimmed, "=") && !strings.HasPrefix(trimmed, "//")) {
-					captured = true
-				}
-				break
-			}
-		}
-		if !captured {
-			t.Error("[P0] 2.4-INTG-006: main.go must capture window return value from NewWithOptions (e.g., window := app.Window.NewWithOptions(...))")
-		}
-	} else {
-		t.Error("[P0] 2.4-INTG-006: main.go missing app.Window.NewWithOptions call")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-007 [P0]: main.go registers OnWindowEvent for file drop
 // AC#2: Go-side window event handler for WindowFilesDropped must exist.
 // ---------------------------------------------------------------------------
 
-func TestMainGoRegistersFileDropHandler(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must have OnWindowEvent call
-	if !strings.Contains(content, "OnWindowEvent(") {
-		t.Fatal("[P0] 2.4-INTG-007: main.go missing OnWindowEvent registration for file drop")
-	}
-
-	// Must reference WindowFilesDropped event
-	if !strings.Contains(content, "WindowFilesDropped") {
-		t.Error("[P0] 2.4-INTG-007: main.go must handle events.Common.WindowFilesDropped")
-	}
-
-	// Must import events package
-	if !strings.Contains(content, `"github.com/wailsapp/wails/v3/pkg/events"`) {
-		t.Error("[P0] 2.4-INTG-007: main.go must import wails events package")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-008 [P0]: File drop handler filters for .pdf extension
 // AC#2: The drop handler must filter dropped files for .pdf extension.
 // ---------------------------------------------------------------------------
 
-func TestMainGoFileDropFiltersPDF(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must reference DroppedFiles to get file list from event
-	if !strings.Contains(content, "DroppedFiles()") {
-		t.Error("[P0] 2.4-INTG-008: main.go file drop handler must call DroppedFiles()")
-	}
-
-	// Must check for .pdf extension
-	if !strings.Contains(content, ".pdf") {
-		t.Error("[P0] 2.4-INTG-008: main.go file drop handler must filter for .pdf extension")
-	}
-
-	// Must import path/filepath for extension check
-	if !strings.Contains(content, `"path/filepath"`) {
-		t.Error("[P0] 2.4-INTG-008: main.go must import path/filepath for extension filtering")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.4-INTG-009 [P0]: File drop handler emits document:opened or document:error
@@ -263,17 +134,6 @@ func TestMainGoFileDropFiltersPDF(t *testing.T) {
 //       to the frontend since WindowFilesDropped is Go-side only.
 // ---------------------------------------------------------------------------
 
-func TestMainGoFileDropEmitsEvents(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	if !strings.Contains(content, `"document:opened"`) {
-		t.Error("[P0] 2.4-INTG-009: main.go must emit 'document:opened' event")
-	}
-
-	if !strings.Contains(content, `"document:error"`) {
-		t.Error("[P0] 2.4-INTG-009: main.go must emit 'document:error' event")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#1: Menu File > Open wired to actual dialog
@@ -285,27 +145,6 @@ func TestMainGoFileDropEmitsEvents(t *testing.T) {
 //       actual file dialog logic.
 // ---------------------------------------------------------------------------
 
-func TestMenuFileOpenWired(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// The stub "File > Open clicked" log should be gone or the dialog should be present
-	if strings.Contains(content, `log.Println("File > Open clicked")`) {
-		t.Error("[P0] 2.4-INTG-010: File > Open menu still has TODO stub -- must be wired to dialog")
-	}
-
-	// Must have dialog call in the menu handler area
-	if !strings.Contains(content, "Dialog.OpenFile()") {
-		t.Error("[P0] 2.4-INTG-010: main.go must call Dialog.OpenFile() for File > Open menu")
-	}
-
-	// Menu handler must emit document:opened on success
-	// (already checked by INTG-009, but verify dialog + emit coexist)
-	hasDialog := strings.Contains(content, "Dialog.OpenFile()")
-	hasEmit := strings.Contains(content, `"document:opened"`)
-	if !hasDialog || !hasEmit {
-		t.Error("[P0] 2.4-INTG-010: main.go must wire File > Open to dialog and emit document:opened")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#3: Document display -- root node visible after open
@@ -552,14 +391,6 @@ func TestAppRendersErrorBanner(t *testing.T) {
 //       and its immediate children (not just placeholder text).
 // ---------------------------------------------------------------------------
 
-func TestMainLayoutDisplaysTreeContent(t *testing.T) {
-	content := readFile(t, "frontend/src/components/MainLayout.tsx")
-
-	// MainLayout delegates tree rendering to TreePanel (story 2-5+)
-	if !strings.Contains(content, "TreePanel") {
-		t.Error("[P1] 2.4-INTG-023: MainLayout must include TreePanel in the left panel")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#1: usePDFService hook exists
@@ -603,19 +434,6 @@ func TestUsePDFServiceExportsOpenPDFFile(t *testing.T) {
 //           then openPDFFile, then dispatch OPEN_DOCUMENT or SET_DOCUMENT_ERROR.
 // ---------------------------------------------------------------------------
 
-func TestEmptyStateWiresOpenFile(t *testing.T) {
-	content := readFile(t, "frontend/src/components/EmptyState.tsx")
-
-	// Must import dispatch hook
-	if !strings.Contains(content, "useAppDispatch") {
-		t.Error("[P1] 2.4-INTG-026: EmptyState must import useAppDispatch")
-	}
-
-	// Must call OpenFileDialog (from Wails bindings) or openPDFFile (from hook)
-	if !strings.Contains(content, "OpenFileDialog") && !strings.Contains(content, "openPDFFile") {
-		t.Error("[P1] 2.4-INTG-026: EmptyState must call OpenFileDialog or openPDFFile for button click")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Verification: project compiles and vets
