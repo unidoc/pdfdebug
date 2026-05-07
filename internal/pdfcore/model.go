@@ -40,10 +40,24 @@ type ValueEntry struct {
 
 // ContentStreamData holds raw and tokenized content stream data for a page.
 type ContentStreamData struct {
-	NodeID    string  `json:"nodeId"`
-	Raw       string  `json:"raw"`
-	Tokenized []Token `json:"tokenized"`
-	Error     string  `json:"error"`
+	NodeID    string          `json:"nodeId"`
+	Raw       string          `json:"raw"`
+	Tokenized []Token         `json:"tokenized"`
+	Formatted []FormattedLine `json:"formatted"`
+	Error     string          `json:"error"`
+}
+
+// FormattedLine is one logical PDF operation in a content stream: zero or more
+// operand tokens followed by their operator, plus the indent depth and the
+// source-byte-line range the operation came from. Story 9-6 introduced this
+// shape so the frontend can render formatted view as a flat row sequence
+// without re-deriving operator boundaries or indent client-side.
+type FormattedLine struct {
+	Tokens       []Token `json:"tokens"`
+	Indent       int     `json:"indent"`
+	Operator     string  `json:"operator"`
+	SrcLineStart int     `json:"srcLineStart"`
+	SrcLineEnd   int     `json:"srcLineEnd"`
 }
 
 // ImageData holds extracted image data and metadata for frontend display.
