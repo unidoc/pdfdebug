@@ -256,21 +256,55 @@ func main() {
 
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		files := event.Context().DroppedFiles()
-		var pdfPath string
+		var pdfPaths []string
 		for _, f := range files {
 			if strings.EqualFold(filepath.Ext(f), ".pdf") {
-				pdfPath = f
-				break
+				pdfPaths = append(pdfPaths, f)
 			}
 		}
-		if pdfPath == "" {
-			// Non-PDF file dropped -- notify frontend
+		unsupportedCount := len(files) - len(pdfPaths)
+
+		if len(pdfPaths) == 0 {
+			// Drop contained no PDFs -- error banner.
 			app.Event.Emit("document:error", map[string]any{
 				"message": "Only PDF files can be opened.",
 			})
 			return
 		}
-		openFileAndEmit(pdfPath)
+
+		// Multi-file drops fire a progress dialog so the user knows the
+		// batch is being processed and can wait for the last tab to land.
+		// Single-file drops keep the original silent path.
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-start", map[string]any{
+				"total": len(pdfPaths),
+			})
+		}
+		for i, p := range pdfPaths {
+			openFileAndEmit(p)
+			if len(pdfPaths) > 1 {
+				app.Event.Emit("document:batch-progress", map[string]any{
+					"completed": i + 1,
+					"total":     len(pdfPaths),
+				})
+			}
+		}
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-complete", nil)
+		}
+
+		// Soft warning for non-PDF files in a mixed-batch drop. Doesn't
+		// block; doesn't list filenames -- just acknowledges the rejection
+		// so users with mixed selections know we noticed.
+		if unsupportedCount > 0 {
+			noun := "files"
+			if unsupportedCount == 1 {
+				noun = "file"
+			}
+			app.Event.Emit("document:warning", map[string]any{
+				"message": fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun),
+			})
+		}
 	})
 
 	// Run the application. This blocks until the application has been exited.

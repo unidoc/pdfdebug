@@ -52,6 +52,11 @@ export interface AppState {
   documentError: string | null;
   documentWarning: string | null;
   goToPageOpen: boolean;
+  // Batch open progress: when batchOpenTotal > 0 a multi-file drop is in
+  // flight; the BatchOpenDialog is visible and disappears when total resets
+  // to 0 (BATCH_OPEN_COMPLETE). Single-file drops never set these.
+  batchOpenTotal: number;
+  batchOpenCompleted: number;
 }
 
 /** Union of all actions the app reducer handles. */
@@ -71,7 +76,10 @@ export type AppAction =
   | { type: 'NAVIGATE_BACK' }
   | { type: 'NAVIGATE_FORWARD' }
   | { type: 'OPEN_GO_TO_PAGE' }
-  | { type: 'CLOSE_GO_TO_PAGE' };
+  | { type: 'CLOSE_GO_TO_PAGE' }
+  | { type: 'BATCH_OPEN_START'; payload: { total: number } }
+  | { type: 'BATCH_OPEN_PROGRESS'; payload: { completed: number } }
+  | { type: 'BATCH_OPEN_COMPLETE' };
 
 // --- Reducer ---
 
@@ -81,6 +89,8 @@ const initialState: AppState = {
   documentError: null,
   documentWarning: null,
   goToPageOpen: false,
+  batchOpenTotal: 0,
+  batchOpenCompleted: 0,
 };
 
 /**
@@ -318,6 +328,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'CLOSE_GO_TO_PAGE': {
       return { ...state, goToPageOpen: false };
+    }
+    case 'BATCH_OPEN_START': {
+      return { ...state, batchOpenTotal: action.payload.total, batchOpenCompleted: 0 };
+    }
+    case 'BATCH_OPEN_PROGRESS': {
+      return { ...state, batchOpenCompleted: action.payload.completed };
+    }
+    case 'BATCH_OPEN_COMPLETE': {
+      return { ...state, batchOpenTotal: 0, batchOpenCompleted: 0 };
     }
     default: {
       const _exhaustive: never = action;
