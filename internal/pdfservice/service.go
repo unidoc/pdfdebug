@@ -25,25 +25,27 @@ func NewPDFService(app *application.App) PDFService {
 }
 
 // OpenFileDialog shows a native file picker filtered to PDF files and returns
-// the selected path, or an empty string if cancelled.
-func (s *PDFService) OpenFileDialog() (string, error) {
+// every selected path. An empty slice means the user cancelled. Multi-select
+// is enabled so users can open several PDFs into multiple tabs in one gesture
+// (parity with the drag-and-drop multi-file flow).
+func (s *PDFService) OpenFileDialog() ([]string, error) {
 	if s.app == nil {
-		return "", fmt.Errorf("app not initialized")
+		return nil, fmt.Errorf("app not initialized")
 	}
-	path, err := s.app.Dialog.OpenFile().
+	paths, err := s.app.Dialog.OpenFile().
 		SetTitle("Open PDF").
 		AddFilter("PDF Files", "*.pdf").
 		AddFilter("All Files", "*.*").
-		PromptForSingleSelection()
+		PromptForMultipleSelection()
 	// On Windows, cancelling the dialog returns an ole.Error instead of nil.
-	// Treat empty path as cancel regardless of error.
-	if path == "" {
-		return "", nil
+	// Treat an empty selection as cancel regardless of error.
+	if len(paths) == 0 {
+		return []string{}, nil
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return path, nil
+	return paths, nil
 }
 
 // OpenFile parses a PDF at path and assigns it a new tab ID.

@@ -25,9 +25,15 @@ export function mapErrorMessage(rawMessage: string): string {
   return 'This PDF could not be opened. An unexpected error occurred.';
 }
 
-/** Show the native OS file picker and return the selected path (or empty string). */
-export async function openFileDialog(): Promise<string> {
-  return _OpenFileDialog();
+/**
+ * Show the native OS file picker. Returns every path the user selected, or an
+ * empty array if they cancelled. Multi-select is enabled so the dialog can
+ * open multiple PDFs in one gesture (same UX as drag-drop of multiple files).
+ */
+export async function openFileDialog(): Promise<string[]> {
+  const result = await _OpenFileDialog();
+  if (!Array.isArray(result)) return [];
+  return result;
 }
 
 /**

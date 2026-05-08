@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -43,6 +44,56 @@ func extractPDFPaths(args []string) []string {
 		}
 	}
 	return paths
+}
+
+// openFileAndEmitWithWarning opens a PDF, fetches the tree root + children,
+// and emits document:opened with the result. If extraWarning is non-empty,
+// it is appended to (or replaces) the per-document warning field in the
+// payload. This lets callers piggyback advisory messages (e.g. "2
+// unsupported files could not be opened") onto a document's open event so
+// the frontend handler dispatches SET_DOCUMENT_WARNING in the same tick as
+// the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
+// warning survives regardless of event-bus ordering.
+func openFileAndEmitWithWarning(svc pdfservice.PDFService, app *application.App, path string, extraWarning string) {
+	docInfo, err := svc.OpenFile(path)
+	if err != nil {
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	root, err := svc.GetTreeRoot(docInfo.TabID)
+	if err != nil {
+		_ = svc.CloseDocument(docInfo.TabID)
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	children, err := svc.GetChildren(docInfo.TabID, "root")
+	if err != nil {
+		log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+	}
+	payload := map[string]any{
+		"tabId":        docInfo.TabID,
+		"fileName":     docInfo.FileName,
+		"filePath":     docInfo.FilePath,
+		"pageCount":    docInfo.PageCount,
+		"fileSize":     docInfo.FileSize,
+		"rootNode":     root,
+		"rootChildren": children,
+	}
+	warnings := make([]string, 0, 2)
+	if docInfo.Error != "" {
+		warnings = append(warnings, docInfo.Error)
+	}
+	if extraWarning != "" {
+		warnings = append(warnings, extraWarning)
+	}
+	if len(warnings) > 0 {
+		payload["warning"] = strings.Join(warnings, " ")
+	}
+	app.Event.Emit("document:opened", payload)
 }
 
 func main() {
@@ -100,38 +151,57 @@ func main() {
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
 	openFileAndEmit = func(path string) {
-		docInfo, err := pdfService.OpenFile(path)
-		if err != nil {
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
-			})
+		openFileAndEmitWithWarning(pdfService, app, path, "")
+	}
+
+	// batchCancelled is checked between iterations of openFilesBatch.
+	// Set by the frontend Cancel button via document:batch-cancel; reset
+	// at the start of each batch.
+	var batchCancelled atomic.Bool
+
+	app.Event.On("document:batch-cancel", func(_ *application.CustomEvent) {
+		batchCancelled.Store(true)
+	})
+
+	// openFilesBatch opens a slice of PDF paths sequentially and emits
+	// document:batch-* progress events when more than one file is in flight.
+	// Used by both the file-drop handler and the menu Open... item.
+	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
+		if len(pdfPaths) == 0 {
 			return
 		}
-		root, err := pdfService.GetTreeRoot(docInfo.TabID)
-		if err != nil {
-			_ = pdfService.CloseDocument(docInfo.TabID)
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
+		batchCancelled.Store(false)
+		// Piggyback the unsupported-files advisory onto the last
+		// document:opened payload so the frontend sets the warning in the
+		// same tick as the OPEN_DOCUMENT that would otherwise clear it.
+		var unsupportedMsg string
+		if unsupportedCount > 0 {
+			noun := "files"
+			if unsupportedCount == 1 {
+				noun = "file"
+			}
+			unsupportedMsg = fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun)
+		}
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-start", map[string]any{
+				"total": len(pdfPaths),
 			})
-			return
 		}
-		children, err := pdfService.GetChildren(docInfo.TabID, "root")
-		if err != nil {
-			log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+		for i, p := range pdfPaths {
+			if batchCancelled.Load() {
+				break
+			}
+			// Attach the unsupported-files advisory to the last file's
+			// document:opened payload. Natural break on cancel skips this.
+			extra := ""
+			if i == len(pdfPaths)-1 {
+				extra = unsupportedMsg
+			}
+			openFileAndEmitWithWarning(pdfService, app, p, extra)
 		}
-		payload := map[string]any{
-			"tabId":        docInfo.TabID,
-			"fileName":     docInfo.FileName,
-			"filePath":     docInfo.FilePath,
-			"pageCount":    docInfo.PageCount,
-			"fileSize":     docInfo.FileSize,
-			"rootNode":     root,
-			"rootChildren": children,
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-complete", nil)
 		}
-		if docInfo.Error != "" {
-			payload["warning"] = docInfo.Error
-		}
-		app.Event.Emit("document:opened", payload)
 	}
 
 	// Handle files opened via OS file association (right-click > "Open with").
@@ -159,15 +229,30 @@ func main() {
 	fileMenu.Add("Open...").
 		SetAccelerator("CmdOrCtrl+o").
 		OnClick(func(ctx *application.Context) {
-			path, err := app.Dialog.OpenFile().
+			paths, err := app.Dialog.OpenFile().
 				SetTitle("Open PDF").
 				AddFilter("PDF Files", "*.pdf").
 				AddFilter("All Files", "*.*").
-				PromptForSingleSelection()
-			if err != nil || path == "" {
+				PromptForMultipleSelection()
+			if err != nil || len(paths) == 0 {
 				return
 			}
-			openFileAndEmit(path)
+			// Filter on extension defensively in case the user picked
+			// non-PDFs via the "All Files" filter.
+			var pdfPaths []string
+			for _, p := range paths {
+				if strings.EqualFold(filepath.Ext(p), ".pdf") {
+					pdfPaths = append(pdfPaths, p)
+				}
+			}
+			unsupported := len(paths) - len(pdfPaths)
+			if len(pdfPaths) == 0 {
+				app.Event.Emit("document:error", map[string]any{
+					"message": "Only PDF files can be opened.",
+				})
+				return
+			}
+			openFilesBatch(pdfPaths, unsupported)
 		})
 	fileMenu.Add("Close Document").
 		SetAccelerator("CmdOrCtrl+w").
@@ -256,21 +341,20 @@ func main() {
 
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		files := event.Context().DroppedFiles()
-		var pdfPath string
+		var pdfPaths []string
 		for _, f := range files {
 			if strings.EqualFold(filepath.Ext(f), ".pdf") {
-				pdfPath = f
-				break
+				pdfPaths = append(pdfPaths, f)
 			}
 		}
-		if pdfPath == "" {
-			// Non-PDF file dropped -- notify frontend
+		unsupported := len(files) - len(pdfPaths)
+		if len(pdfPaths) == 0 {
 			app.Event.Emit("document:error", map[string]any{
 				"message": "Only PDF files can be opened.",
 			})
 			return
 		}
-		openFileAndEmit(pdfPath)
+		openFilesBatch(pdfPaths, unsupported)
 	})
 
 	// Run the application. This blocks until the application has been exited.

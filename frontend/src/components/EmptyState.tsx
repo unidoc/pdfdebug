@@ -4,7 +4,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
-import { useAppDispatch } from '../hooks/useDocumentState';
+import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
 
 /** Props for {@link EmptyState}. */
@@ -113,33 +113,63 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   }, []);
 
   const dispatch = useAppDispatch();
+  const { batchOpenCancelled } = useAppState();
+  // Mirror cancel state into a ref so the async loop below sees fresh
+  // values without re-running on every state change.
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    cancelledRef.current = batchOpenCancelled;
+  }, [batchOpenCancelled]);
 
-  // Opens the native file dialog, loads the PDF, and dispatches to state.
-  // Dedup cleanup (freeing backend state for duplicate tabIds) is handled in
-  // App.jsx and does not apply here -- EmptyState only renders when no tabs exist.
+  // Opens the native file dialog and loads each selected PDF. For multi-file
+  // selections, drives BatchOpenDialog progress state and checks cancelledRef
+  // between iterations so Cancel can stop the loop.
   const handleOpenFileClick = useCallback(async () => {
-    // Allow parent to override with a custom handler (used in tests)
     if (onOpenFile) {
       onOpenFile();
       return;
     }
     try {
-      const path = await openFileDialog();
-      if (!path) return;
-      const result = await openPDFFile(path);
-      dispatch({
-        type: 'OPEN_DOCUMENT',
-        payload: {
-          tabId: result.tabId,
-          fileName: result.fileName,
-          filePath: result.filePath,
-          pageCount: result.pageCount,
-          rootNode: result.rootNode,
-          rootChildren: result.rootChildren,
-        },
-      });
-      if (result.warning) {
-        dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: result.warning } });
+      const paths = await openFileDialog();
+      if (paths.length === 0) return;
+
+      const isBatch = paths.length > 1;
+      if (isBatch) {
+        cancelledRef.current = false;
+        dispatch({ type: 'BATCH_OPEN_START', payload: { total: paths.length } });
+      }
+
+      let lastWarning: string | null = null;
+      try {
+        for (let i = 0; i < paths.length; i++) {
+          if (isBatch && cancelledRef.current) break;
+          try {
+            const result = await openPDFFile(paths[i]);
+            dispatch({
+              type: 'OPEN_DOCUMENT',
+              payload: {
+                tabId: result.tabId,
+                fileName: result.fileName,
+                filePath: result.filePath,
+                pageCount: result.pageCount,
+                rootNode: result.rootNode,
+                rootChildren: result.rootChildren,
+              },
+            });
+            if (result.warning) lastWarning = result.warning;
+          } catch (err: unknown) {
+            // Surface and keep iterating so one bad file does not block the rest.
+            const msg = err instanceof Error ? err.message : String(err);
+            dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });
+          }
+        }
+      } finally {
+        if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });
+        // SET_DOCUMENT_WARNING is a no-op when batchOpenCancelled is true,
+        // so the cancellation toast survives this dispatch.
+        if (lastWarning !== null) {
+          dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: lastWarning } });
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -209,7 +239,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
       {/* bg-border-focus intentionally reuses Blue 500 as button-primary -- no dedicated token exists yet */}
       <button
         data-testid="open-file-button"
-        className="bg-border-focus text-white rounded px-4 py-2 font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+        className="bg-border-focus text-white rounded px-4 py-2 font-medium cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
         onClick={handleOpenFileClick}
       >
         Open File...

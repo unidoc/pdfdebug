@@ -1113,6 +1113,103 @@ describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Multi-PDF drop reducer flows: distinct paths produce N tabs, same paths
+// dedup, and BATCH_OPEN_* actions drive the progress dialog state.
+// ---------------------------------------------------------------------------
+
+describe('multi-PDF drop: reducer integrates with backend events', () => {
+  test('three OPEN_DOCUMENT dispatches with distinct paths produce 3 tabs, last active', () => {
+    const dispatchActions: AppAction[] = [
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't2', fileName: 'b.pdf', filePath: '/b.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't3', fileName: 'c.pdf', filePath: '/c.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+    ];
+    function MultiInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <span data-testid="active-tab-id">{state.activeTabId ?? 'null'}</span>
+          <button data-testid="dispatch-all" onClick={() => dispatchActions.forEach(dispatch)}>go</button>
+        </div>
+      );
+    }
+    render(<AppProvider><MultiInspector /></AppProvider>);
+    act(() => screen.getByTestId('dispatch-all').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('3');
+    expect(screen.getByTestId('active-tab-id').textContent).toBe('t3');
+  });
+
+  test('three OPEN_DOCUMENT dispatches with the SAME path dedup to 1 tab', () => {
+    const dup: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/same.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    function DupInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="dispatch-all" onClick={() => {
+            dispatch(dup);
+            dispatch({ ...dup, payload: { ...dup.payload, tabId: 't2' } });
+            dispatch({ ...dup, payload: { ...dup.payload, tabId: 't3' } });
+          }}>go</button>
+        </div>
+      );
+    }
+    render(<AppProvider><DupInspector /></AppProvider>);
+    act(() => screen.getByTestId('dispatch-all').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+  });
+
+  test('BATCH_OPEN_* actions sequence: start -> OPEN_DOCUMENT bumps completed -> complete', () => {
+    function BatchInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="batch-total">{state.batchOpenTotal}</span>
+          <span data-testid="batch-completed">{state.batchOpenCompleted}</span>
+          <button data-testid="start" onClick={() => dispatch({ type: 'BATCH_OPEN_START', payload: { total: 5 } })}>s</button>
+          <button data-testid="open" onClick={() => dispatch({
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: `t-${state.batchOpenCompleted + 1}`,
+              fileName: `f${state.batchOpenCompleted + 1}.pdf`,
+              filePath: `/f${state.batchOpenCompleted + 1}.pdf`,
+              pageCount: 1, rootNode: null, rootChildren: null,
+            },
+          })}>o</button>
+          <button data-testid="done" onClick={() => dispatch({ type: 'BATCH_OPEN_COMPLETE' })}>d</button>
+        </div>
+      );
+    }
+    render(<AppProvider><BatchInspector /></AppProvider>);
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+
+    act(() => screen.getByTestId('start').click());
+    expect(screen.getByTestId('batch-total').textContent).toBe('5');
+    expect(screen.getByTestId('batch-completed').textContent).toBe('0');
+
+    // OPEN_DOCUMENT bumps batchOpenCompleted (atomic with tab-add) so the
+    // count never lags behind the actual number of opened tabs.
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('1');
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('2');
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('3');
+
+    act(() => screen.getByTestId('done').click());
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+    expect(screen.getByTestId('batch-completed').textContent).toBe('0');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 9.4-UNIT-001: OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
 // ---------------------------------------------------------------------------
 

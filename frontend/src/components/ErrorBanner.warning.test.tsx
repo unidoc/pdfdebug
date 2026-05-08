@@ -60,20 +60,22 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
     expect(dismissBtn).toBeTruthy();
   });
 
-  // Dark mode variants
-  test('[P2] error severity has dark mode bg variant', () => {
+  // Banner intentionally has no `dark:` variants -- the surrounding app shell
+  // uses design-token CSS that does not flip on prefers-color-scheme, so a
+  // dark-system-theme user otherwise gets a dark banner on a light shell.
+  test('[P2] error severity does not include dark: variants', () => {
     render(
       <ErrorBanner message="err" severity="error" onDismiss={() => {}} />
     );
     const banner = screen.getByTestId('error-banner');
-    expect(banner.className).toContain('dark:bg-red-900');
+    expect(banner.className).not.toContain('dark:');
   });
 
-  test('[P2] warning severity has dark mode bg variant', () => {
+  test('[P2] warning severity does not include dark: variants', () => {
     render(
       <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
     );
     const banner = screen.getByTestId('warning-banner');
-    expect(banner.className).toContain('dark:bg-amber-900');
+    expect(banner.className).not.toContain('dark:');
   });
 });

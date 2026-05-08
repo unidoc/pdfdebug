@@ -52,6 +52,19 @@ export interface AppState {
   documentError: string | null;
   documentWarning: string | null;
   goToPageOpen: boolean;
+  // Dialog visibility for an in-flight multi-file open. Set true on
+  // BATCH_OPEN_START, false on BATCH_OPEN_COMPLETE.
+  batchOpenActive: boolean;
+  // Total/completed counts for the batch. Kept alive past COMPLETE while
+  // batchOpenCancelled is true so late OPEN_DOCUMENT events (Wails alpha.85
+  // dispatches each Emit in its own goroutine, so events can arrive after
+  // batch-complete) can update the cancellation toast count. Reset on the
+  // next BATCH_OPEN_START or on DISMISS_WARNING.
+  batchOpenTotal: number;
+  batchOpenCompleted: number;
+  // True after the user clicks Cancel. Persists past BATCH_OPEN_COMPLETE
+  // until BATCH_OPEN_START or DISMISS_WARNING.
+  batchOpenCancelled: boolean;
 }
 
 /** Union of all actions the app reducer handles. */
@@ -71,7 +84,10 @@ export type AppAction =
   | { type: 'NAVIGATE_BACK' }
   | { type: 'NAVIGATE_FORWARD' }
   | { type: 'OPEN_GO_TO_PAGE' }
-  | { type: 'CLOSE_GO_TO_PAGE' };
+  | { type: 'CLOSE_GO_TO_PAGE' }
+  | { type: 'BATCH_OPEN_START'; payload: { total: number } }
+  | { type: 'BATCH_OPEN_CANCEL' }
+  | { type: 'BATCH_OPEN_COMPLETE' };
 
 // --- Reducer ---
 
@@ -81,6 +97,10 @@ const initialState: AppState = {
   documentError: null,
   documentWarning: null,
   goToPageOpen: false,
+  batchOpenActive: false,
+  batchOpenTotal: 0,
+  batchOpenCompleted: 0,
+  batchOpenCancelled: false,
 };
 
 /**
@@ -90,6 +110,32 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
+      // Drive batch progress from OPEN_DOCUMENT itself: incrementing here is
+      // atomic with the tab being added, so the count can never lag behind
+      // the actual number of opened tabs.
+      const inBatch = state.batchOpenTotal > 0;
+      const batchOpenCompleted = inBatch
+        ? state.batchOpenCompleted + 1
+        : state.batchOpenCompleted;
+      // Effectively-no-op cancel: if late drain events end up landing every
+      // file in the batch anyway, drop the cancel toast and flag so the user
+      // does not see a misleading "cancelled" notification for a fully-loaded
+      // batch.
+      const cancelDidNothing = state.batchOpenCancelled
+        && inBatch
+        && batchOpenCompleted >= state.batchOpenTotal;
+      // Refresh the cancellation toast each time a file lands so late events
+      // (after BATCH_OPEN_COMPLETE, due to Wails' goroutine race) update the
+      // displayed count. When not cancelled, OPEN_DOCUMENT clears the warning
+      // as before.
+      const documentWarning = cancelDidNothing
+        ? null
+        : state.batchOpenCancelled
+          ? (inBatch
+            ? `Loading cancelled. ${batchOpenCompleted} of ${state.batchOpenTotal} files opened.`
+            : state.documentWarning)
+          : null;
+      const batchOpenCancelled = cancelDidNothing ? false : state.batchOpenCancelled;
       // Duplicate file detection: if a tab with the same filePath exists, activate it.
       // Backend resource cleanup for the discarded tabId is handled in App.jsx.
       if (action.payload.filePath) {
@@ -99,7 +145,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
             ...state,
             activeTabId: existing.tabId,
             documentError: null,
-            documentWarning: null,
+            documentWarning,
+            batchOpenCompleted,
+            batchOpenCancelled,
           };
         }
       }
@@ -124,7 +172,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
         tabs: [...state.tabs, newTab],
         activeTabId: action.payload.tabId,
         documentError: null,
-        documentWarning: null,
+        documentWarning,
+        batchOpenCompleted,
+        batchOpenCancelled,
       };
     }
     case 'CLOSE_DOCUMENT': {
@@ -263,10 +313,20 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SET_DOCUMENT_WARNING': {
+      // Suppress per-file warnings while the cancellation toast is active.
+      if (state.batchOpenCancelled) return state;
       return { ...state, documentWarning: action.payload.message };
     }
     case 'DISMISS_WARNING': {
-      return { ...state, documentWarning: null };
+      // Also clear batch state so subsequent opens aren't suppressed and the
+      // count info from the prior cancelled batch doesn't leak.
+      return {
+        ...state,
+        documentWarning: null,
+        batchOpenCancelled: false,
+        batchOpenTotal: 0,
+        batchOpenCompleted: 0,
+      };
     }
     case 'NAVIGATE_BACK': {
       if (state.activeTabId === null) return state;
@@ -318,6 +378,41 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'CLOSE_GO_TO_PAGE': {
       return { ...state, goToPageOpen: false };
+    }
+    case 'BATCH_OPEN_START': {
+      return {
+        ...state,
+        batchOpenActive: true,
+        batchOpenTotal: action.payload.total,
+        batchOpenCompleted: 0,
+        batchOpenCancelled: false,
+      };
+    }
+    case 'BATCH_OPEN_CANCEL': {
+      if (!state.batchOpenActive) return state;
+      // Set toast at click time so the user sees feedback immediately.
+      // OPEN_DOCUMENT regenerates the text as more files land, keeping the
+      // count current.
+      return {
+        ...state,
+        batchOpenCancelled: true,
+        documentWarning: `Loading cancelled. ${state.batchOpenCompleted} of ${state.batchOpenTotal} files opened.`,
+      };
+    }
+    case 'BATCH_OPEN_COMPLETE': {
+      // Close the dialog but keep total/completed and the cancelled flag
+      // alive when cancelled, so late OPEN_DOCUMENT events (Wails goroutine
+      // race) can still update the toast count. They reset on the next
+      // BATCH_OPEN_START or on DISMISS_WARNING.
+      if (state.batchOpenCancelled) {
+        return { ...state, batchOpenActive: false };
+      }
+      return {
+        ...state,
+        batchOpenActive: false,
+        batchOpenTotal: 0,
+        batchOpenCompleted: 0,
+      };
     }
     default: {
       const _exhaustive: never = action;

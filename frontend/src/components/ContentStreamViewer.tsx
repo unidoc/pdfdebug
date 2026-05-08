@@ -175,9 +175,9 @@ function ViewModeControl({
         disabled={!hasTokens}
         className={`relative px-3 py-1 text-xs border rounded-l transition-colors ${
           viewMode === 'formatted'
-            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10'
+            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10 cursor-pointer'
             : hasTokens
-              ? 'bg-surface text-text-secondary border-border hover:bg-hover'
+              ? 'bg-surface text-text-secondary border-border hover:bg-hover cursor-pointer'
               : 'bg-surface text-text-muted border-border cursor-not-allowed opacity-50'
         }`}
         onClick={() => onViewModeChange('formatted')}

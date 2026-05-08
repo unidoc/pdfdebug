@@ -15,6 +15,7 @@ import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
 import { GoToPageDialog } from './components/GoToPageDialog'
+import { BatchOpenDialog } from './components/BatchOpenDialog'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -114,6 +115,12 @@ function AppContent() {
       dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } })
     })
 
+    const offWarning = Events.On('document:warning', (event) => {
+      const data = event?.data
+      const msg = (data && data.message) || ''
+      if (msg) dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: msg } })
+    })
+
     const offNavBack = Events.On('navigate:back', () => {
       dispatch({ type: 'NAVIGATE_BACK' })
     })
@@ -126,12 +133,24 @@ function AppContent() {
       dispatch({ type: 'OPEN_GO_TO_PAGE' })
     })
 
+    const offBatchStart = Events.On('document:batch-start', (event) => {
+      const total = Number(event?.data?.total) || 0
+      if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
+    })
+
+    const offBatchComplete = Events.On('document:batch-complete', () => {
+      dispatch({ type: 'BATCH_OPEN_COMPLETE' })
+    })
+
     return () => {
       offOpened()
       offError()
+      offWarning()
       offNavBack()
       offNavForward()
       offGoToPage()
+      offBatchStart()
+      offBatchComplete()
     }
   }, [dispatch])
 
@@ -298,6 +317,7 @@ function AppContent() {
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>
       <GoToPageDialog />
+      <BatchOpenDialog />
     </div>
   )
 }
