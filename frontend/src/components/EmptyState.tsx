@@ -162,7 +162,6 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
             const msg = err instanceof Error ? err.message : String(err);
             dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });
           }
-          if (isBatch) dispatch({ type: 'BATCH_OPEN_PROGRESS', payload: { completed: i + 1 } });
         }
       } finally {
         if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });

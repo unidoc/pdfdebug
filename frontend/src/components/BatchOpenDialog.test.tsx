@@ -2,6 +2,9 @@
  * BatchOpenDialog appears while a multi-PDF drop is in flight (batchOpenTotal
  * > 0) and disappears on BATCH_OPEN_COMPLETE. Cancel button dispatches
  * BATCH_OPEN_CANCEL and emits document:batch-cancel for the Go-side loop.
+ *
+ * Progress is driven by OPEN_DOCUMENT itself (atomic with tab-add) so the
+ * count in the toast can never lag behind the actual number of opened tabs.
  */
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,25 +21,31 @@ vi.mock('@wailsio/runtime', () => ({
   },
 }));
 
+function openDocAction(n: number) {
+  return {
+    type: 'OPEN_DOCUMENT' as const,
+    payload: {
+      tabId: `t-${n}`,
+      fileName: `f${n}.pdf`,
+      filePath: `/f${n}.pdf`,
+      pageCount: 1,
+      rootNode: null,
+      rootChildren: null,
+    },
+  };
+}
+
 function Bootstrap() {
   const dispatch = useAppDispatch();
   const { batchOpenCancelled, documentWarning } = useAppState();
   return (
     <div>
-      <button data-testid="start-2" onClick={() => dispatch({ type: 'BATCH_OPEN_START', payload: { total: 2 } })}>s</button>
-      <button data-testid="prog-1" onClick={() => dispatch({ type: 'BATCH_OPEN_PROGRESS', payload: { completed: 1 } })}>p1</button>
-      <button data-testid="prog-2" onClick={() => dispatch({ type: 'BATCH_OPEN_PROGRESS', payload: { completed: 2 } })}>p2</button>
+      <button data-testid="start-2" onClick={() => dispatch({ type: 'BATCH_OPEN_START', payload: { total: 2 } })}>s2</button>
+      <button data-testid="start-3" onClick={() => dispatch({ type: 'BATCH_OPEN_START', payload: { total: 3 } })}>s3</button>
+      <button data-testid="open-1" onClick={() => dispatch(openDocAction(1))}>o1</button>
+      <button data-testid="open-2" onClick={() => dispatch(openDocAction(2))}>o2</button>
+      <button data-testid="open-3" onClick={() => dispatch(openDocAction(3))}>o3</button>
       <button data-testid="done" onClick={() => dispatch({ type: 'BATCH_OPEN_COMPLETE' })}>d</button>
-      <button
-        data-testid="open-doc"
-        onClick={() => dispatch({
-          type: 'OPEN_DOCUMENT',
-          payload: {
-            tabId: 't-drain', fileName: 'drain.pdf', filePath: '/drain.pdf',
-            pageCount: 1, rootNode: null, rootChildren: null,
-          },
-        })}
-      >o</button>
       <button
         data-testid="set-warning"
         onClick={() => dispatch({
@@ -62,19 +71,18 @@ describe('BatchOpenDialog', () => {
     expect(screen.queryByTestId('batch-open-dialog')).not.toBeInTheDocument();
   });
 
-  test('opens on BATCH_OPEN_START, advances on PROGRESS, closes on COMPLETE', () => {
+  test('opens on BATCH_OPEN_START, advances on OPEN_DOCUMENT, closes on COMPLETE', () => {
     render(<AppProvider><Bootstrap /></AppProvider>);
 
     act(() => screen.getByTestId('start-2').click());
-    const status = screen.getByTestId('batch-open-status');
-    expect(status.textContent).toMatch(/Opened 0 of 2/);
+    expect(screen.getByTestId('batch-open-status').textContent).toMatch(/Opened 0 of 2/);
     expect(screen.getByTestId('batch-open-progressbar')).toHaveAttribute('aria-valuenow', '0');
 
-    act(() => screen.getByTestId('prog-1').click());
+    act(() => screen.getByTestId('open-1').click());
     expect(screen.getByTestId('batch-open-status').textContent).toMatch(/Opened 1 of 2/);
     expect(screen.getByTestId('batch-open-progressbar')).toHaveAttribute('aria-valuenow', '1');
 
-    act(() => screen.getByTestId('prog-2').click());
+    act(() => screen.getByTestId('open-2').click());
     expect(screen.getByTestId('batch-open-status').textContent).toMatch(/Opened 2 of 2/);
 
     act(() => screen.getByTestId('done').click());
@@ -92,67 +100,88 @@ describe('BatchOpenDialog', () => {
 
     await userEvent.click(cancelBtn);
 
-    // State flag flipped + Wails event emitted for the Go-side loop.
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('true');
     expect(mockEmit).toHaveBeenCalledWith('document:batch-cancel', null);
 
-    // Button label switches to "Cancelling..." and is disabled.
     expect(cancelBtn).toHaveTextContent('Cancelling...');
     expect(cancelBtn).toBeDisabled();
-
-    // Status copy reflects the cancelling state.
     expect(screen.getByTestId('batch-open-status').textContent).toMatch(/Cancelling/);
   });
 
-  test('cancel button surfaces the warning toast immediately on click', async () => {
+  test('cancel toast count reflects OPEN_DOCUMENT-driven completion', async () => {
     render(<AppProvider><Bootstrap /></AppProvider>);
 
     act(() => screen.getByTestId('start-2').click());
-    act(() => screen.getByTestId('prog-1').click());
+    act(() => screen.getByTestId('open-1').click());
     await userEvent.click(screen.getByTestId('batch-open-cancel'));
 
-    // Warning toast must be set on the click itself, not on a later
-    // BATCH_OPEN_COMPLETE -- otherwise a fast Go-side loop that completes
-    // before the cancel signal arrives would never trigger the toast.
     expect(screen.getByTestId('warning-text').textContent).toBe(
       'Loading cancelled. 1 of 2 files opened.'
     );
 
-    // Subsequent BATCH_OPEN_COMPLETE must not clear the toast.
     act(() => screen.getByTestId('done').click());
     expect(screen.getByTestId('warning-text').textContent).toBe(
       'Loading cancelled. 1 of 2 files opened.'
     );
   });
 
-  test('in-flight OPEN_DOCUMENT during drain preserves the cancel toast', async () => {
-    // The Go-side loop has a file already in flight when the user clicks
-    // Cancel. That document:opened arrives between the cancel click and the
-    // eventual document:batch-complete. OPEN_DOCUMENT normally clears
-    // documentWarning, but when batchOpenCancelled is true it must preserve
-    // the toast so the user keeps seeing the cancellation feedback.
+  test('in-flight OPEN_DOCUMENT during drain refreshes the cancel toast count', async () => {
+    // Cancel after 0 opens (worst case), then a drain OPEN_DOCUMENT arrives
+    // (Wails goroutine race: file actually finished but the event is
+    // delivered late). The toast must refresh to the new count so the user
+    // sees the real total.
     render(<AppProvider><Bootstrap /></AppProvider>);
-    act(() => screen.getByTestId('start-2').click());
-    act(() => screen.getByTestId('prog-1').click());
+    act(() => screen.getByTestId('start-3').click());
+    act(() => screen.getByTestId('open-1').click());
     await userEvent.click(screen.getByTestId('batch-open-cancel'));
 
+    expect(screen.getByTestId('warning-text').textContent).toBe(
+      'Loading cancelled. 1 of 3 files opened.'
+    );
+
+    // Late OPEN_DOCUMENT lands -- count updates.
+    act(() => screen.getByTestId('open-2').click());
+    expect(screen.getByTestId('warning-text').textContent).toBe(
+      'Loading cancelled. 2 of 3 files opened.'
+    );
+  });
+
+  test('cancel toast is suppressed when late drain ends up landing every file', async () => {
+    // The user clicks Cancel but the loop was already on its last file --
+    // every file ends up opened. Showing "Loading cancelled. N of N" would
+    // be misleading; treat the cancel as a no-op and clear the toast.
+    render(<AppProvider><Bootstrap /></AppProvider>);
+    act(() => screen.getByTestId('start-2').click());
+    act(() => screen.getByTestId('open-1').click());
+    await userEvent.click(screen.getByTestId('batch-open-cancel'));
     expect(screen.getByTestId('warning-text').textContent).toMatch(/Loading cancelled/);
 
-    // Simulate the drain: an in-flight document:opened arrives.
-    act(() => screen.getByTestId('open-doc').click());
+    // The last in-flight open lands -- count reaches total, toast cleared.
+    act(() => screen.getByTestId('open-2').click());
+    expect(screen.getByTestId('warning-text').textContent).toBe('');
+    expect(screen.getByTestId('cancelled-flag').textContent).toBe('false');
+  });
 
-    // Toast must survive.
-    expect(screen.getByTestId('warning-text').textContent).toMatch(/Loading cancelled/);
+  test('OPEN_DOCUMENT after BATCH_OPEN_COMPLETE still refreshes the cancel toast count', async () => {
+    // Specifically the user-reported race: BATCH_OPEN_COMPLETE arrives at JS
+    // before the last document:opened. Total/completed must stay alive past
+    // COMPLETE so the late event can still bump the displayed count.
+    render(<AppProvider><Bootstrap /></AppProvider>);
+    act(() => screen.getByTestId('start-3').click());
+    act(() => screen.getByTestId('open-1').click());
+    await userEvent.click(screen.getByTestId('batch-open-cancel'));
+    act(() => screen.getByTestId('done').click()); // dialog closes early
+    act(() => screen.getByTestId('open-2').click()); // late open (still under total)
+
+    expect(screen.getByTestId('warning-text').textContent).toBe(
+      'Loading cancelled. 2 of 3 files opened.'
+    );
   });
 
   test('in-flight per-file warning during drain does not overwrite the cancel toast', async () => {
-    // Each document:opened payload from Go can carry a per-file warning
-    // (structural issues recovered by pdfcpu). App.jsx dispatches
-    // SET_DOCUMENT_WARNING for that payload, which would replace the cancel
-    // toast unless guarded by batchOpenCancelled.
     render(<AppProvider><Bootstrap /></AppProvider>);
     act(() => screen.getByTestId('start-2').click());
-    act(() => screen.getByTestId('prog-1').click());
+    act(() => screen.getByTestId('open-1').click());
     await userEvent.click(screen.getByTestId('batch-open-cancel'));
 
     expect(screen.getByTestId('warning-text').textContent).toMatch(/Loading cancelled/);
@@ -165,19 +194,14 @@ describe('BatchOpenDialog', () => {
   test('completing a non-cancelled batch leaves documentWarning untouched', () => {
     render(<AppProvider><Bootstrap /></AppProvider>);
     act(() => screen.getByTestId('start-2').click());
-    act(() => screen.getByTestId('prog-1').click());
-    act(() => screen.getByTestId('prog-2').click());
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
     act(() => screen.getByTestId('done').click());
 
     expect(screen.getByTestId('warning-text').textContent).toBe('');
   });
 
   test('cancelled flag persists past BATCH_OPEN_COMPLETE so late events cannot clobber the toast', async () => {
-    // Wails alpha.85 dispatches each Go-side Event.Emit in its own
-    // goroutine, so document:batch-complete can arrive at JS BEFORE
-    // earlier document:opened events. The cancelled flag must stay set
-    // until the next batch or an explicit dismiss; otherwise a late
-    // OPEN_DOCUMENT (cancelled=false branch) would clear documentWarning.
     render(<AppProvider><Bootstrap /></AppProvider>);
 
     act(() => screen.getByTestId('start-2').click());
@@ -187,8 +211,7 @@ describe('BatchOpenDialog', () => {
     act(() => screen.getByTestId('done').click());
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('true');
 
-    // A late OPEN_DOCUMENT arriving after dialog close still preserves the toast.
-    act(() => screen.getByTestId('open-doc').click());
+    act(() => screen.getByTestId('open-3').click());
     expect(screen.getByTestId('warning-text').textContent).toMatch(/Loading cancelled/);
   });
 
@@ -198,11 +221,8 @@ describe('BatchOpenDialog', () => {
     act(() => screen.getByTestId('start-2').click());
     await userEvent.click(screen.getByTestId('batch-open-cancel'));
     act(() => screen.getByTestId('done').click());
-
-    // Flag still true after the prior cancelled batch finished.
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('true');
 
-    // Next batch resets it.
     act(() => screen.getByTestId('start-2').click());
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('false');
     expect(screen.getByTestId('batch-open-cancel')).not.toBeDisabled();
@@ -215,12 +235,8 @@ describe('BatchOpenDialog', () => {
     await userEvent.click(screen.getByTestId('batch-open-cancel'));
     act(() => screen.getByTestId('done').click());
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('true');
-
-    // Simulate the user clicking the X on the warning toast (via direct dispatch).
-    await userEvent.click(screen.getByTestId('open-doc')); // first ensure toast still there
     expect(screen.getByTestId('warning-text').textContent).toMatch(/Loading cancelled/);
 
-    // Now dismiss.
     act(() => screen.getByTestId('dismiss-warning').click());
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('false');
     expect(screen.getByTestId('warning-text').textContent).toBe('');

@@ -1,6 +1,6 @@
 /**
  * @file Progress dialog shown during a multi-file PDF drag-and-drop.
- * Visible when batchOpenTotal > 0; auto-closes on BATCH_OPEN_COMPLETE.
+ * Visible while batchOpenActive; auto-closes on BATCH_OPEN_COMPLETE.
  * Includes a Cancel button that signals the active loop (JS- or Go-side) to
  * stop after the file currently being opened. Already-opened tabs are kept.
  */
@@ -9,10 +9,9 @@ import { Events } from '@wailsio/runtime';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 
 export function BatchOpenDialog() {
-  const { batchOpenTotal, batchOpenCompleted, batchOpenCancelled } = useAppState();
+  const { batchOpenActive, batchOpenTotal, batchOpenCompleted, batchOpenCancelled } = useAppState();
   const dispatch = useAppDispatch();
-  const open = batchOpenTotal > 0;
-  const ratio = open ? Math.min(1, Math.max(0, batchOpenCompleted / batchOpenTotal)) : 0;
+  const ratio = batchOpenTotal > 0 ? Math.min(1, Math.max(0, batchOpenCompleted / batchOpenTotal)) : 0;
   const percent = Math.round(ratio * 100);
 
   const handleCancel = () => {
@@ -28,7 +27,7 @@ export function BatchOpenDialog() {
     : `Opened ${batchOpenCompleted} of ${batchOpenTotal}`;
 
   return (
-    <Dialog.Root open={open}>
+    <Dialog.Root open={batchOpenActive}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40" />
         <Dialog.Content

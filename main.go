@@ -191,19 +191,13 @@ func main() {
 			if batchCancelled.Load() {
 				break
 			}
-			// Skip the advisory when cancelled mid-batch: the "last opened"
-			// file is no longer the original final selection.
+			// Attach the unsupported-files advisory to the last file's
+			// document:opened payload. Natural break on cancel skips this.
 			extra := ""
 			if i == len(pdfPaths)-1 {
 				extra = unsupportedMsg
 			}
 			openFileAndEmitWithWarning(pdfService, app, p, extra)
-			if len(pdfPaths) > 1 {
-				app.Event.Emit("document:batch-progress", map[string]any{
-					"completed": i + 1,
-					"total":     len(pdfPaths),
-				})
-			}
 		}
 		if len(pdfPaths) > 1 {
 			app.Event.Emit("document:batch-complete", nil)

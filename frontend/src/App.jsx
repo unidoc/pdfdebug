@@ -138,11 +138,6 @@ function AppContent() {
       if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
     })
 
-    const offBatchProgress = Events.On('document:batch-progress', (event) => {
-      const completed = Number(event?.data?.completed) || 0
-      dispatch({ type: 'BATCH_OPEN_PROGRESS', payload: { completed } })
-    })
-
     const offBatchComplete = Events.On('document:batch-complete', () => {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
@@ -155,7 +150,6 @@ function AppContent() {
       offNavForward()
       offGoToPage()
       offBatchStart()
-      offBatchProgress()
       offBatchComplete()
     }
   }, [dispatch])
