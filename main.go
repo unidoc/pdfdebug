@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -153,21 +154,26 @@ func main() {
 		openFileAndEmitWithWarning(pdfService, app, path, "")
 	}
 
+	// batchCancelled is checked between iterations of openFilesBatch.
+	// Set by the frontend Cancel button via document:batch-cancel; reset
+	// at the start of each batch.
+	var batchCancelled atomic.Bool
+
+	app.Event.On("document:batch-cancel", func(_ *application.CustomEvent) {
+		batchCancelled.Store(true)
+	})
+
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
-	// Optionally emits a soft document:warning for unsupported files in a
-	// mixed batch. Used by both the file-drop handler and the menu Open...
-	// item so the multi-file UX is identical regardless of how the user
-	// selected the batch.
+	// Used by both the file-drop handler and the menu Open... item.
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
 		}
-		// Compose the unsupported-files advisory once; injected into the
-		// LAST document:opened payload so the frontend handler sets the
-		// warning in the same handler tick as the OPEN_DOCUMENT that would
-		// otherwise clear it. Keeping it on document:opened (vs a separate
-		// document:warning event) sidesteps any event-bus ordering risk.
+		batchCancelled.Store(false)
+		// Piggyback the unsupported-files advisory onto the last
+		// document:opened payload so the frontend sets the warning in the
+		// same tick as the OPEN_DOCUMENT that would otherwise clear it.
 		var unsupportedMsg string
 		if unsupportedCount > 0 {
 			noun := "files"
@@ -182,6 +188,11 @@ func main() {
 			})
 		}
 		for i, p := range pdfPaths {
+			if batchCancelled.Load() {
+				break
+			}
+			// Skip the advisory when cancelled mid-batch: the "last opened"
+			// file is no longer the original final selection.
 			extra := ""
 			if i == len(pdfPaths)-1 {
 				extra = unsupportedMsg

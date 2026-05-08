@@ -52,11 +52,13 @@ export interface AppState {
   documentError: string | null;
   documentWarning: string | null;
   goToPageOpen: boolean;
-  // Batch open progress: when batchOpenTotal > 0 a multi-file drop is in
-  // flight; the BatchOpenDialog is visible and disappears when total resets
-  // to 0 (BATCH_OPEN_COMPLETE). Single-file drops never set these.
+  // Batch open progress: batchOpenTotal > 0 means a multi-file open is in
+  // flight and the BatchOpenDialog is visible.
   batchOpenTotal: number;
   batchOpenCompleted: number;
+  // True after the user clicks Cancel; persists past BATCH_OPEN_COMPLETE
+  // until the next BATCH_OPEN_START or DISMISS_WARNING (see BATCH_OPEN_COMPLETE).
+  batchOpenCancelled: boolean;
 }
 
 /** Union of all actions the app reducer handles. */
@@ -79,6 +81,7 @@ export type AppAction =
   | { type: 'CLOSE_GO_TO_PAGE' }
   | { type: 'BATCH_OPEN_START'; payload: { total: number } }
   | { type: 'BATCH_OPEN_PROGRESS'; payload: { completed: number } }
+  | { type: 'BATCH_OPEN_CANCEL' }
   | { type: 'BATCH_OPEN_COMPLETE' };
 
 // --- Reducer ---
@@ -91,6 +94,7 @@ const initialState: AppState = {
   goToPageOpen: false,
   batchOpenTotal: 0,
   batchOpenCompleted: 0,
+  batchOpenCancelled: false,
 };
 
 /**
@@ -100,6 +104,9 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
+      // Preserve the cancellation toast against in-flight document:opened
+      // events that arrive after BATCH_OPEN_CANCEL.
+      const preserveWarning = state.batchOpenCancelled;
       // Duplicate file detection: if a tab with the same filePath exists, activate it.
       // Backend resource cleanup for the discarded tabId is handled in App.jsx.
       if (action.payload.filePath) {
@@ -109,7 +116,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             ...state,
             activeTabId: existing.tabId,
             documentError: null,
-            documentWarning: null,
+            documentWarning: preserveWarning ? state.documentWarning : null,
           };
         }
       }
@@ -134,7 +141,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         tabs: [...state.tabs, newTab],
         activeTabId: action.payload.tabId,
         documentError: null,
-        documentWarning: null,
+        documentWarning: preserveWarning ? state.documentWarning : null,
       };
     }
     case 'CLOSE_DOCUMENT': {
@@ -273,10 +280,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SET_DOCUMENT_WARNING': {
+      // Suppress per-file warnings while the cancellation toast is active.
+      if (state.batchOpenCancelled) return state;
       return { ...state, documentWarning: action.payload.message };
     }
     case 'DISMISS_WARNING': {
-      return { ...state, documentWarning: null };
+      // Also clear batchOpenCancelled so subsequent opens aren't suppressed.
+      return { ...state, documentWarning: null, batchOpenCancelled: false };
     }
     case 'NAVIGATE_BACK': {
       if (state.activeTabId === null) return state;
@@ -330,13 +340,38 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, goToPageOpen: false };
     }
     case 'BATCH_OPEN_START': {
-      return { ...state, batchOpenTotal: action.payload.total, batchOpenCompleted: 0 };
+      return {
+        ...state,
+        batchOpenTotal: action.payload.total,
+        batchOpenCompleted: 0,
+        batchOpenCancelled: false,
+      };
     }
     case 'BATCH_OPEN_PROGRESS': {
       return { ...state, batchOpenCompleted: action.payload.completed };
     }
+    case 'BATCH_OPEN_CANCEL': {
+      if (state.batchOpenTotal === 0) return state;
+      // Set toast at click time, not on COMPLETE: Wails dispatches events
+      // in separate goroutines so batch-complete can arrive before the
+      // click is processed.
+      return {
+        ...state,
+        batchOpenCancelled: true,
+        documentWarning: `Loading cancelled. ${state.batchOpenCompleted} of ${state.batchOpenTotal} files opened.`,
+      };
+    }
     case 'BATCH_OPEN_COMPLETE': {
-      return { ...state, batchOpenTotal: 0, batchOpenCompleted: 0 };
+      // Do NOT reset batchOpenCancelled here. Wails alpha.85 dispatches
+      // each Emit in its own goroutine, so document:batch-complete can
+      // race ahead of in-flight document:opened events; the flag stays
+      // set so OPEN_DOCUMENT / SET_DOCUMENT_WARNING keep guarding until
+      // BATCH_OPEN_START or DISMISS_WARNING clears it.
+      return {
+        ...state,
+        batchOpenTotal: 0,
+        batchOpenCompleted: 0,
+      };
     }
     default: {
       const _exhaustive: never = action;
