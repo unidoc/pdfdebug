@@ -24,8 +24,8 @@ describe('ErrorBanner', () => {
       <ErrorBanner message="err" severity="error" onDismiss={() => {}} />
     );
     const banner = screen.getByTestId('error-banner');
-    expect(banner.className).toContain('bg-red-50');
-    expect(banner.className).toContain('text-error');
+    expect(banner.className).toContain('bg-red-100');
+    expect(banner.className).toContain('text-red-900');
   });
 
   test('uses amber styling for warning severity', () => {
@@ -33,8 +33,8 @@ describe('ErrorBanner', () => {
       <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
     );
     const banner = screen.getByTestId('warning-banner');
-    expect(banner.className).toContain('bg-amber-50');
-    expect(banner.className).toContain('text-warning');
+    expect(banner.className).toContain('bg-amber-100');
+    expect(banner.className).toContain('text-amber-900');
   });
 
   test('warning banner has correct dismiss aria-label', () => {
