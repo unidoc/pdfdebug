@@ -8,7 +8,7 @@ import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { ErrorBoundary } from './ErrorBoundary';
 import { TreePanel } from './TreePanel';
-import { ObjectInfoPanel } from './ObjectInfoPanel';
+import { ObjectSourcePanel } from './ObjectInfoPanel';
 import { DetailPanel } from './DetailPanel';
 import { useWindowPersistence, type PanelSizes } from '../hooks/useWindowPersistence';
 
@@ -67,7 +67,7 @@ export function MainLayout() {
                   minSize={100}
                 >
                   <ErrorBoundary>
-                    <ObjectInfoPanel />
+                    <ObjectSourcePanel />
                   </ErrorBoundary>
                 </Allotment.Pane>
               </Allotment>

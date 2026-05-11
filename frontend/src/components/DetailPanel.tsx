@@ -3,7 +3,7 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream, GetImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
@@ -14,6 +14,21 @@ import {
 } from './DetailShared';
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 import { ImagePreview } from './ImagePreview';
+import { ReverseRefsSection, type ReverseRefEntry } from './ReverseRefsSection';
+
+/**
+ * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
+ * carry trailing dict/arr segments after the obj prefix and must be excluded
+ * from the Referenced by section per Task 7.1.
+ */
+const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
+
+/**
+ * Lowercase substring used to detect the index-unavailable sentinel coming
+ * back from Wails error rejection. Matches the canonical
+ * `ErrReverseRefIndexUnavailable` wording ("reverse-ref index unavailable").
+ */
+const REV_REFS_UNAVAILABLE_MARKER = 'reverse-ref index unavailable';
 
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -49,6 +64,16 @@ function DetailPanelInner() {
   const [imageData, setImageData] = useState<PdfImageData | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [showImageLoading, setShowImageLoading] = useState(false);
+
+  // Story 9-10: reverse-refs are fetched per-selection. The backend has the
+  // document-level index so the call is O(1); no client cache is needed.
+  // reverseRefsLoaded gates the section render until the fetch resolves so an
+  // in-flight selection does not flash the orphan empty state for objects that
+  // actually have inbound refs.
+  const [reverseRefs, setReverseRefs] = useState<ReverseRefEntry[]>([]);
+  const [reverseRefsUnavailable, setReverseRefsUnavailable] = useState(false);
+  const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
+  const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
   useEffect(() => {
     if (!activeTabId || !selectedNodeId) {
@@ -163,6 +188,59 @@ function DetailPanelInner() {
     const timer = setTimeout(() => setShowImageLoading(true), 200);
     return () => clearTimeout(timer);
   }, [imageLoading]);
+
+  // Story 9-10: fetch reverse refs for indirect-object selections only. The
+  // catalog (nodeId='root') is also treated as indirect because in real PDFs
+  // it lives in the indirect-object graph and AC#10 requires the section to
+  // render the "Document root..." empty state for it. Inline-value nodes
+  // never mount the section. Stale-fetch guard matches existing patterns.
+  useEffect(() => {
+    const isIndirect = !!selectedNodeId &&
+      (INDIRECT_NODE_RE.test(selectedNodeId) || selectedNodeId === 'root');
+    if (!activeTabId || !isIndirect) {
+      setReverseRefs([]);
+      setReverseRefsUnavailable(false);
+      setReverseRefsVisible(false);
+      setReverseRefsLoaded(false);
+      return;
+    }
+    // Reset transient state on every selection change so a previous selection's
+    // banner doesn't bleed into the new selection while its fetch is in flight.
+    // reverseRefsLoaded stays false until the fetch resolves so the section
+    // does not flash the orphan empty state for non-orphan objects.
+    setReverseRefs([]);
+    setReverseRefsUnavailable(false);
+    setReverseRefsVisible(true);
+    setReverseRefsLoaded(false);
+    let cancelled = false;
+    GetReverseRefs(activeTabId, selectedNodeId)
+      .then((result: unknown) => {
+        if (cancelled) return;
+        const list = (Array.isArray(result) ? result : []) as ReverseRefEntry[];
+        setReverseRefs(list);
+        setReverseRefsUnavailable(false);
+        setReverseRefsLoaded(true);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+        if (msg.toLowerCase().includes(REV_REFS_UNAVAILABLE_MARKER)) {
+          // AC#6 failure mode: surface the unavailable banner.
+          setReverseRefs([]);
+          setReverseRefsUnavailable(true);
+          setReverseRefsLoaded(true);
+        } else {
+          // Task 7.3 case (b): hide the section silently and log.
+          setReverseRefs([]);
+          setReverseRefsUnavailable(false);
+          setReverseRefsVisible(false);
+          setReverseRefsLoaded(false);
+          // eslint-disable-next-line no-console
+          console.warn('GetReverseRefs failed:', err);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [activeTabId, selectedNodeId]);
 
   // Keyboard shortcuts: Cmd+[ / Ctrl+[ for back, Cmd+] / Ctrl+] for forward
   useEffect(() => {
@@ -295,6 +373,14 @@ function DetailPanelInner() {
                   </div>
                 )}
               </>
+            )}
+            {reverseRefsVisible && reverseRefsLoaded && selectedNodeId && (
+              <ReverseRefsSection
+                key={selectedNodeId}
+                entries={reverseRefs}
+                selectedIconHint={selectedNodeIconHint}
+                indexUnavailable={reverseRefsUnavailable}
+              />
             )}
           </div>
         )}

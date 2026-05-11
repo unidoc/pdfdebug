@@ -89,6 +89,34 @@ func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageDa
 	return s.inspector.GetImageData(tabID, nodeID)
 }
 
+// GetObjectSource returns the reserialized PDF-syntax representation of an
+// indirect object. Inline-node selections return ("", nil) so the frontend
+// can render the AC3 empty state.
+func (s *PDFService) GetObjectSource(tabID string, nodeID string) (string, error) {
+	return s.inspector.GetObjectSource(tabID, nodeID)
+}
+
+// GetReverseRefs returns the inbound dict-graph references for the indirect
+// object identified by nodeID, sourced from the per-document reverse-ref
+// index built at Open. Returns pdfcore.ErrReverseRefIndexUnavailable when the
+// index could not be built (panic-wrapped failure mode -- AC6).
+//
+// Returns []*pdfcore.ReverseRef so the Wails-generated TS binding produces a
+// nullable element type that mirrors Go's pointer semantics (the per-row
+// ParentType is already *string).
+func (s *PDFService) GetReverseRefs(tabID string, nodeID string) ([]*pdfcore.ReverseRef, error) {
+	refs, err := s.inspector.GetReverseRefs(tabID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*pdfcore.ReverseRef, len(refs))
+	for i := range refs {
+		rr := refs[i]
+		out[i] = &rr
+	}
+	return out, nil
+}
+
 // GoToPage resolves a 1-based page number to the node ID of that page's
 // content stream, suitable for the frontend to dispatch as a NAVIGATE_TO_REF
 // target. Returns an error if the page number is out of range, the page has

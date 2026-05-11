@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"cmp"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,6 +23,14 @@ type DocumentState struct {
 	PageCount   int
 	streamMu    sync.Mutex
 	streamCache map[string]*ContentStreamData
+
+	// reverseRefs maps (objNum, gen) -> inbound dict-graph references. Built
+	// once at Open via a full-graph BFS from /Root; the trailer's /Root pointer
+	// is NOT recorded as a reverse ref (the catalog is treated as having no
+	// incoming edges by construction). Nil means the build failed -- check
+	// revRefsBuildFailed to distinguish "not built" from "empty index".
+	reverseRefs        map[[2]int][]ReverseRef
+	revRefsBuildFailed bool
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are
@@ -86,16 +95,36 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
-	ins.mu.Lock()
-	// Guard: if a document is already registered under this tabID, remove
-	// the old entry first to avoid leaking its state.
-	delete(ins.documents, tabID)
-	ins.documents[tabID] = &DocumentState{
+	doc := &DocumentState{
 		FilePath:    absPath,
 		PDFContext:  ctx,
 		PageCount:   pageCount,
 		streamCache: make(map[string]*ContentStreamData),
 	}
+
+	// Build the reverse-ref index inside safeCall. On panic we leave the map
+	// nil and flag the build as failed -- the frontend renders an unavailable
+	// banner instead of silently mis-labelling every object as orphan. The
+	// panic message is logged so devs can diagnose the failure; surfacing it
+	// further (banner detail, telemetry) is out of scope.
+	revMap := map[[2]int][]ReverseRef{}
+	buildErr := safeCall(func() error {
+		buildReverseRefs(doc, revMap)
+		return nil
+	})
+	if buildErr != nil {
+		log.Printf("pdfcore: reverse-ref index build failed for %s: %v", absPath, buildErr)
+		doc.reverseRefs = nil
+		doc.revRefsBuildFailed = true
+	} else {
+		doc.reverseRefs = revMap
+	}
+
+	ins.mu.Lock()
+	// Guard: if a document is already registered under this tabID, remove
+	// the old entry first to avoid leaking its state.
+	delete(ins.documents, tabID)
+	ins.documents[tabID] = doc
 	ins.mu.Unlock()
 
 	return &DocumentInfo{

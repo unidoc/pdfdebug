@@ -1,22 +1,33 @@
 /**
- * Story 2.6: Object Info Panel -- Property Display for Selected Nodes
+ * Story 9.10: Object Source View + Reverse References
  *
- * TDD RED PHASE: Tests MUST fail until ObjectInfoPanel.tsx is implemented.
+ * TDD RED PHASE: Tests MUST fail until Task 5 rewrites ObjectInfoPanel.tsx in
+ * place to export ObjectSourcePanel and fetch GetObjectSource.
  *
- * Test IDs: 2.6-UNIT-002 through 2.6-UNIT-005 (Vitest)
+ * Covers AC#1, AC#2, AC#3, AC#4, AC#5 (Object Source view contract) and the
+ * AC#4 mapping that is the highest-leverage place to catch a regression:
+ * `5 0 R` -> nodeID `obj:0:5` (capture-1 = num, capture-2 = gen). Swapping
+ * them dispatches silently wrong navigation.
+ *
+ * The original test file (Story 2-6 / 2-8) is replaced. The file path stays
+ * the same to minimise import churn elsewhere (Task 5.1).
+ *
  * Run: cd frontend && npx vitest run src/components/ObjectInfoPanel.test.tsx
  */
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import {
   AppProvider,
   useAppDispatch,
+  useAppState,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: This import will fail until ObjectInfoPanel.tsx is created.
-import { ObjectInfoPanel } from './ObjectInfoPanel';
+// RED PHASE: this named export does not exist yet. Task 5.1 renames the
+// component from ObjectInfoPanel to ObjectSourcePanel inside the same file.
+import { ObjectSourcePanel } from './ObjectInfoPanel';
 
-// Mock allotment -- jsdom has no layout APIs
+// Mock allotment -- jsdom has no layout APIs.
 vi.mock('allotment', () => {
   function Pane({ children }: { children: React.ReactNode }) {
     return <div>{children}</div>;
@@ -27,10 +38,11 @@ vi.mock('allotment', () => {
   Allotment.Pane = Pane;
   return { Allotment };
 });
-
 vi.mock('allotment/dist/style.css', () => ({}));
 
-// Mock Wails bindings
+// Mock Wails bindings -- the new fetcher is GetObjectSource, not
+// GetObjectDetail. (The old binding remains for other components.)
+const mockGetObjectSource = vi.fn();
 const mockGetObjectDetail = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
@@ -41,10 +53,11 @@ vi.mock(
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
+    GetObjectSource: (...args: unknown[]) => mockGetObjectSource(...args),
   })
 );
 
-// --- Test data fixtures ---
+// --- Test data ---
 
 const catalogNode = {
   id: 'root',
@@ -58,165 +71,57 @@ const catalogNode = {
   error: '',
 };
 
-const rootChildren = [
-  {
-    id: 'dict:root:Type',
-    label: 'Type',
-    rawKey: '/Type',
-    nodeType: 'scalar',
-    valueType: 'name',
-    hasChildren: false,
-    childCount: 0,
-    iconHint: 'default',
-    error: '',
-  },
-];
+// Example source strings matching AC#1 and AC#5.
+const shortArraySource = `38109 0 obj
+[ 38110 0 R 38111 0 R 38112 0 R ]
+endobj`;
 
-// ObjectDetail fixtures matching model.go types
-const dictDetail = {
-  nodeId: 'root',
-  objectRef: '',
-  type: 'dict',
-  properties: [
-    {
-      key: '/Pages',
-      value: {
-        type: 'reference',
-        display: '2 0 R',
-        raw: '2 0 R',
-        refTarget: 'obj:0:2',
-      },
-    },
-    {
-      key: '/Type',
-      value: {
-        type: 'name',
-        display: '/Catalog',
-        raw: '/Catalog',
-        refTarget: '',
-      },
-    },
-  ],
-  elements: [],
-  scalarValue: null,
-  streamInfo: null,
-};
+const dictSource = `4 0 obj
+<<
+    /Type /Pages
+    /Kids [5 0 R 6 0 R 7 0 R]
+    /Count 3
+>>
+endobj`;
 
-const arrayDetail = {
-  nodeId: 'obj:0:5',
-  objectRef: '5 0 R',
-  type: 'array',
-  properties: [],
-  elements: [
-    {
-      type: 'reference',
-      display: '3 0 R',
-      raw: '3 0 R',
-      refTarget: 'obj:0:3',
-    },
-    {
-      type: 'reference',
-      display: '4 0 R',
-      raw: '4 0 R',
-      refTarget: 'obj:0:4',
-    },
-  ],
-  scalarValue: null,
-  streamInfo: null,
-};
+const streamSource = `12 0 obj
+<< /Length 12345 /Filter /FlateDecode >>
+stream
+[12,345 bytes -- see Content Stream tab for decoded view]
+endstream
+endobj`;
 
-const scalarDetail = {
-  nodeId: 'dict:root:Type',
-  objectRef: '',
-  type: 'scalar',
-  properties: [],
-  elements: [],
-  scalarValue: {
-    type: 'name',
-    display: '/Catalog',
-    raw: '/Catalog',
-    refTarget: '',
-  },
-  streamInfo: null,
-};
+// --- Helpers ---
 
-const streamDetail = {
-  nodeId: 'obj:0:10',
-  objectRef: '10 0 R',
-  type: 'stream',
-  properties: [
-    {
-      key: '/Filter',
-      value: {
-        type: 'name',
-        display: '/FlateDecode',
-        raw: '/FlateDecode',
-        refTarget: '',
-      },
-    },
-    {
-      key: '/Length',
-      value: {
-        type: 'number',
-        display: '1234',
-        raw: '1234',
-        refTarget: '',
-      },
-    },
-  ],
-  elements: [],
-  scalarValue: null,
-  streamInfo: {
-    length: 1234,
-    filters: ['FlateDecode'],
-  },
-};
-
-const emptyDictDetail = {
-  nodeId: 'obj:0:20',
-  objectRef: '20 0 R',
-  type: 'dict',
-  properties: [],
-  elements: [],
-  scalarValue: null,
-  streamInfo: null,
-};
-
-const emptyArrayDetail = {
-  nodeId: 'obj:0:21',
-  objectRef: '21 0 R',
-  type: 'array',
-  properties: [],
-  elements: [],
-  scalarValue: null,
-  streamInfo: null,
-};
-
-// Helper to dispatch state so ObjectInfoPanel has a selected node
-function DispatchHelper({
-  action,
-}: {
-  action: AppAction;
-}) {
+function DispatchHelper({ action }: { action: AppAction }) {
   const dispatch = useAppDispatch();
-  // Dispatch on mount
   dispatch(action);
   return null;
 }
 
-function renderWithState(selectedNodeId: string | null) {
-  const openAction: AppAction = {
-    type: 'OPEN_DOCUMENT',
-    payload: {
-      tabId: 'tab-1',
-      fileName: 'test.pdf',
-      filePath: '/path/to/test.pdf',
-      rootNode: catalogNode,
-      rootChildren: rootChildren,
-    },
-  };
+function StateReader() {
+  const state = useAppState();
+  const activeTab = state.tabs.find((t) => t.tabId === state.activeTabId);
+  return (
+    <span data-testid="pending-nav-target">
+      {String(activeTab?.pendingNavTarget ?? '')}
+    </span>
+  );
+}
 
-  const content = (
+const openAction: AppAction = {
+  type: 'OPEN_DOCUMENT',
+  payload: {
+    tabId: 'tab-1',
+    fileName: 'test.pdf',
+    filePath: '/path/to/test.pdf',
+    rootNode: catalogNode,
+    rootChildren: [],
+  },
+};
+
+function renderPanel(selectedNodeId: string | null, extra?: React.ReactNode) {
+  return render(
     <AppProvider>
       <DispatchHelper action={openAction} />
       {selectedNodeId && (
@@ -227,562 +132,299 @@ function renderWithState(selectedNodeId: string | null) {
           }}
         />
       )}
-      <ObjectInfoPanel />
+      <ObjectSourcePanel />
+      {extra}
     </AppProvider>
   );
-
-  return render(content);
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-002 [P1]: ObjectInfoPanel renders key-value table for dictionary
-// with type-colored values
-// AC#2: Dictionary view with PropertyEntry items and ValueEntry type coloring.
+// 9.10-UNIT-101 [P0] AC#2: empty state when no node is selected
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-002: ObjectInfoPanel dictionary rendering', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
-  });
-
-  test('renders dictionary properties as key-value pairs', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      expect(screen.getByText('/Type')).toBeInTheDocument();
-      expect(screen.getByText('/Catalog')).toBeInTheDocument();
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('/Pages')).toBeInTheDocument();
-      expect(screen.getByText('2 0 R')).toBeInTheDocument();
-    });
-  });
-
-  test('applies type-name color class for Name values', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      const nameValue = screen.getByText('/Catalog');
-      expect(nameValue.className).toMatch(/text-type-name/);
-    });
-  });
-
-  test('applies type-reference color class for reference values', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      const refValue = screen.getByText('2 0 R');
-      expect(refValue.className).toMatch(/text-type-reference/);
-    });
-  });
-
-  test('reference values are underlined', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      const refValue = screen.getByText('2 0 R');
-      expect(refValue.className).toMatch(/underline/);
-    });
-  });
-
-  test('reference values have data-ref-target attribute', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      const refValue = screen.getByText('2 0 R');
-      expect(refValue).toHaveAttribute('data-ref-target', 'obj:0:2');
-    });
-  });
-
-  test('value text uses font-mono text-xs', async () => {
-    renderWithState('root');
-
-    await waitFor(() => {
-      const nameValue = screen.getByText('/Catalog');
-      expect(nameValue.className).toMatch(/font-mono/);
-      expect(nameValue.className).toMatch(/text-xs/);
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-003 [P1]: ObjectInfoPanel shows empty state when no node selected
-// AC#1: Given no tree node is selected, When the user views the
-//       ObjectInfoPanel, Then it shows "Select a node to view properties"
-//       in muted text.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-003: ObjectInfoPanel empty state', () => {
+describe('9.10-UNIT-101: no-selection empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  test('shows empty state text when no node is selected', () => {
-    renderWithState(null);
-
+  test('renders "Select an object to view its source." when nothing selected', () => {
+    renderPanel(null);
     expect(
-      screen.getByText('Select a node to view properties')
+      screen.getByText('Select an object to view its source.')
     ).toBeInTheDocument();
   });
 
-  test('empty state has correct data-testid', () => {
-    renderWithState(null);
-
-    expect(screen.getByTestId('object-info-empty')).toBeInTheDocument();
+  test('panel container uses the new data-testid object-source-panel', () => {
+    renderPanel(null);
+    expect(screen.getByTestId('object-source-panel')).toBeInTheDocument();
+    // The old testid must be retired
+    expect(screen.queryByTestId('object-info-panel')).not.toBeInTheDocument();
   });
 
-  test('empty state text uses muted styling', () => {
-    renderWithState(null);
-
-    const emptyEl = screen.getByTestId('object-info-empty');
-    expect(emptyEl.className).toMatch(/text-text-muted/);
-    expect(emptyEl.className).toMatch(/text-sm/);
+  test('panel title is "Object Source"', () => {
+    renderPanel(null);
+    expect(screen.getByText('Object Source')).toBeInTheDocument();
   });
 
-  test('panel container has data-testid', () => {
-    renderWithState(null);
-
-    expect(screen.getByTestId('object-info-panel')).toBeInTheDocument();
+  test('GetObjectSource is NOT called when nothing is selected', () => {
+    renderPanel(null);
+    expect(mockGetObjectSource).not.toHaveBeenCalled();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-004 [P2]: ObjectInfoPanel shows "Empty dictionary" / "Empty array"
-// AC#5: Given an empty dictionary or array is selected, When the
-//       ObjectInfoPanel updates, Then it shows "Empty dictionary" or
-//       "Empty array" in muted text.
+// 9.10-UNIT-102 [P0] AC#3: empty state for non-indirect (inline) selections
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-004: ObjectInfoPanel empty dict/array', () => {
-  test('shows "Empty dictionary" for empty dict', async () => {
-    mockGetObjectDetail.mockResolvedValue(emptyDictDetail);
-    renderWithState('obj:0:20');
-
-    await waitFor(() => {
-      expect(screen.getByText('Empty dictionary')).toBeInTheDocument();
-    });
-  });
-
-  test('"Empty dictionary" text has muted styling', async () => {
-    mockGetObjectDetail.mockResolvedValue(emptyDictDetail);
-    renderWithState('obj:0:20');
-
-    await waitFor(() => {
-      const el = screen.getByText('Empty dictionary');
-      expect(el.className).toMatch(/text-text-muted/);
-      expect(el.className).toMatch(/text-sm/);
-    });
-  });
-
-  test('shows "Empty array" for empty array', async () => {
-    mockGetObjectDetail.mockResolvedValue(emptyArrayDetail);
-    renderWithState('obj:0:21');
-
-    await waitFor(() => {
-      expect(screen.getByText('Empty array')).toBeInTheDocument();
-    });
-  });
-
-  test('"Empty array" text has muted styling', async () => {
-    mockGetObjectDetail.mockResolvedValue(emptyArrayDetail);
-    renderWithState('obj:0:21');
-
-    await waitFor(() => {
-      const el = screen.getByText('Empty array');
-      expect(el.className).toMatch(/text-text-muted/);
-      expect(el.className).toMatch(/text-sm/);
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-005 [P2]: ObjectInfoPanel scalar view
-// AC#4: Given a scalar node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the single value with its type label.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-005: ObjectInfoPanel scalar rendering', () => {
+describe('9.10-UNIT-102: inline-node empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(scalarDetail);
   });
 
-  test('renders scalar value display text', async () => {
-    renderWithState('dict:root:Type');
-
+  test('backend returning empty string renders "Select an indirect object..."', async () => {
+    mockGetObjectSource.mockResolvedValue('');
+    renderPanel('dict:obj:0:5:Type');
     await waitFor(() => {
-      expect(screen.getByText('/Catalog')).toBeInTheDocument();
+      expect(
+        screen.getByText('Select an indirect object to view its source.')
+      ).toBeInTheDocument();
     });
   });
 
-  test('scalar value has correct type color class', async () => {
-    renderWithState('dict:root:Type');
-
+  test('inline empty state does NOT show the no-selection copy', async () => {
+    mockGetObjectSource.mockResolvedValue('');
+    renderPanel('dict:obj:0:5:Type');
     await waitFor(() => {
-      const nameValue = screen.getByText('/Catalog');
-      expect(nameValue.className).toMatch(/text-type-name/);
+      expect(
+        screen.queryByText('Select an object to view its source.')
+      ).not.toBeInTheDocument();
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-006 [P1]: ObjectInfoPanel array rendering
-// AC#3: Given an array node is selected, When the ObjectInfoPanel updates,
-//       Then it displays an indexed list of array elements.
+// 9.10-UNIT-103 [P0] AC#1: reserialized PDF syntax rendered in monospace
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-006: ObjectInfoPanel array rendering', () => {
+describe('9.10-UNIT-103: source rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(arrayDetail);
   });
 
-  test('renders array elements with index labels', async () => {
-    renderWithState('obj:0:5');
-
+  test('fetches GetObjectSource with the active tab id and selected node id', async () => {
+    mockGetObjectSource.mockResolvedValue(shortArraySource);
+    renderPanel('obj:0:38109');
     await waitFor(() => {
-      expect(screen.getByText('[0]')).toBeInTheDocument();
-      expect(screen.getByText('[1]')).toBeInTheDocument();
+      expect(mockGetObjectSource).toHaveBeenCalledWith('tab-1', 'obj:0:38109');
     });
   });
 
-  test('renders array element values', async () => {
-    renderWithState('obj:0:5');
-
+  test('renders the returned source text verbatim', async () => {
+    mockGetObjectSource.mockResolvedValue(shortArraySource);
+    renderPanel('obj:0:38109');
     await waitFor(() => {
-      expect(screen.getByText('3 0 R')).toBeInTheDocument();
-      expect(screen.getByText('4 0 R')).toBeInTheDocument();
+      expect(screen.getByText(/38109 0 obj/)).toBeInTheDocument();
     });
+    expect(screen.getByText(/endobj/)).toBeInTheDocument();
   });
 
-  test('array element values have correct type coloring', async () => {
-    renderWithState('obj:0:5');
-
+  test('source body uses font-mono so indentation is preserved', async () => {
+    mockGetObjectSource.mockResolvedValue(dictSource);
+    renderPanel('obj:0:4');
     await waitFor(() => {
-      const refValue = screen.getByText('3 0 R');
-      expect(refValue.className).toMatch(/text-type-reference/);
+      const body = screen.getByTestId('object-source-body');
+      expect(body.className).toMatch(/font-mono/);
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-007 [P1]: ObjectInfoPanel stream rendering
-// AC#6: Given a stream node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the stream's dictionary properties as a key-value
-//       table, And displays stream metadata (length and filter names).
+// 9.10-UNIT-104 [P0] AC#4: indirect ref click dispatches NAVIGATE_TO_REF with
+// the correct obj:gen:num mapping. THIS IS THE LOAD-BEARING TEST: capture 1
+// is num, capture 2 is gen; the dispatched nodeID is `obj:${gen}:${num}`.
+// `5 0 R` -> `obj:0:5`, NOT `obj:5:0`.
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-007: ObjectInfoPanel stream rendering', () => {
+describe('9.10-UNIT-104: indirect-ref click mapping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(streamDetail);
   });
 
-  test('renders stream dictionary properties', async () => {
-    renderWithState('obj:0:10');
+  test('clicking `5 0 R` dispatches NAVIGATE_TO_REF with `obj:0:5`', async () => {
+    const user = userEvent.setup();
+    mockGetObjectSource.mockResolvedValue(dictSource);
+    renderPanel('obj:0:4', <StateReader />);
 
     await waitFor(() => {
-      expect(screen.getByText('/Filter')).toBeInTheDocument();
-      expect(screen.getByText('/FlateDecode')).toBeInTheDocument();
+      expect(screen.getByText(/5 0 R/)).toBeInTheDocument();
+    });
+    // The clickable span MUST carry data-ref-target with the correct mapping.
+    const span = screen.getByText('5 0 R');
+    expect(span).toHaveAttribute('data-ref-target', 'obj:0:5');
+    expect(span).toHaveAttribute('role', 'button');
+    expect(span).toHaveAttribute('tabindex', '0');
+
+    await user.click(span);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pending-nav-target').textContent).toBe('obj:0:5');
     });
   });
 
-  test('renders stream metadata length', async () => {
-    renderWithState('obj:0:10');
+  test('clicking `38110 0 R` dispatches `obj:0:38110` (multi-digit num)', async () => {
+    const user = userEvent.setup();
+    mockGetObjectSource.mockResolvedValue(shortArraySource);
+    renderPanel('obj:0:38109', <StateReader />);
 
     await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Length: 1234 bytes');
+      expect(screen.getByText('38110 0 R')).toBeInTheDocument();
+    });
+    const span = screen.getByText('38110 0 R');
+    expect(span).toHaveAttribute('data-ref-target', 'obj:0:38110');
+
+    await user.click(span);
+    await waitFor(() => {
+      expect(screen.getByTestId('pending-nav-target').textContent).toBe('obj:0:38110');
     });
   });
 
-  test('renders stream filter names as comma-separated list', async () => {
-    renderWithState('obj:0:10');
+  test('clicking `7 2 R` (non-zero generation) dispatches `obj:2:7`', async () => {
+    const user = userEvent.setup();
+    const src = `100 0 obj\n[ 7 2 R ]\nendobj`;
+    mockGetObjectSource.mockResolvedValue(src);
+    renderPanel('obj:0:100', <StateReader />);
 
     await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: FlateDecode');
+      expect(screen.getByText('7 2 R')).toBeInTheDocument();
     });
-  });
-});
+    const span = screen.getByText('7 2 R');
+    expect(span).toHaveAttribute('data-ref-target', 'obj:2:7');
 
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-008 [P1]: ObjectInfoPanel header shows object reference
-// AC#2: The object reference (e.g., "4 0 R") is displayed in the panel header.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-008: ObjectInfoPanel header', () => {
-  test('shows "Object Properties" header label', async () => {
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
-    renderWithState('root');
-
+    await user.click(span);
     await waitFor(() => {
-      expect(screen.getByText('Object Properties')).toBeInTheDocument();
+      // Regression guard: must be obj:2:7, NOT obj:7:2.
+      expect(screen.getByTestId('pending-nav-target').textContent).toBe('obj:2:7');
     });
   });
 
-  test('shows object reference for indirect objects', async () => {
-    mockGetObjectDetail.mockResolvedValue(arrayDetail);
-    renderWithState('obj:0:5');
+  test('Enter key on a ref dispatches NAVIGATE_TO_REF', async () => {
+    const user = userEvent.setup();
+    mockGetObjectSource.mockResolvedValue(dictSource);
+    renderPanel('obj:0:4', <StateReader />);
 
     await waitFor(() => {
       expect(screen.getByText('5 0 R')).toBeInTheDocument();
     });
-  });
-
-  test('does not show object reference for non-indirect objects', async () => {
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
-    renderWithState('root');
-
+    const span = screen.getByText('5 0 R');
+    (span as HTMLElement).focus();
+    await user.keyboard('{Enter}');
     await waitFor(() => {
-      expect(screen.getByText('Object Properties')).toBeInTheDocument();
-    });
-    // dictDetail.objectRef is empty -- no ref text should appear in header
-    // (the "2 0 R" in the dict properties is a property value, not a header ref)
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-009 [P1]: ObjectInfoPanel error handling
-// AC#2 (error): If GetObjectDetail call rejects, show error inline.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-009: ObjectInfoPanel error handling', () => {
-  test('shows error message when GetObjectDetail rejects', async () => {
-    mockGetObjectDetail.mockRejectedValue(
-      new Error('document not found: tab "tab-1"')
-    );
-    renderWithState('root');
-
-    await waitFor(() => {
-      expect(screen.getByTestId('object-info-error')).toBeInTheDocument();
+      expect(screen.getByTestId('pending-nav-target').textContent).toBe('obj:0:5');
     });
   });
 
-  test('error display uses error text styling', async () => {
-    mockGetObjectDetail.mockRejectedValue(new Error('some error'));
-    renderWithState('root');
+  test('Space key on a ref dispatches NAVIGATE_TO_REF', async () => {
+    const user = userEvent.setup();
+    mockGetObjectSource.mockResolvedValue(dictSource);
+    renderPanel('obj:0:4', <StateReader />);
 
     await waitFor(() => {
-      const errorEl = screen.getByTestId('object-info-error');
-      expect(errorEl.className).toMatch(/text-error/);
-      expect(errorEl.className).toMatch(/text-sm/);
+      expect(screen.getByText('6 0 R')).toBeInTheDocument();
+    });
+    const span = screen.getByText('6 0 R');
+    (span as HTMLElement).focus();
+    await user.keyboard(' ');
+    await waitFor(() => {
+      expect(screen.getByTestId('pending-nav-target').textContent).toBe('obj:0:6');
+    });
+  });
+
+  test('ref span carries hyperlink styling tokens (subtle, not loud)', async () => {
+    mockGetObjectSource.mockResolvedValue(dictSource);
+    renderPanel('obj:0:4');
+    await waitFor(() => {
+      const span = screen.getByText('5 0 R');
+      // Per Task 5.5 styling: cursor-pointer, hover underline, type-reference color.
+      expect(span.className).toMatch(/cursor-pointer/);
+      expect(span.className).toMatch(/hover:underline/);
+      expect(span.className).toMatch(/text-type-reference/);
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-010 [P1]: ObjectInfoPanel calls GetObjectDetail with correct args
-// AC#2: When selectedNodeId changes, call GetObjectDetail(activeTabId,
-//       selectedNodeId).
+// 9.10-UNIT-105 [P0] AC#5: stream object renders placeholder, NOT clickable
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-010: ObjectInfoPanel data fetching', () => {
+describe('9.10-UNIT-105: stream object placeholder', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
   });
 
-  test('calls GetObjectDetail with activeTabId and selectedNodeId', async () => {
-    renderWithState('root');
-
+  test('renders the dict + stream/endstream markers + byte-count line', async () => {
+    mockGetObjectSource.mockResolvedValue(streamSource);
+    renderPanel('obj:0:12');
     await waitFor(() => {
-      expect(mockGetObjectDetail).toHaveBeenCalledWith('tab-1', 'root');
+      expect(screen.getByText(/<< \/Length 12345 \/Filter \/FlateDecode >>/)).toBeInTheDocument();
     });
+    expect(screen.getByText(/stream/)).toBeInTheDocument();
+    expect(screen.getByText(/endstream/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/\[12,345 bytes -- see Content Stream tab for decoded view\]/)
+    ).toBeInTheDocument();
   });
 
-  test('does not call GetObjectDetail when no node is selected', () => {
-    renderWithState(null);
-
-    expect(mockGetObjectDetail).not.toHaveBeenCalled();
+  test('the "12,345 bytes" line is NOT wrapped as a clickable ref', async () => {
+    mockGetObjectSource.mockResolvedValue(streamSource);
+    renderPanel('obj:0:12');
+    await waitFor(() => {
+      expect(screen.getByText(/12,345 bytes/)).toBeInTheDocument();
+    });
+    // The placeholder line MUST NOT have role=button (i.e. the indirect-ref
+    // scanner must skip it). If a future regex regression treats "12 345 R..."
+    // as a ref the test catches it.
+    const placeholderText = screen.getByText(/12,345 bytes -- see Content Stream tab for decoded view/);
+    expect(placeholderText.closest('[role="button"]')).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-011 [P1]: ValueDisplay type color mapping completeness
-// AC#2: All PDF types have correct Tailwind color classes.
+// 9.10-UNIT-106 [P1] AC#1: header label stays "Object Source"
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-011: ValueDisplay type color mapping', () => {
-  test('boolean values get text-type-boolean class', async () => {
-    const boolDetail = {
-      ...scalarDetail,
-      scalarValue: {
-        type: 'boolean',
-        display: 'true',
-        raw: 'true',
-        refTarget: '',
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(boolDetail);
-    renderWithState('dict:root:Type');
-
-    await waitFor(() => {
-      const el = screen.getByText('true');
-      expect(el.className).toMatch(/text-type-boolean/);
-    });
-  });
-
-  test('string values get text-type-string class', async () => {
-    const stringDetail = {
-      ...scalarDetail,
-      scalarValue: {
-        type: 'string',
-        display: '(Hello)',
-        raw: '(Hello)',
-        refTarget: '',
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(stringDetail);
-    renderWithState('dict:root:Type');
-
-    await waitFor(() => {
-      const el = screen.getByText('(Hello)');
-      expect(el.className).toMatch(/text-type-string/);
-    });
-  });
-
-  test('number values get text-type-number class', async () => {
-    const numberDetail = {
-      ...scalarDetail,
-      scalarValue: {
-        type: 'number',
-        display: '42',
-        raw: '42',
-        refTarget: '',
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(numberDetail);
-    renderWithState('dict:root:Type');
-
-    await waitFor(() => {
-      const el = screen.getByText('42');
-      expect(el.className).toMatch(/text-type-number/);
-    });
-  });
-
-  test('null values get text-type-null class', async () => {
-    const nullDetail = {
-      ...scalarDetail,
-      scalarValue: {
-        type: 'null',
-        display: 'null',
-        raw: 'null',
-        refTarget: '',
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(nullDetail);
-    renderWithState('dict:root:Type');
-
-    await waitFor(() => {
-      const el = screen.getByText('null');
-      expect(el.className).toMatch(/text-type-null/);
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-EXTRA-001 [P1]: Multi-filter comma-separated display
-// AC#6: Stream metadata shows filter names as comma-separated list.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-EXTRA-001: Stream with multiple filters', () => {
-  test('renders multiple filters as comma-separated list', async () => {
-    const multiFilterStream = {
-      ...streamDetail,
-      streamInfo: {
-        length: 2000,
-        filters: ['FlateDecode', 'ASCII85Decode'],
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(multiFilterStream);
-    renderWithState('obj:0:10');
-
-    await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: FlateDecode, ASCII85Decode');
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-EXTRA-002 [P1]: Scalar view shows type label
-// AC#4: Displays the single value with its type label.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-EXTRA-002: Scalar view type label', () => {
-  test('renders type label above scalar value', async () => {
-    mockGetObjectDetail.mockResolvedValue(scalarDetail);
-    renderWithState('dict:root:Type');
-
-    await waitFor(() => {
-      expect(screen.getByText('Type: name')).toBeInTheDocument();
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-EXTRA-003 [P2]: Dict key styling
-// AC#2: Keys in font-mono text-text-muted text-xs.
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-EXTRA-003: Dict key styling', () => {
+describe('9.10-UNIT-106: header label', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
   });
 
-  test('dict keys use font-mono text-text-muted text-xs', async () => {
-    renderWithState('root');
-
+  test('"Object Source" header remains visible with a selection', async () => {
+    mockGetObjectSource.mockResolvedValue(shortArraySource);
+    renderPanel('obj:0:38109');
     await waitFor(() => {
-      const keyEl = screen.getByText('/Type');
-      expect(keyEl.className).toMatch(/font-mono/);
-      expect(keyEl.className).toMatch(/text-text-muted/);
-      expect(keyEl.className).toMatch(/text-xs/);
+      expect(screen.getByText('Object Source')).toBeInTheDocument();
     });
+  });
+
+  test('"Object Source" header remains visible with no selection (per AC#2)', () => {
+    renderPanel(null);
+    expect(screen.getByText('Object Source')).toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-EXTRA-004 [P2]: Reference click is no-op (no navigation yet)
-// AC#2: References clickable but no-op until Story 2-8.
+// 9.10-UNIT-107 [P1] AC#1 / Task 5.7: error state on fetch failure
 // ---------------------------------------------------------------------------
 
-describe('2.6-UNIT-EXTRA-004: Reference click no-op', () => {
-  test('clicking a reference value does not throw', async () => {
-    mockGetObjectDetail.mockResolvedValue(dictDetail);
-    renderWithState('root');
-
-    await waitFor(() => {
-      const refValue = screen.getByText('2 0 R');
-      expect(() => refValue.click()).not.toThrow();
-    });
+describe('9.10-UNIT-107: fetch error inline message', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
-});
 
-// ---------------------------------------------------------------------------
-// 2.6-UNIT-012 [P2]: Stream with no filters shows "None"
-// AC#6: Filter names from detail.streamInfo. If empty, show "None".
-// ---------------------------------------------------------------------------
-
-describe('2.6-UNIT-012: Stream with no filters', () => {
-  test('shows "None" when stream has no filters', async () => {
-    const noFilterStream = {
-      ...streamDetail,
-      streamInfo: {
-        length: 500,
-        filters: [],
-      },
-    };
-    mockGetObjectDetail.mockResolvedValue(noFilterStream);
-    renderWithState('obj:0:10');
-
+  test('inline error message is shown when GetObjectSource rejects', async () => {
+    mockGetObjectSource.mockRejectedValue(new Error('boom'));
+    renderPanel('obj:0:5');
     await waitFor(() => {
-      const metadata = screen.getByTestId('stream-metadata');
-      expect(metadata).toHaveTextContent('Filters: None');
+      expect(screen.getByTestId('object-source-error')).toBeInTheDocument();
     });
   });
 });

@@ -34,6 +34,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 const mockGetObjectDetail = vi.fn();
 const mockGetContentStream = vi.fn();
 const mockGetImageData = vi.fn();
+const mockGetReverseRefs = vi.fn().mockResolvedValue([]);
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -45,6 +46,7 @@ vi.mock(
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
+    GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
   })
 );
 

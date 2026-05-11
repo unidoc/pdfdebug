@@ -89,6 +89,22 @@ type Token struct {
 	Col   int    `json:"col"`
 }
 
+// ReverseRef describes one inbound dict-graph edge pointing at an object:
+// which indirect object contains the reference, where inside it the reference
+// lives (dict-key/array-index path), and the parent's /Type if present.
+// Used to power the right-panel "Referenced by" section (Story 9-10).
+//
+// The ParentType *string pointer (NOT string) is load-bearing: nil means
+// "key absent" so the frontend can omit the column, while a non-nil pointer
+// to "" means "key present with empty value" -- a distinction a non-pointer
+// type would erase.
+type ReverseRef struct {
+	ParentNodeID string  `json:"parentNodeId"`         // obj:<gen>:<num> for NAVIGATE_TO_REF
+	ParentRef    string  `json:"parentRef"`            // "<num> <gen> R"
+	ParentType   *string `json:"parentType,omitempty"` // /Type value when present; nil when key absent
+	Path         string  `json:"path"`                 // e.g. "/Kids[3]" or "/Resources /Font /F1"
+}
+
 // DocumentInfo summarizes an opened PDF document for the frontend.
 type DocumentInfo struct {
 	TabID     string `json:"tabId"`

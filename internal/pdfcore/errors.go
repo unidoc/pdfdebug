@@ -17,6 +17,11 @@ var (
 	ErrEncryptedPDF = errors.New("encrypted PDF: password required")
 	// ErrUnsupportedPDF indicates the PDF uses a version or feature not handled.
 	ErrUnsupportedPDF = errors.New("unsupported PDF version or feature")
+	// ErrReverseRefIndexUnavailable indicates the reverse-reference index could
+	// not be built for the document (e.g. a panic during BFS). Distinct from
+	// "empty list" because the latter is the orphan-hunt signal and must not
+	// be confused with a build failure.
+	ErrReverseRefIndexUnavailable = errors.New("reverse-ref index unavailable")
 )
 
 // safeCall executes fn inside a panic-recovery wrapper. pdfcpu can panic on
