@@ -16,12 +16,13 @@ import (
 // any IndirectRef found inside (including through inline dict/array nesting)
 // records an inbound edge attributed to that indirect identity.
 type revBfsEntry struct {
-	num          int
-	gen          int
-	obj          pdfcpu_types.Object
-	parentRef    string  // "<num> <gen> R"; "" for the special catalog source
-	parentNodeID string  // "obj:<gen>:<num>"; "root" for catalog scan
-	parentType   *string // /Type of this indirect object, if any
+	num            int
+	gen            int
+	obj            pdfcpu_types.Object
+	parentRef      string  // "<num> <gen> R"; "" for the special catalog source
+	parentNodeID   string  // "obj:<gen>:<num>"; "root" for catalog scan
+	parentType     *string // /Type of this indirect object, if any
+	pathFromRoot   string  // canonical BFS path from /Root to this object; "" for the catalog
 }
 
 // buildReverseRefs walks the dict-graph from /Root via BFS, recording one
@@ -56,6 +57,7 @@ func buildReverseRefs(doc *DocumentState, out map[[2]int][]ReverseRef) {
 		parentRef:    "",
 		parentNodeID: "root",
 		parentType:   dictTypeName(rootDict),
+		pathFromRoot: "",
 	}}
 
 	visited := map[[2]int]bool{}
@@ -74,7 +76,7 @@ func buildReverseRefs(doc *DocumentState, out map[[2]int][]ReverseRef) {
 	for len(queue) > 0 {
 		entry := queue[0]
 		queue = queue[1:]
-		scanContainerForRefs(doc, entry.obj, entry.parentNodeID, entry.parentRef, entry.parentType, "", out, &queue, visited)
+		scanContainerForRefs(doc, entry.obj, entry.parentNodeID, entry.parentRef, entry.parentType, entry.pathFromRoot, "", out, &queue, visited)
 	}
 
 	// Stable per-key ordering: ParentRef asc (numeric on num then gen), then
@@ -92,16 +94,70 @@ func buildReverseRefs(doc *DocumentState, out map[[2]int][]ReverseRef) {
 		})
 		out[k] = list
 	}
+
+	// Label fallback: when a parent's /Type is absent (e.g. the Outlines dict,
+	// where /Type is optional per the PDF spec), derive a label from the
+	// canonical inbound dict-entry key that led BFS to that parent. Without
+	// this the UI row shows only the bare "1 0 R" with no semantic hint of
+	// what 1 0 R actually is.
+	applyParentLabelFallback(out)
+}
+
+// applyParentLabelFallback fills ReverseRef.ParentType for parents whose /Type
+// was nil by using the last dict-key segment of the parent's own first inbound
+// path. For the /Outlines dict (typically /Type omitted) reached from the
+// catalog via /Outlines, this surfaces "Outlines" in the type column.
+func applyParentLabelFallback(out map[[2]int][]ReverseRef) {
+	labelByObj := map[[2]int]string{}
+	for objKey, refs := range out {
+		if len(refs) == 0 {
+			continue
+		}
+		if label := lastDictKey(refs[0].Path); label != "" {
+			labelByObj[objKey] = label
+		}
+	}
+	for _, refs := range out {
+		for i := range refs {
+			if refs[i].ParentType != nil {
+				continue
+			}
+			n, g, ok := parseObjGenR(refs[i].ParentRef)
+			if !ok {
+				continue
+			}
+			if label, ok := labelByObj[[2]int{n, g}]; ok {
+				lbl := label
+				refs[i].ParentType = &lbl
+			}
+		}
+	}
+}
+
+// lastDictKey returns the last "/Key" segment of a BFS path (e.g. "/A /B [3]"
+// -> "B"). Returns "" when the path has no dict-key segment.
+func lastDictKey(path string) string {
+	segs := strings.Fields(path)
+	for i := len(segs) - 1; i >= 0; i-- {
+		if k, ok := strings.CutPrefix(segs[i], "/"); ok {
+			return k
+		}
+	}
+	return ""
 }
 
 // scanContainerForRefs walks one container (dict / array / stream-dict) and
 // records every IndirectRef it finds. Inline containers descend without
 // recording an edge; pathPrefix is extended to keep the inline location.
+// parentPathFromRoot is the canonical root-relative path of the indirect
+// object whose contents we are scanning; it is forwarded onto each ReverseRef
+// recorded so the UI can show the parent's structural position.
 func scanContainerForRefs(
 	doc *DocumentState,
 	obj pdfcpu_types.Object,
 	parentNodeID, parentRef string,
 	parentType *string,
+	parentPathFromRoot string,
 	pathPrefix string,
 	out map[[2]int][]ReverseRef,
 	queue *[]revBfsEntry,
@@ -118,30 +174,32 @@ func scanContainerForRefs(
 		sort.Strings(keys)
 		for _, k := range keys {
 			subPath := joinPath(pathPrefix, "/"+k)
-			handleValueForRefs(doc, v[k], parentNodeID, parentRef, parentType, subPath, out, queue, visited)
+			handleValueForRefs(doc, v[k], parentNodeID, parentRef, parentType, parentPathFromRoot, subPath, out, queue, visited)
 		}
 	case pdfcpu_types.StreamDict:
-		scanContainerForRefs(doc, v.Dict, parentNodeID, parentRef, parentType, pathPrefix, out, queue, visited)
+		scanContainerForRefs(doc, v.Dict, parentNodeID, parentRef, parentType, parentPathFromRoot, pathPrefix, out, queue, visited)
 	case pdfcpu_types.ObjectStreamDict:
-		scanContainerForRefs(doc, v.StreamDict.Dict, parentNodeID, parentRef, parentType, pathPrefix, out, queue, visited)
+		scanContainerForRefs(doc, v.StreamDict.Dict, parentNodeID, parentRef, parentType, parentPathFromRoot, pathPrefix, out, queue, visited)
 	case pdfcpu_types.XRefStreamDict:
-		scanContainerForRefs(doc, v.StreamDict.Dict, parentNodeID, parentRef, parentType, pathPrefix, out, queue, visited)
+		scanContainerForRefs(doc, v.StreamDict.Dict, parentNodeID, parentRef, parentType, parentPathFromRoot, pathPrefix, out, queue, visited)
 	case pdfcpu_types.Array:
 		for i, elem := range v {
 			subPath := joinPath(pathPrefix, fmt.Sprintf("[%d]", i))
-			handleValueForRefs(doc, elem, parentNodeID, parentRef, parentType, subPath, out, queue, visited)
+			handleValueForRefs(doc, elem, parentNodeID, parentRef, parentType, parentPathFromRoot, subPath, out, queue, visited)
 		}
 	}
 }
 
 // handleValueForRefs records one inbound edge for IndirectRef values and
 // descends inline containers without recording. New indirect targets are
-// queued for further scanning.
+// queued for further scanning. parentPathFromRoot identifies the canonical
+// BFS path of the parent indirect object.
 func handleValueForRefs(
 	doc *DocumentState,
 	val pdfcpu_types.Object,
 	parentNodeID, parentRef string,
 	parentType *string,
+	parentPathFromRoot string,
 	path string,
 	out map[[2]int][]ReverseRef,
 	queue *[]revBfsEntry,
@@ -159,6 +217,7 @@ func handleValueForRefs(
 				ParentRef:    parentRef,
 				ParentType:   parentType,
 				Path:         path,
+				ParentPath:   parentPathFromRoot,
 			}
 			out[[2]int{num, gen}] = append(out[[2]int{num, gen}], rr)
 		case parentNodeID == "root":
@@ -191,20 +250,21 @@ func handleValueForRefs(
 			parentRef:    fmt.Sprintf("%d %d R", num, gen),
 			parentNodeID: fmt.Sprintf("obj:%d:%d", gen, num),
 			parentType:   dictTypeName(resolved),
+			pathFromRoot: joinPath(parentPathFromRoot, path),
 		})
 		return
 	}
 
 	// Inline container: descend without recording an edge.
 	if isContainer(val) {
-		scanContainerForRefs(doc, val, parentNodeID, parentRef, parentType, path, out, queue, visited)
+		scanContainerForRefs(doc, val, parentNodeID, parentRef, parentType, parentPathFromRoot, path, out, queue, visited)
 	}
 }
 
 // recordCatalogChildEdge records an inbound edge from the catalog (its actual
 // indirect identity from the trailer's /Root pointer) into one of its
 // children. Without this, /Pages would appear as an orphan in documents whose
-// catalog points at it directly.
+// catalog points at it directly. The catalog's own canonical path is "" (root).
 func recordCatalogChildEdge(
 	doc *DocumentState,
 	num, gen int,
@@ -223,6 +283,7 @@ func recordCatalogChildEdge(
 		ParentRef:    fmt.Sprintf("%d %d R", rNum, rGen),
 		ParentType:   parentType,
 		Path:         path,
+		ParentPath:   "",
 	}
 	out[[2]int{num, gen}] = append(out[[2]int{num, gen}], rr)
 }

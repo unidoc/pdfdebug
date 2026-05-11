@@ -44,22 +44,22 @@ vi.mock('allotment/dist/style.css', () => ({}));
 
 /** Five entries -- default expanded per AC#8. */
 const fiveEntries = [
-  { parentNodeId: 'obj:0:10', parentRef: '10 0 R', parentType: 'Pages', path: '/Kids[0]' },
-  { parentNodeId: 'obj:0:11', parentRef: '11 0 R', parentType: 'Pages', path: '/Kids[1]' },
-  { parentNodeId: 'obj:0:12', parentRef: '12 0 R', parentType: 'Pages', path: '/Kids[2]' },
-  { parentNodeId: 'obj:0:13', parentRef: '13 0 R', parentType: 'Pages', path: '/Kids[3]' },
-  { parentNodeId: 'obj:0:14', parentRef: '14 0 R', parentType: 'Pages', path: '/Kids[4]' },
+  { parentNodeId: 'obj:0:10', parentRef: '10 0 R', parentType: 'Pages', path: '/Kids[0]', parentPath: '/Pages' },
+  { parentNodeId: 'obj:0:11', parentRef: '11 0 R', parentType: 'Pages', path: '/Kids[1]', parentPath: '/Pages' },
+  { parentNodeId: 'obj:0:12', parentRef: '12 0 R', parentType: 'Pages', path: '/Kids[2]', parentPath: '/Pages' },
+  { parentNodeId: 'obj:0:13', parentRef: '13 0 R', parentType: 'Pages', path: '/Kids[3]', parentPath: '/Pages' },
+  { parentNodeId: 'obj:0:14', parentRef: '14 0 R', parentType: 'Pages', path: '/Kids[4]', parentPath: '/Pages' },
 ];
 
 /** Six entries -- default collapsed per AC#8. */
 const sixEntries = [
   ...fiveEntries,
-  { parentNodeId: 'obj:0:15', parentRef: '15 0 R', parentType: 'Pages', path: '/Kids[5]' },
+  { parentNodeId: 'obj:0:15', parentRef: '15 0 R', parentType: 'Pages', path: '/Kids[5]', parentPath: '/Pages' },
 ];
 
 /** Entry with no /Type key -- ParentType nil; the column must be omitted. */
 const entryNoType = [
-  { parentNodeId: 'obj:0:20', parentRef: '20 0 R', parentType: null, path: '/Resources /Font /F1' },
+  { parentNodeId: 'obj:0:20', parentRef: '20 0 R', parentType: null, path: '/Resources /Font /F1', parentPath: '/Pages /Kids[0]' },
 ];
 
 // --- Helpers ---
@@ -102,7 +102,7 @@ const openAction: AppAction = {
 };
 
 interface RenderOpts {
-  entries?: Array<{ parentNodeId: string; parentRef: string; parentType: string | null; path: string }>;
+  entries?: Array<{ parentNodeId: string; parentRef: string; parentType: string | null; path: string; parentPath: string }>;
   selectedIconHint?: string | null;
   indexUnavailable?: boolean;
 }
@@ -165,11 +165,11 @@ describe('9.10-UNIT-001: default expansion by entry count', () => {
 // ---------------------------------------------------------------------------
 
 describe('9.10-UNIT-002: row content', () => {
-  test('row shows parent ref, path, and parent type', () => {
+  test('row shows parent ref, global path, and parent type', () => {
     renderSection({ entries: fiveEntries });
-    // First row
+    // First row: ParentRef + global path (parentPath joined with within-parent path)
     expect(screen.getByText('10 0 R')).toBeInTheDocument();
-    expect(screen.getByText('/Kids[0]')).toBeInTheDocument();
+    expect(screen.getByText('/Pages /Kids[0]')).toBeInTheDocument();
     // Type is rendered (we expect at least one /Pages occurrence; five rows share it)
     expect(screen.getAllByText('Pages').length).toBeGreaterThan(0);
   });
@@ -177,7 +177,8 @@ describe('9.10-UNIT-002: row content', () => {
   test('row omits ParentType column when parentType is null', () => {
     renderSection({ entries: entryNoType });
     expect(screen.getByText('20 0 R')).toBeInTheDocument();
-    expect(screen.getByText('/Resources /Font /F1')).toBeInTheDocument();
+    // Global path = parentPath + within-parent path
+    expect(screen.getByText('/Pages /Kids[0] /Resources /Font /F1')).toBeInTheDocument();
     // The string "null" or the JS null literal must NOT leak into the DOM
     expect(screen.queryByText('null')).not.toBeInTheDocument();
   });

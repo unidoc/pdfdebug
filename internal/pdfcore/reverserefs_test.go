@@ -406,3 +406,127 @@ func TestReverseRefIndexPerDocumentIsolation(t *testing.T) {
 	}
 	_ = aRefs
 }
+
+// TestReverseRefsParentPathPopulated verifies each ReverseRef carries the
+// canonical root-relative path of the parent (BFS discovery path) so the UI
+// can show the parent's structural position. /Pages reached directly from the
+// catalog has ParentPath="" (catalog is root). A page node referenced from
+// /Pages at /Kids[0] has its inbound ref's ParentPath == "/Pages".
+func TestReverseRefsParentPathPopulated(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-rr-pp"
+	_, err := ins.Open(tabID, filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	// /Pages (2 0 R) is referenced directly by the catalog: its inbound edge
+	// must have ParentPath="" (catalog is root).
+	refs, err := ins.GetReverseRefs(tabID, "obj:0:2")
+	if err != nil {
+		t.Fatalf("GetReverseRefs(pages): %v", err)
+	}
+	if len(refs) == 0 {
+		t.Fatalf("expected at least one inbound edge for /Pages")
+	}
+	if refs[0].ParentPath != "" {
+		t.Errorf("/Pages inbound ParentPath=%q, want empty (catalog is root)", refs[0].ParentPath)
+	}
+
+	// A page (3 0 R) is referenced by /Pages (2 0 R) at /Kids[0]: the inbound
+	// edge's ParentPath must be /Pages's own canonical path, which is "/Pages".
+	pageRefs, err := ins.GetReverseRefs(tabID, "obj:0:3")
+	if err != nil {
+		t.Fatalf("GetReverseRefs(page 3): %v", err)
+	}
+	found := false
+	for _, r := range pageRefs {
+		if r.ParentRef == "2 0 R" && r.Path == "/Kids[0]" {
+			found = true
+			if r.ParentPath != "/Pages" {
+				t.Errorf("page 3 inbound ParentPath=%q, want \"/Pages\"", r.ParentPath)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("did not find page-3 inbound edge from /Pages")
+	}
+
+	// 2-level-deep canonical path: each page (e.g. 3 0 R, BFS path
+	// "/Pages /Kids[0]") has a /Parent key back-pointing at /Pages (2 0 R).
+	// That back-reference must carry ParentPath="/Pages /Kids[0]" (the page's
+	// own canonical path), NOT just "/Kids[0]". Regression guard for the bug
+	// where pathFromRoot was set to the within-parent segment only.
+	for _, r := range refs {
+		if r.ParentRef == "3 0 R" && r.Path == "/Parent" {
+			if r.ParentPath != "/Pages /Kids[0]" {
+				t.Errorf("page 3 /Parent back-ref ParentPath=%q, want \"/Pages /Kids[0]\"", r.ParentPath)
+			}
+			return
+		}
+	}
+	t.Errorf("did not find /Pages inbound back-ref from page 3's /Parent")
+}
+
+// TestLastDictKey verifies the helper picks the last /Key segment of a BFS
+// path so the parent-label fallback can surface "Outlines" from "/Outlines",
+// "Dests" from "/Names /Dests", and "Fields" from "/AcroForm /Fields [3]".
+func TestLastDictKey(t *testing.T) {
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"/Outlines", "Outlines"},
+		{"/Names /Dests", "Dests"},
+		{"/AcroForm /Fields [3]", "Fields"},
+		{"/Pages /Kids[0]", "Kids[0]"},
+		{"[3]", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := lastDictKey(c.path); got != c.want {
+			t.Errorf("lastDictKey(%q)=%q, want %q", c.path, got, c.want)
+		}
+	}
+}
+
+// TestApplyParentLabelFallback verifies that a parent whose /Type is nil
+// gets a ParentType label derived from the parent's own canonical inbound
+// dict-key (e.g. /Outlines reached from the catalog -> "Outlines"). Parents
+// with a real /Type are left untouched.
+func TestApplyParentLabelFallback(t *testing.T) {
+	pagesType := "Pages"
+	out := map[[2]int][]ReverseRef{
+		// 1 0 R (the outlines dict, no /Type) is referenced by the catalog
+		// at path "/Outlines". Its ParentType is nil because /Type is absent.
+		{1, 0}: {
+			{ParentNodeID: "obj:0:100", ParentRef: "100 0 R", Path: "/Outlines", ParentType: nil},
+		},
+		// 5 0 R is a page referenced by 2 0 R (pages dict) at "/Kids[0]".
+		// 2 0 R has a real /Type=Pages, so ParentType is non-nil.
+		{5, 0}: {
+			{ParentNodeID: "obj:0:2", ParentRef: "2 0 R", Path: "/Kids[0]", ParentType: &pagesType},
+		},
+		// 9 0 R is referenced by 1 0 R (the no-/Type outlines dict) at /First.
+		// After fallback, ParentType for this entry should become "Outlines"
+		// (derived from 1 0 R's own inbound path "/Outlines").
+		{9, 0}: {
+			{ParentNodeID: "obj:0:1", ParentRef: "1 0 R", Path: "/First", ParentType: nil},
+		},
+	}
+	applyParentLabelFallback(out)
+
+	if got := out[[2]int{9, 0}][0].ParentType; got == nil || *got != "Outlines" {
+		t.Errorf("entry for 9 0 R: ParentType=%v, want \"Outlines\"", got)
+	}
+	// Real /Type must not be clobbered.
+	if got := out[[2]int{5, 0}][0].ParentType; got == nil || *got != "Pages" {
+		t.Errorf("entry for 5 0 R: ParentType=%v, want \"Pages\"", got)
+	}
+	// 1 0 R's own inbound ref (from catalog) has nil ParentType; the catalog
+	// has no inbound in this map so the fallback returns no candidate -- left
+	// as nil, not crashed.
+	if got := out[[2]int{1, 0}][0].ParentType; got != nil {
+		t.Errorf("entry for 1 0 R: ParentType=%v, want nil (no candidate)", got)
+	}
+}

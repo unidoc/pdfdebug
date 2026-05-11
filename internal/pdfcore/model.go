@@ -103,6 +103,7 @@ type ReverseRef struct {
 	ParentRef    string  `json:"parentRef"`            // "<num> <gen> R"
 	ParentType   *string `json:"parentType,omitempty"` // /Type value when present; nil when key absent
 	Path         string  `json:"path"`                 // e.g. "/Kids[3]" or "/Resources /Font /F1"
+	ParentPath   string  `json:"parentPath"`           // root-relative path to ParentRef (BFS discovery), "" for the catalog
 }
 
 // DocumentInfo summarizes an opened PDF document for the frontend.

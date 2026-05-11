@@ -15,6 +15,8 @@ export interface ReverseRefEntry {
   parentRef: string;
   parentType: string | null;
   path: string;
+  /** Canonical root-relative path of the parent (BFS discovery). "" for the catalog. */
+  parentPath: string;
 }
 
 /** Props for the Referenced by section. */
@@ -28,6 +30,19 @@ export interface ReverseRefsSectionProps {
 }
 
 const COLLAPSE_THRESHOLD = 5;
+
+/**
+ * Joins the parent's root-relative path with the within-parent path so each
+ * row shows a single canonical location. Array indices stay attached to the
+ * preceding segment ("/Kids" + "[3]" -> "/Kids[3]"); dict keys are space-
+ * separated to match the backend's joinPath rules.
+ */
+function joinGlobalPath(parentPath: string, path: string): string {
+  if (!parentPath) return path;
+  if (!path) return parentPath;
+  if (path.startsWith('[')) return parentPath + path;
+  return parentPath + ' ' + path;
+}
 
 /**
  * Renders the Referenced by section. Empty-state priority order (Task 6.5):
@@ -116,14 +131,18 @@ export function ReverseRefsSection({
               <span className="font-mono text-xs text-type-reference whitespace-nowrap">
                 {entry.parentRef}
               </span>
-              <span className="font-mono text-xs text-text-muted flex-1 truncate">
-                {entry.path}
-              </span>
               {entry.parentType !== null && (
                 <span className="font-mono text-xs text-text-muted whitespace-nowrap">
                   {entry.parentType}
                 </span>
               )}
+              <span
+                className="font-mono text-xs text-text-muted flex-1 truncate text-right"
+                dir="rtl"
+                title={joinGlobalPath(entry.parentPath, entry.path)}
+              >
+                <bdi>{joinGlobalPath(entry.parentPath, entry.path)}</bdi>
+              </span>
             </li>
           ))}
         </ul>
