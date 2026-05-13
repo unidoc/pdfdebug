@@ -141,6 +141,14 @@ function AppContent() {
       openPalette()
     })
 
+    const offLoadStart = Events.On('document:load-start', (event) => {
+      const data = event?.data
+      const fileName = (data && data.fileName) || ''
+      if (fileName) {
+        dispatch({ type: 'OPENING_START', payload: { fileName } })
+      }
+    })
+
     const offBatchStart = Events.On('document:batch-start', (event) => {
       const total = Number(event?.data?.total) || 0
       if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
@@ -158,6 +166,7 @@ function AppContent() {
       offNavForward()
       offGoToPage()
       offPaletteOpen()
+      offLoadStart()
       offBatchStart()
       offBatchComplete()
     }

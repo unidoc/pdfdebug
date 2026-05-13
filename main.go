@@ -55,6 +55,13 @@ func extractPDFPaths(args []string) []string {
 // the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
 // warning survives regardless of event-bus ordering.
 func openFileAndEmitWithWarning(svc pdfservice.PDFService, app *application.App, path string, extraWarning string) {
+	// Emit load-start before the blocking pdfcpu read so the frontend can
+	// render an immediate "Opening ..." indicator instead of leaving the
+	// EmptyState drop area silent for the duration of a large-file parse.
+	app.Event.Emit("document:load-start", map[string]any{
+		"filePath": path,
+		"fileName": filepath.Base(path),
+	})
 	docInfo, err := svc.OpenFile(path)
 	if err != nil {
 		app.Event.Emit("document:error", map[string]any{

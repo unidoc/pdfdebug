@@ -113,7 +113,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   }, []);
 
   const dispatch = useAppDispatch();
-  const { batchOpenCancelled } = useAppState();
+  const { batchOpenCancelled, isOpening, openingFileName } = useAppState();
   // Mirror cancel state into a ref so the async loop below sees fresh
   // values without re-running on every state change.
   const cancelledRef = useRef(false);
@@ -137,6 +137,11 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
       if (isBatch) {
         cancelledRef.current = false;
         dispatch({ type: 'BATCH_OPEN_START', payload: { total: paths.length } });
+      } else {
+        // Single-file open via the button: surface the inline EmptyState
+        // loading state before the openPDFFile await blocks.
+        const fileName = paths[0].replace(/^.*[/\\]/, '');
+        dispatch({ type: 'OPENING_START', payload: { fileName } });
       }
 
       let lastWarning: string | null = null;
@@ -179,6 +184,35 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
 
   if (hasDocument) {
     return null;
+  }
+
+  // Loading variant: an open is in flight. Replace the drop zone + button
+  // with a spinner + filename so the user gets immediate feedback during
+  // the (potentially slow) pdfcpu xref walk on large PDFs.
+  if (isOpening) {
+    return (
+      <div
+        data-testid="empty-state"
+        className="flex flex-col items-center justify-center h-full"
+      >
+        <h1 className="text-xl font-semibold text-text">UniDoc PDF Debugger</h1>
+        <p className="text-sm text-text-secondary mt-2">Inspect PDF internal structure</p>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <div
+            data-testid="empty-state-spinner"
+            aria-hidden="true"
+            className="animate-spin w-8 h-8 rounded-full border-2 border-text-muted border-t-transparent"
+          />
+          <p
+            data-testid="empty-state-loading"
+            aria-live="polite"
+            className="text-sm text-text-muted"
+          >
+            Opening {openingFileName ?? 'document'}...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Drop zone border and background classes based on drag state

@@ -101,6 +101,11 @@ export interface AppState {
    * Story 9-8 AC10's intent.
    */
   tabActivationVersion: number;
+  // True while a single-file open is in flight. Drives the inline loading
+  // state in EmptyState so the user gets immediate feedback on large PDFs
+  // (where pdfcpu's xref walk can take a second or more).
+  isOpening: boolean;
+  openingFileName: string | null;
 }
 
 /** Union of all actions the app reducer handles. */
@@ -124,6 +129,7 @@ export type AppAction =
   | { type: 'BATCH_OPEN_START'; payload: { total: number } }
   | { type: 'BATCH_OPEN_CANCEL' }
   | { type: 'BATCH_OPEN_COMPLETE' }
+  | { type: 'OPENING_START'; payload: { fileName: string } }
   | { type: 'PUSH_RECENT_JUMP'; payload: { tabId: string; entry: RecentJump } };
 
 // --- Reducer ---
@@ -139,6 +145,8 @@ const initialState: AppState = {
   batchOpenCompleted: 0,
   batchOpenCancelled: false,
   tabActivationVersion: 0,
+  isOpening: false,
+  openingFileName: null,
 };
 
 /**
@@ -193,6 +201,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
             tabActivationVersion: activatedDifferentTab
               ? state.tabActivationVersion + 1
               : state.tabActivationVersion,
+            isOpening: false,
+            openingFileName: null,
           };
         }
       }
@@ -228,6 +238,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         tabActivationVersion: activatedNewTab
           ? state.tabActivationVersion + 1
           : state.tabActivationVersion,
+        isOpening: false,
+        openingFileName: null,
       };
     }
     case 'CLOSE_DOCUMENT': {
@@ -322,6 +334,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         documentError: action.payload.message,
         documentWarning: null,
+        isOpening: false,
+        openingFileName: null,
       };
     }
     case 'DISMISS_ERROR': {
@@ -467,13 +481,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // race) can still update the toast count. They reset on the next
       // BATCH_OPEN_START or on DISMISS_WARNING.
       if (state.batchOpenCancelled) {
-        return { ...state, batchOpenActive: false };
+        return { ...state, batchOpenActive: false, isOpening: false, openingFileName: null };
       }
       return {
         ...state,
         batchOpenActive: false,
         batchOpenTotal: 0,
         batchOpenCompleted: 0,
+        isOpening: false,
+        openingFileName: null,
+      };
+    }
+    case 'OPENING_START': {
+      return {
+        ...state,
+        isOpening: true,
+        openingFileName: action.payload.fileName,
       };
     }
     case 'PUSH_RECENT_JUMP': {

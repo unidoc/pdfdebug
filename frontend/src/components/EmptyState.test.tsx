@@ -149,6 +149,46 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Single-file loading state: when OPENING_START fires (Go-side
+// document:load-start event or the EmptyState button's pre-await dispatch),
+// the drop zone is replaced with a spinner + "Opening <filename>..." line.
+// ---------------------------------------------------------------------------
+
+import { useAppDispatch as _useAppDispatch } from '../hooks/useDocumentState';
+
+function LoadingHarness({ fileName }: { fileName: string }) {
+  const dispatch = _useAppDispatch();
+  return (
+    <>
+      <button
+        data-testid="bootstrap-opening"
+        onClick={() => dispatch({ type: 'OPENING_START', payload: { fileName } })}
+      >
+        start
+      </button>
+      <EmptyState />
+    </>
+  );
+}
+
+describe('EmptyState loading variant', () => {
+  test('renders spinner + "Opening <name>..." instead of the drop zone when isOpening is true', () => {
+    render(
+      <AppProvider>
+        <LoadingHarness fileName="big-report.pdf" />
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('bootstrap-opening').click());
+
+    expect(screen.getByTestId('empty-state-spinner')).toBeInTheDocument();
+    expect(screen.getByTestId('empty-state-loading').textContent).toBe('Opening big-report.pdf...');
+    expect(screen.queryByTestId('drop-zone')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('open-file-button')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Multi-select via the Open File dialog: when the picker returns >1 path,
 // the BatchOpenDialog must appear, each path is opened sequentially via
 // OPEN_DOCUMENT, progress advances, and the dialog closes on completion.
