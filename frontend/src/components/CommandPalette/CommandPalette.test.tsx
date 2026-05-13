@@ -262,7 +262,7 @@ describe('AC6: multi-match arrow navigation', () => {
 // ---------------------------------------------------------------------------
 
 describe('AC7: recent jumps', () => {
-  test('first-time empty input shows grammar hint', async () => {
+  test('first-time empty input shows grammar hint and no Recent header', async () => {
     const user = userEvent.setup();
     renderHarness();
     act(() => screen.getByTestId('bootstrap-open').click());
@@ -270,9 +270,10 @@ describe('AC7: recent jumps', () => {
     await user.keyboard('{Meta>}k{/Meta}');
 
     expect(await screen.findByTestId('command-palette-grammar-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-recent-header')).not.toBeInTheDocument();
   });
 
-  test('after a successful jump, empty input shows the recent entry', async () => {
+  test('after a successful jump, empty input shows the Recent header above the entries', async () => {
     const user = userEvent.setup();
     renderHarness();
     act(() => screen.getByTestId('bootstrap-open').click());
@@ -284,11 +285,14 @@ describe('AC7: recent jumps', () => {
     await user.keyboard('{Enter}');
     await waitFor(() => expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument());
 
-    // Re-open. Empty input should show the recent.
+    // Re-open. Empty input should show the recent and the "Recent" header.
     await user.keyboard('{Meta>}k{/Meta}');
     const recents = await screen.findAllByTestId('command-palette-recent-row');
     expect(recents.length).toBeGreaterThanOrEqual(1);
     expect(recents[0].textContent).toMatch(/5 0 R/);
+    const header = await screen.findByTestId('command-palette-recent-header');
+    expect(header).toBeInTheDocument();
+    expect(header.textContent).toBe('Recent');
   });
 });
 

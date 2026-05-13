@@ -292,6 +292,11 @@ func main() {
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit("navigate:goToPage", nil)
 		})
+	navMenu.Add("Find Object...").
+		SetAccelerator("CmdOrCtrl+K").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("palette:open", nil)
+		})
 
 	navMenu.AddSeparator()
 	navMenu.Add("Next Tab").

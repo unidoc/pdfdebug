@@ -17,7 +17,7 @@ import { TabBar } from './components/TabBar'
 import { GoToPageDialog } from './components/GoToPageDialog'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
-import { useCommandPalette } from './hooks/useCommandPalette'
+import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -137,6 +137,10 @@ function AppContent() {
       dispatch({ type: 'OPEN_GO_TO_PAGE' })
     })
 
+    const offPaletteOpen = Events.On('palette:open', () => {
+      openPalette()
+    })
+
     const offBatchStart = Events.On('document:batch-start', (event) => {
       const total = Number(event?.data?.total) || 0
       if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
@@ -153,6 +157,7 @@ function AppContent() {
       offNavBack()
       offNavForward()
       offGoToPage()
+      offPaletteOpen()
       offBatchStart()
       offBatchComplete()
     }

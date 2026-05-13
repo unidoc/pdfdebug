@@ -265,8 +265,15 @@ export function CommandPalette() {
         )}
 
         {showRecents && recentJumps.length > 0 && (
-          <div role="listbox" className="max-h-[60vh] overflow-auto">
-            {recentJumps.map((r, idx) => (
+          <div className="max-h-[60vh] overflow-auto">
+            <div
+              data-testid="command-palette-recent-header"
+              className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+            >
+              Recent
+            </div>
+            <div role="listbox">
+              {recentJumps.map((r, idx) => (
               <PaletteRow
                 key={`recent-${r.nodeId}-${idx}`}
                 entry={{
@@ -291,7 +298,8 @@ export function CommandPalette() {
                 }
                 testId="command-palette-recent-row"
               />
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
