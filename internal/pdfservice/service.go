@@ -124,3 +124,10 @@ func (s *PDFService) GetReverseRefs(tabID string, nodeID string) ([]*pdfcore.Rev
 func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
 	return s.inspector.GetPageContentStreamNodeID(tabID, pageNum)
 }
+
+// GetObjectIndex returns the full xref-derived object index for the document
+// in tabID. Powers the Cmd+K command palette (Story 9-8). Lazy on first call,
+// cached per document state.
+func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error) {
+	return s.inspector.GetObjectIndex(tabID)
+}

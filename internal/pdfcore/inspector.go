@@ -31,6 +31,12 @@ type DocumentState struct {
 	// revRefsBuildFailed to distinguish "not built" from "empty index".
 	reverseRefs        map[[2]int][]ReverseRef
 	revRefsBuildFailed bool
+
+	// objectIndex caches the per-tab GetObjectIndex result. Lazy on first call;
+	// invalidated implicitly when the DocumentState pointer is replaced by a
+	// re-Open under the same tabID (Story 9-8 Task 3.4).
+	objectIndexMu    sync.Mutex
+	objectIndexCache []*ObjectIndexEntry
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are

@@ -11,6 +11,25 @@ type TreeNode struct {
 	ChildCount  int    `json:"childCount"`
 	IconHint    string `json:"iconHint"`
 	Error       string `json:"error"`
+	// ObjectRef is "<num> <gen> R" when the node corresponds to an indirect
+	// object, "" otherwise. Powers the inline [N G R] suffix on tree rows
+	// (Story 9-8 AC1).
+	ObjectRef string `json:"objectRef"`
+	// TypeName is the literal /Type value of the resolved dict (e.g. "Pages",
+	// "Page", "Font"), "" when the dict has no /Type entry or the node is not
+	// a dict. The frontend dedups this against the semantic label (AC2).
+	TypeName string `json:"typeName"`
+}
+
+// ObjectIndexEntry is one row in the per-document object index produced by
+// Inspector.GetObjectIndex. It backs the Cmd+K command palette (Story 9-8).
+type ObjectIndexEntry struct {
+	ObjNum    int    `json:"objNum"`
+	Gen       int    `json:"gen"`
+	TypeName  string `json:"typeName"`  // "" if no /Type key
+	Free      bool   `json:"free"`      // true if xref entry marked free
+	Reachable bool   `json:"reachable"` // true if reachable from catalog root
+	NodeID    string `json:"nodeId"`    // "obj:<gen>:<num>" for reachable; "" for free/orphan
 }
 
 // ObjectDetail holds the full inspection data for a single PDF object.

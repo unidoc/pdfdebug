@@ -1284,3 +1284,170 @@ describe('9.4-UNIT-001: Go to Page dialog state', () => {
     expect(screen.getByTestId('goto-open').textContent).toBe('false');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story 9.8: PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
+// Lowest-viable-layer coverage for AC7 (LRU max-5 eviction + dedup) and AC10
+// (per-tab recents isolation). These close the three low-severity gaps
+// identified by traceability-report-9-8.md.
+// ---------------------------------------------------------------------------
+
+function makeJump(objNum: number) {
+  return {
+    objNum,
+    gen: 0,
+    typeName: '',
+    nodeId: `obj:0:${objNum}`,
+  };
+}
+
+describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
+  test('AC7: pushing >5 entries evicts the oldest; newest is at index 0', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      const ids = (tab?.recentJumps ?? []).map((r) => r.nodeId).join(',');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <span data-testid="ids">{ids}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-all" onClick={() => {
+            // Push 7 distinct entries in order 1..7; expect [7,6,5,4,3] kept.
+            for (let n = 1; n <= 7; n++) {
+              dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(n) } });
+            }
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    act(() => screen.getByTestId('push-all').click());
+
+    expect(screen.getByTestId('count').textContent).toBe('5');
+    expect(screen.getByTestId('ids').textContent).toBe(
+      'obj:0:7,obj:0:6,obj:0:5,obj:0:4,obj:0:3',
+    );
+  });
+
+  test('AC7: re-jumping to an existing nodeId dedups and moves it to the front', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      const ids = (tab?.recentJumps ?? []).map((r) => r.nodeId).join(',');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <span data-testid="ids">{ids}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(1) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(2) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(3) } });
+            // Re-push obj 1: should dedup (count stays 3) and move to front.
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(1) } });
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    act(() => screen.getByTestId('push').click());
+
+    expect(screen.getByTestId('count').textContent).toBe('3');
+    expect(screen.getByTestId('ids').textContent).toBe('obj:0:1,obj:0:3,obj:0:2');
+  });
+});
+
+describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
+  test('AC10: pushing to tab-1 does not modify tab-2 recents', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const t1 = state.tabs.find((t) => t.tabId === 'tab-1');
+      const t2 = state.tabs.find((t) => t.tabId === 'tab-2');
+      return (
+        <div>
+          <span data-testid="t1-ids">{(t1?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <span data-testid="t2-ids">{(t2?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-t1" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(10) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(11) } });
+          }} />
+          <button data-testid="push-t2" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-2', entry: makeJump(20) } });
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('push-t1').click());
+    act(() => screen.getByTestId('push-t2').click());
+
+    expect(screen.getByTestId('t1-ids').textContent).toBe('obj:0:11,obj:0:10');
+    expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
+  });
+
+  test('AC10: CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const t1 = state.tabs.find((t) => t.tabId === 'tab-1');
+      const t2 = state.tabs.find((t) => t.tabId === 'tab-2');
+      return (
+        <div>
+          <span data-testid="t1-present">{t1 ? 'yes' : 'no'}</span>
+          <span data-testid="t2-ids">{(t2?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-t1" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(10) } })} />
+          <button data-testid="push-t2" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-2', entry: makeJump(20) } })} />
+          <button data-testid="close-1" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('push-t1').click());
+    act(() => screen.getByTestId('push-t2').click());
+
+    act(() => screen.getByTestId('close-1').click());
+
+    expect(screen.getByTestId('t1-present').textContent).toBe('no');
+    expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
+  });
+
+  test('AC7: PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-bad" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'ghost', entry: makeJump(1) } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('count').textContent).toBe('0');
+
+    act(() => screen.getByTestId('push-bad').click());
+    expect(screen.getByTestId('count').textContent).toBe('0');
+  });
+});

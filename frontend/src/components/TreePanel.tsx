@@ -38,6 +38,8 @@ interface TreeNodeData {
   childCount: number;
   iconHint: string;
   error: string;
+  objectRef: string;
+  typeName: string;
 }
 
 /**
@@ -59,8 +61,26 @@ function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
     childCount: node.childCount,
     iconHint: node.iconHint,
     error: node.error,
+    objectRef: node.objectRef ?? '',
+    typeName: node.typeName ?? '',
     children: node.hasChildren ? [] : null,
   };
+}
+
+/**
+ * Decide whether the /T:<typeName> suffix should be rendered for a tree row.
+ * AC2 dedup: suppress when the semantic label already encodes the type.
+ *   - exact case-insensitive match (e.g. label "Pages" vs typeName "Pages")
+ *   - "Font:" prefix label (e.g. "Font: Helvetica" vs typeName "Font")
+ * Otherwise render. Empty typeName -> never render.
+ */
+function shouldRenderTypeSuffix(label: string, typeName: string): boolean {
+  if (typeName === '') return false;
+  const lbl = label.toLowerCase();
+  const tn = typeName.toLowerCase();
+  if (lbl === tn) return false;
+  if (tn === 'font' && lbl.startsWith('font:')) return false;
+  return true;
 }
 
 /**
@@ -120,7 +140,10 @@ function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: No
   const isInternal = node.isInternal;
   const isFlashing = data.id === flashNodeIdRef?.current;
 
-  const showRawKey = data.rawKey !== '' && data.rawKey !== data.name;
+  // Hide rawKey when the inline objectRef suffix is rendered. PDFBox-style
+  // rows show "Pages [2 0 R]" rather than "Pages /Pages [2 0 R]" -- the
+  // /<bareKey> rawKey adds nothing once the ref is visible (Story 9-8 AC1).
+  const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
 
   const rowClasses = [
     'flex items-center h-[28px] text-sm font-ui cursor-pointer',
@@ -170,6 +193,23 @@ function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: No
       {/* Raw key */}
       {showRawKey && (
         <span className="text-text-muted ml-1.5 text-xs">{data.rawKey}</span>
+      )}
+
+      {/* Inline object ref [N G R] (Story 9-8 AC1) */}
+      {data.objectRef !== '' && (
+        <span
+          className="text-text-muted ml-1.5 text-xs whitespace-nowrap"
+          title={`Object ${data.objectRef}${data.typeName ? ` /Type ${data.typeName}` : ''}`}
+        >
+          [{data.objectRef}]
+        </span>
+      )}
+
+      {/* /T:<TypeName> suffix with dedup (Story 9-8 AC2) */}
+      {shouldRenderTypeSuffix(data.name, data.typeName) && (
+        <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap">
+          /T:{data.typeName}
+        </span>
       )}
     </div>
   );

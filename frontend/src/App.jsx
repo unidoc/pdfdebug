@@ -16,6 +16,8 @@ import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
 import { GoToPageDialog } from './components/GoToPageDialog'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
+import { CommandPalette } from './components/CommandPalette/CommandPalette'
+import { useCommandPalette } from './hooks/useCommandPalette'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -24,6 +26,8 @@ import { BatchOpenDialog } from './components/BatchOpenDialog'
 function AppContent() {
   const { tabs, activeTabId, documentError, documentWarning } = useAppState()
   const dispatch = useAppDispatch()
+  // Mount the Cmd+K global keyboard listener exactly once at App level.
+  useCommandPalette()
   const hasDocument = activeTabId !== null
   const activeTab = tabs.find((t) => t.tabId === activeTabId)
   const navHistory = activeTab?.navHistory ?? []
@@ -318,6 +322,7 @@ function AppContent() {
       </div>
       <GoToPageDialog />
       <BatchOpenDialog />
+      <CommandPalette />
     </div>
   )
 }

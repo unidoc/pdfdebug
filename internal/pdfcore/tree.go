@@ -30,6 +30,14 @@ func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 		return nil, wrapPDFError(fmt.Errorf("catalog dictionary is nil"))
 	}
 
+	// Surface the catalog's indirect-ref form when the trailer's /Root pointer
+	// is available, so the tree root row carries [N G R] like every other
+	// indirect object.
+	objectRef := ""
+	if rootRef, ok := catalogIndirectRef(doc); ok {
+		objectRef = fmt.Sprintf("%d %d R", rootRef.ObjectNumber.Value(), rootRef.GenerationNumber.Value())
+	}
+
 	return &TreeNode{
 		ID:          "root",
 		Label:       "Catalog",
@@ -39,7 +47,28 @@ func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 		HasChildren: len(rootDict) > 0,
 		ChildCount:  len(rootDict),
 		IconHint:    "catalog",
+		ObjectRef:   objectRef,
+		TypeName:    extractTypeName(rootDict),
 	}, nil
+}
+
+// extractTypeName returns the literal /Type value of a dict (or wrapped
+// stream-dict), "" when the key is absent. Strict: no inference from /Subtype
+// or any other heuristic -- only the raw /Type name is reported.
+func extractTypeName(obj pdfcpu_types.Object) string {
+	d := asDict(obj)
+	if d == nil {
+		return ""
+	}
+	v, ok := d["Type"]
+	if !ok {
+		return ""
+	}
+	name, ok := v.(pdfcpu_types.Name)
+	if !ok {
+		return ""
+	}
+	return string(name)
 }
 
 // GetChildren returns the immediate child tree nodes for a given node ID.
@@ -143,11 +172,17 @@ func buildChildFromDictEntry(doc *DocumentState, parentID, bareKey string, val p
 			HasChildren: hasChildren,
 			ChildCount:  childCount,
 			IconHint:    iconHint(bareKey, nodeType, resolved),
+			ObjectRef:   fmt.Sprintf("%d %d R", ref.ObjectNumber.Value(), ref.GenerationNumber.Value()),
+			TypeName:    extractTypeName(resolved),
 		}
 	}
 
 	id := fmt.Sprintf("dict:%s:%s", parentID, bareKey)
-	return buildTreeNode(id, "/"+bareKey, bareKey, val)
+	node := buildTreeNode(id, "/"+bareKey, bareKey, val)
+	// Inline dicts can still carry a /Type entry; surface it so AC2 dedup
+	// works for non-indirect dicts too (e.g. /Resources dict inline with /Type).
+	node.TypeName = extractTypeName(val)
+	return node
 }
 
 func resolveRefInfo(doc *DocumentState, ref pdfcpu_types.IndirectRef, bareKey string) (pdfcpu_types.Object, string, string, string, bool, int) {
@@ -189,10 +224,13 @@ func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Ar
 					HasChildren: hasChildren,
 					ChildCount:  childCount,
 					IconHint:    iconHint("", nodeType, resolved),
+					ObjectRef:   fmt.Sprintf("%d %d R", ref.ObjectNumber.Value(), ref.GenerationNumber.Value()),
+					TypeName:    extractTypeName(resolved),
 				}
 			} else {
 				id := fmt.Sprintf("arr:%s:%d", parentID, i)
 				node = buildTreeNode(id, fmt.Sprintf("[%d]", i), "", elem)
+				node.TypeName = extractTypeName(elem)
 			}
 			return nil
 		})

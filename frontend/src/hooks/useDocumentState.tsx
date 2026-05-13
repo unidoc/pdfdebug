@@ -17,6 +17,18 @@ export interface TreeNode {
   childCount: number;
   iconHint: string;
   error: string;
+  /**
+   * "<num> <gen> R" for indirect objects; "" for inline scalars/arrays/dicts
+   * without an indirect identity. Renders as the [N G R] suffix on tree rows
+   * (Story 9-8 AC1).
+   */
+  objectRef: string;
+  /**
+   * Literal /Type value of the resolved dict (e.g. "Pages", "Page", "Font");
+   * "" when absent. Frontend dedups this against the semantic label before
+   * rendering /T:<TypeName> (Story 9-8 AC2).
+   */
+  typeName: string;
 }
 
 /** Entry in the navigation history stack. */
@@ -25,6 +37,17 @@ export interface NavHistoryEntry {
   label: string | null;
   rawKey: string | null;
   iconHint?: string;
+}
+
+/**
+ * One recent palette jump. Mirrors ObjectIndexEntry fields the palette needs
+ * to re-render the row without re-querying the backend (Story 9-8 AC7).
+ */
+export interface RecentJump {
+  objNum: number;
+  gen: number;
+  typeName: string;
+  nodeId: string;
 }
 
 /** Per-document tab state including tree root, selection, and navigation. */
@@ -43,6 +66,12 @@ export interface TabState {
   navError: string | null;
   navHistory: NavHistoryEntry[];
   navHistoryIndex: number;
+  /**
+   * Most-recent palette jumps for this tab, newest first. LRU capped at 5;
+   * deduped by nodeId. Lives in memory only -- dies with the tab on
+   * CLOSE_DOCUMENT (Story 9-8 AC7 / Task 5.3).
+   */
+  recentJumps: RecentJump[];
 }
 
 /** Top-level application state. */
@@ -65,6 +94,13 @@ export interface AppState {
   // True after the user clicks Cancel. Persists past BATCH_OPEN_COMPLETE
   // until BATCH_OPEN_START or DISMISS_WARNING.
   batchOpenCancelled: boolean;
+  /**
+   * Monotonic counter incremented on every ACTIVATE_TAB dispatch (even when
+   * the target is the already-active tab). The Cmd+K palette subscribes to
+   * this so any user-initiated tab activation closes the palette, matching
+   * Story 9-8 AC10's intent.
+   */
+  tabActivationVersion: number;
 }
 
 /** Union of all actions the app reducer handles. */
@@ -87,7 +123,8 @@ export type AppAction =
   | { type: 'CLOSE_GO_TO_PAGE' }
   | { type: 'BATCH_OPEN_START'; payload: { total: number } }
   | { type: 'BATCH_OPEN_CANCEL' }
-  | { type: 'BATCH_OPEN_COMPLETE' };
+  | { type: 'BATCH_OPEN_COMPLETE' }
+  | { type: 'PUSH_RECENT_JUMP'; payload: { tabId: string; entry: RecentJump } };
 
 // --- Reducer ---
 
@@ -101,6 +138,7 @@ const initialState: AppState = {
   batchOpenTotal: 0,
   batchOpenCompleted: 0,
   batchOpenCancelled: false,
+  tabActivationVersion: 0,
 };
 
 /**
@@ -141,6 +179,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       if (action.payload.filePath) {
         const existing = state.tabs.find((t) => t.filePath === action.payload.filePath);
         if (existing) {
+          // Dedup re-activates an existing tab. Bump the activation counter
+          // only when the resolved tab differs from the current active one,
+          // so subscribers (e.g. Cmd+K palette) treat it as a tab switch.
+          const activatedDifferentTab = state.activeTabId !== existing.tabId;
           return {
             ...state,
             activeTabId: existing.tabId,
@@ -148,6 +190,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
             documentWarning,
             batchOpenCompleted,
             batchOpenCancelled,
+            tabActivationVersion: activatedDifferentTab
+              ? state.tabActivationVersion + 1
+              : state.tabActivationVersion,
           };
         }
       }
@@ -166,7 +211,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
         navError: null,
         navHistory: [],
         navHistoryIndex: -1,
+        recentJumps: [],
       };
+      // Opening a new tab that becomes active is a tab-context change; bump
+      // the version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
+      // CLOSE_DOCUMENT-of-active-tab path).
+      const activatedNewTab = state.activeTabId !== action.payload.tabId;
       return {
         ...state,
         tabs: [...state.tabs, newTab],
@@ -175,6 +225,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
         documentWarning,
         batchOpenCompleted,
         batchOpenCancelled,
+        tabActivationVersion: activatedNewTab
+          ? state.tabActivationVersion + 1
+          : state.tabActivationVersion,
       };
     }
     case 'CLOSE_DOCUMENT': {
@@ -197,12 +250,21 @@ function appReducer(state: AppState, action: AppAction): AppState {
         activeTabId: nextActiveId,
         documentError: closingActive ? null : state.documentError,
         documentWarning: closingActive ? null : state.documentWarning,
+        // Closing the active tab is a tab-context change; bump the version
+        // so subscribers (e.g. Cmd+K palette) treat it like an ACTIVATE_TAB.
+        tabActivationVersion: closingActive
+          ? state.tabActivationVersion + 1
+          : state.tabActivationVersion,
       };
     }
     case 'ACTIVATE_TAB': {
       const tabExists = state.tabs.some((t) => t.tabId === action.payload.tabId);
       if (!tabExists) return state;
-      return { ...state, activeTabId: action.payload.tabId };
+      return {
+        ...state,
+        activeTabId: action.payload.tabId,
+        tabActivationVersion: state.tabActivationVersion + 1,
+      };
     }
     case 'SELECT_NODE': {
       if (state.activeTabId === null) return state;
@@ -412,6 +474,19 @@ function appReducer(state: AppState, action: AppAction): AppState {
         batchOpenActive: false,
         batchOpenTotal: 0,
         batchOpenCompleted: 0,
+      };
+    }
+    case 'PUSH_RECENT_JUMP': {
+      // Per-tab LRU: dedup by nodeId, push to front, cap at 5. Newest first.
+      const { tabId, entry } = action.payload;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) => {
+          if (tab.tabId !== tabId) return tab;
+          const filtered = tab.recentJumps.filter((r) => r.nodeId !== entry.nodeId);
+          const next = [entry, ...filtered].slice(0, 5);
+          return { ...tab, recentJumps: next };
+        }),
       };
     }
     default: {
