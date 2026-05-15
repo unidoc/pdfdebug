@@ -176,7 +176,7 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
   const hasBaseEncoding = detail.baseEncoding !== '';
 
   return (
-    <section className="border-t border-border p-3 text-xs" data-testid="font-encoding-section">
+    <section className="shrink-0 border-t border-border p-3 text-xs" data-testid="font-encoding-section">
       <div className="text-text-secondary font-medium mb-1">Encoding</div>
       {hasNamed && !hasDifferences && (
         <div className="font-mono text-text">{detail.encodingName}</div>
@@ -237,24 +237,29 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
 }
 
 /** ToUnicode section: table of code -> U+XXXX -> glyph, with AC9a warning
- *  panel rendered above the table when toUnicodeError is set. */
+ *  panel rendered above the table when toUnicodeError is set. Flex-grows to
+ *  fill remaining FontPreview height; the inner scroll container is the
+ *  table viewport. */
 function ToUnicodeSection({ detail }: { detail: FontDetailData }) {
   const hasMappings = detail.toUnicodeMappings.length > 0;
   const hasError = detail.toUnicodeError !== '';
   if (!hasMappings && !hasError) return null;
 
   return (
-    <section className="border-t border-border p-3 text-xs" data-testid="font-tounicode-section">
-      <div className="text-text-secondary font-medium mb-1">ToUnicode CMap</div>
+    <section
+      className="flex-1 min-h-[12rem] flex flex-col border-t border-border p-3 text-xs"
+      data-testid="font-tounicode-section"
+    >
+      <div className="text-text-secondary font-medium mb-1 shrink-0">ToUnicode CMap</div>
       {hasError && (
-        <div className="px-2 py-1 text-warning mb-1" data-testid="font-tounicode-error">
+        <div className="px-2 py-1 text-warning mb-1 shrink-0" data-testid="font-tounicode-error">
           ToUnicode present but unparseable: {detail.toUnicodeError}
         </div>
       )}
       {hasMappings && (
-        <div className="overflow-auto max-h-64 border border-border rounded">
+        <div className="flex-1 min-h-0 overflow-auto border border-border rounded">
           <table className="w-full text-xs">
-            <thead className="bg-hover">
+            <thead className="bg-hover sticky top-0">
               <tr>
                 <th className="text-left px-2 py-1 text-text-secondary font-medium">Code (hex)</th>
                 <th className="text-left px-2 py-1 text-text-secondary font-medium">Unicode</th>
@@ -289,7 +294,7 @@ function FontDescriptorCard({
   const filteredFlags = descriptor.flagNames.filter((n) => VALID_FLAG_NAMES.has(n));
 
   return (
-    <section className="border-t border-border p-3 text-xs" data-testid="font-descriptor-section">
+    <section className="shrink-0 border-t border-border p-3 text-xs" data-testid="font-descriptor-section">
       <div className="text-text-secondary font-medium mb-1">FontDescriptor</div>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 font-mono">
         <dt className="text-text-muted">FontName:</dt>
@@ -369,7 +374,7 @@ function MetadataHeader({
   const showCharRange = detail.firstChar !== 0 || detail.lastChar !== 0;
 
   return (
-    <section className="p-3 text-xs" data-testid="font-metadata-section">
+    <section className="shrink-0 p-3 text-xs" data-testid="font-metadata-section">
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <span className="font-mono text-base text-text">{detail.baseFont || '(no BaseFont)'}</span>
         <EmbeddedBadge embedded={detail.embedded} format={badgeFormat} sizeBytes={badgeSize} />
@@ -399,7 +404,7 @@ function DescendantSection({
 }) {
   const cid = descendant.cidSystemInfo;
   return (
-    <section className="border-t border-border p-3 text-xs" data-testid="font-descendant-section">
+    <section className="shrink-0 border-t border-border p-3 text-xs" data-testid="font-descendant-section">
       <div className="text-text-secondary font-medium mb-1">Descendant Font</div>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 font-mono">
         <dt className="text-text-muted">Subtype:</dt>
@@ -457,10 +462,15 @@ export interface FontPreviewProps {
   onReferenceClick: (refTarget: string) => void;
 }
 
-/** Renders the consolidated font inspection view for a /Type /Font dict node. */
+/** Renders the consolidated font inspection view for a /Type /Font dict node.
+ *  Layout: fixed-height container with overflow-hidden; ToUnicodeSection
+ *  flex-grows to fill remaining space so the CMap table consumes the dead
+ *  panel space on tall windows. When ToUnicode is absent the panel content
+ *  hugs the top -- no flex-1 substitute needed because there's no working
+ *  surface that demands the height. */
 export function FontPreview({ detail, onReferenceClick }: FontPreviewProps) {
   return (
-    <div className="flex-1 min-h-0 overflow-auto" data-testid="font-preview">
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden" data-testid="font-preview">
       <MetadataHeader detail={detail} />
       <EncodingSection detail={detail} />
       <ToUnicodeSection detail={detail} />
