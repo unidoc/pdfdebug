@@ -372,6 +372,55 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 	}
 }
 
+// --- GetFontDetail tests (Story 9-9) ---
+
+func TestGetFontDetail(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "fonts-mixed.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	// Object 4 -- unembedded Helvetica.
+	result, err := svc.GetFontDetail(info.TabID, "obj:0:4")
+	if err != nil {
+		t.Fatalf("GetFontDetail returned error: %v", err)
+	}
+	if result.BaseFont != "/Helvetica" {
+		t.Errorf("BaseFont = %q, want /Helvetica", result.BaseFont)
+	}
+	if result.Subtype != "Type1" {
+		t.Errorf("Subtype = %q, want Type1", result.Subtype)
+	}
+}
+
+func TestGetFontDetailUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetFontDetail("nonexistent-tab-id", "obj:0:5")
+	if err == nil {
+		t.Fatal("GetFontDetail with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+}
+
+func TestGetFontDetailNotAFont(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "fonts-mixed.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	// "root" is the catalog, not a Font dict.
+	_, err = svc.GetFontDetail(info.TabID, "root")
+	if !errors.Is(err, pdfcore.ErrNotAFont) {
+		t.Errorf("expected ErrNotAFont, got: %v", err)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	svc := NewPDFService(nil)
 

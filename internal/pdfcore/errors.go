@@ -22,6 +22,11 @@ var (
 	// "empty list" because the latter is the orphan-hunt signal and must not
 	// be confused with a build failure.
 	ErrReverseRefIndexUnavailable = errors.New("reverse-ref index unavailable")
+	// ErrNotAFont indicates the resolved dict does not carry /Type /Font.
+	// Used by GetFontDetail so the frontend can silently fall back to the
+	// generic DictView when iconHint='font' fires on a non-Font dict (the
+	// /Resources /Font resource-map false positive).
+	ErrNotAFont = errors.New("not a font")
 )
 
 // safeCall executes fn inside a panic-recovery wrapper. pdfcpu can panic on

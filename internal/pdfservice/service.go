@@ -89,6 +89,15 @@ func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageDa
 	return s.inspector.GetImageData(tabID, nodeID)
 }
 
+// GetFontDetail returns the consolidated font inspection payload for a
+// /Type /Font dict node. Returns pdfcore.ErrNotAFont when the resolved dict
+// is not a Font dict (e.g. the iconHint='font' false positive on the
+// /Resources /Font resource map); the frontend treats this sentinel as a
+// signal to silently render the generic DictView (Story 9-9 AC1).
+func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error) {
+	return s.inspector.GetFontDetail(tabID, nodeID)
+}
+
 // GetObjectSource returns the reserialized PDF-syntax representation of an
 // indirect object. Inline-node selections return ("", nil) so the frontend
 // can render the AC3 empty state.

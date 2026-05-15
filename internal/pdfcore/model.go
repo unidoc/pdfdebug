@@ -125,6 +125,86 @@ type ReverseRef struct {
 	ParentPath   string  `json:"parentPath"`           // root-relative path to ParentRef (BFS discovery), "" for the catalog
 }
 
+// FontDetail is the consolidated font inspection payload returned by
+// Inspector.GetFontDetail. Mirrors the metadata + encoding + ToUnicode +
+// FontDescriptor structure that PDF debuggers (iText RUPS, PDFBox) surface
+// for /Type /Font dicts. Story 9-9.
+//
+// Descendant is non-nil only for composite (/Subtype /Type0) fonts and
+// recursively carries the same shape for the descendant CIDFont. ToUnicodeError
+// is the partial-success signal: when the CMap stream exists but the bfchar /
+// bfrange scanner returns an error, ToUnicodeMappings is empty and the field
+// holds the parse error so the frontend can show a warning instead of blanking
+// the panel (AC9a).
+type FontDetail struct {
+	NodeID            string               `json:"nodeId"`
+	ObjectRef         string               `json:"objectRef"`
+	Subtype           string               `json:"subtype"`
+	BaseFont          string               `json:"baseFont"`
+	FirstChar         int                  `json:"firstChar"`
+	LastChar          int                  `json:"lastChar"`
+	EncodingName      string               `json:"encodingName"`
+	BaseEncoding      string               `json:"baseEncoding"`
+	Differences       []EncodingDifference `json:"differences"`
+	ToUnicodeMappings []ToUnicodeMapping   `json:"toUnicodeMappings"`
+	ToUnicodeError    string               `json:"toUnicodeError"`
+	Embedded          bool                 `json:"embedded"`
+	FontDescriptor    *FontDescriptorInfo  `json:"fontDescriptor"`
+	Descendant        *FontDetail          `json:"descendant"`
+	// CIDSystemInfo / CIDToGIDMap / DefaultWidth populate only for CIDFont
+	// descendants (Subtype CIDFontType0 or CIDFontType2) per AC7. Zero values
+	// on non-CID fonts are inert; the frontend renders rows conditionally.
+	CIDSystemInfo *CIDSystemInfo `json:"cidSystemInfo"`
+	CIDToGIDMap   string         `json:"cidToGIDMap"`
+	DefaultWidth  int            `json:"defaultWidth"`
+}
+
+// CIDSystemInfo carries the /Registry /Ordering /Supplement triplet from a
+// CIDFont's /CIDSystemInfo dict. AC7 requires these surfaced in the
+// "Descendant Font" section so users can identify the character collection.
+type CIDSystemInfo struct {
+	Registry   string `json:"registry"`
+	Ordering   string `json:"ordering"`
+	Supplement int    `json:"supplement"`
+}
+
+// EncodingDifference is one entry in an /Encoding /Differences table: a
+// character code mapped to a glyph name (e.g. 32 -> "/space").
+type EncodingDifference struct {
+	Code      int    `json:"code"`
+	GlyphName string `json:"glyphName"`
+}
+
+// ToUnicodeMapping is one row in a font's /ToUnicode CMap: character code
+// mapped to its Unicode form (U+XXXX, possibly multi-codepoint for ligatures)
+// plus the literal glyph string suitable for display. Glyph is blanked for
+// codepoints in C0/C1 control, surrogate, or PUA ranges per AC5.
+type ToUnicodeMapping struct {
+	Code    int    `json:"code"`
+	Unicode string `json:"unicode"`
+	Glyph   string `json:"glyph"`
+}
+
+// FontDescriptorInfo summarizes a /FontDescriptor dict: name, decoded /Flags
+// bits, the standard metric fields, and which of /FontFile, /FontFile2, or
+// /FontFile3 carries the embedded font program (with a Subtype-derived
+// FontFileFormat string for /FontFile3 dispatch).
+type FontDescriptorInfo struct {
+	NodeID         string    `json:"nodeId"`
+	ObjectRef      string    `json:"objectRef"`
+	FontName       string    `json:"fontName"`
+	Flags          int       `json:"flags"`
+	FlagNames      []string  `json:"flagNames"`
+	ItalicAngle    float64   `json:"italicAngle"`
+	Ascent         float64   `json:"ascent"`
+	Descent        float64   `json:"descent"`
+	CapHeight      float64   `json:"capHeight"`
+	StemV          float64   `json:"stemV"`
+	FontBBox       []float64 `json:"fontBBox"`
+	FontFileFormat string    `json:"fontFileFormat"`
+	FontFileSize   int       `json:"fontFileSize"`
+}
+
 // DocumentInfo summarizes an opened PDF document for the frontend.
 type DocumentInfo struct {
 	TabID     string `json:"tabId"`

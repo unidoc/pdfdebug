@@ -3,7 +3,7 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontDetail } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
@@ -14,6 +14,7 @@ import {
 } from './DetailShared';
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 import { ImagePreview } from './ImagePreview';
+import { FontPreview, type FontDetailData } from './FontPreview';
 import { ReverseRefsSection, type ReverseRefEntry } from './ReverseRefsSection';
 
 /**
@@ -30,6 +31,17 @@ const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
  */
 const REV_REFS_UNAVAILABLE_MARKER = 'reverse-ref index unavailable';
 
+/**
+ * Lowercase prefix used to detect the ErrNotAFont sentinel from GetFontDetail.
+ * Anchored to message start so unrelated errors that happen to contain the
+ * phrase "not a font" elsewhere are not silenced. Matches Go's
+ * pdfcore.ErrNotAFont message and the fmt.Errorf("%w: ...", ErrNotAFont)
+ * wrap form, both of which begin with "not a font". Triggers the silent
+ * DictView fallback per Story 9-9 AC1 (the /Resources /Font iconHint false
+ * positive).
+ */
+const NOT_A_FONT_MARKER = 'not a font';
+
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
   dict: 'Properties',
@@ -37,6 +49,16 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   stream: 'Content Stream',
   scalar: 'Value',
 };
+
+/** Render-state for the iconHint='font' branch. Encodes the three possible
+ *  outcomes of a GetFontDetail fetch: detail payload (render FontPreview),
+ *  fallback marker (render generic DictView per AC1 ErrNotAFont contract),
+ *  inline error message (render error string in the dict-view slot). */
+type FontFetchState =
+  | { kind: 'detail'; detail: FontDetailData }
+  | { kind: 'fallback' }
+  | { kind: 'error'; message: string }
+  | null;
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -64,6 +86,14 @@ function DetailPanelInner() {
   const [imageData, setImageData] = useState<PdfImageData | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [showImageLoading, setShowImageLoading] = useState(false);
+  const [fontState, setFontState] = useState<FontFetchState>(null);
+  // fontLoading is a parallel-naming placeholder (matches the imageLoading /
+  // contentStreamLoading pair). The debounce timer keys on selectedNodeId +
+  // iconHint, not on this flag, so the slot is intentionally write-only --
+  // discarded via the tuple destructure but kept so dev tooling can grep
+  // both `fontLoading` and `showFontLoading`.
+  const [, setFontLoading] = useState(false);
+  const [showFontLoading, setShowFontLoading] = useState(false);
 
   // Story 9-10: reverse-refs are fetched per-selection. The backend has the
   // document-level index so the call is O(1); no client cache is needed.
@@ -86,6 +116,9 @@ function DetailPanelInner() {
       setImageData(null);
       setImageLoading(false);
       setShowImageLoading(false);
+      setFontState(null);
+      setFontLoading(false);
+      setShowFontLoading(false);
       return;
     }
     // Keep previous detail/contentStream visible until the new fetch resolves
@@ -189,6 +222,58 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [imageLoading]);
 
+  // Story 9-9: fetch font detail when detail resolves to a Font dict node.
+  // Branches on iconHint='font' + detail.type==='dict' (per AC1). ErrNotAFont
+  // rejection triggers the silent DictView fallback; any other error renders
+  // an inline message inside the dict-view slot (AC9 contract).
+  useEffect(() => {
+    if (selectedNodeIconHint !== 'font' || !detail || detail.type !== 'dict' || !detailTabId) {
+      setFontState(null);
+      setFontLoading(false);
+      return;
+    }
+    setFontState(null);
+    setFontLoading(true);
+    let cancelled = false;
+    GetFontDetail(detailTabId, detail.nodeId)
+      .then((result: unknown) => {
+        if (cancelled) return;
+        setFontState({ kind: 'detail', detail: result as FontDetailData });
+        setFontLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
+        if (raw.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
+          // AC1 fallback: silently render generic DictView.
+          setFontState({ kind: 'fallback' });
+        } else {
+          setFontState({ kind: 'error', message: raw });
+        }
+        setFontLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [detail, detailTabId, selectedNodeIconHint]);
+
+  // 200ms-debounced loading indicator timer for the font fetch (AC9). Keyed
+  // on selectedNodeId + iconHint so it starts as soon as the user clicks a
+  // font node -- before detail resolves. This avoids a microtask-ordering
+  // gap where the timer would otherwise be unscheduled until detail settled
+  // (visible only under tests that use sync vi.advanceTimersByTime; real
+  // users always see consistent 200ms behaviour). The JSX condition
+  // `!fontState && showFontLoading` hides the indicator once fontState
+  // resolves, so a stale timer that fires after fetch completion has no
+  // visible effect.
+  useEffect(() => {
+    if (selectedNodeIconHint !== 'font' || !selectedNodeId) {
+      setShowFontLoading(false);
+      return;
+    }
+    setShowFontLoading(false);
+    const timer = setTimeout(() => setShowFontLoading(true), 200);
+    return () => clearTimeout(timer);
+  }, [selectedNodeId, selectedNodeIconHint]);
+
   // Story 9-10: fetch reverse refs for indirect-object selections only. The
   // catalog (nodeId='root') is also treated as indirect because in real PDFs
   // it lives in the indirect-object graph and AC#10 requires the section to
@@ -266,10 +351,25 @@ function DetailPanelInner() {
     }
   }, [dispatch]);
 
-  const typeLabel = detail
-    ? (selectedNodeIconHint === 'image' ? 'Image Preview' : (TYPE_LABEL_MAP[detail.type] ?? 'Details'))
-    : null;
-  const contextSuffix = selectedNodeRawKey || selectedNodeLabel;
+  // FontPreview is active when iconHint='font', detail is a dict, and the
+  // fetch resolved to a detail payload (not fallback / error). AC11 header
+  // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
+  // "Font"); preempts the generic TYPE_LABEL_MAP "Properties" entry.
+  const fontActive = selectedNodeIconHint === 'font'
+    && detail?.type === 'dict'
+    && fontState?.kind === 'detail';
+  let typeLabel: string | null = null;
+  let contextSuffix: string | null = selectedNodeRawKey || selectedNodeLabel;
+  if (detail) {
+    if (fontActive && fontState?.kind === 'detail') {
+      typeLabel = 'Font';
+      contextSuffix = fontState.detail.baseFont || null;
+    } else if (selectedNodeIconHint === 'image') {
+      typeLabel = 'Image Preview';
+    } else {
+      typeLabel = TYPE_LABEL_MAP[detail.type] ?? 'Details';
+    }
+  }
   const headerLabel = typeLabel && contextSuffix
     ? `${typeLabel} - ${contextSuffix}`
     : typeLabel;
@@ -328,7 +428,32 @@ function DetailPanelInner() {
                 <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
               )}
             </div>
-            {detail.type === 'dict' && <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />}
+            {detail.type === 'dict' && selectedNodeIconHint === 'font' && (
+              <>
+                {fontState?.kind === 'detail' && (
+                  <FontPreview
+                    detail={fontState.detail}
+                    onReferenceClick={handleReferenceClick}
+                  />
+                )}
+                {fontState?.kind === 'fallback' && (
+                  <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
+                )}
+                {fontState?.kind === 'error' && (
+                  <div className="p-3 text-error text-sm" data-testid="font-preview-error">
+                    {fontState.message}
+                  </div>
+                )}
+                {!fontState && showFontLoading && (
+                  <div className="p-3 text-text-muted text-sm" data-testid="font-loading">
+                    Loading font...
+                  </div>
+                )}
+              </>
+            )}
+            {detail.type === 'dict' && selectedNodeIconHint !== 'font' && (
+              <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
+            )}
             {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} />}
             {detail.type === 'scalar' && (detail.scalarValue
               ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
