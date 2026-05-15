@@ -96,7 +96,7 @@ export function ObjectSourcePanel() {
             className="h-full flex items-center justify-center text-text-muted text-sm text-center px-4"
             data-testid="object-source-inline-empty"
           >
-            Select an indirect object to view its source.
+            Inline object -- no separate source. See parsed view on the right.
           </div>
         )}
         {selectedNodeId && !error && source && (

@@ -181,12 +181,12 @@ describe('9.10-UNIT-102: inline-node empty state', () => {
     vi.clearAllMocks();
   });
 
-  test('backend returning empty string renders "Select an indirect object..."', async () => {
+  test('backend returning empty string renders the inline placeholder', async () => {
     mockGetObjectSource.mockResolvedValue('');
     renderPanel('dict:obj:0:5:Type');
     await waitFor(() => {
       expect(
-        screen.getByText('Select an indirect object to view its source.')
+        screen.getByText(/Inline object/i)
       ).toBeInTheDocument();
     });
   });
