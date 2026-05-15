@@ -100,6 +100,30 @@ function toHex(n: number): string {
   return `0x${h.length < 2 ? '0' + h : h}`;
 }
 
+// PDF spec 9.6.4: six uppercase letters + '+' on /BaseFont signal a subsetted
+// font program. The leading '/' on the displayed BaseFont is stripped here.
+const SUBSET_PREFIX_RE = /^\/?([A-Z]{6})\+/;
+
+/** Returns the subset tag (without '+') when baseFont carries the PDF subset
+ *  prefix, e.g. "/AAAAAB+Helvetica" -> "AAAAAB". Returns null otherwise. */
+function extractSubsetPrefix(baseFont: string): string | null {
+  const m = SUBSET_PREFIX_RE.exec(baseFont);
+  return m ? m[1] : null;
+}
+
+// Standard named encodings per PDF 1.7 Appendix D. When /Encoding is one of
+// these names (not a dict with /Differences), the code-to-glyph mapping is
+// implicit and well-known, so there is no per-code table to render.
+const STANDARD_ENCODING_NAMES = new Set([
+  '/WinAnsiEncoding',
+  '/MacRomanEncoding',
+  '/MacExpertEncoding',
+  '/StandardEncoding',
+  '/PDFDocEncoding',
+  '/Identity-H',
+  '/Identity-V',
+]);
+
 /** Returns the IndirectRef nodeID derived from an "N G R" string,
  *  or "" when the string is not in that form. */
 function nodeIdFromRef(ref: string): string {
@@ -179,7 +203,14 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
     <section className="shrink-0 border-t border-border p-3 text-xs" data-testid="font-encoding-section">
       <div className="text-text-secondary font-medium mb-1">Encoding</div>
       {hasNamed && !hasDifferences && (
-        <div className="font-mono text-text">{detail.encodingName}</div>
+        <>
+          <div className="font-mono text-text">{detail.encodingName}</div>
+          {STANDARD_ENCODING_NAMES.has(detail.encodingName) && (
+            <div className="text-text-muted mt-1" data-testid="font-encoding-standard-note">
+              Standard named encoding. Code-to-glyph mapping is implicit (PDF spec Appendix D) -- no per-code overrides.
+            </div>
+          )}
+        </>
       )}
       {/* BaseEncoding-only: /Encoding is a dict with /BaseEncoding but no
           /Differences. Surface the BaseEncoding rather than fall through to
@@ -243,14 +274,19 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
 function ToUnicodeSection({ detail }: { detail: FontDetailData }) {
   const hasMappings = detail.toUnicodeMappings.length > 0;
   const hasError = detail.toUnicodeError !== '';
-  if (!hasMappings && !hasError) return null;
+  const isEmpty = !hasMappings && !hasError;
 
   return (
     <section
-      className="flex-1 min-h-[12rem] flex flex-col border-t border-border p-3 text-xs"
+      className="flex-1 min-h-[8rem] flex flex-col border-t border-border p-3 text-xs"
       data-testid="font-tounicode-section"
     >
       <div className="text-text-secondary font-medium mb-1 shrink-0">ToUnicode CMap</div>
+      {isEmpty && (
+        <div className="text-text-muted" data-testid="font-tounicode-empty">
+          No /ToUnicode CMap in this font dict. Text extraction relies on the encoding above. Independent of font subsetting.
+        </div>
+      )}
       {hasError && (
         <div className="px-2 py-1 text-warning mb-1 shrink-0" data-testid="font-tounicode-error">
           ToUnicode present but unparseable: {detail.toUnicodeError}
@@ -373,11 +409,22 @@ function MetadataHeader({
   // range starting at code 0 -- showing "0 - 0" is misleading either way.
   const showCharRange = detail.firstChar !== 0 || detail.lastChar !== 0;
 
+  const subsetPrefix = extractSubsetPrefix(detail.baseFont);
+
   return (
     <section className="shrink-0 p-3 text-xs" data-testid="font-metadata-section">
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <span className="font-mono text-base text-text">{detail.baseFont || '(no BaseFont)'}</span>
         <EmbeddedBadge embedded={detail.embedded} format={badgeFormat} sizeBytes={badgeSize} />
+        {subsetPrefix && (
+          <span
+            className="inline-flex items-center px-2 py-0.5 text-xs rounded bg-info/10 text-info font-medium"
+            data-testid="font-subset-badge"
+            title={`Subset prefix ${subsetPrefix}+ -- only glyphs used by the document are included in the embedded font program (PDF spec 9.6.4).`}
+          >
+            Subset
+          </span>
+        )}
       </div>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 font-mono">
         <dt className="text-text-muted">Subtype:</dt>
