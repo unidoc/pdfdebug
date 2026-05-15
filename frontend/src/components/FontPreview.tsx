@@ -259,11 +259,11 @@ function ToUnicodeSection({ detail }: { detail: FontDetailData }) {
       {hasMappings && (
         <div className="flex-1 min-h-0 overflow-auto border border-border rounded">
           <table className="w-full text-xs">
-            <thead className="bg-hover sticky top-0">
+            <thead className="sticky top-0 z-10">
               <tr>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Code (hex)</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Unicode</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Glyph</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Code (hex)</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Unicode</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Glyph</th>
               </tr>
             </thead>
             <tbody>

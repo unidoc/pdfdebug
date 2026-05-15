@@ -75,13 +75,13 @@ export function FontRosterPreview({ roster, onReferenceClick }: FontRosterPrevie
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead className="bg-hover sticky top-0">
+            <thead className="sticky top-0 z-10">
               <tr>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Name</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">BaseFont</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Subtype</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Embedded</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium">Encoding</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Name</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">BaseFont</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Subtype</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Embedded</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Encoding</th>
               </tr>
             </thead>
             <tbody>
