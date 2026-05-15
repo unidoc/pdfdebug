@@ -18,6 +18,10 @@ import (
 // reflects the resource-map shape. Returns ErrNotAFont when ZERO entries
 // resolve to a Font dict, signalling the frontend to fall back to the generic
 // DictView (the dict isn't a font resource map either).
+//
+// Deprecated: callers in the running app go through GetFontView which never
+// surfaces ErrNotAFont. This method is retained for the unit tests that pin
+// its sentinel contract.
 func (ins *Inspector) GetFontResourceMap(tabID, nodeID string) (*FontResourceMap, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
@@ -46,8 +50,23 @@ func (ins *Inspector) GetFontResourceMap(tabID, nodeID string) (*FontResourceMap
 		return nil, ErrNotAFont
 	}
 
+	roster := buildFontRoster(doc, nodeID, d)
+	if len(roster.Entries) == 0 || !rosterHasResolved(roster) {
+		return nil, ErrNotAFont
+	}
+	return roster, nil
+}
+
+// buildFontRoster walks every entry of d and emits a FontResourceMap row per
+// entry. Rows whose value does not resolve to a /Type /Font dict are kept with
+// Unresolved=true so the eventual table preserves the resource-map shape.
+// Entries are sorted by Name for deterministic emission.
+//
+// The returned roster is always non-nil; callers decide whether a zero-resolved
+// roster should be surfaced (GetFontView -> Kind:"neither") or rejected
+// (GetFontResourceMap -> ErrNotAFont).
+func buildFontRoster(doc *DocumentState, nodeID string, d pdfcpu_types.Dict) *FontResourceMap {
 	entries := make([]FontRosterEntry, 0, len(d))
-	resolvedCount := 0
 	for key, val := range d {
 		entry := FontRosterEntry{Name: key}
 
@@ -68,13 +87,8 @@ func (ins *Inspector) GetFontResourceMap(tabID, nodeID string) (*FontResourceMap
 			continue
 		}
 
-		resolvedCount++
 		populateRosterEntry(doc, rd, &entry)
 		entries = append(entries, entry)
-	}
-
-	if resolvedCount == 0 {
-		return nil, ErrNotAFont
 	}
 
 	slices.SortFunc(entries, func(a, b FontRosterEntry) int {
@@ -84,7 +98,19 @@ func (ins *Inspector) GetFontResourceMap(tabID, nodeID string) (*FontResourceMap
 	return &FontResourceMap{
 		NodeID:  nodeID,
 		Entries: entries,
-	}, nil
+	}
+}
+
+// rosterHasResolved reports whether roster contains at least one entry whose
+// value resolved to a /Type /Font dict (i.e. not Unresolved). Used to detect
+// the "this dict isn't a font resource map" case.
+func rosterHasResolved(roster *FontResourceMap) bool {
+	for i := range roster.Entries {
+		if !roster.Entries[i].Unresolved {
+			return true
+		}
+	}
+	return false
 }
 
 // populateRosterEntry fills the per-row summary fields from a /Type /Font dict.

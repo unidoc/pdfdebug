@@ -109,8 +109,19 @@ func (s *PDFService) GetObjectSource(tabID string, nodeID string) (string, error
 // /Font dict. Returns pdfcore.ErrNotAFont when the resolved dict is not a
 // font resource map (no entry resolves to a /Type /Font dict); the frontend
 // falls back to the generic DictView in that case.
+//
+// Deprecated: the running app uses GetFontView; GetFontResourceMap remains
+// bound only because the Go unit tests pin its sentinel contract.
 func (s *PDFService) GetFontResourceMap(tabID string, nodeID string) (*pdfcore.FontResourceMap, error) {
 	return s.inspector.GetFontResourceMap(tabID, nodeID)
+}
+
+// GetFontView returns the unified font-inspection payload for a node. The
+// FontView Kind field disambiguates the three outcomes ("detail" / "roster" /
+// "neither") server-side so the frontend issues one call per click and the
+// non-font case never produces a Wails error log.
+func (s *PDFService) GetFontView(tabID string, nodeID string) (*pdfcore.FontView, error) {
+	return s.inspector.GetFontView(tabID, nodeID)
 }
 
 // GetReverseRefs returns the inbound dict-graph references for the indirect

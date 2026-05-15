@@ -3,7 +3,7 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontDetail, GetFontResourceMap } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
@@ -32,17 +32,6 @@ const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
  */
 const REV_REFS_UNAVAILABLE_MARKER = 'reverse-ref index unavailable';
 
-/**
- * Lowercase prefix used to detect the ErrNotAFont sentinel from GetFontDetail.
- * Anchored to message start so unrelated errors that happen to contain the
- * phrase "not a font" elsewhere are not silenced. Matches Go's
- * pdfcore.ErrNotAFont message and the fmt.Errorf("%w: ...", ErrNotAFont)
- * wrap form, both of which begin with "not a font". Triggers the silent
- * DictView fallback per Story 9-9 AC1 (the /Resources /Font iconHint false
- * positive).
- */
-const NOT_A_FONT_MARKER = 'not a font';
-
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
   dict: 'Properties',
@@ -52,10 +41,11 @@ const TYPE_LABEL_MAP: Record<string, string> = {
 };
 
 /** Render-state for the iconHint='font' branch. Encodes the four possible
- *  outcomes of a GetFontDetail fetch: detail payload (render FontPreview),
+ *  outcomes of a GetFontView fetch: detail payload (render FontPreview),
  *  roster (render FontRosterPreview for the /Resources /Font map),
- *  fallback marker (render generic DictView when the dict isn't a font roster
- *  either), inline error message (render error string in the dict-view slot). */
+ *  fallback (render generic DictView when the dict is neither a Font dict nor
+ *  a font roster), inline error message (render error string in the dict-view
+ *  slot for real backend failures). */
 type FontFetchState =
   | { kind: 'detail'; detail: FontDetailData }
   | { kind: 'roster'; roster: FontResourceMapData }
@@ -243,10 +233,11 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [imageLoading]);
 
-  // Story 9-9: fetch font detail when detail resolves to a Font dict node.
-  // Branches on iconHint='font' + detail.type==='dict' (per AC1). ErrNotAFont
-  // rejection triggers the silent DictView fallback; any other error renders
-  // an inline message inside the dict-view slot (AC9 contract).
+  // Story 9-9: fetch the unified FontView when detail resolves to a dict node
+  // tagged iconHint='font'. The backend disambiguates the three outcomes
+  // ("detail" / "roster" / "neither") in one call so the binding layer never
+  // logs ERR on the iconHint='font' false positive. .catch fires only on
+  // genuine backend errors (unknown tab, malformed PDF, pdfcpu panics).
   useEffect(() => {
     if (selectedNodeIconHint !== 'font' || !detail || detail.type !== 'dict' || !detailTabId) {
       setFontState(null);
@@ -256,40 +247,22 @@ function DetailPanelInner() {
     setFontState(null);
     setFontLoading(true);
     let cancelled = false;
-    const tabIDForFetch = detailTabId;
-    const nodeIDForFetch = detail.nodeId;
-    GetFontDetail(tabIDForFetch, nodeIDForFetch)
+    GetFontView(detailTabId, detail.nodeId)
       .then((result: unknown) => {
         if (cancelled) return;
-        setFontState({ kind: 'detail', detail: result as FontDetailData });
+        const view = result as { kind: string; detail: FontDetailData | null; roster: FontResourceMapData | null };
+        if (view?.kind === 'detail' && view.detail) {
+          setFontState({ kind: 'detail', detail: view.detail });
+        } else if (view?.kind === 'roster' && view.roster) {
+          setFontState({ kind: 'roster', roster: view.roster });
+        } else {
+          setFontState({ kind: 'fallback' });
+        }
         setFontLoading(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const msg = extractErrorMessage(err);
-        if (msg.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
-          // ErrNotAFont: try the font-roster view (Resources /Font map).
-          // If that ALSO returns ErrNotAFont the dict isn't a font roster
-          // either; fall back silently to the generic DictView per AC1.
-          GetFontResourceMap(tabIDForFetch, nodeIDForFetch)
-            .then((rosterResult: unknown) => {
-              if (cancelled) return;
-              setFontState({ kind: 'roster', roster: rosterResult as FontResourceMapData });
-              setFontLoading(false);
-            })
-            .catch((rosterErr: unknown) => {
-              if (cancelled) return;
-              const rosterMsg = extractErrorMessage(rosterErr);
-              if (rosterMsg.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
-                setFontState({ kind: 'fallback' });
-              } else {
-                setFontState({ kind: 'error', message: rosterMsg });
-              }
-              setFontLoading(false);
-            });
-          return;
-        }
-        setFontState({ kind: 'error', message: msg });
+        setFontState({ kind: 'error', message: extractErrorMessage(err) });
         setFontLoading(false);
       });
     return () => { cancelled = true; };

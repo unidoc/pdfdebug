@@ -1,14 +1,11 @@
 /**
- * Story 9.9: Font Inspection View -- DetailPanel integration tests
+ * Story 9.9: Font Inspection View -- DetailPanel integration tests.
  *
- * TDD RED PHASE: Tests MUST fail until Task 5 wires FontPreview into
- * DetailPanel: the iconHint='font' branch with GetFontDetail fetch, the
- * fontLoading/showFontLoading state pair with 200ms debounce (AC#9), the
- * ErrNotAFont silent DictView fallback (AC#1), and the "Font - <BaseFont>"
- * header label (AC#11).
- *
- * Standalone file (mirrors DetailPanel.reverseRefs.test.tsx pattern from
- * Story 9-10) to avoid splicing into the 1678-line DetailPanel.test.tsx.
+ * Updated for the unified GetFontView endpoint (replaces the prior
+ * GetFontDetail + GetFontResourceMap two-call cascade). The backend now
+ * disambiguates server-side via FontView.Kind so the frontend issues exactly
+ * one call per iconHint='font' click and the binding layer never logs ERR on
+ * the /Resources /Font false-positive path.
  *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.fontPreview.test.tsx
  */
@@ -38,10 +35,7 @@ const mockGetObjectDetail = vi.fn();
 const mockGetContentStream = vi.fn();
 const mockGetImageData = vi.fn();
 const mockGetReverseRefs = vi.fn();
-// RED PHASE: GetFontDetail does not exist in the bindings yet. The mock
-// surface anticipates Task 3.2's regenerated bindings.
-const mockGetFontDetail = vi.fn();
-const mockGetFontResourceMap = vi.fn();
+const mockGetFontView = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -54,8 +48,7 @@ vi.mock(
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
-    GetFontDetail: (...args: unknown[]) => mockGetFontDetail(...args),
-    GetFontResourceMap: (...args: unknown[]) => mockGetFontResourceMap(...args),
+    GetFontView: (...args: unknown[]) => mockGetFontView(...args),
   })
 );
 
@@ -167,21 +160,21 @@ function renderDetailPanelFor(
 
 // ---------------------------------------------------------------------------
 // 9.9-UNIT-201 [P0] AC#1 -- iconHint='font' + dict-type triggers FontPreview
-// in place of DictView. GetFontDetail is fetched.
+// in place of DictView. GetFontView is fetched and returns Kind:'detail'.
 // ---------------------------------------------------------------------------
 
 describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
-    mockGetFontDetail.mockResolvedValue(populatedFontDetail);
+    mockGetFontView.mockResolvedValue({ kind: 'detail', detail: populatedFontDetail, roster: null });
     mockGetReverseRefs.mockResolvedValue([]);
   });
 
-  test('GetFontDetail is called with (tabID, nodeID)', async () => {
+  test('GetFontView is called with (tabID, nodeID)', async () => {
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
-      expect(mockGetFontDetail).toHaveBeenCalledWith('tab-1', 'obj:0:5');
+      expect(mockGetFontView).toHaveBeenCalledWith('tab-1', 'obj:0:5');
     });
   });
 
@@ -201,25 +194,19 @@ describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-202 [P0] AC#1 fallback -- ErrNotAFont sentinel silently renders
-// generic DictView. The frontend matches the sentinel via wails-rejected
-// error message; the canonical wording is "not a font" (parallel to the
-// "reverse-ref index unavailable" pattern from Story 9-10).
+// 9.9-UNIT-202 [P0] AC#1 fallback -- Kind:'neither' silently renders the
+// generic DictView. No error is involved in this path.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202: ErrNotAFont silent DictView fallback', () => {
+describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
-    // Default: roster fetch also rejects with not-a-font so flow reaches the
-    // silent DictView fallback. Individual tests override this to assert
-    // roster behavior.
-    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
   });
 
-  test('ErrNotAFont rejection renders the generic DictView (not FontPreview)', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
+  test('Kind:neither renders the generic DictView (not FontPreview)', async () => {
+    mockGetFontView.mockResolvedValue({ kind: 'neither', detail: null, roster: null });
     renderDetailPanelFor('obj:0:5', 'font');
     // DictView's /Type row renders because we silently fall back.
     await waitFor(() => {
@@ -230,8 +217,8 @@ describe('9.9-UNIT-202: ErrNotAFont silent DictView fallback', () => {
     expect(screen.queryByText(/Not embedded/)).not.toBeInTheDocument();
   });
 
-  test('ErrNotAFont path does NOT surface a generic error banner', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
+  test('Kind:neither path does NOT surface a generic error banner', async () => {
+    mockGetFontView.mockResolvedValue({ kind: 'neither', detail: null, roster: null });
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
@@ -241,68 +228,48 @@ describe('9.9-UNIT-202: ErrNotAFont silent DictView fallback', () => {
       screen.queryByText(/Failed to load font detail/i)
     ).not.toBeInTheDocument();
   });
-
-  test('Wails JSON envelope error is unwrapped and triggers fallback', async () => {
-    // Wails v3 wraps Go errors in {message, cause, kind} inside err.message.
-    // The frontend MUST parse this envelope rather than substring-matching
-    // the JSON blob -- otherwise the raw JSON gets rendered as the error UI.
-    const envelope = JSON.stringify({
-      message: 'not a font',
-      cause: {},
-      kind: 'RuntimeError',
-    });
-    mockGetFontDetail.mockRejectedValue(new Error(envelope));
-    renderDetailPanelFor('obj:0:5', 'font');
-    // Fallback path renders DictView -> /Type row present.
-    await waitFor(() => {
-      expect(screen.getByText('/Type')).toBeInTheDocument();
-    });
-    // The raw JSON envelope MUST NOT be rendered anywhere in the panel.
-    expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/"message"/)).not.toBeInTheDocument();
-  });
 });
 
 // ---------------------------------------------------------------------------
 // 9.9-UNIT-202b -- /Resources /Font roster view replaces silent DictView when
-// GetFontResourceMap returns a populated roster.
+// GetFontView returns Kind:'roster'.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202b: ErrNotAFont triggers FontRosterPreview', () => {
+describe('9.9-UNIT-202b: Kind=roster renders FontRosterPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
   });
 
-  test('roster renders when GetFontResourceMap returns entries', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
-    mockGetFontResourceMap.mockResolvedValue({
-      nodeId: 'dict:dict:obj:0:3:Resources:Font',
-      entries: [
-        {
-          name: 'F1',
-          nodeId: 'obj:0:4',
-          objectRef: '4 0 R',
-          baseFont: '/Helvetica',
-          subtype: 'Type1',
-          encodingSummary: '/WinAnsiEncoding',
-          embedded: false,
-          unresolved: false,
-        },
-      ],
+  test('roster renders when GetFontView returns Kind:roster', async () => {
+    mockGetFontView.mockResolvedValue({
+      kind: 'roster',
+      detail: null,
+      roster: {
+        nodeId: 'dict:dict:obj:0:3:Resources:Font',
+        entries: [
+          {
+            name: 'F1',
+            nodeId: 'obj:0:4',
+            objectRef: '4 0 R',
+            baseFont: '/Helvetica',
+            subtype: 'Type1',
+            encodingSummary: '/WinAnsiEncoding',
+            embedded: false,
+            unresolved: false,
+          },
+        ],
+      },
     });
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
       expect(screen.getByTestId('font-roster-preview')).toBeInTheDocument();
     });
-    // The raw JSON envelope must never reach the UI.
-    expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
   });
 
-  test('roster ErrNotAFont rejection falls through to DictView silently', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
-    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
+  test('Kind:neither falls through to DictView silently (no roster mount)', async () => {
+    mockGetFontView.mockResolvedValue({ kind: 'neither', detail: null, roster: null });
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
@@ -312,20 +279,21 @@ describe('9.9-UNIT-202b: ErrNotAFont triggers FontRosterPreview', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-203 [P0] AC#9 -- non-sentinel error surfaces an inline error
-// message inside the dict-view slot (does NOT blank the panel).
+// 9.9-UNIT-203 [P0] AC#9 -- real backend error surfaces an inline error
+// message inside the dict-view slot (does NOT blank the panel). With the
+// unified endpoint, .catch only fires for genuine failures (malformed PDF,
+// unknown tab, pdfcpu panics).
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-203: non-sentinel error renders inline (does not crash)', () => {
+describe('9.9-UNIT-203: real error renders inline (does not crash)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
-    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
   });
 
-  test('generic GetFontDetail rejection renders an inline error message', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('boom from pdfcpu'));
+  test('GetFontView rejection renders an inline error message', async () => {
+    mockGetFontView.mockRejectedValue(new Error('boom from pdfcpu'));
     renderDetailPanelFor('obj:0:5', 'font');
     // The error string surfaces somewhere visible (we accept any container
     // that includes the message). The panel MUST NOT be blank.
@@ -334,13 +302,13 @@ describe('9.9-UNIT-203: non-sentinel error renders inline (does not crash)', () 
     });
   });
 
-  test('Wails envelope unwraps non-sentinel message and renders inline', async () => {
+  test('Wails envelope unwraps real-error message and renders inline', async () => {
     const envelope = JSON.stringify({
       message: 'boom from pdfcpu',
       cause: {},
       kind: 'RuntimeError',
     });
-    mockGetFontDetail.mockRejectedValue(new Error(envelope));
+    mockGetFontView.mockRejectedValue(new Error(envelope));
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
       expect(screen.getByText(/boom from pdfcpu/)).toBeInTheDocument();
@@ -349,8 +317,8 @@ describe('9.9-UNIT-203: non-sentinel error renders inline (does not crash)', () 
     expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
   });
 
-  test('iconHint=font with non-sentinel error does NOT crash the panel', async () => {
-    mockGetFontDetail.mockRejectedValue(new Error('boom from pdfcpu'));
+  test('iconHint=font with a real error does NOT crash the panel', async () => {
+    mockGetFontView.mockRejectedValue(new Error('boom from pdfcpu'));
     renderDetailPanelFor('obj:0:5', 'font');
     // detail-panel root must still exist (the React error boundary did not
     // unmount the panel).
@@ -375,7 +343,7 @@ describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
-    mockGetFontDetail.mockImplementation(
+    mockGetFontView.mockImplementation(
       () => new Promise((res) => { resolveFont = res; })
     );
   });
@@ -384,7 +352,7 @@ describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
     // Resolve any in-flight promise so React effect cleanup completes without
     // leaving pending microtasks at teardown.
     if (resolveFont) {
-      resolveFont(populatedFontDetail);
+      resolveFont({ kind: 'detail', detail: populatedFontDetail, roster: null });
       resolveFont = null;
     }
     vi.useRealTimers();
@@ -430,7 +398,7 @@ describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
     });
   });
 
-  test('GetFontDetail is NOT called when detail.type is "stream"', async () => {
+  test('GetFontView is NOT called when detail.type is "stream"', async () => {
     mockGetObjectDetail.mockResolvedValue({
       ...fontDictDetail,
       type: 'stream',
@@ -442,38 +410,38 @@ describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
       expect(mockGetObjectDetail).toHaveBeenCalled();
     });
     // The font branch is dict-typed only; a stream-typed detail must not
-    // call GetFontDetail.
-    expect(mockGetFontDetail).not.toHaveBeenCalled();
+    // call GetFontView.
+    expect(mockGetFontView).not.toHaveBeenCalled();
   });
 });
 
 // ---------------------------------------------------------------------------
 // 9.9-UNIT-206 [P0] AC#1 negative -- iconHint is null / not 'font' -> no fetch.
-// Regression guard: a missing branch guard would fire GetFontDetail on every
+// Regression guard: a missing branch guard would fire GetFontView on every
 // dict selection, ballooning IPC traffic.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontDetail', () => {
+describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
   });
 
-  test('iconHint=null does not fetch font detail', async () => {
+  test('iconHint=null does not fetch font view', async () => {
     renderDetailPanelFor('obj:0:5', null);
     await waitFor(() => {
       expect(mockGetObjectDetail).toHaveBeenCalled();
     });
-    expect(mockGetFontDetail).not.toHaveBeenCalled();
+    expect(mockGetFontView).not.toHaveBeenCalled();
   });
 
-  test('iconHint="image" does not fetch font detail', async () => {
+  test('iconHint="image" does not fetch font view', async () => {
     renderDetailPanelFor('obj:0:5', 'image');
     await waitFor(() => {
       expect(mockGetObjectDetail).toHaveBeenCalled();
     });
-    expect(mockGetFontDetail).not.toHaveBeenCalled();
+    expect(mockGetFontView).not.toHaveBeenCalled();
   });
 });
 
@@ -490,7 +458,7 @@ describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
   });
 
   test('header label includes "Font - /Helvetica-Bold"', async () => {
-    mockGetFontDetail.mockResolvedValue(populatedFontDetail);
+    mockGetFontView.mockResolvedValue({ kind: 'detail', detail: populatedFontDetail, roster: null });
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
       const header = screen.getByTestId('detail-panel-header');
@@ -500,9 +468,10 @@ describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
   });
 
   test('header label is "Font" when BaseFont is empty', async () => {
-    mockGetFontDetail.mockResolvedValue({
-      ...populatedFontDetail,
-      baseFont: '',
+    mockGetFontView.mockResolvedValue({
+      kind: 'detail',
+      detail: { ...populatedFontDetail, baseFont: '' },
+      roster: null,
     });
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
@@ -523,18 +492,17 @@ describe('9.9-UNIT-208: AC#10 indirect-ref-chain / ObjStm transparent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
-    mockGetFontDetail.mockResolvedValue(populatedFontDetail);
+    mockGetFontView.mockResolvedValue({ kind: 'detail', detail: populatedFontDetail, roster: null });
     mockGetReverseRefs.mockResolvedValue([]);
   });
 
-  test('caller passes nodeId once; FontPreview renders without extra fetches', async () => {
+  test('caller passes nodeId once; FontPreview renders with one fetch', async () => {
     renderDetailPanelFor('obj:0:5', 'font');
     await waitFor(() => {
-      expect(mockGetFontDetail).toHaveBeenCalledTimes(1);
+      expect(mockGetFontView).toHaveBeenCalledTimes(1);
     });
-    // No retry, no second fetch, no fallback fetch on a "looks like an
-    // indirect ref" guess. AC#10 is satisfied entirely at the backend
+    // No retry, no second fetch. AC#10 is satisfied entirely at the backend
     // through resolveNodeObject -- the frontend MUST stay dumb.
-    expect(mockGetFontDetail).toHaveBeenCalledWith('tab-1', 'obj:0:5');
+    expect(mockGetFontView).toHaveBeenCalledWith('tab-1', 'obj:0:5');
   });
 });

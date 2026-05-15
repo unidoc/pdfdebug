@@ -635,15 +635,20 @@ func TestFontPreviewTestFileExists(t *testing.T) {
 
 // 9.9-STRUCT-003 [P0]: DetailPanel.tsx wires the FontPreview branch.
 // The branch fires when detail.type==='dict' AND selectedNodeIconHint==='font'
-// AND the GetFontDetail fetch resolves (not an ErrNotAFont rejection).
-// We assert structurally that the imports + fetch call + render path exist.
+// AND the GetFontView fetch resolves with Kind=='detail'. We assert
+// structurally that the imports + fetch call + render path exist.
+//
+// Updated post-refactor: the dev unified GetFontDetail + GetFontResourceMap
+// into a single GetFontView endpoint so the Wails binding layer no longer
+// logs ERR on the /Resources /Font false-positive path. The frontend now
+// calls GetFontView exactly once per click.
 func TestDetailPanelMountsFontPreview(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "FontPreview") {
 		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must import and render FontPreview (Task 5.1)")
 	}
-	if !strings.Contains(src, "GetFontDetail") {
-		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must call GetFontDetail when iconHint==='font' (Task 5.1)")
+	if !strings.Contains(src, "GetFontView") {
+		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must call GetFontView when iconHint==='font' (unified endpoint)")
 	}
 	// AC#9: 200ms debounce parallel to imageLoading/showImageLoading. We
 	// require the same naming pair (fontLoading/showFontLoading) so reviewers

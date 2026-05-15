@@ -215,6 +215,17 @@ type FontResourceMap struct {
 	Entries []FontRosterEntry `json:"entries"`
 }
 
+// FontView is the unified payload returned by Inspector.GetFontView. It
+// disambiguates server-side whether a node resolves to a /Type /Font dict
+// (Kind=="detail"), a /Resources /Font roster (Kind=="roster"), or neither
+// (Kind=="neither"), so the frontend issues exactly one call per click and
+// "this isn't a font" never produces an error log on the Wails binding layer.
+type FontView struct {
+	Kind   string           `json:"kind"`
+	Detail *FontDetail      `json:"detail"`
+	Roster *FontResourceMap `json:"roster"`
+}
+
 // FontRosterEntry is one row in a /Resources /Font roster: the resource-map
 // key (e.g. "F1"), the resolved /Type /Font dict's node ID, and a thin
 // summary suitable for the FontRosterPreview table. Unresolved is set when
