@@ -110,7 +110,7 @@ export function TabBar() {
               <span className="truncate">{tab.fileName}</span>
               <button
                 type="button"
-                className="ml-2 opacity-0 group-hover:opacity-100 rounded-sm hover:bg-surface-hover text-text-muted hover:text-text w-4 h-4 flex items-center justify-center flex-shrink-0"
+                className="ml-2 opacity-0 group-hover:opacity-100 rounded-sm hover:bg-surface-hover text-text-muted hover:text-text w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-pointer"
                 data-testid={`tab-close-${tab.tabId}`}
                 aria-label={`Close ${tab.fileName}`}
                 onClick={(e) => handleClose(tab.tabId, e)}
