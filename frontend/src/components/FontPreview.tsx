@@ -212,7 +212,7 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
           )}
           <div className="overflow-auto max-h-64 border border-border rounded">
             <table className="w-full text-xs">
-              <thead className="bg-hover">
+              <thead className="bg-surface-hover">
                 <tr>
                   <th className="text-left px-2 py-1 text-text-secondary font-medium">Code (decimal)</th>
                   <th className="text-left px-2 py-1 text-text-secondary font-medium">Code (hex)</th>
@@ -261,9 +261,9 @@ function ToUnicodeSection({ detail }: { detail: FontDetailData }) {
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10">
               <tr>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Code (hex)</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Unicode</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Glyph</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Code (hex)</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Unicode</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Glyph</th>
               </tr>
             </thead>
             <tbody>
@@ -308,7 +308,7 @@ function FontDescriptorCard({
               {filteredFlags.map((name) => (
                 <span
                   key={name}
-                  className="px-1.5 py-0.5 rounded bg-hover text-text-secondary"
+                  className="px-1.5 py-0.5 rounded bg-surface-hover text-text-secondary"
                   data-testid="font-flag-pill"
                 >
                   {name}

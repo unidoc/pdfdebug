@@ -77,11 +77,11 @@ export function FontRosterPreview({ roster, onReferenceClick }: FontRosterPrevie
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10">
               <tr>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Name</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">BaseFont</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Subtype</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Embedded</th>
-                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-hover">Encoding</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Name</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">BaseFont</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Subtype</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Embedded</th>
+                <th className="text-left px-2 py-1 text-text-secondary font-medium bg-surface-hover">Encoding</th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +114,7 @@ export function FontRosterPreview({ roster, onReferenceClick }: FontRosterPrevie
                     key={entry.name}
                     role="button"
                     tabIndex={0}
-                    className="border-t border-border cursor-pointer hover:bg-hover"
+                    className="border-t border-border cursor-pointer hover:bg-surface-hover"
                     data-testid="font-roster-row"
                     data-ref-target={entry.nodeId}
                     onClick={() => entry.nodeId && onReferenceClick(entry.nodeId)}
