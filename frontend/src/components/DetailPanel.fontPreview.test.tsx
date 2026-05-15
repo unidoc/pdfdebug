@@ -41,6 +41,7 @@ const mockGetReverseRefs = vi.fn();
 // RED PHASE: GetFontDetail does not exist in the bindings yet. The mock
 // surface anticipates Task 3.2's regenerated bindings.
 const mockGetFontDetail = vi.fn();
+const mockGetFontResourceMap = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -54,6 +55,7 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetFontDetail: (...args: unknown[]) => mockGetFontDetail(...args),
+    GetFontResourceMap: (...args: unknown[]) => mockGetFontResourceMap(...args),
   })
 );
 
@@ -210,6 +212,10 @@ describe('9.9-UNIT-202: ErrNotAFont silent DictView fallback', () => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
+    // Default: roster fetch also rejects with not-a-font so flow reaches the
+    // silent DictView fallback. Individual tests override this to assert
+    // roster behavior.
+    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
   });
 
   test('ErrNotAFont rejection renders the generic DictView (not FontPreview)', async () => {
@@ -235,6 +241,74 @@ describe('9.9-UNIT-202: ErrNotAFont silent DictView fallback', () => {
       screen.queryByText(/Failed to load font detail/i)
     ).not.toBeInTheDocument();
   });
+
+  test('Wails JSON envelope error is unwrapped and triggers fallback', async () => {
+    // Wails v3 wraps Go errors in {message, cause, kind} inside err.message.
+    // The frontend MUST parse this envelope rather than substring-matching
+    // the JSON blob -- otherwise the raw JSON gets rendered as the error UI.
+    const envelope = JSON.stringify({
+      message: 'not a font',
+      cause: {},
+      kind: 'RuntimeError',
+    });
+    mockGetFontDetail.mockRejectedValue(new Error(envelope));
+    renderDetailPanelFor('obj:0:5', 'font');
+    // Fallback path renders DictView -> /Type row present.
+    await waitFor(() => {
+      expect(screen.getByText('/Type')).toBeInTheDocument();
+    });
+    // The raw JSON envelope MUST NOT be rendered anywhere in the panel.
+    expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"message"/)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.9-UNIT-202b -- /Resources /Font roster view replaces silent DictView when
+// GetFontResourceMap returns a populated roster.
+// ---------------------------------------------------------------------------
+
+describe('9.9-UNIT-202b: ErrNotAFont triggers FontRosterPreview', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(fontDictDetail);
+    mockGetReverseRefs.mockResolvedValue([]);
+  });
+
+  test('roster renders when GetFontResourceMap returns entries', async () => {
+    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
+    mockGetFontResourceMap.mockResolvedValue({
+      nodeId: 'dict:dict:obj:0:3:Resources:Font',
+      entries: [
+        {
+          name: 'F1',
+          nodeId: 'obj:0:4',
+          objectRef: '4 0 R',
+          baseFont: '/Helvetica',
+          subtype: 'Type1',
+          encodingSummary: '/WinAnsiEncoding',
+          embedded: false,
+          unresolved: false,
+        },
+      ],
+    });
+    renderDetailPanelFor('obj:0:5', 'font');
+    await waitFor(() => {
+      expect(screen.getByTestId('font-roster-preview')).toBeInTheDocument();
+    });
+    // The raw JSON envelope must never reach the UI.
+    expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
+  });
+
+  test('roster ErrNotAFont rejection falls through to DictView silently', async () => {
+    mockGetFontDetail.mockRejectedValue(new Error('not a font'));
+    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
+    renderDetailPanelFor('obj:0:5', 'font');
+    await waitFor(() => {
+      expect(screen.getByText('/Type')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('font-roster-preview')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -247,6 +321,7 @@ describe('9.9-UNIT-203: non-sentinel error renders inline (does not crash)', () 
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
     mockGetReverseRefs.mockResolvedValue([]);
+    mockGetFontResourceMap.mockRejectedValue(new Error('not a font'));
   });
 
   test('generic GetFontDetail rejection renders an inline error message', async () => {
@@ -257,6 +332,21 @@ describe('9.9-UNIT-203: non-sentinel error renders inline (does not crash)', () 
     await waitFor(() => {
       expect(screen.getByText(/boom from pdfcpu/)).toBeInTheDocument();
     });
+  });
+
+  test('Wails envelope unwraps non-sentinel message and renders inline', async () => {
+    const envelope = JSON.stringify({
+      message: 'boom from pdfcpu',
+      cause: {},
+      kind: 'RuntimeError',
+    });
+    mockGetFontDetail.mockRejectedValue(new Error(envelope));
+    renderDetailPanelFor('obj:0:5', 'font');
+    await waitFor(() => {
+      expect(screen.getByText(/boom from pdfcpu/)).toBeInTheDocument();
+    });
+    // The JSON wrapper itself must not leak into the UI.
+    expect(screen.queryByText(/RuntimeError/)).not.toBeInTheDocument();
   });
 
   test('iconHint=font with non-sentinel error does NOT crash the panel', async () => {

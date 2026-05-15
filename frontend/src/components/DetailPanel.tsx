@@ -3,7 +3,7 @@
  * selected tree node, with a contextual header label.
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontDetail } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontDetail, GetFontResourceMap } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import {
@@ -15,6 +15,7 @@ import {
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 import { ImagePreview } from './ImagePreview';
 import { FontPreview, type FontDetailData } from './FontPreview';
+import { FontRosterPreview, type FontResourceMapData } from './FontRosterPreview';
 import { ReverseRefsSection, type ReverseRefEntry } from './ReverseRefsSection';
 
 /**
@@ -50,15 +51,36 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   scalar: 'Value',
 };
 
-/** Render-state for the iconHint='font' branch. Encodes the three possible
+/** Render-state for the iconHint='font' branch. Encodes the four possible
  *  outcomes of a GetFontDetail fetch: detail payload (render FontPreview),
- *  fallback marker (render generic DictView per AC1 ErrNotAFont contract),
- *  inline error message (render error string in the dict-view slot). */
+ *  roster (render FontRosterPreview for the /Resources /Font map),
+ *  fallback marker (render generic DictView when the dict isn't a font roster
+ *  either), inline error message (render error string in the dict-view slot). */
 type FontFetchState =
   | { kind: 'detail'; detail: FontDetailData }
+  | { kind: 'roster'; roster: FontResourceMapData }
   | { kind: 'fallback' }
   | { kind: 'error'; message: string }
   | null;
+
+/**
+ * Extracts a human-readable message from an unknown error value, unwrapping
+ * the Wails v3 JSON envelope `{message, cause, kind}` when present. Wails
+ * v3 stringifies Go errors into that envelope inside `Error.message`, so a
+ * naive `err.message` check sees the full JSON blob instead of the Go error
+ * text. Falls back to the raw string when JSON.parse throws (non-envelope
+ * Errors, plain strings).
+ */
+function extractErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.message === 'string') return parsed.message;
+  } catch {
+    /* not a JSON envelope, fall through */
+  }
+  return raw;
+}
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -137,7 +159,7 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(String(err));
+          setError(extractErrorMessage(err));
           setLoading(false);
         }
       });
@@ -165,7 +187,7 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setContentStream(new ContentStreamData({ nodeId: detail.nodeId, raw: '', tokenized: [], formatted: [], error: String(err) }));
+          setContentStream(new ContentStreamData({ nodeId: detail.nodeId, raw: '', tokenized: [], formatted: [], error: extractErrorMessage(err) }));
           setContentStreamLoading(false);
         }
       });
@@ -201,10 +223,9 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
           setImageData(new PdfImageData({
             nodeId: detail.nodeId,
-            error: msg,
+            error: extractErrorMessage(err),
           }));
           setImageLoading(false);
         }
@@ -235,7 +256,9 @@ function DetailPanelInner() {
     setFontState(null);
     setFontLoading(true);
     let cancelled = false;
-    GetFontDetail(detailTabId, detail.nodeId)
+    const tabIDForFetch = detailTabId;
+    const nodeIDForFetch = detail.nodeId;
+    GetFontDetail(tabIDForFetch, nodeIDForFetch)
       .then((result: unknown) => {
         if (cancelled) return;
         setFontState({ kind: 'detail', detail: result as FontDetailData });
@@ -243,13 +266,30 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
-        if (raw.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
-          // AC1 fallback: silently render generic DictView.
-          setFontState({ kind: 'fallback' });
-        } else {
-          setFontState({ kind: 'error', message: raw });
+        const msg = extractErrorMessage(err);
+        if (msg.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
+          // ErrNotAFont: try the font-roster view (Resources /Font map).
+          // If that ALSO returns ErrNotAFont the dict isn't a font roster
+          // either; fall back silently to the generic DictView per AC1.
+          GetFontResourceMap(tabIDForFetch, nodeIDForFetch)
+            .then((rosterResult: unknown) => {
+              if (cancelled) return;
+              setFontState({ kind: 'roster', roster: rosterResult as FontResourceMapData });
+              setFontLoading(false);
+            })
+            .catch((rosterErr: unknown) => {
+              if (cancelled) return;
+              const rosterMsg = extractErrorMessage(rosterErr);
+              if (rosterMsg.toLowerCase().trimStart().startsWith(NOT_A_FONT_MARKER)) {
+                setFontState({ kind: 'fallback' });
+              } else {
+                setFontState({ kind: 'error', message: rosterMsg });
+              }
+              setFontLoading(false);
+            });
+          return;
         }
+        setFontState({ kind: 'error', message: msg });
         setFontLoading(false);
       });
     return () => { cancelled = true; };
@@ -308,7 +348,7 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+        const msg = extractErrorMessage(err);
         if (msg.toLowerCase().includes(REV_REFS_UNAVAILABLE_MARKER)) {
           // AC#6 failure mode: surface the unavailable banner.
           setReverseRefs([]);
@@ -433,6 +473,12 @@ function DetailPanelInner() {
                 {fontState?.kind === 'detail' && (
                   <FontPreview
                     detail={fontState.detail}
+                    onReferenceClick={handleReferenceClick}
+                  />
+                )}
+                {fontState?.kind === 'roster' && (
+                  <FontRosterPreview
+                    roster={fontState.roster}
                     onReferenceClick={handleReferenceClick}
                   />
                 )}

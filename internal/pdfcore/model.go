@@ -205,6 +205,32 @@ type FontDescriptorInfo struct {
 	FontFileSize   int       `json:"fontFileSize"`
 }
 
+// FontResourceMap is the payload returned by Inspector.GetFontResourceMap
+// when the iconHint='font' heuristic resolves to a /Resources /Font dict
+// rather than a /Type /Font dict. Each entry summarizes one font referenced
+// by the resource map; entries are sorted alphabetically by Name so the
+// frontend table renders in stable order.
+type FontResourceMap struct {
+	NodeID  string            `json:"nodeId"`
+	Entries []FontRosterEntry `json:"entries"`
+}
+
+// FontRosterEntry is one row in a /Resources /Font roster: the resource-map
+// key (e.g. "F1"), the resolved /Type /Font dict's node ID, and a thin
+// summary suitable for the FontRosterPreview table. Unresolved is set when
+// the resolved value is not a Font dict; the entry still renders (Name +
+// red pill) so users can see the resource-map shape, but it isn't clickable.
+type FontRosterEntry struct {
+	Name            string `json:"name"`
+	NodeID          string `json:"nodeId"`
+	ObjectRef       string `json:"objectRef"`
+	BaseFont        string `json:"baseFont"`
+	Subtype         string `json:"subtype"`
+	EncodingSummary string `json:"encodingSummary"`
+	Embedded        bool   `json:"embedded"`
+	Unresolved      bool   `json:"unresolved"`
+}
+
 // DocumentInfo summarizes an opened PDF document for the frontend.
 type DocumentInfo struct {
 	TabID     string `json:"tabId"`
