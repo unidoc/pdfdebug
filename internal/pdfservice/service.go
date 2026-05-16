@@ -159,3 +159,15 @@ func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
 func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error) {
 	return s.inspector.GetObjectIndex(tabID)
 }
+
+// GetXRefTable returns the cross-reference table view for the document in
+// tabID. Lazy on first call, cached per document state. Story 9-11.
+func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
+	return s.inspector.GetXRefTable(tabID)
+}
+
+// GetPlainText returns the Latin-1-decoded file bytes for the document in
+// tabID, capped at 5 MiB with a truncation flag in the payload. Story 9-11.
+func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
+	return s.inspector.GetPlainText(tabID)
+}

@@ -242,6 +242,40 @@ type FontRosterEntry struct {
 	Unresolved      bool   `json:"unresolved"`
 }
 
+// XRefTable is the document-level cross-reference table payload returned by
+// Inspector.GetXRefTable. Story 9-11.
+type XRefTable struct {
+	TabID   string      `json:"tabId"`
+	Entries []XRefEntry `json:"entries"` // sorted by ObjNum asc, then Gen asc
+}
+
+// XRefEntry is one row in the XRefTable view: object number, generation,
+// status, and the on-disk byte offset (for in-use entries) or the host
+// object stream number (for compressed entries). The frontend renders free
+// entries as non-clickable. Status is the load-bearing IPC contract: "in-use"
+// / "free" / "in-objstm" -- frontend pills key off these literals. Story 9-11.
+type XRefEntry struct {
+	ObjNum     int    `json:"objNum"`
+	Gen        int    `json:"gen"`
+	Status     string `json:"status"`     // "in-use" | "free" | "in-objstm"
+	Offset     int64  `json:"offset"`     // -1 when Status != "in-use" (caller renders "-")
+	HostObjStm int    `json:"hostObjStm"` // host /ObjStm object number when Status == "in-objstm"; 0 otherwise (caller renders "-")
+	NodeID     string `json:"nodeID"`     // "obj:<gen>:<num>" for in-use and in-objstm; "" for free
+}
+
+// PlainTextDocument is the document-level Latin-1-decoded bytes payload
+// returned by Inspector.GetPlainText. Latin-1 is a deliberate choice over
+// UTF-8 because UTF-8 decode would inject replacement characters for valid
+// PDF byte sequences inside stream contents; Latin-1 is lossless byte-for-byte
+// (every byte maps to a Unicode codepoint U+0000-U+00FF). Story 9-11.
+type PlainTextDocument struct {
+	TabID      string `json:"tabId"`
+	Content    string `json:"content"`    // Latin-1-decoded bytes; may be truncated
+	TotalBytes int64  `json:"totalBytes"` // file size on disk in bytes
+	Truncated  bool   `json:"truncated"`  // true when Content is only the first CapBytes bytes
+	CapBytes   int64  `json:"capBytes"`   // the cap that was applied; echoed so the frontend can format the banner
+}
+
 // DocumentInfo summarizes an opened PDF document for the frontend.
 type DocumentInfo struct {
 	TabID     string `json:"tabId"`

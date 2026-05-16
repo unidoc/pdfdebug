@@ -37,6 +37,18 @@ type DocumentState struct {
 	// re-Open under the same tabID (Story 9-8 Task 3.4).
 	objectIndexMu    sync.Mutex
 	objectIndexCache []*ObjectIndexEntry
+
+	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
+	// call; invalidated implicitly when the DocumentState pointer is replaced
+	// by a re-Open under the same tabID. Story 9-11 Task 1.6.
+	xrefTableMu    sync.Mutex
+	xrefTableCache *XRefTable
+
+	// plainTextCache caches the per-tab GetPlainText result. Lazy on first
+	// call; mutex coverage includes the I/O so concurrent callers share one
+	// disk read. Story 9-11 Task 2.9.
+	plainTextMu    sync.Mutex
+	plainTextCache *PlainTextDocument
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are

@@ -1,11 +1,15 @@
 /**
  * @file Right-hand detail panel. Shows the full object detail for the
- * selected tree node, with a contextual header label.
+ * selected tree node, with a contextual header label. Story 9-11 adds a tab
+ * bar at the top with three tabs: Object (per-selection), XREF (document-level
+ * xref table), Plain Text (document-level Latin-1 bytes).
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import * as Tabs from '@radix-ui/react-tabs';
 import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
+import { extractErrorMessage } from '../lib/extractErrorMessage';
 import {
   type ObjectDetailData,
   DictView,
@@ -17,6 +21,8 @@ import { ImagePreview } from './ImagePreview';
 import { FontPreview, type FontDetailData } from './FontPreview';
 import { FontRosterPreview, type FontResourceMapData } from './FontRosterPreview';
 import { ReverseRefsSection, type ReverseRefEntry } from './ReverseRefsSection';
+import { XRefTableView } from './XRefTableView';
+import { PlainTextView } from './PlainTextView';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -53,24 +59,8 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/**
- * Extracts a human-readable message from an unknown error value, unwrapping
- * the Wails v3 JSON envelope `{message, cause, kind}` when present. Wails
- * v3 stringifies Go errors into that envelope inside `Error.message`, so a
- * naive `err.message` check sees the full JSON blob instead of the Go error
- * text. Falls back to the raw string when JSON.parse throws (non-envelope
- * Errors, plain strings).
- */
-function extractErrorMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error';
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.message === 'string') return parsed.message;
-  } catch {
-    /* not a JSON envelope, fall through */
-  }
-  return raw;
-}
+/** Which of the three DetailPanel tabs is currently active. */
+type DetailView = 'object' | 'xref' | 'plaintext';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -116,6 +106,18 @@ function DetailPanelInner() {
   const [reverseRefsUnavailable, setReverseRefsUnavailable] = useState(false);
   const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
+
+  // Story 9-11: per-document local state for the active DetailPanel tab.
+  // Resets to 'object' on activeTabId change so a fresh document opens on the
+  // per-selection view (AC11). Mirrors the streamViewMode pattern.
+  const [detailView, setDetailView] = useState<DetailView>('object');
+  // Entry count from the XREF tab, used in the "XREF (N)" tab label per AC2.
+  const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    setDetailView('object');
+    setXrefEntryCount(null);
+  }, [activeTabId]);
 
   useEffect(() => {
     if (!activeTabId || !selectedNodeId) {
@@ -364,6 +366,16 @@ function DetailPanelInner() {
     }
   }, [dispatch]);
 
+  /**
+   * XREF row click handler. Per AC14, switches the active tab to Object
+   * BEFORE dispatching navigation so React batches both updates in one render
+   * and the user never sees a flash of "XREF active + new selection".
+   */
+  const handleXRefNavigate = useCallback((nodeId: string) => {
+    setDetailView('object');
+    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
+  }, [dispatch]);
+
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). AC11 header
   // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
@@ -387,148 +399,252 @@ function DetailPanelInner() {
     ? `${typeLabel} - ${contextSuffix}`
     : typeLabel;
 
+  const xrefLabel = xrefEntryCount !== null ? `XREF (${xrefEntryCount})` : 'XREF';
+
+  const tabTriggerClass =
+    'px-3 py-1 text-xs text-text-secondary border-b-2 border-transparent hover:text-text hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus cursor-pointer data-[state=active]:text-text data-[state=active]:border-b-border-focus';
+
   return (
     <div className="h-full flex flex-col" data-testid="detail-panel">
-      <div className="h-full" aria-live="polite" data-testid="detail-panel-content">
-        {!selectedNodeId && (
-          <div
-            className="h-full flex items-center justify-center text-text-muted text-sm"
-            data-testid="detail-panel-empty"
-          >
-            Select a node in the tree to view details
-          </div>
-        )}
-        {selectedNodeId && error && (
-          <div
-            className="p-3 text-error text-sm"
-            data-testid="detail-panel-error"
-          >
-            {error}
-          </div>
-        )}
-        {selectedNodeId && detail && (
-          <div className="h-full flex flex-col">
-            <div
-              className="px-3 py-1.5 border-b border-border flex-shrink-0 flex items-center justify-between"
-              data-testid="detail-panel-header"
+      <Tabs.Root
+        value={detailView}
+        onValueChange={(v) => setDetailView(v as DetailView)}
+        activationMode="manual"
+        className="h-full flex flex-col"
+      >
+        <Tabs.List
+          aria-label="Detail view"
+          className="flex border-b border-border bg-surface flex-shrink-0"
+          data-testid="detail-tab-list"
+          // Synchronous arrow-key focus movement. Radix's roving-focus group
+          // also handles arrows, but it uses setTimeout(focusFirst), which is
+          // async. Synthetic fireEvent.keyDown in tests cannot observe that
+          // deferred focus, so we move focus synchronously here. The Radix
+          // handler still runs after this (composed via React event bubbling)
+          // and is a no-op when the target already has focus.
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            const target = e.target as HTMLElement;
+            if (target.getAttribute('role') !== 'tab') return;
+            const triggers = Array.from(
+              e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')
+            );
+            const idx = triggers.indexOf(target);
+            if (idx === -1) return;
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            const next = triggers[(idx + dir + triggers.length) % triggers.length];
+            if (next) next.focus();
+          }}
+        >
+          {/* asChild + explicit onClick so synthetic click events
+            (fireEvent.click in tests, and screen-reader virtual-cursor clicks)
+            still activate the tab. Radix's own Tabs.Trigger only wires onMouseDown. */}
+          <Tabs.Trigger value="object" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-object"
+              onClick={() => setDetailView('object')}
             >
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => dispatch({ type: 'NAVIGATE_BACK' })}
-                    disabled={!canGoBack}
-                    title={`Back (${isMac ? 'Cmd+[' : 'Ctrl+['})`}
-                    className={`p-0.5 rounded text-sm ${canGoBack ? 'text-text-secondary hover:bg-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
-                    data-testid="nav-back-button"
-                    aria-label="Navigate back"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3L5 8l5 5"/></svg>
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: 'NAVIGATE_FORWARD' })}
-                    disabled={!canGoForward}
-                    title={`Forward (${isMac ? 'Cmd+]' : 'Ctrl+]'})`}
-                    className={`p-0.5 rounded text-sm ${canGoForward ? 'text-text-secondary hover:bg-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
-                    data-testid="nav-forward-button"
-                    aria-label="Navigate forward"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3l5 5-5 5"/></svg>
-                  </button>
-                </div>
-                <span className="text-sm font-medium text-text-secondary">{headerLabel}</span>
+              Object
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="xref" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-xref"
+              onClick={() => setDetailView('xref')}
+            >
+              {xrefLabel}
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="plaintext" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-plaintext"
+              onClick={() => setDetailView('plaintext')}
+            >
+              Plain Text
+            </button>
+          </Tabs.Trigger>
+        </Tabs.List>
+
+        <Tabs.Content
+          value="object"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-object"
+        >
+          <div className="h-full" aria-live="polite" data-testid="detail-panel-content">
+            {!selectedNodeId && (
+              <div
+                className="h-full flex items-center justify-center text-text-muted text-sm"
+                data-testid="detail-panel-empty"
+              >
+                Select a node in the tree to view details
               </div>
-              {detail.objectRef && (
-                <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
-              )}
-            </div>
-            {detail.type === 'dict' && selectedNodeIconHint === 'font' && (
-              <>
-                {fontState?.kind === 'detail' && (
-                  <FontPreview
-                    detail={fontState.detail}
-                    onReferenceClick={handleReferenceClick}
-                  />
+            )}
+            {selectedNodeId && error && (
+              <div
+                className="p-3 text-error text-sm"
+                data-testid="detail-panel-error"
+              >
+                {error}
+              </div>
+            )}
+            {selectedNodeId && detail && (
+              <div className="h-full flex flex-col">
+                <div
+                  className="px-3 py-1.5 border-b border-border flex-shrink-0 flex items-center justify-between"
+                  data-testid="detail-panel-header"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => dispatch({ type: 'NAVIGATE_BACK' })}
+                        disabled={!canGoBack}
+                        title={`Back (${isMac ? 'Cmd+[' : 'Ctrl+['})`}
+                        className={`p-0.5 rounded text-sm ${canGoBack ? 'text-text-secondary hover:bg-surface-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
+                        data-testid="nav-back-button"
+                        aria-label="Navigate back"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                      </button>
+                      <button
+                        onClick={() => dispatch({ type: 'NAVIGATE_FORWARD' })}
+                        disabled={!canGoForward}
+                        title={`Forward (${isMac ? 'Cmd+]' : 'Ctrl+]'})`}
+                        className={`p-0.5 rounded text-sm ${canGoForward ? 'text-text-secondary hover:bg-surface-hover cursor-pointer' : 'text-text-muted/40 cursor-not-allowed'}`}
+                        data-testid="nav-forward-button"
+                        aria-label="Navigate forward"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                      </button>
+                    </div>
+                    <span className="text-sm font-medium text-text-secondary">{headerLabel}</span>
+                  </div>
+                  {detail.objectRef && (
+                    <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
+                  )}
+                </div>
+                {detail.type === 'dict' && selectedNodeIconHint === 'font' && (
+                  <>
+                    {fontState?.kind === 'detail' && (
+                      <FontPreview
+                        detail={fontState.detail}
+                        onReferenceClick={handleReferenceClick}
+                      />
+                    )}
+                    {fontState?.kind === 'roster' && (
+                      <FontRosterPreview
+                        roster={fontState.roster}
+                        onReferenceClick={handleReferenceClick}
+                      />
+                    )}
+                    {fontState?.kind === 'fallback' && (
+                      <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
+                    )}
+                    {fontState?.kind === 'error' && (
+                      <div className="p-3 text-error text-sm" data-testid="font-preview-error">
+                        {fontState.message}
+                      </div>
+                    )}
+                    {!fontState && showFontLoading && (
+                      <div className="p-3 text-text-muted text-sm" data-testid="font-loading">
+                        Loading font...
+                      </div>
+                    )}
+                  </>
                 )}
-                {fontState?.kind === 'roster' && (
-                  <FontRosterPreview
-                    roster={fontState.roster}
-                    onReferenceClick={handleReferenceClick}
-                  />
-                )}
-                {fontState?.kind === 'fallback' && (
+                {detail.type === 'dict' && selectedNodeIconHint !== 'font' && (
                   <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
                 )}
-                {fontState?.kind === 'error' && (
-                  <div className="p-3 text-error text-sm" data-testid="font-preview-error">
-                    {fontState.message}
-                  </div>
+                {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} />}
+                {detail.type === 'scalar' && (detail.scalarValue
+                  ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
+                  : <div className="text-text-muted text-sm p-3">No value</div>
                 )}
-                {!fontState && showFontLoading && (
-                  <div className="p-3 text-text-muted text-sm" data-testid="font-loading">
-                    Loading font...
-                  </div>
+                {detail.type === 'stream' && selectedNodeIconHint === 'image' && (
+                  <>
+                    {imageData && (
+                      <ImagePreview
+                        base64={imageData.base64}
+                        mimeType={imageData.mimeType}
+                        width={imageData.width}
+                        height={imageData.height}
+                        colorSpace={imageData.colorSpace}
+                        bitsPerComponent={imageData.bitsPerComponent}
+                        filter={imageData.filter}
+                        warning={imageData.warning}
+                        error={imageData.error}
+                      />
+                    )}
+                    {showImageLoading && !imageData && (
+                      <div className="p-3 text-text-muted text-sm" data-testid="image-loading">
+                        Loading image...
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-            {detail.type === 'dict' && selectedNodeIconHint !== 'font' && (
-              <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
-            )}
-            {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} />}
-            {detail.type === 'scalar' && (detail.scalarValue
-              ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
-              : <div className="text-text-muted text-sm p-3">No value</div>
-            )}
-            {detail.type === 'stream' && selectedNodeIconHint === 'image' && (
-              <>
-                {imageData && (
-                  <ImagePreview
-                    base64={imageData.base64}
-                    mimeType={imageData.mimeType}
-                    width={imageData.width}
-                    height={imageData.height}
-                    colorSpace={imageData.colorSpace}
-                    bitsPerComponent={imageData.bitsPerComponent}
-                    filter={imageData.filter}
-                    warning={imageData.warning}
-                    error={imageData.error}
+                {detail.type === 'stream' && selectedNodeIconHint !== 'image' && (
+                  <>
+                    {contentStream && (
+                      <ContentStreamViewer
+                        raw={contentStream.raw}
+                        formatted={contentStream.formatted}
+                        error={contentStream.error}
+                        viewMode={streamViewMode}
+                        onViewModeChange={setStreamViewMode}
+                      />
+                    )}
+                    {showContentStreamLoading && !contentStream && (
+                      <div className="p-3 text-text-muted text-sm" data-testid="content-stream-loading">
+                        Decoding stream...
+                      </div>
+                    )}
+                  </>
+                )}
+                {reverseRefsVisible && reverseRefsLoaded && selectedNodeId && (
+                  <ReverseRefsSection
+                    key={selectedNodeId}
+                    entries={reverseRefs}
+                    selectedIconHint={selectedNodeIconHint}
+                    indexUnavailable={reverseRefsUnavailable}
                   />
                 )}
-                {showImageLoading && !imageData && (
-                  <div className="p-3 text-text-muted text-sm" data-testid="image-loading">
-                    Loading image...
-                  </div>
-                )}
-              </>
-            )}
-            {detail.type === 'stream' && selectedNodeIconHint !== 'image' && (
-              <>
-                {contentStream && (
-                  <ContentStreamViewer
-                    raw={contentStream.raw}
-                    formatted={contentStream.formatted}
-                    error={contentStream.error}
-                    viewMode={streamViewMode}
-                    onViewModeChange={setStreamViewMode}
-                  />
-                )}
-                {showContentStreamLoading && !contentStream && (
-                  <div className="p-3 text-text-muted text-sm" data-testid="content-stream-loading">
-                    Decoding stream...
-                  </div>
-                )}
-              </>
-            )}
-            {reverseRefsVisible && reverseRefsLoaded && selectedNodeId && (
-              <ReverseRefsSection
-                key={selectedNodeId}
-                entries={reverseRefs}
-                selectedIconHint={selectedNodeIconHint}
-                indexUnavailable={reverseRefsUnavailable}
-              />
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="xref"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-xref"
+        >
+          <XRefTableView
+            tabId={activeTabId ?? ''}
+            active={detailView === 'xref'}
+            onNavigate={handleXRefNavigate}
+            onLoaded={setXrefEntryCount}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="plaintext"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-plaintext"
+        >
+          <PlainTextView
+            tabId={activeTabId ?? ''}
+            active={detailView === 'plaintext'}
+          />
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 }

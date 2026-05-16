@@ -503,3 +503,73 @@ func TestGoToPageUnknownTab(t *testing.T) {
 		t.Errorf("err = %v, want errors.Is(...,ErrDocumentNotFound)", err)
 	}
 }
+
+// --- GetXRefTable + GetPlainText tests (Story 9-11) ---
+
+func TestGetXRefTableValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	table, err := svc.GetXRefTable(info.TabID)
+	if err != nil {
+		t.Fatalf("GetXRefTable: %v", err)
+	}
+	if table == nil {
+		t.Fatal("GetXRefTable returned nil")
+	}
+	if table.TabID != info.TabID {
+		t.Errorf("TabID = %q, want %q", table.TabID, info.TabID)
+	}
+	if len(table.Entries) == 0 {
+		t.Error("Entries empty for minimal.pdf")
+	}
+}
+
+func TestGetXRefTableUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetXRefTable("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+func TestGetPlainTextValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	pt, err := svc.GetPlainText(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPlainText: %v", err)
+	}
+	if pt == nil {
+		t.Fatal("GetPlainText returned nil")
+	}
+	if pt.TotalBytes <= 0 {
+		t.Errorf("TotalBytes = %d, want > 0", pt.TotalBytes)
+	}
+	if pt.Content == "" {
+		t.Error("Content empty for minimal.pdf")
+	}
+}
+
+func TestGetPlainTextUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetPlainText("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
