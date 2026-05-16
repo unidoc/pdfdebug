@@ -9,9 +9,10 @@ import (
 
 // plainTextByteCap is the maximum number of file bytes read for the Plain
 // Text view. Files larger than this surface a truncation banner to the user;
-// the displayed prefix is still scrollable. 5 MiB cap matches the IPC
-// payload-size budget for Wails' default in-memory buffer.
-const plainTextByteCap int64 = 5 * 1024 * 1024
+// the displayed prefix is still scrollable. 25 MiB covers the typical
+// inspection target (sub-30 MB PDFs) without blowing the IPC payload budget;
+// larger files load via the opt-in "Load all" path. Story 9-12.
+const plainTextByteCap int64 = 25 * 1024 * 1024
 
 // GetPlainText reads the on-disk bytes of the PDF backing tabID and returns a
 // Latin-1-decoded view capped at plainTextByteCap. Story 9-11.

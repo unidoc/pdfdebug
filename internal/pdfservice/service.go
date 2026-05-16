@@ -167,7 +167,8 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 }
 
 // GetPlainText returns the Latin-1-decoded file bytes for the document in
-// tabID, capped at 5 MiB with a truncation flag in the payload. Story 9-11.
+// tabID, capped at 25 MiB with a truncation flag in the payload. Story 9-11
+// (cap raised in 9-12 chore).
 func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
 	return s.inspector.GetPlainText(tabID)
 }
