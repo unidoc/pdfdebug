@@ -51,6 +51,7 @@ vi.mock(
     GetAncestorPath: (...args: unknown[]) => mockGetAncestorPath(...args),
     GetObjectSource: (...args: unknown[]) => mockGetObjectSource(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
+    GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
   })
 );
 

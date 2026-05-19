@@ -47,6 +47,7 @@ vi.mock(
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
+    GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
   })
 );
 

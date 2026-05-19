@@ -517,7 +517,7 @@ describe('9.11-UNIT-210: manual activation -- focus does not activate', () => {
     mockGetPlainText.mockResolvedValue(plainTextSmall);
   });
 
-  test('ArrowRight on Object trigger moves focus to XREF but does NOT fetch XREF data', async () => {
+  test('ArrowRight on Object trigger moves focus to XREF but does NOT activate the pane', async () => {
     renderDetailPanel([openAction]);
     await waitFor(() => {
       expect(screen.getByTestId('detail-tab-object')).toBeInTheDocument();
@@ -528,8 +528,9 @@ describe('9.11-UNIT-210: manual activation -- focus does not activate', () => {
     // Focus moved but the XREF pane is still inactive (manual activation).
     expect(screen.getByTestId('detail-tab-xref')).toBe(document.activeElement);
     expect(screen.getByTestId('detail-pane-xref').getAttribute('data-state')).toBe('inactive');
-    // No XREF fetch yet (the fetch is gated on the Object/XREF active prop).
-    expect(mockGetXRefTable).not.toHaveBeenCalled();
+    // XREF data may have already fetched eagerly on mount (revised post-9-12 so
+    // the "XREF (N)" label appears without click); the manual-activation
+    // contract is about pane visibility, not about fetch gating.
   });
 });
 

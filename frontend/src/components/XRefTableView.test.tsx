@@ -422,19 +422,23 @@ describe('9.11-UNIT-014: error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-015 [P1] AC#10 + Task 6.2: fetch only runs when active=true.
-// Mounting with active=false does NOT call GetXRefTable.
+// 9.11-UNIT-015 [P1] AC#2: eager fetch on mount so the parent can populate
+// the "XREF (N)" tab label without waiting for first tab activation. The
+// `active` prop no longer gates the fetch (revised after 9-12).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-015: lazy fetch gated by active prop', () => {
+describe('9.11-UNIT-015: eager fetch on mount', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
   });
 
-  test('active=false does NOT fetch', () => {
+  test('active=false still fetches eagerly', async () => {
     render(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
-    expect(mockGetXRefTable).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
+    });
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
   });
 
   test('active=true triggers a single fetch', async () => {

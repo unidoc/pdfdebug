@@ -65,10 +65,12 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     inFlightRef.current = false;
   }, [tabId]);
 
-  // Lazy fetch gated on `active`. Stale-fetch guard via `cancelled`.
+  // Eager fetch on tabId change so the parent can render the "XREF (N)"
+  // tab label without waiting for first activation. Stale-fetch guard via
+  // `cancelled`. The `active` prop is intentionally NOT a gate -- the xref is
+  // cheap to extract from pdfcpu's already-parsed state.
   useEffect(() => {
     if (!tabId) return;
-    if (!active) return;
     if (dataRef.current !== null) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -98,7 +100,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
       cancelled = true;
       inFlightRef.current = false;
     };
-  }, [tabId, active]);
+  }, [tabId]);
 
   // 200ms loading debounce -- mirrors the showContentStreamLoading pattern in
   // DetailPanel.tsx.
