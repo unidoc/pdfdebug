@@ -299,15 +299,10 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     : 'plain-text-load-full-button';
 
   return (
-    <div
-      className="h-full overflow-auto font-mono text-sm bg-bg"
-      data-testid="plain-text-scroll"
-      ref={scrollRef}
-      onScroll={handleScroll}
-    >
+    <div className="h-full flex flex-col bg-bg">
       {data.truncated && (
         <div
-          className="sticky top-0 z-10 px-3 py-1.5 text-warning bg-surface-hover border-b border-border text-xs flex justify-between items-center"
+          className="flex-shrink-0 px-3 py-1.5 text-warning bg-surface-hover border-b border-border text-xs flex justify-between items-center"
           data-testid="plain-text-truncated-banner"
         >
           <span>
@@ -326,19 +321,31 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
           </button>
         </div>
       )}
-      <div style={{ position: 'relative', height: totalHeight }}>
+      <div
+        className="flex-1 overflow-auto font-mono text-sm"
+        data-testid="plain-text-scroll"
+        ref={scrollRef}
+        onScroll={handleScroll}
+      >
+        <div style={{ position: 'relative', height: totalHeight }}>
         <div
-          className="flex"
+          className="flex pr-4"
           style={{
             position: 'absolute',
             top: firstVisible * ROW_HEIGHT,
             left: 0,
-            right: 0,
+            // width grows with the longest visible row's natural width so the
+            // sticky gutter's containing block extends past the viewport;
+            // min-width: 100% keeps short content filling the viewport.
+            // pr-4 reserves trailing breathing room past the text's natural end.
+            minWidth: '100%',
+            width: 'max-content',
           }}
         >
-          {/* Gutter column */}
+          {/* Gutter column: sticky-left so line numbers stay visible during
+              horizontal scroll on lines longer than the viewport. */}
           <div
-            className="flex-shrink-0 select-none text-right text-text-muted pr-2 border-r border-border"
+            className="flex-shrink-0 select-none text-right text-text-muted px-2 border-l border-r border-border sticky left-0 bg-bg z-10"
             data-testid="plain-text-gutter"
             style={{ minWidth: '4ch' }}
           >
@@ -367,6 +374,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
