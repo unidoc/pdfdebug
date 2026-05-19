@@ -5,12 +5,20 @@
  *
  * The view uses hand-rolled viewport virtualization: a tall spacer fixes the
  * total scroll height, but only the visible slice of rows is rendered. This
- * keeps the DOM small (under 200 rows) even for the 5MB truncation cap
- * (~50,000-100,000 logical lines).
+ * keeps the DOM small (under 200 rows) even for the 25 MiB truncation cap.
+ *
+ * Story 9-12: adds the "Load all" escape hatch on the truncation banner.
+ * formatBytes formats sizes; SIZE_LABEL_THRESHOLD gates the in-label size
+ * suffix + warning-color tokens. Errors from the Load-all fetch are
+ * dispatched via SET_DOCUMENT_ERROR so the global ErrorBanner surfaces them.
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { GetPlainText } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import {
+  GetPlainText,
+  GetPlainTextFull,
+} from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { useAppDispatch } from '../hooks/useDocumentState';
 
 /** Plain Text payload mirroring `pdfcore.PlainTextDocument`. */
 interface PlainTextDocumentData {
@@ -35,6 +43,38 @@ const ROW_HEIGHT = 20;
 const OVERSCAN = 20;
 
 /**
+ * Threshold above which the "Load all" button surfaces the size in its label
+ * and shifts to warning-color tokens. 100 MiB exact. Story 9-12 AC3/AC4.
+ */
+const SIZE_LABEL_THRESHOLD = 100 * 1024 * 1024;
+
+/**
+ * Binary-base size formatter for user-facing copy. JEDEC-style labels
+ * (KB/MB/GB, not KiB/MiB/GiB). Story 9-12 AC2.
+ *
+ * Non-finite or negative inputs collapse to "0 B" (defensive: the backend
+ * always returns a non-negative int64, but a malformed payload should not
+ * crash the banner). Boundary artifacts at the unit edges (e.g. n=1048575
+ * formatting as "1024.0 KB", n=1073741823 formatting as "1024 MB") are
+ * accepted per AC2 - harmless and explicit, not hidden by a fudge factor.
+ */
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n < 0) {
+    return '0 B';
+  }
+  if (n < 1024) {
+    return `${n} B`;
+  }
+  if (n < 1024 * 1024) {
+    return `${(n / 1024).toFixed(1)} KB`;
+  }
+  if (n < 1024 * 1024 * 1024) {
+    return `${Math.round(n / (1024 * 1024))} MB`;
+  }
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
  * Document-level Plain Text view. Lazy-fetches on first activation; renders
  * a virtualized scroll container.
  */
@@ -45,21 +85,38 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  // Story 9-12: separate state machine for the "Load all" click-driven fetch.
+  const [loadingFull, setLoadingFull] = useState(false);
+  const [loadFullErrored, setLoadFullErrored] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Cache flags as refs so the fetch effect only re-runs when tabId / active
   // change. See XRefTableView for the rationale.
   const dataRef = useRef<PlainTextDocumentData | null>(null);
   const inFlightRef = useRef(false);
+  // Story 9-12: Load-all in-flight guard (re-entrancy + stale-fetch).
+  const fullInFlightRef = useRef(false);
+  // tabId at the latest reset-effect run; the click handler captures tabId at
+  // call time and compares against this ref before mutating state on
+  // resolve/reject. Per AC9 option B.
+  const tabIdRef = useRef(tabId);
+
+  const dispatch = useAppDispatch();
 
   // Reset state on document change (AC17 / Task 7.x parallel to XRefTableView).
   useEffect(() => {
+    // Set the stale-fetch guard FIRST so any in-flight resolve that fires
+    // synchronously between effect-runs sees the new tabId. Story 9-12 AC9.
+    tabIdRef.current = tabId;
     setData(null);
     setError(null);
     setLoading(false);
     setShowLoading(false);
     setScrollTop(0);
+    setLoadingFull(false);
+    setLoadFullErrored(false);
     dataRef.current = null;
     inFlightRef.current = false;
+    fullInFlightRef.current = false;
   }, [tabId]);
 
   // Lazy fetch gated on `active`.
@@ -150,6 +207,40 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
+  // Story 9-12: click handler for "Load all" / "Retry". Imperative path
+  // (cannot use the effect-cleanup pattern); guards against re-entrancy and
+  // stale-fetch via fullInFlightRef + tabIdRef.
+  const handleLoadFull = useCallback(() => {
+    if (fullInFlightRef.current) return;
+    fullInFlightRef.current = true;
+    setLoadingFull(true);
+    // Do NOT clear loadFullErrored here: AC8 mandates that the Retry button
+    // keeps the retry testid while a retry-click fetch is in flight. The flag
+    // only clears on success (via banner unmount) or on tabId change.
+    const tabIdAtFetch = tabId;
+    GetPlainTextFull(tabId)
+      .then((result: unknown) => {
+        // Stale-fetch guard MUST fire before any state writes / dispatch.
+        if (tabIdAtFetch !== tabIdRef.current) return;
+        const doc = result as PlainTextDocumentData;
+        fullInFlightRef.current = false;
+        setLoadingFull(false);
+        setLoadFullErrored(false);
+        dataRef.current = doc;
+        setData(doc);
+      })
+      .catch((err: unknown) => {
+        if (tabIdAtFetch !== tabIdRef.current) return;
+        fullInFlightRef.current = false;
+        setLoadingFull(false);
+        setLoadFullErrored(true);
+        dispatch({
+          type: 'SET_DOCUMENT_ERROR',
+          payload: { message: extractErrorMessage(err) },
+        });
+      });
+  }, [tabId, dispatch]);
+
   if (!tabId) {
     return (
       <div
@@ -181,6 +272,32 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     return <div className="h-full" data-testid="plain-text-empty-initial" />;
   }
 
+  const showSizeInLabel = data.totalBytes >= SIZE_LABEL_THRESHOLD;
+  const isRetry = loadFullErrored;
+  // Visual label: while in flight the button shows "Loading..." regardless of
+  // whether it started as Load-all or Retry. Otherwise show the appropriate
+  // resting label.
+  let actionLabel: string;
+  if (loadingFull) {
+    actionLabel = 'Loading...';
+  } else if (isRetry) {
+    actionLabel = 'Retry';
+  } else {
+    actionLabel = showSizeInLabel
+      ? `Load all (${formatBytes(data.totalBytes)})`
+      : 'Load all';
+  }
+  // Color tokens: warning at/above the threshold, neutral below.
+  const colorClasses = showSizeInLabel
+    ? 'text-warning border-warning'
+    : 'text-text-primary border-border';
+  const buttonClass = `bg-bg border rounded px-3 py-1 text-sm hover:bg-surface-hover cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${colorClasses}`;
+  // testid: retry variant when the previous fetch errored, even while a retry
+  // fetch is in flight (per AC8 "it does NOT flip back to Load all mid-flight").
+  const actionTestId = isRetry
+    ? 'plain-text-load-full-retry'
+    : 'plain-text-load-full-button';
+
   return (
     <div
       className="h-full overflow-auto font-mono text-sm bg-bg"
@@ -190,10 +307,23 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     >
       {data.truncated && (
         <div
-          className="sticky top-0 z-10 px-3 py-1.5 text-warning bg-surface-hover border-b border-border text-xs"
+          className="sticky top-0 z-10 px-3 py-1.5 text-warning bg-surface-hover border-b border-border text-xs flex justify-between items-center"
           data-testid="plain-text-truncated-banner"
         >
-          Showing first {data.capBytes.toLocaleString()} of {data.totalBytes.toLocaleString()} bytes (truncated).
+          <span>
+            Showing first {formatBytes(data.capBytes)} of {formatBytes(data.totalBytes)}.
+          </span>
+          <button
+            type="button"
+            data-testid={actionTestId}
+            className={buttonClass}
+            disabled={loadingFull}
+            aria-busy={loadingFull ? 'true' : undefined}
+            aria-label={actionLabel}
+            onClick={handleLoadFull}
+          >
+            {actionLabel}
+          </button>
         </div>
       )}
       <div style={{ position: 'relative', height: totalHeight }}>

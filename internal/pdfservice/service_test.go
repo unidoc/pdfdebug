@@ -573,3 +573,50 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 		t.Errorf("err = %v, want ErrDocumentNotFound", err)
 	}
 }
+
+// --- GetPlainTextFull tests (Story 9-12) ---
+//
+// Red phase: these tests fail to compile until PDFService.GetPlainTextFull is
+// added (Task 2.1). Mirror the 9-11 GetPlainText service tests above.
+
+func TestGetPlainTextFullValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	pt, err := svc.GetPlainTextFull(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextFull: %v", err)
+	}
+	if pt == nil {
+		t.Fatal("GetPlainTextFull returned nil")
+	}
+	if pt.TotalBytes <= 0 {
+		t.Errorf("TotalBytes = %d, want > 0", pt.TotalBytes)
+	}
+	if pt.Content == "" {
+		t.Error("Content empty for minimal.pdf")
+	}
+	// AC15 backend invariant: full payload always carries Truncated=false and
+	// CapBytes=0 regardless of file size.
+	if pt.Truncated {
+		t.Errorf("Truncated = true, want false (full payload must never flag truncated)")
+	}
+	if pt.CapBytes != 0 {
+		t.Errorf("CapBytes = %d, want 0", pt.CapBytes)
+	}
+}
+
+func TestGetPlainTextFullUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetPlainTextFull("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}

@@ -49,6 +49,12 @@ type DocumentState struct {
 	// disk read. Story 9-11 Task 2.9.
 	plainTextMu    sync.Mutex
 	plainTextCache *PlainTextDocument
+
+	// plainTextFullCache caches the per-tab GetPlainTextFull result. Lazy on
+	// first call (user-triggered "Load all"); kept independent from
+	// plainTextCache so the truncated hot path stays fast. Story 9-12.
+	plainTextFullMu    sync.Mutex
+	plainTextFullCache *PlainTextDocument
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are

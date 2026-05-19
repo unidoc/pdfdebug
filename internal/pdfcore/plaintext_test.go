@@ -6,6 +6,7 @@
 package pdfcore
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -332,5 +333,202 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 	ins := NewInspector()
 	if _, err := ins.GetPlainText("no-such-tab"); err == nil {
 		t.Errorf("expected error, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Story 9-12: GetPlainTextFull -- on-demand uncapped read.
+//
+// Red phase: these tests fail to compile until Inspector.GetPlainTextFull,
+// DocumentState.plainTextFullCache, and DocumentState.plainTextFullMu exist.
+// Test names mirror story Task 3 (3.1-3.6).
+// ---------------------------------------------------------------------------
+
+// TestGetPlainTextFull_ReturnsAllBytes verifies a file larger than
+// plainTextByteCap returns its full content with Truncated=false and
+// CapBytes=0. Pins AC14 + AC15 (full payload, no implicit precondition).
+// 9.12-INTG-001.
+func TestGetPlainTextFull_ReturnsAllBytes(t *testing.T) {
+	const overage = 100
+	path := makeOversizedPDF(t, plainTextByteCap+overage)
+	defer func() { _ = os.Remove(path) }()
+
+	ins := NewInspector()
+	tabID := "tab-full-oversize"
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open oversized PDF: %v", err)
+	}
+	defer func() { _ = ins.Close(tabID) }()
+
+	got, err := ins.GetPlainTextFull(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextFull: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetPlainTextFull returned nil")
+	}
+	if got.TabID != tabID {
+		t.Errorf("TabID = %q, want %q", got.TabID, tabID)
+	}
+	if got.Truncated {
+		t.Errorf("Truncated = true, want false (full payload must never flag truncated)")
+	}
+	if got.CapBytes != 0 {
+		t.Errorf("CapBytes = %d, want 0 (full payload uses zero cap to signal uncapped)", got.CapBytes)
+	}
+	if got.TotalBytes != plainTextByteCap+overage {
+		t.Errorf("TotalBytes = %d, want %d", got.TotalBytes, plainTextByteCap+overage)
+	}
+	// Every byte maps to exactly one rune via latin1Decode; the pad is ASCII
+	// 'X', so rune count must equal byte count.
+	if int64(len([]rune(got.Content))) != got.TotalBytes {
+		t.Errorf("Content rune count = %d, want %d", len([]rune(got.Content)), got.TotalBytes)
+	}
+}
+
+// TestGetPlainTextFull_Cached verifies the second call returns the cached
+// pointer without re-reading. Pins AC13.
+// 9.12-INTG-002.
+func TestGetPlainTextFull_Cached(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+
+	first, err := ins.GetPlainTextFull(tabID)
+	if err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	second, err := ins.GetPlainTextFull(tabID)
+	if err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	if first != second {
+		t.Errorf("cache returned different pointers across consecutive calls")
+	}
+}
+
+// TestGetPlainTextFull_TruncatedAndFullAreIndependent verifies the two cache
+// slots (plainTextCache, plainTextFullCache) coexist: a full-payload call does
+// NOT replace, evict, or mutate the truncated cache entry, and vice versa.
+// Pins AC15 cache-coexistence note + Dev Notes "Why cache truncated and full
+// payloads separately".
+// 9.12-INTG-003.
+func TestGetPlainTextFull_TruncatedAndFullAreIndependent(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+
+	truncBefore, err := ins.GetPlainText(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainText: %v", err)
+	}
+	full, err := ins.GetPlainTextFull(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextFull: %v", err)
+	}
+	truncAfter, err := ins.GetPlainText(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainText (second): %v", err)
+	}
+
+	// The truncated-cache pointer must be preserved across the full call.
+	if truncBefore != truncAfter {
+		t.Errorf("truncated cache pointer changed after GetPlainTextFull; expected coexistence")
+	}
+	// The two caches are distinct objects: full call must not alias truncated.
+	if full == truncBefore {
+		t.Errorf("GetPlainTextFull returned the truncated cache pointer; the two slots must be independent")
+	}
+	// The shared invariants on minimal.pdf (which is well under the cap): both
+	// payloads carry the same content and same TotalBytes but different
+	// CapBytes (truncated=cap, full=0).
+	if truncBefore.TotalBytes != full.TotalBytes {
+		t.Errorf("TotalBytes mismatch: truncated=%d full=%d", truncBefore.TotalBytes, full.TotalBytes)
+	}
+	if truncBefore.CapBytes != plainTextByteCap {
+		t.Errorf("truncated CapBytes = %d, want %d", truncBefore.CapBytes, plainTextByteCap)
+	}
+	if full.CapBytes != 0 {
+		t.Errorf("full CapBytes = %d, want 0", full.CapBytes)
+	}
+}
+
+// TestGetPlainTextFull_UnknownTab verifies the unknown-tab path returns the
+// ErrDocumentNotFound sentinel (errors.Is-based, may be wrapped). Pins AC12.
+// 9.12-INTG-004.
+func TestGetPlainTextFull_UnknownTab(t *testing.T) {
+	ins := NewInspector()
+	_, err := ins.GetPlainTextFull("no-such-tab")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrDocumentNotFound) {
+		t.Errorf("err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
+	}
+}
+
+// TestGetPlainTextFull_ConcurrentSharesIO mirrors TestGetPlainTextConcurrentSharesIO:
+// 8 concurrent callers must converge on the same cached pointer (proves
+// plainTextFullMu serializes the disk read). Pins AC14 "concurrent callers
+// share one disk read".
+// 9.12-INTG-005.
+func TestGetPlainTextFull_ConcurrentSharesIO(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+	var wg sync.WaitGroup
+	ptrs := make([]*PlainTextDocument, 8)
+	wg.Add(len(ptrs))
+	for i := range ptrs {
+		go func(i int) {
+			defer wg.Done()
+			pt, err := ins.GetPlainTextFull(tabID)
+			if err != nil {
+				t.Errorf("goroutine %d: %v", i, err)
+				return
+			}
+			ptrs[i] = pt
+		}(i)
+	}
+	wg.Wait()
+	for i := 1; i < len(ptrs); i++ {
+		if ptrs[i] != ptrs[0] {
+			t.Errorf("concurrent callers got different pointers")
+			break
+		}
+	}
+}
+
+// TestGetPlainTextFull_SubCapFile verifies AC15: calling GetPlainTextFull on a
+// file smaller than plainTextByteCap returns the full content with
+// Truncated=false, CapBytes=0, and content length == TotalBytes. Guards
+// against a future regression that adds an implicit "only call this for files
+// over the cap" precondition.
+// 9.12-INTG-006.
+func TestGetPlainTextFull_SubCapFile(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+	got, err := ins.GetPlainTextFull(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextFull: %v", err)
+	}
+	if got.Truncated {
+		t.Errorf("Truncated = true on sub-cap file, want false")
+	}
+	if got.CapBytes != 0 {
+		t.Errorf("CapBytes = %d, want 0", got.CapBytes)
+	}
+	if int64(len([]rune(got.Content))) != got.TotalBytes {
+		// The fixture is ASCII-only minimal.pdf, so rune count == byte count.
+		// If this regresses with a real Latin-1 fixture in the future, switch
+		// to a byte-length check on a UTF-8 re-encoding.
+		t.Errorf("Content rune count = %d, want %d", len([]rune(got.Content)), got.TotalBytes)
+	}
+	// Reference-shape sanity: TabID propagated, Content non-empty for a real
+	// PDF.
+	if got.TabID != tabID {
+		t.Errorf("TabID = %q, want %q", got.TabID, tabID)
+	}
+	if !strings.HasPrefix(got.Content, "%PDF-") {
+		first := got.Content
+		if len(first) > 16 {
+			first = first[:16]
+		}
+		if !strings.Contains(first, "%PDF-") {
+			t.Errorf("Content does not start with %%PDF- (first 16 chars: %q)", first)
+		}
 	}
 }

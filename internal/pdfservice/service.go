@@ -172,3 +172,10 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
 	return s.inspector.GetPlainText(tabID)
 }
+
+// GetPlainTextFull returns the Latin-1-decoded file bytes for the document in
+// tabID with no size cap. Backs the "Load all" escape hatch on the truncation
+// banner. Story 9-12.
+func (s *PDFService) GetPlainTextFull(tabID string) (*pdfcore.PlainTextDocument, error) {
+	return s.inspector.GetPlainTextFull(tabID)
+}

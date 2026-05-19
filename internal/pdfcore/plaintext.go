@@ -45,6 +45,38 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 	return out, nil
 }
 
+// GetPlainTextFull reads the on-disk bytes of the PDF backing tabID with NO
+// size cap and returns a Latin-1-decoded payload (Truncated=false, CapBytes=0).
+// Story 9-12.
+//
+// Cached separately from GetPlainText so the truncated hot path stays fast on
+// future tab activations. Concurrent callers share one disk read via
+// plainTextFullMu.
+func (ins *Inspector) GetPlainTextFull(tabID string) (*PlainTextDocument, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, err
+	}
+
+	doc.plainTextFullMu.Lock()
+	defer doc.plainTextFullMu.Unlock()
+	if doc.plainTextFullCache != nil {
+		return doc.plainTextFullCache, nil
+	}
+
+	var out *PlainTextDocument
+	err = safeCall(func() error {
+		var e error
+		out, e = readPlainTextFull(doc.FilePath, tabID)
+		return e
+	})
+	if err != nil {
+		return nil, wrapPDFError(err)
+	}
+	doc.plainTextFullCache = out
+	return out, nil
+}
+
 // readPlainText opens path, reads up to plainTextByteCap bytes, Latin-1-decodes
 // them with the control-byte normalization mandated by AC6, and returns the
 // payload with the truncation flag set from a separate stat (not from
@@ -65,13 +97,10 @@ func readPlainText(path, tabID string) (*PlainTextDocument, error) {
 		_ = f.Close()
 	}()
 
-	limited := io.LimitReader(f, plainTextByteCap)
-	buf, err := io.ReadAll(limited)
+	content, err := decodePlainText(io.LimitReader(f, plainTextByteCap))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-
-	content := latin1Decode(buf)
 
 	return &PlainTextDocument{
 		TabID:      tabID,
@@ -80,6 +109,49 @@ func readPlainText(path, tabID string) (*PlainTextDocument, error) {
 		Truncated:  totalBytes > plainTextByteCap,
 		CapBytes:   plainTextByteCap,
 	}, nil
+}
+
+// readPlainTextFull opens path, reads ALL bytes (no cap), Latin-1-decodes them,
+// and returns the payload with Truncated=false and CapBytes=0 to signal the
+// uncapped path. Story 9-12.
+func readPlainTextFull(path, tabID string) (*PlainTextDocument, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	totalBytes := fi.Size()
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	content, err := decodePlainText(f)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+
+	return &PlainTextDocument{
+		TabID:      tabID,
+		Content:    content,
+		TotalBytes: totalBytes,
+		Truncated:  false,
+		CapBytes:   0,
+	}, nil
+}
+
+// decodePlainText reads all bytes from r and returns the Latin-1-decoded
+// string per the latin1Decode rules. Shared by readPlainText (with a
+// LimitReader cap) and readPlainTextFull (uncapped). Story 9-12 Task 1.1.
+func decodePlainText(r io.Reader) (string, error) {
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	return latin1Decode(buf), nil
 }
 
 // latin1Decode maps each input byte to its Unicode codepoint via rune(b),
