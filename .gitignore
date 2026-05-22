@@ -66,3 +66,7 @@ build/windows/*
 !build/windows/wails.exe.manifest
 /cli
 /output/
+
+# Locally-built binaries at repo root (real artifacts go to bin/)
+/unidoc-pdf-debugger
+/pdfdebug

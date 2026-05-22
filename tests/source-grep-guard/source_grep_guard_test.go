@@ -54,13 +54,35 @@ var readFunctionNames = map[string]bool{
 	"ReadFile": true,
 }
 
-// grandfatheredAllowlist is now empty: Story 9-2 (2026-05-07) deleted every
-// pre-existing source-grep test from the suite, so AC#7 graduated from
-// "forward-looking only" to strict mode -- ANY source-grep test against
-// main.go / MainLayout.tsx / EmptyState.tsx anywhere under tests/ is a
-// failure. Behavioral coverage at the right layer (Vitest, Playwright,
-// boot-smoke, integration) replaced the deleted tests.
-var grandfatheredAllowlist = []string{}
+// grandfatheredAllowlist tracks the small set of source-grep tests AC#7
+// admits as legitimate. Two narrow categories qualify:
+//
+//  1. Structural guarantees about main.go's window-creation ORDER (e.g.
+//     the splash must precede the main window). This is a property of
+//     the production-source layout, not of runtime behavior, and is not
+//     reproducible via Vitest, Playwright, or boot-smoke because the
+//     splash WebView is a frameless OS-native window outside Playwright's
+//     reach. See story 9-13.
+//
+//  2. Structural regression guards on reentrant callbacks (e.g. the
+//     splash MUST NOT be created inside OnSecondInstanceLaunch). Same
+//     justification: behavioral tests cannot reach a Wails callback
+//     body's lexical contents.
+//
+// New entries require a story-spec justification. If a behavioral
+// alternative is feasible, prefer it.
+//
+// Story 9-2 (2026-05-07) deleted every pre-existing source-grep test from
+// the suite. Story 9-13 (2026-05-20) added the two splash entries below.
+var grandfatheredAllowlist = []string{
+	// Story 9-13 AC1 -- splash window must be created before the main
+	// WebviewWindow so the user sees branding during WebView2 cold init.
+	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashWindowCreatedBeforeMainWindow",
+	// Story 9-13 AC8 -- structural regression guard: splash creation
+	// must NOT appear inside OnSecondInstanceLaunch or
+	// ApplicationOpenedWithFile callback bodies.
+	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashNotCreatedInsideSecondInstanceCallback",
+}
 
 // projectRoot walks upward from the test working directory to find the repo
 // root identified by go.mod's `module unidoc-pdf-debugger`.

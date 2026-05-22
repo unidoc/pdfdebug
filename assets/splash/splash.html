@@ -1,0 +1,246 @@
+<!--
+  Dev source mirror of the inline splash HTML constant in
+  internal/splash/splash.go. This file is NOT served to the WebView at
+  runtime -- the splash WebviewWindow loads the Go string constant directly
+  (HTML field on WebviewWindowOptions) so the WebView's first paint is
+  bounded only by WebView2 cold-init time, not by filesystem or IPC
+  latency (AC10).
+
+  When editing the splash visuals, edit this file first, paste the body
+  into the `splashHTMLTemplate` constant in internal/splash/splash.go, and
+  re-run `go test ./...` from the project root.
+
+  The string "{{.Version}}" is the placeholder substituted at runtime by
+  Render(version string). AC12 requires the FULL semver (including any
+  prerelease suffix like -rc1) -- no stripping.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UniDoc PDF Debugger</title>
+<style>
+  /* AC9: literal #f8fafc matches application.NewRGB(248, 250, 252) on the
+     main window. No system-dark-mode handling in this story. */
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #f8fafc;
+    background-color: #f8fafc;
+    /* AC5: splash <body> starts opaque; fades out (opacity 0) on
+       dismissal via the splash:dismiss event handler below. */
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+    overflow: hidden;
+    /* AC3: splash is non-interactive (clicks pass through where the OS
+       allows; no draggable region; no context menu). */
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+  body.splash-dismissing { opacity: 0; }
+  /* AC2: Inter Semibold preferred but unreachable from the splash
+     WebView; system sans fallback is acceptable per Task 3.2. */
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+                 'Segoe UI', Roboto, sans-serif;
+    color: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .splash-stack {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 64px;
+    box-sizing: border-box;
+    position: relative;
+  }
+  /* AC2.a: 128x128 icon, centered horizontally, upper third vertically. */
+  .splash-icon { width: 128px; height: 128px; display: block; }
+  /* AC2.b: wordmark, 18-20px, semibold. */
+  .splash-wordmark {
+    margin: 20px 0 0 0;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+  /* AC2.c: three pulsing dots, 1.2s cycle, opacity 0.3 -> 1 -> 0.3.
+     Color #3b82f6 matches --color-info from frontend/src/style.css. */
+  .splash-dots {
+    margin-top: 32px;
+    display: flex;
+    gap: 8px;
+  }
+  .splash-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3b82f6;
+    background-color: #3b82f6;
+    opacity: 0.3;
+    animation: splash-dot-pulse 1.2s ease-in-out infinite;
+  }
+  .splash-dot:nth-child(1) { animation-delay: 0s; }
+  .splash-dot:nth-child(2) { animation-delay: 0.4s; }
+  .splash-dot:nth-child(3) { animation-delay: 0.8s; }
+  @keyframes splash-dot-pulse {
+    0%   { opacity: 0.3; }
+    50%  { opacity: 1; }
+    100% { opacity: 0.3; }
+  }
+  /* AC2.d / AC12: version pinned bottom-centered, muted, full semver.
+     If main.version is the literal "dev", we render "dev" without the
+     "v" prefix; otherwise we render "v" + semver. */
+  .splash-version {
+    position: absolute;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1;
+  }
+  /* AC7: hidden error pane revealed on splash:timeout. */
+  .splash-error {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: #f8fafc;
+    background-color: #f8fafc;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  body.splash-failed .splash-stack > :not(.splash-error) { display: none; }
+  body.splash-failed .splash-error { display: flex; }
+  .splash-error-msg {
+    font-size: 15px;
+    font-weight: 500;
+    color: #0f172a;
+    margin-bottom: 20px;
+  }
+  .splash-error-close {
+    appearance: none;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-family: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .splash-error-close:hover { background: #f1f5f9; }
+</style>
+</head>
+<body>
+<div class="splash-stack">
+  <!-- AC2.a: inlined brand icon SVG from assets/branding/icon.svg.
+       Width/height attrs removed; CSS sizes it to 128x128. -->
+  <svg class="splash-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UniDoc PDF Debugger icon">
+    <rect width="1024" height="1024" rx="200" fill="#7F1D1D"/>
+    <path d="M 240 200 L 640 200 L 800 360 L 800 824 L 240 824 Z" fill="#FAF1DD"/>
+    <polygon points="640,200 640,360 800,360" fill="#CBC0A4"/>
+    <path d="M 380 480 L 540 600 L 380 720" stroke="#7F1D1D" stroke-width="80" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <h1 class="splash-wordmark">UniDoc PDF Debugger</h1>
+  <div class="splash-dots" aria-hidden="true">
+    <span class="splash-dot"></span>
+    <span class="splash-dot"></span>
+    <span class="splash-dot"></span>
+  </div>
+  <div class="splash-version" id="splashVersion">{{.Version}}</div>
+  <div class="splash-error" role="alert">
+    <div class="splash-error-msg">Could not start. Please reinstall.</div>
+    <button class="splash-error-close" id="splashClose" type="button">Close</button>
+  </div>
+</div>
+<script>
+  // The splash WebView loads its HTML via WebviewWindowOptions.HTML
+  // (loadHTMLString on macOS, NavigateToString on Windows), so the page
+  // has no baseURL and never fetches /wails/runtime.js. That means the
+  // full @wailsio/runtime module is NOT loaded here: window.wails.Events
+  // is undefined, and Wails-side app.Event.Emit() cannot reach a JS
+  // Events.On() listener that does not exist.
+  //
+  // Wails Go-side dispatch falls back to ExecJS that calls
+  //   if (window._wails && window._wails.dispatchWailsEvent) {
+  //     window._wails.dispatchWailsEvent(event);
+  //   }
+  // (see WebviewWindow.DispatchWailsEvent in alpha.85). The platform
+  // runtime.Core injection that fires after navigation completion sets
+  // window._wails to an object but does NOT define dispatchWailsEvent
+  // (that lives in @wailsio/runtime/src/events.ts which is never loaded
+  // for HTML-loaded windows). We define our own dispatchWailsEvent stub
+  // below so splash:dismiss (AC5 fade) and splash:timeout (AC7 error
+  // pane reveal) reach the splash. See review #3 in story 9-13 for the
+  // full analysis.
+  //
+  // The Close button on the error pane cannot Events.Emit back to Go
+  // for the same reason. We instead use a hard signal: close the splash
+  // window. Go listens for WindowClosing on the splash window and, if
+  // the failure state was reached, calls app.Quit().
+  window._wails = window._wails || {};
+  var originalDispatch = window._wails.dispatchWailsEvent;
+  window._wails.dispatchWailsEvent = function (event) {
+    try {
+      if (event && event.name === 'splash:timeout') {
+        document.body.classList.add('splash-failed');
+      } else if (event && event.name === 'splash:dismiss') {
+        document.body.classList.add('splash-dismissing');
+      }
+    } catch (_) { /* swallow */ }
+    if (typeof originalDispatch === 'function') {
+      try { originalDispatch(event); } catch (_) { /* swallow */ }
+    }
+  };
+  // Wails gates WebviewWindow.ExecJS (and therefore Go-side
+  // DispatchWailsEvent) behind w.runtimeLoaded, which only flips true
+  // when JS sends the "wails:runtime:ready" invoke message. The full
+  // @wailsio/runtime module normally does that from its index.ts, but
+  // the splash WebView never loads it. Without the manual signal below
+  // every app.Event.Emit() to the splash is queued forever and the
+  // splash:dismiss / splash:timeout events never reach our dispatch
+  // stub. window._wails.invoke is installed by runtime.Core after
+  // NavigationCompleted, so we poll until it appears, then fire the
+  // ready signal exactly once. 50 tries x 100ms = 5s ceiling.
+  (function () {
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (window._wails && typeof window._wails.invoke === 'function') {
+        clearInterval(iv);
+        try { window._wails.invoke('wails:runtime:ready'); } catch (_) { /* swallow */ }
+      } else if (tries > 50) {
+        clearInterval(iv);
+      }
+    }, 100);
+  })();
+  var splashCloseBtn = document.getElementById('splashClose');
+  if (splashCloseBtn) {
+    splashCloseBtn.addEventListener('click', function () {
+      // window.close() is honoured by WebView2 on Windows and propagates
+      // to WM_CLOSE which Wails maps to WindowClosing. On WKWebView /
+      // WebKit2GTK it is generally a no-op for top-level windows; Go's
+      // 60s force-quit timer armed alongside splash:timeout is the
+      // safety net there.
+      try { window.close(); } catch (_) { /* swallow */ }
+    });
+  }
+</script>
+</body>
+</html>
