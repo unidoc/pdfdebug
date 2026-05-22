@@ -23,7 +23,14 @@ if (proc && typeof proc.on === 'function') {
 // Node 25+ provides a broken globalThis.localStorage when --localstorage-file
 // is not set. Vitest's jsdom environment may not override it. Provide a
 // standards-compliant in-memory implementation for tests.
-if (typeof window !== 'undefined' && typeof window.localStorage.setItem !== 'function') {
+//
+// Node 26+ leaves window.localStorage as `undefined`, so the property access
+// itself throws before reading .setItem. Guard with an explicit existence
+// check before touching the slot.
+if (
+  typeof window !== 'undefined' &&
+  (!window.localStorage || typeof window.localStorage.setItem !== 'function')
+) {
   const store = new Map<string, string>();
   const storage: Storage = {
     get length() {

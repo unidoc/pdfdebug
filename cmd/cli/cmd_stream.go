@@ -15,9 +15,10 @@ func runStreamDump(args []string) int {
 	fs := flag.NewFlagSet("dump stream", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	pageFlag := fs.Int("page", 0, "Page number (1-based)")
-	_ = fs.Bool("json", false, "Output as JSON (default, always on)")
+	rawFlag := fs.Bool("raw", false, "Emit verbatim decoded bytes instead of JSON")
+	_ = fs.Bool("json", false, "Output as JSON (default, mutually exclusive with --raw)")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump stream [--json] --page N <file>")
+		fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump stream [--json|--raw] --page N <file>")
 		return 1
 	}
 
@@ -28,16 +29,17 @@ func runStreamDump(args []string) int {
 
 	filePath := fs.Arg(0)
 	if filePath == "" {
-		fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump stream [--json] --page N <file>")
+		fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump stream [--json|--raw] --page N <file>")
 		return 1
 	}
 
-	return execStreamDump(filePath, *pageFlag)
+	return execStreamDump(filePath, *pageFlag, *rawFlag)
 }
 
-// execStreamDump opens the PDF, resolves the page's content stream, and writes
-// the decoded ContentStreamData as JSON to stdout.
-func execStreamDump(filePath string, pageNum int) (exitCode int) {
+// execStreamDump opens the PDF, resolves the page's content stream, and
+// writes either the decoded ContentStreamData as JSON (default) or the
+// verbatim decoded bytes (when raw is true) to stdout.
+func execStreamDump(filePath string, pageNum int, raw bool) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("internal error: %v", r))
@@ -89,6 +91,22 @@ func execStreamDump(filePath string, pageNum int) (exitCode int) {
 	if err != nil {
 		writeJSONError(os.Stderr, err.Error())
 		return 2
+	}
+
+	if raw {
+		// Verbatim decoded bytes; no JSON wrapper. ContentStreamData.Error is
+		// non-fatal (decompression failures surface here while raw is empty),
+		// so prefer to surface that to stderr and exit non-zero rather than
+		// silently writing an empty stdout.
+		if result.Error != "" {
+			fmt.Fprintln(os.Stderr, result.Error)
+			return 2
+		}
+		if _, err := io.WriteString(os.Stdout, result.Raw); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write raw output: %v\n", err)
+			return 2
+		}
+		return 0
 	}
 
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {

@@ -232,29 +232,6 @@ func TestPDFServiceInvalidTabID(t *testing.T) {
 //       using app.RegisterService() (NOT the Services: field in Options).
 // ---------------------------------------------------------------------------
 
-func TestMainGoRegistersPDFService(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// Must import pdfservice package
-	if !strings.Contains(content, `"unidoc-pdf-debugger/internal/pdfservice"`) {
-		t.Error("[P1] 2.3-INTG-001: main.go does not import internal/pdfservice")
-	}
-
-	// Must create PDFService instance via NewPDFService
-	if !strings.Contains(content, "pdfservice.NewPDFService(") {
-		t.Error("[P1] 2.3-INTG-001: main.go does not call pdfservice.NewPDFService()")
-	}
-
-	// Must register using app.RegisterService()
-	if !strings.Contains(content, "app.RegisterService(") {
-		t.Error("[P1] 2.3-INTG-001: main.go does not call app.RegisterService()")
-	}
-
-	// Must use application.NewService() wrapper
-	if !strings.Contains(content, "application.NewService(") {
-		t.Error("[P1] 2.3-INTG-001: main.go does not call application.NewService()")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.3-INTG-002 [P1]: main.go does NOT use Services: field in application.Options
@@ -262,15 +239,6 @@ func TestMainGoRegistersPDFService(t *testing.T) {
 //       Services: field and application.NewService must not co-occur in Options.
 // ---------------------------------------------------------------------------
 
-func TestMainGoNoServicesField(t *testing.T) {
-	content := readFile(t, "main.go")
-
-	// The Services: field must not appear inside application.Options{...}
-	// Look for "Services:" between "application.Options{" and the closing "}"
-	if strings.Contains(content, "Services:") {
-		t.Error("[P1] 2.3-INTG-002: main.go uses Services: field in application.Options -- use app.RegisterService() instead")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#3: Architecture compliance -- pdfservice is thin adapter

@@ -9,9 +9,11 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { AppProvider } from '../hooks/useDocumentState';
 import { EmptyState } from './EmptyState';
 
-// Mock Wails bindings so imports resolve
+// Mock Wails bindings so imports resolve. Path matches what usePDFService.ts
+// uses (../../bindings -> frontend/bindings), so vitest's mock registry hits
+// when EmptyState clicks the Open File button.
 vi.mock(
-  '../../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
+  '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),
@@ -143,5 +145,141 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
       </AppProvider>
     );
     expect(container.innerHTML).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Single-file loading state: when OPENING_START fires (Go-side
+// document:load-start event or the EmptyState button's pre-await dispatch),
+// the drop zone is replaced with a spinner + "Opening <filename>..." line.
+// ---------------------------------------------------------------------------
+
+import { useAppDispatch as _useAppDispatch } from '../hooks/useDocumentState';
+
+function LoadingHarness({ fileName }: { fileName: string }) {
+  const dispatch = _useAppDispatch();
+  return (
+    <>
+      <button
+        data-testid="bootstrap-opening"
+        onClick={() => dispatch({ type: 'OPENING_START', payload: { fileName } })}
+      >
+        start
+      </button>
+      <EmptyState />
+    </>
+  );
+}
+
+describe('EmptyState loading variant', () => {
+  test('renders spinner + "Opening <name>..." instead of the drop zone when isOpening is true', () => {
+    render(
+      <AppProvider>
+        <LoadingHarness fileName="big-report.pdf" />
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('bootstrap-opening').click());
+
+    expect(screen.getByTestId('empty-state-spinner')).toBeInTheDocument();
+    expect(screen.getByTestId('empty-state-loading').textContent).toBe('Opening big-report.pdf...');
+    expect(screen.queryByTestId('drop-zone')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('open-file-button')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-select via the Open File dialog: when the picker returns >1 path,
+// the BatchOpenDialog must appear, each path is opened sequentially via
+// OPEN_DOCUMENT, progress advances, and the dialog closes on completion.
+// Mirrors the drag-drop multi-file flow so users get parity between the two
+// gestures.
+// ---------------------------------------------------------------------------
+import { OpenFile, GetTreeRoot, GetChildren, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { useAppState } from '../hooks/useDocumentState';
+import { BatchOpenDialog } from './BatchOpenDialog';
+
+function MultiOpenHarness() {
+  const state = useAppState();
+  return (
+    <>
+      <span data-testid="tab-count">{state.tabs.length}</span>
+      <span data-testid="batch-total">{state.batchOpenTotal}</span>
+      <EmptyState />
+      <BatchOpenDialog />
+    </>
+  );
+}
+
+describe('Open File dialog: multi-select', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('two-path selection opens 2 tabs, drives BATCH_OPEN_*, closes dialog when done', async () => {
+    // Mock the dialog returning two paths and OpenFile + GetTreeRoot per path.
+    (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(['/a.pdf', '/b.pdf']);
+    let openCall = 0;
+    (OpenFile as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+      openCall += 1;
+      return {
+        tabId: `t${openCall}`,
+        fileName: path.replace(/^\//, ''),
+        filePath: path,
+        pageCount: 1,
+        fileSize: 100,
+        error: '',
+      };
+    });
+    (GetTreeRoot as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
+      hasChildren: true, childCount: 0, iconHint: 'catalog', error: '',
+    });
+    (GetChildren as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    render(<AppProvider><MultiOpenHarness /></AppProvider>);
+
+    act(() => screen.getByTestId('open-file-button').click());
+
+    // Dialog appears once batch starts; await async work (open + state updates).
+    await act(async () => { /* yield */ });
+    await act(async () => { /* yield */ });
+    await act(async () => { /* yield */ });
+
+    // Both opens completed; dialog closed; two tabs in state.
+    expect(screen.getByTestId('tab-count').textContent).toBe('2');
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+    expect(screen.queryByTestId('batch-open-dialog')).not.toBeInTheDocument();
+  });
+
+  test('single-path selection bypasses the batch dialog', async () => {
+    (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(['/only.pdf']);
+    (OpenFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tabId: 't1', fileName: 'only.pdf', filePath: '/only.pdf',
+      pageCount: 1, fileSize: 100, error: '',
+    });
+    (GetTreeRoot as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
+      hasChildren: true, childCount: 0, iconHint: 'catalog', error: '',
+    });
+    (GetChildren as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    render(<AppProvider><MultiOpenHarness /></AppProvider>);
+    act(() => screen.getByTestId('open-file-button').click());
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+    // Single-file path never invoked the batch state machine.
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+  });
+
+  test('empty selection (cancel) is a no-op', async () => {
+    (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    render(<AppProvider><MultiOpenHarness /></AppProvider>);
+    act(() => screen.getByTestId('open-file-button').click());
+    await act(async () => {});
+    expect(screen.getByTestId('tab-count').textContent).toBe('0');
+    expect(OpenFile as unknown as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 });

@@ -9,10 +9,15 @@ import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentSta
 import { mapErrorMessage } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
+import { getPlatformModifier } from './lib/platform'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
+import { GoToPageDialog } from './components/GoToPageDialog'
+import { BatchOpenDialog } from './components/BatchOpenDialog'
+import { CommandPalette } from './components/CommandPalette/CommandPalette'
+import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -21,6 +26,8 @@ import { TabBar } from './components/TabBar'
 function AppContent() {
   const { tabs, activeTabId, documentError, documentWarning } = useAppState()
   const dispatch = useAppDispatch()
+  // Mount the Cmd+K global keyboard listener exactly once at App level.
+  useCommandPalette()
   const hasDocument = activeTabId !== null
   const activeTab = tabs.find((t) => t.tabId === activeTabId)
   const navHistory = activeTab?.navHistory ?? []
@@ -96,6 +103,7 @@ function AppContent() {
           tabId: data.tabId,
           fileName: data.fileName,
           filePath: filePath,
+          pageCount: data.pageCount ?? 0,
           rootNode: data.rootNode ?? null,
           rootChildren: data.rootChildren ?? null,
         },
@@ -111,6 +119,12 @@ function AppContent() {
       dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } })
     })
 
+    const offWarning = Events.On('document:warning', (event) => {
+      const data = event?.data
+      const msg = (data && data.message) || ''
+      if (msg) dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: msg } })
+    })
+
     const offNavBack = Events.On('navigate:back', () => {
       dispatch({ type: 'NAVIGATE_BACK' })
     })
@@ -119,11 +133,42 @@ function AppContent() {
       dispatch({ type: 'NAVIGATE_FORWARD' })
     })
 
+    const offGoToPage = Events.On('navigate:goToPage', () => {
+      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+    })
+
+    const offPaletteOpen = Events.On('palette:open', () => {
+      openPalette()
+    })
+
+    const offLoadStart = Events.On('document:load-start', (event) => {
+      const data = event?.data
+      const fileName = (data && data.fileName) || ''
+      if (fileName) {
+        dispatch({ type: 'OPENING_START', payload: { fileName } })
+      }
+    })
+
+    const offBatchStart = Events.On('document:batch-start', (event) => {
+      const total = Number(event?.data?.total) || 0
+      if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
+    })
+
+    const offBatchComplete = Events.On('document:batch-complete', () => {
+      dispatch({ type: 'BATCH_OPEN_COMPLETE' })
+    })
+
     return () => {
       offOpened()
       offError()
+      offWarning()
       offNavBack()
       offNavForward()
+      offGoToPage()
+      offPaletteOpen()
+      offLoadStart()
+      offBatchStart()
+      offBatchComplete()
     }
   }, [dispatch])
 
@@ -240,6 +285,35 @@ function AppContent() {
     }
   }, [saveWindowGeometry])
 
+  // Cmd+G (macOS) / Ctrl+G (Win/Linux) opens the Go to Page dialog. Skip
+  // when focus is in a text input/area so the shortcut never steals typing,
+  // and skip when no document is loaded (the reducer is also a no-op).
+  // The native menu item in main.go also emits navigate:goToPage; this
+  // listener exists so the shortcut works even before the menu is opened.
+  useEffect(() => {
+    /** @param {EventTarget | null} target */
+    function isInTextField(target) {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+      if (target.isContentEditable) return true
+      return false
+    }
+    const wantsMeta = getPlatformModifier() === 'Cmd'
+    /** @param {KeyboardEvent} e */
+    function handler(e) {
+      const mod = wantsMeta ? e.metaKey : e.ctrlKey
+      if (!mod) return
+      if (e.key !== 'g' && e.key !== 'G') return
+      if (isInTextField(e.target)) return
+      if (!hasDocument) return
+      e.preventDefault()
+      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [hasDocument, dispatch])
+
   return (
     <div className="flex flex-col h-full" data-file-drop-target>
       {documentError && (
@@ -260,6 +334,9 @@ function AppContent() {
       <div className="flex-1 min-h-0">
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>
+      <GoToPageDialog />
+      <BatchOpenDialog />
+      <CommandPalette />
     </div>
   )
 }

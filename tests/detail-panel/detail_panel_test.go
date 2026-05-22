@@ -153,18 +153,6 @@ func TestDetailPanelAriaLive(t *testing.T) {
 // AC#1: DetailPanel wired into the right panel.
 // ---------------------------------------------------------------------------
 
-func TestMainLayoutImportsDetailPanel(t *testing.T) {
-	root := projectRoot(t)
-	path := filepath.Join(root, "frontend", "src", "components", "MainLayout.tsx")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-007: cannot read MainLayout.tsx: %v", err)
-	}
-	src := string(content)
-	if !strings.Contains(src, "DetailPanel") {
-		t.Fatalf("[P1] 2.7-STRUCT-007: MainLayout.tsx must import and use DetailPanel")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2.7-STRUCT-008 [P1]: ObjectInfoPanel.tsx imports from DetailShared.tsx

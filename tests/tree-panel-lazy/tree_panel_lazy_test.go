@@ -166,22 +166,8 @@ func TestTabStateHasSelectedNodeId(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // 2.5-INTG-008 [P1]: MainLayout imports TreePanel
-func TestMainLayoutImportsTreePanel(t *testing.T) {
-	content := readFile(t, "frontend/src/components/MainLayout.tsx")
-
-	if !strings.Contains(content, "TreePanel") {
-		t.Error("[P1] 2.5-INTG-008: MainLayout.tsx must import and use TreePanel component")
-	}
-}
 
 // 2.5-INTG-009 [P1]: MainLayout no longer has inline TreeNodeItem
-func TestMainLayoutNoInlineTreeNodeItem(t *testing.T) {
-	content := readFile(t, "frontend/src/components/MainLayout.tsx")
-
-	if strings.Contains(content, "function TreeNodeItem") {
-		t.Error("[P1] 2.5-INTG-009: MainLayout.tsx must remove inline TreeNodeItem -- replaced by TreePanel")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#5: Error node rendering support

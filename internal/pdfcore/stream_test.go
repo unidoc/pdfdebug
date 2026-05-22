@@ -828,6 +828,65 @@ func TestTokenizeContentStreamEdgeCases(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// 9.6-UNIT-001 [P0]: Tokenizer delivers inline-image payloads opaquely.
+//
+// Locks the contract that Story 9-6's content-stream formatter depends on:
+// for any BI..ID..<bytes>..EI sequence the tokenizer emits exactly
+// [..., {operator ID}, {string <payload>}, {operator EI}] with the payload
+// delivered as ONE string token regardless of whitespace, newlines, or the
+// literal byte sequence "EI" appearing inside the payload (without the
+// required surrounding whitespace that signals the real terminator).
+// ---------------------------------------------------------------------------
+
+func TestTokenizeInlineImagePayloadOpaque(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload string
+	}{
+		{name: "binary with NULs and high bytes", payload: "\x00\x01\xFF\xFE\x80"},
+		{name: "payload contains newlines and CR/LF", payload: "abc\ndef\r\nghi"},
+		{name: "payload contains literal EI without surrounding whitespace", payload: "abEIcd"},
+		{name: "payload contains literal EI preceded by non-whitespace", payload: "xEI yz"}, // 'x' before E disqualifies
+		{name: "payload contains EI followed by non-whitespace", payload: " EIx"},          // 'x' after I disqualifies
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := "BI /W 1 /H 1 /CS /G /BPC 8 ID " + tc.payload + " EI"
+			toks := tokenizeContentStream(input)
+
+			// Find ID and EI operator indices.
+			idIdx, eiIdx := -1, -1
+			for i, tk := range toks {
+				if tk.Type == "operator" && tk.Value == "ID" && idIdx == -1 {
+					idIdx = i
+				}
+				if tk.Type == "operator" && tk.Value == "EI" && eiIdx == -1 && idIdx != -1 && i > idIdx {
+					eiIdx = i
+				}
+			}
+			if idIdx == -1 {
+				t.Fatalf("no ID operator emitted for %q", input)
+			}
+			if eiIdx == -1 {
+				t.Fatalf("no EI operator emitted (terminator missed) for %q", input)
+			}
+			// Exactly one token between ID and EI: the opaque payload string.
+			if eiIdx-idIdx != 2 {
+				t.Fatalf("expected exactly one payload token between ID and EI; got %d tokens, sequence: %+v",
+					eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
+			}
+			payloadTok := toks[idIdx+1]
+			if payloadTok.Type != "string" {
+				t.Errorf("payload token Type = %q, want \"string\"", payloadTok.Type)
+			}
+			if payloadTok.Value != tc.payload {
+				t.Errorf("payload token Value = %q, want %q", payloadTok.Value, tc.payload)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 3.3-BENCH-001 [P2]: Benchmark tokenizer on a ~100KB content stream.
 // Verifies O(n) performance and detects regressions.
 // ---------------------------------------------------------------------------
@@ -842,7 +901,7 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 	input := buf.String()
 	b.SetBytes(int64(len(input)))
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		tokenizeContentStream(input)
 	}
 }

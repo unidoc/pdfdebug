@@ -101,25 +101,25 @@ export function TabBar() {
         data-testid="tab-list"
       >
         {tabs.map((tab) => (
-          <Tabs.Trigger
-            key={tab.tabId}
-            value={tab.tabId}
-            className="group flex items-center px-3 py-1.5 text-sm border-r border-border truncate max-w-[200px] bg-surface-hover text-text-secondary hover:bg-surface-selected data-[state=active]:bg-bg data-[state=active]:text-text data-[state=active]:border-b-2 data-[state=active]:border-b-border-focus"
-            data-testid={`tab-${tab.tabId}`}
-            title={tab.filePath || tab.fileName}
-          >
-            <span className="truncate">{tab.fileName}</span>
-            <button
-              type="button"
-              className="ml-2 opacity-0 group-hover:opacity-100 rounded-sm hover:bg-surface-hover text-text-muted hover:text-text w-4 h-4 flex items-center justify-center flex-shrink-0"
-              data-testid={`tab-close-${tab.tabId}`}
-              aria-label={`Close ${tab.fileName}`}
-              onClick={(e) => handleClose(tab.tabId, e)}
+          <Tabs.Trigger key={tab.tabId} value={tab.tabId} asChild>
+            <div
+              className="group flex items-center px-3 py-1.5 text-sm border-r border-border truncate max-w-[200px] bg-surface-hover text-text-secondary hover:bg-surface-selected cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus data-[state=active]:bg-bg data-[state=active]:text-text data-[state=active]:border-b-2 data-[state=active]:border-b-border-focus"
+              data-testid={`tab-${tab.tabId}`}
+              title={tab.filePath || tab.fileName}
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
+              <span className="truncate">{tab.fileName}</span>
+              <button
+                type="button"
+                className="ml-2 opacity-0 group-hover:opacity-100 rounded-sm hover:bg-surface-hover text-text-muted hover:text-text w-4 h-4 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                data-testid={`tab-close-${tab.tabId}`}
+                aria-label={`Close ${tab.fileName}`}
+                onClick={(e) => handleClose(tab.tabId, e)}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
           </Tabs.Trigger>
         ))}
       </Tabs.List>

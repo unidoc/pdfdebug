@@ -179,7 +179,7 @@ func TestGolangciLintV2Config(t *testing.T) {
 		}
 	}
 	if ver != "2" {
-		t.Errorf(".golangci.yml: version must be \"2\" (required for Go 1.25 + v2 schema), got %q", ver)
+		t.Errorf(".golangci.yml: version must be \"2\" (required for Go 1.26 + v2 schema), got %q", ver)
 	}
 
 	// linters.default: none and required enabled linters
@@ -203,13 +203,13 @@ func TestGolangciLintV2Config(t *testing.T) {
 		}
 	}
 
-	// Go directive must be "1.25" under run:
+	// Go directive must be "1.26" under run:
 	run, ok := cfg["run"].(map[string]interface{})
 	if !ok {
 		t.Fatalf(".golangci.yml: run block missing")
 	}
-	if g, ok := run["go"].(string); !ok || !strings.HasPrefix(g, "1.25") {
-		t.Errorf(".golangci.yml: run.go must pin 1.25, got %q", g)
+	if g, ok := run["go"].(string); !ok || !strings.HasPrefix(g, "1.26") {
+		t.Errorf(".golangci.yml: run.go must pin 1.26, got %q", g)
 	}
 }
 

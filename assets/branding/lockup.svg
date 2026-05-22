@@ -5,6 +5,6 @@
     <polygon points="640,200 640,360 800,360" fill="#CBC0A4"/>
     <path d="M 380 480 L 540 600 L 380 720" stroke="#7F1D1D" stroke-width="80" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="440" y="220" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="116" fill="#0F172A" letter-spacing="-2">UniDoc</text>
+  <text x="440" y="220" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="116" fill="#1a4fd6" letter-spacing="-2">UniDoc</text>
   <text x="440" y="306" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="500" font-size="72" fill="#475569" letter-spacing="-1">PDF Debugger</text>
 </svg>

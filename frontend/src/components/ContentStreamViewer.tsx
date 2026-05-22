@@ -14,11 +14,24 @@ interface TokenData {
   col: number;
 }
 
+/**
+ * Shape of one formatted row from the backend (Go-side `FormattedLine`).
+ * Story 9-6: the Go formatter groups operands with their operator and emits
+ * one row per logical PDF operation, so the frontend just iterates and renders.
+ */
+interface FormattedLineData {
+  tokens: TokenData[];
+  indent: number;
+  operator: string;
+  srcLineStart: number;
+  srcLineEnd: number;
+}
+
 export type StreamViewMode = 'formatted' | 'raw';
 
 interface ContentStreamViewerProps {
   raw: string;
-  tokenized?: TokenData[] | null;
+  formatted?: FormattedLineData[] | null;
   error?: string;
   viewMode?: StreamViewMode;
   onViewModeChange?: (mode: StreamViewMode) => void;
@@ -162,9 +175,9 @@ function ViewModeControl({
         disabled={!hasTokens}
         className={`relative px-3 py-1 text-xs border rounded-l transition-colors ${
           viewMode === 'formatted'
-            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10'
+            ? 'bg-interactive text-on-interactive border-interactive font-medium z-10 cursor-pointer'
             : hasTokens
-              ? 'bg-surface text-text-secondary border-border hover:bg-hover'
+              ? 'bg-surface text-text-secondary border-border hover:bg-hover cursor-pointer'
               : 'bg-surface text-text-muted border-border cursor-not-allowed opacity-50'
         }`}
         onClick={() => onViewModeChange('formatted')}
@@ -190,7 +203,7 @@ function ViewModeControl({
 }
 
 /** Renders decoded content stream with a view mode toggle and line-number gutter. */
-export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlledMode, onViewModeChange }: ContentStreamViewerProps) {
+export function ContentStreamViewer({ raw, formatted, error, viewMode: controlledMode, onViewModeChange }: ContentStreamViewerProps) {
   if (error) {
     return (
       <div
@@ -202,54 +215,16 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
     );
   }
 
-  const hasTokens = !!(tokenized && tokenized.length > 0);
-  // If no tokens available, force raw mode regardless of controlled value
-  const effectiveMode = hasTokens ? (controlledMode ?? 'formatted') : 'raw';
-  const useTokens = hasTokens && effectiveMode === 'formatted';
+  const hasFormatted = !!(formatted && formatted.length > 0);
+  // If no formatted rows are available, force raw mode regardless of controlled value
+  const effectiveMode: StreamViewMode = hasFormatted ? (controlledMode ?? 'formatted') : 'raw';
+  const useFormatted = hasFormatted && effectiveMode === 'formatted';
   const rawLines = raw ? raw.split('\n') : [];
 
-  // Group tokens by line number
-  const tokensByLine: Map<number, TokenData[]> = new Map();
-  if (useTokens) {
-    for (const tok of tokenized) {
-      const arr = tokensByLine.get(tok.line) || [];
-      arr.push(tok);
-      tokensByLine.set(tok.line, arr);
-    }
-  }
-
-  // Avoid Math.max(...spread) -- large token arrays blow the call stack.
-  let maxTokenLine = 0;
-  if (useTokens) {
-    for (const t of tokenized) {
-      if (t.line > maxTokenLine) maxTokenLine = t.line;
-    }
-  }
-  const lineCount = Math.max(maxTokenLine, rawLines.length);
-
-  // Compute structural indentation per line based on block-opening/closing
-  // operators (BT/ET, q/Q, BDC/BMC/EMC). This produces consistent
-  // indentation regardless of how the PDF generator wrote the stream.
-  const INDENT_OPEN = new Set(['BT', 'q', 'BDC', 'BMC']);
-  const INDENT_CLOSE = new Set(['ET', 'Q', 'EMC']);
-  const lineIndent: Map<number, number> = new Map();
-  if (useTokens) {
-    let depth = 0;
-    for (let ln = 1; ln <= lineCount; ln++) {
-      const toks = tokensByLine.get(ln);
-      if (!toks || toks.length === 0) {
-        lineIndent.set(ln, depth);
-        continue;
-      }
-      // Check if this line has a closing operator -- dedent before rendering
-      const hasClose = toks.some((t) => t.type === 'operator' && INDENT_CLOSE.has(t.value));
-      if (hasClose) depth = Math.max(0, depth - 1);
-      lineIndent.set(ln, depth);
-      // Check if this line has an opening operator -- indent after rendering
-      const hasOpen = toks.some((t) => t.type === 'operator' && INDENT_OPEN.has(t.value));
-      if (hasOpen) depth += 1;
-    }
-  }
+  // Gutter line count: number of formatted rows in formatted mode, source
+  // byte-line count in raw mode. Padded so the gutter width is stable.
+  const gutterCount = useFormatted ? (formatted!.length) : rawLines.length;
+  const gutterDigits = Math.max(String(gutterCount).length, 2);
 
   return (
     <Tooltip.Provider delayDuration={300}>
@@ -261,17 +236,17 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
           <ViewModeControl
             viewMode={effectiveMode}
             onViewModeChange={onViewModeChange}
-            hasTokens={hasTokens}
+            hasTokens={hasFormatted}
           />
         )}
         <div className="flex-1 min-h-0 overflow-auto">
         <div className="flex">
           <div
             className="flex-shrink-0 text-right pr-3 select-none text-text-muted text-xs font-mono border-r border-border"
-            style={{ minWidth: `${Math.max(String(lineCount).length, 2)}ch` }}
+            style={{ minWidth: `${gutterDigits}ch` }}
             data-testid="content-stream-gutter"
           >
-            {Array.from({ length: lineCount }, (_, i) => (
+            {Array.from({ length: gutterCount }, (_, i) => (
               <div key={i} className="px-1">{i + 1}</div>
             ))}
           </div>
@@ -279,32 +254,31 @@ export function ContentStreamViewer({ raw, tokenized, error, viewMode: controlle
             className="pl-3 font-mono text-xs text-text whitespace-pre"
             data-testid="content-stream-content"
           >
-            {useTokens
-              ? Array.from({ length: lineCount }, (_, i) => {
-                  const lineNum = i + 1;
-                  const lineToks = tokensByLine.get(lineNum);
-                  const indent = lineIndent.get(lineNum) ?? 0;
-                  const indentStr = indent > 0 ? '  '.repeat(indent) : '';
-                  if (!lineToks || lineToks.length === 0) {
-                    return <div key={i}>{''}</div>;
-                  }
+            {useFormatted
+              ? formatted!.map((row, i) => {
+                  const indentStr = row.indent > 0 ? '  '.repeat(row.indent) : '';
                   const spans: React.ReactNode[] = [];
                   if (indentStr) spans.push(indentStr);
-                  for (let ti = 0; ti < lineToks.length; ti++) {
-                    const tok = lineToks[ti];
-                    // Space between tokens on the same line
+                  for (let ti = 0; ti < row.tokens.length; ti++) {
+                    const tok = row.tokens[ti];
                     if (ti > 0) spans.push(' ');
                     if (tok.type === 'operator') {
-                      spans.push(<OperatorToken key={`${lineNum}-${ti}`} token={tok} />);
+                      spans.push(<OperatorToken key={`${i}-${ti}`} token={tok} />);
                     } else {
                       spans.push(
-                        <span key={`${lineNum}-${ti}`} className={tokenClass(tok.type)}>
+                        <span key={`${i}-${ti}`} className={tokenClass(tok.type)}>
                           {tok.value}
                         </span>
                       );
                     }
                   }
-                  return <div key={i}>{spans}</div>;
+                  // title shows the source-byte-line range so users can correlate
+                  // a formatted row with its origin in the Raw view (load-bearing
+                  // for cross-view scroll-sync per AC #6).
+                  const rangeTitle = row.srcLineStart === row.srcLineEnd
+                    ? `Source line ${row.srcLineStart}`
+                    : `Source lines ${row.srcLineStart}-${row.srcLineEnd}`;
+                  return <div key={i} title={rangeTitle}>{spans}</div>;
                 })
               : rawLines.map((line, i) => (
                   <div key={i}>{line}</div>

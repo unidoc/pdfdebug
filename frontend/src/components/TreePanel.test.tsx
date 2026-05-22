@@ -111,7 +111,7 @@ const childNodes = [
     valueType: 'reference',
     hasChildren: true,
     childCount: 2,
-    iconHint: 'page',
+    iconHint: 'pages',
     error: '',
   },
   {
@@ -842,6 +842,39 @@ describe('2.5-UNIT-LABEL: Node label display with rawKey', () => {
     const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
     expect(pagesRow).toBeTruthy();
     expect(within(pagesRow!).getByText('/Pages')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.5-UNIT-001: NodeRenderer renders lucide icons keyed by iconHint
+// ---------------------------------------------------------------------------
+
+describe('9.5-UNIT-001: Tree icons rendered from iconHint', () => {
+  test('catalog/pages/page/stream rows each render an SVG icon; default hint omits the icon', async () => {
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const rowFor = (label: string) => {
+      const row = screen.getByText(label).closest('[data-testid="tree-node"]');
+      if (row === null) throw new Error(`tree row for label ${label} not found`);
+      return row as HTMLElement;
+    };
+
+    // catalog (root), pages (/Pages ref), stream (/Metadata) all carry an icon.
+    expect(rowFor('Catalog').querySelector('svg')).not.toBeNull();
+    expect(rowFor('Pages').querySelector('svg')).not.toBeNull();
+    expect(rowFor('Metadata').querySelector('svg')).not.toBeNull();
+
+    // The /Type row (iconHint=default) intentionally has no icon so the tree
+    // stays visually quiet for untyped scalars.
+    expect(rowFor('Type').querySelector('svg')).toBeNull();
   });
 });
 

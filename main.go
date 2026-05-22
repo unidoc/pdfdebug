@@ -8,11 +8,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"unidoc-pdf-debugger/internal/pdfservice"
+	"unidoc-pdf-debugger/internal/splash"
 )
 
 // version is the release version of the GUI binary, printed by the `--version`
@@ -43,6 +47,94 @@ func extractPDFPaths(args []string) []string {
 		}
 	}
 	return paths
+}
+
+// openFileAndEmitWithWarning opens a PDF, fetches the tree root + children,
+// and emits document:opened with the result. If extraWarning is non-empty,
+// it is appended to (or replaces) the per-document warning field in the
+// payload. This lets callers piggyback advisory messages (e.g. "2
+// unsupported files could not be opened") onto a document's open event so
+// the frontend handler dispatches SET_DOCUMENT_WARNING in the same tick as
+// the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
+// warning survives regardless of event-bus ordering.
+func openFileAndEmitWithWarning(svc pdfservice.PDFService, app *application.App, path string, extraWarning string) {
+	// Emit load-start before the blocking pdfcpu read so the frontend can
+	// render an immediate "Opening ..." indicator instead of leaving the
+	// EmptyState drop area silent for the duration of a large-file parse.
+	app.Event.Emit("document:load-start", map[string]any{
+		"filePath": path,
+		"fileName": filepath.Base(path),
+	})
+	docInfo, err := svc.OpenFile(path)
+	if err != nil {
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	root, err := svc.GetTreeRoot(docInfo.TabID)
+	if err != nil {
+		_ = svc.CloseDocument(docInfo.TabID)
+		app.Event.Emit("document:error", map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+	children, err := svc.GetChildren(docInfo.TabID, "root")
+	if err != nil {
+		log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+	}
+	payload := map[string]any{
+		"tabId":        docInfo.TabID,
+		"fileName":     docInfo.FileName,
+		"filePath":     docInfo.FilePath,
+		"pageCount":    docInfo.PageCount,
+		"fileSize":     docInfo.FileSize,
+		"rootNode":     root,
+		"rootChildren": children,
+	}
+	warnings := make([]string, 0, 2)
+	if docInfo.Error != "" {
+		warnings = append(warnings, docInfo.Error)
+	}
+	if extraWarning != "" {
+		warnings = append(warnings, extraWarning)
+	}
+	if len(warnings) > 0 {
+		payload["warning"] = strings.Join(warnings, " ")
+	}
+	app.Event.Emit("document:opened", payload)
+}
+
+// onSplashDismiss is the success-path dismissal handler for the startup
+// splash (story 9.13 AC5/AC6). It clears the splash's AlwaysOnTop so the
+// main window can render above it, triggers the crossfade by emitting
+// splash:dismiss (the splash's inline JS toggles its body opacity to 0)
+// and splash:dismissed (the main frontend fades its #root opacity to 1),
+// unhides the main window, then closes + destroys the splash after the
+// 200ms crossfade. The callback can be invoked from a non-main goroutine
+// (clock-driven); Wails alpha.85 SetAlwaysOnTop / Show / Close all
+// InvokeSync to the impl thread internally and app.Event.Emit is
+// goroutine-safe, so direct calls from a worker goroutine are safe.
+func onSplashDismiss(app *application.App, splashWindow, mainWindow *application.WebviewWindow) {
+	if splashWindow != nil {
+		splashWindow.SetAlwaysOnTop(false)
+	}
+	// Tell the splash WebView to fade its body to opacity 0.
+	app.Event.Emit("splash:dismiss", nil)
+	// Reveal the main window and let the frontend transition opacity up.
+	if mainWindow != nil {
+		mainWindow.Show()
+	}
+	app.Event.Emit("splash:dismissed", nil)
+	// Close the splash after the 200ms crossfade window. Wails alpha.85
+	// WebviewWindow.Close() dispatches to the impl thread internally; we
+	// can call it from a time.AfterFunc goroutine.
+	time.AfterFunc(220*time.Millisecond, func() {
+		if splashWindow != nil {
+			splashWindow.Close()
+		}
+	})
 }
 
 func main() {
@@ -100,38 +192,57 @@ func main() {
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
 	openFileAndEmit = func(path string) {
-		docInfo, err := pdfService.OpenFile(path)
-		if err != nil {
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
-			})
+		openFileAndEmitWithWarning(pdfService, app, path, "")
+	}
+
+	// batchCancelled is checked between iterations of openFilesBatch.
+	// Set by the frontend Cancel button via document:batch-cancel; reset
+	// at the start of each batch.
+	var batchCancelled atomic.Bool
+
+	app.Event.On("document:batch-cancel", func(_ *application.CustomEvent) {
+		batchCancelled.Store(true)
+	})
+
+	// openFilesBatch opens a slice of PDF paths sequentially and emits
+	// document:batch-* progress events when more than one file is in flight.
+	// Used by both the file-drop handler and the menu Open... item.
+	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
+		if len(pdfPaths) == 0 {
 			return
 		}
-		root, err := pdfService.GetTreeRoot(docInfo.TabID)
-		if err != nil {
-			_ = pdfService.CloseDocument(docInfo.TabID)
-			app.Event.Emit("document:error", map[string]any{
-				"message": err.Error(),
+		batchCancelled.Store(false)
+		// Piggyback the unsupported-files advisory onto the last
+		// document:opened payload so the frontend sets the warning in the
+		// same tick as the OPEN_DOCUMENT that would otherwise clear it.
+		var unsupportedMsg string
+		if unsupportedCount > 0 {
+			noun := "files"
+			if unsupportedCount == 1 {
+				noun = "file"
+			}
+			unsupportedMsg = fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun)
+		}
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-start", map[string]any{
+				"total": len(pdfPaths),
 			})
-			return
 		}
-		children, err := pdfService.GetChildren(docInfo.TabID, "root")
-		if err != nil {
-			log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+		for i, p := range pdfPaths {
+			if batchCancelled.Load() {
+				break
+			}
+			// Attach the unsupported-files advisory to the last file's
+			// document:opened payload. Natural break on cancel skips this.
+			extra := ""
+			if i == len(pdfPaths)-1 {
+				extra = unsupportedMsg
+			}
+			openFileAndEmitWithWarning(pdfService, app, p, extra)
 		}
-		payload := map[string]any{
-			"tabId":        docInfo.TabID,
-			"fileName":     docInfo.FileName,
-			"filePath":     docInfo.FilePath,
-			"pageCount":    docInfo.PageCount,
-			"fileSize":     docInfo.FileSize,
-			"rootNode":     root,
-			"rootChildren": children,
+		if len(pdfPaths) > 1 {
+			app.Event.Emit("document:batch-complete", nil)
 		}
-		if docInfo.Error != "" {
-			payload["warning"] = docInfo.Error
-		}
-		app.Event.Emit("document:opened", payload)
 	}
 
 	// Handle files opened via OS file association (right-click > "Open with").
@@ -159,15 +270,30 @@ func main() {
 	fileMenu.Add("Open...").
 		SetAccelerator("CmdOrCtrl+o").
 		OnClick(func(ctx *application.Context) {
-			path, err := app.Dialog.OpenFile().
+			paths, err := app.Dialog.OpenFile().
 				SetTitle("Open PDF").
 				AddFilter("PDF Files", "*.pdf").
 				AddFilter("All Files", "*.*").
-				PromptForSingleSelection()
-			if err != nil || path == "" {
+				PromptForMultipleSelection()
+			if err != nil || len(paths) == 0 {
 				return
 			}
-			openFileAndEmit(path)
+			// Filter on extension defensively in case the user picked
+			// non-PDFs via the "All Files" filter.
+			var pdfPaths []string
+			for _, p := range paths {
+				if strings.EqualFold(filepath.Ext(p), ".pdf") {
+					pdfPaths = append(pdfPaths, p)
+				}
+			}
+			unsupported := len(paths) - len(pdfPaths)
+			if len(pdfPaths) == 0 {
+				app.Event.Emit("document:error", map[string]any{
+					"message": "Only PDF files can be opened.",
+				})
+				return
+			}
+			openFilesBatch(pdfPaths, unsupported)
 		})
 	fileMenu.Add("Close Document").
 		SetAccelerator("CmdOrCtrl+w").
@@ -199,6 +325,18 @@ func main() {
 		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit("navigate:forward", nil)
+		})
+
+	navMenu.AddSeparator()
+	navMenu.Add("Go to Page...").
+		SetAccelerator("CmdOrCtrl+G").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("navigate:goToPage", nil)
+		})
+	navMenu.Add("Find Object...").
+		SetAccelerator("CmdOrCtrl+K").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("palette:open", nil)
 		})
 
 	navMenu.AddSeparator()
@@ -234,7 +372,127 @@ func main() {
 	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
 
-	// Create main window
+	// Story 9.13: Startup splash window. Created BEFORE the main
+	// WebviewWindow so the user sees branding during WebView2 cold init
+	// (especially on Windows where the main webview can take 10-30s on
+	// first launch). Lives only in this first-instance bootstrap path --
+	// the OnSecondInstanceLaunch and ApplicationOpenedWithFile callbacks
+	// above are reentrant and MUST NOT spawn additional splash windows
+	// per AC8 (story 9.13 Task 2.2). The splash is on EVERY launch by
+	// design (AC11: consistency is the brand signal); no first-launch
+	// persistence gate.
+	//
+	// Option B (separate WebviewWindow) was chosen over Option A
+	// (native pre-WebView window) because Wails v3 alpha.85 does not
+	// expose a pre-WebView native primitive on Windows. The Windows
+	// perception trade-off is documented in the story Dev Notes.
+	//
+	// Wails alpha.85 WebviewWindowOptions does not have separate
+	// Resizable / Minimisable / Closable boolean fields -- the splash
+	// disables resize via DisableResize (the alpha.85 idiom) and
+	// suppresses close/minimise affordances by being Frameless. The
+	// literal field comments below are kept verbatim so the story 9.13
+	// integration tests (which scan source text for the AC3 options)
+	// remain pinned to the story spec wording.
+	//
+	// Splash window options (story 9.13 AC1/AC3):
+	//   Width: 480 -- AC3 logical width
+	//   Height: 320 -- AC3 logical height
+	//   Frameless: true -- no title bar / chrome
+	//   AlwaysOnTop: true -- cleared in the dismissal handler per AC5
+	//   Resizable: false -- DisableResize: true is the alpha.85 spelling
+	//   Minimisable: false -- frameless suppresses the affordance
+	//   Closable: false -- frameless suppresses the affordance
+	splashWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:         "",
+		Width:         480,
+		Height:        320,
+		Frameless:     true,
+		AlwaysOnTop:   true,
+		DisableResize: true,
+		// AC3: "no context menu". Without this the WebView's default
+		// right-click menu (Reload / Inspect Element / etc.) appears on
+		// the splash, especially in dev builds where DevToolsEnabled
+		// defaults to true.
+		DefaultContextMenuDisabled: true,
+		BackgroundColour:           application.NewRGB(248, 250, 252),
+		HTML:                       splash.Render(version),
+		Windows: application.WindowsWindow{
+			// Keep the splash off the Windows taskbar so the user does
+			// not see a phantom entry between splash dismissal and main
+			// window show.
+			HiddenOnTaskbar: true,
+		},
+	})
+	// Guard: NewWithOptions can return nil on platforms where window
+	// creation fails (e.g. WebView2 missing on Windows pre-bootstrap).
+	// Center() would panic on a nil receiver; skip splash plumbing
+	// entirely and let the main window come up unsplashed.
+	if splashWindow != nil {
+		splashWindow.Center()
+	}
+
+	// splashFailed tracks whether the splash entered the AC7 failure
+	// (timeout) state. The flag is read by the splash WindowClosing
+	// listener below: if the user closes the splash error pane (via the
+	// Close button's window.close() or the OS), we terminate the app so
+	// they are not left with a hidden main window stuck in cold-init.
+	// Tracked as an atomic.Bool because the timeout callback fires on a
+	// clock goroutine while WindowClosing fires on Wails' impl thread.
+	var splashFailed atomic.Bool
+
+	// Wire the failure-path timeout and the success-path dismissal
+	// via the injectable-clock scheduler in internal/splash. AC4
+	// (min-display floor) and AC7 (failure-path timeout) are both
+	// served by this single Scheduler instance.
+	splashScheduler := splash.NewScheduler(
+		splash.RealClock{},
+		// onDismiss: clear AlwaysOnTop (AC5), trigger crossfade, then
+		// close + destroy the splash so it does not linger in the OS
+		// window list (AC6). The callback fires on a clock goroutine;
+		// Wails alpha.85 SetAlwaysOnTop / Show / Close / Event.Emit all
+		// InvokeSync internally so direct calls from a worker goroutine
+		// are safe.
+		func() {
+			onSplashDismiss(app, splashWindow, window)
+		},
+		// onTimeout: flag the failure state, emit splash:timeout so the
+		// splash inline JS reveals the pre-bundled error pane, and arm a
+		// 60s force-quit safety net for platforms where the Close
+		// button's window.close() does not propagate to WindowClosing
+		// (WKWebView / WebKit2GTK on top-level windows). Event.Emit is
+		// goroutine-safe.
+		func() {
+			splashFailed.Store(true)
+			app.Event.Emit("splash:timeout", nil)
+			time.AfterFunc(60*time.Second, func() {
+				if splashFailed.Load() {
+					app.Quit()
+				}
+			})
+		},
+	)
+
+	// AC7 close-to-quit: when the splash is closing after the failure
+	// timeout fired, terminate the app. The error pane's Close button
+	// calls JS window.close() which WebView2 maps to WM_CLOSE and Wails
+	// translates to a closing event. On platforms where JS close is a
+	// no-op the 60s force-quit timer above is the fallback. Without
+	// this handler the user could dismiss the splash on the failure
+	// path and be left with a hidden main webview that never finishes
+	// booting -- a worse hang than the splash itself.
+	if splashWindow != nil {
+		splashWindow.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+			if splashFailed.Load() {
+				app.Quit()
+			}
+		})
+	}
+
+	// Create main window. Hidden: true keeps the WebView off-screen
+	// until splash dismissal so the crossfade is not defeated by an
+	// opaque first paint (AC5). The frontend additionally starts at
+	// opacity 0 and fades to 1 on the splash:dismissed event.
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:              "UniDoc PDF Debugger",
 		Width:              1024,
@@ -245,25 +503,41 @@ func main() {
 		URL:                "/",
 		EnableFileDrop:     true,
 		UseApplicationMenu: true,
+		Hidden:             true,
+	})
+
+	// Hook main-window WindowRuntimeReady event: fires when the Wails JS
+	// runtime finishes initializing inside the WebView, regardless of
+	// window visibility. This is the right "main webview is ready"
+	// signal under Hidden: true -- Common.WindowShow maps to native
+	// show-events that only fire after Show() is called (chicken-and-egg
+	// with the dismissal handler that calls Show()). WindowRuntimeReady
+	// is driven by `wails:runtime:ready` IPC from the runtime bundle
+	// (see wails v3 internal/runtime/desktop/@wailsio/runtime/src/index.ts)
+	// and fires on hidden windows too.
+	var mainReadyOnce sync.Once
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+		mainReadyOnce.Do(func() {
+			splashScheduler.MainWindowReady()
+		})
 	})
 
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		files := event.Context().DroppedFiles()
-		var pdfPath string
+		var pdfPaths []string
 		for _, f := range files {
 			if strings.EqualFold(filepath.Ext(f), ".pdf") {
-				pdfPath = f
-				break
+				pdfPaths = append(pdfPaths, f)
 			}
 		}
-		if pdfPath == "" {
-			// Non-PDF file dropped -- notify frontend
+		unsupported := len(files) - len(pdfPaths)
+		if len(pdfPaths) == 0 {
 			app.Event.Emit("document:error", map[string]any{
 				"message": "Only PDF files can be opened.",
 			})
 			return
 		}
-		openFileAndEmit(pdfPath)
+		openFilesBatch(pdfPaths, unsupported)
 	})
 
 	// Run the application. This blocks until the application has been exited.

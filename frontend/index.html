@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      /* Story 9.13 AC5: main window's #root starts invisible so the
+         splash crossfade is not defeated by an opaque first paint. The
+         body itself stays opaque so its background still matches the
+         splash background during the transition; only #root fades. The
+         opacity flips to 1 in main.jsx when the Wails event
+         splash:dismissed fires from Go, or after a 1500ms fallback
+         guard so a missed event never leaves the app blank. */
+      #root { opacity: 0; transition: opacity 200ms ease-in; }
+      #root.splash-dismissed { opacity: 1; }
+    </style>
 
     <title>UniDoc PDF Debugger</title>
   </head>

@@ -37,6 +37,8 @@ vi.mock('allotment/dist/style.css', () => ({}));
 const mockGetObjectDetail = vi.fn();
 const mockGetChildren = vi.fn();
 const mockGetAncestorPath = vi.fn();
+const mockGetObjectSource = vi.fn().mockResolvedValue('');
+const mockGetReverseRefs = vi.fn().mockResolvedValue([]);
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -47,6 +49,9 @@ vi.mock(
     OpenFileDialog: vi.fn(),
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetAncestorPath: (...args: unknown[]) => mockGetAncestorPath(...args),
+    GetObjectSource: (...args: unknown[]) => mockGetObjectSource(...args),
+    GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
+    GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
   })
 );
 
@@ -304,14 +309,19 @@ describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
     });
   });
 
-  test('reference value in ObjectInfoPanel also has clickable styling', async () => {
+  test('reference value in ObjectSourcePanel also has clickable styling', async () => {
+    // Story 9-10: ObjectInfoPanel was rewritten as ObjectSourcePanel. The
+    // bottom-left panel now renders reserialized PDF text; ref clickability
+    // is driven by a regex over that text. Drive it via the GetObjectSource
+    // mock returning a source string containing "2 0 R".
+    mockGetObjectSource.mockResolvedValueOnce('1 0 obj\n<< /Pages 2 0 R >>\nendobj');
     renderObjectInfoPanelWithState('root');
 
     await waitFor(() => {
       const refEl = screen.getByText('2 0 R');
       expect(refEl).toHaveAttribute('role', 'button');
       expect(refEl.className).toMatch(/text-type-reference/);
-      expect(refEl.className).toMatch(/underline/);
+      expect(refEl.className).toMatch(/hover:underline/);
       expect(refEl.className).toMatch(/cursor-pointer/);
     });
   });
@@ -450,7 +460,9 @@ describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
     });
   });
 
-  test('clicking reference in ObjectInfoPanel dispatches NAVIGATE_TO_REF', async () => {
+  test('clicking reference in ObjectSourcePanel dispatches NAVIGATE_TO_REF', async () => {
+    // Story 9-10: ObjectInfoPanel was rewritten. Drive via GetObjectSource.
+    mockGetObjectSource.mockResolvedValueOnce('1 0 obj\n<< /Pages 2 0 R >>\nendobj');
     const user = userEvent.setup();
 
     render(

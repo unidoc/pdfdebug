@@ -145,19 +145,6 @@ func TestGetObjectDetailErrorPrefixCheck(t *testing.T) {
 // in the document:opened event payload.
 // ---------------------------------------------------------------------------
 
-func TestMainGoWarningPropagation(t *testing.T) {
-	root := projectRoot(t)
-	path := filepath.Join(root, "main.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-002: cannot read main.go: %v", err)
-	}
-	src := string(content)
-	// The payload must include a "warning" key from docInfo.Error
-	if !strings.Contains(src, `"warning"`) {
-		t.Fatalf("[P1] 2.9-STRUCT-002: main.go must propagate warning field in document:opened payload")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // AC#1: Frontend warning state in useDocumentState

@@ -11,8 +11,18 @@ export interface ErrorBannerProps {
  */
 export function ErrorBanner({ message, severity, onDismiss }: ErrorBannerProps) {
   const isError = severity === 'error';
-  const bgColor = isError ? 'bg-red-50 dark:bg-red-900/20' : 'bg-amber-50 dark:bg-amber-900/20';
-  const textColor = isError ? 'text-error' : 'text-warning';
+  // Use dark tinted text on the pale-tinted background. The brand --color-error
+  // / --color-warning tokens are vivid (red-500 / amber-500); on a 50-tinted
+  // background the contrast is too weak to read. Standard tinted-banner
+  // pattern: 50 background with 900 text in light, 900/20 background with
+  // 200 text in dark.
+  // No `dark:` variants here on purpose: the rest of the app shell uses
+  // design-token CSS that does not flip on prefers-color-scheme, so a
+  // dark-system-theme user otherwise gets a "dark banner on a light shell"
+  // mismatch. Keeping the banner explicitly light-tinted matches the
+  // surrounding chrome and gives high text-on-bg contrast.
+  const bgColor = isError ? 'bg-red-100' : 'bg-amber-100';
+  const textColor = isError ? 'text-red-900' : 'text-amber-900';
   const icon = isError ? '(x)' : '(!)';
   const testId = isError ? 'error-banner' : 'warning-banner';
   const dismissLabel = isError ? 'Dismiss error' : 'Dismiss warning';

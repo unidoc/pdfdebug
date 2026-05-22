@@ -1111,3 +1111,343 @@ describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
     expect(screen.getByTestId('tab2-selected').textContent).toBe('node-a');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multi-PDF drop reducer flows: distinct paths produce N tabs, same paths
+// dedup, and BATCH_OPEN_* actions drive the progress dialog state.
+// ---------------------------------------------------------------------------
+
+describe('multi-PDF drop: reducer integrates with backend events', () => {
+  test('three OPEN_DOCUMENT dispatches with distinct paths produce 3 tabs, last active', () => {
+    const dispatchActions: AppAction[] = [
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't2', fileName: 'b.pdf', filePath: '/b.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+      { type: 'OPEN_DOCUMENT', payload: { tabId: 't3', fileName: 'c.pdf', filePath: '/c.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes } },
+    ];
+    function MultiInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <span data-testid="active-tab-id">{state.activeTabId ?? 'null'}</span>
+          <button data-testid="dispatch-all" onClick={() => dispatchActions.forEach(dispatch)}>go</button>
+        </div>
+      );
+    }
+    render(<AppProvider><MultiInspector /></AppProvider>);
+    act(() => screen.getByTestId('dispatch-all').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('3');
+    expect(screen.getByTestId('active-tab-id').textContent).toBe('t3');
+  });
+
+  test('three OPEN_DOCUMENT dispatches with the SAME path dedup to 1 tab', () => {
+    const dup: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/same.pdf', pageCount: 1, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    function DupInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="tab-count">{state.tabs.length}</span>
+          <button data-testid="dispatch-all" onClick={() => {
+            dispatch(dup);
+            dispatch({ ...dup, payload: { ...dup.payload, tabId: 't2' } });
+            dispatch({ ...dup, payload: { ...dup.payload, tabId: 't3' } });
+          }}>go</button>
+        </div>
+      );
+    }
+    render(<AppProvider><DupInspector /></AppProvider>);
+    act(() => screen.getByTestId('dispatch-all').click());
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+  });
+
+  test('BATCH_OPEN_* actions sequence: start -> OPEN_DOCUMENT bumps completed -> complete', () => {
+    function BatchInspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      return (
+        <div>
+          <span data-testid="batch-total">{state.batchOpenTotal}</span>
+          <span data-testid="batch-completed">{state.batchOpenCompleted}</span>
+          <button data-testid="start" onClick={() => dispatch({ type: 'BATCH_OPEN_START', payload: { total: 5 } })}>s</button>
+          <button data-testid="open" onClick={() => dispatch({
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: `t-${state.batchOpenCompleted + 1}`,
+              fileName: `f${state.batchOpenCompleted + 1}.pdf`,
+              filePath: `/f${state.batchOpenCompleted + 1}.pdf`,
+              pageCount: 1, rootNode: null, rootChildren: null,
+            },
+          })}>o</button>
+          <button data-testid="done" onClick={() => dispatch({ type: 'BATCH_OPEN_COMPLETE' })}>d</button>
+        </div>
+      );
+    }
+    render(<AppProvider><BatchInspector /></AppProvider>);
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+
+    act(() => screen.getByTestId('start').click());
+    expect(screen.getByTestId('batch-total').textContent).toBe('5');
+    expect(screen.getByTestId('batch-completed').textContent).toBe('0');
+
+    // OPEN_DOCUMENT bumps batchOpenCompleted (atomic with tab-add) so the
+    // count never lags behind the actual number of opened tabs.
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('1');
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('2');
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('batch-completed').textContent).toBe('3');
+
+    act(() => screen.getByTestId('done').click());
+    expect(screen.getByTestId('batch-total').textContent).toBe('0');
+    expect(screen.getByTestId('batch-completed').textContent).toBe('0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.4-UNIT-001: OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
+// ---------------------------------------------------------------------------
+
+function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openAction: AppAction }) {
+  const state = useAppState();
+  const dispatch = useAppDispatch();
+  return (
+    <div>
+      <span data-testid="goto-open">{String(state.goToPageOpen)}</span>
+      <button data-testid="open-doc" onClick={() => dispatch(openAction)}>open</button>
+      <button data-testid="open-goto" onClick={() => dispatch({ type: 'OPEN_GO_TO_PAGE' })}>open-goto</button>
+      <button data-testid="close-goto" onClick={() => dispatch({ type: 'CLOSE_GO_TO_PAGE' })}>close-goto</button>
+      <span data-testid="page-count">{state.tabs[0]?.pageCount ?? -1}</span>
+      <span data-testid="page-count-fallback">{pageCount}</span>
+    </div>
+  );
+}
+
+describe('9.4-UNIT-001: Go to Page dialog state', () => {
+  test('initial state has goToPageOpen = false', () => {
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
+      </AppProvider>
+    );
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE is a no-op when no document is loaded', () => {
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE is a no-op when active tab has pageCount = 0', () => {
+    const open: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 0, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={0} openAction={open} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-doc').click());
+    expect(screen.getByTestId('page-count').textContent).toBe('0');
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+
+  test('OPEN_GO_TO_PAGE flips goToPageOpen to true when a document with pages is active; CLOSE flips it back', () => {
+    const open: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 5, rootNode: catalogNode, rootChildren: childNodes },
+    };
+    render(
+      <AppProvider>
+        <GoToPageInspector pageCount={5} openAction={open} />
+      </AppProvider>
+    );
+    act(() => screen.getByTestId('open-doc').click());
+    expect(screen.getByTestId('page-count').textContent).toBe('5');
+
+    act(() => screen.getByTestId('open-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('true');
+
+    act(() => screen.getByTestId('close-goto').click());
+    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story 9.8: PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
+// Lowest-viable-layer coverage for AC7 (LRU max-5 eviction + dedup) and AC10
+// (per-tab recents isolation). These close the three low-severity gaps
+// identified by traceability-report-9-8.md.
+// ---------------------------------------------------------------------------
+
+function makeJump(objNum: number) {
+  return {
+    objNum,
+    gen: 0,
+    typeName: '',
+    nodeId: `obj:0:${objNum}`,
+  };
+}
+
+describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
+  test('AC7: pushing >5 entries evicts the oldest; newest is at index 0', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      const ids = (tab?.recentJumps ?? []).map((r) => r.nodeId).join(',');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <span data-testid="ids">{ids}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-all" onClick={() => {
+            // Push 7 distinct entries in order 1..7; expect [7,6,5,4,3] kept.
+            for (let n = 1; n <= 7; n++) {
+              dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(n) } });
+            }
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    act(() => screen.getByTestId('push-all').click());
+
+    expect(screen.getByTestId('count').textContent).toBe('5');
+    expect(screen.getByTestId('ids').textContent).toBe(
+      'obj:0:7,obj:0:6,obj:0:5,obj:0:4,obj:0:3',
+    );
+  });
+
+  test('AC7: re-jumping to an existing nodeId dedups and moves it to the front', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      const ids = (tab?.recentJumps ?? []).map((r) => r.nodeId).join(',');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <span data-testid="ids">{ids}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(1) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(2) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(3) } });
+            // Re-push obj 1: should dedup (count stays 3) and move to front.
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(1) } });
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    act(() => screen.getByTestId('push').click());
+
+    expect(screen.getByTestId('count').textContent).toBe('3');
+    expect(screen.getByTestId('ids').textContent).toBe('obj:0:1,obj:0:3,obj:0:2');
+  });
+});
+
+describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
+  test('AC10: pushing to tab-1 does not modify tab-2 recents', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const t1 = state.tabs.find((t) => t.tabId === 'tab-1');
+      const t2 = state.tabs.find((t) => t.tabId === 'tab-2');
+      return (
+        <div>
+          <span data-testid="t1-ids">{(t1?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <span data-testid="t2-ids">{(t2?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-t1" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(10) } });
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(11) } });
+          }} />
+          <button data-testid="push-t2" onClick={() => {
+            dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-2', entry: makeJump(20) } });
+          }} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('push-t1').click());
+    act(() => screen.getByTestId('push-t2').click());
+
+    expect(screen.getByTestId('t1-ids').textContent).toBe('obj:0:11,obj:0:10');
+    expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
+  });
+
+  test('AC10: CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const t1 = state.tabs.find((t) => t.tabId === 'tab-1');
+      const t2 = state.tabs.find((t) => t.tabId === 'tab-2');
+      return (
+        <div>
+          <span data-testid="t1-present">{t1 ? 'yes' : 'no'}</span>
+          <span data-testid="t2-ids">{(t2?.recentJumps ?? []).map((r) => r.nodeId).join(',')}</span>
+          <button data-testid="open-1" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="open-2" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-t1" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-1', entry: makeJump(10) } })} />
+          <button data-testid="push-t2" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'tab-2', entry: makeJump(20) } })} />
+          <button data-testid="close-1" onClick={() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open-1').click());
+    act(() => screen.getByTestId('open-2').click());
+    act(() => screen.getByTestId('push-t1').click());
+    act(() => screen.getByTestId('push-t2').click());
+
+    act(() => screen.getByTestId('close-1').click());
+
+    expect(screen.getByTestId('t1-present').textContent).toBe('no');
+    expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
+  });
+
+  test('AC7: PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
+    function Inspector() {
+      const state = useAppState();
+      const dispatch = useAppDispatch();
+      const tab = state.tabs.find((t) => t.tabId === 'tab-1');
+      return (
+        <div>
+          <span data-testid="count">{tab?.recentJumps.length ?? -1}</span>
+          <button data-testid="open" onClick={() => dispatch({ type: 'OPEN_DOCUMENT', payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: null, rootChildren: null } })} />
+          <button data-testid="push-bad" onClick={() => dispatch({ type: 'PUSH_RECENT_JUMP', payload: { tabId: 'ghost', entry: makeJump(1) } })} />
+        </div>
+      );
+    }
+
+    render(<AppProvider><Inspector /></AppProvider>);
+    act(() => screen.getByTestId('open').click());
+    expect(screen.getByTestId('count').textContent).toBe('0');
+
+    act(() => screen.getByTestId('push-bad').click());
+    expect(screen.getByTestId('count').textContent).toBe('0');
+  });
+});

@@ -34,6 +34,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 const mockGetObjectDetail = vi.fn();
 const mockGetContentStream = vi.fn();
 const mockGetImageData = vi.fn();
+const mockGetReverseRefs = vi.fn().mockResolvedValue([]);
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -45,6 +46,8 @@ vi.mock(
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
+    GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
+    GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
   })
 );
 
@@ -528,7 +531,7 @@ describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
-    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
+    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, formatted: null, error: '' });
   });
 
   test('does not render stream dictionary properties (shown in ObjectInfoPanel)', async () => {
@@ -687,7 +690,7 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
       streamInfo: { length: 500, filters: [] },
     };
     mockGetObjectDetail.mockResolvedValue(noFilterStream);
-    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, error: '' });
+    mockGetContentStream.mockResolvedValue({ nodeId: 'obj:0:10', raw: '', tokenized: null, formatted: null, error: '' });
     renderWithState('obj:0:10');
 
     await waitFor(() => {
@@ -751,6 +754,7 @@ const contentStreamData = {
   nodeId: 'obj:0:10',
   raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
   tokenized: null,
+  formatted: null,
   error: '',
 };
 
@@ -758,6 +762,7 @@ const contentStreamErrorData = {
   nodeId: 'obj:0:10',
   raw: '',
   tokenized: null,
+  formatted: null,
   error: 'failed to decode: unsupported filter JBIG2Decode',
 };
 
@@ -1098,21 +1103,33 @@ describe('3.2-INTG-006: DetailPanel content stream IPC rejection', () => {
 // Story 3.3: Syntax highlighting integration tests
 // ---------------------------------------------------------------------------
 
+const sampleTokens = [
+  { type: 'operator', value: 'BT', line: 1, col: 1 },
+  { type: 'name', value: '/F1', line: 2, col: 1 },
+  { type: 'number', value: '12', line: 2, col: 5 },
+  { type: 'operator', value: 'Tf', line: 2, col: 8 },
+  { type: 'number', value: '100', line: 3, col: 1 },
+  { type: 'number', value: '700', line: 3, col: 5 },
+  { type: 'operator', value: 'Td', line: 3, col: 9 },
+  { type: 'string', value: '(Hello World)', line: 4, col: 1 },
+  { type: 'operator', value: 'Tj', line: 4, col: 15 },
+  { type: 'operator', value: 'ET', line: 5, col: 1 },
+];
+
 const contentStreamDataWithTokens = {
   nodeId: 'obj:0:10',
   raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
-  tokenized: [
-    { type: 'operator', value: 'BT', line: 1, col: 1 },
-    { type: 'name', value: '/F1', line: 2, col: 1 },
-    { type: 'number', value: '12', line: 2, col: 5 },
-    { type: 'operator', value: 'Tf', line: 2, col: 8 },
-    { type: 'number', value: '100', line: 3, col: 1 },
-    { type: 'number', value: '700', line: 3, col: 5 },
-    { type: 'operator', value: 'Td', line: 3, col: 9 },
-    { type: 'string', value: '(Hello World)', line: 4, col: 1 },
-    { type: 'operator', value: 'Tj', line: 4, col: 15 },
-    { type: 'operator', value: 'ET', line: 5, col: 1 },
-  ],
+  tokenized: sampleTokens,
+  // Story 9-6: the Go formatter pre-groups tokens into FormattedLine[]; here
+  // we wrap all sample tokens into a single row for the integration test
+  // since the per-token highlight assertions don't depend on row structure.
+  formatted: [{
+    tokens: sampleTokens,
+    indent: 0,
+    operator: 'ET',
+    srcLineStart: 1,
+    srcLineEnd: 5,
+  }],
   error: '',
 };
 

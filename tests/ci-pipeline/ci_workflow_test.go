@@ -3,7 +3,7 @@
 //
 // These tests verify that .github/workflows/ci.yml is structured per the
 // acceptance criteria: matrix build on ubuntu-latest/macos-latest/windows-latest,
-// pinned Go 1.25.x and Node 20, Linux native deps install, Wails CLI pin
+// pinned Go 1.26.x and Node 20, Linux native deps install, Wails CLI pin
 // matching go.mod, per-suite test loop for tests/*/go.mod modules, dependency
 // caching, distinct check runs per platform, and 30-minute job timeout.
 //
@@ -361,8 +361,8 @@ func TestCIWorkflowConcurrency(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-009 (P0): Go pinned to 1.25.x via setup-go@v6 with cache-dependency-path
-// Covers AC #2 (Go pinned to 1.25.x via actions/setup-go@v6) and AC #6 (caching)
+// 7.1-STATIC-009 (P0): Go pinned to 1.26.x via setup-go@v6 with cache-dependency-path
+// Covers AC #2 (Go pinned to 1.26.x via actions/setup-go@v6) and AC #6 (caching)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
@@ -393,10 +393,10 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 	if !ok {
 		t.Fatalf("ci.yml: setup-go.with.go-version missing")
 	}
-	// Accept "1.25.x" or equivalent. Must start with 1.25. and NOT be 1.250, 1.25-rc, etc.
-	goVerRe := regexp.MustCompile(`^1\.25(\.|$)`)
+	// Accept "1.26.x" or equivalent. Must start with 1.26. and NOT be 1.260, 1.26-rc, etc.
+	goVerRe := regexp.MustCompile(`^1\.26(\.|$)`)
 	if !goVerRe.MatchString(ver) {
-		t.Errorf("ci.yml: setup-go.go-version must pin 1.25.x, got %q (AC #2)", ver)
+		t.Errorf("ci.yml: setup-go.go-version must pin 1.26.x, got %q (AC #2)", ver)
 	}
 
 	// cache-dependency-path must include BOTH root go.sum AND tests/** go.sum (AC #6)

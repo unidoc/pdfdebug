@@ -12,6 +12,23 @@ import userEvent from '@testing-library/user-event';
 import { describe, test, expect } from 'vitest';
 import { ContentStreamViewer } from './ContentStreamViewer';
 
+// 9-6: see ContentStreamViewer.test.tsx for the rationale; this helper wraps
+// a flat token fixture into a single FormattedLine so per-token highlight
+// assertions survive the prop rename without re-deriving operator boundaries.
+type TokFixture = ReadonlyArray<{ type: string; value: string; line: number; col: number }>;
+function toFormatted(toks: TokFixture | null | undefined) {
+  if (!toks || toks.length === 0) return [];
+  const lines = toks.map(t => t.line);
+  const last = toks[toks.length - 1];
+  return [{
+    tokens: [...toks],
+    indent: 0,
+    operator: last.type === 'operator' ? last.value : '',
+    srcLineStart: Math.min(...lines),
+    srcLineEnd: Math.max(...lines),
+  }];
+}
+
 // Token fixture matching the Token binding shape from model.go
 const sampleTokens = [
   { type: 'operator', value: 'BT', line: 1, col: 1 },
@@ -37,7 +54,7 @@ const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 describe('3.3-UNIT-008: Token type CSS classes', () => {
   test('operator tokens have text-token-operator class', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     // BT is an operator on line 1
@@ -47,7 +64,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 
   test('number tokens have text-token-number class', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const numSpan = screen.getByText('12');
@@ -56,7 +73,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 
   test('string tokens have text-token-string class', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const strSpan = screen.getByText('(Hello World)');
@@ -65,7 +82,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 
   test('name tokens have text-token-name class', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const nameSpan = screen.getByText('/F1');
@@ -80,7 +97,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
     render(
       <ContentStreamViewer
         raw="% a comment\nBT"
-        tokenized={commentTokens}
+        formatted={toFormatted(commentTokens)}
       />
     );
 
@@ -97,7 +114,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
   test('operator tokens have font-semibold class', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const btSpan = screen.getByText('BT');
@@ -109,7 +126,7 @@ describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
       { type: 'comment', value: '% a comment', line: 1, col: 1 },
     ];
     render(
-      <ContentStreamViewer raw="% a comment" tokenized={commentTokens} />
+      <ContentStreamViewer raw="% a comment" formatted={toFormatted(commentTokens)} />
     );
 
     const commentSpan = screen.getByText('% a comment');
@@ -126,7 +143,7 @@ describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
 describe('3.3-UNIT-009: Operator tooltip', () => {
   test('operator token with description renders a tooltip trigger', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     // BT has a known description: "Begin text object"
@@ -139,7 +156,7 @@ describe('3.3-UNIT-009: Operator tooltip', () => {
   test('hovering over operator shows tooltip with description text', async () => {
     const user = userEvent.setup();
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const btEl = screen.getByText('BT');
@@ -156,7 +173,7 @@ describe('3.3-UNIT-009: Operator tooltip', () => {
       { type: 'operator', value: 'ZZ', line: 1, col: 1 },
     ];
     render(
-      <ContentStreamViewer raw="ZZ" tokenized={unknownOpTokens} />
+      <ContentStreamViewer raw="ZZ" formatted={toFormatted(unknownOpTokens)} />
     );
 
     const zzEl = screen.getByText('ZZ');
@@ -187,7 +204,7 @@ describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
 
   test('renders plain text when tokenized is null', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={null as any} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={null as any} />
     );
 
     const content = screen.getByTestId('content-stream-content');
@@ -195,7 +212,7 @@ describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
   });
 
   test('renders plain text when tokenized is empty array', () => {
-    render(<ContentStreamViewer raw={multiLineRaw} tokenized={[]} />);
+    render(<ContentStreamViewer raw={multiLineRaw} formatted={[]} />);
 
     const content = screen.getByTestId('content-stream-content');
     expect(content).toHaveTextContent('100 700 Td');
@@ -208,9 +225,18 @@ describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
 // ---------------------------------------------------------------------------
 
 describe('3.3-UNIT-LINENUMS: Line numbers with tokenized data', () => {
-  test('renders correct line numbers matching raw content lines', () => {
+  // Story 9-6: gutter is keyed by formatted-row index in formatted mode.
+  // Build a 5-row fixture (one per logical operation) so the gutter shows 1..5.
+  test('renders one gutter row per formatted line', () => {
+    const fiveRows = [
+      { tokens: [{ type: 'operator', value: 'BT', line: 1, col: 1 }], indent: 0, operator: 'BT', srcLineStart: 1, srcLineEnd: 1 },
+      { tokens: [{ type: 'operator', value: 'Tf', line: 2, col: 8 }], indent: 0, operator: 'Tf', srcLineStart: 2, srcLineEnd: 2 },
+      { tokens: [{ type: 'operator', value: 'Td', line: 3, col: 9 }], indent: 0, operator: 'Td', srcLineStart: 3, srcLineEnd: 3 },
+      { tokens: [{ type: 'operator', value: 'Tj', line: 4, col: 15 }], indent: 0, operator: 'Tj', srcLineStart: 4, srcLineEnd: 4 },
+      { tokens: [{ type: 'operator', value: 'ET', line: 5, col: 1 }], indent: 0, operator: 'ET', srcLineStart: 5, srcLineEnd: 5 },
+    ];
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={fiveRows} />
     );
 
     const gutter = screen.getByTestId('content-stream-gutter');
@@ -223,7 +249,7 @@ describe('3.3-UNIT-LINENUMS: Line numbers with tokenized data', () => {
 
   test('outer wrapper retains data-testid and layout classes', () => {
     render(
-      <ContentStreamViewer raw={multiLineRaw} tokenized={sampleTokens} />
+      <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
     );
 
     const viewer = screen.getByTestId('content-stream-viewer');

@@ -139,6 +139,7 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	}
 	if raw != "" {
 		result.Tokenized = tokenizeContentStream(raw)
+		result.Formatted = Format(result.Tokenized)
 	}
 	doc.streamMu.Lock()
 	doc.streamCache[nodeID] = result

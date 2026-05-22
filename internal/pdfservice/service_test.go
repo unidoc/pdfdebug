@@ -372,6 +372,55 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 	}
 }
 
+// --- GetFontDetail tests (Story 9-9) ---
+
+func TestGetFontDetail(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "fonts-mixed.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	// Object 4 -- unembedded Helvetica.
+	result, err := svc.GetFontDetail(info.TabID, "obj:0:4")
+	if err != nil {
+		t.Fatalf("GetFontDetail returned error: %v", err)
+	}
+	if result.BaseFont != "/Helvetica" {
+		t.Errorf("BaseFont = %q, want /Helvetica", result.BaseFont)
+	}
+	if result.Subtype != "Type1" {
+		t.Errorf("Subtype = %q, want Type1", result.Subtype)
+	}
+}
+
+func TestGetFontDetailUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetFontDetail("nonexistent-tab-id", "obj:0:5")
+	if err == nil {
+		t.Fatal("GetFontDetail with unknown tabID should return error")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("expected ErrDocumentNotFound, got: %v", err)
+	}
+}
+
+func TestGetFontDetailNotAFont(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "fonts-mixed.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	// "root" is the catalog, not a Font dict.
+	_, err = svc.GetFontDetail(info.TabID, "root")
+	if !errors.Is(err, pdfcore.ErrNotAFont) {
+		t.Errorf("expected ErrNotAFont, got: %v", err)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	svc := NewPDFService(nil)
 
@@ -406,5 +455,168 @@ func TestRoundTrip(t *testing.T) {
 	err = svc.CloseDocument(info.TabID)
 	if err != nil {
 		t.Fatalf("CloseDocument failed: %v", err)
+	}
+}
+
+// 9.4-UNIT-001: GoToPage exposes the pdfcore page-content-stream resolver to
+// the Wails service layer. Valid page resolves to a non-empty node ID;
+// out-of-range and unknown-tab paths surface as errors that map to user-facing
+// error messages on the frontend.
+
+func TestGoToPageValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	nodeID, err := svc.GoToPage(info.TabID, 1)
+	if err != nil {
+		t.Fatalf("GoToPage(1) returned error: %v", err)
+	}
+	if nodeID == "" {
+		t.Error("GoToPage(1) returned empty node ID")
+	}
+}
+
+func TestGoToPageOutOfRange(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile failed: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	if _, err := svc.GoToPage(info.TabID, 9999); err == nil {
+		t.Fatal("GoToPage with out-of-range page should error, got nil")
+	}
+}
+
+func TestGoToPageUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GoToPage("does-not-exist", 1)
+	if err == nil {
+		t.Fatal("GoToPage with unknown tab should error, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want errors.Is(...,ErrDocumentNotFound)", err)
+	}
+}
+
+// --- GetXRefTable + GetPlainText tests (Story 9-11) ---
+
+func TestGetXRefTableValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	table, err := svc.GetXRefTable(info.TabID)
+	if err != nil {
+		t.Fatalf("GetXRefTable: %v", err)
+	}
+	if table == nil {
+		t.Fatal("GetXRefTable returned nil")
+	}
+	if table.TabID != info.TabID {
+		t.Errorf("TabID = %q, want %q", table.TabID, info.TabID)
+	}
+	if len(table.Entries) == 0 {
+		t.Error("Entries empty for minimal.pdf")
+	}
+}
+
+func TestGetXRefTableUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetXRefTable("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+func TestGetPlainTextValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	pt, err := svc.GetPlainText(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPlainText: %v", err)
+	}
+	if pt == nil {
+		t.Fatal("GetPlainText returned nil")
+	}
+	if pt.TotalBytes <= 0 {
+		t.Errorf("TotalBytes = %d, want > 0", pt.TotalBytes)
+	}
+	if pt.Content == "" {
+		t.Error("Content empty for minimal.pdf")
+	}
+}
+
+func TestGetPlainTextUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetPlainText("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+// --- GetPlainTextFull tests (Story 9-12) ---
+//
+// Red phase: these tests fail to compile until PDFService.GetPlainTextFull is
+// added (Task 2.1). Mirror the 9-11 GetPlainText service tests above.
+
+func TestGetPlainTextFullValid(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	defer func() { _ = svc.CloseDocument(info.TabID) }()
+
+	pt, err := svc.GetPlainTextFull(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextFull: %v", err)
+	}
+	if pt == nil {
+		t.Fatal("GetPlainTextFull returned nil")
+	}
+	if pt.TotalBytes <= 0 {
+		t.Errorf("TotalBytes = %d, want > 0", pt.TotalBytes)
+	}
+	if pt.Content == "" {
+		t.Error("Content empty for minimal.pdf")
+	}
+	// AC15 backend invariant: full payload always carries Truncated=false and
+	// CapBytes=0 regardless of file size.
+	if pt.Truncated {
+		t.Errorf("Truncated = true, want false (full payload must never flag truncated)")
+	}
+	if pt.CapBytes != 0 {
+		t.Errorf("CapBytes = %d, want 0", pt.CapBytes)
+	}
+}
+
+func TestGetPlainTextFullUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	_, err := svc.GetPlainTextFull("does-not-exist")
+	if err == nil {
+		t.Fatal("expected error for unknown tab, got nil")
+	}
+	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
 	}
 }

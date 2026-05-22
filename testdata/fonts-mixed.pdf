@@ -1,0 +1,105 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R /F4 7 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /CustomFont /FirstChar 32 /LastChar 34 /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [32 /space /exclam /quotedbl] >> /FontDescriptor 8 0 R >>
+endobj
+
+6 0 obj
+<< /Type /Font /Subtype /Type0 /BaseFont /NotoSansCJK-Regular /Encoding /Identity-H /DescendantFonts [9 0 R] /ToUnicode 10 0 R >>
+endobj
+
+7 0 obj
+<< /Type /Font /Subtype /TrueType /BaseFont /MyTTFont /FirstChar 32 /LastChar 126 /FontDescriptor 11 0 R >>
+endobj
+
+8 0 obj
+<< /Type /FontDescriptor /FontName /CustomFont /Flags 32 /ItalicAngle 0 /Ascent 718 /Descent -207 /CapHeight 718 /StemV 140 /FontBBox [-170 -228 1003 962] >>
+endobj
+
+9 0 obj
+<< /Type /Font /Subtype /CIDFontType2 /BaseFont /NotoSansCJK-Regular /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /CIDToGIDMap /Identity /DW 1000 /FontDescriptor 12 0 R >>
+endobj
+
+10 0 obj
+<< /Length 352 >>
+stream
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+2 beginbfchar
+<0041> <0041>
+<0042> <0042>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+
+endstream
+endobj
+
+11 0 obj
+<< /Type /FontDescriptor /FontName /MyTTFont /Flags 32 /ItalicAngle 0 /Ascent 750 /Descent -250 /CapHeight 700 /StemV 80 /FontBBox [-100 -200 1000 900] /FontFile2 13 0 R >>
+endobj
+
+12 0 obj
+<< /Type /FontDescriptor /FontName /NotoSansCJK-Regular /Flags 4 /ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 880 /StemV 80 /FontBBox [-200 -300 1100 1000] /FontFile2 14 0 R >>
+endobj
+
+13 0 obj
+<< /Length 51 /Length1 51 >>
+stream
+TRUETYPE FONT PROGRAM PLACEHOLDER BYTES FOR TESTING
+endstream
+endobj
+
+14 0 obj
+<< /Length 44 /Length1 44 >>
+stream
+DESCENDANT TRUETYPE FONT PROGRAM PLACEHOLDER
+endstream
+endobj
+
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000059 00000 n 
+0000000117 00000 n 
+0000000258 00000 n 
+0000000356 00000 n 
+0000000583 00000 n 
+0000000729 00000 n 
+0000000853 00000 n 
+0000001027 00000 n 
+0000001244 00000 n 
+0000001649 00000 n 
+0000001839 00000 n 
+0000002040 00000 n 
+0000002155 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R >>
+startxref
+2263
+%%EOF
