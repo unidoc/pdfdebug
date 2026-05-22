@@ -155,11 +155,16 @@ func TestDetailPanelAriaLive(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-008 [P1]: ObjectInfoPanel.tsx imports from DetailShared.tsx
-// AC#2-#5: ObjectInfoPanel uses shared code from DetailShared.
+// 2.7-STRUCT-008 [P1]: ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through
+// useAppDispatch when a reference value is clicked.
+// Re-pinned 2026-05-22 (Epic 9 retro) -- the original DetailShared import
+// assertion was stale (the component was refactored to consume context via
+// useAppState/useAppDispatch directly and to fetch source via GetObjectSource).
+// Behavioral coverage for the click-to-navigate contract is held by
+// frontend/src/components/ObjectInfoPanel.test.tsx (430 lines, 20 cases).
 // ---------------------------------------------------------------------------
 
-func TestObjectInfoPanelImportsDetailShared(t *testing.T) {
+func TestObjectInfoPanelDispatchesNavigateToRef(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
 	content, err := os.ReadFile(path)
@@ -167,8 +172,11 @@ func TestObjectInfoPanelImportsDetailShared(t *testing.T) {
 		t.Fatalf("[P1] 2.7-STRUCT-008: cannot read ObjectInfoPanel.tsx: %v", err)
 	}
 	src := string(content)
-	if !strings.Contains(src, "DetailShared") {
-		t.Fatalf("[P1] 2.7-STRUCT-008: ObjectInfoPanel.tsx must import from DetailShared")
+	if !strings.Contains(src, "useAppDispatch") {
+		t.Fatalf("[P1] 2.7-STRUCT-008: ObjectInfoPanel.tsx must use useAppDispatch for reference navigation")
+	}
+	if !strings.Contains(src, "NAVIGATE_TO_REF") {
+		t.Fatalf("[P1] 2.7-STRUCT-008: ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
 	}
 }
 

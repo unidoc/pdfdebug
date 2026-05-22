@@ -312,11 +312,17 @@ func TestDetailPanelHasHandleReferenceClick(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-009 [P1]: ObjectInfoPanel.tsx has handleReferenceClick
-// AC#2: ObjectInfoPanel must define handleReferenceClick and pass to view components.
+// 2.8-STRUCT-009 [P1]: ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF via
+// useAppDispatch on reference click.
+// Re-pinned 2026-05-22 (Epic 9 retro): the original handleReferenceClick
+// identifier pin was stale -- the local handler was renamed to handleRefClick
+// and routes through useAppDispatch. The behavioral contract (click ->
+// NAVIGATE_TO_REF dispatch) is preserved; only the identifier name drifted.
+// Behavioral coverage held by frontend/src/components/ReferenceNavigation.test.tsx
+// (1,032 lines) + ObjectInfoPanel.test.tsx.
 // ---------------------------------------------------------------------------
 
-func TestObjectInfoPanelHasHandleReferenceClick(t *testing.T) {
+func TestObjectInfoPanelDispatchesNavigateToRefOnClick(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
 	content, err := os.ReadFile(path)
@@ -324,8 +330,11 @@ func TestObjectInfoPanelHasHandleReferenceClick(t *testing.T) {
 		t.Fatalf("[P1] 2.8-STRUCT-009: cannot read ObjectInfoPanel.tsx: %v", err)
 	}
 	src := string(content)
-	if !strings.Contains(src, "handleReferenceClick") || !strings.Contains(src, "NAVIGATE_TO_REF") {
-		t.Fatalf("[P1] 2.8-STRUCT-009: ObjectInfoPanel.tsx must have handleReferenceClick that dispatches NAVIGATE_TO_REF")
+	if !strings.Contains(src, "useAppDispatch") {
+		t.Fatalf("[P1] 2.8-STRUCT-009: ObjectInfoPanel.tsx must use useAppDispatch")
+	}
+	if !strings.Contains(src, "NAVIGATE_TO_REF") {
+		t.Fatalf("[P1] 2.8-STRUCT-009: ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
 	}
 }
 
