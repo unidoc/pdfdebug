@@ -2,7 +2,7 @@
  * @file Plain Text view -- document-level Latin-1-decoded file bytes with a
  * 1-based line-number gutter and viewport virtualization. Story 9-11
  * (initial); Story 10-1 (single uncapped lazy load + cancellable read +
- * loading card with size disclosure, elapsed counter, and Cancel button).
+ * loading card with size disclosure and Cancel button).
  *
  * Lines are split on /\r\n?|\n/ so CRLF / lone CR / lone LF all collapse to
  * one logical row.
@@ -74,7 +74,6 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
   const [showLoadingCard, setShowLoadingCard] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [cancelling, setCancelling] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -104,7 +103,6 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     setLoadState('idle');
     setTotalBytes(null);
     setShowLoadingCard(false);
-    setElapsedSeconds(0);
     setCancelling(false);
     setScrollTop(0);
     dataRef.current = null;
@@ -120,7 +118,6 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     loadStateRef.current = 'loading';
     setLoadState('loading');
     setError(null);
-    setElapsedSeconds(0);
     setCancelling(false);
     const tabIdAtFetch = tabId;
     // Size disclosure -- independent of the main fetch. flushSync forces
@@ -202,18 +199,6 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     const timer = setTimeout(() => setShowLoadingCard(true), 200);
     return () => clearTimeout(timer);
   }, [loadState]);
-
-  // Elapsed-seconds counter -- ticks once per second while the loading card
-  // is visible. Cleared on every other state transition. Story 10-1 AC2.
-  useEffect(() => {
-    if (!showLoadingCard) {
-      return;
-    }
-    const interval = setInterval(() => {
-      setElapsedSeconds((s) => s + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showLoadingCard]);
 
   // Scroll to top whenever `active` transitions false -> true.
   useEffect(() => {
@@ -323,11 +308,15 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
         data-testid="plain-text-loading-card"
       >
         <div className="flex flex-col items-center gap-2 text-sm text-text-muted">
+          <div
+            data-testid="plain-text-loading-spinner"
+            aria-hidden="true"
+            className="animate-spin w-8 h-8 rounded-full border-2 border-text-muted border-t-transparent mb-1"
+          />
           <div className="font-medium text-text-primary">Loading plain text</div>
           <div data-testid="plain-text-loading-size" className="min-h-[1em]">
             {totalBytes !== null ? formatBytes(totalBytes) : ''}
           </div>
-          <div data-testid="plain-text-loading-elapsed">{elapsedSeconds}s</div>
           <button
             type="button"
             data-testid="plain-text-cancel-button"

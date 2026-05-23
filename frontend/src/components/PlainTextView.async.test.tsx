@@ -143,54 +143,9 @@ describe('10-1-UNIT-002: loading card structure (AC2)', () => {
     expect(sizeEl).toBeInTheDocument();
     // 487 MiB -> "487 MB" via formatBytes integer-MB form.
     expect(sizeEl.textContent).toContain('487 MB');
-    // AC2 elapsed counter starts at 0s.
-    const elapsedEl = screen.getByTestId('plain-text-loading-elapsed');
-    expect(elapsedEl.textContent).toBe('0s');
     // AC2 Cancel button with the literal "Cancel" label.
     const cancelBtn = screen.getByTestId('plain-text-cancel-button');
     expect(cancelBtn.textContent).toBe('Cancel');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 10-1-UNIT-003 [P0] AC#2: elapsed counter ticks once per second.
-// ---------------------------------------------------------------------------
-
-describe('10-1-UNIT-003: elapsed counter ticks (AC2)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers();
-    const def = deferred<PlainTextDocumentFixture>();
-    mockGetPlainText.mockReturnValue(def.promise);
-    mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  test('counter shows 1s after 1s, 2s after 2s, etc.', async () => {
-    render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
-
-    // Past debounce so the card mounts.
-    act(() => {
-      vi.advanceTimersByTime(250);
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('plain-text-loading-card')).toBeInTheDocument();
-    });
-
-    expect(screen.getByTestId('plain-text-loading-elapsed').textContent).toBe('0s');
-
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(screen.getByTestId('plain-text-loading-elapsed').textContent).toBe('1s');
-
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-    expect(screen.getByTestId('plain-text-loading-elapsed').textContent).toBe('3s');
   });
 });
 
@@ -225,8 +180,7 @@ describe('10-1-UNIT-004: size disclosure tolerates unresolved size', () => {
     const sizeEl = screen.getByTestId('plain-text-loading-size');
     expect(sizeEl).toBeInTheDocument();
     expect(sizeEl.textContent).toBe('');
-    // Elapsed + Cancel still render.
-    expect(screen.getByTestId('plain-text-loading-elapsed')).toBeInTheDocument();
+    // Cancel still renders.
     expect(screen.getByTestId('plain-text-cancel-button')).toBeInTheDocument();
   });
 });
@@ -371,14 +325,13 @@ describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => 
     // GetPlainText must have been called a second time (AC6).
     expect(mockGetPlainText).toHaveBeenCalledTimes(2);
 
-    // Advance past the 200ms debounce; elapsed counter starts at 0s.
+    // Advance past the 200ms debounce; loading card mounts again.
     act(() => {
       vi.advanceTimersByTime(250);
     });
     await waitFor(() => {
-      expect(screen.getByTestId('plain-text-loading-elapsed')).toBeInTheDocument();
+      expect(screen.getByTestId('plain-text-loading-card')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('plain-text-loading-elapsed').textContent).toBe('0s');
   });
 });
 
