@@ -267,13 +267,13 @@ type XRefEntry struct {
 // returned by Inspector.GetPlainText. Latin-1 is a deliberate choice over
 // UTF-8 because UTF-8 decode would inject replacement characters for valid
 // PDF byte sequences inside stream contents; Latin-1 is lossless byte-for-byte
-// (every byte maps to a Unicode codepoint U+0000-U+00FF). Story 9-11.
+// (every byte maps to a Unicode codepoint U+0000-U+00FF). Story 9-11; the
+// Truncated and CapBytes fields were removed in Story 10-1 alongside the
+// single uncapped lazy-load contract.
 type PlainTextDocument struct {
 	TabID      string `json:"tabId"`
-	Content    string `json:"content"`    // Latin-1-decoded bytes; may be truncated
+	Content    string `json:"content"`    // Latin-1-decoded full-file bytes
 	TotalBytes int64  `json:"totalBytes"` // file size on disk in bytes
-	Truncated  bool   `json:"truncated"`  // true when Content is only the first CapBytes bytes
-	CapBytes   int64  `json:"capBytes"`   // the cap that was applied; echoed so the frontend can format the banner
 }
 
 // DocumentInfo summarizes an opened PDF document for the frontend.

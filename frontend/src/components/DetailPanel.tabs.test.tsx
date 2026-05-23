@@ -49,6 +49,8 @@ const mockGetReverseRefs = vi.fn();
 const mockGetFontView = vi.fn();
 const mockGetXRefTable = vi.fn();
 const mockGetPlainText = vi.fn();
+const mockGetPlainTextSize = vi.fn();
+const mockCancelPlainText = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -64,6 +66,8 @@ vi.mock(
     GetFontView: (...args: unknown[]) => mockGetFontView(...args),
     GetXRefTable: (...args: unknown[]) => mockGetXRefTable(...args),
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
+    GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
+    CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
   })
 );
 
@@ -115,8 +119,6 @@ const plainTextSmall = {
   tabId: 'tab-1',
   content: '%PDF-1.7\nhello\n',
   totalBytes: 15,
-  truncated: false,
-  capBytes: 5242880,
 };
 
 const openAction: AppAction = {

@@ -1,4 +1,30 @@
 import '@testing-library/jest-dom/vitest';
+import { vi } from 'vitest';
+
+// @testing-library/dom's waitFor probes `jest` to detect fake timers. Vitest's
+// fake timers are compatible at the API level but the probe returns false
+// without this bridge, so waitFor falls into a polling loop that never
+// advances under vi.useFakeTimers() -- every waitFor() call after a fake-time
+// jump hits the 5s vitest test timeout. Polyfilling `jest` here makes
+// jestFakeTimersAreEnabled() see vitest's mocked setTimeout and use
+// advanceTimersToNextTimer() to drain pending timers between callback
+// retries. Story 10-1 PlainTextView.async tests depend on this path.
+//
+// Story 10-1 dev-step bridge.
+type JestLike = {
+  advanceTimersByTime: typeof vi.advanceTimersByTime;
+  runAllTicks: typeof vi.runAllTicks;
+  runAllTimers: typeof vi.runAllTimers;
+  runOnlyPendingTimers: typeof vi.runOnlyPendingTimers;
+  advanceTimersToNextTimer: typeof vi.advanceTimersToNextTimer;
+};
+(globalThis as { jest?: JestLike }).jest = {
+  advanceTimersByTime: vi.advanceTimersByTime.bind(vi),
+  runAllTicks: vi.runAllTicks.bind(vi),
+  runAllTimers: vi.runAllTimers.bind(vi),
+  runOnlyPendingTimers: vi.runOnlyPendingTimers.bind(vi),
+  advanceTimersToNextTimer: vi.advanceTimersToNextTimer.bind(vi),
+};
 
 // @wailsio/runtime auto-registers a document dragenter listener that reads
 // event.dataTransfer.types.includes('Files'). jsdom's synthetic drag events

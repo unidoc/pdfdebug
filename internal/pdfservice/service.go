@@ -167,15 +167,22 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 }
 
 // GetPlainText returns the Latin-1-decoded file bytes for the document in
-// tabID, capped at 25 MiB with a truncation flag in the payload. Story 9-11
-// (cap raised in 9-12 chore).
+// tabID. Story 10-1 (replaces the 9-11 25 MiB cap + 9-12 "Load all" two-tier
+// model with a single uncapped lazy-load + cancellable chunked read). The
+// read is cancellable via CancelPlainText; cancellation surfaces an error
+// satisfying errors.Is(err, context.Canceled).
 func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
 	return s.inspector.GetPlainText(tabID)
 }
 
-// GetPlainTextFull returns the Latin-1-decoded file bytes for the document in
-// tabID with no size cap. Backs the "Load all" escape hatch on the truncation
-// banner. Story 9-12.
-func (s *PDFService) GetPlainTextFull(tabID string) (*pdfcore.PlainTextDocument, error) {
-	return s.inspector.GetPlainTextFull(tabID)
+// CancelPlainText cancels an in-flight GetPlainText for tabID. No-op when no
+// load is in flight. Returns ErrDocumentNotFound for unknown tabs. Story 10-1.
+func (s *PDFService) CancelPlainText(tabID string) error {
+	return s.inspector.CancelPlainText(tabID)
+}
+
+// GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
+// Powers the loading-card size disclosure on PlainTextView. Story 10-1.
+func (s *PDFService) GetPlainTextSize(tabID string) (int64, error) {
+	return s.inspector.GetPlainTextSize(tabID)
 }

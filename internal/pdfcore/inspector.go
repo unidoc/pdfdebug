@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -46,15 +47,25 @@ type DocumentState struct {
 
 	// plainTextCache caches the per-tab GetPlainText result. Lazy on first
 	// call; mutex coverage includes the I/O so concurrent callers share one
-	// disk read. Story 9-11 Task 2.9.
+	// disk read. Story 9-11 Task 2.9 (cap removed in Story 10-1).
 	plainTextMu    sync.Mutex
 	plainTextCache *PlainTextDocument
 
-	// plainTextFullCache caches the per-tab GetPlainTextFull result. Lazy on
-	// first call (user-triggered "Load all"); kept independent from
-	// plainTextCache so the truncated hot path stays fast. Story 9-12.
-	plainTextFullMu    sync.Mutex
-	plainTextFullCache *PlainTextDocument
+	// plainTextLoadCancel is the cancel func for the in-flight GetPlainText
+	// chunked read. Nil when no load is in flight. Guarded by
+	// plainTextCancelMu (NOT plainTextMu) so CancelPlainText can preempt a
+	// read without contending against the mutex the read itself holds for the
+	// entire I/O. Story 10-1.
+	//
+	// plainTextClosed is set by Inspector.Close under plainTextCancelMu so a
+	// GetPlainText goroutine that has acquired the cancel mutex AFTER Close
+	// already ran can observe the close and bail out instead of leaking the
+	// read to natural completion (would defeat AC9's "one chunk-read cycle"
+	// guarantee in the race where Close fires between GetDocument and the
+	// cancel-func registration).
+	plainTextCancelMu   sync.Mutex
+	plainTextLoadCancel context.CancelFunc
+	plainTextClosed     bool
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are
@@ -161,14 +172,32 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	}, nil
 }
 
-// Close removes the document associated with tabID from the inspector.
+// Close removes the document associated with tabID from the inspector. If a
+// GetPlainText load is in flight for this tab, the cancel func is invoked
+// before the document is dropped so the read goroutine returns
+// context.Canceled within one chunk-read cycle and releases its file handle.
+// Story 10-1.
+//
+// Critical: the cancel invocation acquires plainTextCancelMu only, NEVER
+// plainTextMu (which the read goroutine holds for the entire I/O). Holding
+// plainTextMu here would deadlock against the active read.
 func (ins *Inspector) Close(tabID string) error {
 	ins.mu.Lock()
-	defer ins.mu.Unlock()
-	if _, ok := ins.documents[tabID]; !ok {
+	doc, ok := ins.documents[tabID]
+	if !ok {
+		ins.mu.Unlock()
 		return fmt.Errorf("%w: tab %q", ErrDocumentNotFound, tabID)
 	}
 	delete(ins.documents, tabID)
+	ins.mu.Unlock()
+
+	doc.plainTextCancelMu.Lock()
+	doc.plainTextClosed = true
+	cancel := doc.plainTextLoadCancel
+	doc.plainTextCancelMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	return nil
 }
 
