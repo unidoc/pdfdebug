@@ -5,6 +5,8 @@
  * component is pure props -> DOM.
  */
 import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { X } from 'lucide-react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import type { Match } from '../lib/findMatches';
 
 /** Props for {@link FindBar}. */
@@ -93,6 +95,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
   const countText = hasMatches ? `${activeIndex + 1} of ${matches.length}` : '0 of 0';
 
   return (
+    <Tooltip.Provider delayDuration={300}>
     <div
       role="search"
       aria-label="Find in plain text"
@@ -100,18 +103,34 @@ export function FindBar(props: FindBarProps): JSX.Element {
       onKeyDown={handleRootKeyDown}
       className="flex-shrink-0 flex items-center gap-2 px-2 py-1 border-b border-border bg-surface text-sm"
     >
-      <input
-        ref={inputRef}
-        type="text"
-        data-testid="plain-text-find-input"
-        aria-label="Find query"
-        aria-describedby={nonLatin1 ? HINT_ID : undefined}
-        value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
-        onKeyDown={handleInputKeyDown}
-        className="flex-1 min-w-0 px-2 py-0.5 bg-bg border border-border rounded text-text font-mono"
-        placeholder="Find"
-      />
+      <div className="flex-1 min-w-0 relative">
+        <input
+          ref={inputRef}
+          type="text"
+          data-testid="plain-text-find-input"
+          aria-label="Find query"
+          aria-describedby={nonLatin1 ? HINT_ID : undefined}
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={handleInputKeyDown}
+          className="w-full px-2 py-0.5 pr-6 bg-bg border border-border rounded text-text font-mono"
+          placeholder="Find"
+        />
+        {query !== '' && (
+          <button
+            type="button"
+            data-testid="plain-text-find-clear"
+            aria-label="Clear find query"
+            onClick={() => {
+              onQueryChange('');
+              inputRef.current?.focus();
+            }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded text-text-muted hover:text-text hover:bg-surface-hover cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
       <span
         data-testid="plain-text-find-count"
         aria-live="polite"
@@ -128,21 +147,34 @@ export function FindBar(props: FindBarProps): JSX.Element {
           {wrapped === 'top' ? 'Wrapped to top' : 'Wrapped to bottom'}
         </span>
       )}
-      <button
-        type="button"
-        data-testid="plain-text-find-case-toggle"
-        aria-label="Match case"
-        aria-pressed={caseSensitive ? 'true' : 'false'}
-        onClick={onCaseToggle}
-        className={
-          'px-2 py-0.5 rounded text-xs cursor-pointer ' +
-          (caseSensitive
-            ? 'bg-surface-selected border border-border-focus text-text'
-            : 'bg-bg border border-border text-text-muted hover:bg-surface-hover')
-        }
-      >
-        Aa
-      </button>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            data-testid="plain-text-find-case-toggle"
+            aria-label="Match case"
+            aria-pressed={caseSensitive ? 'true' : 'false'}
+            onClick={onCaseToggle}
+            className={
+              'px-2 py-0.5 rounded text-xs cursor-pointer ' +
+              (caseSensitive
+                ? 'bg-surface-selected border border-border-focus text-text'
+                : 'bg-bg border border-border text-text-muted hover:bg-surface-hover')
+            }
+          >
+            Aa
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            data-testid="plain-text-find-case-toggle-tooltip"
+            className="bg-surface border border-border rounded px-2 py-1 text-xs text-text shadow-md z-50"
+            sideOffset={5}
+          >
+            {caseSensitive ? 'Match case: on' : 'Match case: off'}
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
       <button
         type="button"
         data-testid="plain-text-find-prev"
@@ -184,6 +216,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
         </span>
       )}
     </div>
+    </Tooltip.Provider>
   );
 }
 
