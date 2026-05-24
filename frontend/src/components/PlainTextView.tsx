@@ -19,6 +19,10 @@ import {
   CancelPlainText,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
+import { useFindBar } from '../hooks/useFindBar';
+import { FindBar } from './FindBar';
+import type { Match } from '../lib/findMatches';
 
 /** Plain Text payload mirroring `pdfcore.PlainTextDocument`. */
 interface PlainTextDocumentData {
@@ -77,6 +81,12 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [cancelling, setCancelling] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  // Per-tab case-sensitivity toggle on TabState (Story 10-2 AC10 / AC14).
+  const appState = useAppState();
+  const dispatch = useAppDispatch();
+  const findCaseSensitive =
+    appState.tabs.find((t) => t.tabId === tabId)?.findCaseSensitive ?? false;
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Cache data as a ref so the fetch effect doesn't re-fire on data change.
@@ -231,6 +241,92 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     return content.split(/\r\n?|\n/);
   }, [data]);
 
+  // Story 10-2: find-bar hook. content is the raw payload when load is ready;
+  // null otherwise so Cmd+F preventDefault-only (AC13).
+  const findBar = useFindBar({
+    tabId,
+    content: data ? data.content : null,
+    caseSensitive: findCaseSensitive,
+    active,
+  });
+  const {
+    open: findOpen,
+    query: findQuery,
+    matches: findMatchesList,
+    activeIndex: findActiveIndex,
+    wrapped: findWrapped,
+    nonLatin1: findNonLatin1,
+    lineStartOffsets: findLineStarts,
+    focusVersion: findFocusVersion,
+    setQuery: setFindQuery,
+    next: findNext,
+    prev: findPrev,
+    closeBar: closeFindBar,
+  } = findBar;
+
+  const handleCaseToggle = useCallback(() => {
+    dispatch({
+      type: 'SET_FIND_CASE_SENSITIVE',
+      payload: { tabId, value: !findCaseSensitive },
+    });
+  }, [dispatch, tabId, findCaseSensitive]);
+
+  // AC3: on Esc close, restore focus to the scroll container so subsequent F3 /
+  // Shift+F3 keystrokes still reach the window-level navigation handler
+  // (and so the input-focus check in App.jsx's Cmd+G handler does not erroneously
+  // see a stale FindBar input as the active text field).
+  const handleFindClose = useCallback(() => {
+    closeFindBar();
+    const el = scrollRef.current;
+    if (el) {
+      // tabIndex=-1 lets a div accept programmatic focus without entering the
+      // tab order. Set it lazily so we don't bake the attribute into the
+      // markup until needed.
+      if (!el.hasAttribute('tabindex')) {
+        el.setAttribute('tabindex', '-1');
+      }
+      el.focus({ preventScroll: true });
+    }
+  }, [closeFindBar]);
+
+  /** Lines that contain at least one match, for the gutter density marker (AC6). */
+  const matchedLineSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const m of findMatchesList) s.add(m.line);
+    return s;
+  }, [findMatchesList]);
+
+  /**
+   * Per-row matches table. Index by 1-based line number. Each entry is the
+   * subset of findMatchesList whose start offset falls in that row's byte
+   * range. AC17: O(M) bucketing, single pass, computed once per matches list.
+   */
+  const matchesByLine = useMemo(() => {
+    const map = new Map<number, Match[]>();
+    for (const m of findMatchesList) {
+      const arr = map.get(m.line);
+      if (arr) arr.push(m);
+      else map.set(m.line, [m]);
+    }
+    return map;
+  }, [findMatchesList]);
+
+  // Cache the prefers-reduced-motion media query and subscribe to OS-level
+  // changes so a mid-session toggle is honored. AC7 scrollBehavior path.
+  const reducedMotionRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotionRef.current = mq.matches;
+    const onChange = (e: MediaQueryListEvent) => {
+      reducedMotionRef.current = e.matches;
+    };
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+  }, []);
+
   const totalRows = lines.length;
   const totalHeight = totalRows * ROW_HEIGHT;
   const firstVisible = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
@@ -241,6 +337,75 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
+
+  // Auto-scroll on active-match change (AC7 / AC15). Centers the line on
+  // change when not already visible; uses smooth scroll unless
+  // prefers-reduced-motion is set. Also best-effort adjusts scrollLeft so the
+  // match's start sits at least 8 columns inside the visible horizontal
+  // viewport (AC7 horizontal scroll requirement).
+  useEffect(() => {
+    if (!findOpen && findMatchesList.length === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const m = findMatchesList[findActiveIndex];
+    if (!m) return;
+
+    // Vertical: center the active line when not already visible.
+    const lineTop = m.line * ROW_HEIGHT - ROW_HEIGHT;
+    const viewportTop = el.scrollTop;
+    const viewportBottom = viewportTop + el.clientHeight;
+    const verticallyVisible =
+      lineTop >= viewportTop && lineTop + ROW_HEIGHT <= viewportBottom;
+    const verticalTarget = verticallyVisible
+      ? el.scrollTop
+      : Math.max(0, Math.min(lineTop - el.clientHeight / 2, el.scrollHeight - el.clientHeight));
+
+    // Horizontal: best-effort column-to-pixel mapping via the mono-font width
+    // of a single character. Measured once per effect run from the live DOM
+    // (the gutter cell contains a digit at the right font/size). If
+    // measurement fails (zero/NaN width), skip the horizontal adjustment.
+    let horizontalTarget = el.scrollLeft;
+    const rowStart = findLineStarts[m.line - 1] ?? 0;
+    const col = Math.max(0, m.start - rowStart);
+    // Read the char width from an existing rendered row's textContent. The
+    // gutter cell is sticky and present for every visible row. Width per
+    // character = element.scrollWidth / textContent.length when textContent
+    // is non-empty and single-line.
+    const probe = el.querySelector<HTMLElement>('[data-testid^="plain-text-row-"]');
+    if (probe && probe.textContent && probe.textContent.length > 0) {
+      const charWidth = probe.scrollWidth / probe.textContent.length;
+      if (charWidth > 0 && Number.isFinite(charWidth)) {
+        const matchLeftPx = col * charWidth;
+        const visibleLeft = el.scrollLeft;
+        const visibleRight = visibleLeft + el.clientWidth;
+        const inset = 8 * charWidth; // "at least 8 columns inside" (AC7)
+        if (matchLeftPx < visibleLeft + inset) {
+          horizontalTarget = Math.max(0, matchLeftPx - inset);
+        } else if (matchLeftPx > visibleRight - inset) {
+          horizontalTarget = Math.max(
+            0,
+            Math.min(matchLeftPx - el.clientWidth + inset, el.scrollWidth - el.clientWidth),
+          );
+        }
+      }
+    }
+
+    const verticalNeedsScroll = !verticallyVisible;
+    const horizontalNeedsScroll = horizontalTarget !== el.scrollLeft;
+    if (!verticalNeedsScroll && !horizontalNeedsScroll) return;
+
+    if (reducedMotionRef.current) {
+      if (verticalNeedsScroll) el.scrollTop = verticalTarget;
+      if (horizontalNeedsScroll) el.scrollLeft = horizontalTarget;
+    } else {
+      try {
+        el.scrollTo({ top: verticalTarget, left: horizontalTarget, behavior: 'smooth' });
+      } catch {
+        if (verticalNeedsScroll) el.scrollTop = verticalTarget;
+        if (horizontalNeedsScroll) el.scrollLeft = horizontalTarget;
+      }
+    }
+  }, [findActiveIndex, findMatchesList, findOpen, findLineStarts]);
 
   /** Fire-and-forget Cancel. The original GetPlainText promise rejects with
    * context.Canceled; the .catch branch flips to 'cancelled'. Story 10-1 AC4. */
@@ -338,6 +503,22 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
 
   return (
     <div className="h-full flex flex-col bg-bg">
+      {findOpen && (
+        <FindBar
+          matches={findMatchesList}
+          activeIndex={findActiveIndex}
+          query={findQuery}
+          caseSensitive={findCaseSensitive}
+          wrapped={findWrapped}
+          nonLatin1={findNonLatin1}
+          focusVersion={findFocusVersion}
+          onQueryChange={setFindQuery}
+          onNext={findNext}
+          onPrev={findPrev}
+          onCaseToggle={handleCaseToggle}
+          onClose={handleFindClose}
+        />
+      )}
       <div
         className="flex-1 overflow-auto font-mono text-sm"
         data-testid="plain-text-scroll"
@@ -364,24 +545,49 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
             >
               {rowsToRender.map((_, i) => {
                 const lineNo = firstVisible + i + 1;
-                return (
-                  <div key={lineNo} style={{ height: ROW_HEIGHT, lineHeight: `${ROW_HEIGHT}px` }}>
-                    {lineNo}
-                  </div>
+                const cell = (
+                  <div style={{ height: ROW_HEIGHT, lineHeight: `${ROW_HEIGHT}px` }}>{lineNo}</div>
                 );
+                // AC6: gutter density marker on lines with at least one match.
+                if (matchedLineSet.has(lineNo)) {
+                  return (
+                    <div
+                      key={lineNo}
+                      data-testid={`plain-text-find-gutter-marker-${lineNo}`}
+                      className="border-l-2 border-find-gutter"
+                    >
+                      {cell}
+                    </div>
+                  );
+                }
+                return <div key={lineNo}>{cell}</div>;
               })}
             </div>
             {/* Content column */}
             <div className="flex-1 pl-2 text-text whitespace-pre">
               {rowsToRender.map((line, i) => {
                 const lineNo = firstVisible + i + 1;
+                // AC5: per-row mark slicing. The row's offset range is
+                // [findLineStarts[lineNo - 1], findLineStarts[lineNo - 1] + line.length).
+                const rowMatches = matchesByLine.get(lineNo);
+                let content: React.ReactNode = line;
+                if (rowMatches && rowMatches.length > 0) {
+                  const rowStart = findLineStarts[lineNo - 1] ?? 0;
+                  content = renderLineWithMarks(
+                    line,
+                    rowStart,
+                    rowMatches,
+                    findMatchesList,
+                    findActiveIndex,
+                  );
+                }
                 return (
                   <div
                     key={lineNo}
                     data-testid={`plain-text-row-${lineNo}`}
                     style={{ height: ROW_HEIGHT, lineHeight: `${ROW_HEIGHT}px` }}
                   >
-                    {line}
+                    {content}
                   </div>
                 );
               })}
@@ -391,6 +597,55 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Render a single content row, wrapping matched substrings in `<mark>` tags.
+ * The concatenated text content of the returned fragment equals the raw line
+ * (AC5). The active match (matches[activeIndex]) gets the
+ * `plain-text-find-active-match` testid + bg-find-active class; non-active
+ * matches get `plain-text-find-match` + bg-find-match.
+ */
+function renderLineWithMarks(
+  line: string,
+  rowStart: number,
+  rowMatches: Match[],
+  allMatches: Match[],
+  activeIndex: number,
+): React.ReactNode[] {
+  const activeMatch = allMatches[activeIndex];
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  const lineLen = line.length;
+  for (const m of rowMatches) {
+    const localStart = m.start - rowStart;
+    const localEnd = Math.min(lineLen, m.end - rowStart);
+    if (localStart < 0 || localStart >= lineLen) continue;
+    if (cursor < localStart) {
+      nodes.push(
+        <span key={`s-${cursor}`}>{line.slice(cursor, localStart)}</span>,
+      );
+    }
+    const isActive = activeMatch !== undefined && m.start === activeMatch.start;
+    nodes.push(
+      <mark
+        key={`m-${m.start}`}
+        data-testid={isActive ? 'plain-text-find-active-match' : 'plain-text-find-match'}
+        className={
+          isActive
+            ? 'bg-find-active text-find-active-fg'
+            : 'bg-find-match text-find-match-fg'
+        }
+      >
+        {line.slice(localStart, localEnd)}
+      </mark>,
+    );
+    cursor = localEnd;
+  }
+  if (cursor < lineLen) {
+    nodes.push(<span key={`s-end-${cursor}`}>{line.slice(cursor)}</span>);
+  }
+  return nodes;
 }
 
 export default PlainTextView;

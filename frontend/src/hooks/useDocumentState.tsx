@@ -72,6 +72,12 @@ export interface TabState {
    * CLOSE_DOCUMENT (Story 9-8 AC7 / Task 5.3).
    */
   recentJumps: RecentJump[];
+  /**
+   * Plain Text find-bar case-sensitivity toggle. Persists across find-bar
+   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT
+   * (Story 10-2 AC10 / AC14).
+   */
+  findCaseSensitive: boolean;
 }
 
 /** Top-level application state. */
@@ -130,7 +136,8 @@ export type AppAction =
   | { type: 'BATCH_OPEN_CANCEL' }
   | { type: 'BATCH_OPEN_COMPLETE' }
   | { type: 'OPENING_START'; payload: { fileName: string } }
-  | { type: 'PUSH_RECENT_JUMP'; payload: { tabId: string; entry: RecentJump } };
+  | { type: 'PUSH_RECENT_JUMP'; payload: { tabId: string; entry: RecentJump } }
+  | { type: 'SET_FIND_CASE_SENSITIVE'; payload: { tabId: string; value: boolean } };
 
 // --- Reducer ---
 
@@ -222,6 +229,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         navHistory: [],
         navHistoryIndex: -1,
         recentJumps: [],
+        findCaseSensitive: false,
       };
       // Opening a new tab that becomes active is a tab-context change; bump
       // the version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
@@ -510,6 +518,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
           const next = [entry, ...filtered].slice(0, 5);
           return { ...tab, recentJumps: next };
         }),
+      };
+    }
+    case 'SET_FIND_CASE_SENSITIVE': {
+      const { tabId, value } = action.payload;
+      // No-op when the target tab is absent so unknown-tabId dispatches do
+      // not corrupt other tabs (Story 10-2 AC10 boundary).
+      if (!state.tabs.some((t) => t.tabId === tabId)) return state;
+      return {
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.tabId === tabId ? { ...tab, findCaseSensitive: value } : tab,
+        ),
       };
     }
     default: {

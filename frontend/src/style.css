@@ -98,6 +98,11 @@
   --color-token-string: var(--color-token-string);
   --color-token-name: var(--color-token-name);
   --color-token-comment: var(--color-token-comment);
+  --color-find-match: var(--color-find-match);
+  --color-find-match-fg: var(--color-find-match-fg);
+  --color-find-active: var(--color-find-active);
+  --color-find-active-fg: var(--color-find-active-fg);
+  --color-find-gutter: var(--color-find-gutter);
 }
 
 /* Design tokens as CSS custom properties -- ALL values listed explicitly */
@@ -130,6 +135,13 @@
   --color-token-string: #b45309;
   --color-token-name: #0f766e;
   --color-token-comment: #64748b;
+
+  /* Plain Text find-bar match highlight colors (Story 10-2) */
+  --color-find-match: #fef08a;
+  --color-find-match-fg: #1e293b;
+  --color-find-active: #f59e0b;
+  --color-find-active-fg: #0f172a;
+  --color-find-gutter: #fbbf24;
 
   /* Semantic colors */
   --color-error: #ef4444;
