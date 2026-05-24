@@ -118,7 +118,16 @@ func buildSmokeBinary(t *testing.T) string {
 		if info, err := os.Stat(src); err == nil {
 			preMtime = info.ModTime()
 		}
-		cmd := exec.Command("wails3", "build")
+		// Wails alpha.93 made GTK4 + WebKitGTK 6.0 the Linux default; CI installs
+		// only the GTK3 stack, so opt back into the legacy GTK3 build path here.
+		// `wails3 build -tags gtk3` routes the flag through the Taskfile's
+		// EXTRA_TAGS slot (becomes `-tags production,gtk3`). macOS + Windows
+		// ignore the flag.
+		args := []string{"build"}
+		if runtime.GOOS == "linux" {
+			args = append(args, "-tags", "gtk3")
+		}
+		cmd := exec.Command("wails3", args...)
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
 		out, err := cmd.CombinedOutput()
@@ -143,8 +152,14 @@ func buildSmokeBinary(t *testing.T) string {
 		return dst
 	}
 
-	t.Logf("[boot-smoke] wails3 not on PATH; falling back to `go build -tags production`")
-	cmd := exec.Command("go", "build", "-tags", "production", "-o", dst, ".")
+	// Fallback path mirrors the wails3-build tag choice: production everywhere,
+	// plus gtk3 on Linux where Wails alpha.93+ otherwise tries to link GTK4.
+	tags := "production"
+	if runtime.GOOS == "linux" {
+		tags = "production,gtk3"
+	}
+	t.Logf("[boot-smoke] wails3 not on PATH; falling back to `go build -tags %s`", tags)
+	cmd := exec.Command("go", "build", "-tags", tags, "-o", dst, ".")
 	cmd.Dir = root
 	out, err := cmd.CombinedOutput()
 	if err != nil {
