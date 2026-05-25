@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/pdfcpu/pdfcpu v0.12.0
+	github.com/pdfcpu/pdfcpu v0.12.1
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.95
 )
 
