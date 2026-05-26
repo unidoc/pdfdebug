@@ -223,7 +223,7 @@ export function ContentStreamViewer({ raw, formatted, error, viewMode: controlle
 
   // Gutter line count: number of formatted rows in formatted mode, source
   // byte-line count in raw mode. Padded so the gutter width is stable.
-  const gutterCount = useFormatted ? (formatted!.length) : rawLines.length;
+  const gutterCount = useFormatted ? formatted.length : rawLines.length;
   const gutterDigits = Math.max(String(gutterCount).length, 2);
 
   return (
@@ -255,7 +255,7 @@ export function ContentStreamViewer({ raw, formatted, error, viewMode: controlle
             data-testid="content-stream-content"
           >
             {useFormatted
-              ? formatted!.map((row, i) => {
+              ? formatted.map((row, i) => {
                   const indentStr = row.indent > 0 ? '  '.repeat(row.indent) : '';
                   const spans: React.ReactNode[] = [];
                   if (indentStr) spans.push(indentStr);
