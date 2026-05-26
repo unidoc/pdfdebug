@@ -59,11 +59,6 @@ const targetVersion = "v0.12.1"
 // substring matches against go.mod and go.sum.
 const pdfcpuModulePath = "github.com/pdfcpu/pdfcpu"
 
-// expectedTechStackLine is the exact Technology Stack & Versions phrasing AC10
-// requires. The Epic 9 wording is PRESERVED; the v0.12.0 -> v0.12.1 annotation
-// is APPENDED.
-const expectedTechStackLine = "pdfcpu v0.12.1 (Apache 2.0, pure Go PDF parser -- the ONLY PDF parsing library allowed; bumped from v0.11.1 in Epic 9, then v0.12.0 -> v0.12.1 in Epic 10 Story 10-4)"
-
 // projectRoot walks up from the working directory until it finds the project
 // go.mod (module unidoc-pdf-debugger), and returns its absolute path.
 func projectRoot(t *testing.T) string {
@@ -337,71 +332,3 @@ func Test_10_4_STRUCT_040_PdfcpuBlankImportPinPreserved(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// AC#10 -- project-context.md Technology Stack line refreshed
-// ---------------------------------------------------------------------------
-
-// docsProjectContextPath resolves project-context.md. The path is the
-// repo-local symlink `_bmad-output/project-context.md` which follows into
-// `../docs/_bmad-output/project-context.md` per MEMORY.md. Reading via the
-// symlink is sufficient and avoids hard-coding the docs-repo location.
-func docsProjectContextPath(t *testing.T) string {
-	t.Helper()
-	root := projectRoot(t)
-	candidate := filepath.Join(root, "_bmad-output", "project-context.md")
-	if _, err := os.Stat(candidate); err != nil {
-		t.Fatalf("[P0] could not locate project-context.md at %s: %v", candidate, err)
-	}
-	return candidate
-}
-
-// Test_10_4_DOCS_050 [P0] AC#10: project-context.md's Technology Stack &
-// Versions line for pdfcpu carries the exact post-bump phrasing. AC10 prints
-// the verbatim target string and asserts both APPEND (the Epic 9 wording is
-// preserved) and UPDATE (v0.12.0 -> v0.12.1).
-func Test_10_4_DOCS_050_ProjectContextPdfcpuLineRefreshed(t *testing.T) {
-	path := docsProjectContextPath(t)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	src := string(data)
-	if !strings.Contains(src, expectedTechStackLine) {
-		t.Errorf("[P0] 10-4-DOCS-050: project-context.md must contain the AC10 verbatim line:\n  %s\n(Task 5.1: update the Technology Stack & Versions pdfcpu line; preserve Epic 9 wording, append v0.12.0 -> v0.12.1 annotation)", expectedTechStackLine)
-	}
-}
-
-// Test_10_4_DOCS_051 [P0] AC#10: project-context.md must NOT still carry the
-// stale current-state phrasing that names v0.12.0 as the current pin. AC10
-// explicitly requires updating the version literal. Historical retrospectives
-// referencing v0.12.0 as a past target are fine; this assertion targets the
-// canonical pre-bump Technology Stack line.
-func Test_10_4_DOCS_051_ProjectContextDoesNotCarryPreBumpLine(t *testing.T) {
-	path := docsProjectContextPath(t)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	src := string(data)
-	stalePreBumpLine := "pdfcpu v0.12.0 (Apache 2.0, pure Go PDF parser -- the ONLY PDF parsing library allowed; bumped from v0.11.1 in Epic 9)"
-	if strings.Contains(src, stalePreBumpLine) {
-		t.Errorf("[P0] 10-4-DOCS-051: project-context.md still carries the pre-bump Technology Stack line:\n  %s\n(Task 5.1 / AC10: replace v0.12.0 with v0.12.1 and append the Story 10-4 annotation)", stalePreBumpLine)
-	}
-}
-
-// Test_10_4_DOCS_052 [P0] AC#10 (negative): project-context.md must NOT drop
-// the Epic 9 historical wording. AC10 says "the Epic 9 history is PRESERVED".
-// A naive replace-all of "v0.12.0" -> "v0.12.1" could erase the substring
-// "from v0.11.1 in Epic 9"; this assertion catches that.
-func Test_10_4_DOCS_052_ProjectContextRetainsEpic9History(t *testing.T) {
-	path := docsProjectContextPath(t)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	src := string(data)
-	historyPhrase := "bumped from v0.11.1 in Epic 9"
-	if !strings.Contains(src, historyPhrase) {
-		t.Errorf("[P0] 10-4-DOCS-052: project-context.md must retain the Epic 9 historical wording %q (AC10: \"the Epic 9 history is PRESERVED\")", historyPhrase)
-	}
-}

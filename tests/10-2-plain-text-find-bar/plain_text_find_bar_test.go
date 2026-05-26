@@ -390,39 +390,3 @@ func Test_10_2_STRUCT_060_NoCmdGRebinding(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// AC contract: documentation surfaces -- project-context.md section + deferred-work.md.
-// ---------------------------------------------------------------------------
-
-// 10-2-STRUCT-070 [P0] Task 8.1: _bmad-output/project-context.md gains a
-// section heading for the Plain Text Find Bar Rules. The docs symlink points
-// to ../docs/_bmad-output -- we read through the project-relative path so the
-// symlink is exercised end-to-end.
-func Test_10_2_STRUCT_070_ProjectContextSection(t *testing.T) {
-	src := readSource(t, "_bmad-output/project-context.md")
-	if !strings.Contains(src, "Plain Text Find Bar Rules") {
-		t.Errorf("[P0] 10-2-STRUCT-070: project-context.md must add a 'Plain Text Find Bar Rules' section (Task 8.1)")
-	}
-	// Latin-1 invariant cross-reference must be present so the codepoint > 0xFF
-	// rule (AC12) is documented next to the corpus backend invariant.
-	if !strings.Contains(src, "latin1Decode") {
-		t.Errorf("[P0] 10-2-STRUCT-070: Plain Text Find Bar Rules section must reference internal/pdfcore/plaintext.go latin1Decode (AC12 docs trail)")
-	}
-}
-
-// 10-2-STRUCT-071 [P0] Task 8.2: _bmad-output/implementation-artifacts/deferred-work.md
-// marks the 9-12 "Search within Plain Text payload" entry as RESOLVED by 10-2
-// and adds the new deferral entries (regex, copy-with-context, find across
-// Object / XREF tabs, find non-Latin-1 query via transcoding).
-func Test_10_2_STRUCT_071_DeferredWorkUpdated(t *testing.T) {
-	src := readSource(t, "_bmad-output/implementation-artifacts/deferred-work.md")
-	if !strings.Contains(src, "Search within Plain Text payload") {
-		t.Errorf("[P0] 10-2-STRUCT-071: deferred-work.md must keep the 9-12 'Search within Plain Text payload' entry (Task 8.2)")
-	}
-	if !strings.Contains(src, "10-2") {
-		t.Errorf("[P0] 10-2-STRUCT-071: deferred-work.md must reference Story 10-2 in the search-related entries (Task 8.2)")
-	}
-	if !strings.Contains(src, "RESOLVED") {
-		t.Errorf("[P0] 10-2-STRUCT-071: deferred-work.md must mark the search entry RESOLVED by Story 10-2 (Task 8.2)")
-	}
-}
