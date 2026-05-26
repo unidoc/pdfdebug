@@ -392,7 +392,7 @@ func Test_10_1_STRUCT_001_PlainTextViewLoadingCardTestIds(t *testing.T) {
 	requiredTestIds := []string{
 		"plain-text-loading-card",    // AC1
 		"plain-text-loading-size",    // AC2
-		"plain-text-loading-elapsed", // AC2
+		"plain-text-loading-spinner", // AC2 (replaced elapsed counter, commit 92343ab)
 		"plain-text-cancel-button",   // AC2 / AC4
 		"plain-text-load-cta",        // AC5 / AC7 (shared retry/cancelled CTA)
 		"plain-text-error",           // AC7
