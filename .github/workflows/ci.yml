@@ -57,9 +57,11 @@ jobs:
         # all type-check `pkg/application/application_linux.go` which `#cgo`s
         # `pkg-config gtk4 webkitgtk-6.0` and fails. GOFLAGS propagates the tag
         # to every subsequent `go`/`go list`/go-packages-based invocation in
-        # this job. `wails3 build` still needs an explicit `-tags gtk3` below
-        # because the Taskfile concatenates it with `-tags production` and
-        # command-line `-tags` overrides GOFLAGS.
+        # this job. The Wails build step below still needs `EXTRA_TAGS=gtk3`
+        # explicitly because the Taskfile combines it with `-tags production`
+        # to form BUILD_FLAGS (`build/linux/Taskfile.yml:57`); a CLI
+        # `-tags gtk3` arg on `wails3 build` does NOT reach the Taskfile's
+        # BUILD_FLAGS construction.
         if: runner.os == 'Linux'
         shell: bash
         run: echo "GOFLAGS=-tags=gtk3" >> "$GITHUB_ENV"
@@ -136,12 +138,14 @@ jobs:
       - name: Wails build (GUI)
         shell: bash
         # Wails alpha.93 promoted GTK4 + WebKitGTK 6.0 to the Linux default.
-        # CI installs the libgtk-3-dev + libwebkit2gtk-4.1-dev stack, so we
-        # opt back into the legacy GTK3 build path on Linux only. macOS and
-        # Windows ignore the flag.
+        # CI installs the libgtk-3-dev + libwebkit2gtk-4.1-dev stack, so on
+        # Linux we drive the linux:build task with `EXTRA_TAGS=gtk3` (the
+        # Taskfile combines it into `-tags production,gtk3`, which propagates
+        # to `wails3 generate bindings -f` -- matches release.yml). macOS and
+        # Windows use the default `wails3 build` path.
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            wails3 build -tags gtk3
+            wails3 task linux:build EXTRA_TAGS=gtk3
           else
             wails3 build
           fi
