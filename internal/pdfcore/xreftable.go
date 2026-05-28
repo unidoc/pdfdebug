@@ -22,6 +22,11 @@ func (ins *Inspector) GetXRefTable(tabID string) (*XRefTable, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Outer lock; xrefTableMu (inner) guards
+	// the cache. buildXRefTable iterates pdfcpu's XRefTable.Table which is
+	// not concurrent-read-safe.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	doc.xrefTableMu.Lock()
 	defer doc.xrefTableMu.Unlock()

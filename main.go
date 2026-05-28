@@ -15,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pdfservice"
 	"unidoc-pdf-debugger/internal/splash"
 )
@@ -49,6 +50,25 @@ func extractPDFPaths(args []string) []string {
 	return paths
 }
 
+// pdfOpener is the narrow surface openFileAndEmitWithWarning needs from
+// pdfservice.PDFService. Defined as an interface so the AC8 latency test
+// can swap in a stub that sleeps inside OpenFile without dragging the
+// full Wails service plumbing into the unit test. *pdfservice.PDFService
+// satisfies this implicitly via its pointer-receiver methods.
+type pdfOpener interface {
+	OpenFile(path string) (*pdfcore.DocumentInfo, error)
+	GetTreeRoot(tabID string) (*pdfcore.TreeNode, error)
+	GetChildren(tabID string, nodeID string) ([]*pdfcore.TreeNode, error)
+	CloseDocument(tabID string) error
+}
+
+// eventEmitter is the narrow surface openFileAndEmitWithWarning needs from
+// application.EventManager. *application.EventManager satisfies this
+// implicitly; the AC8 latency test passes a recording stub.
+type eventEmitter interface {
+	Emit(name string, data ...any) bool
+}
+
 // openFileAndEmitWithWarning opens a PDF, fetches the tree root + children,
 // and emits document:opened with the result. If extraWarning is non-empty,
 // it is appended to (or replaces) the per-document warning field in the
@@ -57,53 +77,79 @@ func extractPDFPaths(args []string) []string {
 // the frontend handler dispatches SET_DOCUMENT_WARNING in the same tick as
 // the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
 // warning survives regardless of event-bus ordering.
-func openFileAndEmitWithWarning(svc pdfservice.PDFService, app *application.App, path string, extraWarning string) {
-	// Emit load-start before the blocking pdfcpu read so the frontend can
-	// render an immediate "Opening ..." indicator instead of leaving the
-	// EmptyState drop area silent for the duration of a large-file parse.
-	app.Event.Emit("document:load-start", map[string]any{
+//
+// Story 10-5 AC8/AC9: the pdfcpu read is dispatched to a goroutine so the
+// caller (Wails event-dispatch goroutine for menu / file-drop / single
+// instance) returns immediately, leaving the native event loop free to
+// service window resize / menu clicks during the parse. The wg argument
+// lets callers synchronise on goroutine completion: openFilesBatch awaits
+// per file (sequential at the file boundary because pdfcpu's
+// ReadContextFile is not documented as concurrent-safe across files), and
+// single-file entry points pass a local WaitGroup so they preserve their
+// synchronous-completion contract.
+//
+// The caller MUST call wg.Add(1) BEFORE invoking this function (per the
+// AC9 code shape). The goroutine launched here calls wg.Done() on
+// completion. document:load-start is emitted synchronously (before the
+// goroutine is dispatched) so the frontend renders the loading indicator
+// without waiting on the goroutine scheduler.
+//
+// svc and emitter are narrow interfaces (pdfOpener, eventEmitter) so the
+// AC8 latency test can inject a slow-OpenFile stub and a recording
+// emitter. Production passes &pdfService and app.Event respectively.
+func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string, extraWarning string, wg *sync.WaitGroup) {
+	// Emit load-start synchronously so the frontend can render an immediate
+	// "Opening ..." indicator instead of leaving the EmptyState drop area
+	// silent for the duration of a large-file parse.
+	emitter.Emit("document:load-start", map[string]any{
 		"filePath": path,
 		"fileName": filepath.Base(path),
 	})
-	docInfo, err := svc.OpenFile(path)
-	if err != nil {
-		app.Event.Emit("document:error", map[string]any{
-			"message": err.Error(),
-		})
-		return
-	}
-	root, err := svc.GetTreeRoot(docInfo.TabID)
-	if err != nil {
-		_ = svc.CloseDocument(docInfo.TabID)
-		app.Event.Emit("document:error", map[string]any{
-			"message": err.Error(),
-		})
-		return
-	}
-	children, err := svc.GetChildren(docInfo.TabID, "root")
-	if err != nil {
-		log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
-	}
-	payload := map[string]any{
-		"tabId":        docInfo.TabID,
-		"fileName":     docInfo.FileName,
-		"filePath":     docInfo.FilePath,
-		"pageCount":    docInfo.PageCount,
-		"fileSize":     docInfo.FileSize,
-		"rootNode":     root,
-		"rootChildren": children,
-	}
-	warnings := make([]string, 0, 2)
-	if docInfo.Error != "" {
-		warnings = append(warnings, docInfo.Error)
-	}
-	if extraWarning != "" {
-		warnings = append(warnings, extraWarning)
-	}
-	if len(warnings) > 0 {
-		payload["warning"] = strings.Join(warnings, " ")
-	}
-	app.Event.Emit("document:opened", payload)
+	// Dispatch the pdfcpu read to a goroutine. Pass the long-lived values as
+	// explicit parameters for lifetime documentation (Go 1.22+ already fixes
+	// the historical loop-variable trap; go.mod declares go 1.26.0).
+	go func(p, ew string, s pdfOpener, a eventEmitter, w *sync.WaitGroup) {
+		defer w.Done()
+		docInfo, err := s.OpenFile(p)
+		if err != nil {
+			a.Emit("document:error", map[string]any{
+				"message": err.Error(),
+			})
+			return
+		}
+		root, err := s.GetTreeRoot(docInfo.TabID)
+		if err != nil {
+			_ = s.CloseDocument(docInfo.TabID)
+			a.Emit("document:error", map[string]any{
+				"message": err.Error(),
+			})
+			return
+		}
+		children, err := s.GetChildren(docInfo.TabID, "root")
+		if err != nil {
+			log.Printf("warning: failed to get root children for tab %s: %v", docInfo.TabID, err)
+		}
+		payload := map[string]any{
+			"tabId":        docInfo.TabID,
+			"fileName":     docInfo.FileName,
+			"filePath":     docInfo.FilePath,
+			"pageCount":    docInfo.PageCount,
+			"fileSize":     docInfo.FileSize,
+			"rootNode":     root,
+			"rootChildren": children,
+		}
+		warnings := make([]string, 0, 2)
+		if docInfo.Error != "" {
+			warnings = append(warnings, docInfo.Error)
+		}
+		if ew != "" {
+			warnings = append(warnings, ew)
+		}
+		if len(warnings) > 0 {
+			payload["warning"] = strings.Join(warnings, " ")
+		}
+		a.Emit("document:opened", payload)
+	}(path, extraWarning, svc, emitter, wg)
 }
 
 // onSplashDismiss is the success-path dismissal handler for the startup
@@ -191,8 +237,22 @@ func main() {
 	// openFileAndEmit handles the shared logic for opening a PDF and emitting
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
+	//
+	// Story 10-5 AC8: openFileAndEmitWithWarning now dispatches the pdfcpu
+	// read to a goroutine. Single-file entry points (menu / file-drop /
+	// single-instance / file-association) wrap with a local WaitGroup +
+	// wg.Wait() so callers preserve their synchronous-completion contract.
+	// Without this Wait, callers would return to the event loop before the
+	// document opens, breaking the implicit "first call after Open succeeds
+	// returns the new tab" assumption.
 	openFileAndEmit = func(path string) {
-		openFileAndEmitWithWarning(pdfService, app, path, "")
+		// AC9 code shape: wg.Add(1) is called by the caller before invoking
+		// openFileAndEmitWithWarning; the launched goroutine inside calls
+		// wg.Done() on completion.
+		var wg sync.WaitGroup
+		wg.Add(1)
+		openFileAndEmitWithWarning(&pdfService, app.Event, path, "", &wg)
+		wg.Wait()
 	}
 
 	// batchCancelled is checked between iterations of openFilesBatch.
@@ -228,6 +288,14 @@ func main() {
 				"total": len(pdfPaths),
 			})
 		}
+		// Story 10-5 AC9: sequential dispatch at the file boundary.
+		// Local WaitGroup; wg.Add(1) before each call (AC9 code shape);
+		// wg.Wait() per iteration enforces "one file at a time" (pdfcpu's
+		// ReadContextFile is not documented as concurrent-safe across
+		// DIFFERENT files). The per-iteration Wait sits BEFORE the next
+		// iteration's batchCancelled.Load() check, so cancel skips remaining
+		// un-kicked files but does NOT preempt the in-flight read.
+		var wg sync.WaitGroup
 		for i, p := range pdfPaths {
 			if batchCancelled.Load() {
 				break
@@ -238,9 +306,16 @@ func main() {
 			if i == len(pdfPaths)-1 {
 				extra = unsupportedMsg
 			}
-			openFileAndEmitWithWarning(pdfService, app, p, extra)
+			wg.Add(1)
+			openFileAndEmitWithWarning(&pdfService, app.Event, p, extra, &wg)
+			wg.Wait() // serialize at file boundary
 		}
 		if len(pdfPaths) > 1 {
+			// Defensive final Wait. By the per-iteration Wait above the
+			// WaitGroup is already drained; this explicit Wait makes the
+			// contract obvious and survives future refactors that move the
+			// Wait out of the loop.
+			wg.Wait()
 			app.Event.Emit("document:batch-complete", nil)
 		}
 	}

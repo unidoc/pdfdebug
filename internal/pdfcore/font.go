@@ -50,6 +50,10 @@ func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Font detail extraction walks
+	// /FontDescriptor, /Encoding, /DescendantFonts via Dereference.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {

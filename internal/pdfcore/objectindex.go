@@ -21,6 +21,11 @@ func (ins *Inspector) GetObjectIndex(tabID string) ([]*ObjectIndexEntry, error) 
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Outer lock; objectIndexMu (inner) guards
+	// the cache. buildObjectIndex walks XRefTable.Table and dereferences
+	// indirect refs to compute the reachable set.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	doc.objectIndexMu.Lock()
 	defer doc.objectIndexMu.Unlock()

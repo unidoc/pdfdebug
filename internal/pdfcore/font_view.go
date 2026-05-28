@@ -32,6 +32,10 @@ func (ins *Inspector) GetFontView(tabID, nodeID string) (*FontView, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. buildFontDetailFromDict and
+	// buildFontRoster both dereference indirect refs.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {

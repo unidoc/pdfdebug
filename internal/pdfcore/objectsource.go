@@ -51,6 +51,10 @@ func (ins *Inspector) GetObjectSource(tabID, nodeID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// AC1: serialize pdfcpu access. resolveNodeObject + the writeDict/writeArray
+	// walk dereference indirect refs through pdfcpu.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	// The catalog tree node uses sentinel ID "root" but IS a real indirect
 	// object. Map "root" to the catalog's indirect identity (via the trailer's
