@@ -1286,3 +1286,104 @@ func TestGetFontDetail_ErrorNodeIDReturnsSentinel(t *testing.T) {
 		t.Errorf("error: nodeID -> %v, want ErrNotAFont", err)
 	}
 }
+
+// TestParseDifferencesOutOfRange verifies the AC5 bounds guard at
+// internal/pdfcore/font.go: integers outside 0..255 in a /Differences array
+// (e.g. typos or merge-conflict residue) cause subsequent Name entries to
+// be skipped silently rather than leaking rows into the encoding table.
+func TestParseDifferencesOutOfRange(t *testing.T) {
+	// Synthesized /Differences array per AC5: [-1 /a 999 /b 32 /space 65 /A].
+	// Pre-fix: /a leaks at code -1, /b leaks at code 999, /space lands at 32,
+	// /A lands at 65. Post-fix: only /space at 32 and /A at 65 survive.
+	arr := pdfcpu_types.Array{
+		pdfcpu_types.Integer(-1),
+		pdfcpu_types.Name("a"),
+		pdfcpu_types.Integer(999),
+		pdfcpu_types.Name("b"),
+		pdfcpu_types.Integer(32),
+		pdfcpu_types.Name("space"),
+		pdfcpu_types.Integer(65),
+		pdfcpu_types.Name("A"),
+	}
+	out := parseDifferences(arr)
+	want := map[int]string{
+		32: "/space",
+		65: "/A",
+	}
+	if len(out) != len(want) {
+		t.Fatalf("parseDifferences returned %d entries, want %d (only in-range codes 32 and 65 survive). got=%+v", len(out), len(want), out)
+	}
+	for _, d := range out {
+		if d.Code < 0 || d.Code > 255 {
+			t.Errorf("parseDifferences leaked out-of-range code %d (AC5: skip silently)", d.Code)
+		}
+		if got, ok := want[d.Code]; !ok || got != d.GlyphName {
+			t.Errorf("parseDifferences code=%d glyph=%q, want code=%d glyph=%q", d.Code, d.GlyphName, d.Code, got)
+		}
+	}
+}
+
+// TestParseBfrangeCarry verifies the AC6 carry implementation across three
+// cases: (a) trailing-unit carry propagates into a higher UTF-16 unit;
+// (b) single-unit base whose leading unit overflows stops the loop without
+// wraparound; (c) the existing pre-loop span-cap rejection still returns an
+// error (regression for the unchanged path).
+func TestParseBfrangeCarry(t *testing.T) {
+	t.Run("trailing carry into higher unit", func(t *testing.T) {
+		// base <00FFFFFE> = units [0x00FF, 0xFFFE]. low <00>, high <03>.
+		// delta=0: [00FF FFFE] -> U+00FF U+FFFE
+		// delta=1: trailing FFFE+1=FFFF, no carry. [00FF FFFF]
+		// delta=2: trailing FFFE+2=10000, carry 1, leading 00FF+1=0100. [0100 0000]
+		// delta=3: trailing FFFE+3=10001, carry 1, leading 0100. [0100 0001]
+		cmap := []byte("beginbfrange\n<00> <03> <00FFFFFE>\nendbfrange\n")
+		mappings, err := parseToUnicodeCMap(cmap)
+		if err != nil {
+			t.Fatalf("parseToUnicodeCMap: %v", err)
+		}
+		if len(mappings) != 4 {
+			t.Fatalf("len(mappings) = %d, want 4", len(mappings))
+		}
+		wants := []string{"U+00FF U+FFFE", "U+00FF U+FFFF", "U+0100 U+0000", "U+0100 U+0001"}
+		for i, w := range wants {
+			if mappings[i].Unicode != w {
+				t.Errorf("mappings[%d].Unicode = %q, want %q", i, mappings[i].Unicode, w)
+			}
+		}
+	})
+
+	t.Run("single-unit leading overflow stops loop", func(t *testing.T) {
+		// base <FFFE> = single unit [0xFFFE]. low <00>, high <02>.
+		// delta=0: [FFFE] -> U+FFFE
+		// delta=1: FFFE+1=FFFF -> [FFFF] -> U+FFFF
+		// delta=2: FFFE+2=10000, carry 1, no higher unit -> stop.
+		// Expect 2 mappings emitted, no third.
+		cmap := []byte("beginbfrange\n<00> <02> <FFFE>\nendbfrange\n")
+		mappings, err := parseToUnicodeCMap(cmap)
+		if err != nil {
+			t.Fatalf("parseToUnicodeCMap: %v", err)
+		}
+		if len(mappings) != 2 {
+			t.Fatalf("len(mappings) = %d, want 2 (leading-unit overflow stops emission)", len(mappings))
+		}
+		if mappings[0].Unicode != "U+FFFE" {
+			t.Errorf("mappings[0].Unicode = %q, want U+FFFE", mappings[0].Unicode)
+		}
+		if mappings[1].Unicode != "U+FFFF" {
+			t.Errorf("mappings[1].Unicode = %q, want U+FFFF", mappings[1].Unicode)
+		}
+	})
+
+	t.Run("pre-loop span cap unchanged", func(t *testing.T) {
+		// span > maxBfrangeSpan must still error (regression for the
+		// unchanged pre-loop check at font.go:730).
+		var b strings.Builder
+		b.WriteString("beginbfrange\n<00000000> <00020000> <0000>\nendbfrange\n")
+		_, err := parseToUnicodeCMap([]byte(b.String()))
+		if err == nil {
+			t.Fatal("expected error for span > maxBfrangeSpan, got nil")
+		}
+		if !strings.Contains(err.Error(), "exceeds cap") {
+			t.Errorf("error = %v, want message mentioning the span cap", err)
+		}
+	})
+}

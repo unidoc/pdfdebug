@@ -201,7 +201,8 @@ func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 }
 
 // TestGetPlainTextAsyncGetPlainTextSize verifies 10-1-INTG-005 / AC19:
-// happy path returns matching os.Stat size; file-moved returns an error.
+// happy path returns the stat-at-Open size; file-moved returns the cached
+// size without error (Story 10.6 AC7 changed the file-moved contract).
 func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	// Happy path: open a real fixture, assert size matches.
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
@@ -217,9 +218,8 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 		t.Errorf("GetPlainTextSize = %d, want %d", gotSize, fi.Size())
 	}
 
-	// File-moved path: open from a temp location, remove the file, assert an
-	// error surfaces. (We do NOT assert the specific error type -- the story
-	// says "returns the os.Stat error" without sentinel mapping.)
+	// File-moved path: open from a temp location, remove the file, assert the
+	// cached size is returned without error (Story 10.6 AC7: no re-stat).
 	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {
@@ -243,11 +243,16 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	}
 	defer func() { _ = ins2.Close(tabID2) }()
 
+	wantSize := int64(len(src))
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if _, err := ins2.GetPlainTextSize(tabID2); err == nil {
-		t.Errorf("GetPlainTextSize on moved file: expected error, got nil")
+	got, err := ins2.GetPlainTextSize(tabID2)
+	if err != nil {
+		t.Errorf("GetPlainTextSize on moved file: expected nil error (Story 10.6 AC7), got %v", err)
+	}
+	if got != wantSize {
+		t.Errorf("GetPlainTextSize on moved file = %d, want cached %d", got, wantSize)
 	}
 }
 

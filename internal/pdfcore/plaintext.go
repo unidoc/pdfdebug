@@ -76,7 +76,7 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 	var out *PlainTextDocument
 	err = safeCall(func() error {
 		var e error
-		out, e = readPlainText(ctx, doc.FilePath, tabID)
+		out, e = readPlainText(ctx, doc.FilePath, doc.FileSize, tabID)
 		return e
 	})
 	if err != nil {
@@ -116,32 +116,32 @@ func (ins *Inspector) CancelPlainText(tabID string) error {
 	return nil
 }
 
-// GetPlainTextSize returns the on-disk byte size of the PDF backing tabID via
-// os.Stat. Powers the AC2 loading-card size disclosure. No mutex coverage; no
-// caching. Returns ErrDocumentNotFound for unknown tabs; surfaces the raw
-// os.Stat error when the file moves post-Open. Story 10-1.
+// GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
+// Powers the AC2 loading-card size disclosure. Returns the size captured at Open
+// time; subsequent moves/deletions of the underlying file do not affect this
+// value (Story 10.6 AC7 removed the redundant re-stat). Returns
+// ErrDocumentNotFound for unknown tabs.
 func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return 0, err
 	}
-	fi, err := os.Stat(doc.FilePath)
-	if err != nil {
-		return 0, err
-	}
-	return fi.Size(), nil
+	return doc.FileSize, nil
 }
 
 // readPlainText performs the cancellable chunked read of path, Latin-1-decodes
-// the result, and returns the payload. Returns ctx.Err() (context.Canceled)
-// when cancellation is observed between chunks -- the caller must NOT wrap
-// this through wrapPDFError.
-func readPlainText(ctx context.Context, path, tabID string) (*PlainTextDocument, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	totalBytes := fi.Size()
+// the result, and returns the payload. The caller (GetPlainText) passes the
+// stat-at-Open size threaded through doc.FileSize so no in-function os.Stat
+// is needed (Story 10.6 AC7). Returns ctx.Err() (context.Canceled) when
+// cancellation is observed between chunks -- the caller must NOT wrap this
+// through wrapPDFError.
+//
+// If the underlying file grows between Open and this call, the buffer cap
+// under-allocates and append() handles reallocation correctly (the 4 GiB
+// ceiling still uses the cached size, so a file that grows past the ceiling
+// post-Open is read up to whatever bytes are produced by the read loop).
+func readPlainText(ctx context.Context, path string, size int64, tabID string) (*PlainTextDocument, error) {
+	totalBytes := size
 
 	// 4 GiB ceiling: protect 32-bit int overflow + single-allocation OOM.
 	// Files at the ceiling fail before any read; the wrap chain surfaces
@@ -214,12 +214,14 @@ func readPlainText(ctx context.Context, path, tabID string) (*PlainTextDocument,
 	}, nil
 }
 
-// latin1Decode maps each input byte to its Unicode codepoint via rune(b),
-// replacing forbidden control bytes with U+FFFD. Permitted whitespace bytes
-// are 0x09 (TAB), 0x0A (LF), 0x0D (CR); everything else under 0x20 is
-// replaced. 0x7F (DEL) is also replaced. Form-feed 0x0C IS replaced (AC6).
-// Go's `string(byteSlice)` produces UTF-8, which would mojibake non-ASCII
-// bytes; the byte-by-byte rune cast is the lossless path.
+// latin1Decode maps each input byte to its Unicode codepoint via rune(b).
+// Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except 0x09 TAB,
+// 0x0A LF, 0x0D CR; form-feed 0x0C IS replaced per Story 10-1 AC6) and to
+// 0x7F (DEL). C1 controls (0x80-0x9F) and all other Latin-1 supplement bytes
+// (0xA0-0xFF) map verbatim -- the Latin-1 decode path is intentionally
+// lossless for stream bytes so users debugging a PDF see what's actually
+// there. Go's `string(byteSlice)` produces UTF-8, which would mojibake
+// non-ASCII bytes; the byte-by-byte rune cast is the lossless path.
 func latin1Decode(b []byte) string {
 	var sb strings.Builder
 	sb.Grow(len(b))

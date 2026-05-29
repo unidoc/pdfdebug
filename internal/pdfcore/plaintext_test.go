@@ -251,3 +251,113 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 		t.Errorf("expected error, got nil")
 	}
 }
+
+// TestLatin1DecodeFullRange pins the byte-for-codepoint contract of
+// latin1Decode for every byte 0x00..0xFF (Story 10.6 AC4). C1 controls
+// (0x80-0x9F) and the rest of the Latin-1 supplement (0xA0-0xFF) map verbatim
+// via rune(b). Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except
+// TAB / LF / CR; form-feed IS replaced) and to 0x7F (DEL). Direct call -- no
+// fixture needed for the per-byte contract.
+func TestLatin1DecodeFullRange(t *testing.T) {
+	in := make([]byte, 256)
+	for i := range in {
+		in[i] = byte(i)
+	}
+	got := latin1Decode(in)
+	runes := []rune(got)
+	if len(runes) != 256 {
+		t.Fatalf("len(runes) = %d, want 256", len(runes))
+	}
+	for i, r := range runes {
+		b := byte(i)
+		var want rune
+		switch {
+		case b == 0x09 || b == 0x0A || b == 0x0D:
+			want = rune(b)
+		case b >= 0x20 && b != 0x7F:
+			// Includes the full 0x80-0x9F C1 control range and 0xA0-0xFF.
+			want = rune(b)
+		default:
+			want = '�'
+		}
+		if r != want {
+			t.Errorf("byte 0x%02X decoded to U+%04X, want U+%04X", b, r, want)
+		}
+	}
+}
+
+// TestGetPlainTextSizeAfterRemove verifies the AC7 contract change: after
+// Inspector.Open captures FileSize once via os.Stat, removing the file does
+// not invalidate the size. GetPlainTextSize returns the cached value without
+// error.
+func TestGetPlainTextSizeAfterRemove(t *testing.T) {
+	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
+	src, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("read minimal.pdf: %v", err)
+	}
+	tmp, err := os.CreateTemp("", "pdfcore-10-6-size-remove-*.pdf")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := tmp.Write(src); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_ = tmp.Close()
+	path := tmp.Name()
+
+	ins := NewInspector()
+	tabID := "tab-10-6-size-remove"
+	if _, err := ins.Open(tabID, path); err != nil {
+		_ = os.Remove(path)
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+
+	wantSize := int64(len(src))
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	got, err := ins.GetPlainTextSize(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainTextSize after remove: expected nil error (AC7), got %v", err)
+	}
+	if got != wantSize {
+		t.Errorf("GetPlainTextSize after remove = %d, want cached %d", got, wantSize)
+	}
+}
+
+// TestGetPlainTextLatin1C1 is the AC4 integration test: open the
+// testdata/correctness/latin1-c1.pdf fixture (content stream = 32 C1-control
+// bytes 0x80..0x9F) and assert the C1 region maps verbatim in GetPlainText.
+func TestGetPlainTextLatin1C1(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-10-6-c1"
+	path := filepath.Join(testdataDir(t), "correctness", "latin1-c1.pdf")
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+
+	pt, err := ins.GetPlainText(tabID)
+	if err != nil {
+		t.Fatalf("GetPlainText: %v", err)
+	}
+	// The plain-text view returns the entire file bytes Latin-1-decoded.
+	// Assert every C1 control codepoint U+0080..U+009F appears in the
+	// output exactly where the fixture's content stream placed them.
+	for cp := rune(0x80); cp <= 0x9F; cp++ {
+		if !strings.ContainsRune(pt.Content, cp) {
+			t.Errorf("plain-text view missing codepoint U+%04X (C1 control should map verbatim from byte 0x%02X)", cp, cp)
+		}
+	}
+	// Also assert no U+FFFD leaked in for those bytes.
+	if strings.ContainsRune(pt.Content, '�') {
+		// The fixture content stream is only C1 bytes plus structural PDF
+		// bytes; if a U+FFFD shows up it must come from a structural byte
+		// like 0x00..0x1F that the fixture author did not include. Locate
+		// the offending byte.
+		idx := strings.IndexRune(pt.Content, '�')
+		t.Errorf("plain-text view contains U+FFFD at offset %d (AC4: C1 region must map verbatim, not via the replacement table)", idx)
+	}
+}

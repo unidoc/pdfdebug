@@ -40,6 +40,11 @@ type DocumentState struct {
 	FilePath   string
 	PDFContext *pdfcpu_model.Context
 	PageCount  int
+	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat
+	// (Story 10.6 AC7). Surfaced by Inspector.GetPlainTextSize directly (no
+	// re-stat) and threaded into readPlainText for the buffer pre-size. If the
+	// underlying file is moved or deleted after Open, this value is unchanged.
+	FileSize int64
 
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
@@ -164,9 +169,12 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	}
 
 	doc := &DocumentState{
-		FilePath:    absPath,
-		PDFContext:  ctx,
-		PageCount:   pageCount,
+		FilePath:   absPath,
+		PDFContext: ctx,
+		PageCount:  pageCount,
+
+		FileSize: fileSize,
+
 		streamCache: make(map[string]*ContentStreamData),
 	}
 
@@ -320,15 +328,15 @@ func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, erro
 	case pdfcpu_types.StreamDict:
 		detail.Type = "stream"
 		detail.Properties = buildPropertyEntries(v.Dict)
-		detail.StreamInfo = extractStreamInfo(obj)
+		detail.StreamInfo = extractStreamInfo(doc, obj)
 	case pdfcpu_types.ObjectStreamDict:
 		detail.Type = "stream"
 		detail.Properties = buildPropertyEntries(v.StreamDict.Dict)
-		detail.StreamInfo = extractStreamInfo(obj)
+		detail.StreamInfo = extractStreamInfo(doc, obj)
 	case pdfcpu_types.XRefStreamDict:
 		detail.Type = "stream"
 		detail.Properties = buildPropertyEntries(v.StreamDict.Dict)
-		detail.StreamInfo = extractStreamInfo(obj)
+		detail.StreamInfo = extractStreamInfo(doc, obj)
 	case pdfcpu_types.Dict:
 		detail.Type = "dict"
 		detail.Properties = buildPropertyEntries(v)
@@ -384,7 +392,20 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 	}
 }
 
-func extractStreamInfo(obj pdfcpu_types.Object) *StreamInfo {
+// extractStreamInfo distills a StreamInfo IPC payload from a pdfcpu stream
+// object. Length resolution order:
+//
+//  1. sd.StreamLength populated by pdfcpu's reader -- use directly.
+//  2. sd.StreamLength nil AND sd.Dict["Length"] is an Integer -- use directly.
+//  3. sd.StreamLength nil AND sd.Dict["Length"] is an IndirectRef -- resolve
+//     via doc.PDFContext.Dereference (caller MUST hold doc.pdfMu; the only
+//     call site is GetObjectDetail, which acquires pdfMu before invoking).
+//
+// Story 10.6 AC3: the prior single-arg signature could not reach pdfcpu's
+// Dereference so streams with an indirect /Length whose StreamLength field was
+// left nil (a corner the spec permits and pdfcpu's older reads occasionally
+// expose) reported Length=0 in the inspector UI.
+func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo {
 	var sd pdfcpu_types.StreamDict
 	switch v := obj.(type) {
 	case pdfcpu_types.StreamDict:
@@ -404,6 +425,31 @@ func extractStreamInfo(obj pdfcpu_types.Object) *StreamInfo {
 
 	if sd.StreamLength != nil {
 		info.Length = *sd.StreamLength
+	} else if lenObj, ok := sd.Dict["Length"]; ok {
+		// AC3 fallback: pdfcpu sometimes leaves StreamLength nil even when the
+		// dict carries a usable /Length. Honor the Integer form directly; for
+		// the IndirectRef form, dereference via doc.PDFContext.
+		switch lv := lenObj.(type) {
+		case pdfcpu_types.Integer:
+			info.Length = int64(lv)
+		case pdfcpu_types.IndirectRef:
+			if doc != nil && doc.PDFContext != nil {
+				// Wrap Dereference in safeCall: pdfcpu can panic with a string
+				// on malformed indirect /Length targets. extractStreamInfo runs
+				// OUTSIDE the safeCall in GetObjectDetail, so an uncaught panic
+				// here would propagate past the pdfservice boundary (which only
+				// catches runtime.Error, not string panics).
+				var resolved pdfcpu_types.Object
+				_ = safeCall(func() error {
+					var derefErr error
+					resolved, derefErr = doc.PDFContext.Dereference(lv)
+					return derefErr
+				})
+				if n, ok := resolved.(pdfcpu_types.Integer); ok {
+					info.Length = int64(n)
+				}
+			}
+		}
 	}
 
 	for _, f := range sd.FilterPipeline {
@@ -505,13 +551,12 @@ func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error)
 	visited := map[string]bool{"root": true}
 	queue := []queueEntry{{nodeID: "root", obj: rootDict, path: []string{"root"}, depth: 0}}
 
+	// AC2 (Story 10.6): no depth cap. The visited-set already prevents cycles;
+	// the prior depth guard made findPathToObject fail to surface
+	// legitimate-but-deep paths in PDFs with page-tree chains over 32 levels.
 	for len(queue) > 0 {
 		entry := queue[0]
 		queue = queue[1:]
-
-		if entry.depth >= maxRefDepth {
-			continue
-		}
 
 		switch v := entry.obj.(type) {
 		case pdfcpu_types.Dict:

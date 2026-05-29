@@ -99,6 +99,10 @@ func (ins *Inspector) GetChildren(tabID string, nodeID string) ([]*TreeNode, err
 }
 
 // maxRefDepth guards against circular IndirectRef chains in malformed PDFs.
+// Retained for buildChildren / page-tree expansion (the depth-cap removals in
+// buildReachableSet and findPathToObject by Story 10.6 do NOT change this
+// caller: buildChildren has no visited-set and relies on the cap to break
+// cycles at recursion time).
 const maxRefDepth = 32
 
 func buildChildren(doc *DocumentState, parentID string, obj pdfcpu_types.Object) []*TreeNode {
