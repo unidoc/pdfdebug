@@ -219,7 +219,9 @@ export function ContentStreamViewer({ raw, formatted, error, viewMode: controlle
   // If no formatted rows are available, force raw mode regardless of controlled value
   const effectiveMode: StreamViewMode = hasFormatted ? (controlledMode ?? 'formatted') : 'raw';
   const useFormatted = hasFormatted && effectiveMode === 'formatted';
-  const rawLines = raw ? raw.split('\n') : [];
+  // Split on CR, LF, or CRLF so CR-only (classic Mac) and CRLF (Windows) raw
+  // streams count line breaks the same way the backend tokenizer does (#5).
+  const rawLines = raw ? raw.split(/\r\n?|\n/) : [];
 
   // Gutter line count: number of formatted rows in formatted mode, source
   // byte-line count in raw mode. Padded so the gutter width is stable.

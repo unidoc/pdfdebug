@@ -3,6 +3,7 @@
  * using react-arborist with lazy child loading and cross-reference navigation.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
@@ -248,9 +249,13 @@ export function TreePanel() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // requestRef is a generation counter to cancel stale child-fetch responses
   const requestRef = useRef<number>(0);
-  // Refs mirror state for use inside async callbacks without stale closures
-  const selectedNodeIdRef = useRef<string | null>(null);
-  const treeDataRef = useRef<TreeNodeData[]>([]);
+  // Refs mirror state for use inside async callbacks without stale closures.
+  // useLatest keeps .current synced to the latest render value (#28); the
+  // imperative treeDataRef writes inside async flows below still apply because
+  // useLatest returns a stable ref and each one is paired with setTreeData of
+  // the same value, so render-phase mirroring never clobbers a fresher write.
+  const selectedNodeIdRef = useLatest(selectedNodeId);
+  const treeDataRef = useLatest(treeData);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
   const [, setFlashNodeId] = useState<string | null>(null);
   const flashNodeIdRef = useRef<string | null>(null);
@@ -295,7 +300,8 @@ export function TreePanel() {
       setTreeData([]);
       treeDataRef.current = [];
     }
-  }, [rootNode, rootChildren, activeTabId]);
+    // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
+  }, [rootNode, rootChildren, activeTabId, treeDataRef]);
 
   // Evict closed tabs from treeDataCache. Uses a stable string key derived
   // from tab IDs to avoid running on every reducer action (tabs is a new
@@ -310,10 +316,8 @@ export function TreePanel() {
     }
   }, [tabIdKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep ref in sync
-  useEffect(() => {
-    selectedNodeIdRef.current = selectedNodeId;
-  }, [selectedNodeId]);
+  // selectedNodeIdRef is now mirrored during render via useLatest (#28); the
+  // dedicated sync effect is no longer needed.
 
   // Cleanup pending timer on unmount
   useEffect(() => {
@@ -445,7 +449,8 @@ export function TreePanel() {
     })();
 
     return () => { cancelled = true; };
-  }, [pendingNavTarget, activeTabId, dispatch]);
+    // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
+  }, [pendingNavTarget, activeTabId, dispatch, treeDataRef]);
 
   // Auto-dismiss navError after 3 seconds
   useEffect(() => {
@@ -509,7 +514,8 @@ export function TreePanel() {
         }
       }
     }
-  }, [activeTabId]);
+    // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
+  }, [activeTabId, treeDataRef]);
 
   /** Dispatch SELECT_NODE on single-node selection. Uses backendId for API calls. */
   const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {
@@ -521,7 +527,8 @@ export function TreePanel() {
       type: 'SELECT_NODE',
       payload: { nodeId: node.data.backendId, label: node.data.name, rawKey: node.data.rawKey, iconHint: node.data.iconHint },
     });
-  }, [dispatch]);
+    // selectedNodeIdRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
+  }, [dispatch, selectedNodeIdRef]);
 
   // Map backendId to display id for react-arborist's selection prop
   function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {

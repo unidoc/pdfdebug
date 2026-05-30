@@ -12,6 +12,7 @@
  * 200 rows even for multi-GB payloads.
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useLatest } from '../hooks/useLatest';
 import { flushSync } from 'react-dom';
 import {
   GetPlainText,
@@ -90,12 +91,17 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Cache data as a ref so the fetch effect doesn't re-fire on data change.
-  const dataRef = useRef<PlainTextDocumentData | null>(null);
+  // useLatest mirrors `data` during render (#28); the imperative dataRef writes
+  // in the reset/resolve paths below still apply (useLatest returns a stable
+  // ref and each write is paired with the matching setData, so render-phase
+  // mirroring never disagrees with a fresher imperative write).
+  const dataRef = useLatest(data);
   const inFlightRef = useRef(false);
-  // tabId at the latest reset-effect run; the resolve/reject branches
-  // capture tabId at call time and compare against this ref before mutating
-  // state on a stale fetch (AC8).
-  const tabIdRef = useRef(tabId);
+  // tabId mirrored during render via useLatest (#28); the resolve/reject
+  // branches capture tabId at call time and compare against this ref before
+  // mutating state on a stale fetch (AC8). The imperative write in the reset
+  // effect is retained for clarity but is now redundant with useLatest.
+  const tabIdRef = useLatest(tabId);
   // Mirrors loadState for the lazy-fetch effect's guard so a terminal state
   // (cancelled / error) on the previous activation does not silently restart
   // when the user toggles back to the Plain Text inner tab. The fetch effect
@@ -118,7 +124,9 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     dataRef.current = null;
     inFlightRef.current = false;
     loadStateRef.current = 'idle';
-  }, [tabId]);
+    // dataRef / tabIdRef are stable useLatest refs (identity never changes);
+    // listed to satisfy exhaustive-deps without a disable.
+  }, [tabId, dataRef, tabIdRef]);
 
   /** Kicks the GetPlainText + GetPlainTextSize pair. Story 10-1 AC1, AC2, AC6, AC7. */
   const handleLoad = useCallback(() => {
@@ -178,7 +186,9 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
           setLoadState('error');
         }
       });
-  }, [tabId]);
+    // dataRef / tabIdRef are stable useLatest refs; listed to satisfy
+    // exhaustive-deps without a disable.
+  }, [tabId, dataRef, tabIdRef]);
 
   // Lazy fetch gated on `active`. Story 10-1 AC1. handleLoad is omitted from
   // deps (and loadState is too via the ref) because handleLoad already guards

@@ -8,6 +8,13 @@
  * offsets 0 and 2, not 3. The cursor advances by start + query.length.
  */
 
+// Self-import the module namespace so findMatches' internal call to
+// buildLineStartOffsets goes through the live ESM export binding. A bare local
+// call would be inlined by the bundler and could not be intercepted by
+// vi.spyOn(module, 'buildLineStartOffsets'); routing through the namespace lets
+// the AC5 test assert the internal build is skipped when offsets are supplied.
+import * as self from './findMatches';
+
 /** One literal substring hit in the corpus. */
 export interface Match {
   /** Code-unit offset where the match starts (inclusive). */
@@ -82,21 +89,33 @@ function hasNonLatin1(query: string): boolean {
  * `content`. Case-insensitive when `caseSensitive` is false. Returns an empty
  * array for empty query, empty corpus, query > corpus length, or any non-
  * Latin-1 codepoint in the query (AC12). Each Match carries 1-based line.
+ *
+ * `lineStartOffsets` and `haystack` are optional caller-supplied caches (#8,
+ * #20). When omitted the function rebuilds them internally (backward-
+ * compatible). When supplied, `haystack` MUST satisfy
+ * `haystack.length === content.length` so match offsets index identically into
+ * both -- true for the Latin-1 corpus where toLowerCase is length-preserving.
  */
-export function findMatches(content: string, query: string, caseSensitive: boolean): Match[] {
+export function findMatches(
+  content: string,
+  query: string,
+  caseSensitive: boolean,
+  lineStartOffsets?: number[],
+  haystack?: string,
+): Match[] {
   if (query === '' || content === '') return [];
   if (query.length > content.length) return [];
   if (hasNonLatin1(query)) return [];
 
-  const haystack = caseSensitive ? content : content.toLowerCase();
+  const searchSpace = haystack ?? (caseSensitive ? content : content.toLowerCase());
   const needle = caseSensitive ? query : query.toLowerCase();
-  const offsets = buildLineStartOffsets(content);
+  const offsets = lineStartOffsets ?? self.buildLineStartOffsets(content);
 
   const matches: Match[] = [];
   const step = needle.length;
   let from = 0;
-  while (from <= haystack.length - step) {
-    const idx = haystack.indexOf(needle, from);
+  while (from <= searchSpace.length - step) {
+    const idx = searchSpace.indexOf(needle, from);
     if (idx === -1) break;
     matches.push({
       start: idx,

@@ -6,9 +6,10 @@
  * own Esc handler to its DOM subtree so the Cmd+K palette's Esc handler is
  * not co-fired (Story 10-2 AC22).
  */
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { findMatches, buildLineStartOffsets, type Match } from '../lib/findMatches';
 import { getPlatformModifier } from '../lib/platform';
+import { useLatest } from './useLatest';
 
 /** Arguments accepted by {@link useFindBar}. */
 export interface UseFindBarArgs {
@@ -97,11 +98,24 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     [content],
   );
 
-  // Memoized match index. Empty when content is null.
+  // Memoized case-folded corpus (#20). On case-insensitive searches the
+  // corpus-wide toLowerCase() runs at most once per (content, caseSensitive)
+  // pair instead of once per keystroke. Latin-1 toLowerCase is length-
+  // preserving, so haystack.length === content.length and match offsets index
+  // identically into haystack and content (load-bearing invariant for line
+  // numbers, which are computed from lineStartOffsets built off content).
+  const haystack = useMemo(
+    () => (content === null ? '' : caseSensitive ? content : content.toLowerCase()),
+    [content, caseSensitive],
+  );
+
+  // Memoized match index. Empty when content is null. Passes the prebuilt
+  // offset table and haystack so findMatches skips its internal rebuild +
+  // toLowerCase (#8, #20).
   const matches = useMemo(() => {
     if (content === null) return [];
-    return findMatches(content, deferredQuery, caseSensitive);
-  }, [content, deferredQuery, caseSensitive]);
+    return findMatches(content, deferredQuery, caseSensitive, lineStartOffsets, haystack);
+  }, [content, deferredQuery, caseSensitive, lineStartOffsets, haystack]);
 
   const nonLatin1 = useMemo(() => detectNonLatin1(query), [query]);
 
@@ -117,56 +131,67 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     activeIndex: 0,
   });
 
-  // After every render, reconcile activeIndex with the new matches list per
-  // AC4 (query change -> reset to 0) and AC10 (case-toggle -> preserve by
-  // start offset). The current activeIndex sits in state; this effect-free
-  // reconciliation runs during render by reading prevDepsRef and adjusting
-  // activeIndex via a layout-effect-style guard if the dependencies changed.
-  //
-  // Strategy: detect query-change vs case-toggle-only based on prevDepsRef,
-  // compute the next activeIndex, and only setActiveIndex if it differs from
-  // current state.
-  const queryChanged = prevDepsRef.current.query !== deferredQuery;
-  const caseFlipped = prevDepsRef.current.caseSensitive !== caseSensitive;
+  // Live mirrors of matches + activeIndex. next/prev read these to see the
+  // latest list/index without re-binding; the reconciliation effect reads
+  // activeIndexRef so it observes the value navigation last committed even
+  // when next/prev changed no keyed dep (a snapshot would go stale).
+  const matchesRef = useLatest(matches);
+  const activeIndexRef = useLatest(activeIndex);
 
-  if (queryChanged || caseFlipped) {
+  // Reconcile activeIndex with the new matches list per AC4 (query change ->
+  // reset to 0) and AC10 (case-toggle -> preserve by start offset). Moved out
+  // of render (#7) into a single useLayoutEffect keyed on the recompute inputs
+  // so no prevDepsRef.current mutation happens during render. useLayoutEffect
+  // (not useEffect) so activeIndex is settled before paint -- the active-match
+  // highlight and the downstream auto-scroll both read it.
+  useLayoutEffect(() => {
+    const queryChanged = prevDepsRef.current.query !== deferredQuery;
+    const caseFlipped = prevDepsRef.current.caseSensitive !== caseSensitive;
+    if (!queryChanged && !caseFlipped) {
+      // matches changed without a query/case change (e.g. content swap):
+      // refresh the snapshot's matches so the next comparison is accurate.
+      // Clamp activeIndex to the new list: a shrunk-but-nonempty matches list
+      // would otherwise leave activeIndex past the end, surfacing as an
+      // "N of M" counter with N > M and a missing active-match highlight.
+      const current = activeIndexRef.current;
+      const clamped = matches.length === 0 ? 0 : Math.min(current, matches.length - 1);
+      prevDepsRef.current = {
+        query: deferredQuery,
+        caseSensitive,
+        matches,
+        activeIndex: clamped,
+      };
+      if (clamped !== current) {
+        setActiveIndex(clamped);
+      }
+      return;
+    }
+
     let nextIndex = 0;
     if (caseFlipped && !queryChanged) {
-      // AC10: preserve by start offset when surviving.
-      const prevStart = prevDepsRef.current.matches[prevDepsRef.current.activeIndex]?.start;
+      // AC10: preserve by start offset when surviving. Read the live
+      // activeIndex (post-navigation), not the prior snapshot's.
+      const prevStart = prevDepsRef.current.matches[activeIndexRef.current]?.start;
       if (prevStart !== undefined) {
         const found = matches.findIndex((m) => m.start === prevStart);
         nextIndex = found >= 0 ? found : 0;
       }
     }
-    // Snapshot for the next render.
     prevDepsRef.current = {
       query: deferredQuery,
       caseSensitive,
       matches,
       activeIndex: nextIndex,
     };
-    if (activeIndex !== nextIndex) {
-      // Schedule the activeIndex update for the next render so we don't loop
-      // inside render. setState is safe during render only when the value is
-      // a function of prior state; here we pass a plain value.
-      setActiveIndex(nextIndex);
-    }
-    // Also clear wrapped on a query change so the one-shot status from a
-    // prior navigation does not stick around.
-    if (queryChanged && wrapped !== null) {
+    setActiveIndex(nextIndex);
+    // Clear wrapped on a query change so a prior navigation's one-shot status
+    // does not stick around.
+    if (queryChanged) {
       setWrapped(null);
     }
-  } else {
-    // Update snapshot every render so the next change detection compares
-    // against the latest matches.
-    prevDepsRef.current = {
-      query: deferredQuery,
-      caseSensitive,
-      matches,
-      activeIndex,
-    };
-  }
+    // activeIndexRef is a stable ref; reading .current inside is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredQuery, caseSensitive, matches]);
 
   // Reset on document-tab change (AC11). Inner-tab toggle (active prop) does
   // NOT reset because PlainTextView stays mounted across inner-tab switches.
@@ -203,14 +228,6 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     setQueryState(q);
   }, []);
 
-  // matches is captured at hook level; next/prev wrap around its current
-  // length. We capture via a ref so the keystroke handlers below see the
-  // latest list without re-binding.
-  const matchesRef = useRef(matches);
-  matchesRef.current = matches;
-  const activeIndexRef = useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
-
   const next = useCallback(() => {
     const m = matchesRef.current;
     if (m.length === 0) return;
@@ -225,7 +242,9 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     } else {
       setWrapped(null);
     }
-  }, []);
+    // matchesRef / activeIndexRef are stable useLatest refs (identity never
+    // changes); listed so exhaustive-deps stays clean without a disable.
+  }, [matchesRef, activeIndexRef]);
 
   const prev = useCallback(() => {
     const m = matchesRef.current;
@@ -238,7 +257,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     } else {
       setWrapped(null);
     }
-  }, []);
+  }, [matchesRef, activeIndexRef]);
 
   // Stable refs for the keystroke handler so we don't tear down + rebind on
   // every render.
@@ -249,14 +268,10 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const prevRef = useRef(prev);
   prevRef.current = prev;
 
-  const openRef = useRef(open);
-  openRef.current = open;
-  const queryRef = useRef(query);
-  queryRef.current = query;
-  const openedOnceRef = useRef(openedOnce);
-  openedOnceRef.current = openedOnce;
-  const contentRef = useRef(content);
-  contentRef.current = content;
+  const openRef = useLatest(open);
+  const queryRef = useLatest(query);
+  const openedOnceRef = useLatest(openedOnce);
+  const contentRef = useLatest(content);
 
   // Window-level Cmd+F / Ctrl+F / F3 / Shift+F3 listener. Esc is handled in
   // the FindBar component (scoped to its own subtree per AC22).
@@ -309,7 +324,10 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [active]);
+    // openRef / queryRef / openedOnceRef / contentRef are stable useLatest refs
+    // (and openBarRef / nextRef / prevRef are stable useRef refs); only `active`
+    // re-binds the listener. Listed to satisfy exhaustive-deps without a disable.
+  }, [active, openRef, queryRef, openedOnceRef, contentRef]);
 
   return {
     open,
