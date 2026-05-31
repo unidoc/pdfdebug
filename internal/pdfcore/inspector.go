@@ -657,10 +657,10 @@ func objectRefFromNodeID(nodeID string) string {
 	if !strings.HasPrefix(nodeID, "obj:") {
 		return ""
 	}
-	kind, parentID, lastPart := parseNodeID(nodeID)
+	kind, genStr, numStr := parseNodeID(nodeID)
 	if kind != "obj" {
 		return ""
 	}
-	// parentID is gen, lastPart is num
-	return lastPart + " " + parentID + " R"
+	// genStr is the generation number, numStr is the object number
+	return numStr + " " + genStr + " R"
 }

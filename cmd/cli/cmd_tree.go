@@ -56,18 +56,11 @@ func execTreeDump(filePath string, maxDepth int) (exitCode int) {
 		}
 	}()
 
-	inspector := pdfcore.NewInspector()
-
-	info, err := inspector.Open("cli", filePath)
-	if err != nil {
-		return handleOpenError(err)
+	inspector, _, code := openForCLI(filePath)
+	if code != 0 {
+		return code
 	}
 	defer func() { _ = inspector.Close("cli") }()
-
-	// Non-fatal warning for structurally damaged but parseable PDFs.
-	if info.Error != "" {
-		writeJSONWarning(os.Stderr, info.Error)
-	}
 
 	root, err := inspector.GetTreeRoot("cli")
 	if err != nil {

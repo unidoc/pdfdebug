@@ -229,10 +229,10 @@ func formatIntWithCommas(n int) string {
 	}
 	first := len(digits) % 3
 	if first > 0 {
+		// The len(digits) <= 3 guard above ensures len(digits) >= 4 here, and
+		// first is at most 2, so a comma always follows the leading group.
 		b.WriteString(digits[:first])
-		if len(digits) > first {
-			b.WriteString(",")
-		}
+		b.WriteString(",")
 	}
 	for i := first; i < len(digits); i += 3 {
 		b.WriteString(digits[i : i+3])

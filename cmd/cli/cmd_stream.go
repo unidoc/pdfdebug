@@ -47,17 +47,11 @@ func execStreamDump(filePath string, pageNum int, raw bool) (exitCode int) {
 		}
 	}()
 
-	inspector := pdfcore.NewInspector()
-
-	info, err := inspector.Open("cli", filePath)
-	if err != nil {
-		return handleOpenError(err)
+	inspector, info, code := openForCLI(filePath)
+	if code != 0 {
+		return code
 	}
 	defer func() { _ = inspector.Close("cli") }()
-
-	if info.Error != "" {
-		writeJSONWarning(os.Stderr, info.Error)
-	}
 
 	if info.PageCount == 0 {
 		writeJSONError(os.Stderr, "cannot determine page count for this PDF")

@@ -8,8 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // runObjectDump executes the object dump command and returns the exit code.
@@ -76,17 +74,11 @@ func execObjectDump(filePath string, objNum, genNum int) (exitCode int) {
 		}
 	}()
 
-	inspector := pdfcore.NewInspector()
-
-	info, err := inspector.Open("cli", filePath)
-	if err != nil {
-		return handleOpenError(err)
+	inspector, _, code := openForCLI(filePath)
+	if code != 0 {
+		return code
 	}
 	defer func() { _ = inspector.Close("cli") }()
-
-	if info.Error != "" {
-		writeJSONWarning(os.Stderr, info.Error)
-	}
 
 	nodeID := fmt.Sprintf("obj:%d:%d", genNum, objNum)
 
