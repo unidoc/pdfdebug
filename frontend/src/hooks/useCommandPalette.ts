@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useAppState } from './useDocumentState';
+import { getPlatformModifier } from '../lib/platform';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -68,7 +69,10 @@ export function useCommandPalette(): { isOpen: boolean; open: () => void; close:
     }
     function handler(e: KeyboardEvent) {
       if (e.key !== 'k' && e.key !== 'K') return;
-      const mod = e.metaKey || e.ctrlKey;
+      // Platform-aware modifier: Cmd on macOS, Ctrl elsewhere. Mirrors
+      // useFindBar so Ctrl+K on macOS falls through to readline kill-to-EOL.
+      const wantsMeta = getPlatformModifier() === 'Cmd';
+      const mod = wantsMeta ? e.metaKey : e.ctrlKey;
       if (!mod) return;
       if (isInTextField(e.target)) return;
       e.preventDefault();

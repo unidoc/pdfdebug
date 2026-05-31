@@ -15,53 +15,19 @@ export interface EmptyStateProps {
 
 /**
  * Empty-state landing screen with a drag-and-drop zone and open-file button.
- * Validates that only PDF files are accepted during drag and on drop.
+ * The drop zone shows a static hint; the backend filters and validates dropped
+ * files and surfaces an advisory warning for unsupported ones after the drop.
  */
 export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isInvalidFile, setIsInvalidFile] = useState(false);
   // dragCounter tracks nested dragenter/dragleave pairs to avoid
   // premature reset when dragging over child elements.
   const dragCounter = useRef<number>(0);
-  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clean up pending timeout on unmount to avoid state updates after unmount
-  useEffect(() => {
-    return () => {
-      if (invalidTimerRef.current !== null) {
-        clearTimeout(invalidTimerRef.current);
-      }
-    };
-  }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     dragCounter.current += 1;
     setIsDragOver(true);
-
-    // Reset invalid state from a previous rejected drop whose 2-second timer
-    // may still be pending -- a new drag should start with a clean slate
-    setIsInvalidFile(false);
-    if (invalidTimerRef.current !== null) {
-      clearTimeout(invalidTimerRef.current);
-      invalidTimerRef.current = null;
-    }
-
-    // Check dataTransfer.items for file type if available
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      const hasKnownType = Array.from(e.dataTransfer.items).some(
-        (item) => item.type !== ''
-      );
-      if (hasKnownType) {
-        const hasPdf = Array.from(e.dataTransfer.items).some(
-          (item) => item.type === 'application/pdf'
-        );
-        if (!hasPdf) {
-          setIsInvalidFile(true);
-        }
-      }
-      // If no known types exposed, default to valid state (blue highlight)
-    }
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -78,7 +44,6 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
     }
     if (dragCounter.current === 0) {
       setIsDragOver(false);
-      setIsInvalidFile(false);
     }
   }, []);
 
@@ -90,26 +55,11 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
     e.preventDefault();
     dragCounter.current = 0;
     setIsDragOver(false);
-
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.toLowerCase().endsWith('.pdf')) {
-      setIsInvalidFile(false);
-      if (invalidTimerRef.current !== null) {
-        clearTimeout(invalidTimerRef.current);
-        invalidTimerRef.current = null;
-      }
-      // File is processed by the Wails runtime's native drop handler
-      // which emits WindowFilesDropped to the Go backend (main.go).
-    } else {
-      if (invalidTimerRef.current !== null) {
-        clearTimeout(invalidTimerRef.current);
-      }
-      setIsInvalidFile(true);
-      invalidTimerRef.current = setTimeout(() => {
-        setIsInvalidFile(false);
-        invalidTimerRef.current = null;
-      }, 2000);
-    }
+    // The dropped files are processed by the Wails runtime's native drop
+    // handler (main.go), which filters .pdf files and emits per-batch results.
+    // The backend's "N unsupported files could not be opened" advisory is the
+    // authoritative source of validation feedback -- the UI no longer guesses
+    // pre-drop, so no per-file flash is shown here.
   }, []);
 
   const dispatch = useAppDispatch();
@@ -219,16 +169,14 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   // Note: prefers-reduced-motion is handled by the global CSS rule in style.css
   // which overrides transition-duration with !important -- no separate
   // motion-reduce: Tailwind variants needed.
-  const dropZoneBorder =
-    isDragOver && !isInvalidFile
-      ? 'border-border-focus bg-surface-selected'
-      : isInvalidFile && isDragOver
-        ? 'border-border-focus'
-        : 'border-border';
+  const dropZoneBorder = isDragOver
+    ? 'border-border-focus bg-surface-selected'
+    : 'border-border';
 
-  // Hint text content and color
-  const hintText = isInvalidFile ? 'PDF files only' : 'Drop a PDF file here';
-  const hintColor = isInvalidFile ? 'text-error' : 'text-text-muted';
+  // Hint text content and color -- constant; the backend is authoritative for
+  // post-drop validation, so the UI never claims pre-drop knowledge.
+  const hintText = 'Drop a PDF file here';
+  const hintColor = 'text-text-muted';
 
   return (
     <div

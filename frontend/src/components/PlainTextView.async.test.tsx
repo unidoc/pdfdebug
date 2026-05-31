@@ -141,8 +141,8 @@ describe('10-1-UNIT-002: loading card structure (AC2)', () => {
     // AC2 size disclosure -- once GetPlainTextSize resolves (microtask flush).
     const sizeEl = screen.getByTestId('plain-text-loading-size');
     expect(sizeEl).toBeInTheDocument();
-    // 487 MiB -> "487 MB" via formatBytes integer-MB form.
-    expect(sizeEl.textContent).toContain('487 MB');
+    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form (Story 10.8 AC4).
+    expect(sizeEl.textContent).toContain('487.0 MB');
     // AC2 Cancel button with the literal "Cancel" label.
     const cancelBtn = screen.getByTestId('plain-text-cancel-button');
     expect(cancelBtn.textContent).toBe('Cancel');

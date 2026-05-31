@@ -280,3 +280,32 @@ func TestSplashMinDisplayAndTimeoutConstants(t *testing.T) {
 		t.Errorf("Timeout() = %v, want 30s", Timeout())
 	}
 }
+
+// 10.8-UNIT-007 [P2] AC5: the runtime-ready ping give-up branch must emit a
+// single diagnostic console.warn before clearInterval. The test layer cannot
+// execute the inline JS, so it grep-asserts the diagnostic SOURCE is present
+// in Render() output: the warn message fragment and the wailsShape payload key.
+//
+// RED PHASE: fails against the current splash.go give-up branch (the
+// `else if (tries > 50)` block) which only calls clearInterval(iv) with no
+// console.warn. Once the diagnostic is added, both fragments appear in the
+// rendered HTML template.
+func TestSplashRuntimeReadyGiveUpEmitsDiagnostic(t *testing.T) {
+	html := Render("0.0.0")
+
+	// The give-up warn message. AC5 specifies the rendered text fragment.
+	if !strings.Contains(html, "runtime-ready ping gave up after") {
+		t.Errorf("Render() output missing the give-up console.warn message fragment %q", "runtime-ready ping gave up after")
+	}
+
+	// The diagnostic payload object must carry the last-observed _wails shape
+	// under the wailsShape key so support can recover the runtime state.
+	if !strings.Contains(html, "wailsShape") {
+		t.Errorf("Render() output missing the %q diagnostic payload key", "wailsShape")
+	}
+
+	// The give-up branch must still clear the interval so the warn is one-shot.
+	if !strings.Contains(html, "clearInterval(iv)") {
+		t.Errorf("Render() output missing clearInterval(iv) in the runtime-ready ping")
+	}
+}

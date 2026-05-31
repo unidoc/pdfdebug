@@ -53,20 +53,22 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'cancelled' | 'error';
  * (KB/MB/GB, not KiB/MiB/GiB). Non-finite or negative inputs collapse to
  * "0 B".
  */
-function formatBytes(n: number): string {
+export function formatBytes(n: number): string {
   if (!Number.isFinite(n) || n < 0) {
     return '0 B';
   }
   if (n < 1024) {
     return `${n} B`;
   }
-  if (n < 1024 * 1024) {
+  // Promote across a unit boundary when 1-decimal rounding would otherwise
+  // render the full count of the lower unit (e.g. "1024.0 KB" -> "1.0 MB").
+  if (n < 1024 * 1024 && n / 1024 < 1023.95) {
     return `${(n / 1024).toFixed(1)} KB`;
   }
-  if (n < 1024 * 1024 * 1024) {
-    return `${Math.round(n / (1024 * 1024))} MB`;
+  if (n < 1024 * 1024 * 1024 && n / (1024 * 1024) < 1023.95) {
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   }
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /**
