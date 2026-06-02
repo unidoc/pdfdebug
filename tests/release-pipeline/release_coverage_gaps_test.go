@@ -406,7 +406,9 @@ func TestCLISmokeTestStep(t *testing.T) {
 // ---------------------------------------------------------------------------
 // SHA256SUMS integrity guard: asserts EXPECTED_FILES=6, line-count invariant,
 // and `shasum -a 256 -c` self-verify.
-// Covers Review #3 Medium (AC #7 "all 8 assets MUST be attached" invariant).
+// Covers Review #3 Medium (AC #7 "all 6 assets MUST be attached" invariant:
+// 3 platforms x 2 archives each -- a GUI archive that also embeds the CLI, plus
+// a standalone CLI archive; the bundled-in CLI is not a separate counted file).
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsIntegrityGuard(t *testing.T) {
