@@ -56,6 +56,52 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 	}
 }
 
+// GetPageNode resolves a 1-based page number to a fully-populated TreeNode for
+// that page's page dict (/Type /Page object), suitable for rooting a tree walk.
+// The returned node carries the page object's ObjectRef ("<num> <gen> R") and
+// TypeName so callers do not have to synthesize a bare stub. Returns an error
+// for out-of-range or non-existent pages (this is the authoritative
+// upper-bound check for page-rooted tree walks).
+func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, err
+	}
+	// PageDict mutates the pdfcpu page-resolution cache; serialize, same as
+	// GetPageContentStreamNodeID.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
+	var pageDict pdfcpu_types.Dict
+	var indRef *pdfcpu_types.IndirectRef
+	err = safeCall(func() error {
+		var e error
+		pageDict, indRef, _, e = doc.PDFContext.PageDict(pageNum, false)
+		return e
+	})
+	if err != nil {
+		return nil, wrapPDFError(err)
+	}
+	if pageDict == nil || indRef == nil {
+		return nil, fmt.Errorf("page %d not found", pageNum)
+	}
+
+	objNum := indRef.ObjectNumber.Value()
+	gen := indRef.GenerationNumber.Value()
+	nodeType, valueType, hasChildren, childCount := classifyObject(pageDict)
+	return &TreeNode{
+		ID:          fmt.Sprintf("obj:%d:%d", gen, objNum),
+		Label:       semanticLabel("", pageDict),
+		NodeType:    nodeType,
+		ValueType:   valueType,
+		HasChildren: hasChildren,
+		ChildCount:  childCount,
+		IconHint:    iconHint("", nodeType, pageDict),
+		ObjectRef:   fmt.Sprintf("%d %d R", objNum, gen),
+		TypeName:    extractTypeName(pageDict),
+	}, nil
+}
+
 // GetContentStream decodes and returns the content stream data for the given
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.

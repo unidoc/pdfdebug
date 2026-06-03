@@ -67,8 +67,29 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump stream [--json] --page N <file>    Dump page content stream")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Flags:")
+	_, _ = fmt.Fprintln(w, "  --pretty    Indent JSON output (default is compact single-line)")
 	_, _ = fmt.Fprintln(w, "  --help      Show this help message")
 	_, _ = fmt.Fprintln(w, "  --version   Show version information")
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "Examples:")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --page 1 file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump object --ref \"4654 0 R\" file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump stream --page 1 file.pdf")
+}
+
+// emit writes v as JSON to w: compact single-line when pretty is false (the
+// default, agent-friendly), or indented multi-line when pretty is true.
+func emit(w io.Writer, v any, pretty bool) error {
+	if pretty {
+		b, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(append(b, '\n'))
+		return err
+	}
+	return json.NewEncoder(w).Encode(v)
 }
 
 // writeJSONError writes a JSON error object to w.
@@ -81,14 +102,31 @@ func writeJSONWarning(w io.Writer, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"warning": msg})
 }
 
+// dumpFlags holds the parsed common flags for the tree dump subcommand.
+type dumpFlags struct {
+	json    bool
+	depth   int
+	pretty  bool
+	page    int
+	pageSet bool // true when --page was explicitly provided (distinguishes --page 0 from absent)
+}
+
 // parseDumpFlags creates a FlagSet for dump subcommands with common flags.
-func parseDumpFlags(name string, args []string) (*flag.FlagSet, bool, int, error) {
+func parseDumpFlags(name string, args []string) (*flag.FlagSet, dumpFlags, error) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard) // suppress default flag error output
 	jsonFlag := fs.Bool("json", false, "Output as JSON (default, always on)")
 	depthFlag := fs.Int("depth", 0, "Max tree depth (0 = unlimited)")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
+	pageFlag := fs.Int("page", 0, "Root the tree at page N's dict (1-based; 0 = catalog)")
 	if err := fs.Parse(args); err != nil {
-		return fs, false, 0, err
+		return fs, dumpFlags{}, err
 	}
-	return fs, *jsonFlag, *depthFlag, nil
+	pageSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "page" {
+			pageSet = true
+		}
+	})
+	return fs, dumpFlags{json: *jsonFlag, depth: *depthFlag, pretty: *prettyFlag, page: *pageFlag, pageSet: pageSet}, nil
 }

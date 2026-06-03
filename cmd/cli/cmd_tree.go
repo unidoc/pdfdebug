@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -20,34 +19,48 @@ type treeNodeOutput struct {
 	HasChildren bool              `json:"hasChildren"`
 	ChildCount  int               `json:"childCount"`
 	IconHint    string            `json:"iconHint,omitempty"`
+	PdfRef      string            `json:"pdfRef,omitempty"`
+	TypeName    string            `json:"typeName,omitempty"`
 	Error       string            `json:"error,omitempty"`
 	Children    []*treeNodeOutput `json:"children,omitempty"`
 }
 
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
-	fs, _, maxDepth, err := parseDumpFlags("dump tree", args)
+	fs, flags, err := parseDumpFlags("dump tree", args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--depth N] <file>\n")
+		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
 	// Reject negative depth; treat as user error rather than silently clamping.
-	if maxDepth < 0 {
+	if flags.depth < 0 {
 		writeJSONError(os.Stderr, "invalid --depth: must be >= 0")
+		return 1
+	}
+
+	// CLI-side lower-bound check, mirroring dump stream (--page < 1 -> exit 1).
+	// Only when --page was explicitly provided: an explicit --page 0 or negative
+	// is a usage error; an absent --page roots at the catalog.
+	if flags.pageSet && flags.page < 1 {
+		writeJSONError(os.Stderr, "invalid --page: must be >= 1 (pages are 1-based)")
 		return 1
 	}
 
 	filePath := fs.Arg(0)
 	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--depth N] <file>\n")
+		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
-	return execTreeDump(filePath, maxDepth)
+	pageNum := 0
+	if flags.pageSet {
+		pageNum = flags.page
+	}
+	return execTreeDump(filePath, flags.depth, pageNum, flags.pretty)
 }
 
-func execTreeDump(filePath string, maxDepth int) (exitCode int) {
+func execTreeDump(filePath string, maxDepth, pageNum int, pretty bool) (exitCode int) {
 	// Defense in depth: catch any escaping panics from pdfcpu.
 	defer func() {
 		if r := recover(); r != nil {
@@ -62,7 +75,15 @@ func execTreeDump(filePath string, maxDepth int) (exitCode int) {
 	}
 	defer func() { _ = inspector.Close("cli") }()
 
-	root, err := inspector.GetTreeRoot("cli")
+	var root *pdfcore.TreeNode
+	var err error
+	if pageNum > 0 {
+		// Page-rooted walk: resolve page N to its populated page-dict node.
+		// Out-of-range is reported by pdfcore -> runtime error, exit 2.
+		root, err = inspector.GetPageNode("cli", pageNum)
+	} else {
+		root, err = inspector.GetTreeRoot("cli")
+	}
 	if err != nil {
 		writeJSONError(os.Stderr, err.Error())
 		return 2
@@ -70,7 +91,7 @@ func execTreeDump(filePath string, maxDepth int) (exitCode int) {
 
 	visited := make(map[string]bool)
 	out := buildTree(inspector, "cli", root, 0, maxDepth, visited)
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+	if err := emit(os.Stdout, out, pretty); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
@@ -124,8 +145,15 @@ func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, dep
 	return out
 }
 
-// convertNode maps a pdfcore.TreeNode to the CLI output struct.
+// convertNode maps a pdfcore.TreeNode to the CLI output struct. pdfRef is
+// surfaced only for indirect-object nodes (id prefix "obj:"); the synthetic
+// catalog "root" node carries an ObjectRef internally but is not addressable as
+// "N G R", so AC1 requires it to omit pdfRef.
 func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
+	pdfRef := ""
+	if strings.HasPrefix(n.ID, "obj:") {
+		pdfRef = n.ObjectRef
+	}
 	return &treeNodeOutput{
 		ID:          n.ID,
 		Label:       n.Label,
@@ -135,6 +163,8 @@ func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 		HasChildren: n.HasChildren,
 		ChildCount:  n.ChildCount,
 		IconHint:    n.IconHint,
+		PdfRef:      pdfRef,
+		TypeName:    n.TypeName,
 		Error:       n.Error,
 	}
 }

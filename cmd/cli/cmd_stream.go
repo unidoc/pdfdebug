@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ func runStreamDump(args []string) int {
 	fs.SetOutput(io.Discard)
 	pageFlag := fs.Int("page", 0, "Page number (1-based)")
 	rawFlag := fs.Bool("raw", false, "Emit verbatim decoded bytes instead of JSON")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no-op with --raw)")
 	_ = fs.Bool("json", false, "Output as JSON (default, mutually exclusive with --raw)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump stream [--json|--raw] --page N <file>")
@@ -33,13 +33,13 @@ func runStreamDump(args []string) int {
 		return 1
 	}
 
-	return execStreamDump(filePath, *pageFlag, *rawFlag)
+	return execStreamDump(filePath, *pageFlag, *rawFlag, *prettyFlag)
 }
 
 // execStreamDump opens the PDF, resolves the page's content stream, and
 // writes either the decoded ContentStreamData as JSON (default) or the
 // verbatim decoded bytes (when raw is true) to stdout.
-func execStreamDump(filePath string, pageNum int, raw bool) (exitCode int) {
+func execStreamDump(filePath string, pageNum int, raw, pretty bool) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("internal error: %v", r))
@@ -74,7 +74,7 @@ func execStreamDump(filePath string, pageNum int, raw bool) (exitCode int) {
 			Raw:   "",
 			Error: "page has no content stream",
 		}
-		if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+		if err := emit(os.Stdout, result, pretty); err != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 			return 2
 		}
@@ -103,7 +103,7 @@ func execStreamDump(filePath string, pageNum int, raw bool) (exitCode int) {
 		return 0
 	}
 
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+	if err := emit(os.Stdout, result, pretty); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
