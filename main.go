@@ -15,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"unidoc-pdf-debugger/internal/clitool"
 	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pdfservice"
 	"unidoc-pdf-debugger/internal/splash"
@@ -25,6 +26,13 @@ import (
 // build/{darwin,linux,windows}/Taskfile.yml). Default `"dev"` applies to
 // untagged local builds.
 var version = "dev"
+
+// appName is the application's display name. It is BOTH the Wails app Name and
+// the macOS app-submenu label (Wails builds the app submenu via
+// NewSubMenuItem(options.Name)), so the Story 11.2 install item lookup
+// (menu.FindByLabel(appName)) MUST use the same literal -- a single source of
+// truth here prevents the menu item from silently vanishing on a rename.
+const appName = "UniDoc PDF Debugger"
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
@@ -183,6 +191,119 @@ func onSplashDismiss(app *application.App, splashWindow, mainWindow *application
 	})
 }
 
+// installedLinkPath returns the path of OUR installed pdfdebug symlink if one
+// already exists in any candidate dir (used to initialize the menu label and to
+// drive uninstall). Returns "" if not installed anywhere.
+func installedLinkPath() string {
+	for _, dir := range clitool.DefaultCandidateDirs() {
+		link := filepath.Join(dir, "pdfdebug")
+		if clitool.IsInstalled(link) {
+			return link
+		}
+	}
+	return ""
+}
+
+// runInstallCLI invokes the install package and presents the appropriate native
+// dialog for each typed result. On a confirmed-overwrite it re-invokes with the
+// Overwrite flag. After a successful install it flips the menu item to the
+// uninstall affordance. macOS-only (the menu item is gated to darwin).
+func runInstallCLI(app *application.App, installItem *application.MenuItem, overwrite bool) {
+	exe, err := clitool.RunningExecutablePath()
+	if err != nil {
+		app.Dialog.Error().
+			SetTitle("Install pdfdebug").
+			SetMessage("Could not locate the running application: " + err.Error()).
+			Show()
+		return
+	}
+
+	res, err := clitool.InstallCLI(clitool.Options{ExecutablePath: exe, Overwrite: overwrite})
+	if err != nil {
+		app.Dialog.Error().
+			SetTitle("Install pdfdebug").
+			SetMessage("Install failed: " + err.Error()).
+			Show()
+		return
+	}
+
+	switch r := res.(type) {
+	case clitool.Installed:
+		app.Dialog.Info().
+			SetTitle("pdfdebug is ready").
+			SetMessage("Installed at:\n" + r.Path + "\n\nOpen a NEW terminal window and try:\n  pdfdebug --version").
+			Show()
+		flipToUninstall(app, installItem, r.Path)
+	case clitool.NeedsPathHelp:
+		app.Dialog.Info().
+			SetTitle("Almost there -- add pdfdebug to your PATH").
+			SetMessage("pdfdebug was linked into:\n" + r.Dir + "\n\nThat directory is not on your PATH yet. Add this line to your shell profile (e.g. ~/.zshrc), then open a NEW terminal:\n\n  " + r.ExportLine + "\n\nThen run:\n  pdfdebug --version").
+			Show()
+		flipToUninstall(app, installItem, filepath.Join(r.Dir, "pdfdebug"))
+	case clitool.ConfirmOverwrite:
+		dialog := app.Dialog.Question().
+			SetTitle("Replace existing pdfdebug?").
+			SetMessage("An existing file is already at:\n" + r.LinkPath + "\n\nIt was not created by this app. Replace it with a link to the bundled pdfdebug?")
+		replace := dialog.AddButton("Replace")
+		cancel := dialog.AddButton("Cancel")
+		dialog.SetDefaultButton(cancel)
+		replace.OnClick(func() { runInstallCLI(app, installItem, true) })
+		dialog.Show()
+	case clitool.NotInBundle:
+		app.Dialog.Warning().
+			SetTitle("Install pdfdebug").
+			SetMessage("This command is only available when running the installed app. Run UniDoc PDF Debugger from /Applications (or wherever you installed the .app), then try again.").
+			Show()
+	}
+}
+
+// runUninstallCLI removes our symlink and flips the menu item back to the
+// install affordance.
+func runUninstallCLI(app *application.App, installItem *application.MenuItem, linkPath string) {
+	if err := clitool.UninstallCLI(linkPath); err != nil {
+		app.Dialog.Error().
+			SetTitle("Uninstall pdfdebug").
+			SetMessage("Uninstall failed: " + err.Error()).
+			Show()
+		return
+	}
+	app.Dialog.Info().
+		SetTitle("pdfdebug removed").
+		SetMessage("The pdfdebug command was removed from your PATH.").
+		Show()
+	flipToInstall(app, installItem)
+}
+
+// flipToUninstall mutates the retained menu item to the uninstall affordance.
+func flipToUninstall(app *application.App, installItem *application.MenuItem, linkPath string) {
+	installItem.SetLabel(clitool.UninstallMenuItemLabel)
+	installItem.OnClick(func(ctx *application.Context) {
+		runUninstallCLI(app, installItem, linkPath)
+	})
+}
+
+// flipToInstall mutates the retained menu item back to the install affordance.
+func flipToInstall(app *application.App, installItem *application.MenuItem) {
+	installItem.SetLabel(clitool.MenuItemLabel)
+	installItem.OnClick(func(ctx *application.Context) {
+		runInstallCLI(app, installItem, false)
+	})
+}
+
+// wireInstallCLIMenuItem appends the install item to the macOS app submenu,
+// initializes its label from the current installed state, and wires its click
+// handler. The retained *MenuItem is the runtime mutation target for the
+// install/uninstall label flip (the app menu is set once via
+// SetApplicationMenu). macOS-only; the caller gates on runtime.GOOS.
+func wireInstallCLIMenuItem(app *application.App, appSub *application.Menu) {
+	installItem := appSub.Add(clitool.MenuItemLabel)
+	if link := installedLinkPath(); link != "" {
+		flipToUninstall(app, installItem, link)
+	} else {
+		flipToInstall(app, installItem)
+	}
+}
+
 func main() {
 	// --version short-circuit: must run BEFORE application.New so that
 	// `unidoc-pdf-debugger --version` does not spin up a Wails webview/window
@@ -200,7 +321,7 @@ func main() {
 
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
-		Name:        "UniDoc PDF Debugger",
+		Name:        appName,
 		Description: "PDF structure inspector and debugger\n\nUniDoc ehf. -- https://unidoc.io",
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -339,6 +460,18 @@ func main() {
 
 	// macOS app menu (About, Services, Hide, Quit) -- AddRole is a no-op on non-macOS
 	menu.AddRole(application.AppMenu)
+
+	// Story 11.2: macOS-only "Install 'pdfdebug' Command in PATH..." item under
+	// the app menu. AddRole(AppMenu) returns the PARENT *Menu, not the app
+	// submenu, so the item is appended via FindByLabel(appName).GetSubmenu()
+	// (verified against Wails v3 alpha.95; see the story's Menu-API note).
+	if runtime.GOOS == "darwin" {
+		if appItem := menu.FindByLabel(appName); appItem != nil {
+			if appSub := appItem.GetSubmenu(); appSub != nil {
+				wireInstallCLIMenuItem(app, appSub)
+			}
+		}
+	}
 
 	// File menu
 	fileMenu := menu.AddSubmenu("File")
