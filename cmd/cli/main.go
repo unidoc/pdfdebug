@@ -43,6 +43,20 @@ func main() {
 			os.Exit(runObjectDump(remaining))
 		case "stream":
 			os.Exit(runStreamDump(remaining))
+		case "font":
+			os.Exit(runFontDump(remaining))
+		case "image":
+			os.Exit(runImageDump(remaining))
+		case "source":
+			os.Exit(runSourceDump(remaining))
+		case "reverserefs":
+			os.Exit(runReverseRefsDump(remaining))
+		case "xref":
+			os.Exit(runXRefDump(remaining))
+		case "objects":
+			os.Exit(runObjectsDump(remaining))
+		case "plaintext":
+			os.Exit(runPlaintextDump(remaining))
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown resource: %s\n", resource)
 			printUsage(os.Stderr)
@@ -62,9 +76,16 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Commands:")
-	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] <file>   Dump PDF object tree as JSON")
-	_, _ = fmt.Fprintln(w, "  dump object [--json] --ref \"N G R\" <file>  Dump a single PDF object")
-	_, _ = fmt.Fprintln(w, "  dump stream [--json] --page N <file>    Dump page content stream")
+	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] <file>        Dump PDF object tree as JSON")
+	_, _ = fmt.Fprintln(w, "  dump object [--json] --ref \"N G R\" <file>     Dump a single PDF object (singular)")
+	_, _ = fmt.Fprintln(w, "  dump stream [--json] --page N <file>         Dump page content stream")
+	_, _ = fmt.Fprintln(w, "  dump font --ref \"N G R\" <file>               Dump a font view (detail/roster/neither)")
+	_, _ = fmt.Fprintln(w, "  dump image [--metadata] --ref \"N G R\" <file> Dump image XObject data (--metadata omits base64)")
+	_, _ = fmt.Fprintln(w, "  dump source [--raw] --ref \"N G R\" <file>     Dump reserialized object source (PDF syntax)")
+	_, _ = fmt.Fprintln(w, "  dump reverserefs --ref \"N G R\" <file>        Dump inbound refs (who points at this object)")
+	_, _ = fmt.Fprintln(w, "  dump xref <file>                             Dump the cross-reference table")
+	_, _ = fmt.Fprintln(w, "  dump objects <file>                          Dump the object index (plural: every object)")
+	_, _ = fmt.Fprintln(w, "  dump plaintext [--json] <file>              Dump document bytes as text (raw by default)")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Flags:")
 	_, _ = fmt.Fprintln(w, "  --pretty    Indent JSON output (default is compact single-line)")
@@ -76,6 +97,10 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --page 1 file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump object --ref \"4654 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump stream --page 1 file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump reverserefs --ref \"4 0 R\" file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump image --metadata --ref \"4 0 R\" file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump plaintext --json file.pdf")
 }
 
 // emit writes v as JSON to w: compact single-line when pretty is false (the

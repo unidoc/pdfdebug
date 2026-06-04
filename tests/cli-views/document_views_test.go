@@ -1,0 +1,221 @@
+// Story 11.4: Expose existing pdfcore views as CLI commands -- RED PHASE.
+//
+// Document-level presenters (no --ref): xref, objects, plaintext. These MUST
+// FAIL against the current binary until Story 11-4 wires the new resources
+// into the dispatch switch. Black-box: build the CLI, run as a subprocess.
+//
+// Test level: Integration (Go) -- CLI binary build + execution. No browser.
+//
+// Covers: AC4 (xref + objects JSON), AC5 (plaintext raw byte-exact + --json
+// wrapper without the tabId leak).
+//
+// Run: cd tests/cli-views && go test -v -count=1 ./...
+package cli_views_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-009 [P1] (AC4): `dump xref minimal.pdf` emits the XRefTable JSON
+// (tabId + entries[]) with exit 0. Each entry carries objNum/gen/status, and
+// the nodeID JSON tag is capital-D "nodeID" (NOT "nodeId") -- verbatim from
+// the XRefEntry struct.
+// ---------------------------------------------------------------------------
+
+func TestXRefDump_ValidPDF_OutputsXRefTableJSON(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", pdfPath)
+
+	if exitCode != 0 {
+		t.Fatalf("[P1] 11.4-INTG-009: expected exit code 0, got %d", exitCode)
+	}
+
+	var table struct {
+		TabID   string                     `json:"tabId"`
+		Entries []map[string]json.RawMessage `json:"entries"`
+	}
+	mustParseJSON(t, stdout, &table)
+
+	if len(table.Entries) == 0 {
+		t.Fatalf("[P1] 11.4-INTG-009: expected at least one xref entry")
+	}
+	for _, key := range []string{"objNum", "gen", "status", "offset", "nodeID"} {
+		if _, ok := table.Entries[0][key]; !ok {
+			t.Errorf("[P1] 11.4-INTG-009: XRefEntry missing key %q (note: nodeID is capital-D)", key)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-010 [P1] (AC4): `dump objects minimal.pdf` emits the
+// []ObjectIndexEntry JSON array (one entry per object) with exit 0. Each entry
+// carries objNum/gen/typeName/free/reachable/nodeId. Distinct from the
+// singular `dump object` (which requires --ref).
+// ---------------------------------------------------------------------------
+
+func TestObjectsDump_ValidPDF_OutputsObjectIndexArray(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", pdfPath)
+
+	if exitCode != 0 {
+		t.Fatalf("[P1] 11.4-INTG-010: expected exit code 0, got %d", exitCode)
+	}
+
+	var index []map[string]json.RawMessage
+	mustParseJSON(t, stdout, &index)
+
+	if len(index) == 0 {
+		t.Fatalf("[P1] 11.4-INTG-010: expected at least one object index entry")
+	}
+	for _, key := range []string{"objNum", "gen", "typeName", "free", "reachable", "nodeId"} {
+		if _, ok := index[0][key]; !ok {
+			t.Errorf("[P1] 11.4-INTG-010: ObjectIndexEntry missing key %q", key)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-011 [P0] (AC4): `dump objects` (plural -> index, no --ref) and
+// `dump object` (singular -> single object, requires --ref) are distinct
+// commands with distinct output. dump object WITHOUT --ref is a usage error;
+// dump objects WITHOUT --ref succeeds. Guards the one-character naming trap.
+// ---------------------------------------------------------------------------
+
+func TestObjectsVsObject_DistinctCommands(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	// Plural: succeeds without --ref, returns a JSON array.
+	pluralOut, _, ecPlural := runCLI(t, bin, "dump", "objects", pdfPath)
+	if ecPlural != 0 {
+		t.Fatalf("[P0] 11.4-INTG-011: `dump objects` expected exit 0, got %d", ecPlural)
+	}
+	var arr []any
+	mustParseJSON(t, pluralOut, &arr)
+
+	// Singular: without --ref is a usage error (exit 1).
+	_, _, ecSingular := runCLI(t, bin, "dump", "object", pdfPath)
+	if ecSingular != 1 {
+		t.Errorf("[P0] 11.4-INTG-011: `dump object` without --ref expected exit 1 (usage), got %d", ecSingular)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-012 [P0] (AC5): `dump plaintext <file>` (default) writes the
+// document text to stdout, NOT JSON-wrapped, and Latin-1-re-encoded so the
+// stdout bytes equal the source file bytes byte-for-byte. A naive UTF-8 string
+// write would corrupt every byte >= 0x80, so byte-exact equality is the gate.
+//
+// Fixture choice: image-xobject.pdf embeds DCTDecode (JPEG) stream bytes that
+// include bytes >= 0x80, which is exactly what surfaces the re-encoding trap.
+// ---------------------------------------------------------------------------
+
+func TestPlaintextDump_Default_ByteExactSource(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
+
+	stdout, _, exitCode := runCLIRaw(t, bin, "dump", "plaintext", pdfPath)
+	if exitCode != 0 {
+		t.Fatalf("[P0] 11.4-INTG-012: expected exit code 0, got %d", exitCode)
+	}
+
+	want, err := os.ReadFile(pdfPath)
+	if err != nil {
+		t.Fatalf("[P0] 11.4-INTG-012: failed to read source fixture: %v", err)
+	}
+
+	if !bytes.Equal(stdout, want) {
+		t.Errorf("[P0] 11.4-INTG-012: plaintext stdout does not equal source bytes byte-for-byte (Latin-1 re-encode trap?)\n got %d bytes, want %d bytes", len(stdout), len(want))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-013 [P1] (AC5): `dump plaintext --json <file>` wraps the document
+// as EXACTLY {"totalBytes","content"} -- the tabId field is NOT included
+// (it is a CLI-internal artifact). totalBytes equals the on-disk file size.
+// ---------------------------------------------------------------------------
+
+func TestPlaintextDump_JSON_WrapsWithoutTabID(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "plaintext", "--json", pdfPath)
+	if exitCode != 0 {
+		t.Fatalf("[P1] 11.4-INTG-013: expected exit code 0, got %d", exitCode)
+	}
+
+	var raw map[string]json.RawMessage
+	mustParseJSON(t, stdout, &raw)
+
+	if _, leaked := raw["tabId"]; leaked {
+		t.Errorf("[P1] 11.4-INTG-013: --json wrapper must NOT include the tabId field")
+	}
+	for _, key := range []string{"totalBytes", "content"} {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("[P1] 11.4-INTG-013: --json wrapper missing required key %q", key)
+		}
+	}
+	if len(raw) != 2 {
+		t.Errorf("[P1] 11.4-INTG-013: --json wrapper should have exactly 2 keys {totalBytes, content}, got %d", len(raw))
+	}
+
+	// totalBytes must equal the on-disk size.
+	info, err := os.Stat(pdfPath)
+	if err != nil {
+		t.Fatalf("[P1] 11.4-INTG-013: stat fixture: %v", err)
+	}
+	var totalBytes int64
+	_ = json.Unmarshal(raw["totalBytes"], &totalBytes)
+	if totalBytes != info.Size() {
+		t.Errorf("[P1] 11.4-INTG-013: totalBytes %d != file size %d", totalBytes, info.Size())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11.4-INTG-014 [P1] (AC4): document-level presenters surface genuine Go
+// errors as JSON on stderr with exit 2 (nonexistent file), empty stdout.
+// ---------------------------------------------------------------------------
+
+func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
+	bin := buildCLI(t)
+
+	for _, resource := range []string{"xref", "objects", "plaintext"} {
+		t.Run(resource, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, "dump", resource, "/nonexistent/path/fake.pdf")
+			if ec != 2 {
+				t.Errorf("[P1] 11.4-INTG-014/%s: expected exit code 2, got %d", resource, ec)
+			}
+			if len(stdout) != 0 {
+				t.Errorf("[P1] 11.4-INTG-014/%s: stdout should be empty on error, got: %s", resource, stdout)
+			}
+			var errObj map[string]string
+			if err := json.Unmarshal([]byte(trimSpace(stderr)), &errObj); err != nil {
+				t.Fatalf("[P1] 11.4-INTG-014/%s: stderr is not valid JSON: %v\nraw: %s", resource, err, stderr)
+			}
+			if _, ok := errObj["error"]; !ok {
+				t.Errorf("[P1] 11.4-INTG-014/%s: stderr JSON missing 'error' key", resource)
+			}
+		})
+	}
+}
+
+// trimSpace is a tiny local helper to avoid importing strings just for one use.
+func trimSpace(s string) string {
+	start, end := 0, len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\n' || s[start] == '\t' || s[start] == '\r') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\n' || s[end-1] == '\t' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
+}
