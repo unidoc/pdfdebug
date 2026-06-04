@@ -76,9 +76,9 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Commands:")
-	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] <file>        Dump PDF object tree as JSON")
-	_, _ = fmt.Fprintln(w, "  dump object [--json] --ref \"N G R\" <file>     Dump a single PDF object (singular)")
-	_, _ = fmt.Fprintln(w, "  dump stream [--json] --page N <file>         Dump page content stream")
+	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] [--resolve [--resolve-depth N]] <file>  Dump PDF object tree as JSON")
+	_, _ = fmt.Fprintln(w, "  dump object [--json] [--resolve [--resolve-depth N]] --ref \"N G R\" <file>  Dump a single PDF object")
+	_, _ = fmt.Fprintln(w, "  dump stream [--json|--raw|--ops] (--page N | --ref \"N G R\" | --xobject NAME ...) <file>  Dump content stream")
 	_, _ = fmt.Fprintln(w, "  dump font --ref \"N G R\" <file>               Dump a font view (detail/roster/neither)")
 	_, _ = fmt.Fprintln(w, "  dump image [--metadata] --ref \"N G R\" <file> Dump image XObject data (--metadata omits base64)")
 	_, _ = fmt.Fprintln(w, "  dump source [--raw] --ref \"N G R\" <file>     Dump reserialized object source (PDF syntax)")
@@ -127,6 +127,10 @@ func writeJSONWarning(w io.Writer, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"warning": msg})
 }
 
+// defaultResolveDepth is the default ref-following depth for --resolve when
+// --resolve-depth is not given: a small N so output stays bounded.
+const defaultResolveDepth = 1
+
 // dumpFlags holds the parsed common flags for the tree dump subcommand.
 type dumpFlags struct {
 	json    bool
@@ -134,6 +138,12 @@ type dumpFlags struct {
 	pretty  bool
 	page    int
 	pageSet bool // true when --page was explicitly provided (distinguishes --page 0 from absent)
+	// resolve follows indirect refs inline via pdfcore.ResolveRef. resolveDepth
+	// is its ref-following depth - a SEPARATE flag from --depth (which is
+	// tree-walk depth, 0 = unlimited), because the two axes have opposite
+	// zero-semantics and cannot share a name.
+	resolve      bool
+	resolveDepth int
 }
 
 // parseDumpFlags creates a FlagSet for dump subcommands with common flags.
@@ -144,6 +154,8 @@ func parseDumpFlags(name string, args []string) (*flag.FlagSet, dumpFlags, error
 	depthFlag := fs.Int("depth", 0, "Max tree depth (0 = unlimited)")
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
 	pageFlag := fs.Int("page", 0, "Root the tree at page N's dict (1-based; 0 = catalog)")
+	resolveFlag := fs.Bool("resolve", false, "Follow indirect refs inline via ResolveRef (adds a 'resolved' field)")
+	resolveDepthFlag := fs.Int("resolve-depth", defaultResolveDepth, "Ref-following depth for --resolve (distinct from --depth tree-walk depth)")
 	if err := fs.Parse(args); err != nil {
 		return fs, dumpFlags{}, err
 	}
@@ -153,5 +165,13 @@ func parseDumpFlags(name string, args []string) (*flag.FlagSet, dumpFlags, error
 			pageSet = true
 		}
 	})
-	return fs, dumpFlags{json: *jsonFlag, depth: *depthFlag, pretty: *prettyFlag, page: *pageFlag, pageSet: pageSet}, nil
+	return fs, dumpFlags{
+		json:         *jsonFlag,
+		depth:        *depthFlag,
+		pretty:       *prettyFlag,
+		page:         *pageFlag,
+		pageSet:      pageSet,
+		resolve:      *resolveFlag,
+		resolveDepth: *resolveDepthFlag,
+	}, nil
 }

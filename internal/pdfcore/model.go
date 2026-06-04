@@ -1,5 +1,7 @@
 package pdfcore
 
+import pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
+
 // TreeNode represents a single node in the PDF object tree shown in the UI.
 type TreeNode struct {
 	ID          string `json:"id"`
@@ -77,6 +79,66 @@ type FormattedLine struct {
 	Operator     string  `json:"operator"`
 	SrcLineStart int     `json:"srcLineStart"`
 	SrcLineEnd   int     `json:"srcLineEnd"`
+}
+
+// ResolveOpts configures Inspector.ResolveRef. MaxDepth is the number of
+// indirect-reference levels to follow inline below the addressed object:
+//   - 0 resolves the addressed object only; indirect refs found inside it stay
+//     as unfollowed child markers (Truncated=true, not recursed into).
+//   - N follows up to N levels of indirect refs.
+//
+// A negative MaxDepth is clamped to 0 (resolve the addressed object only). A
+// separate internal ceiling (maxResolveDepth) caps the effective depth so a
+// caller passing a huge N cannot exhaust the stack.
+type ResolveOpts struct {
+	MaxDepth int
+}
+
+// ResolvedNode is the dedicated result tree of Inspector.ResolveRef. It is a
+// deliberate alternative to TreeNode/ObjectDetail (which are display-oriented:
+// string Display fields, IObject placeholders) because consumers like Story
+// 11-6 need to read the raw pdfcpu value to classify /Subtype, read /MediaBox
+// arrays, and walk /Resources sub-dicts. Value carries that raw object for Go
+// callers; it is excluded from JSON (the GUI/CLI read the typed fields).
+//
+// The JSON shape (objectRef, cyclic, truncated, children, ...) is a stable
+// contract for 11-6 and the GUI, pinned by a test.
+type ResolvedNode struct {
+	// Value is the raw resolved pdfcpu object (a Dict, StreamDict, Array, scalar,
+	// or - for an unfollowed ref marker - the IndirectRef itself). Excluded from
+	// JSON; Go callers (Story 11-6) read it to classify type and named entries.
+	Value pdfcpu_types.Object `json:"-"`
+	// Key is the dict key ("Subtype") or array index ("[0]") this node occupies
+	// in its parent; "" for the root.
+	Key string `json:"key,omitempty"`
+	// ObjectRef is "<num> <gen> R" when this node came from (or marks) an
+	// indirect object, "" for a direct value.
+	ObjectRef string `json:"objectRef"`
+	// NodeType classifies Value: "dict" | "stream" | "array" | "ref" (unfollowed
+	// marker) | "scalar".
+	NodeType string `json:"nodeType"`
+	// Children are the resolved entries of a dict, stream-dict, or array, in
+	// deterministic (sorted-key / array-index) order. Nil for scalars and for
+	// unfollowed ref markers.
+	Children []*ResolvedNode `json:"children,omitempty"`
+	// Truncated is true when this node is an indirect ref left UNFOLLOWED because
+	// the MaxDepth/internal ceiling was hit (the depth-cap marker, AC3).
+	Truncated bool `json:"truncated"`
+	// Cyclic is true when this node is an indirect ref that re-enters an object
+	// already on the current resolution path (the cycle back-edge marker, AC3).
+	Cyclic bool `json:"cyclic"`
+}
+
+// XObjectInfo describes one entry in a /Resources/XObject sub-dictionary: the
+// resource name (e.g. "Fm0"), the resolved indirect-object reference, the node
+// ID of the resolved XObject stream, and its /Subtype ("Image", "Form", or the
+// raw value when neither). Backs the --ops Do classification and the
+// --xobject NAME stream resolution (Story 11-5 items 2/3).
+type XObjectInfo struct {
+	Name      string `json:"name"`
+	ObjectRef string `json:"objectRef"` // "<num> <gen> R"
+	NodeID    string `json:"nodeId"`    // "obj:<gen>:<num>"
+	Subtype   string `json:"subtype"`   // "Image" | "Form" | raw /Subtype | ""
 }
 
 // ImageData holds extracted image data and metadata for frontend display.

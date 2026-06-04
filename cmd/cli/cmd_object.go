@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // runObjectDump executes the object dump command and returns the exit code.
@@ -15,14 +17,20 @@ func runObjectDump(args []string) int {
 	fs.SetOutput(io.Discard)
 	refFlag := fs.String("ref", "", `Object reference in "N G R" format (e.g., "5 0 R")`)
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
+	resolveFlag := fs.Bool("resolve", false, "Follow indirect refs inline via ResolveRef (adds a 'resolved' field)")
+	resolveDepthFlag := fs.Int("resolve-depth", defaultResolveDepth, "Ref-following depth for --resolve")
 	_ = fs.Bool("json", false, "Output as JSON (default, always on)")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
 		return 1
 	}
 
 	if *refFlag == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+		return 1
+	}
+	if *resolveDepthFlag < 0 {
+		writeJSONError(os.Stderr, "invalid --resolve-depth: must be >= 0")
 		return 1
 	}
 
@@ -34,11 +42,19 @@ func runObjectDump(args []string) int {
 
 	filePath := fs.Arg(0)
 	if filePath == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
 		return 1
 	}
 
-	return execObjectDump(filePath, objNum, genNum, *prettyFlag)
+	return execObjectDump(filePath, objNum, genNum, *prettyFlag, *resolveFlag, *resolveDepthFlag)
+}
+
+// objectDumpOutput wraps an ObjectDetail with the optional --resolve inline
+// expansion. Without --resolve the Resolved field is absent (omitempty), so the
+// default output is byte-for-byte the bare ObjectDetail (AC6 no-regression).
+type objectDumpOutput struct {
+	*pdfcore.ObjectDetail
+	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
 // refFormatHint is the canonical error/usage text naming both accepted --ref
@@ -95,7 +111,7 @@ func parseObjIDRef(ref string) (objNum int, genNum int, err error) {
 }
 
 // execObjectDump opens the PDF, queries the object, and writes JSON to stdout.
-func execObjectDump(filePath string, objNum, genNum int, pretty bool) (exitCode int) {
+func execObjectDump(filePath string, objNum, genNum int, pretty, resolve bool, resolveDepth int) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("internal error: %v", r))
@@ -136,7 +152,21 @@ func execObjectDump(filePath string, objNum, genNum int, pretty bool) (exitCode 
 		return 2
 	}
 
-	if err := emit(os.Stdout, detail, pretty); err != nil {
+	out := objectDumpOutput{ObjectDetail: detail}
+	if resolve {
+		// --resolve: inline the object's ref graph via the ResolveRef keystone
+		// (cycle-guarded). Additive: a 'resolved' field alongside the existing
+		// ObjectDetail. A resolve failure leaves the field absent rather than
+		// failing the whole command, but warns on stderr so the absence is not
+		// silently indistinguishable from "object had no refs".
+		if rn, rerr := inspector.ResolveRef("cli", nodeID, pdfcore.ResolveOpts{MaxDepth: resolveDepth}); rerr == nil {
+			out.Resolved = rn
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: --resolve failed for %s: %v\n", nodeID, rerr)
+		}
+	}
+
+	if err := emit(os.Stdout, out, pretty); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}

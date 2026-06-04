@@ -23,6 +23,11 @@ type treeNodeOutput struct {
 	TypeName    string            `json:"typeName,omitempty"`
 	Error       string            `json:"error,omitempty"`
 	Children    []*treeNodeOutput `json:"children,omitempty"`
+	// Resolved is the inline ref-following expansion produced by --resolve via
+	// pdfcore.ResolveRef. Populated only for indirect-object nodes (id prefix
+	// "obj:") when --resolve is set; nil (omitted) otherwise. Strictly additive:
+	// without --resolve the field is absent, preserving today's bytes (AC6).
+	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
 // runTreeDump executes the tree dump command and returns the exit code.
@@ -36,6 +41,10 @@ func runTreeDump(args []string) int {
 	// Reject negative depth; treat as user error rather than silently clamping.
 	if flags.depth < 0 {
 		writeJSONError(os.Stderr, "invalid --depth: must be >= 0")
+		return 1
+	}
+	if flags.resolveDepth < 0 {
+		writeJSONError(os.Stderr, "invalid --resolve-depth: must be >= 0")
 		return 1
 	}
 
@@ -57,10 +66,10 @@ func runTreeDump(args []string) int {
 	if flags.pageSet {
 		pageNum = flags.page
 	}
-	return execTreeDump(filePath, flags.depth, pageNum, flags.pretty)
+	return execTreeDump(filePath, flags.depth, pageNum, flags.pretty, flags.resolve, flags.resolveDepth)
 }
 
-func execTreeDump(filePath string, maxDepth, pageNum int, pretty bool) (exitCode int) {
+func execTreeDump(filePath string, maxDepth, pageNum int, pretty, resolve bool, resolveDepth int) (exitCode int) {
 	// Defense in depth: catch any escaping panics from pdfcpu.
 	defer func() {
 		if r := recover(); r != nil {
@@ -90,7 +99,7 @@ func execTreeDump(filePath string, maxDepth, pageNum int, pretty bool) (exitCode
 	}
 
 	visited := make(map[string]bool)
-	out := buildTree(inspector, "cli", root, 0, maxDepth, visited)
+	out := buildTree(inspector, "cli", root, 0, maxDepth, visited, resolve, resolveDepth)
 	if err := emit(os.Stdout, out, pretty); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
@@ -115,8 +124,19 @@ func handleOpenError(err error) int {
 
 // buildTree recursively builds the output tree from pdfcore TreeNodes.
 // visited tracks obj:* node IDs to break circular reference loops.
-func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, depth, maxDepth int, visited map[string]bool) *treeNodeOutput {
+func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, depth, maxDepth int, visited map[string]bool, resolve bool, resolveDepth int) *treeNodeOutput {
 	out := convertNode(node)
+	// --resolve: attach the inline ref-following expansion for indirect-object
+	// nodes via the ResolveRef keystone. Additive; cycle-guarded inside ResolveRef.
+	if resolve && strings.HasPrefix(node.ID, "obj:") {
+		if rn, err := ins.ResolveRef(tabID, node.ID, pdfcore.ResolveOpts{MaxDepth: resolveDepth}); err == nil {
+			out.Resolved = rn
+		} else {
+			// Warn rather than fail the walk; absence of the field would
+			// otherwise be indistinguishable from "node had no refs".
+			fmt.Fprintf(os.Stderr, "warning: --resolve failed for %s: %v\n", node.ID, err)
+		}
+	}
 	if !node.HasChildren {
 		return out
 	}
@@ -140,7 +160,7 @@ func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, dep
 		if child == nil {
 			continue
 		}
-		out.Children = append(out.Children, buildTree(ins, tabID, child, depth+1, maxDepth, visited))
+		out.Children = append(out.Children, buildTree(ins, tabID, child, depth+1, maxDepth, visited, resolve, resolveDepth))
 	}
 	return out
 }
