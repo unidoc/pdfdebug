@@ -141,6 +141,169 @@ type XObjectInfo struct {
 	Subtype   string `json:"subtype"`   // "Image" | "Form" | raw /Subtype | ""
 }
 
+// PageRenderOpts configures Inspector.PageRenderInfo. It controls the optional
+// recursive Form-XObject walk (off by default - a complex catalog page can have
+// deep form nesting, so recursion is opt-in and depth-bounded).
+//
+// FormsRecursive enables the walk; FormsDepth caps how many form-nesting LEVELS
+// are followed. FormsDepth is a THIRD recursion axis, distinct from the
+// keystone's internal ref-ceiling (maxResolveDepth): a form tree deeper than the
+// ref-ceiling still truncates per-ref via ResolveRef.
+type PageRenderOpts struct {
+	FormsRecursive bool
+	FormsDepth     int
+}
+
+// PageRenderInfo is the assembled per-page rendering picture (Story 11-6): page
+// geometry (resolved incl. /Pages inheritance), every ExtGState's
+// blend/alpha/SMask, every XObject classified (Form vs Image with colorspace
+// family), and - when requested - each Form XObject walked recursively against
+// ITS OWN /Resources. The recursive walk enumerates the Form XObjects declared
+// in each form's /Resources/XObject (a superset of the forms its content
+// actually Does); it does not parse the content stream.
+//
+// EXPERIMENTAL CONTRACT (caution 1): the field set is derived from a single
+// transcript. It is NOT a frozen contract. Story 11-5's low-level flags
+// (dump stream --xobject/--ref/--ops, dump tree/dump object --resolve) remain
+// the escape hatch for anything this omits. STRUCTURAL ONLY (caution 2): every
+// field is file-resident structure (names, refs, function types, profile
+// sizes); NO rendering computation (color conversion, tint-transform
+// evaluation, SMask compositing) is performed - that is the renderer's job.
+//
+// Lives in pdfcore so the GUI can later render the same struct as a panel.
+type PageRenderInfo struct {
+	Page       int                 `json:"page"`
+	PageRef    string              `json:"pageRef"`         // "<num> <gen> R"
+	MediaBox   []float64           `json:"mediaBox"`        // [llx lly urx ury], inherited from /Pages when absent on the page
+	CropBox    []float64           `json:"cropBox"`         // [llx lly urx ury], inherited; nil when absent
+	Rotate     int                 `json:"rotate"`          // inherited; 0 when absent
+	ExtGStates []ExtGStateInfo     `json:"extGStates"`      // sorted by Name
+	XObjects   []XObjectRenderInfo `json:"xobjects"`        // sorted by Name
+	Patterns   []PatternInfo       `json:"patterns"`        // structural only: name+ref+patternType
+	Shadings   []ShadingInfo       `json:"shadings"`        // structural only: name+ref+shadingType
+	Forms      []FormRenderInfo    `json:"forms,omitempty"` // populated only with FormsRecursive
+}
+
+// ExtGStateInfo summarizes one /Resources/ExtGState entry: its resource name,
+// resolved ref, and the structural transparency parameters BM (blend-mode
+// name), ca (non-stroking alpha), CA (stroking alpha), and SMask. No blend MATH
+// is performed (AC2/AC7) - values are read verbatim from the file.
+type ExtGStateInfo struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref"` // "<num> <gen> R", "" for a direct (inline) ExtGState
+	// BM is the blend-mode name ("Normal", "Multiply", ...). A /BM array (the
+	// rarely-used multi-mode form) renders as its first name.
+	BM string `json:"BM,omitempty"`
+	// CA is the non-stroking alpha (/ca); Ca is the stroking alpha (/CA). Pointers
+	// so an absent entry is distinguishable from an explicit 0.0 (fully
+	// transparent) - load-bearing for a transparency investigation.
+	CA *float64 `json:"ca,omitempty"`
+	Ca *float64 `json:"CA,omitempty"`
+	// SMask is the resolved soft-mask: the literal string "None" (the /None value),
+	// nil (no /SMask key), or a *SMaskDescriptor object (the resolved soft-mask
+	// dict, exposing /S, /G, etc.) when a soft-mask dict is present. Typed as any
+	// so the resolved descriptor serializes inline as the SMask value (AC2),
+	// rather than a placeholder string with the descriptor on a side field.
+	SMask any `json:"SMask,omitempty"`
+}
+
+// SMaskDescriptor is the resolved soft-mask dict of an ExtGState /SMask (AC2):
+// the masking subtype /S (Alpha or Luminosity), the masked group /G ref, and
+// the backdrop /BC array length. STRUCTURAL ONLY: the mask is NOT composited.
+type SMaskDescriptor struct {
+	S      string `json:"S,omitempty"`      // "Alpha" | "Luminosity"
+	GRef   string `json:"gRef,omitempty"`   // ref to the transparency group XObject /G
+	HasTR  bool   `json:"hasTR,omitempty"`  // a /TR transfer function is present (not evaluated)
+	BCSize int    `json:"bcSize,omitempty"` // /BC backdrop color component count
+}
+
+// XObjectRenderInfo classifies one /Resources/XObject entry (AC3). Form
+// XObjects carry BBox/Matrix/Group; Image XObjects carry Width/Height/
+// ColorSpace. Colorspace is CLASSIFIED, not evaluated (AC7).
+type XObjectRenderInfo struct {
+	Name    string `json:"name"`
+	Ref     string `json:"ref"`     // "<num> <gen> R"
+	Subtype string `json:"subtype"` // "Form" | "Image" | raw /Subtype
+	// Form fields.
+	BBox   []float64  `json:"bbox,omitempty"`
+	Matrix []float64  `json:"matrix,omitempty"`
+	Group  *GroupInfo `json:"group,omitempty"`
+	// Image fields.
+	Width      int             `json:"width,omitempty"`
+	Height     int             `json:"height,omitempty"`
+	ColorSpace *ColorSpaceInfo `json:"colorSpace,omitempty"`
+}
+
+// GroupInfo is a Form XObject's /Group (transparency group) attributes (AC3):
+// /S (group subtype, "Transparency"), /CS (group colorspace family), /I
+// (isolated), /K (knockout). STRUCTURAL ONLY.
+type GroupInfo struct {
+	S  string `json:"S,omitempty"`
+	CS string `json:"CS,omitempty"` // group colorspace family (classified)
+	// I (isolated) and K (knockout) default to false when /I or /K is absent (PDF
+	// spec). They are NOT omitempty: a resolved group must report both flags so a
+	// consumer can distinguish "knockout false" from "field missing" (AC3).
+	I bool `json:"I"`
+	K bool `json:"K"`
+}
+
+// ColorSpaceInfo is the classified (NOT evaluated) colorspace of an Image
+// XObject or a /Group /CS (AC3/AC7). Family is the colorspace family name
+// (DeviceRGB, ICCBased, Separation, ...). For ICCBased: N (component count) and
+// ICCProfileSize (the profile stream's byte length) are surfaced so the user
+// runs any color math themselves. For Separation/DeviceN: TintTransformType is
+// the tint-transform FUNCTION TYPE (structure, not evaluation) and AltFamily is
+// the alternate colorspace family. For Indexed: HiVal is the palette's hival.
+type ColorSpaceInfo struct {
+	Family            string `json:"family"`
+	N                 int    `json:"n,omitempty"`                 // ICCBased component count
+	ICCProfileSize    int    `json:"iccProfileSize,omitempty"`    // ICCBased profile stream byte length
+	AltFamily         string `json:"altFamily,omitempty"`         // Separation/DeviceN/ICCBased alternate family
+	TintTransformType int    `json:"tintTransformType,omitempty"` // Separation/DeviceN tint-transform /FunctionType
+	HiVal             int    `json:"hiVal,omitempty"`             // Indexed palette hival
+}
+
+// PatternInfo is a STRUCTURAL-ONLY /Resources/Pattern entry (AC1/AC7): resource
+// name, resolved ref, and the /PatternType integer (1 = tiling, 2 = shading).
+// No tiling-content walk, no shading-function evaluation. Appears only in the
+// full object - there is no --section patterns.
+type PatternInfo struct {
+	Name        string `json:"name"`
+	Ref         string `json:"ref"`
+	PatternType int    `json:"patternType,omitempty"`
+}
+
+// ShadingInfo is a STRUCTURAL-ONLY /Resources/Shading entry (AC1/AC7): resource
+// name, resolved ref, and the /ShadingType integer. No shading-function
+// evaluation. Appears only in the full object - there is no --section shadings.
+type ShadingInfo struct {
+	Name        string `json:"name"`
+	Ref         string `json:"ref"`
+	ShadingType int    `json:"shadingType,omitempty"`
+}
+
+// FormRenderInfo is one node in the recursive Form-XObject walk (AC4): the
+// resource name + ref the form was reached through, the form's OWN classified
+// /Resources (the "does the inner Fm0 live in the page's or the outer form's
+// resources" gotcha - it lives in the form's own resources), and the Form
+// XObjects declared in that /Resources/XObject (recursing). The walk reads the
+// resource dict, not the content stream.
+//
+// Truncated marks a form left UNWALKED because FormsDepth was reached. Cyclic
+// marks a form that re-enters a form already on the current walk path (the
+// self-referential-form guard, AC4) - the walk terminates rather than looping.
+type FormRenderInfo struct {
+	Name       string              `json:"name"`
+	Ref        string              `json:"ref"`
+	ExtGStates []ExtGStateInfo     `json:"extGStates"`
+	XObjects   []XObjectRenderInfo `json:"xobjects"`
+	Patterns   []PatternInfo       `json:"patterns"`
+	Shadings   []ShadingInfo       `json:"shadings"`
+	Forms      []FormRenderInfo    `json:"forms,omitempty"`
+	Truncated  bool                `json:"truncated,omitempty"`
+	Cyclic     bool                `json:"cyclic,omitempty"`
+}
+
 // ImageData holds extracted image data and metadata for frontend display.
 type ImageData struct {
 	NodeID           string `json:"nodeId"`

@@ -43,6 +43,8 @@ func main() {
 			os.Exit(runObjectDump(remaining))
 		case "stream":
 			os.Exit(runStreamDump(remaining))
+		case "page":
+			os.Exit(runPageDump(remaining))
 		case "font":
 			os.Exit(runFontDump(remaining))
 		case "image":
@@ -79,6 +81,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] [--resolve [--resolve-depth N]] <file>  Dump PDF object tree as JSON")
 	_, _ = fmt.Fprintln(w, "  dump object [--json] [--resolve [--resolve-depth N]] --ref \"N G R\" <file>  Dump a single PDF object")
 	_, _ = fmt.Fprintln(w, "  dump stream [--json|--raw|--ops] (--page N | --ref \"N G R\" | --xobject NAME ...) <file>  Dump content stream")
+	_, _ = fmt.Fprintln(w, "  dump page --info N [--forms-recursive [--forms-depth D]] [--section SECTION] <file>  Assemble per-page render info (EXPERIMENTAL)")
 	_, _ = fmt.Fprintln(w, "  dump font --ref \"N G R\" <file>               Dump a font view (detail/roster/neither)")
 	_, _ = fmt.Fprintln(w, "  dump image [--metadata] --ref \"N G R\" <file> Dump image XObject data (--metadata omits base64)")
 	_, _ = fmt.Fprintln(w, "  dump source [--raw] --ref \"N G R\" <file>     Dump reserialized object source (PDF syntax)")
@@ -97,10 +100,18 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --page 1 file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump object --ref \"4654 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump stream --page 1 file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump page --info 1 file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump page --info 1 --forms-recursive --forms-depth 2 file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump page --info 1 --section extgstates file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump reverserefs --ref \"4 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump image --metadata --ref \"4 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump plaintext --json file.pdf")
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "Note: `dump page --info` is EXPERIMENTAL - its JSON field set is not a frozen")
+	_, _ = fmt.Fprintln(w, "      contract and may change. It is structural only (no rendering computation).")
+	_, _ = fmt.Fprintln(w, "      For anything it omits, use dump stream --xobject/--ref/--ops or")
+	_, _ = fmt.Fprintln(w, "      dump tree/dump object --resolve.")
 }
 
 // emit writes v as JSON to w: compact single-line when pretty is false (the
