@@ -219,26 +219,27 @@ describe('4.4 useWindowPersistence', () => {
   });
 
   /**
-   * Supplemental: debounce timer is cleaned up on unmount (no leaked timers).
+   * Supplemental: a pending write is flushed synchronously on the last unmount
+   * (Story 10.7 AC8) and no leaked debounce timer fires a second write after.
    */
-  test('debounce timer is cleaned up on unmount', () => {
+  test('pending write is flushed on last unmount with no leaked timer', () => {
     const { result, unmount } = renderHook(() => useWindowPersistence());
 
     act(() => {
       result.current.savePanelSizes({ treeWidth: 400, subPanelHeight: 200 });
     });
 
-    // Unmount before the debounce fires
+    // Unmount before the debounce fires: AC8 flushes the pending write now.
     unmount();
+    const afterUnmount = window.localStorage.getItem(STORAGE_KEY);
+    expect(afterUnmount).not.toBeNull();
+    expect(JSON.parse(afterUnmount!).panelSizes).toEqual({ treeWidth: 400, subPanelHeight: 200 });
 
-    // Advance past debounce -- should not throw or write to localStorage
+    // Advancing past the debounce must not throw or produce a second write.
     act(() => {
       vi.advanceTimersByTime(600);
     });
-
-    // localStorage should not have been written to (the timer was cleared)
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    expect(stored).toBeNull();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe(afterUnmount);
   });
 
   /**

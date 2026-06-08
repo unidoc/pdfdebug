@@ -21,6 +21,11 @@ func (ins *Inspector) GetObjectIndex(tabID string) ([]*ObjectIndexEntry, error) 
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Outer lock; objectIndexMu (inner) guards
+	// the cache. buildObjectIndex walks XRefTable.Table and dereferences
+	// indirect refs to compute the reachable set.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	doc.objectIndexMu.Lock()
 	defer doc.objectIndexMu.Unlock()
@@ -111,13 +116,14 @@ func buildReachableSet(doc *DocumentState) map[int]bool {
 		reachable[rootRef.ObjectNumber.Value()] = true
 	}
 
+	// AC2 (Story 10.6): no depth cap. The visited-set (the `reachable` map plus
+	// the in-progress check inside queueRefs) already prevents cycles; the
+	// prior depth guard mislabeled legitimate-but-deep PDFs (page-tree chains
+	// over 32 levels deep) as orphan trees.
 	queue := []reachEntry{{obj: rootDict, depth: 0}}
 	for len(queue) > 0 {
 		head := queue[0]
 		queue = queue[1:]
-		if head.depth >= maxRefDepth {
-			continue
-		}
 		switch v := head.obj.(type) {
 		case pdfcpu_types.Dict:
 			for _, val := range v {

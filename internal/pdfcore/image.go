@@ -41,6 +41,10 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Image extraction dereferences indirect
+	// refs (Subtype, Filter, ColorSpace) and reads pdfcpu's XRefTable.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {
@@ -315,6 +319,7 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.
+// Only used by GetImageData for image-metadata warnings; do not promote to a shared utility without a second caller.
 func appendWarning(existing, addition string) string {
 	if existing == "" {
 		return addition

@@ -16,6 +16,9 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 	if err != nil {
 		return "", err
 	}
+	// AC1: PageDict mutates the pdfcpu page-resolution cache; serialize.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var pageDict pdfcpu_types.Dict
 	err = safeCall(func() error {
@@ -53,9 +56,66 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 	}
 }
 
+// GetPageNode resolves a 1-based page number to a fully-populated TreeNode for
+// that page's page dict (/Type /Page object), suitable for rooting a tree walk.
+// The returned node carries the page object's ObjectRef ("<num> <gen> R") and
+// TypeName so callers do not have to synthesize a bare stub. Returns an error
+// for out-of-range or non-existent pages (this is the authoritative
+// upper-bound check for page-rooted tree walks).
+func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, err
+	}
+	// PageDict mutates the pdfcpu page-resolution cache; serialize, same as
+	// GetPageContentStreamNodeID.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
+	var pageDict pdfcpu_types.Dict
+	var indRef *pdfcpu_types.IndirectRef
+	err = safeCall(func() error {
+		var e error
+		pageDict, indRef, _, e = doc.PDFContext.PageDict(pageNum, false)
+		return e
+	})
+	if err != nil {
+		return nil, wrapPDFError(err)
+	}
+	if pageDict == nil || indRef == nil {
+		return nil, fmt.Errorf("page %d not found", pageNum)
+	}
+
+	objNum := indRef.ObjectNumber.Value()
+	gen := indRef.GenerationNumber.Value()
+	nodeType, valueType, hasChildren, childCount := classifyObject(pageDict)
+	return &TreeNode{
+		ID:          fmt.Sprintf("obj:%d:%d", gen, objNum),
+		Label:       semanticLabel("", pageDict),
+		NodeType:    nodeType,
+		ValueType:   valueType,
+		HasChildren: hasChildren,
+		ChildCount:  childCount,
+		IconHint:    iconHint("", nodeType, pageDict),
+		ObjectRef:   fmt.Sprintf("%d %d R", objNum, gen),
+		TypeName:    extractTypeName(pageDict),
+	}, nil
+}
+
 // GetContentStream decodes and returns the content stream data for the given
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.
+//
+// Story 10-5 AC3: streamMu is held for the ENTIRE resolve+decode+write path,
+// not dropped between cache check and write. The previous "drop lock for
+// decode, reacquire to write" pattern let two concurrent first-time callers
+// both decode and both clobber the cache, so each received a different
+// *ContentStreamData pointer. Holding the lock for the duration collapses
+// concurrent same-node calls to one decode pass; the second caller blocks,
+// then observes the populated cache and returns the same pointer.
+//
+// Lock order: pdfMu (outer) -> streamMu (inner). pdfcpu's Dereference inside
+// resolveNodeObject is guarded by pdfMu; streamMu guards the streamCache map.
 func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
@@ -72,14 +132,19 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	if err != nil {
 		return nil, err
 	}
-
-	// Return cached result if available.
+	// AC1: serialize pdfcpu access. Outer lock.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+	// AC3: hold streamMu for the entire critical section (resolve+decode+write).
+	// No drop-and-reacquire between cache miss and cache write.
 	doc.streamMu.Lock()
+	defer doc.streamMu.Unlock()
+
+	// Cache check inside the critical section. Concurrent same-node callers
+	// serialize on streamMu; the second observes the populated cache here.
 	if cached, ok := doc.streamCache[nodeID]; ok {
-		doc.streamMu.Unlock()
 		return cached, nil
 	}
-	doc.streamMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {
@@ -105,9 +170,7 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 			NodeID: nodeID,
 			Error:  "node is not a stream object",
 		}
-		doc.streamMu.Lock()
 		doc.streamCache[nodeID] = result
-		doc.streamMu.Unlock()
 		return result, nil
 	}
 
@@ -120,9 +183,7 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 			NodeID: nodeID,
 			Error:  fmt.Sprintf("failed to decode stream: %v", err),
 		}
-		doc.streamMu.Lock()
 		doc.streamCache[nodeID] = result
-		doc.streamMu.Unlock()
 		return result, nil
 	}
 
@@ -141,9 +202,7 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 		result.Tokenized = tokenizeContentStream(raw)
 		result.Formatted = Format(result.Tokenized)
 	}
-	doc.streamMu.Lock()
 	doc.streamCache[nodeID] = result
-	doc.streamMu.Unlock()
 	return result, nil
 }
 

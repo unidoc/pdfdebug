@@ -41,7 +41,7 @@ export interface XRefTableViewProps {
  * cached in component state for the lifetime of the document (tabId change
  * resets state).
  */
-export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTableViewProps) {
+export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: XRefTableViewProps) {
   const [data, setData] = useState<XRefTableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);

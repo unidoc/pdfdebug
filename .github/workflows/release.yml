@@ -63,9 +63,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential
 
+      - name: Configure Linux GTK3 build tag
+        # Wails alpha.93 promoted GTK4 + WebKitGTK 6.0 to the Linux default.
+        # The runner installs the GTK3 stack only, so propagate `-tags=gtk3`
+        # via GOFLAGS to every Go-tool invocation in this job (most notably
+        # `wails3 generate bindings -clean=true`, which uses go/packages and
+        # would otherwise fail to type-check pkg/application's CGo GTK4 file).
+        # `wails3 task linux:build` below still needs `EXTRA_TAGS=gtk3`
+        # explicitly because the Taskfile combines it with `-tags production`.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: echo "GOFLAGS=-tags=gtk3" >> "$GITHUB_ENV"
+
       - name: Install Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.85
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.95
 
       - name: Install frontend deps
         shell: bash
@@ -176,7 +188,32 @@ jobs:
           mv build/windows/info.json.tmp build/windows/info.json
           cat build/windows/info.json
 
+      - name: Build CLI
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          out="pdfdebug"
+          if [ "$GOOS" = "windows" ]; then out="pdfdebug.exe"; fi
+          go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "bin/${out}" ./cmd/cli
+
+      - name: CLI smoke test
+        shell: bash
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          bin="pdfdebug"
+          if [ "$RUNNER_OS_NAME" = "Windows" ]; then bin="pdfdebug.exe"; fi
+          "./bin/$bin" --help >/dev/null
+
       - name: Build macOS GUI
+        # Build CLI runs first so darwin:package (create:app:bundle) can embed
+        # bin/pdfdebug into Contents/Resources before the bundle is assembled and
+        # before the conditional Sign step (Story 11-1, Task 0/AC #1).
         if: startsWith(matrix.os, 'macos')
         shell: bash
         env:
@@ -236,32 +273,14 @@ jobs:
         shell: bash
         env:
           ARCH: ${{ matrix.arch }}
+        # Wails alpha.93 promoted GTK4 + WebKitGTK 6.0 to the Linux default.
+        # The runner installs the libgtk-3-dev + libwebkit2gtk-4.1-dev stack;
+        # EXTRA_TAGS=gtk3 opts back into the legacy GTK3 build path so the
+        # CGo link resolves against the installed headers.
         run: |
           set -euo pipefail
-          wails3 task linux:build ARCH="$ARCH"
+          wails3 task linux:build ARCH="$ARCH" EXTRA_TAGS=gtk3
           test -f "bin/unidoc-pdf-debugger"
-
-      - name: Build CLI
-        shell: bash
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: '0'
-        run: |
-          set -euo pipefail
-          out="pdfdebug"
-          if [ "$GOOS" = "windows" ]; then out="pdfdebug.exe"; fi
-          go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "bin/${out}" ./cmd/cli
-
-      - name: CLI smoke test
-        shell: bash
-        env:
-          RUNNER_OS_NAME: ${{ runner.os }}
-        run: |
-          set -euo pipefail
-          bin="pdfdebug"
-          if [ "$RUNNER_OS_NAME" = "Windows" ]; then bin="pdfdebug.exe"; fi
-          "./bin/$bin" --help >/dev/null
 
       - name: Stage artifacts
         shell: bash
@@ -300,6 +319,9 @@ jobs:
               GUI_STAGE="$RUNNER_TEMP/win-gui-stage"
               rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
               cp "bin/unidoc-pdf-debugger.exe" "$GUI_STAGE/UniDoc PDF Debugger.exe"
+              # Bundle the CLI alongside the GUI (Story 11-1, AC #3). PATH is left
+              # to the user; the standalone CLI zip below is retained for headless use.
+              cp "bin/pdfdebug.exe" "$GUI_STAGE/"
               cp LICENSE NOTICE "$GUI_STAGE/"
               ( cd "$GUI_STAGE" && 7z a -tzip -bd \
                   "$GITHUB_WORKSPACE/dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.zip" . )
@@ -316,6 +338,9 @@ jobs:
               GUI_STAGE="$RUNNER_TEMP/linux-gui-stage"
               rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
               cp "bin/unidoc-pdf-debugger" "$GUI_STAGE/"
+              # Bundle the CLI alongside the GUI (Story 11-1, AC #4). PATH is left
+              # to the user; the standalone CLI tar.gz below is retained for headless use.
+              cp "bin/pdfdebug" "$GUI_STAGE/"
               cp LICENSE NOTICE "$GUI_STAGE/"
               tar -czf "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.tar.gz" \
                   -C "$GUI_STAGE" .
@@ -395,9 +420,18 @@ jobs:
           cat SHA256SUMS.txt
           # Manifest integrity guard: refuse to publish if the manifest is empty, the
           # line count drifts from the number of files staged for release, or the file
-          # count drifts from AC #7's contractual "8 assets" invariant (4 matrix cells
-          # x 2 artifacts/cell). Catches any future staging regression that drops or
-          # duplicates an artifact before it reaches the Release page.
+          # count drifts from the 6 release artifacts = 3 platforms x 2 archives each
+          # (a GUI archive, which now also embeds the CLI, plus a standalone CLI
+          # archive). The bundled-in CLI is not a separate file and is not counted.
+          # The 6 expected filenames are:
+          #   unidoc-pdf-debugger-<ver>-darwin-arm64.dmg
+          #   pdfdebug-cli-<ver>-darwin-arm64.tar.gz
+          #   unidoc-pdf-debugger-<ver>-windows-amd64.zip
+          #   pdfdebug-cli-<ver>-windows-amd64.zip
+          #   unidoc-pdf-debugger-<ver>-linux-amd64.tar.gz
+          #   pdfdebug-cli-<ver>-linux-amd64.tar.gz
+          # Catches any future staging regression that drops or duplicates an
+          # artifact before it reaches the Release page.
           EXPECTED_FILES=6
           FILES=$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | wc -l | tr -d ' ')
           LINES=$(wc -l < SHA256SUMS.txt | tr -d ' ')

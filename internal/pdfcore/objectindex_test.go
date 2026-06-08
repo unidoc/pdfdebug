@@ -342,6 +342,42 @@ func TestGetObjectIndexInvalidatesOnReopen(t *testing.T) {
 	}
 }
 
+// TestBuildReachableSetDeepNesting verifies that buildReachableSet no longer
+// caps the BFS at depth 32 (Story 10.6 AC2). The fixture page-tree depth is
+// 52; pre-fix, objects 34..53 were mislabeled as orphan trees. Post-fix all
+// 53 objects are reachable. Boundary at depth 32 AND well past it.
+func TestBuildReachableSetDeepNesting(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-10-6-deep"
+	path := filepath.Join(testdataDir(t), "correctness", "deep-nesting.pdf")
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+
+	entries, err := ins.GetObjectIndex(tabID)
+	if err != nil {
+		t.Fatalf("GetObjectIndex: %v", err)
+	}
+	byNum := map[int]*ObjectIndexEntry{}
+	for _, e := range entries {
+		byNum[e.ObjNum] = e
+	}
+	// Boundary check: obj 33 sits at depth 32 pre-fix (the first depth
+	// that the cap blocked). Assert reachable.
+	if e := byNum[33]; e == nil || !e.Reachable {
+		t.Errorf("AC2 boundary: obj 33 (depth 32) reachable=%v, want true", e != nil && e.Reachable)
+	}
+	// Well past the boundary: obj 50 must also be reachable (depth 49).
+	if e := byNum[50]; e == nil || !e.Reachable {
+		t.Errorf("AC2 well-past-32: obj 50 (depth 49) reachable=%v, want true", e != nil && e.Reachable)
+	}
+	// Leaf page at obj 53.
+	if e := byNum[53]; e == nil || !e.Reachable {
+		t.Errorf("AC2 leaf: obj 53 (leaf Page) reachable=%v, want true", e != nil && e.Reachable)
+	}
+}
+
 // TestObjectIndexEntryShape pins the struct's exported field set so a
 // rename/typo at implementation time is caught here, not at the frontend
 // binding layer. Task 3.2.

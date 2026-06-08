@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -20,34 +19,57 @@ type treeNodeOutput struct {
 	HasChildren bool              `json:"hasChildren"`
 	ChildCount  int               `json:"childCount"`
 	IconHint    string            `json:"iconHint,omitempty"`
+	PdfRef      string            `json:"pdfRef,omitempty"`
+	TypeName    string            `json:"typeName,omitempty"`
 	Error       string            `json:"error,omitempty"`
 	Children    []*treeNodeOutput `json:"children,omitempty"`
+	// Resolved is the inline ref-following expansion produced by --resolve via
+	// pdfcore.ResolveRef. Populated only for indirect-object nodes (id prefix
+	// "obj:") when --resolve is set; nil (omitted) otherwise. Strictly additive:
+	// without --resolve the field is absent, preserving today's bytes (AC6).
+	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
-	fs, _, maxDepth, err := parseDumpFlags("dump tree", args)
+	fs, flags, err := parseDumpFlags("dump tree", args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--depth N] <file>\n")
+		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
 	// Reject negative depth; treat as user error rather than silently clamping.
-	if maxDepth < 0 {
+	if flags.depth < 0 {
 		writeJSONError(os.Stderr, "invalid --depth: must be >= 0")
+		return 1
+	}
+	if flags.resolveDepth < 0 {
+		writeJSONError(os.Stderr, "invalid --resolve-depth: must be >= 0")
+		return 1
+	}
+
+	// CLI-side lower-bound check, mirroring dump stream (--page < 1 -> exit 1).
+	// Only when --page was explicitly provided: an explicit --page 0 or negative
+	// is a usage error; an absent --page roots at the catalog.
+	if flags.pageSet && flags.page < 1 {
+		writeJSONError(os.Stderr, "invalid --page: must be >= 1 (pages are 1-based)")
 		return 1
 	}
 
 	filePath := fs.Arg(0)
 	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--depth N] <file>\n")
+		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
-	return execTreeDump(filePath, maxDepth)
+	pageNum := 0
+	if flags.pageSet {
+		pageNum = flags.page
+	}
+	return execTreeDump(filePath, flags.depth, pageNum, flags.pretty, flags.resolve, flags.resolveDepth)
 }
 
-func execTreeDump(filePath string, maxDepth int) (exitCode int) {
+func execTreeDump(filePath string, maxDepth, pageNum int, pretty, resolve bool, resolveDepth int) (exitCode int) {
 	// Defense in depth: catch any escaping panics from pdfcpu.
 	defer func() {
 		if r := recover(); r != nil {
@@ -56,28 +78,29 @@ func execTreeDump(filePath string, maxDepth int) (exitCode int) {
 		}
 	}()
 
-	inspector := pdfcore.NewInspector()
-
-	info, err := inspector.Open("cli", filePath)
-	if err != nil {
-		return handleOpenError(err)
+	inspector, _, code := openForCLI(filePath)
+	if code != 0 {
+		return code
 	}
 	defer func() { _ = inspector.Close("cli") }()
 
-	// Non-fatal warning for structurally damaged but parseable PDFs.
-	if info.Error != "" {
-		writeJSONWarning(os.Stderr, info.Error)
+	var root *pdfcore.TreeNode
+	var err error
+	if pageNum > 0 {
+		// Page-rooted walk: resolve page N to its populated page-dict node.
+		// Out-of-range is reported by pdfcore -> runtime error, exit 2.
+		root, err = inspector.GetPageNode("cli", pageNum)
+	} else {
+		root, err = inspector.GetTreeRoot("cli")
 	}
-
-	root, err := inspector.GetTreeRoot("cli")
 	if err != nil {
 		writeJSONError(os.Stderr, err.Error())
 		return 2
 	}
 
 	visited := make(map[string]bool)
-	out := buildTree(inspector, "cli", root, 0, maxDepth, visited)
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+	out := buildTree(inspector, "cli", root, 0, maxDepth, visited, resolve, resolveDepth)
+	if err := emit(os.Stdout, out, pretty); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
@@ -101,8 +124,19 @@ func handleOpenError(err error) int {
 
 // buildTree recursively builds the output tree from pdfcore TreeNodes.
 // visited tracks obj:* node IDs to break circular reference loops.
-func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, depth, maxDepth int, visited map[string]bool) *treeNodeOutput {
+func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, depth, maxDepth int, visited map[string]bool, resolve bool, resolveDepth int) *treeNodeOutput {
 	out := convertNode(node)
+	// --resolve: attach the inline ref-following expansion for indirect-object
+	// nodes via the ResolveRef keystone. Additive; cycle-guarded inside ResolveRef.
+	if resolve && strings.HasPrefix(node.ID, "obj:") {
+		if rn, err := ins.ResolveRef(tabID, node.ID, pdfcore.ResolveOpts{MaxDepth: resolveDepth}); err == nil {
+			out.Resolved = rn
+		} else {
+			// Warn rather than fail the walk; absence of the field would
+			// otherwise be indistinguishable from "node had no refs".
+			fmt.Fprintf(os.Stderr, "warning: --resolve failed for %s: %v\n", node.ID, err)
+		}
+	}
 	if !node.HasChildren {
 		return out
 	}
@@ -126,13 +160,20 @@ func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, dep
 		if child == nil {
 			continue
 		}
-		out.Children = append(out.Children, buildTree(ins, tabID, child, depth+1, maxDepth, visited))
+		out.Children = append(out.Children, buildTree(ins, tabID, child, depth+1, maxDepth, visited, resolve, resolveDepth))
 	}
 	return out
 }
 
-// convertNode maps a pdfcore.TreeNode to the CLI output struct.
+// convertNode maps a pdfcore.TreeNode to the CLI output struct. pdfRef is
+// surfaced only for indirect-object nodes (id prefix "obj:"); the synthetic
+// catalog "root" node carries an ObjectRef internally but is not addressable as
+// "N G R", so AC1 requires it to omit pdfRef.
 func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
+	pdfRef := ""
+	if strings.HasPrefix(n.ID, "obj:") {
+		pdfRef = n.ObjectRef
+	}
 	return &treeNodeOutput{
 		ID:          n.ID,
 		Label:       n.Label,
@@ -142,6 +183,8 @@ func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 		HasChildren: n.HasChildren,
 		ChildCount:  n.ChildCount,
 		IconHint:    n.IconHint,
+		PdfRef:      pdfRef,
+		TypeName:    n.TypeName,
 		Error:       n.Error,
 	}
 }

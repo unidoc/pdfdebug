@@ -1083,3 +1083,83 @@ func TestStreamCacheIsolationAfterClose(t *testing.T) {
 		t.Error("Raw content differs between cached calls")
 	}
 }
+
+// TestFindPathToObjectDeepNesting verifies findPathToObject (the
+// orphan-detection BFS in inspector.go) no longer caps the walk at depth 32
+// (Story 10.6 AC2). With the deep-nesting fixture (page-tree chain of 53
+// objects), GetAncestorPath to the deepest leaf MUST return a path that
+// starts at "root" and threads through every intermediate Pages node.
+func TestFindPathToObjectDeepNesting(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-10-6-find-path"
+	path := filepath.Join(testdataDir(t), "correctness", "deep-nesting.pdf")
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+
+	// Leaf is obj 53 gen 0.
+	got, err := ins.GetAncestorPath(tabID, "obj:0:53")
+	if err != nil {
+		t.Fatalf("GetAncestorPath(obj:0:53): %v", err)
+	}
+	if len(got) < 33 {
+		t.Errorf("ancestor path length = %d, want >= 33 (depth cap was 32; AC2 removes it)", len(got))
+	}
+	if got[0] != "root" {
+		t.Errorf("ancestor path[0] = %q, want %q", got[0], "root")
+	}
+	if got[len(got)-1] != "obj:0:53" {
+		t.Errorf("ancestor path tail = %q, want %q", got[len(got)-1], "obj:0:53")
+	}
+}
+
+// TestExtractStreamInfoIndirectLength verifies the AC3 fallback path:
+// when sd.StreamLength is nil but sd.Dict["Length"] carries an IndirectRef,
+// extractStreamInfo resolves the integer via doc.PDFContext.Dereference.
+// Exercised against a synthesized StreamDict whose StreamLength is nil
+// (pdfcpu's reader normally populates it during ReadContextFile -- the
+// fallback path covers malformed PDFs and any future pdfcpu read-path change).
+// See testdata/correctness/README.md for the AC3 fixture note.
+func TestExtractStreamInfoIndirectLength(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-10-6-streamlen"
+	// Open the AC3 fixture so we have a real PDFContext with obj 5 (Integer
+	// 37) registered.
+	fixture := filepath.Join(testdataDir(t), "correctness", "stream-length-indirect.pdf")
+	if _, err := ins.Open(tabID, fixture); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		t.Fatalf("GetDocument: %v", err)
+	}
+
+	// Synthesize a StreamDict that matches the fixture's shape but with
+	// StreamLength explicitly nil; the dict /Length is the IndirectRef to
+	// obj 5 in the fixture.
+	indirectLen := pdfcpu_types.IndirectRef{
+		ObjectNumber:     pdfcpu_types.Integer(5),
+		GenerationNumber: pdfcpu_types.Integer(0),
+	}
+	sd := pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{
+			"Length": indirectLen,
+		},
+		StreamLength: nil,
+	}
+
+	// Pre-step: prove the bug-shape exists pre-fix: StreamLength is nil.
+	if sd.StreamLength != nil {
+		t.Fatalf("synthesized StreamDict had StreamLength populated -- precondition broken")
+	}
+
+	info := extractStreamInfo(doc, sd)
+	if info == nil {
+		t.Fatal("extractStreamInfo returned nil")
+	}
+	if info.Length != 37 {
+		t.Errorf("info.Length = %d, want 37 (resolved from indirect /Length 5 0 R via doc.PDFContext.Dereference)", info.Length)
+	}
+}

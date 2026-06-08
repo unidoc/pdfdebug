@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"cmp"
 	"fmt"
+	"log"
 	"slices"
 	"sort"
 	"strconv"
@@ -365,17 +366,84 @@ func parseObjGenR(s string) (num, gen int, ok bool) {
 	return n, g, true
 }
 
+// buildReverseRefsOnce runs the reverse-refs BFS exactly once per
+// DocumentState via doc.revBuildOnce. AC7 moves the build out of Open and
+// defers it to the first GetReverseRefs call so Open stays responsive on
+// large PDFs.
+//
+// Locking: acquires doc.pdfMu for the duration of the BFS because the walk
+// calls doc.PDFContext.Dereference, which is pdfcpu state. The Once's inner
+// function is invoked at most once; concurrent first-time callers serialize
+// on the Once's internal mutex and then on pdfMu.
+//
+// On panic during BFS, safeCall captures the panic; the inner function flags
+// revRefsBuildFailed = true so subsequent callers receive
+// ErrReverseRefIndexUnavailable without re-running the build. The
+// build-failure log line moved here from Inspector.Open (Story 10-5 AC7).
+func buildReverseRefsOnce(doc *DocumentState) {
+	if doc == nil {
+		return
+	}
+	doc.revBuildOnce.Do(func() {
+		// Defense in depth: sync.Once.Do marks the function "done" even if
+		// the inner func panics. If anything inside the Do panics OUTSIDE of
+		// safeCall (e.g. a future refactor moves a pdfcpu call out of the
+		// safeCall, or log.Printf panics on an exhausted writer), the Once
+		// would never re-run and GetReverseRefs would observe nil reverseRefs
+		// + revRefsBuildFailed=false -- the forbidden silent-empty-list mode.
+		// Flag the build as failed before the panic propagates so subsequent
+		// callers receive ErrReverseRefIndexUnavailable.
+		defer func() {
+			if r := recover(); r != nil {
+				doc.reverseRefs = nil
+				doc.revRefsBuildFailed = true
+				panic(r)
+			}
+		}()
+		doc.pdfMu.Lock()
+		defer doc.pdfMu.Unlock()
+		revMap := map[[2]int][]ReverseRef{}
+		buildErr := safeCall(func() error {
+			buildReverseRefs(doc, revMap)
+			return nil
+		})
+		if buildErr != nil {
+			log.Printf("pdfcore: reverse-ref index build failed for %s: %v", doc.FilePath, buildErr)
+			doc.reverseRefs = nil
+			doc.revRefsBuildFailed = true
+			return
+		}
+		doc.reverseRefs = revMap
+	})
+}
+
 // GetReverseRefs returns the inbound dict-graph references for the indirect
 // object identified by nodeID. Inline-node IDs (dict:* / arr:*) return an
 // empty slice with no error -- the frontend suppresses the section for those.
-// Returns ErrReverseRefIndexUnavailable when the index could not be built at
-// document open (panic during BFS); empty list on every object would be the
-// forbidden silent failure mode.
+// Returns ErrReverseRefIndexUnavailable when the index could not be built
+// (panic during BFS); empty list on every object would be the forbidden
+// silent failure mode.
+//
+// Story 10-5 AC7: the index is built lazily on the first call via
+// buildReverseRefsOnce; subsequent calls skip the build and read the cached
+// state.
 func (ins *Inspector) GetReverseRefs(tabID, nodeID string) ([]ReverseRef, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
+	// Trigger the lazy build on first call. The helper acquires pdfMu
+	// internally for the BFS (Go mutexes are not reentrant, so we MUST NOT
+	// hold pdfMu here); on success doc.reverseRefs is populated, on failure
+	// doc.revRefsBuildFailed is set. Concurrent first-time callers serialize
+	// on revBuildOnce's internal mutex.
+	buildReverseRefsOnce(doc)
+
+	// AC1: serialize pdfcpu access while we read doc.reverseRefs. The Once
+	// guarantees the build has completed (or failed) by this point.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
 	if doc.revRefsBuildFailed {
 		return nil, ErrReverseRefIndexUnavailable
 	}

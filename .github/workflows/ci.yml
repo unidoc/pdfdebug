@@ -49,9 +49,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential xvfb
 
+      - name: Configure Linux GTK3 build tag
+        # Wails alpha.93 promoted GTK4 + WebKitGTK 6.0 to the Linux default;
+        # the only GTK headers installed on the runner are GTK3 + WebKit2GTK 4.1
+        # (the "Install Linux native deps" step above). Without the `gtk3` build
+        # tag, `go vet`, `go test`, `golangci-lint`, and `wails3 generate bindings`
+        # all type-check `pkg/application/application_linux.go` which `#cgo`s
+        # `pkg-config gtk4 webkitgtk-6.0` and fails. GOFLAGS propagates the tag
+        # to every subsequent `go`/`go list`/go-packages-based invocation in
+        # this job. The Wails build step below still needs `EXTRA_TAGS=gtk3`
+        # explicitly because the Taskfile combines it with `-tags production`
+        # to form BUILD_FLAGS (`build/linux/Taskfile.yml:57`); a CLI
+        # `-tags gtk3` arg on `wails3 build` does NOT reach the Taskfile's
+        # BUILD_FLAGS construction.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: echo "GOFLAGS=-tags=gtk3" >> "$GITHUB_ENV"
+
       - name: Install Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.85
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.95
 
       - name: Install golangci-lint v2
         shell: bash
@@ -120,7 +137,18 @@ jobs:
 
       - name: Wails build (GUI)
         shell: bash
-        run: wails3 build
+        # Wails alpha.93 promoted GTK4 + WebKitGTK 6.0 to the Linux default.
+        # CI installs the libgtk-3-dev + libwebkit2gtk-4.1-dev stack, so on
+        # Linux we drive the linux:build task with `EXTRA_TAGS=gtk3` (the
+        # Taskfile combines it into `-tags production,gtk3`, which propagates
+        # to `wails3 generate bindings -f` -- matches release.yml). macOS and
+        # Windows use the default `wails3 build` path.
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            wails3 task linux:build EXTRA_TAGS=gtk3
+          else
+            wails3 build
+          fi
 
       - name: Boot-smoke
         shell: bash

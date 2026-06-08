@@ -183,12 +183,18 @@ export function useWindowPersistence() {
       activeHookCount -= 1;
       if (activeHookCount <= 0) {
         activeHookCount = 0;
-        if (sharedTimer != null) {
+        if (pendingPanelSizes !== null || pendingGeometry !== null) {
+          // Last consumer is leaving with un-debounced writes (#9). flush()
+          // persists them synchronously and already nulls both pending buffers
+          // and sharedTimer, so it SUBSUMES the clearTimeout/null-out below --
+          // do not run both.
+          flush();
+        } else if (sharedTimer != null) {
+          // No pending writes; a timer may still be armed from a flushed-then-
+          // rescheduled state. Cancel it.
           clearTimeout(sharedTimer);
           sharedTimer = null;
         }
-        pendingPanelSizes = null;
-        pendingGeometry = null;
       }
     };
   }, []);

@@ -128,19 +128,84 @@ tasks:
     summary: Packages the application into a `.app` bundle
     deps:
       - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
     cmds:
+      # Forward ARCH so the embedded CLI (build:cli) targets the same arch as the
+      # GUI binary instead of silently falling back to the runner's native ARCH.
       - task: create:app:bundle
+        vars:
+          ARCH: '{{.ARCH}}'
 
   package:universal:
     summary: Packages darwin universal binary (arm64 + amd64)
     deps:
       - task: build:universal
     cmds:
+      # Universal GUI binary is arm64+amd64; build:universal already produced a lipo
+      # binary. Embed a matching universal CLI so the bundle has no arch gap.
       - task: create:app:bundle
+        vars:
+          CLI_UNIVERSAL: 'true'
 
+
+  build:cli:
+    summary: Builds the pdfdebug CLI (CGO-free, no Wails dependency)
+    internal: true
+    cmds:
+      - task: '{{if eq .CLI_UNIVERSAL "true"}}build:cli:universal{{else}}build:cli:single{{end}}'
+        vars:
+          ARCH: '{{.ARCH}}'
+
+  build:cli:single:
+    summary: Builds the pdfdebug CLI for one arch
+    internal: true
+    cmds:
+      - go build -trimpath -ldflags="-w -s -X main.version={{.VERSION}}" -o "{{.BIN_DIR}}/pdfdebug" ./cmd/cli
+    vars:
+      # Match the GUI build's VERSION idiom: env override, else "dev".
+      VERSION: '{{.VERSION | default (env "VERSION") | default "dev"}}'
+    env:
+      GOOS: darwin
+      CGO_ENABLED: 0
+      GOARCH: '{{.ARCH | default ARCH}}'
+
+  build:cli:universal:
+    summary: Builds a universal (arm64+amd64) pdfdebug CLI to match a universal GUI bundle
+    internal: true
+    cmds:
+      - go build -trimpath -ldflags="-w -s -X main.version={{.VERSION}}" -o "{{.BIN_DIR}}/pdfdebug-amd64" ./cmd/cli
+      - GOARCH=arm64 go build -trimpath -ldflags="-w -s -X main.version={{.VERSION}}" -o "{{.BIN_DIR}}/pdfdebug-arm64" ./cmd/cli
+      - task: '{{if eq OS "darwin"}}build:cli:lipo:native{{else}}build:cli:lipo:go{{end}}'
+      - rm -f "{{.BIN_DIR}}/pdfdebug-amd64" "{{.BIN_DIR}}/pdfdebug-arm64"
+    vars:
+      VERSION: '{{.VERSION | default (env "VERSION") | default "dev"}}'
+    env:
+      GOOS: darwin
+      CGO_ENABLED: 0
+      GOARCH: amd64
+
+  build:cli:lipo:native:
+    internal: true
+    cmds:
+      - lipo -create -output "{{.BIN_DIR}}/pdfdebug" "{{.BIN_DIR}}/pdfdebug-amd64" "{{.BIN_DIR}}/pdfdebug-arm64"
+
+  build:cli:lipo:go:
+    internal: true
+    cmds:
+      - wails3 tool lipo -output "{{.BIN_DIR}}/pdfdebug" -input "{{.BIN_DIR}}/pdfdebug-amd64" -input "{{.BIN_DIR}}/pdfdebug-arm64"
 
   create:app:bundle:
     summary: Creates an `.app` bundle
+    deps:
+      # Build the CLI so it can be embedded in Contents/Resources. Self-sufficient:
+      # does NOT assume a pre-existing bin/pdfdebug (Story 11-1, AC #6, Task 1.1).
+      # Forward ARCH / CLI_UNIVERSAL so the embedded CLI's arch matches the GUI
+      # binary rather than silently defaulting to the runner's native arch.
+      - task: build:cli
+        vars:
+          ARCH: '{{.ARCH}}'
+          CLI_UNIVERSAL: '{{.CLI_UNIVERSAL}}'
     cmds:
       - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS"
       - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
@@ -151,6 +216,12 @@ tasks:
         fi
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS"
       - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents"
+      # Embed the CLI as a bundle resource (invoked externally, not launched by
+      # the bundle -- matches VS Code's Contents/Resources/.../bin/code). Must
+      # precede the codesign dispatch below so the ad-hoc/Developer ID signature
+      # covers this nested Mach-O (Story 11-1, AC #1).
+      - cp "{{.BIN_DIR}}/pdfdebug" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug"
+      - chmod +x "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug"
       - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
 
   codesign:adhoc:

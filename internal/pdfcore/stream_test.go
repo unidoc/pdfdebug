@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -905,3 +906,125 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 		tokenizeContentStream(input)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Story 10-5 AC#3 -- concurrent cache-build race avoidance
+// ---------------------------------------------------------------------------
+
+// Test_10_5_AC3_GetContentStreamConcurrentSameNode [P0] AC#3:
+// Two concurrent GetContentStream calls against the SAME nodeID with an
+// initially-empty streamCache must collapse to one resolve+decode pass; both
+// callers receive the same *ContentStreamData pointer and Raw is non-empty.
+//
+// The goroutines park on a shared `start` channel and are released
+// simultaneously so they hit the cache-check critical section in the same
+// window. Without that barrier the two calls could serialize naturally and
+// pass even if the bug were present.
+//
+// Pre-fix shape of GetContentStream (stream.go lines 77-145, baseline at
+// story creation): drops streamMu between the cache check and the
+// decode+write, so two callers can both miss the cache, both decode, and
+// both store their own result. The second cached entry clobbers the first
+// and they receive DIFFERENT *ContentStreamData pointers.
+//
+// Post-fix shape: streamMu is held for the entire resolve+decode+write so
+// the second caller observes the populated cache and returns the SAME
+// pointer.
+//
+// Failure mode this test catches: pointer inequality between the two
+// returned *ContentStreamData. A pass under the current code is possible
+// only if the OS happens to serialize the goroutines; the barrier makes
+// that path statistically unlikely. Combined with the AC2 -race soak
+// (which surfaces the streamCache write race directly), this is the
+// behavioural complement.
+func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
+	ins, tabID := openContentStream(t)
+	t.Cleanup(func() { _ = ins.Close(tabID) })
+
+	// Resolve a real stream nodeID via the page-1 Contents lookup, matching
+	// the AC3 spec verbatim ("the node ID resolved via
+	// GetPageContentStreamNodeID(tabID, 1)").
+	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
+	if err != nil {
+		t.Fatalf("[P0] 10-5-AC3: GetPageContentStreamNodeID(1) failed: %v", err)
+	}
+	if nodeID == "" {
+		t.Fatalf("[P0] 10-5-AC3: page 1 of content-stream.pdf has no Contents node -- fixture broken")
+	}
+
+	// Sanity check: cache MUST start empty. If a prior call populated it
+	// (e.g. through Open eagerly building anything), the race window
+	// collapses and the test passes for the wrong reason.
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		t.Fatalf("[P0] 10-5-AC3: GetDocument failed: %v", err)
+	}
+	doc.streamMu.Lock()
+	if _, exists := doc.streamCache[nodeID]; exists {
+		doc.streamMu.Unlock()
+		t.Fatalf("[P0] 10-5-AC3: streamCache already populated for %q -- prerequisite violated", nodeID)
+	}
+	doc.streamMu.Unlock()
+
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	var done sync.WaitGroup
+	ready.Add(2)
+	done.Add(2)
+
+	results := make([]*ContentStreamData, 2)
+	errs := make([]error, 2)
+
+	for i := 0; i < 2; i++ {
+		go func(idx int) {
+			defer done.Done()
+			ready.Done()
+			<-start // park until both goroutines are at the barrier
+			r, e := ins.GetContentStream(tabID, nodeID)
+			results[idx] = r
+			errs[idx] = e
+		}(i)
+	}
+
+	ready.Wait()
+	close(start)
+	done.Wait()
+
+	for i, e := range errs {
+		if e != nil {
+			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned error: %v", i, e)
+		}
+		if results[i] == nil {
+			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned nil *ContentStreamData", i)
+		}
+	}
+
+	// Pointer equality: both goroutines MUST see the SAME cached pointer.
+	// Inequality is the bug signal (each goroutine wrote its own object).
+	if results[0] != results[1] {
+		t.Errorf("[P0] 10-5-AC3: concurrent GetContentStream returned different *ContentStreamData pointers (%p vs %p) -- expected pointer equality (single cache entry)", results[0], results[1])
+	}
+
+	// Raw must be non-empty -- a clobbered placeholder (zero-length result
+	// written before decode completed) is the other tell-tale of the race.
+	if results[0] != nil && results[0].Raw == "" {
+		t.Errorf("[P0] 10-5-AC3: result[0].Raw is empty -- expected decoded content (clobbered placeholder?)")
+	}
+
+	// Cache must contain exactly one entry for this nodeID, and that entry
+	// must equal the pointer returned to the callers.
+	doc.streamMu.Lock()
+	cached, ok := doc.streamCache[nodeID]
+	cacheLen := len(doc.streamCache)
+	doc.streamMu.Unlock()
+	if !ok {
+		t.Errorf("[P0] 10-5-AC3: streamCache missing %q after concurrent calls -- single resolve+decode pass should have written exactly one entry", nodeID)
+	}
+	if cached != results[0] {
+		t.Errorf("[P0] 10-5-AC3: cached pointer differs from returned pointer (%p vs %p)", cached, results[0])
+	}
+	if cacheLen < 1 {
+		t.Errorf("[P0] 10-5-AC3: streamCache size = %d, expected >= 1", cacheLen)
+	}
+}
+

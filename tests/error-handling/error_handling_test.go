@@ -263,10 +263,11 @@ func TestErrorBannerDismissAriaLabel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-009 [P2]: ErrorBanner.tsx has dark mode variants.
+// 2.9-STRUCT-009 [P2]: ErrorBanner.tsx uses tinted-light backgrounds (no
+// dark: variants by design). See in-file rationale below.
 // ---------------------------------------------------------------------------
 
-func TestErrorBannerDarkMode(t *testing.T) {
+func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ErrorBanner.tsx")
 	content, err := os.ReadFile(path)
@@ -274,11 +275,19 @@ func TestErrorBannerDarkMode(t *testing.T) {
 		t.Fatalf("[P2] 2.9-STRUCT-009: cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
-	if !strings.Contains(src, "dark:bg-red-900") {
-		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must have dark mode variant for error bg")
+	// Re-pinned 2026-05-22 (Epic 9 retro): the original dark:bg-* pin was stale.
+	// ErrorBanner.tsx deliberately drops `dark:` Tailwind variants because the
+	// app shell uses design-token CSS that does not flip on prefers-color-scheme;
+	// a tinted banner with dark: variants would mismatch surrounding chrome.
+	// Contract now asserts the documented decision is preserved.
+	if !strings.Contains(src, "bg-red-100") {
+		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must use bg-red-100 for error background")
 	}
-	if !strings.Contains(src, "dark:bg-amber-900") {
-		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must have dark mode variant for warning bg")
+	if !strings.Contains(src, "bg-amber-100") {
+		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must use bg-amber-100 for warning background")
+	}
+	if strings.Contains(src, "dark:bg-red") || strings.Contains(src, "dark:bg-amber") {
+		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must NOT reintroduce dark:bg-* variants (mismatches app shell tokens; see in-file rationale)")
 	}
 }
 

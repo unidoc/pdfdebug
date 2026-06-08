@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -54,8 +55,17 @@ func projectRoot(t *testing.T) string {
 func TestWailsBuildProducesBinary(t *testing.T) {
 	root := projectRoot(t)
 
-	// Verify wails3 build succeeds
-	cmd := exec.Command("wails3", "build")
+	// Verify wails3 build succeeds. On Linux, CI runners ship only the GTK3 +
+	// WebKit2GTK 4.1 stack; Wails alpha.93+ defaults to GTK4 + WebKitGTK 6.0
+	// on Linux, so we drive the linux:build task with EXTRA_TAGS=gtk3 (the
+	// Taskfile combines it into `-tags production,gtk3`). Matches ci.yml +
+	// release.yml.
+	var cmd *exec.Cmd
+	if runtime.GOOS == "linux" {
+		cmd = exec.Command("wails3", "task", "linux:build", "EXTRA_TAGS=gtk3")
+	} else {
+		cmd = exec.Command("wails3", "build")
+	}
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {

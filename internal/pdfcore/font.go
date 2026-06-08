@@ -50,6 +50,10 @@ func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. Font detail extraction walks
+	// /FontDescriptor, /Encoding, /DescendantFonts via Dereference.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {
@@ -261,8 +265,15 @@ func parseDifferences(arr pdfcpu_types.Array) []EncodingDifference {
 		switch v := elem.(type) {
 		case pdfcpu_types.Integer:
 			currentCode = int(v)
+			// AC5 (Story 10.6): silently skip out-of-range codes. Malformed
+			// /Differences arrays in the wild carry negatives or values >255
+			// (typo / merge-conflict residue). With no guard, the subsequent
+			// Name entries appended at those codes pollute the encoding table.
+			if currentCode < 0 || currentCode > 255 {
+				continue
+			}
 		case pdfcpu_types.Name:
-			if currentCode < 0 {
+			if currentCode < 0 || currentCode > 255 {
 				continue
 			}
 			out = append(out, EncodingDifference{
@@ -768,18 +779,28 @@ func parseBfrange(section string) ([]ToUnicodeMapping, error) {
 		}
 		for k := low; k <= high; k++ {
 			delta := k - low
-			// Guard against uint16 wraparound on the advancing unit. PDF spec
-			// 9.10.3 increments the trailing UTF-16 code unit, which is 16-bit;
-			// if base + delta exceeds 0xFFFF the mapping is malformed (or
-			// requires high-unit carry that this scanner does not synthesize).
-			// Stop expanding the range rather than emit wrapped codepoints.
-			tail := int(units[len(units)-1]) + delta
-			if tail > 0xFFFF {
-				break
-			}
+			// AC6 (Story 10.6): propagate the trailing-unit overflow into
+			// higher UTF-16 units (carry). PDF spec 9.10.3 increments the
+			// trailing 16-bit code unit; when (unit + delta) > 0xFFFF the
+			// excess MUST carry into the next-higher unit, not be silently
+			// dropped. If propagation overflows the LEADING unit (no higher
+			// unit to absorb the carry), stop the loop -- no wraparound, no
+			// error -- and return what was emitted.
 			advanced := make([]uint16, len(units))
 			copy(advanced, units)
-			advanced[len(advanced)-1] = uint16(tail)
+			tail := int(advanced[len(advanced)-1]) + delta
+			advanced[len(advanced)-1] = uint16(tail & 0xFFFF)
+			carry := tail >> 16
+			for j := len(advanced) - 2; j >= 0 && carry > 0; j-- {
+				sum := int(advanced[j]) + carry
+				advanced[j] = uint16(sum & 0xFFFF)
+				carry = sum >> 16
+			}
+			if carry > 0 {
+				// Carry propagated past the leading unit -- there is no
+				// higher unit to receive it. Stop emitting for this range.
+				break
+			}
 			unicode, glyph := decodeUnits(advanced)
 			out = append(out, ToUnicodeMapping{
 				Code:    k,

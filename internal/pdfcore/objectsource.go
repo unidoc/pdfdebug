@@ -51,6 +51,10 @@ func (ins *Inspector) GetObjectSource(tabID, nodeID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// AC1: serialize pdfcpu access. resolveNodeObject + the writeDict/writeArray
+	// walk dereference indirect refs through pdfcpu.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	// The catalog tree node uses sentinel ID "root" but IS a real indirect
 	// object. Map "root" to the catalog's indirect identity (via the trailer's
@@ -225,10 +229,10 @@ func formatIntWithCommas(n int) string {
 	}
 	first := len(digits) % 3
 	if first > 0 {
+		// The len(digits) <= 3 guard above ensures len(digits) >= 4 here, and
+		// first is at most 2, so a comma always follows the leading group.
 		b.WriteString(digits[:first])
-		if len(digits) > first {
-			b.WriteString(",")
-		}
+		b.WriteString(",")
 	}
 	for i := first; i < len(digits); i += 3 {
 		b.WriteString(digits[i : i+3])

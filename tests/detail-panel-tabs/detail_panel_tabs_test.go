@@ -259,22 +259,9 @@ func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 	runPdfcoreTest(t, "9.11-INTG-024", "TestGetPlainTextWhitespaceBytesPreserved")
 }
 
-// 9.11-INTG-025 [P0] AC#7: for a file larger than plainTextByteCap
-// (5*1024*1024 = 5,242,880 bytes), GetPlainText returns the first capBytes
-// bytes plus Truncated=true, TotalBytes==actual on-disk size, and
-// CapBytes==plainTextByteCap. Critical subtlety: TotalBytes must come from
-// a separate stat, NOT from len(read), otherwise a 5MB-exact file would
-// falsely flag truncated.
-func TestPlainTextTruncationAtCap(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-025", "TestGetPlainTextTruncationAtCap")
-}
-
-// 9.11-INTG-026 [P0] AC#7: a file exactly equal to plainTextByteCap MUST
-// NOT be flagged truncated. This is the off-by-one boundary case called out
-// in Task 2.4.
-func TestPlainTextExactCapNotTruncated(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-026", "TestGetPlainTextExactCapBoundaryNotTruncated")
-}
+// 9.11-INTG-025 / 9.11-INTG-026 retired by Story 10-1: the 25 MiB cap +
+// truncation banner are removed in favour of a single uncapped lazy-load.
+// See tests/10-1-async-plain-text-load/ for the replacement coverage.
 
 // 9.11-INTG-027 [P0] AC#8: encrypted streams (file with /Filter /Crypt) pass
 // through as raw on-disk bytes. The backend MUST NOT attempt to decode or
@@ -371,7 +358,9 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 	if !strings.Contains(src, "type PlainTextDocument struct") {
 		t.Fatalf("[P0] 9.11-INTG-042: model.go must declare `type PlainTextDocument struct`")
 	}
-	requiredFields := []string{"TabID", "Content", "TotalBytes", "Truncated", "CapBytes"}
+	// Story 10-1: Truncated + CapBytes removed; structural assertions on those
+	// fields live in tests/10-1-async-plain-text-load/.
+	requiredFields := []string{"TabID", "Content", "TotalBytes"}
 	for _, f := range requiredFields {
 		if !strings.Contains(src, f) {
 			t.Fatalf("[P0] 9.11-INTG-042: PlainTextDocument must declare field %q", f)
@@ -381,12 +370,10 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 		`json:"tabId"`,
 		`json:"content"`,
 		`json:"totalBytes"`,
-		`json:"truncated"`,
-		`json:"capBytes"`,
 	}
 	for _, tag := range requiredTags {
 		if !strings.Contains(src, tag) {
-			t.Fatalf("[P0] 9.11-INTG-042: PlainTextDocument must declare JSON tag %q -- truncation banner reads from payload (AC7)", tag)
+			t.Fatalf("[P0] 9.11-INTG-042: PlainTextDocument must declare JSON tag %q", tag)
 		}
 	}
 }
@@ -633,15 +620,15 @@ func TestPlainTextViewFileExists(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-021 [P0] AC#7, AC#10, AC#13: PlainTextView carries the
-// load-bearing data-testids.
+// 9.11-STRUCT-021 [P0] AC#10, AC#13: PlainTextView carries the load-bearing
+// data-testids. The 9-11 truncation-banner testid was retired by Story 10-1;
+// the new async loading-card testids are pinned in
+// tests/10-1-async-plain-text-load/.
 func TestPlainTextViewTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{
-		"plain-text-loading",          // AC#10
-		"plain-text-error",            // AC#13
-		"plain-text-empty",            // Task 7.8 no-document state
-		"plain-text-truncated-banner", // AC#7
+		"plain-text-error", // AC#13
+		"plain-text-empty", // Task 7.8 no-document state
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -650,27 +637,9 @@ func TestPlainTextViewTestIds(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-022 [P0] AC#7: the truncation banner reads capBytes + totalBytes
-// FROM the payload, not from a JSX-hard-coded literal. A future cap change
-// must not desync the banner.
-func TestPlainTextViewBannerReadsFromPayload(t *testing.T) {
-	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
-	// The banner template is "Showing first {capBytes...} of {totalBytes...} bytes (truncated)."
-	// We require both substrings to flow from data references (capBytes / totalBytes).
-	if !strings.Contains(src, "capBytes") {
-		t.Fatalf("[P0] 9.11-STRUCT-022: PlainTextView.tsx must reference capBytes from the payload (AC#7)")
-	}
-	if !strings.Contains(src, "totalBytes") {
-		t.Fatalf("[P0] 9.11-STRUCT-022: PlainTextView.tsx must reference totalBytes from the payload (AC#7)")
-	}
-	// Negative: the banner MUST NOT hard-code "5,242,880" or "5 * 1024 * 1024"
-	// or "5242880" -- the cap is sourced from payload.capBytes.
-	for _, antiPattern := range []string{"5,242,880", "5242880"} {
-		if strings.Contains(src, antiPattern) {
-			t.Errorf("[P0] 9.11-STRUCT-022: PlainTextView.tsx must NOT hard-code the cap as %q -- read from payload.capBytes (AC#7)", antiPattern)
-		}
-	}
-}
+// 9.11-STRUCT-022 retired by Story 10-1: the truncation banner that read
+// capBytes + totalBytes from the payload no longer exists. The 10-1 loading
+// card surfaces totalBytes via GetPlainTextSize instead.
 
 // 9.11-STRUCT-023 [P0] AC#6: the line-break regex collapses CRLF / lone CR /
 // lone LF to one logical line break each. The literal /\r\n?|\n/ MUST appear

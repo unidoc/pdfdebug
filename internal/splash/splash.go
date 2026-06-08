@@ -18,9 +18,11 @@
 package splash
 
 import (
+	"bytes"
 	"html"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 )
 
@@ -409,6 +411,7 @@ const splashHTMLTemplate = `<!DOCTYPE html>
         clearInterval(iv);
         try { window._wails.invoke('wails:runtime:ready'); } catch (_) { /* swallow */ }
       } else if (tries > 50) {
+        console.warn("splash: runtime-ready ping gave up after " + (tries * 100) + "ms", { tries: tries, elapsedMs: tries * 100, wailsShape: typeof window._wails === 'object' ? Object.keys(window._wails || {}) : null });
         clearInterval(iv);
       }
     }, 100);
@@ -428,13 +431,24 @@ const splashHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
+// splashTmpl is the parsed splashHTMLTemplate, compiled once at package init.
+// text/template (not html/template) is deliberate: the only dynamic field is
+// pre-escaped by Render via html.EscapeString, so html/template would
+// double-escape it. Using text/template keeps the substitution composable for
+// future fields without changing the escaping contract.
+var splashTmpl = template.Must(template.New("splash").Parse(splashHTMLTemplate))
+
 // Render returns the splash HTML with {{.Version}} replaced by the
 // rendered form of the supplied version string (see RenderVersion).
 // The rendered version is HTML-escaped so a malformed `-ldflags -X
 // main.version=...` value (e.g. one containing `</div><script>`) cannot
 // break out of the version div and inject markup into the splash WebView.
 func Render(version string) string {
-	return strings.ReplaceAll(splashHTMLTemplate, "{{.Version}}", html.EscapeString(RenderVersion(version)))
+	var buf bytes.Buffer
+	// Ignoring the error is safe: splashTmpl is a valid parsed template and
+	// bytes.Buffer writes never fail, so Execute cannot error here.
+	_ = splashTmpl.Execute(&buf, struct{ Version string }{Version: html.EscapeString(RenderVersion(version))})
+	return buf.String()
 }
 
 // MinDisplay returns the min-display floor as a time.Duration. Exposed

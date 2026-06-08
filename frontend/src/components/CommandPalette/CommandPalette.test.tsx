@@ -34,6 +34,15 @@ import { useCommandPalette } from '../../hooks/useCommandPalette';
 const mockGetObjectIndex = vi.hoisted(() => vi.fn());
 const mockGetAncestorPath = vi.hoisted(() => vi.fn());
 
+// Story 10.8 AC2: the palette open shortcut is now platform-aware (Cmd on
+// macOS, Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below
+// open the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
+const mockGetPlatformModifier = vi.hoisted(() => vi.fn(() => 'Cmd'));
+vi.mock('../../lib/platform', () => ({
+  getPlatformModifier: () => mockGetPlatformModifier(),
+  getShortcutHint: (key: string) => `${mockGetPlatformModifier()}+${key}`,
+}));
+
 vi.mock(
   '../../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -128,6 +137,7 @@ beforeEach(() => {
   mockGetAncestorPath.mockReset();
   mockGetObjectIndex.mockResolvedValue(indexFixture);
   mockGetAncestorPath.mockResolvedValue(['root', 'obj:0:2', 'obj:0:3']);
+  mockGetPlatformModifier.mockReturnValue('Cmd');
 });
 
 // ---------------------------------------------------------------------------
@@ -146,6 +156,7 @@ describe('AC4: open/close lifecycle', () => {
   });
 
   test('Ctrl+K opens the palette overlay (Windows/Linux)', async () => {
+    mockGetPlatformModifier.mockReturnValue('Ctrl');
     const user = userEvent.setup();
     renderHarness();
     act(() => screen.getByTestId('bootstrap-open').click());

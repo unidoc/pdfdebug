@@ -80,7 +80,6 @@ function DetailPanelInner() {
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [detailTabId, setDetailTabId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [, setLoading] = useState(false);
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
   const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
@@ -89,12 +88,6 @@ function DetailPanelInner() {
   const [imageLoading, setImageLoading] = useState(false);
   const [showImageLoading, setShowImageLoading] = useState(false);
   const [fontState, setFontState] = useState<FontFetchState>(null);
-  // fontLoading is a parallel-naming placeholder (matches the imageLoading /
-  // contentStreamLoading pair). The debounce timer keys on selectedNodeId +
-  // iconHint, not on this flag, so the slot is intentionally write-only --
-  // discarded via the tuple destructure but kept so dev tooling can grep
-  // both `fontLoading` and `showFontLoading`.
-  const [, setFontLoading] = useState(false);
   const [showFontLoading, setShowFontLoading] = useState(false);
 
   // Story 9-10: reverse-refs are fetched per-selection. The backend has the
@@ -123,7 +116,6 @@ function DetailPanelInner() {
     if (!activeTabId || !selectedNodeId) {
       setDetail(null);
       setError(null);
-      setLoading(false);
       setContentStream(null);
       setContentStreamLoading(false);
       setShowContentStreamLoading(false);
@@ -131,14 +123,12 @@ function DetailPanelInner() {
       setImageLoading(false);
       setShowImageLoading(false);
       setFontState(null);
-      setFontLoading(false);
       setShowFontLoading(false);
       return;
     }
     // Keep previous detail/contentStream visible until the new fetch resolves
     // to avoid a flash of empty or error state during tab switches.
     setError(null);
-    setLoading(true);
     // Stale-fetch guard: discard response if selection changed before resolve
     let cancelled = false;
     GetObjectDetail(activeTabId, selectedNodeId)
@@ -146,13 +136,11 @@ function DetailPanelInner() {
         if (!cancelled) {
           setDetail(result as ObjectDetailData);
           setDetailTabId(activeTabId);
-          setLoading(false);
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           setError(extractErrorMessage(err));
-          setLoading(false);
         }
       });
     return () => { cancelled = true; };
@@ -243,11 +231,9 @@ function DetailPanelInner() {
   useEffect(() => {
     if (selectedNodeIconHint !== 'font' || !detail || detail.type !== 'dict' || !detailTabId) {
       setFontState(null);
-      setFontLoading(false);
       return;
     }
     setFontState(null);
-    setFontLoading(true);
     let cancelled = false;
     GetFontView(detailTabId, detail.nodeId)
       .then((result: unknown) => {
@@ -260,12 +246,10 @@ function DetailPanelInner() {
         } else {
           setFontState({ kind: 'fallback' });
         }
-        setFontLoading(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         setFontState({ kind: 'error', message: extractErrorMessage(err) });
-        setFontLoading(false);
       });
     return () => { cancelled = true; };
   }, [detail, detailTabId, selectedNodeIconHint]);

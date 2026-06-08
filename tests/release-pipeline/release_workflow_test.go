@@ -779,8 +779,9 @@ func TestShellBashOnRunSteps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Artifact staging produces the 8 named artifacts plus SHA256SUMS
-// Covers AC #2, Task 4.3 naming contract
+// Artifact staging produces the 6 named artifacts plus SHA256SUMS
+// (3 platforms x 2 archives each: a GUI archive that also embeds the CLI, plus
+// a standalone CLI archive). Covers AC #2, Task 4.3 naming contract.
 // ---------------------------------------------------------------------------
 
 func TestArtifactStagingNaming(t *testing.T) {

@@ -15,6 +15,9 @@ func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access (Catalog reads XRefTable state).
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var rootDict pdfcpu_types.Dict
 	err = safeCall(func() error {
@@ -77,6 +80,10 @@ func (ins *Inspector) GetChildren(tabID string, nodeID string) ([]*TreeNode, err
 	if err != nil {
 		return nil, err
 	}
+	// AC1: serialize pdfcpu access. resolveNodeObject + buildChildren both
+	// dereference indirect refs through pdfcpu.
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {
@@ -92,6 +99,10 @@ func (ins *Inspector) GetChildren(tabID string, nodeID string) ([]*TreeNode, err
 }
 
 // maxRefDepth guards against circular IndirectRef chains in malformed PDFs.
+// Retained for buildChildren / page-tree expansion (the depth-cap removals in
+// buildReachableSet and findPathToObject by Story 10.6 do NOT change this
+// caller: buildChildren has no visited-set and relies on the cap to break
+// cycles at recursion time).
 const maxRefDepth = 32
 
 func buildChildren(doc *DocumentState, parentID string, obj pdfcpu_types.Object) []*TreeNode {

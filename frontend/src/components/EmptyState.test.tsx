@@ -74,7 +74,19 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(dropZone.className).toContain('bg-surface-selected');
   });
 
-  test('drop zone shows "PDF files only" for non-PDF drag', () => {
+  // ---------------------------------------------------------------------------
+  // Story 10.8 AC1 (RED PHASE): the per-file invalid flash is REMOVED. The drop
+  // zone must NEVER claim pre-drop knowledge it does not have. For ANY drag
+  // combination (PDF-only, mixed, non-PDF-only) the hint stays the constant
+  // "Drop a PDF file here" in text-text-muted, and the error styling
+  // ("PDF files only" / text-error) is never applied.
+  //
+  // These assertions FAIL against the current EmptyState.tsx because the
+  // dragenter/drop handlers still call setIsInvalidFile and the derived
+  // hintText/hintColor still branch on it.
+  // ---------------------------------------------------------------------------
+
+  test('10-8-UNIT-001 [P1] AC1: non-PDF drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -86,8 +98,62 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     });
 
     const hint = screen.getByTestId('drop-zone-hint');
-    expect(hint.textContent).toBe('PDF files only');
-    expect(hint.className).toContain('text-error');
+    // Backend is authoritative; the UI must not flash an invalid hint pre-drop.
+    expect(hint.textContent).toBe('Drop a PDF file here');
+    expect(hint.className).not.toContain('text-error');
+    expect(hint.className).toContain('text-text-muted');
+  });
+
+  test('10-8-UNIT-002 [P1] AC1: mixed-file drag does NOT show error flash', () => {
+    renderEmptyState();
+    const emptyState = screen.getByTestId('empty-state');
+
+    // Mixed drag: a non-PDF first item with a PDF later. The old per-file
+    // inspection only looked at index [0] and would lie either way.
+    fireEvent.dragEnter(emptyState, {
+      dataTransfer: {
+        items: [
+          { kind: 'file', type: 'text/plain' },
+          { kind: 'file', type: 'application/pdf' },
+        ],
+      },
+    });
+
+    const hint = screen.getByTestId('drop-zone-hint');
+    expect(hint.textContent).toBe('Drop a PDF file here');
+    expect(hint.className).not.toContain('text-error');
+    expect(hint.className).toContain('text-text-muted');
+  });
+
+  test('10-8-UNIT-003 [P1] AC1: PDF-only drag keeps the standard hint (no error)', () => {
+    renderEmptyState();
+    const emptyState = screen.getByTestId('empty-state');
+
+    fireEvent.dragEnter(emptyState, {
+      dataTransfer: {
+        items: [{ kind: 'file', type: 'application/pdf' }],
+      },
+    });
+
+    const hint = screen.getByTestId('drop-zone-hint');
+    expect(hint.textContent).toBe('Drop a PDF file here');
+    expect(hint.className).not.toContain('text-error');
+  });
+
+  test('10-8-UNIT-004 [P1] AC1: dropping a non-PDF file shows no error flash', () => {
+    renderEmptyState();
+    const emptyState = screen.getByTestId('empty-state');
+
+    const nonPdfFile = new File(['data'], 'image.png', { type: 'image/png' });
+    fireEvent.drop(emptyState, {
+      dataTransfer: { files: [nonPdfFile] },
+    });
+
+    const hint = screen.getByTestId('drop-zone-hint');
+    // The drop handler no longer sets the invalid flash; backend warning is the
+    // authoritative source after the drop.
+    expect(hint.textContent).toBe('Drop a PDF file here');
+    expect(hint.className).not.toContain('text-error');
   });
 
   test('drop zone reverts after drag leave', () => {
@@ -105,31 +171,6 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     fireEvent.dragLeave(emptyState);
     expect(dropZone.className).toContain('border-border');
     expect(dropZone.className).not.toContain('bg-surface-selected');
-  });
-
-  test('shows invalid hint on drop of non-PDF file', () => {
-    vi.useFakeTimers();
-    renderEmptyState();
-    const emptyState = screen.getByTestId('empty-state');
-
-    const nonPdfFile = new File(['data'], 'image.png', {
-      type: 'image/png',
-    });
-
-    fireEvent.drop(emptyState, {
-      dataTransfer: { files: [nonPdfFile] },
-    });
-
-    const hint = screen.getByTestId('drop-zone-hint');
-    expect(hint.textContent).toBe('PDF files only');
-
-    // After 2 seconds, hint resets
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-    expect(hint.textContent).toBe('Drop a PDF file here');
-
-    vi.useRealTimers();
   });
 
   test('renders Open File button and shortcut hint', () => {
