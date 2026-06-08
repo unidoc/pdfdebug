@@ -177,13 +177,27 @@ func Test_10_1_INTG_020_ModelPlainTextDocumentSlim(t *testing.T) {
 	if !strings.Contains(src, "type PlainTextDocument struct") {
 		t.Fatalf("[P0] 10-1-INTG-020: model.go must still declare `type PlainTextDocument struct`")
 	}
+	// Scope all field assertions to the PlainTextDocument struct body. The
+	// negative checks below collide with sibling structs (ResolvedNode and the
+	// forms struct both carry a `Truncated bool json:"truncated"` field), so a
+	// whole-file grep produces false positives -- isolate the struct first.
+	structStart := strings.Index(src, "type PlainTextDocument struct {")
+	if structStart == -1 {
+		t.Fatalf("[P0] 10-1-INTG-020: model.go must still declare `type PlainTextDocument struct`")
+	}
+	structEnd := strings.Index(src[structStart:], "\n}")
+	if structEnd == -1 {
+		t.Fatalf("[P0] 10-1-INTG-020: could not locate end of PlainTextDocument struct body")
+	}
+	structBody := src[structStart : structStart+structEnd]
+
 	requiredFields := []string{"TabID", "Content", "TotalBytes"}
 	for _, f := range requiredFields {
-		if !strings.Contains(src, f) {
+		if !strings.Contains(structBody, f) {
 			t.Errorf("[P0] 10-1-INTG-020: PlainTextDocument must retain field %q (AC18)", f)
 		}
 	}
-	// Negative: the deleted fields must NOT appear anywhere in model.go.
+	// Negative: the deleted fields must NOT appear in the struct body.
 	for _, deletedField := range []string{
 		`Truncated  bool`,
 		`Truncated bool`,
@@ -192,7 +206,7 @@ func Test_10_1_INTG_020_ModelPlainTextDocumentSlim(t *testing.T) {
 		`json:"truncated"`,
 		`json:"capBytes"`,
 	} {
-		if strings.Contains(src, deletedField) {
+		if strings.Contains(structBody, deletedField) {
 			t.Errorf("[P0] 10-1-INTG-020: PlainTextDocument must NOT carry %q -- field deleted in 10-1 AC18", deletedField)
 		}
 	}
