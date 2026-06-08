@@ -192,14 +192,16 @@ func onSplashDismiss(app *application.App, splashWindow, mainWindow *application
 }
 
 // installedLinkPath returns the path of OUR installed pdfdebug symlink if one
-// already exists in any candidate dir (used to initialize the menu label and to
-// drive uninstall). Returns "" if not installed anywhere.
+// already exists in the install dir (used to initialize the menu label and to
+// drive uninstall). Returns "" if not installed.
 func installedLinkPath() string {
-	for _, dir := range clitool.DefaultCandidateDirs() {
-		link := filepath.Join(dir, "pdfdebug")
-		if clitool.IsInstalled(link) {
-			return link
-		}
+	dir := clitool.DefaultInstallDir()
+	if dir == "" {
+		return ""
+	}
+	link := filepath.Join(dir, "pdfdebug")
+	if clitool.IsInstalled(link) {
+		return link
 	}
 	return ""
 }
@@ -235,10 +237,26 @@ func runInstallCLI(app *application.App, installItem *application.MenuItem, over
 			Show()
 		flipToUninstall(app, installItem, r.Path)
 	case clitool.NeedsPathHelp:
-		app.Dialog.Info().
+		dialog := app.Dialog.Question().
 			SetTitle("Almost there -- add pdfdebug to your PATH").
-			SetMessage("pdfdebug was linked into:\n" + r.Dir + "\n\nThat directory is not on your PATH yet. Add this line to your shell profile (e.g. ~/.zshrc), then open a NEW terminal:\n\n  " + r.ExportLine + "\n\nThen run:\n  pdfdebug --version").
-			Show()
+			SetMessage("pdfdebug was linked into:\n" + r.Dir + "\n\nThat directory is not on your PATH yet, so the command will not be found until it is added. Want me to add it to your shell profile for you?")
+		addBtn := dialog.AddButton("Add it for me")
+		manualBtn := dialog.AddButton("I'll do it myself")
+		dialog.SetDefaultButton(addBtn)
+		addBtn.OnClick(func() {
+			profile, err := clitool.AddDirToShellProfile(r.Dir)
+			if err != nil {
+				// Unknown shell or write failure -> fall back to manual guidance.
+				showManualPathHelp(app, r.Dir, r.ExportLine)
+				return
+			}
+			app.Dialog.Info().
+				SetTitle("pdfdebug added to your PATH").
+				SetMessage("Updated:\n" + profile + "\n\nRestart your terminal (or run `source " + profile + "`), then run:\n  pdfdebug --version").
+				Show()
+		})
+		manualBtn.OnClick(func() { showManualPathHelp(app, r.Dir, r.ExportLine) })
+		dialog.Show()
 		flipToUninstall(app, installItem, filepath.Join(r.Dir, "pdfdebug"))
 	case clitool.ConfirmOverwrite:
 		dialog := app.Dialog.Question().
@@ -255,6 +273,15 @@ func runInstallCLI(app *application.App, installItem *application.MenuItem, over
 			SetMessage("This command is only available when running the installed app. Run UniDoc PDF Debugger from /Applications (or wherever you installed the .app), then try again.").
 			Show()
 	}
+}
+
+// showManualPathHelp presents the manual PATH-export instructions (the fallback
+// when the user declines the auto-edit or the shell is unrecognized).
+func showManualPathHelp(app *application.App, dir, exportLine string) {
+	app.Dialog.Info().
+		SetTitle("Add pdfdebug to your PATH").
+		SetMessage("pdfdebug was linked into:\n" + dir + "\n\nAdd this line to your shell profile (e.g. ~/.zshrc), then open a NEW terminal:\n\n  " + exportLine + "\n\nThen run:\n  pdfdebug --version").
+		Show()
 }
 
 // runUninstallCLI removes our symlink and flips the menu item back to the

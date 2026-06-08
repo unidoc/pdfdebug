@@ -1,41 +1,14 @@
-// Package clitool unit tests -- Story 11.2 "macOS: Install 'pdfdebug' Command
-// in PATH". These are TDD RED-PHASE tests: they reference symbols
-// (resolveBundleCLI, findInstallDir, InstallCLI, UninstallCLI, IsInstalled, the
-// result types, and MenuItemLabel) that do NOT yet exist in package clitool, so
-// the package will fail to compile until the Dev step implements it. That
-// compile failure IS the red state. No t.Skip() sentinels (repo convention:
-// red-phase tests ship directly and fail for the right reason).
+// Package clitool unit tests. Originally Story 11.2 "macOS: Install 'pdfdebug'
+// Command in PATH"; revised in Story 12.1 to install ONLY into ~/.local/bin
+// (never a Homebrew prefix) and to offer an "Add it for me" shell-profile edit
+// when ~/.local/bin is not on $PATH.
 //
 // Scope: all install business logic is pure Go and OS-filesystem, so every AC
-// except the native-menu wiring (AC1 glue) and the unsigned-build quarantine
-// smoke (AC7) is covered here at UNIT level. No browser/HTTP surface exists for
-// this story -- there is NO E2E. The macOS-native menu item cannot be reached
-// by Playwright and main.go is source-grep-guarded; the menu wiring is verified
-// manually (see the ATDD checklist) and only the LABEL string is unit-asserted
-// here via the exported MenuItemLabel constant that main.go must consume.
-//
-// Trace:
-//
-//	AC #1 -> TestMenuItemLabelExactString (label only; menu gating is manual glue)
-//	AC #2 -> TestResolveBundleCLIReturnsResourcesPath,
-//	         TestInstallCLILinksIntoWritableOnPathDir,
-//	         TestFindInstallDirPrefersWritableAndOnPath
-//	AC #3 -> TestFindInstallDirReturnsNeedsPathWhenNoOnPathDir,
-//	         TestInstallCLINeedsPathHelpSurfacesExportLine,
-//	         TestInstallCLICreatesMissingLocalBin
-//	AC #4 -> TestResolveBundleCLIRejectsNonAppLayout,
-//	         TestInstallCLINotInBundleWhenDevBinary,
-//	         TestInstallCLIIdempotentWhenOursAndCurrent,
-//	         TestInstallCLIRepointsOursButStaleLink,
-//	         TestInstallCLIConfirmOverwriteForeignFile,
-//	         TestInstallCLIConfirmOverwriteForeignShapedSymlink,
-//	         TestInstallCLIOverwriteFlagReplacesForeign
-//	AC #5 -> TestInstallCLISpecialCharPathReadlinkRoundTrip
-//	         (+ source-guard in clitool_sourceguard_test.go)
-//	AC #6 -> TestIsInstalledTrueOnlyForOurSymlink,
-//	         TestUninstallCLIRemovesOnlyOurSymlink,
-//	         TestUninstallCLIRefusesForeignEntry
-//	AC #7 -> manual (unsigned-build quarantine smoke; see ATDD checklist)
+// except the native-menu wiring and the unsigned-build quarantine smoke is
+// covered here at UNIT level. There is NO E2E (the macOS-native menu item
+// cannot be reached by Playwright; main.go is source-grep-guarded and verified
+// manually); only the LABEL string is unit-asserted here via the exported
+// MenuItemLabel constant that main.go consumes.
 //
 // Run: cd internal/clitool && go test -count=1 ./...
 package clitool
@@ -161,7 +134,7 @@ func TestInstallCLILinksIntoWritableOnPathDir(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI returned error: %v (AC #2)", err)
 	}
@@ -200,7 +173,7 @@ func TestInstallCLINotInBundleWhenDevBinary(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	res, err := InstallCLI(Options{ExecutablePath: devBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: devBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI returned a hard error instead of a typed NotInBundle result: %v (AC #4a)", err)
 	}
@@ -210,62 +183,9 @@ func TestInstallCLINotInBundleWhenDevBinary(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-006 (P1): AC #2 -- findInstallDir prefers a dir that is BOTH
-// writable AND on $PATH over one that is writable-but-not-on-PATH. (A
-// writable-not-on-PATH dir would yield a success dialog whose `pdfdebug` call
-// fails -- that is the AC3 NeedsPathHelp case, not the success path.)
-// ---------------------------------------------------------------------------
-
-func TestFindInstallDirPrefersWritableAndOnPath(t *testing.T) {
-	onlyDarwin(t)
-	tmp := t.TempDir()
-	writableNotOnPath := filepath.Join(tmp, "writable-off-path")
-	writableOnPath := filepath.Join(tmp, "writable-on-path")
-	for _, d := range []string{writableNotOnPath, writableOnPath} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", d, err)
-		}
-	}
-	// Only writableOnPath is on PATH.
-	t.Setenv("PATH", writableOnPath)
-
-	// Order the candidates so the off-PATH dir is checked FIRST; findInstallDir
-	// must still pick the on-PATH dir for the success path.
-	dir, needsPath := findInstallDir([]string{writableNotOnPath, writableOnPath})
-	if needsPath {
-		t.Fatalf("findInstallDir signalled needsPath despite an available writable+on-PATH dir (AC #2)")
-	}
-	if dir != writableOnPath {
-		t.Errorf("findInstallDir = %q, want %q (AC #2: writable+on-PATH wins over writable-not-on-PATH)", dir, writableOnPath)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// 11.2-UNIT-007 (P0): AC #3 -- when NO candidate dir is both writable and on
-// $PATH, findInstallDir returns a fallback dir plus a needsPath signal (it does
-// NOT pick a writable-off-PATH dir as a silent success).
-// ---------------------------------------------------------------------------
-
-func TestFindInstallDirReturnsNeedsPathWhenNoOnPathDir(t *testing.T) {
-	onlyDarwin(t)
-	tmp := t.TempDir()
-	writableOffPath := filepath.Join(tmp, "writable-off-path")
-	if err := os.MkdirAll(writableOffPath, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	// PATH contains a dir that is NOT among the candidates, so none qualify.
-	t.Setenv("PATH", filepath.Join(tmp, "unrelated"))
-
-	_, needsPath := findInstallDir([]string{writableOffPath})
-	if !needsPath {
-		t.Errorf("findInstallDir must signal needsPath when no candidate is writable AND on $PATH (AC #3)")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// 11.2-UNIT-008 (P0): AC #3 -- when no writable+on-PATH dir exists, InstallCLI
+// 12.1-UNIT-008 (P0): AC #3 -- when ~/.local/bin is not on $PATH, InstallCLI
 // returns NeedsPathHelp carrying the exact `export PATH="...:$PATH"` line for
-// the chosen directory; it does NOT shell out as root and does NOT silently
+// the install directory; it does NOT shell out as root and does NOT silently
 // fail.
 // ---------------------------------------------------------------------------
 
@@ -281,7 +201,7 @@ func TestInstallCLINeedsPathHelpSurfacesExportLine(t *testing.T) {
 	// No candidate on PATH.
 	t.Setenv("PATH", filepath.Join(tmp, "unrelated"))
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{writableOffPath}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: writableOffPath})
 	if err != nil {
 		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v (AC #3)", err)
 	}
@@ -301,10 +221,10 @@ func TestInstallCLINeedsPathHelpSurfacesExportLine(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-009 (P1): AC #3 -- when the preferred fallback (~/.local/bin-style)
-// dir does not exist, InstallCLI MAY create it (0o755) and link into it, then
-// fall to NeedsPathHelp guidance. We model the fallback via CandidateDirs whose
-// only entry is a not-yet-existing dir; the link must be created there.
+// 12.1-UNIT-009 (P1): AC #1/#3 -- when ~/.local/bin does not exist yet,
+// InstallCLI creates it (0o755) and links into it, then falls to NeedsPathHelp
+// guidance. We model this via InstallDir set to a not-yet-existing dir; the link
+// must be created there.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
@@ -316,7 +236,7 @@ func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
 	// Not on PATH, so this is the create-and-guide path.
 	t.Setenv("PATH", filepath.Join(tmp, "unrelated"))
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{missingDir}, FallbackDir: missingDir})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: missingDir})
 	if err != nil {
 		t.Fatalf("InstallCLI returned error: %v (AC #3)", err)
 	}
@@ -341,53 +261,6 @@ func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-019 (P0, regression): AC #3 -- when NO candidate is writable (the
-// production clean-machine case: /opt/homebrew/bin and /usr/local/bin absent or
-// not user-writable), InstallCLI must fall back to its create-if-missing
-// FallbackDir (~/.local/bin) rather than attempting MkdirAll on a non-writable
-// system candidate and erroring. Guards the findInstallDir none-writable path.
-// ---------------------------------------------------------------------------
-
-func TestInstallCLIFallsBackWhenNoCandidateWritable(t *testing.T) {
-	onlyDarwin(t)
-	tmp := t.TempDir()
-	macOSBin, wantCLI := fakeBundle(t, tmp, "UniDoc PDF Debugger")
-
-	// Two non-existent candidate dirs whose parent is itself non-existent, so
-	// they are neither writable nor trivially creatable -- they model the
-	// absent/non-user-writable /opt/homebrew/bin and /usr/local/bin. The
-	// fallback is a DISTINCT missing dir that IS creatable.
-	cand1 := filepath.Join(tmp, "nope1", "bin")
-	cand2 := filepath.Join(tmp, "nope2", "bin")
-	fallback := filepath.Join(tmp, "home", ".local", "bin")
-	t.Setenv("PATH", filepath.Join(tmp, "unrelated"))
-
-	res, err := InstallCLI(Options{
-		ExecutablePath: macOSBin,
-		CandidateDirs:  []string{cand1, cand2},
-		FallbackDir:    fallback,
-	})
-	if err != nil {
-		t.Fatalf("InstallCLI errored instead of using the fallback dir: %v (AC #3: must not MkdirAll a non-writable system candidate)", err)
-	}
-	if _, ok := res.(NeedsPathHelp); !ok {
-		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp (AC #3: fallback create-and-guide)", res)
-	}
-	link := filepath.Join(fallback, "pdfdebug")
-	target, err := os.Readlink(link)
-	if err != nil {
-		t.Fatalf("Readlink(%q): %v -- InstallCLI must link into the created fallback dir, not a candidate (AC #3)", link, err)
-	}
-	if target != wantCLI {
-		t.Errorf("symlink target = %q, want %q (AC #3)", target, wantCLI)
-	}
-	// The non-writable candidates must NOT have been created.
-	if _, err := os.Stat(cand1); !os.IsNotExist(err) {
-		t.Errorf("candidate %q should not have been created (AC #3)", cand1)
-	}
-}
-
-// ---------------------------------------------------------------------------
 // 11.2-UNIT-010 (P0): AC #4(b) -- idempotency. Running InstallCLI twice leaves
 // the link unchanged and errors on neither run (the second run sees OUR symlink
 // already pointing at the current bundle CLI and no-ops).
@@ -402,7 +275,7 @@ func TestInstallCLIIdempotentWhenOursAndCurrent(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("PATH", binDir)
-	opts := Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}}
+	opts := Options{ExecutablePath: macOSBin, InstallDir: binDir}
 
 	if _, err := InstallCLI(opts); err != nil {
 		t.Fatalf("first InstallCLI: %v", err)
@@ -450,7 +323,7 @@ func TestInstallCLIRepointsOursButStaleLink(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI over a stale-ours link returned error: %v (AC #4c: must silently re-point)", err)
 	}
@@ -487,7 +360,7 @@ func TestInstallCLIConfirmOverwriteForeignFile(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI over a foreign file returned error: %v (AC #4d: should return ConfirmOverwrite, not error)", err)
 	}
@@ -525,7 +398,7 @@ func TestInstallCLIConfirmOverwriteForeignShapedSymlink(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI over a foreign-shaped symlink returned error: %v (AC #4d)", err)
 	}
@@ -561,7 +434,7 @@ func TestInstallCLIOverwriteFlagReplacesForeign(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}, Overwrite: true})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir, Overwrite: true})
 	if err != nil {
 		t.Fatalf("InstallCLI with Overwrite returned error: %v (AC #4d)", err)
 	}
@@ -599,7 +472,7 @@ func TestInstallCLISpecialCharPathReadlinkRoundTrip(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
 		t.Fatalf("InstallCLI on special-char path returned error: %v (AC #5)", err)
 	}
@@ -714,7 +587,7 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 	// No candidate on PATH -> NeedsPathHelp path.
 	t.Setenv("PATH", filepath.Join(tmp, "unrelated"))
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{writableOffPath}})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: writableOffPath})
 	if err != nil {
 		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v (AC #3)", err)
 	}
@@ -778,7 +651,7 @@ func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir)
 
-	res, err := InstallCLI(Options{ExecutablePath: macOSBin, CandidateDirs: []string{binDir}, Overwrite: true})
+	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir, Overwrite: true})
 	if err != nil {
 		t.Fatalf("InstallCLI with Overwrite over a foreign-shaped symlink returned error: %v (AC #4d)", err)
 	}
@@ -795,32 +668,25 @@ func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-023 (P1, coverage expansion): AC #2/#3 -- the PRODUCTION default
-// candidate ordering is load-bearing (the Decision section pins Apple-Silicon
-// Homebrew first, then Intel Homebrew, then ~/.local/bin) and feeds the real
-// main.go install/IsInstalled scan, yet every InstallCLI test injects
-// CandidateDirs and never exercises DefaultCandidateDirs / DefaultFallbackDir.
-// A reordering or a dropped candidate would silently change which dir gets the
-// symlink with no test failure. This pins the contract without writing to any
-// real system dir.
+// 12.1-UNIT-023 (P0): AC #1 -- the PRODUCTION default install dir is exactly
+// ~/.local/bin and is NEVER a Homebrew-managed prefix. This pins the core 12.1
+// contract: we must not squat on /opt/homebrew/bin or /usr/local/bin (a future
+// official pdfdebug Homebrew formula would collide there at `brew link`).
 // ---------------------------------------------------------------------------
 
-func TestDefaultCandidateDirsOrderingAndFallback(t *testing.T) {
+func TestDefaultInstallDirIsLocalBin(t *testing.T) {
 	onlyDarwin(t)
-	dirs := DefaultCandidateDirs()
-	if len(dirs) < 2 || dirs[0] != "/opt/homebrew/bin" || dirs[1] != "/usr/local/bin" {
-		t.Fatalf("DefaultCandidateDirs() = %v, want [/opt/homebrew/bin /usr/local/bin ...] (AC #2: Apple-Silicon Homebrew first, then Intel)", dirs)
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		t.Skipf("home dir unresolvable on this host (%v); skipping ~/.local/bin ordering assertion", err)
+		t.Skipf("home dir unresolvable on this host (%v); skipping ~/.local/bin assertion", err)
 	}
-	wantLocal := filepath.Join(home, ".local", "bin")
-	if dirs[len(dirs)-1] != wantLocal {
-		t.Errorf("DefaultCandidateDirs() last entry = %q, want %q (AC #2/#3: ~/.local/bin is the final, portable candidate)", dirs[len(dirs)-1], wantLocal)
+	got := DefaultInstallDir()
+	want := filepath.Join(home, ".local", "bin")
+	if got != want {
+		t.Errorf("DefaultInstallDir() = %q, want %q (AC #1: install target is user-owned ~/.local/bin)", got, want)
 	}
-	if fb := DefaultFallbackDir(); fb != wantLocal {
-		t.Errorf("DefaultFallbackDir() = %q, want %q (AC #3: create-if-missing fallback is ~/.local/bin)", fb, wantLocal)
+	if got == "/opt/homebrew/bin" || got == "/usr/local/bin" {
+		t.Errorf("DefaultInstallDir() = %q must NOT be a Homebrew-managed prefix (AC #1: avoid brew-link collision)", got)
 	}
 }
 
@@ -859,5 +725,66 @@ func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
 	}
 	if _, err := os.Lstat(fileLink); err != nil {
 		t.Errorf("UninstallCLI removed a foreign-shaped symlink: %v (AC #6)", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12.1-UNIT-024 (P0): AC #4 -- "Add it for me" appends the attributed PATH line
+// to the shell's rc file and is idempotent: a second call detects its own marker
+// and does NOT append a duplicate block.
+// ---------------------------------------------------------------------------
+
+func TestAddDirToShellProfileAppendsAndIsIdempotent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/zsh")
+	dir := filepath.Join(home, ".local", "bin")
+
+	profile, err := AddDirToShellProfile(dir)
+	if err != nil {
+		t.Fatalf("AddDirToShellProfile returned error: %v (AC #4)", err)
+	}
+	wantProfile := filepath.Join(home, ".zshrc")
+	if profile != wantProfile {
+		t.Errorf("profile = %q, want %q (AC #4: zsh -> ~/.zshrc)", profile, wantProfile)
+	}
+	data, err := os.ReadFile(profile)
+	if err != nil {
+		t.Fatalf("read profile: %v", err)
+	}
+	if !strings.Contains(string(data), shellProfileMarker) {
+		t.Errorf("profile missing marker %q (AC #4)", shellProfileMarker)
+	}
+	if !strings.Contains(string(data), exportLineFor(dir)) {
+		t.Errorf("profile missing export line %q (AC #4)", exportLineFor(dir))
+	}
+
+	// Second call: must not append a duplicate block.
+	if _, err := AddDirToShellProfile(dir); err != nil {
+		t.Fatalf("second AddDirToShellProfile returned error: %v (AC #4)", err)
+	}
+	data2, _ := os.ReadFile(profile)
+	if got := strings.Count(string(data2), shellProfileMarker); got != 1 {
+		t.Errorf("marker appears %d times after two calls, want 1 (AC #4: idempotent)", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12.1-UNIT-025 (P1): AC #5 -- when $SHELL is unrecognized, AddDirToShellProfile
+// returns ErrUnknownShell (so the UI falls back to manual guidance) and edits
+// no file.
+// ---------------------------------------------------------------------------
+
+func TestAddDirToShellProfileUnknownShell(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/usr/bin/exoticsh")
+
+	if _, err := AddDirToShellProfile(filepath.Join(home, ".local", "bin")); err != ErrUnknownShell {
+		t.Errorf("AddDirToShellProfile with unknown shell = %v, want ErrUnknownShell (AC #5)", err)
+	}
+	entries, _ := os.ReadDir(home)
+	if len(entries) != 0 {
+		t.Errorf("unknown shell must not create/edit any profile file; found %d entries (AC #5)", len(entries))
 	}
 }
