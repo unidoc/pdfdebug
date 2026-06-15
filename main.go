@@ -18,6 +18,7 @@ import (
 	"unidoc-pdf-debugger/internal/clitool"
 	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pdfservice"
+	"unidoc-pdf-debugger/internal/pendingopen"
 	"unidoc-pdf-debugger/internal/splash"
 )
 
@@ -56,6 +57,22 @@ func extractPDFPaths(args []string) []string {
 		}
 	}
 	return paths
+}
+
+// routeOpenPath is the shared per-path decision used by both file-open
+// entry points (ApplicationOpenedWithFile, OnSecondInstanceLaunch). Story 12.1
+// AC7: it adds the path to the queue first; if the queue is ready (warm path)
+// it opens the path immediately via open and returns true so the caller can
+// decide whether to Focus the window. If the queue is not yet ready (cold
+// start) the path is buffered for the frontend drain and the function returns
+// false without opening. Extracting the decision keeps the two callbacks in
+// lockstep and gives the wiring a unit-testable seam (see TestRouteOpenPath).
+func routeOpenPath(q *pendingopen.Queue, path string, open func(string)) bool {
+	if q.Add(path) {
+		open(path)
+		return true
+	}
+	return false
 }
 
 // pdfOpener is the narrow surface openFileAndEmitWithWarning needs from
@@ -346,6 +363,14 @@ func main() {
 	var openFileAndEmit func(string)
 	var window *application.WebviewWindow
 
+	// Story 12.1: the cold-start file-association queue. Constructed BEFORE
+	// application.New() so both file-open callbacks can capture it by value
+	// (it has no dependency on app/window, unlike the openFileAndEmit/window
+	// closure dance above). On cold start, paths arriving before the frontend
+	// has drained are buffered here instead of being emitted into a
+	// not-yet-listening WebView and silently dropped.
+	openQueue := &pendingopen.Queue{}
+
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        appName,
@@ -360,17 +385,20 @@ func main() {
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "com.unidoc.unidoc-pdf-debugger",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-				// Guard: openFileAndEmit and window are assigned after app
-				// creation but before app.Run(). If this fires unexpectedly
-				// early, skip rather than panic.
-				if openFileAndEmit == nil || window == nil {
-					return
+				// Story 12.1: route every path through the queue first. A path
+				// that arrives before the frontend has drained is buffered
+				// (Add returns false) instead of dropped; only ready/warm paths
+				// open immediately. window.Focus() fires only when at least one
+				// path opened on the ready (warm) path.
+				focus := false
+				for _, p := range extractPDFPaths(data.Args) {
+					if routeOpenPath(openQueue, p, openFileAndEmit) {
+						focus = true
+					}
 				}
-				pdfPaths := extractPDFPaths(data.Args)
-				for _, p := range pdfPaths {
-					openFileAndEmit(p)
+				if focus {
+					window.Focus()
 				}
-				window.Focus()
 			},
 		},
 	})
@@ -379,6 +407,9 @@ func main() {
 	}
 
 	pdfService := pdfservice.NewPDFService(app)
+	// Story 12.1: wire the cold-start queue so ConsumePendingOpenFiles can
+	// drain it from the frontend.
+	pdfService.SetPendingOpens(openQueue)
 
 	app.RegisterService(application.NewService(&pdfService))
 
@@ -472,13 +503,17 @@ func main() {
 	// On macOS this fires for both cold and warm starts. On Windows/Linux cold
 	// start only -- warm start is handled by OnSecondInstanceLaunch.
 	app.Event.OnApplicationEvent(events.Common.ApplicationOpenedWithFile, func(event *application.ApplicationEvent) {
-		if openFileAndEmit == nil || window == nil {
-			return
-		}
+		// Story 12.1: no nil guard. The invariant: Drain is reachable only
+		// through the bound ConsumePendingOpenFiles method, bindings serve only
+		// after app.Run(), and both openFileAndEmit (assigned above) and window
+		// (assigned before app.Run()) exist by then. An early-fire path is
+		// buffered by routeOpenPath (queue not ready) rather than dropped, so a
+		// guard here would re-introduce the silent drop this story fixes.
 		filePath := event.Context().Filename()
 		if filePath != "" && strings.EqualFold(filepath.Ext(filePath), ".pdf") {
-			openFileAndEmit(filePath)
-			window.Focus()
+			if routeOpenPath(openQueue, filePath, openFileAndEmit) {
+				window.Focus()
+			}
 		}
 	})
 

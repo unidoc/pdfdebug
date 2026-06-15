@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
+	"unidoc-pdf-debugger/internal/pendingopen"
 )
 
 // slowOpener is a pdfOpener stub that blocks inside OpenFile for sleepFor.
@@ -227,6 +228,48 @@ func TestExtractPDFPaths(t *testing.T) {
 			for i := range got {
 				if got[i] != tt.want[i] {
 					t.Errorf("extractPDFPaths(%v)[%d] = %q, want %q", tt.args, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestRouteOpenPath pins the Story 12.1 AC7 routing decision shared by both
+// file-open callbacks. Before Drain (cold start) the path is queued and the
+// fake open func is NOT called; after Drain (warm/ready) the open func IS
+// called and the verdict is true. This is the only sanctioned automated pin on
+// the main.go wiring (source-grep tests are forbidden).
+func TestRouteOpenPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		ready       bool
+		wantOpen    bool
+		wantVerdict bool
+	}{
+		{name: "cold queues without opening", ready: false, wantOpen: false, wantVerdict: false},
+		{name: "warm opens immediately", ready: true, wantOpen: true, wantVerdict: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := &pendingopen.Queue{}
+			if tc.ready {
+				q.Drain() // flip ready
+			}
+			var opened []string
+			open := func(p string) { opened = append(opened, p) }
+
+			verdict := routeOpenPath(q, "/x.pdf", open)
+
+			if verdict != tc.wantVerdict {
+				t.Fatalf("verdict: want %v got %v", tc.wantVerdict, verdict)
+			}
+			if got := len(opened) > 0; got != tc.wantOpen {
+				t.Fatalf("open called: want %v got %v (opened=%#v)", tc.wantOpen, got, opened)
+			}
+			if !tc.ready {
+				// Cold path: the queued path must surface on the next Drain.
+				if paths := q.Drain(); len(paths) != 1 || paths[0] != "/x.pdf" {
+					t.Fatalf("cold path must queue for drain, got %#v", paths)
 				}
 			}
 		})

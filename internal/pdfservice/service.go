@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
+	"unidoc-pdf-debugger/internal/pendingopen"
 )
 
 // inspectorAPI is the method set PDFService uses from the inspector backend.
@@ -55,6 +56,10 @@ type inspectorAPI interface {
 type PDFService struct {
 	inspector inspectorAPI
 	app       *application.App
+	// pendingOpens buffers cold-start file-association paths until the
+	// frontend drains them (Story 12.1). Injected from main.go via
+	// SetPendingOpens; nil in tests that do not exercise the cold-start path.
+	pendingOpens *pendingopen.Queue
 }
 
 // NewPDFService creates a PDFService backed by a fresh Inspector.
@@ -357,4 +362,24 @@ func (s *PDFService) CancelPlainText(tabID string) error {
 // Story 10-5 AC5: NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) GetPlainTextSize(tabID string) (int64, error) {
 	return s.inspector.GetPlainTextSize(tabID)
+}
+
+// SetPendingOpens injects the cold-start file-association queue from main.go.
+// Story 12.1: the queue is constructed in main.go (app-shell state) and wired
+// here so the bound ConsumePendingOpenFiles method can drain it.
+func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
+	s.pendingOpens = q
+}
+
+// ConsumePendingOpenFiles drains and returns any file-association paths that
+// were buffered before the frontend was ready (cold start). Story 12.1 AC5:
+// thin delegation to Queue.Drain -- the frontend calls this immediately after
+// registering its document:opened listener. Returns nil when no queue is wired
+// (the unwired-or-empty case marshals to JSON null, which the frontend treats
+// as an empty list).
+func (s *PDFService) ConsumePendingOpenFiles() []string {
+	if s.pendingOpens == nil {
+		return nil
+	}
+	return s.pendingOpens.Drain()
 }

@@ -4,9 +4,9 @@
  */
 import { useEffect, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
-import { CloseDocument } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
+import { CloseDocument, ConsumePendingOpenFiles } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
-import { mapErrorMessage } from './hooks/usePDFService'
+import { mapErrorMessage, openPDFFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
 import { getPlatformModifier } from './lib/platform'
@@ -18,6 +18,19 @@ import { GoToPageDialog } from './components/GoToPageDialog'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
+
+/**
+ * Module-level set of file paths the frontend has opened in this JS session.
+ * Story 12.1 (AC6): the cold-start drain consults this so a drained path that
+ * is already open frees its newly-created backend tab instead of leaking it.
+ * tabsRef alone cannot cover this because a dev-mode reload mounts a fresh
+ * reducer (empty tabs) while the previous session's documents are still open;
+ * the per-instance ref does not see them. This survives a re-mount within the
+ * same JS context (the reload case the test pins) but is cleared by a true page
+ * reload (new context) -- where drain-on-read already returns an empty drain,
+ * so the set is never consulted with content in that path.
+ */
+const sessionOpenPaths = new Set()
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -97,6 +110,9 @@ function AppContent() {
       if (!dedupHandled) {
         lastOpenedTabIdRef.current = data.tabId
       }
+      // Record the open so a later cold-start drain of the same path can
+      // detect it (Story 12.1 AC6 cross-session dedup).
+      if (filePath) sessionOpenPaths.add(filePath)
       dispatch({
         type: 'OPEN_DOCUMENT',
         payload: {
@@ -157,6 +173,72 @@ function AppContent() {
     const offBatchComplete = Events.On('document:batch-complete', () => {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
+
+    // Story 12.1 (AC6): cold-start drain. STRICTLY AFTER the document:opened
+    // listener above is registered, drain any file-association paths the
+    // backend buffered before the frontend was ready (cold start). Ordering is
+    // load-bearing: a path delivered between drain and subscribe would be lost,
+    // so this MUST run after Events.On('document:opened', ...). Drain-on-read
+    // (the backend queue stays empty after the first drain) makes StrictMode
+    // double-effects and dev reloads safe -- a second drain returns [].
+    async function drainPendingOpens() {
+      // The binding can resolve to null (Go nil slice -> JSON null when the
+      // queue is unwired or empty); treat that as an empty list. Filter to
+      // non-empty strings as well: the same marshalling-boundary defense as the
+      // null guard, so a null/empty/non-string element cannot make the
+      // paths[0].replace basename derivation below throw outside the per-path
+      // try block (which would abandon the whole drain as an unhandled
+      // rejection). openPDFFile already rejects empty paths inside the loop.
+      const raw = (await ConsumePendingOpenFiles()) ?? []
+      const paths = raw.filter((p) => typeof p === 'string' && p.length > 0)
+      if (paths.length === 0) return
+      // Mirror the single-file open UX: surface the loading state for the
+      // first path's basename before the openPDFFile awaits block.
+      dispatch({ type: 'OPENING_START', payload: { fileName: paths[0].replace(/^.*[/\\]/, '') } })
+      // Defer the error to after the loop: OPEN_DOCUMENT clears documentError,
+      // so dispatching a per-path error inline would be wiped by a later
+      // successful open in the same drain. Surfacing the last error after all
+      // opens keeps a failed path visible without blocking the others.
+      let lastError = null
+      for (const path of paths) {
+        try {
+          const result = await openPDFFile(path)
+          // Pre-dispatch dedup (mirrors the document:opened listener): if this
+          // filePath is already open -- either in this reducer's tabs or, after
+          // a dev-mode reload, in a still-live previous session (sessionOpenPaths)
+          // -- free the new backend tab and still dispatch. The
+          // lastOpenedTabIdRef orphan-close fallback does NOT cover drain-path
+          // opens, so without this a drained duplicate leaks backend state.
+          const alreadyOpen = result.filePath
+            && (tabsRef.current.some((t) => t.filePath === result.filePath)
+              || sessionOpenPaths.has(result.filePath))
+          if (alreadyOpen) {
+            Promise.resolve(CloseDocument(result.tabId)).catch(() => {})
+          }
+          if (result.filePath) sessionOpenPaths.add(result.filePath)
+          dispatch({
+            type: 'OPEN_DOCUMENT',
+            payload: {
+              tabId: result.tabId,
+              fileName: result.fileName,
+              filePath: result.filePath,
+              pageCount: result.pageCount,
+              rootNode: result.rootNode,
+              rootChildren: result.rootChildren,
+            },
+          })
+        } catch (err) {
+          // Keep iterating so one bad file does not block the rest; defer the
+          // error dispatch until after the loop (see lastError above).
+          const msg = err instanceof Error ? err.message : String(err)
+          lastError = mapErrorMessage(msg)
+        }
+      }
+      if (lastError !== null) {
+        dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: lastError } })
+      }
+    }
+    void drainPendingOpens()
 
     return () => {
       offOpened()

@@ -366,9 +366,14 @@ var expectedServiceMethods = []struct {
 	{"GetPlainText", "func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error)"},
 	{"CancelPlainText", "func (s *PDFService) CancelPlainText(tabID string) error"},
 	{"GetPlainTextSize", "func (s *PDFService) GetPlainTextSize(tabID string) (int64, error)"},
+	// Story 12.1: cold-start file-association queue setter + drain. Every
+	// exported PDFService method is bound by Wails, so the exported setter also
+	// counts -- the receiver surface grew by two, not one.
+	{"SetPendingOpens", "func (s *PDFService) SetPendingOpens(q *pendingopen.Queue)"},
+	{"ConsumePendingOpenFiles", "func (s *PDFService) ConsumePendingOpenFiles() []string"},
 }
 
-// Test_10_3_STRUCT_010 [P0] AC#2, AC#8: PDFService still declares exactly 20
+// Test_10_3_STRUCT_010 [P0] AC#2, AC#8: PDFService declares exactly the
 // bound methods, each with the documented signature. The count is asserted by
 // counting receiver lines; the signatures are asserted by substring match.
 // Both must hold -- a method added or removed by the bump fails the count, and
