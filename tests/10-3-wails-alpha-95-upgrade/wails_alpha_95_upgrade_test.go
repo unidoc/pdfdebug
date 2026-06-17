@@ -40,26 +40,25 @@
 package wails_alpha_95_upgrade_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 )
 
-// goSidePreBumpAlpha is the current pinned Go-side Wails alpha number. The
-// post-bump tree MUST have a strictly larger alpha number on every version
-// touch-point (go.mod, ci.yml, release.yml).
-const goSidePreBumpAlpha = 85
-
-// jsSidePreBumpAlpha is the current pinned @wailsio/runtime alpha number. The
-// post-bump tree must have an alpha number >= this value (Task 2.2 allows
-// staying at alpha.79 if no newer publish exists; AC13 documents the drift).
-const jsSidePreBumpAlpha = 79
+// NOTE (Story 12.3): the alpha.95-scheme version-pin tests (STRUCT-001..004,
+// 080, 090) and their helpers (goAlphaRe/jsAlphaRe/extractAlpha/extractAllAlphas
+// and the goSidePreBumpAlpha/jsSidePreBumpAlpha constants) were retired from this
+// suite. Their `v3\.0\.0-alpha\.(\d+)` regex cannot match the new alpha2.103
+// scheme, and re-pinning a scheme here would just re-create the brittleness the
+// 12.3 story set out to remove. The version-pin responsibility migrated to the
+// scheme-aware tests/12-3-wails-alpha2-103-upgrade/ suite (INTG-010/011/020/021/
+// 022/030/031), which uses a unified alpha-ordinal that spans both schemes and
+// the alpha.102 fallback. The structural guards below (STRUCT-010/011/020/021/
+// 030..033/040/041/050/060) are scheme-independent and remain as standing
+// regression nets.
 
 // projectRoot walks up from the working directory until it finds the project
 // go.mod (module unidoc-pdf-debugger), and returns its absolute path.
@@ -182,156 +181,8 @@ func fileExists(t *testing.T, relPath string) bool {
 	return err == nil
 }
 
-// goAlphaRe matches a Wails Go alpha pin: `v3.0.0-alpha.<N>` and captures N.
-var goAlphaRe = regexp.MustCompile(`v3\.0\.0-alpha\.(\d+)`)
-
-// jsAlphaRe matches a wailsio/runtime alpha pin: `3.0.0-alpha.<N>` (optionally
-// prefixed with ^ or ~) and captures N.
-var jsAlphaRe = regexp.MustCompile(`3\.0\.0-alpha\.(\d+)`)
-
-// extractAlpha returns the first alpha number matched in s by re, or -1 when
-// no match exists. Caller decides whether absence is a failure.
-func extractAlpha(re *regexp.Regexp, s string) int {
-	m := re.FindStringSubmatch(s)
-	if len(m) < 2 {
-		return -1
-	}
-	n, err := strconv.Atoi(m[1])
-	if err != nil {
-		return -1
-	}
-	return n
-}
-
-// extractAllAlphas returns every alpha number matched in s by re. Used to
-// catch a file that still carries the old pin alongside the new one.
-func extractAllAlphas(re *regexp.Regexp, s string) []int {
-	all := re.FindAllStringSubmatch(s, -1)
-	out := make([]int, 0, len(all))
-	for _, m := range all {
-		if len(m) < 2 {
-			continue
-		}
-		if n, err := strconv.Atoi(m[1]); err == nil {
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
 // ---------------------------------------------------------------------------
-// AC#1, AC#5 -- version pin parity across go.mod / ci.yml / release.yml
-// ---------------------------------------------------------------------------
-
-// Test_10_3_STRUCT_001 [P0] AC#1: go.mod's Wails Go pin is strictly newer than
-// alpha.85 (the pre-bump baseline).
-func Test_10_3_STRUCT_001_GoModAlphaBumped(t *testing.T) {
-	src := readSource(t, "go.mod")
-	// The wails/v3 require line.
-	line := ""
-	for l := range strings.SplitSeq(src, "\n") {
-		if strings.Contains(l, "github.com/wailsapp/wails/v3 ") {
-			line = l
-			break
-		}
-	}
-	if line == "" {
-		t.Fatalf("[P0] 10-3-STRUCT-001: go.mod must declare a `github.com/wailsapp/wails/v3` require")
-	}
-	got := extractAlpha(goAlphaRe, line)
-	if got < 0 {
-		t.Fatalf("[P0] 10-3-STRUCT-001: go.mod wails/v3 line %q must carry a v3.0.0-alpha.N tag", line)
-	}
-	if got <= goSidePreBumpAlpha {
-		t.Errorf("[P0] 10-3-STRUCT-001: go.mod wails/v3 alpha=%d must be strictly newer than the pre-bump pin %d (AC1)", got, goSidePreBumpAlpha)
-	}
-}
-
-// Test_10_3_STRUCT_002 [P0] AC#5: .github/workflows/ci.yml's wails3 CLI install
-// pin matches the go.mod alpha (no drift between go module + CI tool).
-func Test_10_3_STRUCT_002_CiWorkflowAlphaBumped(t *testing.T) {
-	src := readSource(t, ".github/workflows/ci.yml")
-	if !strings.Contains(src, "wails3@v3.0.0-alpha.") {
-		t.Fatalf("[P0] 10-3-STRUCT-002: ci.yml must install wails3 with a v3.0.0-alpha.N pin")
-	}
-	ciAlphas := extractAllAlphas(goAlphaRe, src)
-	if len(ciAlphas) == 0 {
-		t.Fatalf("[P0] 10-3-STRUCT-002: ci.yml must reference v3.0.0-alpha.N")
-	}
-	for _, n := range ciAlphas {
-		if n <= goSidePreBumpAlpha {
-			t.Errorf("[P0] 10-3-STRUCT-002: ci.yml carries v3.0.0-alpha.%d -- must be strictly newer than %d (AC5)", n, goSidePreBumpAlpha)
-		}
-	}
-	// Cross-file parity: every ci.yml alpha must match the go.mod alpha.
-	gomod := readSource(t, "go.mod")
-	goAlpha := extractAlpha(goAlphaRe, gomod)
-	for _, n := range ciAlphas {
-		if n != goAlpha {
-			t.Errorf("[P0] 10-3-STRUCT-002: ci.yml v3.0.0-alpha.%d must equal go.mod v3.0.0-alpha.%d (no drift, AC5)", n, goAlpha)
-		}
-	}
-}
-
-// Test_10_3_STRUCT_003 [P0] AC#14: .github/workflows/release.yml's wails3 CLI
-// install pin matches the go.mod alpha.
-func Test_10_3_STRUCT_003_ReleaseWorkflowAlphaBumped(t *testing.T) {
-	src := readSource(t, ".github/workflows/release.yml")
-	if !strings.Contains(src, "wails3@v3.0.0-alpha.") {
-		t.Fatalf("[P0] 10-3-STRUCT-003: release.yml must install wails3 with a v3.0.0-alpha.N pin")
-	}
-	relAlphas := extractAllAlphas(goAlphaRe, src)
-	if len(relAlphas) == 0 {
-		t.Fatalf("[P0] 10-3-STRUCT-003: release.yml must reference v3.0.0-alpha.N")
-	}
-	gomod := readSource(t, "go.mod")
-	goAlpha := extractAlpha(goAlphaRe, gomod)
-	for _, n := range relAlphas {
-		if n <= goSidePreBumpAlpha {
-			t.Errorf("[P0] 10-3-STRUCT-003: release.yml v3.0.0-alpha.%d must be strictly newer than pre-bump pin %d (AC14)", n, goSidePreBumpAlpha)
-		}
-		if n != goAlpha {
-			t.Errorf("[P0] 10-3-STRUCT-003: release.yml v3.0.0-alpha.%d must equal go.mod v3.0.0-alpha.%d (no drift)", n, goAlpha)
-		}
-	}
-	// Preserve EXPECTED_FILES=6 invariant (AC14 explicit).
-	if !strings.Contains(src, "EXPECTED_FILES=6") {
-		t.Errorf("[P0] 10-3-STRUCT-003: release.yml must retain EXPECTED_FILES=6 invariant (AC14)")
-	}
-}
-
-// Test_10_3_STRUCT_004 [P0] AC#13: frontend/package.json carries a
-// 3.0.0-alpha.N tag for @wailsio/runtime >= the pre-bump JS pin. Allowed to
-// trail the Go-side alpha per AC13 (the documented drift). The package.json
-// must contain ZERO references to the pre-bump alpha.79 in this field (the
-// dev should either land a newer JS alpha or stay at .79 explicitly via a
-// version range that still matches >= .79; the lint here is "is the pin
-// notation present and well-formed").
-func Test_10_3_STRUCT_004_PackageJsonRuntimePin(t *testing.T) {
-	src := readSource(t, "frontend/package.json")
-	var pkg map[string]any
-	if err := json.Unmarshal([]byte(src), &pkg); err != nil {
-		t.Fatalf("[P0] 10-3-STRUCT-004: package.json is not valid JSON: %v", err)
-	}
-	deps, ok := pkg["dependencies"].(map[string]any)
-	if !ok {
-		t.Fatalf("[P0] 10-3-STRUCT-004: package.json must declare a dependencies object")
-	}
-	raw, ok := deps["@wailsio/runtime"].(string)
-	if !ok {
-		t.Fatalf("[P0] 10-3-STRUCT-004: package.json dependencies must declare @wailsio/runtime as a string pin")
-	}
-	got := extractAlpha(jsAlphaRe, raw)
-	if got < 0 {
-		t.Fatalf("[P0] 10-3-STRUCT-004: @wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
-	}
-	if got < jsSidePreBumpAlpha {
-		t.Errorf("[P0] 10-3-STRUCT-004: @wailsio/runtime alpha=%d must be >= pre-bump pin alpha.%d (AC13 allows trailing the Go side but not regressing)", got, jsSidePreBumpAlpha)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// AC#2 -- bound method surface preservation (20 methods on PDFService)
+// AC#2 -- bound method surface preservation (PDFService receiver signatures)
 // ---------------------------------------------------------------------------
 
 // expectedServiceMethods enumerates the 20 PDFService receiver method
@@ -373,20 +224,22 @@ var expectedServiceMethods = []struct {
 	{"ConsumePendingOpenFiles", "func (s *PDFService) ConsumePendingOpenFiles() []string"},
 }
 
-// Test_10_3_STRUCT_010 [P0] AC#2, AC#8: PDFService declares exactly the
-// bound methods, each with the documented signature. The count is asserted by
-// counting receiver lines; the signatures are asserted by substring match.
-// Both must hold -- a method added or removed by the bump fails the count, and
-// a method whose signature was reshaped (e.g. param renamed, return changed)
-// fails the substring check.
+// Test_10_3_STRUCT_010 [P0] AC#2, AC#8: each documented PDFService method is
+// PRESENT with its expected signature.
+//
+// Story 12.3 (AC 6) dropped the former exact-count assertion (`count == N`):
+// it churned 20 -> 22 across bumps and tested the wrong invariant ("the surface
+// is exactly N methods") instead of the one that matters ("the methods callers
+// depend on still exist with their shape"). Per project_struct_grep_tests_brittle.md
+// the magic-number pin is removed entirely; no exact count is asserted here. The
+// consumer-driven presence contract against the REGENERATED binding artifact
+// lives in tests/12-3-wails-alpha2-103-upgrade/ (Test_12_3_INTG_040). This test
+// keeps only the per-signature substring checks, which tolerate adding NEW
+// methods but still catch a reshaped or removed documented one.
 func Test_10_3_STRUCT_010_PDFServiceMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
-	// Count receiver lines.
-	count := strings.Count(src, "func (s *PDFService)")
-	if count != len(expectedServiceMethods) {
-		t.Errorf("[P0] 10-3-STRUCT-010: PDFService must declare exactly %d bound methods, found %d (AC2 contract preservation)", len(expectedServiceMethods), count)
-	}
-	// Verify each documented signature appears verbatim.
+	// Verify each documented signature appears verbatim. No exact-count pin
+	// (AC 6): a method ADDED by a future change must not fail this test.
 	for _, m := range expectedServiceMethods {
 		if !strings.Contains(src, m.sig) {
 			t.Errorf("[P0] 10-3-STRUCT-010: PDFService.%s signature drift -- expected substring not found:\n  %s\n(AC2: a regenerated binding signature must match the pre-bump signature)", m.id, m.sig)
@@ -711,85 +564,8 @@ func Test_10_3_STRUCT_060_SplashEventTriad(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// AC#3 -- npm audit zero-vulnerabilities invariant (structural delegation)
-// ---------------------------------------------------------------------------
-
-// Test_10_3_STRUCT_080 [P0] AC#3: package-lock.json was regenerated after the
-// bump. Detected via "the lockfile mentions the new wailsio/runtime alpha
-// number AND does NOT mention alpha.79 in a wailsio/runtime resolution
-// context, unless the JS pin intentionally stayed at .79". This is a
-// best-effort check: a full audit-clean assertion requires running
-// `npm audit` in CI, which is AC3's job (not this test's job). What we assert
-// here is "the lockfile was touched" -- if the dev edited package.json but
-// forgot to run npm install, the lockfile would still carry only alpha.79
-// references and the file's mtime / contents would be stale.
-//
-// Specifically: the wailsio/runtime alpha number in the lockfile must be
-// >= jsSidePreBumpAlpha (i.e. either unchanged at .79 per AC13's documented
-// drift exemption, or bumped). If the lockfile carries an alpha number BELOW
-// .79, something is corrupt.
-func Test_10_3_STRUCT_080_PackageLockRegenerated(t *testing.T) {
-	relPath := "frontend/package-lock.json"
-	if !fileExists(t, relPath) {
-		t.Fatalf("[P0] 10-3-STRUCT-080: %s must exist (Task 2.4: regenerate after package.json bump)", relPath)
-	}
-	src := readSource(t, relPath)
-	// Locate the wailsio/runtime resolution. Look for lines containing both
-	// "@wailsio/runtime" and a "3.0.0-alpha.N" tag.
-	wailsioAlphas := []int{}
-	for line := range strings.SplitSeq(src, "\n") {
-		if strings.Contains(line, "wailsio") || strings.Contains(line, "@wailsio") {
-			if m := jsAlphaRe.FindStringSubmatch(line); len(m) >= 2 {
-				if n, err := strconv.Atoi(m[1]); err == nil {
-					wailsioAlphas = append(wailsioAlphas, n)
-				}
-			}
-		}
-	}
-	// A regenerated lockfile MUST mention the wailsio runtime somewhere.
-	if len(wailsioAlphas) == 0 {
-		// The version may be embedded on the next line after the package key;
-		// best-effort fallback: look anywhere in the file for the new pin.
-		jsonSrc := readSource(t, "frontend/package.json")
-		var pkg map[string]any
-		_ = json.Unmarshal([]byte(jsonSrc), &pkg)
-		if deps, ok := pkg["dependencies"].(map[string]any); ok {
-			if raw, ok := deps["@wailsio/runtime"].(string); ok {
-				got := extractAlpha(jsAlphaRe, raw)
-				needle := fmt.Sprintf("3.0.0-alpha.%d", got)
-				if !strings.Contains(src, needle) {
-					t.Errorf("[P0] 10-3-STRUCT-080: package-lock.json must carry the @wailsio/runtime tag %s (Task 2.4 / AC3: regenerate lockfile after package.json edit)", needle)
-				}
-				return
-			}
-		}
-		t.Errorf("[P0] 10-3-STRUCT-080: package-lock.json must reference @wailsio/runtime")
-		return
-	}
-	for _, n := range wailsioAlphas {
-		if n < jsSidePreBumpAlpha {
-			t.Errorf("[P0] 10-3-STRUCT-080: package-lock.json carries @wailsio/runtime alpha.%d which is older than the pre-bump pin alpha.%d -- lockfile is corrupt or out of sync (Task 2.4)", n, jsSidePreBumpAlpha)
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// AC#1 -- go.sum was regenerated (transitive Wails tree settled)
-// ---------------------------------------------------------------------------
-
-// Test_10_3_STRUCT_090 [P0] AC#1: go.sum carries an entry for the new Wails
-// alpha. A bumped go.mod with an un-bumped go.sum is a build break that the
-// CI catches downstream, but we catch it here so the dev sees it instantly.
-func Test_10_3_STRUCT_090_GoSumCarriesNewAlpha(t *testing.T) {
-	gomod := readSource(t, "go.mod")
-	goAlpha := extractAlpha(goAlphaRe, gomod)
-	if goAlpha <= goSidePreBumpAlpha {
-		t.Skipf("[P0] 10-3-STRUCT-090: skipped -- go.mod not bumped yet (see 10-3-STRUCT-001)")
-	}
-	gosum := readSource(t, "go.sum")
-	needle := fmt.Sprintf("github.com/wailsapp/wails/v3 v3.0.0-alpha.%d", goAlpha)
-	if !strings.Contains(gosum, needle) {
-		t.Errorf("[P0] 10-3-STRUCT-090: go.sum must contain %q -- run `go mod tidy` after editing go.mod (Task 2.3 / AC1)", needle)
-	}
-}
+// Story 12.3: the go.sum (former STRUCT-090) and package-lock (former
+// STRUCT-080) version-pin checks were retired from this suite -- both keyed off
+// the alpha.95-scheme regex that cannot match alpha2.103. Their scheme-aware
+// successors are Test_12_3_INTG_011 (go.sum) and Test_12_3_INTG_031
+// (package-lock) in tests/12-3-wails-alpha2-103-upgrade/.

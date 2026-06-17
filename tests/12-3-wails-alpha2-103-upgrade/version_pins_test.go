@@ -1,0 +1,206 @@
+// AC 1, 2, 3: version-pin assertions across go.mod, go.sum, the two CI
+// workflows, and the frontend runtime. All compare on the unified alpha-ordinal
+// so both the alpha2.103 target and the alpha.102 fallback (AC 10) pass.
+package story_12_3_wails_alpha2_103_upgrade_test
+
+import (
+	"encoding/json"
+	"strconv"
+	"strings"
+	"testing"
+)
+
+// ---------------------------------------------------------------------------
+// AC 1 -- Go dependency bumped
+// ---------------------------------------------------------------------------
+
+// Test_12_3_INTG_010_GoModWailsBumped [P0] AC1: go.mod's wails/v3 pin is
+// strictly newer than the pre-bump baseline alpha.95. RED today: the pin is
+// alpha.95 (ordinal 95), which is NOT > 95.
+func Test_12_3_INTG_010_GoModWailsBumped(t *testing.T) {
+	line := goWailsLine(t)
+	if line == "" {
+		t.Fatalf("[P0] 12.3-INTG-010: go.mod must declare a `github.com/wailsapp/wails/v3` require")
+	}
+	got := alphaOrdinal(goWailsRe, line)
+	if got < 0 {
+		t.Fatalf("[P0] 12.3-INTG-010: go.mod wails/v3 line %q must carry a v3.0.0-alpha.N or v3.0.0-alpha2.N tag", line)
+	}
+	if got <= preBumpBaselineOrdinal {
+		t.Errorf("[P0] 12.3-INTG-010: go.mod wails/v3 pin %s is not strictly newer than the pre-bump baseline %s (AC1: target alpha2.103, fallback alpha.102 -- both clear this)",
+			fmtOrdinal(got), fmtOrdinal(preBumpBaselineOrdinal))
+	}
+}
+
+// Test_12_3_INTG_011_GoSumCarriesNewPin [P0] AC1: go.sum carries an entry for
+// the bumped wails/v3 pin (proves `go mod tidy` ran). RED until go.mod is
+// bumped; skips cleanly while go.mod is still at the baseline so the failure
+// signal stays on INTG-010.
+func Test_12_3_INTG_011_GoSumCarriesNewPin(t *testing.T) {
+	line := goWailsLine(t)
+	got := alphaOrdinal(goWailsRe, line)
+	if got <= preBumpBaselineOrdinal {
+		t.Skipf("[P0] 12.3-INTG-011: skipped -- go.mod not bumped yet (see 12.3-INTG-010)")
+	}
+	tag := tagFromOrdinal(got)
+	gosum := readSource(t, "go.sum")
+	needle := "github.com/wailsapp/wails/v3 v3.0.0-" + tag
+	if !strings.Contains(gosum, needle) {
+		t.Errorf("[P0] 12.3-INTG-011: go.sum must contain %q -- run `go mod tidy` after editing go.mod (AC1 / Task 1.1)", needle)
+	}
+}
+
+// Test_12_3_INTG_012_Webview2NotHandPinned [P2] AC1: the indirect
+// github.com/wailsapp/wails/webview2 dependency stays marked `// indirect` and
+// is left for `go mod tidy` to resolve (the story: "do NOT hand-pin it"). This
+// is a low-priority guard against a dev manually freezing the transitive pin.
+func Test_12_3_INTG_012_Webview2NotHandPinned(t *testing.T) {
+	src := readSource(t, "go.mod")
+	var webview2Line string
+	for _, l := range strings.Split(src, "\n") {
+		if strings.Contains(l, "github.com/wailsapp/wails/webview2") {
+			webview2Line = l
+			break
+		}
+	}
+	if webview2Line == "" {
+		// Acceptable: alpha2.103 may not pull webview2 transitively at all.
+		// Absence is not a failure; only a present-but-promoted-to-direct line is.
+		return
+	}
+	if !strings.Contains(webview2Line, "// indirect") {
+		t.Errorf("[P2] 12.3-INTG-012: go.mod webview2 line %q must stay `// indirect` -- the story says let `go mod tidy` resolve it, do NOT hand-pin/promote it (AC1)", strings.TrimSpace(webview2Line))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AC 2 -- CLI pins bumped in BOTH workflows, CLI == library exactly
+// ---------------------------------------------------------------------------
+
+// assertWorkflowPinMatchesGoMod is the shared body for the ci.yml / release.yml
+// CLI-pin parity assertions: the workflow must install wails3 with a v3.0.0
+// alpha pin, every alpha pin in the file must be strictly newer than the
+// baseline, and every one must EQUAL the go.mod pin exactly (CLI == library).
+func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
+	t.Helper()
+	src := readSource(t, relPath)
+	if !strings.Contains(src, "wails3@v3.0.0-alpha") {
+		t.Fatalf("[P0] %s: %s must install wails3 with a v3.0.0-alpha pin", testID, relPath)
+	}
+	got := allAlphaOrdinals(goWailsRe, src)
+	if len(got) == 0 {
+		t.Fatalf("[P0] %s: %s must reference a v3.0.0-alpha pin", testID, relPath)
+	}
+	goOrd := alphaOrdinal(goWailsRe, goWailsLine(t))
+	for _, n := range got {
+		if n <= preBumpBaselineOrdinal {
+			t.Errorf("[P0] %s: %s carries %s -- must be strictly newer than baseline %s (AC2)",
+				testID, relPath, fmtOrdinal(n), fmtOrdinal(preBumpBaselineOrdinal))
+		}
+		if goOrd > 0 && n != goOrd {
+			t.Errorf("[P0] %s: %s pin %s must EQUAL the go.mod pin %s exactly (CLI == library, AC2)",
+				testID, relPath, fmtOrdinal(n), fmtOrdinal(goOrd))
+		}
+	}
+}
+
+// Test_12_3_INTG_020_CiWorkflowPinParity [P0] AC2: ci.yml's wails3 CLI install
+// pin is bumped and equals the go.mod library pin.
+func Test_12_3_INTG_020_CiWorkflowPinParity(t *testing.T) {
+	assertWorkflowPinMatchesGoMod(t, ".github/workflows/ci.yml", "12.3-INTG-020")
+}
+
+// Test_12_3_INTG_021_ReleaseWorkflowPinParity [P0] AC2: release.yml's wails3 CLI
+// install pin is bumped and equals the go.mod library pin.
+func Test_12_3_INTG_021_ReleaseWorkflowPinParity(t *testing.T) {
+	assertWorkflowPinMatchesGoMod(t, ".github/workflows/release.yml", "12.3-INTG-021")
+}
+
+// Test_12_3_INTG_022_ReleaseExpectedFilesInvariant [P1] AC2 (regression net):
+// release.yml retains the EXPECTED_FILES=6 publish invariant. A bump must not
+// disturb the artifact-count contract.
+func Test_12_3_INTG_022_ReleaseExpectedFilesInvariant(t *testing.T) {
+	src := readSource(t, ".github/workflows/release.yml")
+	if !strings.Contains(src, "EXPECTED_FILES=6") {
+		t.Errorf("[P1] 12.3-INTG-022: release.yml must retain EXPECTED_FILES=6 invariant across the bump")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AC 3 -- Frontend runtime: verify-only, bump only if npm has a newer publish
+// ---------------------------------------------------------------------------
+
+// Test_12_3_INTG_030_RuntimePinWellFormedNoPhantom [P0] AC3: @wailsio/runtime is
+// a well-formed 3.0.0-alpha.N tag with N >= the pre-bump pin (alpha.79). It must
+// NOT be rewritten to a phantom alpha2.* tag -- npm publishes no alpha2 runtime,
+// and the story explicitly forbids inventing one.
+func Test_12_3_INTG_030_RuntimePinWellFormedNoPhantom(t *testing.T) {
+	src := readSource(t, "frontend/package.json")
+	var pkg map[string]any
+	if err := json.Unmarshal([]byte(src), &pkg); err != nil {
+		t.Fatalf("[P0] 12.3-INTG-030: package.json is not valid JSON: %v", err)
+	}
+	deps, ok := pkg["dependencies"].(map[string]any)
+	if !ok {
+		t.Fatalf("[P0] 12.3-INTG-030: package.json must declare a dependencies object")
+	}
+	raw, ok := deps["@wailsio/runtime"].(string)
+	if !ok {
+		t.Fatalf("[P0] 12.3-INTG-030: dependencies must declare @wailsio/runtime as a string pin")
+	}
+	m := jsRuntimeRe.FindStringSubmatch(raw)
+	if len(m) < 3 {
+		t.Fatalf("[P0] 12.3-INTG-030: @wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
+	}
+	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (AC3 anti-pattern).
+	if m[1] == "2" {
+		t.Errorf("[P0] 12.3-INTG-030: @wailsio/runtime pin %q uses a phantom alpha2.* tag -- npm publishes no alpha2 runtime; the runtime stays on the alpha.N line (AC3)", raw)
+	}
+	n, _ := strconv.Atoi(m[2])
+	if n < jsRuntimePreBumpAlpha {
+		t.Errorf("[P0] 12.3-INTG-030: @wailsio/runtime alpha.%d must be >= the pre-bump pin alpha.%d (AC3: verify-only, never regress)", n, jsRuntimePreBumpAlpha)
+	}
+}
+
+// Test_12_3_INTG_031_PackageLockRuntimeNotRegressed [P1] AC3: the lockfile's
+// @wailsio/runtime resolution is not regressed below alpha.79. AC3's expected
+// outcome is NO change (the runtime stays at alpha.79); this only fails if the
+// lockfile carries an older or phantom-alpha2 runtime, i.e. a corrupt edit.
+func Test_12_3_INTG_031_PackageLockRuntimeNotRegressed(t *testing.T) {
+	relPath := "frontend/package-lock.json"
+	if !fileExists(t, relPath) {
+		t.Fatalf("[P1] 12.3-INTG-031: %s must exist", relPath)
+	}
+	src := readSource(t, relPath)
+	sawRuntime := false
+	for _, line := range strings.Split(src, "\n") {
+		if !strings.Contains(line, "wailsio") {
+			continue
+		}
+		m := jsRuntimeRe.FindStringSubmatch(line)
+		if len(m) < 3 {
+			continue
+		}
+		sawRuntime = true
+		if m[1] == "2" {
+			t.Errorf("[P1] 12.3-INTG-031: package-lock.json resolves @wailsio/runtime to a phantom alpha2.* tag -- no such runtime is published (AC3)")
+			continue
+		}
+		if n, err := strconv.Atoi(m[2]); err == nil && n < jsRuntimePreBumpAlpha {
+			t.Errorf("[P1] 12.3-INTG-031: package-lock.json carries @wailsio/runtime alpha.%d, older than the pre-bump pin alpha.%d -- lockfile is corrupt or out of sync (AC3)", n, jsRuntimePreBumpAlpha)
+		}
+	}
+	if !sawRuntime {
+		t.Errorf("[P1] 12.3-INTG-031: package-lock.json must reference an @wailsio/runtime 3.0.0-alpha.N resolution")
+	}
+}
+
+// tagFromOrdinal renders an ordinal back to the bare tag form used in go.sum
+// (`alpha.N` / `alpha2.N`), without the leading `v3.0.0-`.
+func tagFromOrdinal(ord int) string {
+	const alpha2Base = 1000
+	if ord >= alpha2Base {
+		return "alpha2." + strconv.Itoa(ord-alpha2Base)
+	}
+	return "alpha." + strconv.Itoa(ord)
+}
