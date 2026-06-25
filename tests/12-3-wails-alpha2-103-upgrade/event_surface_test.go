@@ -71,15 +71,20 @@ var jsConsumedEvents = []string{
 }
 
 // Test_12_3_INTG_061_JsEventOnNamesPreserved [P0] AC8, AC11: every event the
-// frontend listens for still appears as an Events.On('<name>', ...) literal
-// under frontend/src (non-test files only).
+// frontend listens for still appears as an Events.On('<name>', ...) SUBSCRIPTION
+// call under frontend/src (non-test files only). Matching the call form
+// (Events.On('name' / Events.On("name") rather than a bare quoted literal --
+// same pattern INTG-062 uses -- avoids the brittle whole-tree-grep failure mode
+// (project memory project_struct_grep_tests_brittle.md): a bare literal can
+// false-pass on a match in a comment or unrelated string. Every consumed event
+// is verified subscribed via this call form (App.jsx, main.jsx, TabBar.tsx).
 func Test_12_3_INTG_061_JsEventOnNamesPreserved(t *testing.T) {
 	src := loadFrontendSrcConcat(t)
 	for _, name := range jsConsumedEvents {
-		needle1 := fmt.Sprintf(`'%s'`, name)
-		needle2 := fmt.Sprintf(`"%s"`, name)
+		needle1 := fmt.Sprintf(`Events.On('%s'`, name)
+		needle2 := fmt.Sprintf(`Events.On("%s"`, name)
 		if !strings.Contains(src, needle1) && !strings.Contains(src, needle2) {
-			t.Errorf("[P0] 12.3-INTG-061: frontend/src must still subscribe to %q -- an alpha2 runtime rename of this event silently breaks the consumer (AC8/AC11)", name)
+			t.Errorf("[P0] 12.3-INTG-061: frontend/src must still Events.On(%q, ...) -- an alpha2 runtime rename of this event silently breaks the consumer (AC8/AC11)", name)
 		}
 	}
 }
