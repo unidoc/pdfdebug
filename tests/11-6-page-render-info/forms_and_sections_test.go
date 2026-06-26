@@ -18,7 +18,7 @@ func TestForms_NotWalkedByDefault(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "nested-forms.pdf", nestedFormFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC4-001: exit %d", ec)
 	}
@@ -48,7 +48,7 @@ func TestForms_NestedResolvedAgainstOwnResources(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "nested-forms.pdf", nestedFormFixturePDF())
 
-	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--forms-recursive", pdfPath)
+	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--forms-recursive", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC4-002: exit %d (--forms-recursive not implemented?)\nstderr: %s", ec, stderr)
 	}
@@ -74,7 +74,7 @@ func TestForms_SelfReferentialTerminates(t *testing.T) {
 	pdfPath := writeTempPDF(t, "self-ref-form.pdf", selfRefFormFixturePDF())
 
 	// A high --forms-depth that, absent a visited set, would recurse forever.
-	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1",
+	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "100", pdfPath)
 
 	if strings.Contains(stdout, "panic") || strings.Contains(stderr, "panic") {
@@ -100,12 +100,12 @@ func TestForms_FormsDepthBoundsRecursion(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "nested-forms.pdf", nestedFormFixturePDF())
 
-	depth1, _, ec1 := runCLI(t, bin, "dump", "page", "--info", "1",
+	depth1, _, ec1 := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "1", pdfPath)
 	if ec1 != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC4-004: --forms-depth 1 exit %d", ec1)
 	}
-	depth2, _, ec2 := runCLI(t, bin, "dump", "page", "--info", "1",
+	depth2, _, ec2 := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "2", pdfPath)
 	if ec2 != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC4-004: --forms-depth 2 exit %d", ec2)
@@ -129,7 +129,7 @@ func TestForms_MalformedFormsDepthUsageError(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "nested-forms.pdf", nestedFormFixturePDF())
 
-	_, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1",
+	_, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "abc", pdfPath)
 	// Guard against a false green: the resource must be recognized first.
 	if strings.Contains(stderr, "Unknown resource") {
@@ -152,7 +152,7 @@ func TestSection_GeometryOnly(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "geometry", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "geometry", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC5-001: exit %d", ec)
 	}
@@ -180,7 +180,7 @@ func TestSection_ExtGStatesOnly(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "extgstates", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "extgstates", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC5-002: exit %d", ec)
 	}
@@ -208,7 +208,7 @@ func TestSection_UnrecognizedIsUsageError(t *testing.T) {
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
 	for _, bad := range []string{"bogus", "patterns", "shadings"} {
-		_, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", bad, pdfPath)
+		_, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", bad, pdfPath)
 		// Guard against a false green: the resource must be recognized first.
 		if strings.Contains(stderr, "Unknown resource") {
 			t.Fatalf("[P0] 11.6-INTG-AC5-003: `dump page` not implemented (got %q)", strings.TrimSpace(stderr))
@@ -231,7 +231,7 @@ func TestSection_XObjectsAndForms(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	xoOut, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "xobjects", pdfPath)
+	xoOut, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "xobjects", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC5-004: --section xobjects exit %d", ec)
 	}
@@ -244,7 +244,7 @@ func TestSection_XObjectsAndForms(t *testing.T) {
 		t.Errorf("[P1] 11.6-INTG-AC5-004: --section xobjects must OMIT extGStates")
 	}
 
-	fmOut, _, ef := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "forms", pdfPath)
+	fmOut, _, ef := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "forms", pdfPath)
 	if ef != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC5-004: --section forms exit %d", ef)
 	}

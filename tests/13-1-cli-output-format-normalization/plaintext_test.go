@@ -1,0 +1,56 @@
+package cli_output_format_normalization_test
+
+import (
+	"os"
+	"testing"
+)
+
+// ---------------------------------------------------------------------------
+// 13.1-INTG-050 [P1] PLAINTEXT-001: default is RAW source bytes, UNCHANGED.
+// AC#5: dump plaintext already conforms; its default stays raw document bytes.
+// This is a regression lock -- it must keep passing after the normalization.
+// The raw dump is byte-for-byte the source file.
+// ---------------------------------------------------------------------------
+
+func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
+	bin := buildCLI(t)
+	file := fixture(t, "minimal.pdf")
+
+	want, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", file)
+	if ec != 0 {
+		t.Fatalf("[P1] 13.1-INTG-050: expected exit 0, got %d (stderr: %s)", ec, stderr)
+	}
+	if stdout != string(want) {
+		t.Errorf("[P1] 13.1-INTG-050: default plaintext must be the verbatim source bytes (got %d bytes, want %d)",
+			len(stdout), len(want))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1-INTG-051 [P1] PLAINTEXT-002: --json wraps the decoded text, UNCHANGED.
+// AC#5: --json wraps the decoded text in {"totalBytes","content"}.
+// ---------------------------------------------------------------------------
+
+func TestPlaintext_JSONWrapsDecodedText(t *testing.T) {
+	bin := buildCLI(t)
+	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", "--json", fixture(t, "minimal.pdf"))
+	if ec != 0 {
+		t.Fatalf("[P1] 13.1-INTG-051: expected exit 0, got %d (stderr: %s)", ec, stderr)
+	}
+	var wrapper struct {
+		TotalBytes int64  `json:"totalBytes"`
+		Content    string `json:"content"`
+	}
+	mustParseJSON(t, stdout, &wrapper)
+	if wrapper.TotalBytes <= 0 {
+		t.Errorf("[P1] 13.1-INTG-051: --json wrapper totalBytes = %d, want > 0", wrapper.TotalBytes)
+	}
+	if wrapper.Content == "" {
+		t.Errorf("[P1] 13.1-INTG-051: --json wrapper content is empty:\n%s", stdout)
+	}
+}

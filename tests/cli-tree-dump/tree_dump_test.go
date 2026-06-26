@@ -347,6 +347,26 @@ func TestTreeDump_MultipagePDF_IncludesPageLabels(t *testing.T) {
 	}
 }
 
+// TestTreeDump_MultipagePDF_PlainIncludesPageLabels is the plain-text sibling
+// (Story 13-1): the default (no --json) output is human-readable plain text and
+// still names the page structure (label spine), but must NOT be JSON.
+func TestTreeDump_MultipagePDF_PlainIncludesPageLabels(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
+
+	if exitCode != 0 {
+		t.Fatalf("[13.1] tree plain: expected exit code 0, got %d", exitCode)
+	}
+	if json.Valid([]byte(strings.TrimSpace(stdout))) && strings.HasPrefix(strings.TrimSpace(stdout), "{") {
+		t.Errorf("[13.1] tree plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	if !strings.Contains(strings.ToLower(stdout), "page") {
+		t.Error("[13.1] tree plain: default output does not name any page label")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 5.1-UNIT-009 [P2]: Run `go list -deps ./cmd/cli/` from project root,
 // verify no dependency contains "wails" in the import path.
@@ -630,24 +650,37 @@ func TestUnknownCommand_ExitCode1(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.1-INTG-005 [P1]: Tree dump without --json flag still outputs JSON.
-// AC#1: --json is accepted for explicitness but JSON is always the output
-//       format. Omitting --json still produces JSON output.
+// 5.1-INTG-005 [P1] (REVISED by Story 13-1): Tree dump WITHOUT --json now emits
+// human-readable PLAIN TEXT (the flipped default), NOT JSON. The plain output
+// is structural: indented node lines with the catalog spine. --json opts into
+// the JSON contract (covered by the other JSON cases).
 // ---------------------------------------------------------------------------
 
-func TestTreeDump_WithoutJSONFlag_StillOutputsJSON(t *testing.T) {
+func TestTreeDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	// Run WITHOUT --json flag
+	// Run WITHOUT --json flag -> plain text default.
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.1-INTG-005: expected exit code 0, got %d", exitCode)
 	}
 
-	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.1-INTG-005: stdout without --json flag is not valid JSON\nraw: %s", stdout)
+	trimmed := strings.TrimSpace(stdout)
+	// Plain text must NOT be a JSON object/array.
+	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
+		t.Fatalf("[P1] 5.1-INTG-005: default tree output must be plain text, not JSON\nraw: %s", stdout)
+	}
+	// Structural shape: the catalog node is the spine root; indented children follow.
+	if !strings.Contains(stdout, "Catalog") {
+		t.Errorf("[P1] 5.1-INTG-005: plain tree output should name the Catalog root\nraw: %s", stdout)
+	}
+	if !strings.Contains(stdout, "\n  ") {
+		t.Errorf("[P1] 5.1-INTG-005: plain tree output should be indented (two-space child indent)\nraw: %s", stdout)
+	}
+	if !strings.HasSuffix(stdout, "\n") {
+		t.Errorf("[P1] 5.1-INTG-005: plain output must end with a trailing newline")
 	}
 }
 
@@ -663,7 +696,7 @@ func TestTreeDump_DepthFlag_LimitsTraversal(t *testing.T) {
 
 	// Run with --depth 1: should have root + immediate children, but children
 	// should NOT have their own children expanded.
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--depth", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", "--depth", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.1-INTG-006: expected exit code 0, got %d", exitCode)
@@ -710,12 +743,12 @@ func TestTreeDump_DepthZero_UnlimitedTraversal(t *testing.T) {
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
 	// --depth 0 should behave same as no --depth flag (unlimited)
-	stdoutDepth0, _, exitCode0 := runCLI(t, bin, "dump", "tree", "--depth", "0", pdfPath)
+	stdoutDepth0, _, exitCode0 := runCLI(t, bin, "dump", "tree", "--json", "--depth", "0", pdfPath)
 	if exitCode0 != 0 {
 		t.Fatalf("[P1] 5.1-INTG-007: expected exit code 0 with --depth 0, got %d", exitCode0)
 	}
 
-	stdoutNoDepth, _, exitCodeND := runCLI(t, bin, "dump", "tree", pdfPath)
+	stdoutNoDepth, _, exitCodeND := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCodeND != 0 {
 		t.Fatalf("[P1] 5.1-INTG-007: expected exit code 0 without --depth, got %d", exitCodeND)
 	}

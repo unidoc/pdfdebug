@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
@@ -38,6 +40,7 @@ type pageFlags struct {
 	formsRecursive bool
 	formsDepth     int
 	section        string
+	json           bool
 	pretty         bool
 }
 
@@ -51,7 +54,8 @@ func runPageDump(args []string) int {
 	formsRecursiveFlag := fs.Bool("forms-recursive", false, "Walk nested Form XObject resources/content")
 	formsDepthFlag := fs.Int("forms-depth", defaultFormsDepth, "Form-content recursion depth (distinct from --depth and --resolve-depth)")
 	sectionFlag := fs.String("section", "", "Emit only one section: geometry|extgstates|xobjects|forms")
-	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
+	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, pageUsage)
 		return 1
@@ -70,6 +74,7 @@ func runPageDump(args []string) int {
 		formsRecursive: *formsRecursiveFlag,
 		formsDepth:     *formsDepthFlag,
 		section:        *sectionFlag,
+		json:           *jsonFlag,
 		pretty:         *prettyFlag,
 	}
 
@@ -133,12 +138,174 @@ func execPageDump(filePath string, flags pageFlags) (exitCode int) {
 		return 2
 	}
 
-	out := sectionView(result, flags.section)
-	if err := emit(os.Stdout, out, flags.pretty); err != nil {
+	if flags.json {
+		out := sectionView(result, flags.section)
+		// _stability marker (AC8): the full object is the one EXPERIMENTAL contract
+		// an agent may script against, so it carries a top-level
+		// "_stability":"experimental" field. Section-scoped views OMIT it (decided:
+		// the marker attaches to the full object only - the scoped maps are already
+		// understood to be slices of the unstable whole).
+		if flags.section == "" {
+			marked, err := withStabilityMarker(result)
+			if err != nil {
+				writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+				return 2
+			}
+			out = marked
+		}
+		if err := emit(os.Stdout, out, flags.pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+	if err := printPageInfoPlain(os.Stdout, result, flags.section); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
 	return 0
+}
+
+// withStabilityMarker projects the full PageRenderInfo into a map carrying a
+// top-level "_stability":"experimental" field (AC8). Decoding through
+// json.RawMessage preserves every field's serialized form verbatim (decoding
+// into map[string]any would relabel ints as float64).
+func withStabilityMarker(info *pdfcore.PageRenderInfo) (any, error) {
+	b, err := json.Marshal(info)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	m["_stability"] = json.RawMessage(`"experimental"`)
+	return m, nil
+}
+
+// printPageInfoPlain renders the assembled per-page render info as aligned
+// key/value sections (geometry, extgstates, xobjects, forms), honoring the
+// --section filter (empty = all sections). NON-CONTRACTUAL and EXPERIMENTAL;
+// use --json to parse. patterns/shadings appear only in the all-sections view.
+func printPageInfoPlain(out io.Writer, info *pdfcore.PageRenderInfo, section string) error {
+	var w kvWriter
+	all := section == ""
+
+	if all || section == "geometry" {
+		w.Heading("Geometry:")
+		w.Addf("  Page", "%d", info.Page)
+		w.Add("  PageRef", info.PageRef)
+		w.Add("  MediaBox", floatsString(info.MediaBox))
+		if info.CropBox != nil {
+			w.Add("  CropBox", floatsString(info.CropBox))
+		}
+		w.Addf("  Rotate", "%d", info.Rotate)
+	}
+	if all || section == "extgstates" {
+		if !all {
+			w.Heading("ExtGStates:")
+		} else {
+			w.Gap()
+			w.Heading("ExtGStates:")
+		}
+		for _, gs := range info.ExtGStates {
+			w.Add("  "+gs.Name, extGStateSummary(gs))
+		}
+	}
+	if all || section == "xobjects" {
+		if all {
+			w.Gap()
+		}
+		w.Heading("XObjects:")
+		for _, x := range info.XObjects {
+			w.Add("  "+x.Name, xobjectSummary(x))
+		}
+	}
+	if all {
+		w.Gap()
+		w.Heading("Patterns:")
+		for _, p := range info.Patterns {
+			w.Addf("  "+p.Name, "%s patternType %d", p.Ref, p.PatternType)
+		}
+		w.Gap()
+		w.Heading("Shadings:")
+		for _, s := range info.Shadings {
+			w.Addf("  "+s.Name, "%s shadingType %d", s.Ref, s.ShadingType)
+		}
+	}
+	if (all && len(info.Forms) > 0) || section == "forms" {
+		if all {
+			w.Gap()
+		}
+		w.Heading("Forms:")
+		for _, fm := range info.Forms {
+			writeFormRow(&w, fm, 1)
+		}
+	}
+	return w.Render(out)
+}
+
+// extGStateSummary renders a one-line summary of an ExtGState's transparency
+// parameters for the plain-text view.
+func extGStateSummary(gs pdfcore.ExtGStateInfo) string {
+	parts := []string{gs.Ref}
+	if gs.BM != "" {
+		parts = append(parts, "BM "+gs.BM)
+	}
+	if gs.CA != nil {
+		parts = append(parts, fmt.Sprintf("ca %g", *gs.CA))
+	}
+	if gs.Ca != nil {
+		parts = append(parts, fmt.Sprintf("CA %g", *gs.Ca))
+	}
+	if gs.SMask != nil {
+		parts = append(parts, "SMask")
+	}
+	return strings.Join(parts, " ")
+}
+
+// xobjectSummary renders a one-line summary of an XObject (Form bbox / Image
+// dimensions + colorspace family) for the plain-text view.
+func xobjectSummary(x pdfcore.XObjectRenderInfo) string {
+	switch x.Subtype {
+	case "Image":
+		cs := ""
+		if x.ColorSpace != nil {
+			cs = " " + x.ColorSpace.Family
+		}
+		return fmt.Sprintf("%s Image %dx%d%s", x.Ref, x.Width, x.Height, cs)
+	case "Form":
+		return fmt.Sprintf("%s Form bbox %s", x.Ref, floatsString(x.BBox))
+	default:
+		return fmt.Sprintf("%s %s", x.Ref, x.Subtype)
+	}
+}
+
+// writeFormRow appends one recursive form-walk node (and its nested forms) to
+// the kvWriter at the given indent depth.
+func writeFormRow(w *kvWriter, fm pdfcore.FormRenderInfo, depth int) {
+	indent := strings.Repeat("  ", depth)
+	tag := fm.Ref
+	if fm.Cyclic {
+		tag += " [cyclic]"
+	}
+	if fm.Truncated {
+		tag += " [truncated]"
+	}
+	w.Add(indent+fm.Name, tag)
+	for _, child := range fm.Forms {
+		writeFormRow(w, child, depth+1)
+	}
+}
+
+// floatsString renders a float slice as space-separated values (e.g. a
+// MediaBox "0 0 612 792"), trimming trailing zeros via %g.
+func floatsString(fs []float64) string {
+	parts := make([]string, len(fs))
+	for i, v := range fs {
+		parts[i] = fmt.Sprintf("%g", v)
+	}
+	return strings.Join(parts, " ")
 }
 
 // sectionView returns the full PageRenderInfo when section is "", or a

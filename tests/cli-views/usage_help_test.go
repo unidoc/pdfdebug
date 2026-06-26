@@ -118,11 +118,11 @@ func TestNewCommands_PrettyVsCompact(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	compact, _, ec := runCLI(t, bin, "dump", "objects", pdfPath)
+	compact, _, ec := runCLI(t, bin, "dump", "objects", "--json", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P2] 11.4-INTG-018: compact run exit %d", ec)
 	}
-	pretty, _, ep := runCLI(t, bin, "dump", "objects", "--pretty", pdfPath)
+	pretty, _, ep := runCLI(t, bin, "dump", "objects", "--json", "--pretty", pdfPath)
 	if ep != 0 {
 		t.Fatalf("[P2] 11.4-INTG-018: --pretty run exit %d", ep)
 	}

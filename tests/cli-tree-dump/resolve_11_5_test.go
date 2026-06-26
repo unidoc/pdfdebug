@@ -29,11 +29,11 @@ func TestTreeResolve_OffIsUnchanged(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := testdataDir(t) + "/multipage.pdf"
 
-	a, _, ecA := runCLI(t, bin, "dump", "tree", "--page", "1", pdfPath)
+	a, _, ecA := runCLI(t, bin, "dump", "tree", "--json", "--page", "1", pdfPath)
 	if ecA != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-001: baseline run exit %d", ecA)
 	}
-	b, _, ecB := runCLI(t, bin, "dump", "tree", "--page", "1", pdfPath)
+	b, _, ecB := runCLI(t, bin, "dump", "tree", "--json", "--page", "1", pdfPath)
 	if ecB != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-001: second baseline run exit %d", ecB)
 	}
@@ -59,11 +59,11 @@ func TestTreeResolve_OnExpandsRefs(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := testdataDir(t) + "/content-stream.pdf"
 
-	def, _, ecDef := runCLI(t, bin, "dump", "tree", "--page", "1", pdfPath)
+	def, _, ecDef := runCLI(t, bin, "dump", "tree", "--json", "--page", "1", pdfPath)
 	if ecDef != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-002: default run exit %d", ecDef)
 	}
-	res, _, ecRes := runCLI(t, bin, "dump", "tree", "--resolve", "--page", "1", pdfPath)
+	res, _, ecRes := runCLI(t, bin, "dump", "tree", "--json", "--resolve", "--page", "1", pdfPath)
 	if ecRes != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-002: --resolve run exit %d (flag not implemented?)", ecRes)
 	}
@@ -89,14 +89,14 @@ func TestTreeResolve_DepthFlagStillTreeWalk(t *testing.T) {
 
 	// --depth 1 (tree-walk depth) with NO --resolve: existing behavior, exit 0,
 	// valid JSON, and NOT byte-identical to an unlimited (--depth 0) walk.
-	shallow, _, ec1 := runCLI(t, bin, "dump", "tree", "--depth", "1", "--page", "1", pdfPath)
+	shallow, _, ec1 := runCLI(t, bin, "dump", "tree", "--json", "--depth", "1", "--page", "1", pdfPath)
 	if ec1 != 0 {
 		t.Fatalf("[P1] 11.5-INTG-AC6-003: --depth 1 exit %d", ec1)
 	}
 	if !json_Valid(shallow) {
 		t.Fatalf("[P1] 11.5-INTG-AC6-003: --depth 1 output not valid JSON")
 	}
-	full, _, ec2 := runCLI(t, bin, "dump", "tree", "--depth", "0", "--page", "1", pdfPath)
+	full, _, ec2 := runCLI(t, bin, "dump", "tree", "--json", "--depth", "0", "--page", "1", pdfPath)
 	if ec2 != 0 {
 		t.Fatalf("[P1] 11.5-INTG-AC6-003: --depth 0 exit %d", ec2)
 	}

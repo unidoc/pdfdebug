@@ -33,13 +33,13 @@ func TestObjectDump_AcceptsObjGNForm(t *testing.T) {
 	ref, nodeID := discoverValidRef(t, bin, pdfPath)
 
 	// Canonical "N G R" form.
-	canonOut, _, canonExit := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	canonOut, _, canonExit := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 	if canonExit != 0 {
 		t.Fatalf("[P0] 11.3-INTG-002: canonical ref %q failed (exit %d)", ref, canonExit)
 	}
 
 	// obj:G:N form (paste the tree node id straight in).
-	objOut, _, objExit := runCLI(t, bin, "dump", "object", "--ref", nodeID, pdfPath)
+	objOut, _, objExit := runCLI(t, bin, "dump", "object", "--json", "--ref", nodeID, pdfPath)
 	if objExit != 0 {
 		t.Fatalf("[P0] 11.3-INTG-002: obj: form %q failed (exit %d) -- should be accepted", nodeID, objExit)
 	}
@@ -205,11 +205,11 @@ func TestObjectDump_PrettyVsCompact(t *testing.T) {
 
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	compact, _, ec := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	compact, _, ec := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.3-INTG-003: compact run exit %d", ec)
 	}
-	pretty, _, ep := runCLI(t, bin, "dump", "object", "--pretty", "--ref", ref, pdfPath)
+	pretty, _, ep := runCLI(t, bin, "dump", "object", "--json", "--pretty", "--ref", ref, pdfPath)
 	if ep != 0 {
 		t.Fatalf("[P1] 11.3-INTG-003: --pretty run exit %d", ep)
 	}

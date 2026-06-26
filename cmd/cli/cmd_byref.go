@@ -13,6 +13,7 @@ import (
 // subcommands (font, image, source, reverserefs).
 type byRefFlags struct {
 	ref      string
+	json     bool // emit structured JSON instead of the plain-text default
 	pretty   bool
 	raw      bool // source only
 	metadata bool // image only
@@ -38,8 +39,8 @@ func parseByRefFlags(resource string, args []string, withRaw, withMetadata bool)
 	fs := flag.NewFlagSet("dump "+resource, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	refFlag := fs.String("ref", "", `Object reference in "N G R" or obj:G:N form`)
-	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
-	_ = fs.Bool("json", false, "Output as JSON (default, always on)")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
+	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	var rawFlag, metadataFlag *bool
 	if withRaw {
 		rawFlag = fs.Bool("raw", false, "Emit verbatim source bytes instead of JSON")
@@ -62,7 +63,7 @@ func parseByRefFlags(resource string, args []string, withRaw, withMetadata bool)
 		return "", byRefFlags{}, false
 	}
 
-	f = byRefFlags{ref: *refFlag, pretty: *prettyFlag}
+	f = byRefFlags{ref: *refFlag, json: *jsonFlag, pretty: *prettyFlag}
 	if rawFlag != nil {
 		f.raw = *rawFlag
 	}

@@ -49,7 +49,7 @@ var objectDetailWireKeys = []string{
 func Test_12_3_INTG_001_ObjectDetailWireShape(t *testing.T) {
 	bin := buildCLI(t)
 	// minimal.pdf object 1 is the /Catalog (a dict with /Pages + /Type).
-	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", minimalPDFPath(t))
+	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
 	if code != 0 {
 		t.Fatalf("[P0] 12.3-INTG-001: `dump object --ref \"1 0 R\" testdata/minimal.pdf` exited %d\nstderr: %s", code, stderr)
 	}
@@ -72,7 +72,7 @@ func Test_12_3_INTG_001_ObjectDetailWireShape(t *testing.T) {
 // hardest-to-spot drift.
 func Test_12_3_INTG_002_NestedPropertyValueWireShape(t *testing.T) {
 	bin := buildCLI(t)
-	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", minimalPDFPath(t))
+	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
 	if code != 0 {
 		t.Fatalf("[P0] 12.3-INTG-002: dump object exited %d\nstderr: %s", code, stderr)
 	}

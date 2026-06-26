@@ -27,7 +27,7 @@ func TestStreamXObject_FormByName_EmitsStreamContent(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "form-image.pdf", formXObjectPDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--xobject", "Fm0", "--page", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--xobject", "Fm0", "--page", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC4-001: --xobject Fm0 --page 1 exit %d (flag not implemented?)", ec)
 	}
@@ -130,7 +130,7 @@ func TestStreamXObject_ImageByName_EmitsWithoutCrash(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "form-image.pdf", formXObjectPDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--xobject", "Im0", "--page", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--xobject", "Im0", "--page", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P2] 11.5-INTG-AC4-005: --xobject Im0 exit %d, want 0 (image bytes still tokenize, no crash)", ec)
 	}
@@ -152,7 +152,7 @@ func TestStreamRef_ContentStreamObject_EmitsContent(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "form-image.pdf", formXObjectPDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ref", "4 0 R", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--ref", "4 0 R", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC5-001: --ref \"4 0 R\" exit %d (flag not implemented?)", ec)
 	}

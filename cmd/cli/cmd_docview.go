@@ -11,26 +11,22 @@ import (
 // subcommands (xref, objects, plaintext). None take --ref.
 type docViewFlags struct {
 	pretty bool
-	json   bool // plaintext only: wrap the text as JSON instead of raw bytes
+	json   bool // opt into JSON: structured for xref/objects, the text wrapper for plaintext
 }
 
 // parseDocViewFlags builds and parses a FlagSet for a document-level dump
-// subcommand. resource is the bare resource name used in the usage message;
-// jsonWraps gates the plaintext --json wrapper flag (other commands treat --json
-// as the always-on default no-op). On failure it writes usage and returns ok=false.
-func parseDocViewFlags(resource string, args []string, jsonWraps bool) (filePath string, f docViewFlags, ok bool) {
-	// plaintext's --json wrapper is behavior-changing, so surface it in the
-	// worked example; xref/objects treat --json as the always-on default no-op.
-	opts := "[--pretty]"
-	if jsonWraps {
-		opts = "[--json] " + opts
-	}
-	usage := fmt.Sprintf("Usage: pdfdebug dump %s %s <file>", resource, opts)
+// subcommand. resource is the bare resource name used in the usage message.
+// --json is read into f.json uniformly; the handler decides its meaning: a
+// format switch for xref/objects (plain-text default -> JSON) or a payload
+// wrapper for plaintext (raw bytes default -> decoded JSON payload). On failure
+// it writes usage and returns ok=false.
+func parseDocViewFlags(resource string, args []string) (filePath string, f docViewFlags, ok bool) {
+	usage := fmt.Sprintf("Usage: pdfdebug dump %s [--json] [--pretty] <file>", resource)
 
 	fs := flag.NewFlagSet("dump "+resource, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
-	jsonFlag := fs.Bool("json", false, "Output as JSON")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
+	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, usage)
 		return "", docViewFlags{}, false
@@ -40,9 +36,5 @@ func parseDocViewFlags(resource string, args []string, jsonWraps bool) (filePath
 		fmt.Fprintln(os.Stderr, usage)
 		return "", docViewFlags{}, false
 	}
-	f = docViewFlags{pretty: *prettyFlag}
-	if jsonWraps {
-		f.json = *jsonFlag
-	}
-	return filePath, f, true
+	return filePath, docViewFlags{pretty: *prettyFlag, json: *jsonFlag}, true
 }

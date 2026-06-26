@@ -140,7 +140,17 @@ Open a PDF via File > Open or drag-drop into the window. Explore the object tree
 
 ### CLI
 
-The `pdfdebug` binary (built via `go build -o bin/pdfdebug ./cmd/cli`) exposes three commands:
+The `pdfdebug` binary (built via `go build -o bin/pdfdebug ./cmd/cli`) exposes a `dump`
+command over eleven PDF resources: `tree`, `object`, `stream`, `page`, `font`, `image`,
+`source`, `reverserefs`, `xref`, `objects`, and `plaintext`. Run `pdfdebug --help` for the
+full list.
+
+Every `dump` command prints **human-readable plain text by default**; pass `--json` to get
+structured JSON instead. The plain-text output is for reading and may change between
+releases -- if you are scripting or feeding an agent, parse the `--json` form, which is the
+stable contract. (`dump stream --raw` / `--ops` and the raw `dump plaintext` bytes are
+separate machine formats; `dump page --info` is EXPERIMENTAL and its JSON carries a
+`"_stability":"experimental"` marker.)
 
 - `pdfdebug dump tree [--json] [--depth N] <file.pdf>` -- dump the object tree.
 

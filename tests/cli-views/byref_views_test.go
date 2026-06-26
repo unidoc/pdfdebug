@@ -41,7 +41,7 @@ func TestFontDump_FontDict_OutputsFontViewJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "font", "--ref", "4 0 R", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "font", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.4-INTG-001: expected exit code 0, got %d", exitCode)
@@ -73,7 +73,7 @@ func TestImageDump_ImageXObject_OutputsImageDataJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "image", "--ref", "4 0 R", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.4-INTG-002: expected exit code 0, got %d", exitCode)
@@ -106,7 +106,7 @@ func TestSourceDump_Default_OutputsObjectRefAndSourceJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "source", "--ref", "4 0 R", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "source", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.4-INTG-003: expected exit code 0, got %d", exitCode)
@@ -137,7 +137,7 @@ func TestReverseRefsDump_ReferencedObject_OutputsNonEmptyArray(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "reverserefs", "--ref", "3 0 R", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "reverserefs", "--json", "--ref", "3 0 R", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.4-INTG-004: expected exit code 0, got %d", exitCode)
@@ -183,15 +183,16 @@ func TestByRef_BothRefForms_Equivalent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pdfPath := filepath.Join(testdataDir(t), tc.pdf)
 
+			// Compare the JSON contract across both ref forms (--json opt-in).
 			ngrArgs := append([]string{"dump"}, tc.args...)
-			ngrArgs = append(ngrArgs, "--ref", tc.refNGR, pdfPath)
+			ngrArgs = append(ngrArgs, "--json", "--ref", tc.refNGR, pdfPath)
 			outNGR, _, ecNGR := runCLI(t, bin, ngrArgs...)
 			if ecNGR != 0 {
 				t.Fatalf("[P1] 11.4-INTG-005/%s: \"N G R\" form exit %d", tc.name, ecNGR)
 			}
 
 			objArgs := append([]string{"dump"}, tc.args...)
-			objArgs = append(objArgs, "--ref", tc.refObj, pdfPath)
+			objArgs = append(objArgs, "--json", "--ref", tc.refObj, pdfPath)
 			outObj, _, ecObj := runCLI(t, bin, objArgs...)
 			if ecObj != 0 {
 				t.Fatalf("[P1] 11.4-INTG-005/%s: obj:G:N form exit %d", tc.name, ecObj)
@@ -222,8 +223,8 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	// With --metadata: base64 key absent, other metadata present.
-	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--metadata", "--ref", "4 0 R", pdfPath)
+	// With --metadata (JSON): base64 key absent, other metadata present.
+	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--json", "--metadata", "--ref", "4 0 R", pdfPath)
 	if ecMeta != 0 {
 		t.Fatalf("[P1] 11.4-INTG-006: --metadata run exit %d", ecMeta)
 	}
@@ -238,8 +239,8 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 		}
 	}
 
-	// Without --metadata: base64 present and non-empty.
-	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--ref", "4 0 R", pdfPath)
+	// Without --metadata (JSON): base64 present and non-empty.
+	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 	if ecFull != 0 {
 		t.Fatalf("[P1] 11.4-INTG-006: default run exit %d", ecFull)
 	}
@@ -265,11 +266,11 @@ func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--ref", "4 0 R", pdfPath)
+	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 	if ecFull != 0 {
 		t.Fatalf("[P1] 11.4-INTG-019: default run exit %d", ecFull)
 	}
-	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--metadata", "--ref", "4 0 R", pdfPath)
+	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--json", "--metadata", "--ref", "4 0 R", pdfPath)
 	if ecMeta != 0 {
 		t.Fatalf("[P1] 11.4-INTG-019: --metadata run exit %d", ecMeta)
 	}
@@ -324,10 +325,10 @@ func TestSourceDump_Raw_WritesVerbatimSource(t *testing.T) {
 		t.Errorf("[P1] 11.4-INTG-007: --raw output should contain the \"4 0 obj\" envelope:\n%.200s", rawOut)
 	}
 
-	// The raw bytes must equal the default form's `source` field.
-	jsonOut, _, ecJSON := runCLI(t, bin, "dump", "source", "--ref", "4 0 R", pdfPath)
+	// The raw bytes must equal the --json form's `source` field.
+	jsonOut, _, ecJSON := runCLI(t, bin, "dump", "source", "--json", "--ref", "4 0 R", pdfPath)
 	if ecJSON != 0 {
-		t.Fatalf("[P1] 11.4-INTG-007: default run exit %d", ecJSON)
+		t.Fatalf("[P1] 11.4-INTG-007: --json run exit %d", ecJSON)
 	}
 	var env struct {
 		Source string `json:"source"`
@@ -354,7 +355,7 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 
 	t.Run("font_on_non_font_is_neither", func(t *testing.T) {
 		// obj 1 in fonts-mixed.pdf is the /Type /Catalog, not a font.
-		stdout, _, ec := runCLI(t, bin, "dump", "font", "--ref", "1 0 R", fontPDF)
+		stdout, _, ec := runCLI(t, bin, "dump", "font", "--json", "--ref", "1 0 R", fontPDF)
 		if ec != 0 {
 			t.Fatalf("[P0] 11.4-INTG-008/font: expected exit 0 (non-error), got %d", ec)
 		}
@@ -369,7 +370,7 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 
 	t.Run("image_on_non_image_has_error_field", func(t *testing.T) {
 		// obj 3 in image-xobject.pdf is the /Type /Page dict, not an image.
-		stdout, _, ec := runCLI(t, bin, "dump", "image", "--ref", "3 0 R", imgPDF)
+		stdout, _, ec := runCLI(t, bin, "dump", "image", "--json", "--ref", "3 0 R", imgPDF)
 		if ec != 0 {
 			t.Fatalf("[P0] 11.4-INTG-008/image: expected exit 0 (non-error), got %d", ec)
 		}
@@ -384,7 +385,7 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 
 	t.Run("source_on_unresolved_ref_is_null_envelope", func(t *testing.T) {
 		// A high, nonexistent object number resolves to nil -> null envelope.
-		stdout, _, ec := runCLI(t, bin, "dump", "source", "--ref", "999 0 R", imgPDF)
+		stdout, _, ec := runCLI(t, bin, "dump", "source", "--json", "--ref", "999 0 R", imgPDF)
 		if ec != 0 {
 			t.Fatalf("[P0] 11.4-INTG-008/source: expected exit 0 (non-error), got %d", ec)
 		}
@@ -399,7 +400,7 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 
 	t.Run("reverserefs_on_unreferenced_is_empty_array", func(t *testing.T) {
 		// A high, nonexistent object number has no inbound edges -> [].
-		stdout, _, ec := runCLI(t, bin, "dump", "reverserefs", "--ref", "999 0 R", imgPDF)
+		stdout, _, ec := runCLI(t, bin, "dump", "reverserefs", "--json", "--ref", "999 0 R", imgPDF)
 		if ec != 0 {
 			t.Fatalf("[P0] 11.4-INTG-008/reverserefs: expected exit 0 (non-error), got %d", ec)
 		}
@@ -513,4 +514,98 @@ func TestByRef_MalformedRef_UsageError(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1: plain-text default siblings for the ref-taking commands. WITHOUT
+// --json the output is human-readable (aligned key/value for font/image,
+// reserialized source for source, an aligned table for reverserefs) and must
+// NOT be JSON. Assertions are STRUCTURAL.
+// ---------------------------------------------------------------------------
+
+func TestFontDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
+
+	stdout, _, ec := runCLI(t, bin, "dump", "font", "--ref", "4 0 R", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] font plain: expected exit 0, got %d", ec)
+	}
+	if isJSONObject(stdout) {
+		t.Fatalf("[13.1] font plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	// A /Type /Font dict (kind detail) -> aligned record naming the base font.
+	if !strings.Contains(stdout, "BaseFont:") {
+		t.Errorf("[13.1] font plain: expected an aligned BaseFont: row\n%s", stdout)
+	}
+}
+
+func TestImageDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
+
+	stdout, _, ec := runCLI(t, bin, "dump", "image", "--ref", "4 0 R", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] image plain: expected exit 0, got %d", ec)
+	}
+	if isJSONObject(stdout) {
+		t.Fatalf("[13.1] image plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	for _, key := range []string{"Width:", "Height:", "ColorSpace:"} {
+		if !strings.Contains(stdout, key) {
+			t.Errorf("[13.1] image plain: expected an aligned %q row\n%s", key, stdout)
+		}
+	}
+	// The base64 payload must NOT flood the plain-text view.
+	if strings.Contains(stdout, "base64") {
+		t.Errorf("[13.1] image plain: plain output should not carry the base64 payload\n%.200s", stdout)
+	}
+}
+
+func TestSourceDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
+
+	stdout, _, ec := runCLI(t, bin, "dump", "source", "--ref", "4 0 R", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] source plain: expected exit 0, got %d", ec)
+	}
+	if isJSONObject(stdout) {
+		t.Fatalf("[13.1] source plain: default output must be the reserialized source, not JSON:\n%.200s", stdout)
+	}
+	// The plain default is the reserialized PDF source: it carries the obj envelope.
+	if !strings.Contains(stdout, "4 0 obj") {
+		t.Errorf("[13.1] source plain: expected the \"4 0 obj\" envelope\n%.200s", stdout)
+	}
+}
+
+func TestReverseRefsDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
+
+	stdout, _, ec := runCLI(t, bin, "dump", "reverserefs", "--ref", "3 0 R", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] reverserefs plain: expected exit 0, got %d", ec)
+	}
+	if isJSONObject(stdout) {
+		t.Fatalf("[13.1] reverserefs plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	// Aligned table: header row naming the PARENT and PATH columns.
+	if !strings.Contains(stdout, "PARENT") || !strings.Contains(stdout, "PATH") {
+		t.Errorf("[13.1] reverserefs plain: expected a header row with PARENT/PATH columns\n%s", stdout)
+	}
+}
+
+// isJSONObject reports whether s (trimmed) begins with a JSON object/array
+// delimiter and parses as JSON -- the discriminator for "this is JSON, not the
+// plain-text default".
+func isJSONObject(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" {
+		return false
+	}
+	if t[0] != '{' && t[0] != '[' {
+		return false
+	}
+	return json.Valid([]byte(t))
 }

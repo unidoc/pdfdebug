@@ -46,7 +46,7 @@ func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.3-INTG-001: expected exit code 0, got %d", exitCode)
 	}
@@ -93,7 +93,7 @@ func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
 
 	// Round-trip: feed the first indirect node's pdfRef into dump object.
 	ref := indirect[0].PdfRef
-	objOut, _, objExit := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	objOut, _, objExit := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 	if objExit != 0 {
 		t.Fatalf("[P0] 11.3-INTG-001: pdfRef %q did not resolve via dump object (exit %d)", ref, objExit)
 	}
@@ -114,11 +114,11 @@ func TestTreeDump_PrettyVsCompact(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	compact, _, ec := runCLI(t, bin, "dump", "tree", pdfPath)
+	compact, _, ec := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.3-INTG-002: compact run exit %d", ec)
 	}
-	pretty, _, ep := runCLI(t, bin, "dump", "tree", "--pretty", pdfPath)
+	pretty, _, ep := runCLI(t, bin, "dump", "tree", "--json", "--pretty", pdfPath)
 	if ep != 0 {
 		t.Fatalf("[P1] 11.3-INTG-002: --pretty run exit %d", ep)
 	}
@@ -155,7 +155,7 @@ func TestTreeDump_PageFlag_RootsAtPageDict(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", "--page", "1", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("[P0] 11.3-INTG-003: expected exit code 0 for --page 1, got %d", exitCode)
 	}

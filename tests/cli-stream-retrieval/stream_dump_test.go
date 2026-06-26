@@ -33,7 +33,7 @@ func TestStreamDump_ValidPage_OutputsJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 5.3-INTG-001: expected exit code 0, got %d", exitCode)
@@ -113,7 +113,7 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-INTG-002: expected exit code 0, got %d", exitCode)
@@ -175,7 +175,7 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "empty-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-UNIT-002: expected exit code 0, got %d", exitCode)
@@ -207,7 +207,7 @@ func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-UNIT-002b: expected exit code 0, got %d", exitCode)
@@ -244,7 +244,7 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P2] 5.3-INTG-003: expected exit code 0, got %d", exitCode)
@@ -378,24 +378,88 @@ func TestStreamDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-006 [P1]: Stream dump without --json flag still outputs JSON.
-// AC#1: --json is accepted for explicitness but JSON is always the output
-//       format. Omitting --json still produces JSON output.
+// 5.3-UNIT-006 [P1] (REVISED by Story 13-1): Stream dump WITHOUT --json emits a
+// human-readable operator listing (the flipped default), NOT JSON. One operator
+// per line; the content-stream.pdf fixture draws a BT ... ET text block.
 // ---------------------------------------------------------------------------
 
-func TestStreamDump_WithoutJSONFlag_StillOutputsJSON(t *testing.T) {
+func TestStreamDump_WithoutJSONFlag_OutputsPlainOperators(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	// Run WITHOUT --json flag
+	// Run WITHOUT --json flag -> plain operator listing.
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-UNIT-006: expected exit code 0, got %d", exitCode)
 	}
 
-	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.3-UNIT-006: stdout without --json flag is not valid JSON\nraw: %s", stdout)
+	trimmed := strings.TrimSpace(stdout)
+	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
+		t.Fatalf("[P1] 5.3-UNIT-006: default stream output must be a plain operator listing, not JSON\nraw: %s", stdout)
+	}
+	// Structural: a recognizable PDF operator appears on its own (BT opens text).
+	foundOp := false
+	for _, line := range strings.Split(trimmed, "\n") {
+		s := strings.TrimSpace(line)
+		if s == "BT" || s == "ET" || strings.HasSuffix(s, " Tj") || strings.HasSuffix(s, " Tf") {
+			foundOp = true
+			break
+		}
+	}
+	if !foundOp {
+		t.Errorf("[P1] 5.3-UNIT-006: plain stream output should list operators one per line\nraw: %s", stdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1-INTG-024 [P1] (AC3): the plain operator listing renders operands BEFORE
+// the trailing operator in PDF content-stream order (not just "operator is the
+// last token"). content-stream.pdf draws `/F1 12 Tf`, `100 700 Td`,
+// `(Hello World) Tj` - each a multi-operand line. STRUCTURAL: on a line whose
+// last token is a known operand-taking operator, assert at least one operand
+// token precedes it and that the operator is genuinely last. NON-CONTRACTUAL
+// plain text; no whole-dump equality.
+// ---------------------------------------------------------------------------
+
+func TestStreamDump_PlainOperandsPrecedeOperator(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	if exitCode != 0 {
+		t.Fatalf("[P1] 13.1-INTG-024: expected exit code 0, got %d", exitCode)
+	}
+
+	// Operators that, in content-stream.pdf, are always preceded by >=1 operand.
+	operandTaking := map[string]bool{"Tf": true, "Td": true, "Tj": true}
+
+	checked := 0
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 0 {
+			continue
+		}
+		op := fields[len(fields)-1]
+		if !operandTaking[op] {
+			continue
+		}
+		checked++
+		// Structural order assertion: operands occupy the leading positions and
+		// the operator is strictly the final token (PDF postfix order).
+		if len(fields) < 2 {
+			t.Errorf("[P1] 13.1-INTG-024: operator %q has no preceding operand on line %q", op, line)
+			continue
+		}
+		operands := fields[:len(fields)-1]
+		for _, operand := range operands {
+			if operandTaking[operand] {
+				t.Errorf("[P1] 13.1-INTG-024: operator-looking token %q appears in the operand region (operands must precede the operator) on line %q", operand, line)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatalf("[P1] 13.1-INTG-024: no operand-taking operator line (Tf/Td/Tj) found in plain output:\n%s", stdout)
 	}
 }
 
@@ -429,7 +493,7 @@ func TestStreamDump_StdoutContainsOnlyJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-UNIT-008: expected exit code 0, got %d", exitCode)
@@ -540,7 +604,7 @@ func TestStreamDump_NodeID_Format(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.3-INTG-004: expected exit code 0, got %d", exitCode)

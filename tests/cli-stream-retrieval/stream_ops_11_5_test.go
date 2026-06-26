@@ -127,8 +127,8 @@ func TestStreamOps_NDJSONParityWithDefaultFormatted(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	// Default output -> the Formatted array is the source of truth.
-	defStdout, _, defEC := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	// JSON output -> the Formatted array is the source of truth (--json opt-in).
+	defStdout, _, defEC := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 	if defEC != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC1-001: default run exit %d", defEC)
 	}
@@ -540,4 +540,43 @@ func findDoOp(objs []map[string]any, name string) map[string]any {
 		}
 	}
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// 13.1 STREAM-005/006 (AC7): --json is mutually exclusive with the payload
+// selectors --raw and --ops. Passing them together is a usage error (exit 1)
+// with empty stdout -- NET-NEW validation: before the flip --json was a no-op
+// that combined silently. Do NOT retrofit --ops under --json.
+// ---------------------------------------------------------------------------
+
+func TestStream_RawJSON_Rejected(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--raw", "--json", "--page", "1", pdfPath)
+	if ec != 1 {
+		t.Errorf("[13.1] STREAM-005: --raw --json expected exit 1 (usage), got %d", ec)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("[13.1] STREAM-005: stdout should be empty on usage error, got: %s", stdout)
+	}
+	if strings.TrimSpace(stderr) == "" {
+		t.Error("[13.1] STREAM-005: stderr should carry a usage/error message")
+	}
+}
+
+func TestStream_OpsJSON_Rejected(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--ops", "--json", "--page", "1", pdfPath)
+	if ec != 1 {
+		t.Errorf("[13.1] STREAM-006: --ops --json expected exit 1 (usage), got %d", ec)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("[13.1] STREAM-006: stdout should be empty on usage error, got: %s", stdout)
+	}
+	if strings.TrimSpace(stderr) == "" {
+		t.Error("[13.1] STREAM-006: stderr should carry a usage/error message")
+	}
 }

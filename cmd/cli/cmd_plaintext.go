@@ -9,7 +9,7 @@ import (
 // runPlaintextDump parses flags and dispatches the document-level plain-text
 // dump. Default writes the document text raw to stdout; --json wraps it.
 func runPlaintextDump(args []string) int {
-	filePath, f, ok := parseDocViewFlags("plaintext", args, true)
+	filePath, f, ok := parseDocViewFlags("plaintext", args)
 	if !ok {
 		return 1
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
@@ -14,6 +15,7 @@ import (
 type streamFlags struct {
 	page    int
 	pageSet bool
+	json    bool
 	raw     bool
 	ops     bool
 	pretty  bool
@@ -37,7 +39,7 @@ func runStreamDump(args []string) int {
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no-op with --raw and --ops)")
 	xobjectFlag := fs.String("xobject", "", "Resolve a named XObject stream from --page N's or --ref REF's /Resources/XObject")
 	refFlag := fs.String("ref", "", "Resolve a content-stream object directly (\"N G R\"); or the XObject owner with --xobject")
-	_ = fs.Bool("json", false, "Output as JSON (default, mutually exclusive with --raw)")
+	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is a human-readable operator listing; mutually exclusive with --raw/--ops)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, streamUsage)
 		return 1
@@ -53,6 +55,7 @@ func runStreamDump(args []string) int {
 	flags := streamFlags{
 		page:    *pageFlag,
 		pageSet: pageSet,
+		json:    *jsonFlag,
 		raw:     *rawFlag,
 		ops:     *opsFlag,
 		pretty:  *prettyFlag,
@@ -60,9 +63,21 @@ func runStreamDump(args []string) int {
 		ref:     *refFlag,
 	}
 
-	// --ops is mutually exclusive with --raw (NDJSON cannot also be verbatim bytes).
+	// --raw / --ops / --json select mutually-exclusive payloads/formats. --raw
+	// (decoded bytes) and --ops (NDJSON) are payload selectors; --json is the
+	// structured-JSON format. The --raw/--ops conflict is preexisting; the
+	// --raw+--json and --ops+--json rejections are net-new (AC7): --json no
+	// longer combines silently now that it is a real format switch.
 	if flags.ops && flags.raw {
 		writeJSONError(os.Stderr, "--ops and --raw are mutually exclusive")
+		return 1
+	}
+	if flags.json && flags.raw {
+		writeJSONError(os.Stderr, "--json and --raw are mutually exclusive")
+		return 1
+	}
+	if flags.json && flags.ops {
+		writeJSONError(os.Stderr, "--json and --ops are mutually exclusive")
 		return 1
 	}
 
@@ -137,8 +152,17 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 			return 0
 		}
 		result := &pdfcore.ContentStreamData{Raw: "", Error: "page has no content stream"}
-		if err := emit(os.Stdout, result, flags.pretty); err != nil {
-			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+		if flags.json {
+			if err := emit(os.Stdout, result, flags.pretty); err != nil {
+				writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+				return 2
+			}
+			return 0
+		}
+		// Plain default: surface the no-stream condition as a one-line note (the
+		// page is valid, just has no /Contents).
+		if _, err := io.WriteString(os.Stdout, "(page has no content stream)\n"); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
 			return 2
 		}
 		return 0
@@ -168,11 +192,50 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 		return emitOps(inspector, result, opsPageNum)
 	}
 
-	if err := emit(os.Stdout, result, flags.pretty); err != nil {
+	if flags.json {
+		if err := emit(os.Stdout, result, flags.pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+
+	if err := printStreamPlain(os.Stdout, result); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
 	return 0
+}
+
+// printStreamPlain renders the decoded content stream as a human-readable
+// operator listing: one operator per line, operands before the operator in
+// PDF content-stream order (let it flow; do not tabulate). NON-CONTRACTUAL;
+// use --json for structured operators, --ops for NDJSON, --raw for bytes.
+func printStreamPlain(out io.Writer, result *pdfcore.ContentStreamData) error {
+	// A content-stream object can exist yet decode to zero operators (an empty
+	// /Contents stream). Surface that as a one-line note so plain output is never
+	// a silent zero-byte write and always ends with a newline.
+	if len(result.Formatted) == 0 {
+		_, err := io.WriteString(out, "(empty content stream)\n")
+		return err
+	}
+	var b strings.Builder
+	for _, fl := range result.Formatted {
+		for range fl.Indent {
+			b.WriteString("  ")
+		}
+		operands := operandValues(fl)
+		if len(operands) > 0 {
+			b.WriteString(strings.Join(operands, " "))
+			if fl.Operator != "" {
+				b.WriteByte(' ')
+			}
+		}
+		b.WriteString(fl.Operator)
+		b.WriteByte('\n')
+	}
+	_, err := io.WriteString(out, b.String())
+	return err
 }
 
 // resolveStreamNode maps the input flags to a content-stream nodeID. It returns

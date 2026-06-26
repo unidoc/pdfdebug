@@ -26,11 +26,11 @@ func TestObjectResolve_OffIsUnchanged(t *testing.T) {
 	// 2 0 R is the /Pages node in the fixtures (has indirect ref children).
 	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
 
-	a, _, ecA := runCLI(t, bin, "dump", "object", "--ref", "2 0 R", pdfPath)
+	a, _, ecA := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecA != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-101: baseline run exit %d", ecA)
 	}
-	b, _, ecB := runCLI(t, bin, "dump", "object", "--ref", "2 0 R", pdfPath)
+	b, _, ecB := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecB != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-101: second baseline run exit %d", ecB)
 	}
@@ -56,11 +56,11 @@ func TestObjectResolve_OnInlinesRefValues(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
 
-	def, _, ecDef := runCLI(t, bin, "dump", "object", "--ref", "2 0 R", pdfPath)
+	def, _, ecDef := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecDef != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-102: default run exit %d", ecDef)
 	}
-	res, _, ecRes := runCLI(t, bin, "dump", "object", "--ref", "2 0 R", "--resolve", pdfPath)
+	res, _, ecRes := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", "--resolve", pdfPath)
 	if ecRes != 0 {
 		t.Fatalf("[P0] 11.5-INTG-AC6-102: --resolve run exit %d (flag not implemented?)", ecRes)
 	}
@@ -83,7 +83,7 @@ func TestObjectResolve_CycleGuarded(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "multipage.pdf")
 
-	res, _, ec := runCLI(t, bin, "dump", "object", "--ref", "2 0 R", "--resolve", pdfPath)
+	res, _, ec := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", "--resolve", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.5-INTG-AC6-103: --resolve on cyclic page tree exit %d (hang/overflow?)", ec)
 	}

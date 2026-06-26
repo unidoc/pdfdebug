@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -66,10 +67,10 @@ func runTreeDump(args []string) int {
 	if flags.pageSet {
 		pageNum = flags.page
 	}
-	return execTreeDump(filePath, flags.depth, pageNum, flags.pretty, flags.resolve, flags.resolveDepth)
+	return execTreeDump(filePath, flags.depth, pageNum, flags.json, flags.pretty, flags.resolve, flags.resolveDepth)
 }
 
-func execTreeDump(filePath string, maxDepth, pageNum int, pretty, resolve bool, resolveDepth int) (exitCode int) {
+func execTreeDump(filePath string, maxDepth, pageNum int, jsonOut, pretty, resolve bool, resolveDepth int) (exitCode int) {
 	// Defense in depth: catch any escaping panics from pdfcpu.
 	defer func() {
 		if r := recover(); r != nil {
@@ -100,11 +101,71 @@ func execTreeDump(filePath string, maxDepth, pageNum int, pretty, resolve bool, 
 
 	visited := make(map[string]bool)
 	out := buildTree(inspector, "cli", root, 0, maxDepth, visited, resolve, resolveDepth)
-	if err := emit(os.Stdout, out, pretty); err != nil {
+	if jsonOut {
+		if err := emit(os.Stdout, out, pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+	if err := printTreePlain(os.Stdout, out); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
 	return 0
+}
+
+// printTreePlain renders the object tree as an indented outline: one node per
+// line, two-space indents per level, the node label as the spine, with the
+// "(N G R)" ref (when indirect) and the value/type as trailing metadata. It
+// reads like a table of contents. NON-CONTRACTUAL: for a parseable view use
+// --json.
+func printTreePlain(out io.Writer, root *treeNodeOutput) error {
+	var b strings.Builder
+	writeTreeNode(&b, root, 0)
+	_, err := io.WriteString(out, b.String())
+	return err
+}
+
+// writeTreeNode appends one node line (and recurses into Children) to b at the
+// given indent depth. The trailing metadata is the ref then the type/value
+// classifier, each emitted only when present.
+func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
+	if n == nil {
+		return
+	}
+	for range depth {
+		b.WriteString("  ")
+	}
+	b.WriteString(n.Label)
+	if n.PdfRef != "" {
+		b.WriteString(" (")
+		b.WriteString(n.PdfRef)
+		b.WriteByte(')')
+	}
+	// Type metadata: prefer the resolved dict /Type, else the value type.
+	if meta := treeNodeTypeMeta(n); meta != "" {
+		b.WriteByte(' ')
+		b.WriteString(meta)
+	}
+	if n.Error != "" {
+		b.WriteString(" [error: ")
+		b.WriteString(n.Error)
+		b.WriteByte(']')
+	}
+	b.WriteByte('\n')
+	for _, c := range n.Children {
+		writeTreeNode(b, c, depth+1)
+	}
+}
+
+// treeNodeTypeMeta returns the trailing type classifier for a tree row: the
+// resolved /Type name when present, otherwise the value type (dict/array/...).
+func treeNodeTypeMeta(n *treeNodeOutput) string {
+	if n.TypeName != "" {
+		return n.TypeName
+	}
+	return n.ValueType
 }
 
 // handleOpenError classifies an Open error and writes a JSON error to stderr.

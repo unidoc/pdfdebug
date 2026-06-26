@@ -57,7 +57,7 @@ func nodeIDToRef(nodeID string) (string, error) {
 // Returns the ref string (e.g., "3 0 R") and the corresponding node ID.
 func discoverValidRef(t *testing.T, bin, pdfPath string) (ref, nodeID string) {
 	t.Helper()
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("tree dump failed with exit code %d (needed for discovery)", exitCode)
 	}
@@ -94,7 +94,7 @@ func TestObjectDump_ValidRef_OutputsJSON(t *testing.T) {
 
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P0] 5.2-INTG-001: expected exit code 0, got %d", exitCode)
@@ -163,7 +163,7 @@ func TestObjectDump_DictObject_HasProperties(t *testing.T) {
 	// in minimal.pdf is typically the catalog (a dict).
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-INTG-002: expected exit code 0, got %d", exitCode)
@@ -216,7 +216,7 @@ func TestObjectDump_ArrayObject_HasElements(t *testing.T) {
 	// array-object.pdf has object 4 as an indirect array ([3 0 R]).
 	pdfPath := filepath.Join(testdataDir(t), "array-object.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", "4 0 R", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", "4 0 R", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-INTG-003: expected exit code 0, got %d", exitCode)
 	}
@@ -253,7 +253,7 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
 	// Dump tree and collect multiple obj: node IDs
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-UNIT-002: tree dump failed with exit code %d", exitCode)
 	}
@@ -288,7 +288,7 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 		}
 
 		t.Run(ref, func(t *testing.T) {
-			objStdout, _, objExitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+			objStdout, _, objExitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 			if objExitCode != 0 {
 				t.Errorf("[P1] 5.2-UNIT-002: expected exit code 0 for ref %q, got %d", ref, objExitCode)
@@ -358,7 +358,7 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
 	// Dump tree and collect all obj: node IDs
-	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("[P2] 5.2-INTG-004: tree dump failed with exit code %d", exitCode)
 	}
@@ -390,7 +390,7 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 			continue
 		}
 
-		objStdout, _, objExitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+		objStdout, _, objExitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 		if objExitCode != 0 {
 			continue
 		}
@@ -445,7 +445,7 @@ func TestObjectDump_NullFieldsPresent(t *testing.T) {
 
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-INTG-005: expected exit code 0, got %d", exitCode)
@@ -516,26 +516,31 @@ func TestObjectDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-006 [P1]: Object dump without --json flag still outputs JSON.
-// AC#1: --json is accepted for explicitness but JSON is always the output
-//       format. Omitting --json still produces JSON output.
+// 5.2-UNIT-006 [P1] (REVISED by Story 13-1): Object dump WITHOUT --json emits
+// human-readable PLAIN TEXT (the flipped default), NOT JSON. The plain output
+// is an aligned single record (Object/Type header + Properties block).
 // ---------------------------------------------------------------------------
 
-func TestObjectDump_WithoutJSONFlag_StillOutputsJSON(t *testing.T) {
+func TestObjectDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	// Run WITHOUT --json flag
+	// Run WITHOUT --json flag -> plain text default.
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-UNIT-006: expected exit code 0, got %d", exitCode)
 	}
 
-	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.2-UNIT-006: stdout without --json flag is not valid JSON\nraw: %s", stdout)
+	trimmed := strings.TrimSpace(stdout)
+	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
+		t.Fatalf("[P1] 5.2-UNIT-006: default object output must be plain text, not JSON\nraw: %s", stdout)
+	}
+	// Structural: the aligned record names the object and its type.
+	if !strings.Contains(stdout, "Object:") || !strings.Contains(stdout, "Type:") {
+		t.Errorf("[P1] 5.2-UNIT-006: plain object output should carry aligned Object:/Type: keys\nraw: %s", stdout)
 	}
 }
 
@@ -664,7 +669,7 @@ func TestObjectDump_StdoutContainsOnlyJSON(t *testing.T) {
 
 	ref, _ := discoverValidRef(t, bin, pdfPath)
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 5.2-UNIT-011: expected exit code 0, got %d", exitCode)

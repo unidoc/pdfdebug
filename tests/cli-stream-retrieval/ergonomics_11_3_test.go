@@ -26,11 +26,11 @@ func TestStreamDump_PrettyVsCompact(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "content-stream.pdf")
 
-	compact, _, ec := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
+	compact, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.3-INTG-001: compact run exit %d", ec)
 	}
-	pretty, _, ep := runCLI(t, bin, "dump", "stream", "--pretty", "--page", "1", pdfPath)
+	pretty, _, ep := runCLI(t, bin, "dump", "stream", "--json", "--pretty", "--page", "1", pdfPath)
 	if ep != 0 {
 		t.Fatalf("[P1] 11.3-INTG-001: --pretty run exit %d", ep)
 	}

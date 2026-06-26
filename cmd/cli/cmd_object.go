@@ -16,10 +16,10 @@ func runObjectDump(args []string) int {
 	fs := flag.NewFlagSet("dump object", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	refFlag := fs.String("ref", "", `Object reference in "N G R" format (e.g., "5 0 R")`)
-	prettyFlag := fs.Bool("pretty", false, "Indent JSON output")
+	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
 	resolveFlag := fs.Bool("resolve", false, "Follow indirect refs inline via ResolveRef (adds a 'resolved' field)")
 	resolveDepthFlag := fs.Int("resolve-depth", defaultResolveDepth, "Ref-following depth for --resolve")
-	_ = fs.Bool("json", false, "Output as JSON (default, always on)")
+	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
 		return 1
@@ -46,7 +46,7 @@ func runObjectDump(args []string) int {
 		return 1
 	}
 
-	return execObjectDump(filePath, objNum, genNum, *prettyFlag, *resolveFlag, *resolveDepthFlag)
+	return execObjectDump(filePath, objNum, genNum, *jsonFlag, *prettyFlag, *resolveFlag, *resolveDepthFlag)
 }
 
 // objectDumpOutput wraps an ObjectDetail with the optional --resolve inline
@@ -110,8 +110,9 @@ func parseObjIDRef(ref string) (objNum int, genNum int, err error) {
 	return objNum, genNum, nil
 }
 
-// execObjectDump opens the PDF, queries the object, and writes JSON to stdout.
-func execObjectDump(filePath string, objNum, genNum int, pretty, resolve bool, resolveDepth int) (exitCode int) {
+// execObjectDump opens the PDF, queries the object, and writes the object
+// detail as plain text (default) or JSON (jsonOut).
+func execObjectDump(filePath string, objNum, genNum int, jsonOut, pretty, resolve bool, resolveDepth int) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("internal error: %v", r))
@@ -166,9 +167,112 @@ func execObjectDump(filePath string, objNum, genNum int, pretty, resolve bool, r
 		}
 	}
 
-	if err := emit(os.Stdout, out, pretty); err != nil {
+	if jsonOut {
+		if err := emit(os.Stdout, out, pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+	if err := printObjectPlain(os.Stdout, out); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
 	return 0
+}
+
+// printObjectPlain renders an ObjectDetail (plus an optional --resolve tree) as
+// a human-readable single record: an aligned key/value header, then the dict
+// properties / array elements / scalar value / stream info. NON-CONTRACTUAL;
+// use --json to parse.
+func printObjectPlain(out io.Writer, o objectDumpOutput) error {
+	var w kvWriter
+	w.Add("Object", o.ObjectRef)
+	w.Add("Type", o.Type)
+	if o.StreamInfo != nil {
+		w.Addf("Stream", "%s, filters [%s]", humanizeBytes(o.StreamInfo.Length), strings.Join(o.StreamInfo.Filters, ", "))
+	}
+	switch o.Type {
+	case "dict", "stream":
+		if len(o.Properties) > 0 {
+			w.Gap()
+			w.Heading("Properties:")
+			for _, p := range o.Properties {
+				w.Add("  "+p.Key, valueEntryDisplay(p.Value))
+			}
+		}
+	case "array":
+		if len(o.Elements) > 0 {
+			w.Gap()
+			w.Heading("Elements:")
+			for i, e := range o.Elements {
+				w.Addf(fmt.Sprintf("  [%d]", i), "%s", valueEntryDisplay(e))
+			}
+		}
+	case "scalar":
+		if o.ScalarValue != nil {
+			w.Add("Value", valueEntryDisplay(*o.ScalarValue))
+		}
+	}
+	if err := w.Render(out); err != nil {
+		return err
+	}
+	// --resolve: append the inlined ref-following tree below the record.
+	if o.Resolved != nil {
+		if _, err := io.WriteString(out, "\nResolved:\n"); err != nil {
+			return err
+		}
+		var b strings.Builder
+		writeResolvedNode(&b, o.Resolved, 1)
+		if _, err := io.WriteString(out, b.String()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// valueEntryDisplay returns the human-readable form of a ValueEntry: its
+// Display string, falling back to Raw, annotated with the ref target for
+// references.
+func valueEntryDisplay(v pdfcore.ValueEntry) string {
+	s := v.Display
+	if s == "" {
+		s = v.Raw
+	}
+	if v.Type == "reference" && v.RefTarget != "" {
+		s += " -> " + v.RefTarget
+	}
+	return s
+}
+
+// writeResolvedNode appends one ResolvedNode line (and recurses) to b at the
+// given indent depth, mirroring the tree presenter's outline shape. Truncated
+// and cyclic ref markers are surfaced as trailing tags.
+func writeResolvedNode(b *strings.Builder, n *pdfcore.ResolvedNode, depth int) {
+	if n == nil {
+		return
+	}
+	for range depth {
+		b.WriteString("  ")
+	}
+	if n.Key != "" {
+		b.WriteString(n.Key)
+		b.WriteByte(' ')
+	}
+	b.WriteString(n.NodeType)
+	if n.ObjectRef != "" {
+		b.WriteString(" (")
+		b.WriteString(n.ObjectRef)
+		b.WriteByte(')')
+	}
+	if n.Truncated {
+		b.WriteString(" [truncated]")
+	}
+	if n.Cyclic {
+		b.WriteString(" [cyclic]")
+	}
+	b.WriteByte('\n')
+	for _, c := range n.Children {
+		writeResolvedNode(b, c, depth+1)
+	}
 }

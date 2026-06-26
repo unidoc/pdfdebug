@@ -3,7 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
+
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // runImageDump parses flags and dispatches image-data dump execution.
@@ -41,6 +45,17 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 		return 2
 	}
 
+	if !f.json {
+		// Plain-text default: an aligned key/value block. The base64 payload is
+		// never printed in plain text (it would flood the terminal); --metadata is
+		// therefore a JSON-only distinction. NON-CONTRACTUAL; use --json to parse.
+		if err := printImagePlain(os.Stdout, img); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+
 	if f.metadata {
 		// Project to a map and drop the base64 key entirely (AC2). Decode into
 		// json.RawMessage (not any) so the surviving fields re-emit byte-for-byte
@@ -68,4 +83,25 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 		return 2
 	}
 	return 0
+}
+
+// printImagePlain renders ImageData as an aligned key/value block (omitting the
+// base64 payload). A populated error/warning field is surfaced as its own row.
+func printImagePlain(out io.Writer, img *pdfcore.ImageData) error {
+	var w kvWriter
+	w.Add("Object", img.ObjectRef)
+	if img.Error != "" {
+		w.Add("Error", img.Error)
+		return w.Render(out)
+	}
+	w.Add("MimeType", img.MimeType)
+	w.Addf("Width", "%d", img.Width)
+	w.Addf("Height", "%d", img.Height)
+	w.Add("ColorSpace", dashIfEmpty(img.ColorSpace))
+	w.Add("BitsPerComponent", strconv.Itoa(img.BitsPerComponent))
+	w.Add("Filter", dashIfEmpty(img.Filter))
+	if img.Warning != "" {
+		w.Add("Warning", img.Warning)
+	}
+	return w.Render(out)
 }

@@ -14,6 +14,7 @@
 package page_render_info_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -28,7 +29,7 @@ func TestPageInfo_FullObjectTopLevelShape(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC1-001: exit %d (resource not implemented?)\nstderr: %s", ec, stderr)
 	}
@@ -59,7 +60,7 @@ func TestPageInfo_GeometryInheritsFromPagesAncestor(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC1-002: exit %d", ec)
 	}
@@ -98,7 +99,7 @@ func TestPageInfo_ExtGStateResolvedWithSMaskDescriptor(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC2-001: exit %d", ec)
 	}
@@ -143,7 +144,7 @@ func TestPageInfo_ExtGStateSMaskNoneIsLiteral(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC2-002: exit %d", ec)
 	}
@@ -169,7 +170,7 @@ func TestPageInfo_FormXObjectGroupResolved(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC3-001: exit %d", ec)
 	}
@@ -218,7 +219,7 @@ func TestPageInfo_ImageXObjectColorSpaceClassified(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC3-002: exit %d", ec)
 	}
@@ -264,7 +265,7 @@ func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P1] 11.6-INTG-AC1-003: exit %d", ec)
 	}
@@ -303,7 +304,7 @@ func TestPageInfo_StructuralOnlyNoComputedColor(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC7-001: exit %d", ec)
 	}
@@ -330,7 +331,7 @@ func TestPageInfo_NoResourcesEmptyArraysExitZero(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "no-resources.pdf", noResourcesFixturePDF())
 
-	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P0] 11.6-INTG-AC6-001: no-/Resources page expected exit 0, got %d\nstderr: %s", ec, stderr)
 	}
@@ -430,11 +431,11 @@ func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
 
-	compact, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	compact, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
 		t.Fatalf("[P2] 11.6-INTG-XCUT-001: compact exit %d", ec)
 	}
-	pretty, _, ep := runCLI(t, bin, "dump", "page", "--info", "1", "--pretty", pdfPath)
+	pretty, _, ep := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--pretty", pdfPath)
 	if ep != 0 {
 		t.Fatalf("[P2] 11.6-INTG-XCUT-001: --pretty exit %d", ep)
 	}
@@ -443,5 +444,63 @@ func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
 	}
 	if !strings.Contains(pretty, "\n  ") {
 		t.Errorf("[P2] 11.6-INTG-XCUT-001: --pretty output is not indented multi-line:\n%.200s", pretty)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1 (AC8): the full-object --json output carries a top-level
+// "_stability":"experimental" marker (machine-visible instability). A
+// section-scoped --json view omits it (documented decision: full object only).
+// ---------------------------------------------------------------------------
+
+func TestPageInfo_JSONStabilityMarker(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
+
+	full, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] page _stability: full --json exit %d", ec)
+	}
+	var fm map[string]any
+	mustParseJSON(t, full, &fm)
+	if s, _ := fm["_stability"].(string); s != "experimental" {
+		t.Errorf("[13.1] page _stability: full --json must carry \"_stability\":\"experimental\", got %v", fm["_stability"])
+	}
+
+	sec, _, ecs := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "geometry", pdfPath)
+	if ecs != 0 {
+		t.Fatalf("[13.1] page _stability: section --json exit %d", ecs)
+	}
+	var sm map[string]any
+	mustParseJSON(t, sec, &sm)
+	if _, present := sm["_stability"]; present {
+		t.Errorf("[13.1] page _stability: section --json must OMIT _stability, got %v", sm["_stability"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1 (AC6/AC2): the default (no --json) output is human-readable PLAIN TEXT
+// with aligned key/value sections, NOT JSON. STRUCTURAL assertions only.
+// ---------------------------------------------------------------------------
+
+func TestPageInfo_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := writeTempPDF(t, "renderinfo.pdf", renderInfoFixturePDF())
+
+	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
+	if ec != 0 {
+		t.Fatalf("[13.1] page plain: exit %d", ec)
+	}
+	trimmed := strings.TrimSpace(stdout)
+	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
+		t.Fatalf("[13.1] page plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	for _, heading := range []string{"Geometry:", "ExtGStates:", "XObjects:"} {
+		if !strings.Contains(stdout, heading) {
+			t.Errorf("[13.1] page plain: expected the %q section heading\n%s", heading, stdout)
+		}
+	}
+	if strings.Contains(stdout, "_stability") {
+		t.Errorf("[13.1] page plain: plain output must not carry the _stability marker")
 	}
 }

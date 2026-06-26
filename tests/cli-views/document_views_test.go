@@ -31,7 +31,7 @@ func TestXRefDump_ValidPDF_OutputsXRefTableJSON(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", "--json", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 11.4-INTG-009: expected exit code 0, got %d", exitCode)
@@ -64,7 +64,7 @@ func TestObjectsDump_ValidPDF_OutputsObjectIndexArray(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", "--json", pdfPath)
 
 	if exitCode != 0 {
 		t.Fatalf("[P1] 11.4-INTG-010: expected exit code 0, got %d", exitCode)
@@ -94,8 +94,8 @@ func TestObjectsVsObject_DistinctCommands(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	// Plural: succeeds without --ref, returns a JSON array.
-	pluralOut, _, ecPlural := runCLI(t, bin, "dump", "objects", pdfPath)
+	// Plural: succeeds without --ref, returns a JSON array (--json).
+	pluralOut, _, ecPlural := runCLI(t, bin, "dump", "objects", "--json", pdfPath)
 	if ecPlural != 0 {
 		t.Fatalf("[P0] 11.4-INTG-011: `dump objects` expected exit 0, got %d", ecPlural)
 	}
@@ -206,6 +206,86 @@ func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.1: plain-text default siblings. WITHOUT --json, dump xref / dump objects
+// emit a human-readable aligned table (header row + data rows), NOT JSON.
+// Assertions are STRUCTURAL (header tokens + row count >= 1), never whole-dump
+// equality.
+// ---------------------------------------------------------------------------
+
+func TestXRefDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", pdfPath)
+	if exitCode != 0 {
+		t.Fatalf("[13.1] xref plain: expected exit code 0, got %d", exitCode)
+	}
+	if json.Valid([]byte(trimSpace(stdout))) && (len(stdout) > 0 && (stdout[0] == '{' || stdout[0] == '[')) {
+		t.Fatalf("[13.1] xref plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	lines := nonEmptyLines(stdout)
+	if len(lines) < 2 {
+		t.Fatalf("[13.1] xref plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
+	}
+	for _, col := range []string{"OBJ", "GEN", "TYPE"} {
+		if !contains(lines[0], col) {
+			t.Errorf("[13.1] xref plain: header row missing column %q\nheader: %s", col, lines[0])
+		}
+	}
+}
+
+func TestObjectsDump_PlainTextDefault(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", pdfPath)
+	if exitCode != 0 {
+		t.Fatalf("[13.1] objects plain: expected exit code 0, got %d", exitCode)
+	}
+	if json.Valid([]byte(trimSpace(stdout))) && (len(stdout) > 0 && (stdout[0] == '{' || stdout[0] == '[')) {
+		t.Fatalf("[13.1] objects plain: default output must be plain text, not JSON:\n%.200s", stdout)
+	}
+	lines := nonEmptyLines(stdout)
+	if len(lines) < 2 {
+		t.Fatalf("[13.1] objects plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
+	}
+	for _, col := range []string{"OBJ", "GEN", "TYPE"} {
+		if !contains(lines[0], col) {
+			t.Errorf("[13.1] objects plain: header row missing column %q\nheader: %s", col, lines[0])
+		}
+	}
+}
+
+// nonEmptyLines splits s into its non-blank lines (small local helper).
+func nonEmptyLines(s string) []string {
+	var out []string
+	start := 0
+	for i := 0; i <= len(s); i++ {
+		if i == len(s) || s[i] == '\n' {
+			line := s[start:i]
+			if trimSpace(line) != "" {
+				out = append(out, line)
+			}
+			start = i + 1
+		}
+	}
+	return out
+}
+
+// contains reports whether sub appears in s (avoids importing strings for one use).
+func contains(s, sub string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 // trimSpace is a tiny local helper to avoid importing strings just for one use.

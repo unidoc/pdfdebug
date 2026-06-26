@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // runReverseRefsDump parses flags and dispatches reverse-reference dump.
@@ -37,9 +40,32 @@ func execReverseRefsDump(filePath string, f byRefFlags) (exitCode int) {
 		writeJSONError(os.Stderr, err.Error())
 		return 2
 	}
-	if err := emit(os.Stdout, refs, f.pretty); err != nil {
+	if f.json {
+		if err := emit(os.Stdout, refs, f.pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+	if err := printReverseRefsPlain(os.Stdout, refs); err != nil {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
 	return 0
+}
+
+// printReverseRefsPlain renders the inbound reference edges as an aligned
+// table: one row per edge (the parent ref, its /Type, and the path inside the
+// parent where the reference lives). An object with no inbound edges renders
+// the header row with no data rows. NON-CONTRACTUAL; use --json to parse.
+func printReverseRefsPlain(out io.Writer, refs []pdfcore.ReverseRef) error {
+	t := newTable("PARENT", "TYPE", "PATH")
+	for _, r := range refs {
+		parentType := "-"
+		if r.ParentType != nil {
+			parentType = dashIfEmpty(*r.ParentType)
+		}
+		t.AddRow(r.ParentRef, parentType, r.Path)
+	}
+	return t.Render(out)
 }
