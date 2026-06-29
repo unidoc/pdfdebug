@@ -56,6 +56,12 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
+    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // calls these on render; stub them so the mock does not throw.
+    GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
+    GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
+    GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
+    SaveBytesToFile: vi.fn().mockResolvedValue(''),
   })
 );
 

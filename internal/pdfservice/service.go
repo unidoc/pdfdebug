@@ -3,6 +3,7 @@ package pdfservice
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 	"runtime/debug"
 
@@ -43,6 +44,9 @@ type inspectorAPI interface {
 	GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error)
 	CancelPlainText(tabID string) error
 	GetPlainTextSize(tabID string) (int64, error)
+	GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error)
+	GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error)
+	GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error)
 }
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the
@@ -382,4 +386,68 @@ func (s *PDFService) ConsumePendingOpenFiles() []string {
 		return nil
 	}
 	return s.pendingOpens.Drain()
+}
+
+// GetEmbeddedFiles enumerates the embedded/associated files for the document in
+// tabID (catalog /AF + /Names/EmbeddedFiles, merged and deduped). Story 13.2.
+func (s *PDFService) GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error) {
+	var result *pdfcore.EmbeddedFileList
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetEmbeddedFiles", &err)
+		result, err = s.inspector.GetEmbeddedFiles(tabID)
+	}()
+	return result, err
+}
+
+// GetEmbeddedFileBytes returns the decoded bytes of one embedded file, addressed
+// by the obj:G:N nodeID of its /EmbeddedFile stream. Wails marshals the []byte
+// as a base64 string to the frontend. Story 13.2.
+func (s *PDFService) GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error) {
+	var result []byte
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetEmbeddedFileBytes", &err)
+		result, err = s.inspector.GetEmbeddedFileBytes(tabID, nodeID)
+	}()
+	return result, err
+}
+
+// GetDocumentMetadata returns the document's XMP packet and /Info dictionary
+// fields for the document in tabID. Story 13.2.
+func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error) {
+	var result *pdfcore.DocumentMetadata
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetDocumentMetadata", &err)
+		result, err = s.inspector.GetDocumentMetadata(tabID)
+	}()
+	return result, err
+}
+
+// SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
+// writes data to the chosen path, returning the saved path. An empty path (user
+// cancelled) returns ("", nil) so the frontend can treat cancel as a no-op.
+// Story 13.2: the GUI "Save..." action for an extracted embedded file. This is
+// the first save-dialog path in the app (no prior SaveFile usage); it is NOT
+// part of inspectorAPI because it is an app-level dialog, not a PDF-backend
+// call.
+func (s *PDFService) SaveBytesToFile(suggestedName string, data []byte) (string, error) {
+	if s.app == nil {
+		return "", fmt.Errorf("app not initialized")
+	}
+	path, err := s.app.Dialog.SaveFile().
+		SetFilename(suggestedName).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		// User cancelled the dialog.
+		return "", nil
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
 }

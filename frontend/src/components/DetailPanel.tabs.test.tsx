@@ -68,6 +68,12 @@ vi.mock(
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
     CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
+    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // calls these on render; stub them so the mock does not throw.
+    GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
+    GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
+    GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
+    SaveBytesToFile: vi.fn().mockResolvedValue(''),
   })
 );
 

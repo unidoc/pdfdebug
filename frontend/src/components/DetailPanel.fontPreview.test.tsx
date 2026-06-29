@@ -9,7 +9,7 @@
  *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.fontPreview.test.tsx
  */
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AppProvider,
@@ -50,6 +50,12 @@ vi.mock(
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetFontView: (...args: unknown[]) => mockGetFontView(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
+    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // calls these on render; stub them so the mock does not throw.
+    GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
+    GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
+    GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
+    SaveBytesToFile: vi.fn().mockResolvedValue(''),
   })
 );
 
@@ -213,9 +219,12 @@ describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
     await waitFor(() => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
     });
-    // No font-specific UI: no Embedded badge, no font sections.
-    expect(screen.queryByText(/Embedded/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Not embedded/)).not.toBeInTheDocument();
+    // No font-specific UI: no font-embedding badge, no font sections. Scope the
+    // query to the Object pane so it does NOT match the Story 13.2 "Embedded"
+    // tab trigger (a document-level tab, not font UI).
+    const objectPane = screen.getByTestId('detail-pane-object');
+    expect(within(objectPane).queryByText(/Embedded/)).not.toBeInTheDocument();
+    expect(within(objectPane).queryByText(/Not embedded/)).not.toBeInTheDocument();
   });
 
   test('Kind:neither path does NOT surface a generic error banner', async () => {

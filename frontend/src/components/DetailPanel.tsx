@@ -23,6 +23,8 @@ import { FontRosterPreview, type FontResourceMapData } from './FontRosterPreview
 import { ReverseRefsSection, type ReverseRefEntry } from './ReverseRefsSection';
 import { XRefTableView } from './XRefTableView';
 import { PlainTextView } from './PlainTextView';
+import { EmbeddedDataView } from './EmbeddedDataView';
+import { DocumentMetadataView } from './DocumentMetadataView';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -59,8 +61,9 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/** Which of the three DetailPanel tabs is currently active. */
-type DetailView = 'object' | 'xref' | 'plaintext';
+/** Which of the five DetailPanel tabs is currently active. Story 13.2 adds
+ *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP). */
+type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -106,10 +109,14 @@ function DetailPanelInner() {
   const [detailView, setDetailView] = useState<DetailView>('object');
   // Entry count from the XREF tab, used in the "XREF (N)" tab label per AC2.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
+  // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
+  // label (Story 13.2, mirrors the XREF count pattern).
+  const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
 
   useEffect(() => {
     setDetailView('object');
     setXrefEntryCount(null);
+    setEmbeddedCount(null);
   }, [activeTabId]);
 
   useEffect(() => {
@@ -360,6 +367,16 @@ function DetailPanelInner() {
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch]);
 
+  /**
+   * Embedded "Reveal in tree" handler: switches to the Object tab BEFORE
+   * dispatching navigation so the user lands on the /EmbeddedFile stream object
+   * in one render (mirrors handleXRefNavigate). Story 13.2.
+   */
+  const handleEmbeddedNavigate = useCallback((nodeId: string) => {
+    setDetailView('object');
+    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
+  }, [dispatch]);
+
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). AC11 header
   // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
@@ -384,6 +401,7 @@ function DetailPanelInner() {
     : typeLabel;
 
   const xrefLabel = xrefEntryCount !== null ? `XREF (${xrefEntryCount})` : 'XREF';
+  const embeddedLabel = embeddedCount !== null ? `Embedded (${embeddedCount})` : 'Embedded';
 
   const tabTriggerClass =
     'px-3 py-1 text-xs text-text-secondary border-b-2 border-transparent hover:text-text hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus cursor-pointer data-[state=active]:text-text data-[state=active]:border-b-border-focus';
@@ -451,6 +469,26 @@ function DetailPanelInner() {
               onClick={() => setDetailView('plaintext')}
             >
               Plain Text
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="embedded" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-embedded"
+              onClick={() => setDetailView('embedded')}
+            >
+              {embeddedLabel}
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="metadata" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-metadata"
+              onClick={() => setDetailView('metadata')}
+            >
+              Metadata
             </button>
           </Tabs.Trigger>
         </Tabs.List>
@@ -626,6 +664,32 @@ function DetailPanelInner() {
           <PlainTextView
             tabId={activeTabId ?? ''}
             active={detailView === 'plaintext'}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="embedded"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-embedded"
+        >
+          <EmbeddedDataView
+            tabId={activeTabId ?? ''}
+            active={detailView === 'embedded'}
+            onNavigate={handleEmbeddedNavigate}
+            onLoaded={setEmbeddedCount}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="metadata"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-metadata"
+        >
+          <DocumentMetadataView
+            tabId={activeTabId ?? ''}
+            active={detailView === 'metadata'}
           />
         </Tabs.Content>
       </Tabs.Root>
