@@ -382,6 +382,47 @@ type FontDetail struct {
 	CIDSystemInfo *CIDSystemInfo `json:"cidSystemInfo"`
 	CIDToGIDMap   string         `json:"cidToGIDMap"`
 	DefaultWidth  int            `json:"defaultWidth"`
+	// MappingRows is the assembled per-code mapping table (Story 13.3 AC1): the
+	// JOIN of Differences (glyph name) and ToUnicodeMappings (unicode + literal
+	// text) over the union of declared codes. Assembled, never re-parsed.
+	MappingRows []FontMappingRow `json:"mappingRows"`
+	// Health carries the coverage/health diagnostic signals (Story 13.3 AC2).
+	// Always populated, even on a malformed ToUnicode (the signals reflect
+	// whatever parsed).
+	Health *FontHealth `json:"health"`
+}
+
+// FontMappingRow is one assembled row in the per-code font mapping table
+// (Story 13.3 AC1). It is the JOIN of an /Encoding /Differences entry (GlyphName)
+// and a /ToUnicode CMap entry (Unicode, UnicodeText) keyed by character code.
+// Either side may be empty when a code is declared in only one of the two
+// sources. There is no single existing type spanning these fields, so this row
+// type is defined explicitly.
+type FontMappingRow struct {
+	Code        int    `json:"code"`        // character code
+	CodeHex     string `json:"codeHex"`     // "0x41" form
+	GlyphName   string `json:"glyphName"`   // from /Differences, "" if none
+	Unicode     string `json:"unicode"`     // "U+XXXX" from ToUnicode, "" if none
+	UnicodeText string `json:"unicodeText"` // literal glyph string, "" if none
+}
+
+// FontHealth carries the coverage/health diagnostic signals for a font
+// (Story 13.3 AC2). These surface the classic text-extraction failure modes
+// explicitly rather than leaving the user to infer them.
+type FontHealth struct {
+	// DeclaredCodeCount is the count of distinct declared codes (the union of
+	// Differences and ToUnicode codes) -- the "complete" denominator.
+	DeclaredCodeCount int `json:"declaredCodeCount"`
+	// ToUnicodeMissing is true when the font has no usable /ToUnicode CMap:
+	// absent entirely, or present but unparseable (ToUnicodeError set). In both
+	// cases extraction has no code-to-Unicode coverage.
+	ToUnicodeMissing bool `json:"toUnicodeMissing"`
+	// IdentityWithoutToUnicode flags an Identity (Identity-H/V) encoding with no
+	// usable ToUnicode -- the classic "copy yields gibberish" case.
+	IdentityWithoutToUnicode bool `json:"identityWithoutToUnicode"`
+	// EncodingWithoutToUnicodeCodes lists codes present in /Differences but
+	// absent from /ToUnicode -- extraction will fail for each.
+	EncodingWithoutToUnicodeCodes []int `json:"encodingWithoutToUnicodeCodes"`
 }
 
 // CIDSystemInfo carries the /Registry /Ordering /Supplement triplet from a

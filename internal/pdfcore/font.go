@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -165,6 +166,11 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 		}
 	}
 
+	// Assembled per-code mapping table + health signals (Story 13.3 AC1/AC2).
+	// Assembled from the Differences / ToUnicodeMappings already populated
+	// above -- no re-parsing. Must run after populateEncoding/populateToUnicode.
+	assembleMapping(detail)
+
 	// Embedded badge state: read from the FontDescriptor that actually carries
 	// the FontFile. For Type0 that lives on the descendant; for everything else
 	// it lives on the font's own FontDescriptor.
@@ -177,6 +183,85 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 	}
 
 	return detail
+}
+
+// assembleMapping builds detail.MappingRows (the per-code JOIN of Differences
+// and ToUnicodeMappings over the union of declared codes) and detail.Health
+// (the coverage/health signals), from the already-populated parser outputs.
+// Pure assembly: it re-parses nothing. Story 13.3 AC1/AC2.
+//
+// MappingRows is always a non-nil slice and Health is always populated, even
+// on a degraded font (malformed ToUnicode), so the frontend never nil-derefs.
+func assembleMapping(detail *FontDetail) {
+	// Index the two code-keyed sources.
+	glyphByCode := make(map[int]string, len(detail.Differences))
+	for _, diff := range detail.Differences {
+		glyphByCode[diff.Code] = diff.GlyphName
+	}
+	tuByCode := make(map[int]ToUnicodeMapping, len(detail.ToUnicodeMappings))
+	for _, m := range detail.ToUnicodeMappings {
+		tuByCode[m.Code] = m
+	}
+
+	// Union of declared codes, sorted ascending for deterministic output.
+	codeSet := make(map[int]struct{}, len(glyphByCode)+len(tuByCode))
+	for c := range glyphByCode {
+		codeSet[c] = struct{}{}
+	}
+	for c := range tuByCode {
+		codeSet[c] = struct{}{}
+	}
+	codes := make([]int, 0, len(codeSet))
+	for c := range codeSet {
+		codes = append(codes, c)
+	}
+	sort.Ints(codes)
+
+	rows := make([]FontMappingRow, 0, len(codes))
+	for _, c := range codes {
+		row := FontMappingRow{
+			Code:    c,
+			CodeHex: fmt.Sprintf("0x%X", c),
+		}
+		if g, ok := glyphByCode[c]; ok {
+			row.GlyphName = g
+		}
+		if m, ok := tuByCode[c]; ok {
+			row.Unicode = m.Unicode
+			row.UnicodeText = m.Glyph
+		}
+		rows = append(rows, row)
+	}
+	detail.MappingRows = rows
+
+	// Health signals. A ToUnicode that is absent OR present-but-unparseable
+	// yields no code-to-Unicode coverage -- both are "missing" for diagnosis.
+	toUnicodeMissing := len(detail.ToUnicodeMappings) == 0
+	// Codes declared in /Differences but absent from /ToUnicode: extraction
+	// fails for each. Emitted in ascending code order.
+	encodingWithout := []int{}
+	for _, c := range codes {
+		if _, hasGlyph := glyphByCode[c]; !hasGlyph {
+			continue
+		}
+		if _, hasTU := tuByCode[c]; !hasTU {
+			encodingWithout = append(encodingWithout, c)
+		}
+	}
+	detail.Health = &FontHealth{
+		DeclaredCodeCount:             len(codes),
+		ToUnicodeMissing:              toUnicodeMissing,
+		IdentityWithoutToUnicode:      isIdentityEncoding(detail.EncodingName) && toUnicodeMissing,
+		EncodingWithoutToUnicodeCodes: encodingWithout,
+	}
+}
+
+// isIdentityEncoding reports whether the named encoding is an Identity CMap
+// (Identity-H / Identity-V), the composite-font encoding that maps codes
+// straight to CIDs with no Unicode semantics. The leading '/' is tolerated.
+func isIdentityEncoding(name string) bool {
+	n := strings.TrimPrefix(name, "/")
+	return n == "Identity-H" || n == "Identity-V"
 }
 
 // nameField returns the string form of d[key] when it is a Name; the bool is
