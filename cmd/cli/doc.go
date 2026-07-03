@@ -2,7 +2,8 @@
 //
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
-// source, reverserefs, xref, objects, and plaintext.
+// source, reverserefs, xref, objects, plaintext, embedded, metadata, and
+// signatures.
 //
 // Output is human-readable PLAIN TEXT on stdout by default; pass --json to emit
 // structured JSON instead. The plain-text form is for reading and is NOT a

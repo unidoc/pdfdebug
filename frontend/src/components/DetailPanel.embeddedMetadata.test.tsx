@@ -56,6 +56,7 @@ vi.mock(
     CancelPlainText: vi.fn(),
     // The four NEW Story 13.2 bound methods (AC9).
     GetEmbeddedFiles: (...a: unknown[]) => mockGetEmbeddedFiles(...a),
+    GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: (...a: unknown[]) => mockGetEmbeddedFileBytes(...a),
     GetDocumentMetadata: (...a: unknown[]) => mockGetDocumentMetadata(...a),
     SaveBytesToFile: (...a: unknown[]) => mockSaveBytesToFile(...a),

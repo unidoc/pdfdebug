@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView, GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
@@ -25,6 +25,7 @@ import { XRefTableView } from './XRefTableView';
 import { PlainTextView } from './PlainTextView';
 import { EmbeddedDataView } from './EmbeddedDataView';
 import { DocumentMetadataView } from './DocumentMetadataView';
+import { SignaturesView, type SignatureEntryData } from './SignaturesView';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -61,9 +62,10 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/** Which of the five DetailPanel tabs is currently active. Story 13.2 adds
- *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP). */
-type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata';
+/** Which of the six DetailPanel tabs is currently active. Story 13.2 adds
+ *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP);
+ *  Story 13.4 adds 'signatures' (shown only when signature fields exist). */
+type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'signatures';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -112,11 +114,37 @@ function DetailPanelInner() {
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
   // label (Story 13.2, mirrors the XREF count pattern).
   const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
+  // Story 13.4: the signature list drives the Signatures tab visibility. ONE
+  // GetSignatures fetch per document tab, made on mount and cached here (no
+  // refetch per tab switch); the tab is simply absent until the fetch
+  // resolves with >= 1 signature field. null = not yet resolved.
+  const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
 
   useEffect(() => {
     setDetailView('object');
     setXrefEntryCount(null);
     setEmbeddedCount(null);
+    setSignatures(null);
+  }, [activeTabId]);
+
+  // Story 13.4 AC6: one signature fetch per document tab. The result is
+  // passed down to SignaturesView via the data prop so the view never issues
+  // a second fetch. A fetch failure hides the tab (empty list) and logs.
+  useEffect(() => {
+    if (!activeTabId) return;
+    let cancelled = false;
+    GetSignatures(activeTabId)
+      .then((result: unknown) => {
+        if (cancelled) return;
+        setSignatures((Array.isArray(result) ? result : []) as SignatureEntryData[]);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSignatures([]);
+        // eslint-disable-next-line no-console
+        console.warn('GetSignatures failed:', err);
+      });
+    return () => { cancelled = true; };
   }, [activeTabId]);
 
   useEffect(() => {
@@ -377,6 +405,21 @@ function DetailPanelInner() {
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch]);
 
+  /**
+   * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
+   * dispatching navigation so the user lands on the /V signature dict (or the
+   * field node fallback) in one render. Story 13.4.
+   */
+  const handleSignaturesNavigate = useCallback((nodeId: string) => {
+    setDetailView('object');
+    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
+  }, [dispatch]);
+
+  // AC6: the Signatures tab exists only when the document has >= 1 signature
+  // field (hidden while unresolved or empty -- a deliberate departure from
+  // the always-visible tabs, avoiding a permanently empty tab).
+  const showSignaturesTab = (signatures?.length ?? 0) > 0;
+
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). AC11 header
   // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
@@ -491,6 +534,18 @@ function DetailPanelInner() {
               Metadata
             </button>
           </Tabs.Trigger>
+          {showSignaturesTab && (
+            <Tabs.Trigger value="signatures" asChild>
+              <button
+                type="button"
+                className={tabTriggerClass}
+                data-testid="detail-tab-signatures"
+                onClick={() => setDetailView('signatures')}
+              >
+                Signatures
+              </button>
+            </Tabs.Trigger>
+          )}
         </Tabs.List>
 
         <Tabs.Content
@@ -692,6 +747,21 @@ function DetailPanelInner() {
             active={detailView === 'metadata'}
           />
         </Tabs.Content>
+
+        {showSignaturesTab && (
+          <Tabs.Content
+            value="signatures"
+            className="flex-1 min-h-0 data-[state=inactive]:hidden"
+            data-testid="detail-pane-signatures"
+          >
+            <SignaturesView
+              tabId={activeTabId ?? ''}
+              active={detailView === 'signatures'}
+              onNavigate={handleSignaturesNavigate}
+              data={signatures}
+            />
+          </Tabs.Content>
+        )}
       </Tabs.Root>
     </div>
   );

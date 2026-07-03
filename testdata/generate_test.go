@@ -2,12 +2,23 @@ package testdata_test
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"math/big"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
@@ -255,6 +266,234 @@ func fontsMixedPDFContent() []byte {
 	return []byte(body + xref + trailer)
 }
 
+// --- Story 13-4 digital-signature fixtures (AC8) ------------------------------
+//
+// A REAL adbe.pkcs7.detached signature built programmatically: self-signed CA
+// + leaf signer cert via crypto/x509.CreateCertificate, a CMS SignedData
+// assembled over the actual ByteRange digest with encoding/asn1, RSA-signed
+// for real. The CA cert is FIRST in the certificate set so signer
+// identification cannot be positional. The malformed-Contents and not-covers
+// variants derive from the same builder by byte surgery.
+
+// sigFixtureContentsHexCap is the reserved /Contents hex capacity; the real
+// DER is ~2.5 KB, the remainder stays zero-padded (exercises the AC2
+// trailing-zero-trim path).
+const sigFixtureContentsHexCap = 6144
+
+type sigFixtureAlgID struct {
+	Algorithm  asn1.ObjectIdentifier
+	Parameters asn1.RawValue `asn1:"optional"`
+}
+
+type sigFixtureIssuerAndSerial struct {
+	Issuer asn1.RawValue
+	Serial *big.Int
+}
+
+type sigFixtureSignerInfo struct {
+	Version         int
+	IAS             sigFixtureIssuerAndSerial
+	DigestAlg       sigFixtureAlgID
+	SigAlg          sigFixtureAlgID
+	EncryptedDigest []byte
+}
+
+type sigFixtureEncapContent struct {
+	ContentType asn1.ObjectIdentifier
+}
+
+type sigFixtureSignedData struct {
+	Version          int
+	DigestAlgorithms []sigFixtureAlgID `asn1:"set"`
+	ContentInfo      sigFixtureEncapContent
+	Certificates     asn1.RawValue
+	SignerInfos      []sigFixtureSignerInfo `asn1:"set"`
+}
+
+type sigFixtureContentInfo struct {
+	ContentType asn1.ObjectIdentifier
+	// Content carries the [0] EXPLICIT wrapper pre-built as a RawValue:
+	// encoding/asn1 does not apply explicit-tag options to RawValue fields.
+	Content asn1.RawValue
+}
+
+var (
+	sigFixtureOIDSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
+	sigFixtureOIDData       = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
+	sigFixtureOIDSHA256     = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+	sigFixtureOIDRSA        = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+)
+
+// sigFixturePKI generates a self-signed CA and a leaf signer cert with a fixed
+// validity window (2025-01-01 .. 2027-01-01 UTC).
+func sigFixturePKI(t *testing.T) (caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey) {
+	t.Helper()
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("fixture CA key: %v", err)
+	}
+	leafKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("fixture leaf key: %v", err)
+	}
+	nb := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	na := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(77001),
+		Subject:               pkix.Name{CommonName: "Fixture Root CA", Organization: []string{"UniDoc Fixtures"}},
+		NotBefore:             nb,
+		NotAfter:              na,
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+	caDER, err = x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("fixture CA cert: %v", err)
+	}
+	caCert, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		t.Fatalf("fixture CA parse: %v", err)
+	}
+	leafTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2026),
+		Subject:      pkix.Name{CommonName: "Fixture Signer", Organization: []string{"UniDoc Fixtures"}},
+		NotBefore:    nb,
+		NotAfter:     na,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	leafDER, err = x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("fixture leaf cert: %v", err)
+	}
+	leafCert, err = x509.ParseCertificate(leafDER)
+	if err != nil {
+		t.Fatalf("fixture leaf parse: %v", err)
+	}
+	return caDER, leafDER, leafCert, leafKey
+}
+
+// sigFixtureCMS assembles a DER ContentInfo(SignedData) over digest,
+// RSA-signed for real, CA cert first in the certificate set.
+func sigFixtureCMS(t *testing.T, caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey, digest []byte) []byte {
+	t.Helper()
+	sig, err := rsa.SignPKCS1v15(rand.Reader, leafKey, crypto.SHA256, digest)
+	if err != nil {
+		t.Fatalf("fixture RSA sign: %v", err)
+	}
+	certsRaw := asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true,
+		Bytes: append(append([]byte{}, caDER...), leafDER...)}
+	sd := sigFixtureSignedData{
+		Version:          1,
+		DigestAlgorithms: []sigFixtureAlgID{{Algorithm: sigFixtureOIDSHA256, Parameters: asn1.NullRawValue}},
+		ContentInfo:      sigFixtureEncapContent{ContentType: sigFixtureOIDData},
+		Certificates:     certsRaw,
+		SignerInfos: []sigFixtureSignerInfo{{
+			Version: 1,
+			IAS: sigFixtureIssuerAndSerial{
+				Issuer: asn1.RawValue{FullBytes: leafCert.RawIssuer},
+				Serial: leafCert.SerialNumber,
+			},
+			DigestAlg:       sigFixtureAlgID{Algorithm: sigFixtureOIDSHA256, Parameters: asn1.NullRawValue},
+			SigAlg:          sigFixtureAlgID{Algorithm: sigFixtureOIDRSA, Parameters: asn1.NullRawValue},
+			EncryptedDigest: sig,
+		}},
+	}
+	sdDER, err := asn1.Marshal(sd)
+	if err != nil {
+		t.Fatalf("fixture SignedData marshal: %v", err)
+	}
+	ci := sigFixtureContentInfo{ContentType: sigFixtureOIDSignedData,
+		Content: asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true, Bytes: sdDER}}
+	ciDER, err := asn1.Marshal(ci)
+	if err != nil {
+		t.Fatalf("fixture ContentInfo marshal: %v", err)
+	}
+	return ciDER
+}
+
+// sigFixtureAssemblePDF stitches a header, object bodies (object i+1), an
+// xref table, and a trailer with /Root 1 0 R.
+func sigFixtureAssemblePDF(objs []string) []byte {
+	body := "%PDF-1.7\n"
+	offsets := make([]int, len(objs))
+	for i, o := range objs {
+		offsets[i] = len(body)
+		body += o
+	}
+	xrefOff := len(body)
+	size := len(objs) + 1
+	xref := fmt.Sprintf("xref\n0 %d\n0000000000 65535 f \n", size)
+	for _, off := range offsets {
+		xref += fmt.Sprintf("%010d 00000 n \n", off)
+	}
+	trailer := fmt.Sprintf("trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", size, xrefOff)
+	return []byte(body + xref + trailer)
+}
+
+// signedPDFContent builds a one-signature adbe.pkcs7.detached PDF whose
+// ByteRange is computed against the true /Contents hole and whose CMS blob is
+// signed over the actual ByteRange digest. shortfall subtracts from
+// ByteRange[3] (the not-covers variant); corrupt breaks the leading DER bytes
+// (the malformed-Contents variant, still a valid PDF).
+func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
+	t.Helper()
+	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
+	sig := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached" +
+		" /ByteRange [0000000000 0000000000 0000000000 0000000000]" +
+		" /Contents <" + strings.Repeat("0", sigFixtureContentsHexCap) + ">" +
+		" /M (D:20260101120000+00'00') /Name (Fixture Signer) /Reason (Fixture) /Location (Testville) >>"
+	file := sigFixtureAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>\nendobj\n",
+		"4 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Sig /T (Sig1) /Rect [0 0 0 0] /P 3 0 R /F 132 /V 5 0 R >>\nendobj\n",
+		"5 0 obj\n" + sig + "\nendobj\n",
+	})
+
+	ci := bytes.Index(file, []byte("/Contents <"))
+	if ci < 0 {
+		t.Fatal("signature fixture: no /Contents placeholder")
+	}
+	holeStart := ci + len("/Contents ")
+	holeEnd := holeStart + 1 + sigFixtureContentsHexCap + 1 // '<' + hex + '>'
+
+	br := fmt.Sprintf("[%010d %010d %010d %010d]", 0, holeStart, holeEnd, len(file)-holeEnd-shortfall)
+	bi := bytes.Index(file, []byte("/ByteRange ["))
+	if bi < 0 {
+		t.Fatal("signature fixture: no /ByteRange placeholder")
+	}
+	copy(file[bi+len("/ByteRange "):], br)
+
+	// Digest over the two spans around the TRUE hole, then sign for real.
+	h := sha256.New()
+	h.Write(file[:holeStart])
+	h.Write(file[holeEnd:])
+	hx := hex.EncodeToString(sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, h.Sum(nil)))
+	if len(hx) > sigFixtureContentsHexCap {
+		t.Fatalf("signature fixture: contents capacity exceeded: %d", len(hx))
+	}
+	if corrupt {
+		// Break the leading DER tag/length; keep valid hex so the PDF parses.
+		copy(file[holeStart+1:], "FFFFFFFFFFFFFFFF")
+		copy(file[holeStart+1+16:], hx[16:])
+	} else {
+		copy(file[holeStart+1:], hx)
+	}
+	// The remainder of the hole stays "0"-filled = trailing zero padding.
+	return file
+}
+
+// unsignedSigFieldPDFContent builds a /FT /Sig placeholder field with NO /V.
+func unsignedSigFieldPDFContent() []byte {
+	return sigFixtureAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>\nendobj\n",
+		"4 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Sig /T (EmptySig) /Rect [0 0 0 0] /P 3 0 R /F 132 >>\nendobj\n",
+	})
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -375,4 +614,33 @@ func TestGenerateFixtures(t *testing.T) {
 		}
 		t.Logf("image-xobject.pdf created: %d pages", ctx.PageCount)
 	})
+
+	// Story 13-4 signature fixtures (AC8): a real programmatically signed
+	// adbe.pkcs7.detached PDF plus its byte-surgery variants and the unsigned
+	// placeholder. Each must parse through pdfcpu's default validation.
+	sigFixtures := []struct {
+		name    string
+		content func(t *testing.T) []byte
+	}{
+		{"signed.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, false) }},
+		{"signed-notcovers.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 100, false) }},
+		{"signed-badcontents.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, true) }},
+		{"unsigned-sig-field.pdf", func(t *testing.T) []byte { return unsignedSigFieldPDFContent() }},
+	}
+	for _, fx := range sigFixtures {
+		t.Run(fx.name, func(t *testing.T) {
+			if _, err := os.Stat(fx.name); err == nil {
+				t.Skip(fx.name + " already exists")
+			}
+			if err := os.WriteFile(fx.name, fx.content(t), 0644); err != nil {
+				t.Fatalf("failed to create %s: %v", fx.name, err)
+			}
+			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			if err != nil {
+				os.Remove(fx.name)
+				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)
+			}
+			t.Logf("%s created: %d pages", fx.name, ctx.PageCount)
+		})
+	}
 }

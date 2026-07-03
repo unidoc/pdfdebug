@@ -63,6 +63,8 @@ func main() {
 			os.Exit(runEmbeddedDump(remaining))
 		case "metadata":
 			os.Exit(runMetadataDump(remaining))
+		case "signatures":
+			os.Exit(runSignaturesDump(remaining))
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown resource: %s\n", resource)
 			printUsage(os.Stderr)
@@ -95,6 +97,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump plaintext [--json] <file>                    Dump document bytes as text (raw by default; --json wraps the decoded text)")
 	_, _ = fmt.Fprintln(w, "  dump embedded [--json] [--ref \"N G R\" | --name NAME] <file>  List embedded/associated files; --ref/--name extracts one's raw bytes to stdout")
 	_, _ = fmt.Fprintln(w, "  dump metadata [--json] <file>                     Dump the /Info dictionary fields and the XMP metadata packet")
+	_, _ = fmt.Fprintln(w, "  dump signatures [--json] <file>                   Decompose digital-signature fields (signer, chain, ByteRange coverage; no trust verdict)")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Flags:")
 	_, _ = fmt.Fprintln(w, "  --json      Output structured JSON (default is human-readable plain text)")
@@ -121,6 +124,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --ref \"4 0 R\" file.pdf > factur-x.xml")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --name factur-x.xml file.pdf > factur-x.xml")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump metadata file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump signatures file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --json file.pdf       # opt into structured JSON")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Plain text is for reading and may change between releases. To parse output")

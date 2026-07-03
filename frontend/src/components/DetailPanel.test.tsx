@@ -52,6 +52,7 @@ vi.mock(
     // calls these on render; stub them so the mock does not throw on the new
     // exports.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
+    GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),

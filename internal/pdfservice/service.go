@@ -47,6 +47,7 @@ type inspectorAPI interface {
 	GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error)
 	GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error)
 	GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error)
+	GetSignatures(tabID string) (*pdfcore.SignatureList, error)
 }
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the
@@ -421,6 +422,25 @@ func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadat
 	func() {
 		defer recoverRuntimePanic("GetDocumentMetadata", &err)
 		result, err = s.inspector.GetDocumentMetadata(tabID)
+	}()
+	return result, err
+}
+
+// GetSignatures returns the decomposed digital-signature fields for the
+// document in tabID as a flat array (the frontend consumes the entry list
+// directly; an empty document yields an empty array). Structural
+// decomposition only - no trust verdict of any kind. Story 13.4.
+func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, error) {
+	var result []pdfcore.SignatureField
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetSignatures", &err)
+		list, e := s.inspector.GetSignatures(tabID)
+		if e != nil {
+			err = e
+			return
+		}
+		result = list.Signatures
 	}()
 	return result, err
 }

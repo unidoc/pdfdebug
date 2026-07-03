@@ -631,7 +631,6 @@ function FontMappingTable({ rows }: { rows: FontMappingRowData[] }) {
   }
 
   const totalRows = rows.length;
-  const totalHeight = totalRows * MAPPING_ROW_HEIGHT;
   const firstVisible = Math.max(0, Math.floor(scrollTop / MAPPING_ROW_HEIGHT) - MAPPING_OVERSCAN);
   // A zero clientHeight (jsdom / pre-measure) falls back to a bounded default so
   // the window stays small rather than rendering every row.
