@@ -494,6 +494,112 @@ func unsignedSigFieldPDFContent() []byte {
 	})
 }
 
+// --- Story 13-5 structural-compliance fixtures (AC6) --------------------------
+//
+// Programmatic negative fixtures (non-embedded font, device color without
+// OutputIntent, tagged vs untagged) plus the veraPDF-passing clean PDF/A-1b
+// positive fixture. The tests/13-5-compliance-validation acceptance suite
+// carries its own self-contained copies of the negative builders; these are the
+// testdata/ equivalents Task 2.0 asks for. The clean fixture is the one the
+// veraPDF oracle clean-case cross-check (13.5-INTG-051) reads.
+
+// complAssemblePDF stitches a binary-marker header, object bodies, an xref
+// table, and a trailer with /Root 1 0 R plus optional trailerExtra.
+func complAssemblePDF(objs []string, trailerExtra string) []byte {
+	body := "%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+	offsets := make([]int, len(objs))
+	for i, o := range objs {
+		offsets[i] = len(body)
+		body += o
+	}
+	xrefOff := len(body)
+	size := len(objs) + 1
+	xref := fmt.Sprintf("xref\n0 %d\n0000000000 65535 f \n", size)
+	for _, off := range offsets {
+		xref += fmt.Sprintf("%010d 00000 n \n", off)
+	}
+	trailer := fmt.Sprintf("trailer\n<< /Size %d /Root 1 0 R %s>>\nstartxref\n%d\n%%%%EOF\n", size, trailerExtra, xrefOff)
+	return []byte(body + xref + trailer)
+}
+
+// complStreamObj renders object n as a stream object with a correct /Length.
+func complStreamObj(n int, dictExtra, payload string) string {
+	return fmt.Sprintf("%d 0 obj\n<< /Length %d %s>>\nstream\n%s\nendstream\nendobj\n", n, len(payload), dictExtra, payload)
+}
+
+// nonEmbeddedFontPDFContent references a Type1 font with no /FontDescriptor /
+// FontFile* (PDF/A-1b 6.3.4 forbids non-embedded fonts). The font is object 4.
+func nonEmbeddedFontPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+		"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+		complStreamObj(5, "", "BT /F1 24 Tf 72 720 Td (Hi) Tj ET"),
+	}, "")
+}
+
+// noOutputIntentPDFContent draws with a device RGB fill (rg operator) but
+// declares no /OutputIntents (PDF/A-1b 6.2.2 requires an OutputIntent when
+// device color is used).
+func noOutputIntentPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n",
+		complStreamObj(4, "", "1 0 0 rg 10 10 100 100 re f"),
+	}, "")
+}
+
+// untaggedPDFContent has no /MarkInfo, /StructTreeRoot, or /Lang (the PDF/UA-1
+// structural warnings; missing /Lang is the canonical document-level problem).
+func untaggedPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+	}, "")
+}
+
+// taggedPDFContent satisfies the PDF/UA-1 structural subset: /MarkInfo /Marked
+// true, a /StructTreeRoot, and a document /Lang.
+func taggedPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 4 0 R /Lang (en-US) >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+		"4 0 obj\n<< /Type /StructTreeRoot >>\nendobj\n",
+	}, "")
+}
+
+// pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
+// passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
+// document /ID, no fonts, no device color, and a blank page. Provenance:
+// hand-assembled during Story 13-5 implementation and verified to pass
+// veraPDF 1.30.x --flavour 1b with zero failed clauses (the AC6 clean-case
+// oracle fixture; our rule set also flags zero errors on it).
+func pdfaCleanContent() []byte {
+	xmp := `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+   <pdfaid:part>1</pdfaid:part>
+   <pdfaid:conformance>B</pdfaid:conformance>
+  </rdf:Description>
+  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+   <dc:format>application/pdf</dc:format>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>\nendobj\n",
+		complStreamObj(4, "/Type /Metadata /Subtype /XML ", xmp),
+	}, "/ID [<0123456789ABCDEF0123456789ABCDEF> <0123456789ABCDEF0123456789ABCDEF>] ")
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -633,6 +739,36 @@ func TestGenerateFixtures(t *testing.T) {
 				t.Skip(fx.name + " already exists")
 			}
 			if err := os.WriteFile(fx.name, fx.content(t), 0644); err != nil {
+				t.Fatalf("failed to create %s: %v", fx.name, err)
+			}
+			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			if err != nil {
+				os.Remove(fx.name)
+				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)
+			}
+			t.Logf("%s created: %d pages", fx.name, ctx.PageCount)
+		})
+	}
+
+	// Story 13-5 structural-compliance fixtures (AC6). Each must parse through
+	// pdfcpu's default validation; pdfa-1b-clean.pdf is the veraPDF oracle
+	// clean-case fixture (13.5-INTG-051).
+	complFixtures := []struct {
+		name    string
+		content func() []byte
+	}{
+		{"non-embedded-font.pdf", nonEmbeddedFontPDFContent},
+		{"no-output-intent.pdf", noOutputIntentPDFContent},
+		{"untagged.pdf", untaggedPDFContent},
+		{"tagged.pdf", taggedPDFContent},
+		{"pdfa-1b-clean.pdf", pdfaCleanContent},
+	}
+	for _, fx := range complFixtures {
+		t.Run(fx.name, func(t *testing.T) {
+			if _, err := os.Stat(fx.name); err == nil {
+				t.Skip(fx.name + " already exists")
+			}
+			if err := os.WriteFile(fx.name, fx.content(), 0644); err != nil {
 				t.Fatalf("failed to create %s: %v", fx.name, err)
 			}
 			ctx, err := pdfcpu_api.ReadContextFile(fx.name)

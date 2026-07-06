@@ -26,6 +26,7 @@ import { PlainTextView } from './PlainTextView';
 import { EmbeddedDataView } from './EmbeddedDataView';
 import { DocumentMetadataView } from './DocumentMetadataView';
 import { SignaturesView, type SignatureEntryData } from './SignaturesView';
+import { ValidateView } from './ValidateView';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -62,10 +63,11 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/** Which of the six DetailPanel tabs is currently active. Story 13.2 adds
+/** Which of the seven DetailPanel tabs is currently active. Story 13.2 adds
  *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP);
- *  Story 13.4 adds 'signatures' (shown only when signature fields exist). */
-type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'signatures';
+ *  Story 13.4 adds 'signatures' (shown only when signature fields exist);
+ *  Story 13.5 adds 'validate' (structural conformance checks). */
+type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'validate' | 'signatures';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -415,6 +417,16 @@ function DetailPanelInner() {
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch]);
 
+  /**
+   * Validate "jump to object" handler: switches to the Object tab BEFORE
+   * dispatching navigation so the user lands on the offending object in one
+   * render (mirrors handleSignaturesNavigate). Story 13.5.
+   */
+  const handleValidateNavigate = useCallback((nodeId: string) => {
+    setDetailView('object');
+    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
+  }, [dispatch]);
+
   // AC6: the Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
@@ -532,6 +544,16 @@ function DetailPanelInner() {
               onClick={() => setDetailView('metadata')}
             >
               Metadata
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="validate" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-validate"
+              onClick={() => setDetailView('validate')}
+            >
+              Validate
             </button>
           </Tabs.Trigger>
           {showSignaturesTab && (
@@ -745,6 +767,19 @@ function DetailPanelInner() {
           <DocumentMetadataView
             tabId={activeTabId ?? ''}
             active={detailView === 'metadata'}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="validate"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-validate"
+        >
+          <ValidateView
+            tabId={activeTabId ?? ''}
+            active={detailView === 'validate'}
+            onNavigate={handleValidateNavigate}
           />
         </Tabs.Content>
 

@@ -48,6 +48,7 @@ type inspectorAPI interface {
 	GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error)
 	GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error)
 	GetSignatures(tabID string) (*pdfcore.SignatureList, error)
+	Validate(tabID, profile string) (*pdfcore.ValidationResult, error)
 }
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the
@@ -441,6 +442,20 @@ func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, erro
 			return
 		}
 		result = list.Signatures
+	}()
+	return result, err
+}
+
+// Validate runs the bounded structural conformance rule set for profile
+// against the document in tabID and returns the problem list, tally, and
+// disclaimer. Structural checks only - not authoritative conformance. Story
+// 13.5.
+func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult, error) {
+	var result *pdfcore.ValidationResult
+	var err error
+	func() {
+		defer recoverRuntimePanic("Validate", &err)
+		result, err = s.inspector.Validate(tabID, profile)
 	}()
 	return result, err
 }
