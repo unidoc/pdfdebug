@@ -89,6 +89,9 @@ vi.mock(
     // drain rejects, emitting unhandled errors (Story 13.2 AC9 "ideally close
     // the pre-existing" clause).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
+    // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
+    // throws on the new export.
+    DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   }),
 );
 

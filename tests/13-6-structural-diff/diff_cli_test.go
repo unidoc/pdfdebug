@@ -1,0 +1,393 @@
+package structural_diff_test
+
+// Story 13.6 -- the top-level `diff` command (AC 3, 4, 6, 7).
+// RED PHASE: `diff` does not exist yet; every test below (except the fixture
+// sanity check) fails at runtime against the current binary.
+
+import (
+	"strings"
+	"testing"
+)
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-000 [P0] fixture sanity: every hand-assembled fixture must parse
+// through the EXISTING open path (dump objects, exit 0). This test passes
+// TODAY and guards the suite against an eternally-red fixture (13-4/13-5).
+// ---------------------------------------------------------------------------
+
+func TestDiff_FixturesParseThroughOpenPath(t *testing.T) {
+	bin := buildCLI(t)
+	cases := map[string][]byte{
+		"one-page.pdf":        onePagePDF(),
+		"one-renumbered.pdf":  onePageRenumberedPDF(),
+		"two-page.pdf":        twoPagePDF(),
+		"changed-mediabox.pdf": changedMediaBoxPDF(),
+	}
+	for name, content := range cases {
+		pdf := writeTempPDF(t, name, content)
+		_, stderr, ec := runCLI(t, bin, "dump", "objects", pdf)
+		if ec != 0 {
+			t.Fatalf("[P0] 13.6-INTG-000: fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-001 [P0] AC4: two IDENTICAL files exit 0 (structurally identical).
+// ---------------------------------------------------------------------------
+
+func TestDiff_IdenticalFilesExitZero(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := onePagePDF()
+	a := writeTempPDF(t, "a.pdf", pdf)
+	b := writeTempPDF(t, "b.pdf", pdf)
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 0 {
+		t.Fatalf("[P0] 13.6-INTG-001: identical files must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+	}
+	if strings.Contains(strings.ToLower(stderr), "unknown command") {
+		t.Errorf("[P0] 13.6-INTG-001: `diff` must be a real command, not an unknown-command error: %s", stderr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-002 [P0] AC4: two DIFFERING files exit 1 (the scriptable signal),
+// distinct from the operational error code 2.
+// ---------------------------------------------------------------------------
+
+func TestDiff_DifferingFilesExitOne(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "two.pdf", twoPagePDF())
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 1 {
+		t.Fatalf("[P0] 13.6-INTG-002: differing files must exit 1, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+	}
+	// Guard against the current binary's unknown-command exit 1: a real run
+	// writes the delta to stdout and never reports an unknown command.
+	if strings.TrimSpace(stdout) == "" {
+		t.Errorf("[P0] 13.6-INTG-002: exit 1 must be a real diff run (non-empty stdout), got empty; stderr: %s", stderr)
+	}
+	if strings.Contains(strings.ToLower(stderr), "unknown command") {
+		t.Errorf("[P0] 13.6-INTG-002: `diff` must be a real command, not an unknown-command error: %s", stderr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-003 [P0] AC4/AC6: an unparseable (broken) second file is an
+// OPERATIONAL error -> exit 2, distinct from the "differ" signal (exit 1).
+// ---------------------------------------------------------------------------
+
+func TestDiff_BrokenFileExitsTwo(t *testing.T) {
+	bin := buildCLI(t)
+	good := writeTempPDF(t, "good.pdf", onePagePDF())
+	broken := writeTempPDF(t, "broken.pdf", []byte("this is not a pdf at all"))
+
+	_, _, ec := runCLI(t, bin, "diff", good, broken)
+	if ec != 2 {
+		t.Fatalf("[P0] 13.6-INTG-003: a broken input file must exit 2 (operational), got %d", ec)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-004 [P0] AC4/AC6: a nonexistent second file is operational -> 2.
+// ---------------------------------------------------------------------------
+
+func TestDiff_MissingFileExitsTwo(t *testing.T) {
+	bin := buildCLI(t)
+	good := writeTempPDF(t, "good.pdf", onePagePDF())
+
+	_, _, ec := runCLI(t, bin, "diff", good, "/no/such/file.pdf")
+	if ec != 2 {
+		t.Fatalf("[P0] 13.6-INTG-004: a nonexistent input file must exit 2 (operational), got %d", ec)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-005 [P0] AC4: `diff` takes TWO positional args. A single arg is a
+// usage error -> exit 2 (NOT a partial run, NOT a diff-vs-nothing).
+// ---------------------------------------------------------------------------
+
+func TestDiff_SingleArgIsUsageError(t *testing.T) {
+	bin := buildCLI(t)
+	only := writeTempPDF(t, "only.pdf", onePagePDF())
+
+	_, _, ec := runCLI(t, bin, "diff", only)
+	if ec != 2 {
+		t.Fatalf("[P0] 13.6-INTG-005: `diff` with one positional arg must exit 2 (usage), got %d", ec)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-006 [P1] AC4: a THIRD positional arg is rejected -> exit 2.
+// ---------------------------------------------------------------------------
+
+func TestDiff_ThirdArgRejected(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "a.pdf", onePagePDF())
+	b := writeTempPDF(t, "b.pdf", twoPagePDF())
+	c := writeTempPDF(t, "c.pdf", onePagePDF())
+
+	_, _, ec := runCLI(t, bin, "diff", a, b, c)
+	if ec != 2 {
+		t.Fatalf("[P1] 13.6-INTG-006: a third positional arg must be rejected (exit 2), got %d", ec)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-007 [P0] AC3/AC4: --json emits the {summary, root} envelope; the
+// summary counts are numeric and the root is a DiffNode with a status.
+// ---------------------------------------------------------------------------
+
+func TestDiff_JSONEnvelope(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "two.pdf", twoPagePDF())
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", a, b)
+	if ec != 1 {
+		t.Fatalf("[P0] 13.6-INTG-007: differing files --json must exit 1, got %d (stderr: %s)", ec, stderr)
+	}
+	res := diffResult(t, "13.6-INTG-007", stdout)
+	added, removed, changed := summaryOf(t, "13.6-INTG-007", res)
+	if added+removed+changed == 0 {
+		t.Errorf("[P0] 13.6-INTG-007: differing files reported a zero-delta summary (+%d -%d ~%d)", added, removed, changed)
+	}
+	root, ok := res["root"].(map[string]any)
+	if !ok {
+		t.Fatalf("[P0] 13.6-INTG-007: result has no \"root\" DiffNode object: %v", res)
+	}
+	if getStr(root, "status") == "" {
+		t.Errorf("[P0] 13.6-INTG-007: root DiffNode has no \"status\"")
+	}
+	if _, hasPath := root["path"]; !hasPath {
+		t.Errorf("[P0] 13.6-INTG-007: root DiffNode has no \"path\"")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-008 [P0] AC4 + 13-1 contract: the plain-text default is NOT JSON,
+// is ASCII-only, and ends with a trailing newline.
+// ---------------------------------------------------------------------------
+
+func TestDiff_PlainTextContract(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "two.pdf", twoPagePDF())
+
+	stdout, _, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 1 {
+		t.Fatalf("[P0] 13.6-INTG-008: expected exit 1, got %d", ec)
+	}
+	assertNotJSON(t, "13.6-INTG-008", stdout)
+	assertASCII(t, "13.6-INTG-008", stdout)
+	assertTrailingNewline(t, "13.6-INTG-008", stdout)
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-009 [P1] AC4: the plain-text delta uses +/-/~ markers for
+// added/removed/changed paths.
+// ---------------------------------------------------------------------------
+
+func TestDiff_PlainTextDeltaMarkers(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "meta.pdf", twoPagePDF())
+
+	stdout, _, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 1 {
+		t.Fatalf("[P1] 13.6-INTG-009: expected exit 1, got %d", ec)
+	}
+	// A change between one-page and two-page yields at least an added and/or a
+	// changed path line. Require at least one of the delta markers to appear.
+	if !strings.ContainsAny(stdout, "+-~") {
+		t.Errorf("[P1] 13.6-INTG-009: plain-text delta lacks any +/-/~ marker:\n%s", stdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-010 [P1] AC4: --pretty indents the JSON (multi-line); the default
+// --json is compact (single line).
+// ---------------------------------------------------------------------------
+
+func TestDiff_PrettyIndentsJSON(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "two.pdf", twoPagePDF())
+
+	compact, _, ec := runCLI(t, bin, "diff", "--json", a, b)
+	if ec != 1 {
+		t.Fatalf("[P1] 13.6-INTG-010: expected exit 1 for compact --json, got %d", ec)
+	}
+	pretty, _, ec2 := runCLI(t, bin, "diff", "--json", "--pretty", a, b)
+	if ec2 != 1 {
+		t.Fatalf("[P1] 13.6-INTG-010: expected exit 1 for --pretty, got %d", ec2)
+	}
+	if !parsesAsJSON(compact) || !parsesAsJSON(pretty) {
+		t.Fatalf("[P1] 13.6-INTG-010: both outputs must be valid JSON")
+	}
+	compactLines := strings.Count(strings.TrimSpace(compact), "\n")
+	prettyLines := strings.Count(strings.TrimSpace(pretty), "\n")
+	if compactLines != 0 {
+		t.Errorf("[P1] 13.6-INTG-010: default --json should be single-line, saw %d newlines", compactLines)
+	}
+	if prettyLines <= compactLines {
+		t.Errorf("[P1] 13.6-INTG-010: --pretty should be multi-line (more newlines than compact); compact=%d pretty=%d", compactLines, prettyLines)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-011 [P1] AC2/AC4: --full includes unchanged paths; the default
+// omits them (so --full output is strictly larger).
+// ---------------------------------------------------------------------------
+
+func TestDiff_FullIncludesUnchanged(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "changed.pdf", changedMediaBoxPDF())
+
+	def, _, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 1 {
+		t.Fatalf("[P1] 13.6-INTG-011: expected exit 1, got %d", ec)
+	}
+	full, _, ec2 := runCLI(t, bin, "diff", "--full", a, b)
+	if ec2 != 1 {
+		t.Fatalf("[P1] 13.6-INTG-011: expected exit 1 with --full, got %d", ec2)
+	}
+	if len(full) <= len(def) {
+		t.Errorf("[P1] 13.6-INTG-011: --full (%d bytes) should include unchanged paths and exceed the default (%d bytes)", len(full), len(def))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-012 [P0] AC1: the CLI-level ALIGNMENT GUARDRAIL. A renumbered-but-
+// structurally-identical pair is reported as identical -> exit 0 and a
+// zero-delta --json summary. Proves path-alignment beats object-number
+// alignment end-to-end.
+// ---------------------------------------------------------------------------
+
+func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "natural.pdf", onePagePDF())
+	b := writeTempPDF(t, "renumbered.pdf", onePageRenumberedPDF())
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", a, b)
+	if ec != 0 {
+		t.Fatalf("[P0] 13.6-INTG-012: renumbered-but-identical pair must exit 0 (identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+	}
+	res := diffResult(t, "13.6-INTG-012", stdout)
+	added, removed, changed := summaryOf(t, "13.6-INTG-012", res)
+	if added != 0 || removed != 0 || changed != 0 {
+		t.Errorf("[P0] 13.6-INTG-012: path-alignment failed -- renumbered-but-identical shows delta +%d -%d ~%d (want 0/0/0)", added, removed, changed)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-013 [P1] AC3: the summary surfaces the page-count change in the
+// --json envelope (pageCountLeft/pageCountRight).
+// ---------------------------------------------------------------------------
+
+func TestDiff_SummaryPageCount(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "one.pdf", onePagePDF())
+	b := writeTempPDF(t, "two.pdf", twoPagePDF())
+
+	stdout, _, ec := runCLI(t, bin, "diff", "--json", a, b)
+	if ec != 1 {
+		t.Fatalf("[P1] 13.6-INTG-013: expected exit 1, got %d", ec)
+	}
+	res := diffResult(t, "13.6-INTG-013", stdout)
+	sum, ok := res["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("[P1] 13.6-INTG-013: no summary object")
+	}
+	if jsonInt(sum["pageCountLeft"]) != 1 {
+		t.Errorf("[P1] 13.6-INTG-013: summary.pageCountLeft = %d, want 1", jsonInt(sum["pageCountLeft"]))
+	}
+	if jsonInt(sum["pageCountRight"]) != 2 {
+		t.Errorf("[P1] 13.6-INTG-013: summary.pageCountRight = %d, want 2", jsonInt(sum["pageCountRight"]))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-014 [P1] AC4: `pdfdebug --help` documents the `diff` command and
+// its three-way 0/1/2 exit contract.
+// ---------------------------------------------------------------------------
+
+func TestDiff_HelpDocumentsCommandAndExitCodes(t *testing.T) {
+	bin := buildCLI(t)
+	stdout, stderr, _ := runCLI(t, bin, "--help")
+	help := stdout + stderr
+	lower := strings.ToLower(help)
+	if !strings.Contains(lower, "diff") {
+		t.Errorf("[P1] 13.6-INTG-014: --help does not mention the `diff` command:\n%s", help)
+	}
+	// The exit-code contract (0 identical / 1 differ / 2 operational) must be
+	// documented somewhere in the diff help block.
+	if !strings.Contains(lower, "identical") || !strings.Contains(lower, "differ") {
+		t.Errorf("[P1] 13.6-INTG-014: --help must document the diff 0/1/2 exit contract (identical/differ):\n%s", help)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-016 [P0] AC3/AC4: a difference that lives OFF the catalog walk
+// (trailer /Info only) still exits 1 (differ), NOT 0. The node counts are
+// 0/0/0 because /Info is not catalog-reachable, so exit 0 here would be a
+// silent false "identical" for scripts. Regression guard for diffIsIdentical
+// folding the document-level flags into the exit decision (the review-fixed
+// bug). Plain text must name the /Info change; --json summary must set
+// infoChanged with zero node counts.
+// ---------------------------------------------------------------------------
+
+func TestDiff_InfoOnlyChangeExitsOne(t *testing.T) {
+	bin := buildCLI(t)
+	a := writeTempPDF(t, "prodA.pdf", infoProducerPDF("AlphaLib"))
+	b := writeTempPDF(t, "prodB.pdf", infoProducerPDF("BetaXLib"))
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
+	if ec != 1 {
+		t.Fatalf("[P0] 13.6-INTG-016: an /Info-only difference must exit 1 (differ), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+	}
+	if !strings.Contains(strings.ToLower(stdout), "/info") {
+		t.Errorf("[P0] 13.6-INTG-016: plain text must name the /Info change:\n%s", stdout)
+	}
+
+	jout, jerr, jec := runCLI(t, bin, "diff", "--json", a, b)
+	if jec != 1 {
+		t.Fatalf("[P0] 13.6-INTG-016: --json /Info-only diff must exit 1, got %d\nstderr: %s", jec, jerr)
+	}
+	res := diffResult(t, "13.6-INTG-016", jout)
+	added, removed, changed := summaryOf(t, "13.6-INTG-016", res)
+	if added != 0 || removed != 0 || changed != 0 {
+		t.Errorf("[P0] 13.6-INTG-016: /Info lives off the catalog walk, node counts must be 0/0/0, got +%d -%d ~%d", added, removed, changed)
+	}
+	sum, ok := res["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("[P0] 13.6-INTG-016: no summary object")
+	}
+	if ic, _ := sum["infoChanged"].(bool); !ic {
+		t.Errorf("[P0] 13.6-INTG-016: summary.infoChanged = false, want true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13.6-INTG-015 [P2] AC6: diffing a file against ITSELF (same path twice) is a
+// valid all-unchanged run -> exit 0, zero-delta summary.
+// ---------------------------------------------------------------------------
+
+func TestDiff_SelfPathIsIdentical(t *testing.T) {
+	bin := buildCLI(t)
+	p := writeTempPDF(t, "self.pdf", onePagePDF())
+
+	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", p, p)
+	if ec != 0 {
+		t.Fatalf("[P2] 13.6-INTG-015: file-vs-itself must exit 0, got %d\nstderr: %s", ec, stderr)
+	}
+	res := diffResult(t, "13.6-INTG-015", stdout)
+	added, removed, changed := summaryOf(t, "13.6-INTG-015", res)
+	if added != 0 || removed != 0 || changed != 0 {
+		t.Errorf("[P2] 13.6-INTG-015: self-diff summary not zero: +%d -%d ~%d", added, removed, changed)
+	}
+}

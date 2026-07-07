@@ -31,6 +31,8 @@ func main() {
 		os.Exit(0)
 	case "validate":
 		os.Exit(runValidate(os.Args[2:]))
+	case "diff":
+		os.Exit(runDiff(os.Args[2:]))
 	case "dump":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump <resource> [flags] <file>")
@@ -101,12 +103,18 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump metadata [--json] <file>                     Dump the /Info dictionary fields and the XMP metadata packet")
 	_, _ = fmt.Fprintln(w, "  dump signatures [--json] <file>                   Decompose digital-signature fields (signer, chain, ByteRange coverage; no trust verdict)")
 	_, _ = fmt.Fprintln(w, "  validate [--profile pdfa-1b|pdfua-1-structural] [--json] <file>  Run bounded STRUCTURAL conformance checks (structural checks only - not full conformance; use veraPDF for authoritative validation)")
+	_, _ = fmt.Fprintln(w, "  diff [--json] [--pretty] [--full] <left.pdf> <right.pdf>  Path-aligned STRUCTURAL diff of two PDFs (object model, not byte/pixel; aligned by structural path, not object number)")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "validate exit codes (a three-way contract distinct from dump's 0/2):")
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, no structural errors found (NOT a compliance/valid verdict)")
 	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error (the CI compliance-gate signal)")
 	_, _ = fmt.Fprintln(w, "  2  operational error (missing/unreadable file, unknown profile, view failure)")
 	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural")
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "diff exit codes (a three-way contract distinct from dump's 0/2):")
+	_, _ = fmt.Fprintln(w, "  0  ran successfully, the two documents are structurally identical")
+	_, _ = fmt.Fprintln(w, "  1  ran successfully AND the documents differ (the scriptable signal)")
+	_, _ = fmt.Fprintln(w, "  2  operational error (missing/unreadable file, bad args, parse failure)")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Flags:")
 	_, _ = fmt.Fprintln(w, "  --json      Output structured JSON (default is human-readable plain text)")
@@ -136,6 +144,8 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump signatures file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate --profile pdfua-1-structural file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug diff old.pdf new.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug diff --json old.pdf new.pdf        # structured DiffNode tree + summary")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --json file.pdf       # opt into structured JSON")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Plain text is for reading and may change between releases. To parse output")

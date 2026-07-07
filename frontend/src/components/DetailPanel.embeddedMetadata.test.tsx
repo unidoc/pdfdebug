@@ -133,15 +133,15 @@ describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
   });
 
   // 13.2-UNIT-110 [P0] AC7: the Metadata tab trigger is present beside Embedded.
-  // Base tab bar is now 6 triggers after Story 13.5 added the Validate tab:
-  // object/xref/plaintext/embedded/metadata/validate.
-  test('13.2-UNIT-110 Metadata tab trigger present (6 tabs total)', async () => {
+  // Base tab bar is now 7 triggers after Story 13.6 added the Diff tab:
+  // object/xref/plaintext/embedded/metadata/validate/diff.
+  test('13.2-UNIT-110 Metadata tab trigger present (7 tabs total)', async () => {
     renderPanel([openAction]);
     await screen.findByTestId('detail-tab-embedded');
     expect(screen.getByTestId('detail-tab-metadata')).toBeInTheDocument();
 
     const list = screen.getByTestId('detail-tab-list');
-    expect(list.querySelectorAll('[role="tab"]').length).toBe(6);
+    expect(list.querySelectorAll('[role="tab"]').length).toBe(7);
   });
 
   // 13.2-UNIT-115 [P0] AC6: activating Embedded renders the embedded view fed by

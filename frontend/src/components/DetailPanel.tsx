@@ -4,9 +4,9 @@
  * bar at the top with three tabs: Object (per-selection), XREF (document-level
  * xref table), Plain Text (document-level Latin-1 bytes).
  */
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView, GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
@@ -27,6 +27,7 @@ import { EmbeddedDataView } from './EmbeddedDataView';
 import { DocumentMetadataView } from './DocumentMetadataView';
 import { SignaturesView, type SignatureEntryData } from './SignaturesView';
 import { ValidateView } from './ValidateView';
+import { DiffView } from './DiffView';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -66,8 +67,9 @@ type FontFetchState =
 /** Which of the seven DetailPanel tabs is currently active. Story 13.2 adds
  *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP);
  *  Story 13.4 adds 'signatures' (shown only when signature fields exist);
- *  Story 13.5 adds 'validate' (structural conformance checks). */
-type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'validate' | 'signatures';
+ *  Story 13.5 adds 'validate' (structural conformance checks); Story 13.6 adds
+ *  'diff' (side-by-side structural diff against a second PDF). */
+type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'validate' | 'signatures' | 'diff';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
 function DetailPanelInner() {
@@ -121,13 +123,50 @@ function DetailPanelInner() {
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
+  // Story 13.6: the second (comparison) document's tab ID for the Diff tab, and
+  // any picker error. Reset on document switch so the diff never carries over a
+  // stale comparison from a previously-active tab.
+  const [diffRightTabId, setDiffRightTabId] = useState<string | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  // Tracks whether the panel is still mounted so a diff file dialog that
+  // resolves after unmount closes its backend document instead of leaking it
+  // (the diffRightTabId cleanup effect only registers when state is set, which
+  // never happens if the panel unmounted mid-dialog). See handlePickDiffFile.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  // Tracks the latest active document tab so an in-flight diff-file pick that
+  // resolves AFTER the user switches documents is discarded (its backend
+  // document closed) rather than bound to the wrong baseline. The reset effect
+  // clears diffRightTabId on switch, so a late-landing pick would otherwise set
+  // it against a document that is no longer the left-hand side of the diff.
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
 
   useEffect(() => {
     setDetailView('object');
     setXrefEntryCount(null);
     setEmbeddedCount(null);
     setSignatures(null);
+    setDiffRightTabId(null);
+    setDiffError(null);
   }, [activeTabId]);
+
+  // Story 13.6: the comparison document is opened backend-only (not an app tab),
+  // so close it when it is replaced, cleared on document switch, or the panel
+  // unmounts - otherwise every diff leaks a parsed document in the Go backend.
+  useEffect(() => {
+    if (!diffRightTabId) return;
+    return () => {
+      CloseDocument(diffRightTabId).catch(() => {
+        /* best-effort cleanup; a failed close must not break the UI */
+      });
+    };
+  }, [diffRightTabId]);
 
   // Story 13.4 AC6: one signature fetch per document tab. The result is
   // passed down to SignaturesView via the data prop so the view never issues
@@ -427,6 +466,37 @@ function DetailPanelInner() {
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch]);
 
+  /**
+   * Story 13.6: pick a second PDF to diff against the active document. Opens a
+   * native file dialog, loads the chosen file into the shared inspector as a new
+   * tab, and stores its tab ID as the diff's right-hand side. A cancelled dialog
+   * (empty selection) is a no-op.
+   */
+  const handlePickDiffFile = useCallback(() => {
+    setDiffError(null);
+    const startTab = activeTabId;
+    OpenFileDialog()
+      .then((paths: unknown) => {
+        const list = Array.isArray(paths) ? (paths as string[]) : [];
+        if (list.length === 0) return; // cancelled
+        return OpenFile(list[0]).then((info: unknown) => {
+          const di = info as { tabId?: string } | null;
+          if (!di?.tabId) return;
+          // If the panel unmounted OR the active document changed while the
+          // dialog/parse was in flight, the diffRightTabId cleanup effect does
+          // not cover this tab (the reset effect already cleared it), so close
+          // the just-opened backend document here rather than leak it or bind
+          // the diff against the wrong (now-inactive) baseline.
+          if (mountedRef.current && activeTabIdRef.current === startTab) {
+            setDiffRightTabId(di.tabId);
+          } else {
+            CloseDocument(di.tabId).catch(() => {});
+          }
+        });
+      })
+      .catch((err: unknown) => setDiffError(extractErrorMessage(err)));
+  }, [activeTabId]);
+
   // AC6: the Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
@@ -554,6 +624,16 @@ function DetailPanelInner() {
               onClick={() => setDetailView('validate')}
             >
               Validate
+            </button>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="diff" asChild>
+            <button
+              type="button"
+              className={tabTriggerClass}
+              data-testid="detail-tab-diff"
+              onClick={() => setDetailView('diff')}
+            >
+              Diff
             </button>
           </Tabs.Trigger>
           {showSignaturesTab && (
@@ -781,6 +861,42 @@ function DetailPanelInner() {
             active={detailView === 'validate'}
             onNavigate={handleValidateNavigate}
           />
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="diff"
+          forceMount
+          className="flex-1 min-h-0 data-[state=inactive]:hidden"
+          data-testid="detail-pane-diff"
+        >
+          {!diffRightTabId ? (
+            <div
+              className="p-4 text-sm text-text-muted flex flex-col items-start gap-2"
+              data-testid="diff-pick"
+            >
+              <p>Compare this document against another PDF (structural, object-level diff - not a byte or pixel diff).</p>
+              <button
+                type="button"
+                data-testid="diff-pick-file"
+                className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+                onClick={handlePickDiffFile}
+                disabled={!activeTabId}
+              >
+                Compare with another PDF...
+              </button>
+              {diffError && (
+                <div className="text-error" data-testid="diff-pick-error">
+                  {diffError}
+                </div>
+              )}
+            </div>
+          ) : (
+            <DiffView
+              leftTabId={activeTabId ?? ''}
+              rightTabId={diffRightTabId}
+              active={detailView === 'diff'}
+            />
+          )}
         </Tabs.Content>
 
         {showSignaturesTab && (

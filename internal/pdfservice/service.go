@@ -49,6 +49,7 @@ type inspectorAPI interface {
 	GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error)
 	GetSignatures(tabID string) (*pdfcore.SignatureList, error)
 	Validate(tabID, profile string) (*pdfcore.ValidationResult, error)
+	DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffResult, error)
 }
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the
@@ -456,6 +457,20 @@ func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult,
 	func() {
 		defer recoverRuntimePanic("Validate", &err)
 		result, err = s.inspector.Validate(tabID, profile)
+	}()
+	return result, err
+}
+
+// DiffDocuments computes the path-aligned structural delta between two already
+// open documents (both tab IDs must be open in this service's inspector). It is
+// a read-only walk over both documents aligned by structural path, NOT object
+// number. Story 13.6.
+func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffResult, error) {
+	var result *pdfcore.DiffResult
+	var err error
+	func() {
+		defer recoverRuntimePanic("DiffDocuments", &err)
+		result, err = s.inspector.DiffDocuments(leftTabID, rightTabID)
 	}()
 	return result, err
 }
