@@ -140,35 +140,24 @@ Open a PDF via File > Open or drag-drop into the window. Explore the object tree
 
 ### CLI
 
-The `pdfdebug` binary (built via `go build -o bin/pdfdebug ./cmd/cli`) exposes a `dump`
-command over eleven PDF resources: `tree`, `object`, `stream`, `page`, `font`, `image`,
-`source`, `reverserefs`, `xref`, `objects`, and `plaintext`. Run `pdfdebug --help` for the
-full list.
+The `pdfdebug` binary (built via `go build -o bin/pdfdebug ./cmd/cli`) inspects a PDF's
+internal structure from the command line. Its `dump` command covers PDF resources (object
+tree, objects, streams, fonts, images, xref, embedded files, metadata, signatures, and
+more), alongside top-level `validate` and `diff` commands.
 
-Every `dump` command prints **human-readable plain text by default**; pass `--json` to get
+Every command prints **human-readable plain text by default**; pass `--json` to get
 structured JSON instead. The plain-text output is for reading and may change between
 releases -- if you are scripting or feeding an agent, parse the `--json` form, which is the
-stable contract. (`dump stream --raw` / `--ops` and the raw `dump plaintext` bytes are
-separate machine formats; `dump page --info` is EXPERIMENTAL and its JSON carries a
-`"_stability":"experimental"` marker.)
+stable contract.
 
-- `pdfdebug dump tree [--json] [--depth N] <file.pdf>` -- dump the object tree.
+See the **[CLI Usage guide](./docs/cli-usage.md)** for the full command map and flags, or
+run `pdfdebug --help`.
 
-  ```bash
-  pdfdebug dump tree --depth 3 sample.pdf
-  ```
-
-- `pdfdebug dump object [--json] --ref "N G R" <file.pdf>` -- dump a single indirect object by reference.
-
-  ```bash
-  pdfdebug dump object --ref "7 0 R" sample.pdf
-  ```
-
-- `pdfdebug dump stream [--json] --page N <file.pdf>` -- dump the decoded content stream for a page.
-
-  ```bash
-  pdfdebug dump stream --page 1 sample.pdf
-  ```
+```bash
+pdfdebug dump tree --depth 3 sample.pdf
+pdfdebug dump object --ref "7 0 R" sample.pdf
+pdfdebug dump stream --page 1 sample.pdf
+```
 
 ## Architecture
 
