@@ -2,6 +2,47 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
+## [0.3.1] - 2026-06-08
+
+Patch on 0.3.0.
+
+### Fixed
+
+- macOS "Install pdfdebug Command in PATH" installs the CLI into `~/.local/bin` and adds a PATH helper, replacing the earlier non-standard install location
+
+## [0.3.0] - 2026-06-08
+
+Epic 10 (background plain-text load, in-view find, reliability hardening) and Epic 11 (bundled CLI, install-to-PATH, and a much wider CLI surface). Bumps the pdfcpu and Wails toolchains.
+
+### Added
+
+- Async Plain Text load: large documents load in the background and can be cancelled instantly
+- Plain Text find bar: `Cmd/Ctrl+F` to find, `F3` to jump between matches, per-row match marks, a clear button, and a match-case toggle
+- `pdfdebug` CLI bundled inside every desktop app archive (macOS, Windows, Linux)
+- macOS `Install pdfdebug Command in PATH` menu item
+- CLI `dump` subcommands exposing existing pdfcore views: `objects`, `source`, `reverserefs`, `xref`, `plaintext`, `font`, `image` (previously GUI-only)
+- CLI `dump page --info` assembled per-page render view
+- `ResolveRef` keystone with `--ops`, `--xobject`, `--ref`, and `--resolve` surfaced in the CLI
+- CLI ergonomics: `pdfRef` on tree nodes, liberal `--ref` parsing, `--pretty`, and page-rooted `dump tree`
+
+### Changed
+
+- Spinner in the Plain Text loading card (dropped the elapsed counter)
+- pdfcpu v0.12.0 -> v0.12.1
+- Wails v3 alpha.85 -> alpha.95
+
+### Fixed
+
+- Inspector serialized per-document; runtime panics recovered at the Wails boundary; deterministic Close
+- PDF parsing and data-correctness fixes
+- Frontend hook and render-path correctness fixes
+- UX behavior and shell wiring fixes
+- Linux build passes `EXTRA_TAGS=gtk3` so generated bindings get the gtk3 tag
+
+### Refactored
+
+- Low-tier cleanup batch across the codebase
+
 ## [0.2.0] - 2026-05-22
 
 54 commits since v0.1.0. Adds object navigation, font inspection, a pretty-printed content stream view, multi-PDF open/drag-drop, and a startup splash. Bumps the Go and pdfcpu toolchains.
@@ -102,5 +143,7 @@ Initial public release. GUI and CLI PDF debugger for macOS arm64, Windows amd64,
 - `LICENSE` (Apache 2.0) and `NOTICE` bundled in every archive on every platform
 - `SHA256SUMS.txt` published alongside each release
 
+[0.3.1]: https://github.com/unidoc/pdfdebug/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/unidoc/pdfdebug/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/unidoc/pdfdebug/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/unidoc/pdfdebug/releases/tag/v0.1.0
