@@ -51,6 +51,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -84,23 +85,43 @@ func testdataDir(t *testing.T) string {
 	return filepath.Join(projectRoot(t), "testdata")
 }
 
-// buildCLI compiles the CLI binary into a temp directory and returns its path.
+var (
+	cliBuildOnce sync.Once
+	cliBinPath   string
+	cliBuildErr  string
+)
+
+// buildCLI compiles the CLI binary once per test package and returns its path.
+// The build is cached via sync.Once: the binary is identical for every test in
+// the module, so the expensive `go build` runs a single time instead of once
+// per test. The build dir is a plain os.MkdirTemp (not t.TempDir) because it is
+// shared across tests and must outlive any single one; the OS reclaims it.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	root := projectRoot(t)
-	tmpDir := t.TempDir()
-	binName := "pdfdebug"
-	if runtime.GOOS == "windows" {
-		binName += ".exe"
+	cliBuildOnce.Do(func() {
+		root := projectRoot(t)
+		binName := "pdfdebug"
+		if runtime.GOOS == "windows" {
+			binName += ".exe"
+		}
+		tmpDir, err := os.MkdirTemp("", "pdfdebug-cli-")
+		if err != nil {
+			cliBuildErr = "failed to create temp dir: " + err.Error()
+			return
+		}
+		binPath := filepath.Join(tmpDir, binName)
+		cmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli/")
+		cmd.Dir = root
+		if output, err := cmd.CombinedOutput(); err != nil {
+			cliBuildErr = "failed to build CLI binary: " + err.Error() + "\n" + string(output)
+			return
+		}
+		cliBinPath = binPath
+	})
+	if cliBuildErr != "" {
+		t.Fatalf("%s", cliBuildErr)
 	}
-	binPath := filepath.Join(tmpDir, binName)
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli/")
-	cmd.Dir = root
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("failed to build CLI binary: %s\n%s", err, output)
-	}
-	return binPath
+	return cliBinPath
 }
 
 // runCLI executes the CLI binary with args and returns stdout, stderr, exit code.
