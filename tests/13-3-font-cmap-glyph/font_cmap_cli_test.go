@@ -147,10 +147,27 @@ func TestFontDump_PlainSummary_BoundedNotFullTable(t *testing.T) {
 		t.Errorf("[13.3-INTG-003] plain summary should surface the ToUnicode health signal\n%s", stdout)
 	}
 	// Without --glyphs the full per-code TABLE header must NOT appear -- the
-	// summary is bounded.
-	if strings.Contains(stdout, "GLYPH") && strings.Contains(stdout, "UNICODE") && strings.Contains(stdout, "TEXT") {
+	// summary is bounded. Anchor to the actual header line (four ordered
+	// columns) rather than free-floating uppercase tokens, which could match a
+	// health label or reformatted text anywhere in the output.
+	if perCodeTableHeaderPresent(stdout) {
 		t.Errorf("[13.3-INTG-003] plain summary leaked the full per-code table (use --glyphs for that)\n%s", stdout)
 	}
+}
+
+// perCodeTableHeaderPresent reports whether stdout contains the --glyphs
+// per-code table header as a single anchored line whose fields are exactly
+// CODE GLYPH UNICODE TEXT in order. Anchoring to the whole header row (not
+// independent whole-output greps of the generic tokens GLYPH/UNICODE/TEXT)
+// keeps the assertion from false-matching stray uppercase text elsewhere.
+func perCodeTableHeaderPresent(stdout string) bool {
+	for _, line := range strings.Split(stdout, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 4 && f[0] == "CODE" && f[1] == "GLYPH" && f[2] == "UNICODE" && f[3] == "TEXT" {
+			return true
+		}
+	}
+	return false
 }
 
 // 13.3-INTG-004 (AC3): with --glyphs the plain output is the FULL per-code
@@ -167,10 +184,10 @@ func TestFontDump_Glyphs_FullPerCodeTable(t *testing.T) {
 	if isJSONObject(stdout) {
 		t.Fatalf("[13.3-INTG-004] --glyphs output must be plain text, not JSON:\n%.200s", stdout)
 	}
-	for _, col := range []string{"CODE", "GLYPH", "UNICODE", "TEXT"} {
-		if !strings.Contains(stdout, col) {
-			t.Errorf("[13.3-INTG-004] --glyphs table missing column header %q\n%s", col, stdout)
-		}
+	// Assert the anchored header row (CODE GLYPH UNICODE TEXT as ordered
+	// columns on one line), not four independent whole-output token greps.
+	if !perCodeTableHeaderPresent(stdout) {
+		t.Errorf("[13.3-INTG-004] --glyphs output missing the aligned per-code table header (CODE GLYPH UNICODE TEXT)\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "U+0041") {
 		t.Errorf("[13.3-INTG-004] --glyphs table missing the 0x41->U+0041 row\n%s", stdout)

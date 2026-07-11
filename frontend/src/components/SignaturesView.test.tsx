@@ -22,7 +22,7 @@
  * Run: cd frontend && npx vitest run src/components/SignaturesView.test.tsx
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SignaturesView } from './SignaturesView';
 
 const mockGetSignatures = vi.fn();
@@ -104,8 +104,18 @@ const directEntry = {
 };
 
 beforeEach(() => {
+  // Freeze ONLY the clock (not setTimeout/setInterval) so the cert-expiry cue
+  // is asserted against a fixed "now" and the 2027-01-01 "valid" fixtures do
+  // not start expiring in the real future. toFake:['Date'] leaves real polling
+  // timers intact, so RTL waitFor and promise flushing behave normally.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
   vi.clearAllMocks();
   mockGetSignatures.mockResolvedValue([signedEntry]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('SignaturesView (Story 13.4)', () => {
