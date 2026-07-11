@@ -735,6 +735,13 @@ func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAddDirToShellProfileAppendsAndIsIdempotent(t *testing.T) {
+	// shellProfile resolves home via os.UserHomeDir, which reads %USERPROFILE%
+	// (not $HOME) on Windows, so the t.Setenv("HOME", ...) override below is a
+	// no-op there. The feature is POSIX-only anyway ($SHELL/.zshrc); on Windows
+	// $SHELL is unset and AddDirToShellProfile returns ErrUnknownShell.
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-profile PATH editing is POSIX-only; os.UserHomeDir ignores $HOME on Windows")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("SHELL", "/bin/zsh")
