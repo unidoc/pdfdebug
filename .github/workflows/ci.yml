@@ -105,23 +105,64 @@ jobs:
       - name: Test acceptance suites (per-module)
         shell: bash
         timeout-minutes: 20
+        # Coverage policy (asymmetric by OS/arch):
+        #   ubuntu (amd64) -> every module: the comprehensive correctness gate.
+        #   macos  (arm64) -> every module: the ONLY arm64 runner, so it is the
+        #                     sole cross-arch check of the logic suites.
+        #   windows (amd64)-> ONLY the CLI / OS-boundary suites (win_subset).
+        # The pure-logic suites (internal/pdfcore + frontend logic) are
+        # deterministic Go and produce identical results on every OS/arch
+        # (Go language guarantees; fixtures are byte-identical via .gitattributes
+        # `*.pdf binary` + `eol=lf`). Running all of them on Windows (amd64) adds
+        # no signal over Linux and was ~16m of the Windows job. win_subset is the
+        # modules that build and run the pdfdebug binary as a subprocess -- the
+        # ones that actually touch process spawning, file paths, and stdout on
+        # Windows. A new module defaults to Linux/macOS only; add it to
+        # win_subset ONLY if it exercises a Windows-specific boundary.
         run: |
           set -euo pipefail
           shopt -s nullglob
+          win_subset=(
+            11-6-page-render-info
+            13-1-cli-output-format-normalization
+            13-2-embedded-data-inspector
+            13-3-font-cmap-glyph
+            13-4-signature-decomposition
+            13-5-compliance-validation
+            13-6-structural-diff
+            cli-object-query
+            cli-page-render
+            cli-stream-retrieval
+            cli-tree-dump
+            cli-views
+          )
+          in_subset() {
+            local n="$1"
+            for s in "${win_subset[@]}"; do [[ "$s" == "$n" ]] && return 0; done
+            return 1
+          }
           mods=(tests/*/go.mod)
           if [[ ${#mods[@]} -eq 0 ]]; then
-            echo "No per-suite go.mod files found under tests/*/ -- expected 20"
+            echo "No per-suite go.mod files found under tests/*/"
             exit 1
           fi
+          ran=0
           for mod in "${mods[@]}"; do
             dir="$(dirname "$mod")"
-            case "$(basename "$dir")" in
+            name="$(basename "$dir")"
+            case "$name" in
               e2e|support|boot-smoke) continue ;;
             esac
+            if [[ "$RUNNER_OS" == "Windows" ]] && ! in_subset "$name"; then
+              echo "skip (non-boundary logic suite, covered on Linux/macOS): $name"
+              continue
+            fi
             echo "::group::go test $dir"
             (cd "$dir" && go test ./... -timeout 5m)
             echo "::endgroup::"
+            ran=$((ran + 1))
           done
+          echo "ran $ran acceptance module(s) on $RUNNER_OS"
 
       - name: Frontend typecheck
         shell: bash
