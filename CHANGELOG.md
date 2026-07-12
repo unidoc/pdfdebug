@@ -2,6 +2,29 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
+## [0.4.0] - 2026-07-12
+
+Epic 12 (desktop shell correctness) and Epic 13 (PDF structure inspection). Adds six dual-surface (CLI + GUI) inspection capabilities on a normalized CLI output contract. Bumps the Wails toolchain.
+
+### Added
+
+- Embedded data inspector: `dump embedded` lists attachments and associated files and extracts one file's bytes to stdout (`--ref`/`--name`); `dump metadata` reports the `/Info` dictionary and the XMP packet
+- Font CMap and glyph-mapping inspection: `dump font --glyphs` prints the full per-code mapping table with health signals for missing or broken mappings
+- Digital signature decomposition: `dump signatures` (CLI) and a GUI signatures view surface signer, certificate chain, and ByteRange coverage. Decompose-only: never claims a signature is trusted or valid
+- Structural compliance validation: top-level `validate` command with `--profile pdfa-1b` (default) or `pdfua-1-structural`, a three-way exit status (0 clean / 1 errors found / 2 operational error), and jump-to-object in the GUI. Structural checks only, not full conformance; veraPDF remains the authoritative oracle
+- Structural diff of two PDFs: top-level `diff` command (path-aligned, `--full` includes unchanged nodes) with a three-way exit status (0 identical / 1 differ / 2 error), plus a GUI side-by-side view. First two-document IPC method
+- CLI usage guide at `docs/cli-usage.md`, linked from `README.md`
+
+### Changed
+
+- CLI output default is now human-readable plain text; `--json` opts into JSON and `--pretty` indents it. **Breaking for scripts** that relied on JSON-by-default (story 13-1)
+- Wails v3 alpha.95 -> alpha2.103 (absorbs upstream fixes for a Linux WebKit idle freeze and macOS/Linux SIGSEGV on display change and assetserver shutdown)
+
+### Fixed
+
+- Cold-start file association: double-clicking a PDF while the app is still launching now opens it reliably instead of dropping the event (pull-model drain handshake)
+- Signature `/Cert` and CMS parsing: certificates and CMS payloads whose DER encoding ends in a `0x00` byte are no longer dropped. The reader now slices to the exact ASN.1 length instead of trimming trailing zeros
+
 ## [0.3.1] - 2026-06-08
 
 Patch on 0.3.0.
@@ -143,6 +166,7 @@ Initial public release. GUI and CLI PDF debugger for macOS arm64, Windows amd64,
 - `LICENSE` (Apache 2.0) and `NOTICE` bundled in every archive on every platform
 - `SHA256SUMS.txt` published alongside each release
 
+[0.4.0]: https://github.com/unidoc/pdfdebug/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/unidoc/pdfdebug/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/unidoc/pdfdebug/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/unidoc/pdfdebug/compare/v0.1.0...v0.2.0
