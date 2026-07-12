@@ -478,7 +478,15 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 		if err != nil {
 			continue
 		}
-		c, err := x509.ParseCertificate(bytes.TrimRight(der, "\x00"))
+		// A DER certificate is a self-delimiting ASN.1 SEQUENCE. Slice to its
+		// exact encoded length so any /Cert zero-padding is dropped without
+		// corrupting a cert whose DER legitimately ends in 0x00 -- which a
+		// bytes.TrimRight(der, "\x00") would eat, making ParseCertificate fail.
+		var raw asn1.RawValue
+		if _, err := asn1.Unmarshal(der, &raw); err != nil {
+			continue
+		}
+		c, err := x509.ParseCertificate(raw.FullBytes)
 		if err != nil {
 			continue
 		}
