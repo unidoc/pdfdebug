@@ -403,13 +403,15 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 
 // parseCMSSignedData unmarshals a ContentInfo(SignedData) DER blob. The
 // /Contents value is zero-padded to its reserved size; DER is length-prefixed
-// so asn1.Unmarshal ignores the trailing padding, but trimming it first keeps
-// the error message clean when the payload itself is malformed.
+// so asn1.Unmarshal reads exactly the SignedData and ignores the trailing
+// padding. We deliberately do NOT bytes.TrimRight the 0x00 padding: that would
+// corrupt a CMS blob whose DER legitimately ends in 0x00 (same class of bug as
+// the /Cert path).
 func parseCMSSignedData(raw []byte) (*cmsSignedData, error) {
 	if len(raw) == 0 {
 		return nil, errors.New("empty payload")
 	}
-	return unmarshalCMS(bytes.TrimRight(raw, "\x00"))
+	return unmarshalCMS(raw)
 }
 
 // unmarshalCMS parses one strict-DER ContentInfo(SignedData).
