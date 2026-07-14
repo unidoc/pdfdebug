@@ -60,7 +60,7 @@ golangci-lint run ./...
 
 Do NOT add new `strings.Contains`, `regexp.Match`, or other file-content assertions against `main.go`, `frontend/src/components/MainLayout.tsx`, or `frontend/src/components/EmptyState.tsx` from any test under `tests/`. If you find yourself reaching for that pattern, write a behavioural test (Vitest, Playwright, or `tests/boot-smoke`) instead.
 
-Pre-existing structural greps in those files are grandfathered (see `docs/_bmad-output/implementation-artifacts/deferred-work.md` for the bulk-removal follow-up tracked under story 4-5). Do not extend the pattern. Reviewers must flag new source-greps at PR time.
+Pre-existing structural greps in those files are grandfathered pending a bulk-removal follow-up. Do not extend the pattern. Reviewers must flag new source-greps at PR time.
 
 Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, etc.) are exempt -- parsing those is legitimate behavioural testing on a build output, not source.
 
