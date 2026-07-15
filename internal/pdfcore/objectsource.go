@@ -300,6 +300,10 @@ func writeDict(w *sourceWriter, d pdfcpu_types.Dict, depth int) {
 // element per line with hanging indentation, matching the AC1 example.
 func writeArray(w *sourceWriter, arr pdfcpu_types.Array, depth int) {
 	if isShortSimpleArray(arr) {
+		// F4 (known, near-unreachable gap): unlike the long-array path, the short
+		// form drops cap-truncated elements WITHOUT a "... [truncated]" marker.
+		// Only reachable with <= threshold simple scalars exceeding the 256KB cap
+		// (e.g. a single ~250k-digit number), which is not a PDF found in nature.
 		// WriteAlways for the brackets; pair with the closing `]` so the
 		// short form is well-formed even when cap-truncated mid-element.
 		w.WriteAlways("[")

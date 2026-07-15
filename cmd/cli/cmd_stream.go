@@ -357,6 +357,14 @@ func emitOps(inspector *pdfcore.Inspector, result *pdfcore.ContentStreamData, pa
 	// exactly one JSON object per line (NDJSON). --pretty does not apply.
 	enc := json.NewEncoder(os.Stdout)
 	for _, fl := range result.Formatted {
+		// --ops is operator-centric NDJSON: one object per operator. Comment
+		// lines and trailing dangling-operand runs carry Operator == "" and are
+		// not operators; skipping them upholds the one-object-per-operator
+		// contract (a phantom {"op":""} record would breach it). --json is
+		// unaffected -- it serializes the full Formatted slice.
+		if fl.Operator == "" {
+			continue
+		}
 		line := opsLine{
 			Op:           fl.Operator,
 			Params:       operandValues(fl),

@@ -888,6 +888,139 @@ func TestTokenizeInlineImagePayloadOpaque(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// 14.1-UNIT-002 [P2] (risk R-14-13): inline-image data token has no trailing
+// whitespace (F3). A "\r\nEI" sequence must drop the CR as well as the LF
+// delimiter (one CRLF unit), not leave the stray '\r' the single-byte strip
+// left behind, so the opaque data token carries no trailing EOL fragment.
+// ---------------------------------------------------------------------------
+
+func TestTokenizeInlineImageTrailingWhitespaceStripped(t *testing.T) {
+	input := "q\r\nBI /W 1 /H 1 ID\x00\x01\x02\r\nEI\nQ"
+	toks := tokenizeContentStream(input)
+
+	idIdx, eiIdx := -1, -1
+	for i, tk := range toks {
+		if tk.Type == "operator" && tk.Value == "ID" && idIdx == -1 {
+			idIdx = i
+		}
+		if tk.Type == "operator" && tk.Value == "EI" && eiIdx == -1 && idIdx != -1 && i > idIdx {
+			eiIdx = i
+		}
+	}
+	if idIdx == -1 || eiIdx == -1 {
+		t.Fatalf("[14.1-UNIT-002] expected ID and EI operators; got tokens=%+v", toks)
+	}
+	if eiIdx-idIdx != 2 {
+		t.Fatalf("[14.1-UNIT-002] expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
+	}
+	payload := toks[idIdx+1]
+	if payload.Value != "\x00\x01\x02" {
+		t.Errorf("[14.1-UNIT-002] payload Value = %q, want %q (\"\\r\\n\" CRLF delimiter before EI must be stripped, CR included)", payload.Value, "\x00\x01\x02")
+	}
+	if strings.HasSuffix(payload.Value, "\r") || strings.HasSuffix(payload.Value, "\n") {
+		t.Errorf("[14.1-UNIT-002] payload Value = %q retains trailing whitespace", payload.Value)
+	}
+}
+
+// 14.1-UNIT-002b: a whitespace-valued byte that is genuinely part of the opaque
+// inline-image payload (here a 0x20 sample immediately before the single-LF
+// delimiter) must be preserved. The EOL strip is bounded to one delimiter
+// (CRLF unit), not an unbounded whitespace run that would eat real data bytes.
+func TestTokenizeInlineImagePayloadWhitespaceValuedByteKept(t *testing.T) {
+	input := "q\nBI /W 1 /H 1 ID\x00\x20\nEI\nQ"
+	toks := tokenizeContentStream(input)
+
+	idIdx, eiIdx := -1, -1
+	for i, tk := range toks {
+		if tk.Type == "operator" && tk.Value == "ID" && idIdx == -1 {
+			idIdx = i
+		}
+		if tk.Type == "operator" && tk.Value == "EI" && eiIdx == -1 && idIdx != -1 && i > idIdx {
+			eiIdx = i
+		}
+	}
+	if idIdx == -1 || eiIdx == -1 {
+		t.Fatalf("[14.1-UNIT-002b] expected ID and EI operators; got tokens=%+v", toks)
+	}
+	if eiIdx-idIdx != 2 {
+		t.Fatalf("[14.1-UNIT-002b] expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
+	}
+	payload := toks[idIdx+1]
+	if payload.Value != "\x00\x20" {
+		t.Errorf("[14.1-UNIT-002b] payload Value = %q, want %q (whitespace-valued payload byte before the single-LF delimiter must be preserved, not stripped)", payload.Value, "\x00\x20")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 14.1-UNIT-001 [P1] (risk R-14-02): leading-sign number tokenization (F1).
+//
+// RED PHASE (Story 14-1): ISO 32000-1 7.3.3 permits a leading '+' (as well as
+// '-') on integers and reals. The current tokenizer accepts a leading '-' but
+// NOT a leading '+', so a spec-valid operand like "+5" falls through to the
+// word/operator branch and is mis-emitted as an OPERATOR token. This
+// table-driven test feeds bare number byte-slices and asserts each signed
+// value classifies as a SINGLE "number" token.
+//
+// Expected failures against baseline code: the "+5", "+.5", and "+5.0" cases
+// (mislabeled operator, and the "+5.0" case additionally split by the word
+// scan). The "-3" / "-.5" cases already pass. The bare "+"/"-" cases (a sign
+// not followed by a digit or ".digit") must REMAIN word/operator tokens.
+// ---------------------------------------------------------------------------
+
+func TestTokenizeLeadingSignNumbers(t *testing.T) {
+	numberCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"leading plus integer", "+5", "+5"},
+		{"leading plus leading-dot real", "+.5", "+.5"},
+		{"leading minus integer", "-3", "-3"},
+		{"leading minus leading-dot real", "-.5", "-.5"},
+		{"leading plus real", "+5.0", "+5.0"},
+	}
+	for _, tc := range numberCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens := tokenizeContentStream(tc.input)
+			if len(tokens) != 1 {
+				t.Fatalf("[14.1-UNIT-001] %q: got %d tokens, want exactly 1 (single number token); tokens=%+v",
+					tc.input, len(tokens), tokens)
+			}
+			if tokens[0].Type != "number" {
+				t.Errorf("[14.1-UNIT-001] %q: token Type = %q, want \"number\"", tc.input, tokens[0].Type)
+			}
+			if tokens[0].Value != tc.want {
+				t.Errorf("[14.1-UNIT-001] %q: token Value = %q, want %q", tc.input, tokens[0].Value, tc.want)
+			}
+		})
+	}
+
+	// A bare sign not followed by a digit or ".digit" stays a word/operator
+	// token (unchanged behavior). Guards against an over-broad fix.
+	bareCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"bare plus stays operator", "+ 10 Td", "+"},
+		{"bare minus stays operator", "- 10 Td", "-"},
+	}
+	for _, tc := range bareCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens := tokenizeContentStream(tc.input)
+			if len(tokens) == 0 {
+				t.Fatalf("[14.1-UNIT-001] %q: got 0 tokens, want at least 1", tc.input)
+			}
+			if tokens[0].Type != "operator" || tokens[0].Value != tc.want {
+				t.Errorf("[14.1-UNIT-001] %q: token[0] = %+v, want operator(%s)", tc.input, tokens[0], tc.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 3.3-BENCH-001 [P2]: Benchmark tokenizer on a ~100KB content stream.
 // Verifies O(n) performance and detects regressions.
 // ---------------------------------------------------------------------------

@@ -348,11 +348,14 @@ func tokenizeContentStream(raw string) []Token {
 			continue
 		}
 
-		// Number: optional '-', then digits/dot, or '.' then digits.
-		// Also handle negative numbers: '-' followed by digit or '.'.
+		// Number: optional sign ('+' or '-'), then digits/dot, or '.' then digits.
+		// ISO 32000-1 7.3.3 permits a leading '+' or '-' on integers and reals.
 		if isNumberStart(raw, i, n) {
 			j := i
-			if raw[j] == '-' {
+			// Consume the leading sign so it is part of the number token, not a
+			// stray first char of the digit scan. Both '+' and '-' must be
+			// handled here or isNumberStart accepting '+' yields a malformed token.
+			if raw[j] == '-' || raw[j] == '+' {
 				j++
 			}
 			hasDot := false
@@ -417,10 +420,31 @@ func tokenizeContentStream(raw string) []Token {
 						// Check following byte is whitespace or EOF
 						afterEI := k + 2
 						if afterEI >= n || isWSByte(raw[afterEI]) {
-							// Emit data token (without the preceding whitespace)
+							// Emit data token (without the preceding whitespace).
+							// endIdx = k-1 already drops the single delimiter byte
+							// adjacent to 'E' (guaranteed whitespace by the check
+							// above).
 							endIdx := k - 1
 							if endIdx < dataStart {
 								endIdx = dataStart
+							}
+							// F3: if that delimiter is the LF of a "\r\nEI" CRLF pair,
+							// also drop the CR so the opaque data token carries no
+							// stray trailing '\r'. Bounded to a single EOL delimiter
+							// (one CRLF unit) -- deliberately NOT an unbounded
+							// whitespace run, which would strip whitespace-valued
+							// bytes (e.g. a 0x20 sample) that are legitimately part of
+							// the opaque inline-image payload.
+							// Irreducible caveat: with no inline-image length model
+							// (EI is found heuristically), a payload legitimately
+							// ending in a real 0x0D byte before a bare-LF delimiter
+							// ("...<0x0D>\nEI") is indistinguishable from a CRLF and
+							// that byte is dropped. Accepted tradeoff: bounding an
+							// opaque display token to a length model is out of scope,
+							// and not stripping the CR would reintroduce the stray
+							// '\r' this fix removes.
+							if endIdx > dataStart && raw[endIdx] == '\n' && raw[endIdx-1] == '\r' {
+								endIdx--
 							}
 							data := raw[dataStart:endIdx]
 							if len(data) > 0 {
@@ -479,7 +503,9 @@ func isNumberStart(raw string, i, n int) bool {
 	if ch == '.' {
 		return i+1 < n && raw[i+1] >= '0' && raw[i+1] <= '9'
 	}
-	if ch == '-' {
+	// A leading '+' or '-' is a number start only when followed by a digit, or
+	// by '.' + digit (ISO 32000-1 7.3.3). A bare sign stays a word/operator.
+	if ch == '-' || ch == '+' {
 		if i+1 < n {
 			next := raw[i+1]
 			if next >= '0' && next <= '9' {
