@@ -2,7 +2,7 @@
  * @file PDF object-tree panel. Renders the hierarchical document structure
  * using react-arborist with lazy child loading and cross-reference navigation.
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
@@ -114,6 +114,18 @@ function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): 
   const root = toTreeNodeData(rootNode);
   root.children = rootChildren ? rootChildren.map((c) => toTreeNodeData(c, root.id)) : [];
   return [root];
+}
+
+/** Map a backend node id to its react-arborist display id by walking the tree. */
+function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
+  for (const n of data) {
+    if (n.backendId === backendId) return n.id;
+    if (n.children) {
+      const found = findDisplayId(n.children, backendId);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 /** Recursively find a node by ID and replace its children immutably. */
@@ -530,18 +542,25 @@ export function TreePanel() {
     // selectedNodeIdRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
   }, [dispatch, selectedNodeIdRef]);
 
-  // Map backendId to display id for react-arborist's selection prop
-  function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
-    for (const n of data) {
-      if (n.backendId === backendId) return n.id;
-      if (n.children) {
-        const found = findDisplayId(n.children, backendId);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }
-  const selectionDisplayId = selectedNodeId ? findDisplayId(treeData, selectedNodeId) : undefined;
+  // Memoized so the `selection` prop keeps a stable identity across renders that
+  // change neither the selection nor the tree. react-arborist rebuilds its entire
+  // O(N) node model whenever ANY prop identity in treeProps changes (see its
+  // provider's `api.update(treeProps)` memo), so an unstable prop forces a full
+  // rebuild on every render -- pathological on large trees.
+  const selectionDisplayId = useMemo(
+    () => (selectedNodeId ? findDisplayId(treeData, selectedNodeId) : undefined),
+    [selectedNodeId, treeData],
+  );
+
+  // Stable child render-prop for the same reason: an inline arrow here is a new
+  // function every render, which alone made react-arborist rebuild the whole tree
+  // model on every render (not just on expand). flashNodeIdRef is a stable ref.
+  const renderNode = useCallback(
+    (props: NodeRendererProps<TreeNodeData>) => (
+      <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} flashNodeIdRef={flashNodeIdRef} />
+    ),
+    [loadingNodeId],
+  );
 
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
@@ -569,9 +588,7 @@ export function TreePanel() {
             width={dimensions.width}
             height={dimensions.height}
           >
-            {(props: NodeRendererProps<TreeNodeData>) => (
-              <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} flashNodeIdRef={flashNodeIdRef} />
-            )}
+            {renderNode}
           </Tree>
         )}
         {navError && (
