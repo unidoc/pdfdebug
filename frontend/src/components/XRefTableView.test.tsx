@@ -422,19 +422,34 @@ describe('9.11-UNIT-014: error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-015 [P1] AC#2: eager fetch on mount so the parent can populate
-// the "XREF (N)" tab label without waiting for first tab activation. The
-// `active` prop no longer gates the fetch (revised after 9-12).
+// 9.11-UNIT-015 [P1]: the fetch is DEFERRED until the XREF tab is first
+// activated. The payload can be very large (a 129k-entry PDF serializes ~12 MB);
+// because the pane is force-mounted, an unconditional fetch would JSON.parse
+// ~12 MB and render all rows on the main thread on EVERY document open, freezing
+// the UI while the user is still on the Object tree. active=false must NOT fetch;
+// activation triggers a single fetch. (Supersedes the pre-perf "eager fetch on
+// mount regardless of active" behavior.)
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-015: eager fetch on mount', () => {
+describe('9.11-UNIT-015: fetch deferred until activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
   });
 
-  test('active=false still fetches eagerly', async () => {
+  test('active=false does not fetch', async () => {
     render(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Let mount effects flush, then assert nothing was fetched.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+  });
+
+  test('activation after an inactive mount triggers a single fetch', async () => {
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+    rerender(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
     await waitFor(() => {
       expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
     });
@@ -447,6 +462,45 @@ describe('9.11-UNIT-015: eager fetch on mount', () => {
       expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
     });
     expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.11-UNIT-017 [P1] Perf: the row list is viewport-virtualized -- a large xref
+// (a 750-page PDF can carry ~129k entries) must render only a bounded window of
+// rows, not one <tr> per entry, or the main thread freezes on render.
+// ---------------------------------------------------------------------------
+
+describe('9.11-UNIT-017: row list is virtualized', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('a large table renders only a bounded window of rows', async () => {
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+    const { container } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length).toBeGreaterThan(0);
+    });
+    // Only a small window commits to the DOM (jsdom viewport fallback ~= 36
+    // rows), never all 3000. A spacer <tr> reserves the off-window scroll height.
+    const rendered = container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(200);
+    expect(container.querySelectorAll('tr[aria-hidden="true"]').length).toBeGreaterThan(0);
   });
 });
 

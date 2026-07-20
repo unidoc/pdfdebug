@@ -36,12 +36,21 @@ export interface XRefTableViewProps {
   onLoaded: (count: number) => void;
 }
 
+/** Fixed row height (px) for windowing math; each rendered row is pinned to this
+ *  height so the spacer geometry matches the true scroll height. */
+const XREF_ROW_HEIGHT = 28;
+/** Rows rendered above/below the viewport for smooth scrolling. */
+const XREF_OVERSCAN = 12;
+
 /**
  * Document-level XREF table view. Lazy-fetches on first activation; data is
  * cached in component state for the lifetime of the document (tabId change
- * resets state).
+ * resets state). The row list is viewport-virtualized (only the visible slice
+ * is committed to the DOM) so a large xref -- a 750-page PDF can carry ~129k
+ * entries -- does not freeze the UI on render. Mirrors the FontMappingTable /
+ * PlainTextView windowing pattern.
  */
-export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: XRefTableViewProps) {
+export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTableViewProps) {
   const [data, setData] = useState<XRefTableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
@@ -65,12 +74,17 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     inFlightRef.current = false;
   }, [tabId]);
 
-  // Eager fetch on tabId change so the parent can render the "XREF (N)"
-  // tab label without waiting for first activation. Stale-fetch guard via
-  // `cancelled`. The `active` prop is intentionally NOT a gate -- the xref is
-  // cheap to extract from pdfcpu's already-parsed state.
+  // Fetch on FIRST activation of the XREF tab, then cache for the document's
+  // lifetime. Gated on `active`: the payload can be very large (a 750-page,
+  // 129k-entry PDF serializes ~12 MB of JSON), and this pane is force-mounted,
+  // so an unconditional fetch would JSON.parse ~12 MB + render 129k rows on the
+  // main thread on EVERY document open -- freezing the UI while the user is
+  // still on the Object tree. Deferring to activation keeps open instant; the
+  // "XREF (N)" count label simply populates on first XREF open instead of on
+  // load. Stale-fetch guard via `cancelled`.
   useEffect(() => {
     if (!tabId) return;
+    if (!active) return;
     if (dataRef.current !== null) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -100,7 +114,7 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
       cancelled = true;
       inFlightRef.current = false;
     };
-  }, [tabId]);
+  }, [tabId, active]);
 
   // 200ms loading debounce -- mirrors the showContentStreamLoading pattern in
   // DetailPanel.tsx.
@@ -112,6 +126,34 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     const timer = setTimeout(() => setShowLoading(true), 200);
     return () => clearTimeout(timer);
   }, [loading]);
+
+  // --- Viewport virtualization (see class doc). The scroll container mounts
+  // only once `data` is present (after the early returns below), so the measure
+  // and reset effects key on `data` rather than `[]`. ---
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setViewportHeight(el.clientHeight);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  // Reset the window to the top when the document (row set) changes, so a stale
+  // scrollTop never slices past the end of a shorter table.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [data]);
 
   /** Click handler: free rows are no-ops; in-use / in-objstm dispatch navigation. */
   const handleRowClick = useCallback(
@@ -182,8 +224,22 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     return <div className="h-full" data-testid="xref-empty-initial" />;
   }
 
+  const entries = data.entries ?? [];
+  const totalRows = entries.length;
+  const firstVisible = Math.max(0, Math.floor(scrollTop / XREF_ROW_HEIGHT) - XREF_OVERSCAN);
+  // A zero clientHeight (jsdom / pre-measure) falls back to a bounded default so
+  // the window stays small rather than rendering every row.
+  const visibleCount = Math.ceil((viewportHeight || 320) / XREF_ROW_HEIGHT) + XREF_OVERSCAN * 2;
+  const lastVisible = Math.min(totalRows, firstVisible + visibleCount);
+  const rowsToRender = entries.slice(firstVisible, lastVisible);
+
   return (
-    <div className="h-full overflow-auto" data-testid="xref-table-container">
+    <div
+      className="h-full overflow-auto"
+      data-testid="xref-table-container"
+      ref={scrollRef}
+      onScroll={handleScroll}
+    >
       <table className="w-full text-xs font-mono border-collapse">
         {/* `position: sticky` on <thead> is unreliable on WebKit2GTK and older
             Safari/WebKit; apply sticky on each <th> so the header sticks on every
@@ -199,7 +255,13 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
           </tr>
         </thead>
         <tbody>
-          {(data.entries ?? []).map((entry) => {
+          {/* Top spacer reserves the scroll height of the rows above the window. */}
+          {firstVisible > 0 && (
+            <tr aria-hidden="true" style={{ height: firstVisible * XREF_ROW_HEIGHT }}>
+              <td colSpan={5} />
+            </tr>
+          )}
+          {rowsToRender.map((entry) => {
             const isFree = entry.status === 'free';
             const isInObjStm = entry.status === 'in-objstm';
             const rowClass = [
@@ -217,6 +279,7 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
               <tr
                 key={`${entry.objNum}:${entry.gen}`}
                 className={rowClass}
+                style={{ height: XREF_ROW_HEIGHT }}
                 tabIndex={0}
                 aria-disabled={isFree ? 'true' : undefined}
                 data-testid={`xref-row-${entry.objNum}`}
@@ -245,6 +308,12 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
               </tr>
             );
           })}
+          {/* Bottom spacer reserves the scroll height of the rows below. */}
+          {lastVisible < totalRows && (
+            <tr aria-hidden="true" style={{ height: (totalRows - lastVisible) * XREF_ROW_HEIGHT }}>
+              <td colSpan={5} />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
