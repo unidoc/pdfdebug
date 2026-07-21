@@ -77,7 +77,7 @@ jobs:
 
       - name: Install Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.103
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
 
       - name: Install frontend deps
         shell: bash
