@@ -464,23 +464,28 @@ describe('9.11-UNIT-015: fetch deferred until activation', () => {
     expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
   });
 
-  test('switching documents while the tab stays active re-fetches for the new document', async () => {
-    // Distinct data per document so the assertion proves the new document's rows
-    // actually RENDER -- not merely that GetXRefTable was called (a call that is
-    // started then cancelled would still register, so it would not guard the fix).
+  test('switching documents while XREF is inactive does NOT eagerly fetch; re-activating fetches the new doc', async () => {
+    // Distinct data per document so re-activation can be asserted by rendered rows.
     mockGetXRefTable.mockImplementation((id: string) =>
       Promise.resolve(id === 'tab-2' ? xrefSingleInUse : xrefBasic),
     );
     const { rerender } = render(
       <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
     );
-    await screen.findByTestId('xref-row-objnum-1'); // tab-1 rendered (objNum 1)
-    // New document, XREF tab still active (active stays true across the switch).
+    await screen.findByTestId('xref-row-objnum-1'); // tab-1 fetched + rendered
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Switch documents with the XREF tab INACTIVE (parent lands on Object). A
+    // stale activation must NOT eagerly fetch the new, unopened document.
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).not.toHaveBeenCalledWith('tab-2');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Re-activating XREF on the new document fetches and renders it.
     rerender(<XRefTableView tabId="tab-2" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
-    // tab-2's distinct row (objNum 7) must appear: proves the new document fetched
-    // AND rendered. Without tabId in the latch deps, everActive stays false after
-    // the reset and this never resolves.
     expect(await screen.findByTestId('xref-row-objnum-7')).toBeInTheDocument();
+    expect(mockGetXRefTable).toHaveBeenCalledWith('tab-2');
   });
 });
 

@@ -55,15 +55,24 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Latches true on the first activation of the XREF tab for the current
-  // document; gates the fetch so toggling the tab off/on mid-flight cannot
-  // kick off a second (large) fetch. Reset on tabId change.
-  const [everActive, setEverActive] = useState(false);
+  // latchedTabId records the tabId the user actually activated the XREF tab on.
+  // The fetch gates on the DERIVED `everActive = latchedTabId === tabId` (below),
+  // NOT a boolean+reset: a boolean reset in an effect is applied a render late,
+  // so the fetch effect could observe a stale `everActive=true` on the first
+  // render after a document switch and eagerly fetch a document the user never
+  // opened XREF on. The derived value is false in the same render as the switch.
+  const [latchedTabId, setLatchedTabId] = useState<string | null>(null);
   // Cache flags as refs so the fetch effect only re-runs when tabId / everActive
   // change. Including data/loading in deps creates a stale-fetch race where
   // the cleanup from the loading-state re-render cancels the in-flight call.
   const dataRef = useRef<XRefTableData | null>(null);
   const inFlightRef = useRef(false);
+  // Current tabId mirrored to a ref so the activation latch can read it WITHOUT
+  // taking tabId as a dependency -- otherwise the one-render stale `active=true`
+  // after a document switch (the parent resets its detail tab a render late)
+  // would re-latch the new tabId and trigger an eager fetch.
+  const tabIdRef = useRef(tabId);
+  tabIdRef.current = tabId;
   const onLoadedRef = useRef(onLoaded);
   useEffect(() => { onLoadedRef.current = onLoaded; }, [onLoaded]);
 
@@ -74,20 +83,22 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     setError(null);
     setLoading(false);
     setShowLoading(false);
-    setEverActive(false);
     dataRef.current = null;
     inFlightRef.current = false;
   }, [tabId]);
 
-  // Latch everActive on activation. `tabId` is a dependency so that switching
-  // documents while the XREF tab stays active re-latches: the reset effect above
-  // clears everActive on the tabId change, and without tabId here the new
-  // document's fetch would never fire (it would depend on the parent happening
-  // to reset the detail tab). Toggling the tab still cannot re-run the fetch
-  // effect, which keys on everActive/tabId rather than active.
+  // Latch the current tabId on a genuine activation (active false->true). Keyed
+  // on `active` only (tabId via ref): a document switch does not re-run this, so
+  // the transient stale `active=true` that lingers one render after a switch
+  // cannot latch the new tabId or trigger an eager fetch. A real re-activation
+  // of the XREF tab on the new document latches it and lets the fetch proceed.
   useEffect(() => {
-    if (active) setEverActive(true);
-  }, [active, tabId]);
+    if (active) setLatchedTabId(tabIdRef.current);
+  }, [active]);
+
+  // Derived activation gate: true only for the tabId the user opened XREF on.
+  // False in the same render as a tabId change -- no stale-true window.
+  const everActive = latchedTabId === tabId;
 
   // Fetch on FIRST activation of the XREF tab, then cache for the document's
   // lifetime. Gated on `everActive` (not `active`): the payload can be very
