@@ -2,12 +2,25 @@
  * @file PDF object-tree panel. Renders the hierarchical document structure
  * using react-arborist with lazy child loading and cross-reference navigation.
  */
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
+
+/**
+ * Per-row transient state (which node is mid-load, which is flashing) delivered
+ * to NodeRenderer via context rather than props. react-arborist memoizes its
+ * rows and rebuilds its entire O(N) node model whenever any Tree prop identity
+ * changes; passing these through the render-prop would force that rebuild on
+ * every load/flash toggle. A context change instead re-renders only the row
+ * consumers, leaving the Tree props (and the model) untouched.
+ */
+const RowStateContext = createContext<{ loadingNodeId: string | null; flashNodeId: string | null }>({
+  loadingNodeId: null,
+  flashNodeId: null,
+});
 
 /**
  * Map a backend iconHint to a lucide-react icon component. Returns null for
@@ -146,12 +159,14 @@ function updateNodeChildren(
 }
 
 /** Custom row renderer for tree nodes. Handles selection, flash, and error styling. */
-function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: NodeRendererProps<TreeNodeData> & { isLoading?: boolean; flashNodeIdRef?: React.RefObject<string | null> }) {
+function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeData>) {
+  const { loadingNodeId, flashNodeId } = useContext(RowStateContext);
   const data = node.data;
   const isError = data.error !== '';
   const isSelected = node.isSelected;
   const isInternal = node.isInternal;
-  const isFlashing = data.id === flashNodeIdRef?.current;
+  const isLoading = data.id === loadingNodeId;
+  const isFlashing = data.id === flashNodeId;
 
   // Hide rawKey when the inline objectRef suffix is rendered. PDFBox-style
   // rows show "Pages [2 0 R]" rather than "Pages /Pages [2 0 R]" -- the
@@ -269,8 +284,7 @@ export function TreePanel() {
   const selectedNodeIdRef = useLatest(selectedNodeId);
   const treeDataRef = useLatest(treeData);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
-  const [, setFlashNodeId] = useState<string | null>(null);
-  const flashNodeIdRef = useRef<string | null>(null);
+  const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
 
   // Container sizing for react-arborist
   const containerRef = useRef<HTMLDivElement>(null);
@@ -445,11 +459,9 @@ export function TreePanel() {
           payload: { nodeId: targetNode.backendId, label: targetNode.name, rawKey: targetNode.rawKey, iconHint: targetNode.iconHint },
         });
 
-        // Flash effect
-        flashNodeIdRef.current = targetNode.id;
+        // Flash effect (delivered to rows via RowStateContext)
         setFlashNodeId(targetNode.id);
         setTimeout(() => {
-          flashNodeIdRef.current = null;
           setFlashNodeId(null);
         }, 100);
 
@@ -552,15 +564,15 @@ export function TreePanel() {
     [selectedNodeId, treeData],
   );
 
-  // Stable child render-prop for the same reason: an inline arrow here is a new
-  // function every render, which alone made react-arborist rebuild the whole tree
-  // model on every render (not just on expand). flashNodeIdRef is a stable ref.
+  // Fully stable child render-prop: an inline arrow (or one keyed on loadingNodeId)
+  // is a new function whenever it changes, and react-arborist rebuilds its whole
+  // O(N) model on any Tree prop identity change. Per-row loading/flash now flow
+  // through RowStateContext instead, so this never needs to change.
   const renderNode = useCallback(
-    (props: NodeRendererProps<TreeNodeData>) => (
-      <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} flashNodeIdRef={flashNodeIdRef} />
-    ),
-    [loadingNodeId],
+    (props: NodeRendererProps<TreeNodeData>) => <NodeRenderer {...props} />,
+    [],
   );
+  const rowState = useMemo(() => ({ loadingNodeId, flashNodeId }), [loadingNodeId, flashNodeId]);
 
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
@@ -569,6 +581,7 @@ export function TreePanel() {
       </div>
       <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
         {dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0 && (
+          <RowStateContext.Provider value={rowState}>
           <Tree<TreeNodeData>
             key={activeTabId ?? ''}
             ref={treeRef}
@@ -590,6 +603,7 @@ export function TreePanel() {
           >
             {renderNode}
           </Tree>
+          </RowStateContext.Provider>
         )}
         {navError && (
           <div
