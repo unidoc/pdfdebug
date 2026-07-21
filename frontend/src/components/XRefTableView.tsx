@@ -79,12 +79,15 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     inFlightRef.current = false;
   }, [tabId]);
 
-  // Latch everActive on the first activation. Kept in its own effect so that
-  // toggling the tab does NOT re-run the fetch effect -- only the false->true
-  // transition (once per document) and a tabId reset do.
+  // Latch everActive on activation. `tabId` is a dependency so that switching
+  // documents while the XREF tab stays active re-latches: the reset effect above
+  // clears everActive on the tabId change, and without tabId here the new
+  // document's fetch would never fire (it would depend on the parent happening
+  // to reset the detail tab). Toggling the tab still cannot re-run the fetch
+  // effect, which keys on everActive/tabId rather than active.
   useEffect(() => {
     if (active) setEverActive(true);
-  }, [active]);
+  }, [active, tabId]);
 
   // Fetch on FIRST activation of the XREF tab, then cache for the document's
   // lifetime. Gated on `everActive` (not `active`): the payload can be very
