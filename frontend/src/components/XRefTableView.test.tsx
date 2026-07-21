@@ -524,6 +524,51 @@ describe('9.11-UNIT-017: row list is virtualized', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 9.11-UNIT-018 [P1] AC#4 + virtualization: ArrowDown past the rendered window
+// scrolls the next row into view and focuses it. DOM-sibling focus cannot work
+// here because off-window rows are unmounted; the handler walks the index.
+// ---------------------------------------------------------------------------
+
+describe('9.11-UNIT-018: keyboard nav crosses the virtualization window', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+  });
+
+  test('ArrowDown from the last in-window row focuses the next (initially unrendered) row', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Row 36 is at the edge of the initial ~36-row window; row 37 is not rendered.
+    const row36 = await screen.findByTestId('xref-row-36');
+    expect(screen.queryByTestId('xref-row-37')).toBeNull();
+    row36.focus();
+    fireEvent.keyDown(row36, { key: 'ArrowDown' });
+    // Row 37 must scroll in AND receive focus.
+    const row37 = await screen.findByTestId('xref-row-37');
+    await waitFor(() => expect(document.activeElement).toBe(row37));
+  });
+
+  test('ArrowUp at the top row does not wrap', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    const row1 = await screen.findByTestId('xref-row-1');
+    row1.focus();
+    fireEvent.keyDown(row1, { key: 'ArrowUp' });
+    // No wrap: focus stays on row 1.
+    expect(document.activeElement).toBe(row1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 9.11-UNIT-016 [P1] AC#2 + Task 6.10: onLoaded fires with the entry count
 // after a successful fetch.
 // ---------------------------------------------------------------------------

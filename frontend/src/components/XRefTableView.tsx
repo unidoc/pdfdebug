@@ -150,6 +150,11 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  // Row index to focus after the window updates. Because virtualization unmounts
+  // off-window rows, arrow-key navigation cannot walk DOM siblings; instead it
+  // scrolls the target index into view and focuses it here once it is rendered.
+  const pendingFocusRef = useRef<number | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -172,6 +177,24 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     setScrollTop(0);
   }, [data]);
 
+  // Focus the pending arrow-key target once the window has updated to include it.
+  // Runs on focusTick (a key press) and scrollTop (the window shifted); if the
+  // row is not yet rendered, the pending index survives to the next run.
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (target === null) return;
+    const entry = dataRef.current?.entries?.[target];
+    if (!entry) {
+      pendingFocusRef.current = null;
+      return;
+    }
+    const row = scrollRef.current?.querySelector<HTMLElement>(`[data-testid="xref-row-${entry.objNum}"]`);
+    if (row) {
+      row.focus();
+      pendingFocusRef.current = null;
+    }
+  }, [focusTick, scrollTop]);
+
   /** Click handler: free rows are no-ops; in-use / in-objstm dispatch navigation. */
   const handleRowClick = useCallback(
     (entry: XRefEntryData) => {
@@ -184,20 +207,30 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
 
   /**
    * Keyboard handler per AC4: ArrowDown / ArrowUp move row focus (no wrap);
-   * Enter / Space activate non-free rows.
+   * Enter / Space activate non-free rows. `index` is the row's absolute position
+   * in the full entry list. Because the table is virtualized, moving focus walks
+   * the index (not DOM siblings, which would hit spacer rows or unmounted rows):
+   * it scrolls the target into view and defers the focus to the effect above.
    */
   const handleRowKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTableRowElement>, entry: XRefEntryData) => {
-      if (e.key === 'ArrowDown') {
+    (e: React.KeyboardEvent<HTMLTableRowElement>, index: number, entry: XRefEntryData) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const next = e.currentTarget.nextElementSibling as HTMLTableRowElement | null;
-        if (next) next.focus();
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = e.currentTarget.previousElementSibling as HTMLTableRowElement | null;
-        if (prev) prev.focus();
+        const total = dataRef.current?.entries?.length ?? 0;
+        const target = e.key === 'ArrowDown' ? index + 1 : index - 1;
+        if (target < 0 || target >= total) return; // no wrap
+        const el = scrollRef.current;
+        if (el) {
+          // Ensure the target row is inside the scroll viewport so it renders in
+          // the next window; the effect then focuses it.
+          const rowTop = target * XREF_ROW_HEIGHT;
+          const rowBottom = rowTop + XREF_ROW_HEIGHT;
+          if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+          else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
+          setScrollTop(el.scrollTop);
+        }
+        pendingFocusRef.current = target;
+        setFocusTick((t) => t + 1);
         return;
       }
       if (e.key === 'Enter' || e.key === ' ') {
@@ -278,7 +311,8 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
               <td colSpan={5} />
             </tr>
           )}
-          {rowsToRender.map((entry) => {
+          {rowsToRender.map((entry, i) => {
+            const index = firstVisible + i;
             const isFree = entry.status === 'free';
             const isInObjStm = entry.status === 'in-objstm';
             const rowClass = [
@@ -301,7 +335,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
                 aria-disabled={isFree ? 'true' : undefined}
                 data-testid={`xref-row-${entry.objNum}`}
                 onClick={() => handleRowClick(entry)}
-                onKeyDown={(e) => handleRowKeyDown(e, entry)}
+                onKeyDown={(e) => handleRowKeyDown(e, index, entry)}
               >
                 <td className="px-2 py-1 text-right text-text" data-testid={`xref-row-objnum-${entry.objNum}`}>
                   {entry.objNum}
