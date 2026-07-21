@@ -437,10 +437,10 @@ describe('9.11-UNIT-015: fetch deferred until activation', () => {
     mockGetXRefTable.mockResolvedValue(xrefBasic);
   });
 
-  test('active=false does not fetch', async () => {
+  test('active=false does not fetch', () => {
     render(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
-    // Let mount effects flush, then assert nothing was fetched.
-    await new Promise((r) => setTimeout(r, 50));
+    // render() flushes mount effects under act; with active=false the fetch
+    // effect exits synchronously, so no fetch is scheduled -- assert immediately.
     expect(mockGetXRefTable).not.toHaveBeenCalled();
   });
 

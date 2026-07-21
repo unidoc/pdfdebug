@@ -55,7 +55,11 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Cache flags as refs so the fetch effect only re-runs when tabId / active
+  // Latches true on the first activation of the XREF tab for the current
+  // document; gates the fetch so toggling the tab off/on mid-flight cannot
+  // kick off a second (large) fetch. Reset on tabId change.
+  const [everActive, setEverActive] = useState(false);
+  // Cache flags as refs so the fetch effect only re-runs when tabId / everActive
   // change. Including data/loading in deps creates a stale-fetch race where
   // the cleanup from the loading-state re-render cancels the in-flight call.
   const dataRef = useRef<XRefTableData | null>(null);
@@ -70,21 +74,31 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     setError(null);
     setLoading(false);
     setShowLoading(false);
+    setEverActive(false);
     dataRef.current = null;
     inFlightRef.current = false;
   }, [tabId]);
 
+  // Latch everActive on the first activation. Kept in its own effect so that
+  // toggling the tab does NOT re-run the fetch effect -- only the false->true
+  // transition (once per document) and a tabId reset do.
+  useEffect(() => {
+    if (active) setEverActive(true);
+  }, [active]);
+
   // Fetch on FIRST activation of the XREF tab, then cache for the document's
-  // lifetime. Gated on `active`: the payload can be very large (a 750-page,
-  // 129k-entry PDF serializes ~12 MB of JSON), and this pane is force-mounted,
-  // so an unconditional fetch would JSON.parse ~12 MB + render 129k rows on the
-  // main thread on EVERY document open -- freezing the UI while the user is
-  // still on the Object tree. Deferring to activation keeps open instant; the
-  // "XREF (N)" count label simply populates on first XREF open instead of on
-  // load. Stale-fetch guard via `cancelled`.
+  // lifetime. Gated on `everActive` (not `active`): the payload can be very
+  // large (a 750-page, 129k-entry PDF serializes ~12 MB of JSON), and this pane
+  // is force-mounted, so an unconditional fetch would JSON.parse ~12 MB + render
+  // 129k rows on the main thread on EVERY document open -- freezing the UI while
+  // the user is still on the Object tree. Deferring to activation keeps open
+  // instant; the "XREF (N)" count label populates on first XREF open instead of
+  // on load. Because `active` is not a dependency, toggling the tab off/on
+  // mid-flight cannot start a duplicate fetch; `cancelled` only guards a tabId
+  // (document) change.
   useEffect(() => {
     if (!tabId) return;
-    if (!active) return;
+    if (!everActive) return;
     if (dataRef.current !== null) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -108,13 +122,13 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
         inFlightRef.current = false;
       });
     return () => {
-      // Clear inFlightRef in the cleanup too: the .then/.catch branches return
-      // early when cancelled, so without this the slot stays "in flight"
-      // forever and a re-activation under the same tabId would be blocked.
+      // Clear inFlightRef so a StrictMode remount or a tabId reset can fetch
+      // again; the .then/.catch branches return early when cancelled. An
+      // active-toggle never reaches here because `active` is not a dependency.
       cancelled = true;
       inFlightRef.current = false;
     };
-  }, [tabId, active]);
+  }, [tabId, everActive]);
 
   // 200ms loading debounce -- mirrors the showContentStreamLoading pattern in
   // DetailPanel.tsx.
