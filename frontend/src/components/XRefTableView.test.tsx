@@ -487,6 +487,23 @@ describe('9.11-UNIT-015: fetch deferred until activation', () => {
     expect(await screen.findByTestId('xref-row-objnum-7')).toBeInTheDocument();
     expect(mockGetXRefTable).toHaveBeenCalledWith('tab-2');
   });
+
+  test('returning to a previously-opened document on the Object tab does NOT eagerly re-fetch', async () => {
+    mockGetXRefTable.mockResolvedValue(xrefBasic);
+    // Doc A: open XREF (latches A).
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await screen.findByTestId('xref-row-objnum-1');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+    // Switch to doc B on the Object tab (inactive).
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Switch BACK to doc A, still on the Object tab (inactive). The latch must
+    // have been cleared on the first switch, so returning to A must NOT re-fetch.
+    rerender(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1); // still just the original doc-A fetch
+  });
 });
 
 // ---------------------------------------------------------------------------

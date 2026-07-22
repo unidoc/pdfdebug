@@ -62,6 +62,9 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   // render after a document switch and eagerly fetch a document the user never
   // opened XREF on. The derived value is false in the same render as the switch.
   const [latchedTabId, setLatchedTabId] = useState<string | null>(null);
+  // Mirrors the tabId this component last rendered for, so the latch can be reset
+  // render-phase the instant the document changes (below).
+  const [seenTabId, setSeenTabId] = useState(tabId);
   // Cache flags as refs so the fetch effect only re-runs when tabId / everActive
   // change. Including data/loading in deps creates a stale-fetch race where
   // the cleanup from the loading-state re-render cancels the in-flight call.
@@ -73,6 +76,17 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   // would re-latch the new tabId and trigger an eager fetch.
   const tabIdRef = useRef(tabId);
   tabIdRef.current = tabId;
+
+  // Render-phase reset (React's "reset state when a prop changes" pattern): the
+  // moment tabId changes, forget the previous activation. This runs in the SAME
+  // render as the switch -- unlike an effect, which lands a render late -- so a
+  // document the user previously opened XREF on can never return with a stale
+  // latch and eager-fetch its ~12 MB table while sitting on the Object tab.
+  if (seenTabId !== tabId) {
+    setSeenTabId(tabId);
+    setLatchedTabId(null);
+  }
+
   const onLoadedRef = useRef(onLoaded);
   useEffect(() => { onLoadedRef.current = onLoaded; }, [onLoaded]);
 
@@ -97,7 +111,9 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   }, [active]);
 
   // Derived activation gate: true only for the tabId the user opened XREF on.
-  // False in the same render as a tabId change -- no stale-true window.
+  // The render-phase reset above nulls the latch on any tabId change, so this is
+  // false in the same render as a switch AND on a return visit to a
+  // previously-opened document -- no stale-true window for the fetch effect.
   const everActive = latchedTabId === tabId;
 
   // Fetch on FIRST activation of the XREF tab, then cache for the document's
