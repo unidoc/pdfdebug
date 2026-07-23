@@ -422,19 +422,34 @@ describe('9.11-UNIT-014: error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-015 [P1] AC#2: eager fetch on mount so the parent can populate
-// the "XREF (N)" tab label without waiting for first tab activation. The
-// `active` prop no longer gates the fetch (revised after 9-12).
+// 9.11-UNIT-015 [P1]: the fetch is DEFERRED until the XREF tab is first
+// activated. The payload can be very large (a 129k-entry PDF serializes ~12 MB);
+// because the pane is force-mounted, an unconditional fetch would JSON.parse
+// ~12 MB and render all rows on the main thread on EVERY document open, freezing
+// the UI while the user is still on the Object tree. active=false must NOT fetch;
+// activation triggers a single fetch. (Supersedes the pre-perf "eager fetch on
+// mount regardless of active" behavior.)
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-015: eager fetch on mount', () => {
+describe('9.11-UNIT-015: fetch deferred until activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
   });
 
-  test('active=false still fetches eagerly', async () => {
+  test('active=false does not fetch', () => {
     render(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // render() flushes mount effects under act; with active=false the fetch
+    // effect exits synchronously, so no fetch is scheduled -- assert immediately.
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+  });
+
+  test('activation after an inactive mount triggers a single fetch', async () => {
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+    rerender(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
     await waitFor(() => {
       expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
     });
@@ -447,6 +462,131 @@ describe('9.11-UNIT-015: eager fetch on mount', () => {
       expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
     });
     expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+  });
+
+  test('switching documents while XREF is inactive does NOT eagerly fetch; re-activating fetches the new doc', async () => {
+    // Distinct data per document so re-activation can be asserted by rendered rows.
+    mockGetXRefTable.mockImplementation((id: string) =>
+      Promise.resolve(id === 'tab-2' ? xrefSingleInUse : xrefBasic),
+    );
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await screen.findByTestId('xref-row-objnum-1'); // tab-1 fetched + rendered
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Switch documents with the XREF tab INACTIVE (parent lands on Object). A
+    // stale activation must NOT eagerly fetch the new, unopened document.
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).not.toHaveBeenCalledWith('tab-2');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Re-activating XREF on the new document fetches and renders it.
+    rerender(<XRefTableView tabId="tab-2" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    expect(await screen.findByTestId('xref-row-objnum-7')).toBeInTheDocument();
+    expect(mockGetXRefTable).toHaveBeenCalledWith('tab-2');
+  });
+
+  test('returning to a previously-opened document on the Object tab does NOT eagerly re-fetch', async () => {
+    mockGetXRefTable.mockResolvedValue(xrefBasic);
+    // Doc A: open XREF (latches A).
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await screen.findByTestId('xref-row-objnum-1');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+    // Switch to doc B on the Object tab (inactive).
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Switch BACK to doc A, still on the Object tab (inactive). The latch must
+    // have been cleared on the first switch, so returning to A must NOT re-fetch.
+    rerender(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1); // still just the original doc-A fetch
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.11-UNIT-017 [P1] Perf: the row list is viewport-virtualized -- a large xref
+// (a 750-page PDF can carry ~129k entries) must render only a bounded window of
+// rows, not one <tr> per entry, or the main thread freezes on render.
+// ---------------------------------------------------------------------------
+
+describe('9.11-UNIT-017: row list is virtualized', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('a large table renders only a bounded window of rows', async () => {
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+    const { container } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length).toBeGreaterThan(0);
+    });
+    // Only a small window commits to the DOM (jsdom viewport fallback ~= 36
+    // rows), never all 3000. A spacer <tr> reserves the off-window scroll height.
+    const rendered = container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(200);
+    expect(container.querySelectorAll('tr[aria-hidden="true"]').length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.11-UNIT-018 [P1] AC#4 + virtualization: ArrowDown past the rendered window
+// scrolls the next row into view and focuses it. DOM-sibling focus cannot work
+// here because off-window rows are unmounted; the handler walks the index.
+// ---------------------------------------------------------------------------
+
+describe('9.11-UNIT-018: keyboard nav crosses the virtualization window', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+  });
+
+  test('ArrowDown from the last in-window row focuses the next (initially unrendered) row', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Row 36 is at the edge of the initial ~36-row window; row 37 is not rendered.
+    const row36 = await screen.findByTestId('xref-row-36');
+    expect(screen.queryByTestId('xref-row-37')).toBeNull();
+    row36.focus();
+    fireEvent.keyDown(row36, { key: 'ArrowDown' });
+    // Row 37 must scroll in AND receive focus.
+    const row37 = await screen.findByTestId('xref-row-37');
+    await waitFor(() => expect(document.activeElement).toBe(row37));
+  });
+
+  test('ArrowUp at the top row does not wrap', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    const row1 = await screen.findByTestId('xref-row-1');
+    row1.focus();
+    fireEvent.keyDown(row1, { key: 'ArrowUp' });
+    // No wrap: focus stays on row 1.
+    expect(document.activeElement).toBe(row1);
   });
 });
 

@@ -36,21 +36,57 @@ export interface XRefTableViewProps {
   onLoaded: (count: number) => void;
 }
 
+/** Fixed row height (px) for windowing math; each rendered row is pinned to this
+ *  height so the spacer geometry matches the true scroll height. */
+const XREF_ROW_HEIGHT = 28;
+/** Rows rendered above/below the viewport for smooth scrolling. */
+const XREF_OVERSCAN = 12;
+
 /**
  * Document-level XREF table view. Lazy-fetches on first activation; data is
  * cached in component state for the lifetime of the document (tabId change
- * resets state).
+ * resets state). The row list is viewport-virtualized (only the visible slice
+ * is committed to the DOM) so a large xref -- a 750-page PDF can carry ~129k
+ * entries -- does not freeze the UI on render. Mirrors the FontMappingTable /
+ * PlainTextView windowing pattern.
  */
-export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: XRefTableViewProps) {
+export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTableViewProps) {
   const [data, setData] = useState<XRefTableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Cache flags as refs so the fetch effect only re-runs when tabId / active
+  // latchedTabId records the tabId the user actually activated the XREF tab on.
+  // The fetch gates on the DERIVED `everActive = latchedTabId === tabId` (below),
+  // NOT a boolean+reset: a boolean reset in an effect is applied a render late,
+  // so the fetch effect could observe a stale `everActive=true` on the first
+  // render after a document switch and eagerly fetch a document the user never
+  // opened XREF on. The derived value is false in the same render as the switch.
+  const [latchedTabId, setLatchedTabId] = useState<string | null>(null);
+  // Mirrors the tabId this component last rendered for, so the latch can be reset
+  // render-phase the instant the document changes (below).
+  const [seenTabId, setSeenTabId] = useState(tabId);
+  // Cache flags as refs so the fetch effect only re-runs when tabId / everActive
   // change. Including data/loading in deps creates a stale-fetch race where
   // the cleanup from the loading-state re-render cancels the in-flight call.
   const dataRef = useRef<XRefTableData | null>(null);
   const inFlightRef = useRef(false);
+  // Current tabId mirrored to a ref so the activation latch can read it WITHOUT
+  // taking tabId as a dependency -- otherwise the one-render stale `active=true`
+  // after a document switch (the parent resets its detail tab a render late)
+  // would re-latch the new tabId and trigger an eager fetch.
+  const tabIdRef = useRef(tabId);
+  tabIdRef.current = tabId;
+
+  // Render-phase reset (React's "reset state when a prop changes" pattern): the
+  // moment tabId changes, forget the previous activation. This runs in the SAME
+  // render as the switch -- unlike an effect, which lands a render late -- so a
+  // document the user previously opened XREF on can never return with a stale
+  // latch and eager-fetch its ~12 MB table while sitting on the Object tab.
+  if (seenTabId !== tabId) {
+    setSeenTabId(tabId);
+    setLatchedTabId(null);
+  }
+
   const onLoadedRef = useRef(onLoaded);
   useEffect(() => { onLoadedRef.current = onLoaded; }, [onLoaded]);
 
@@ -65,12 +101,34 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     inFlightRef.current = false;
   }, [tabId]);
 
-  // Eager fetch on tabId change so the parent can render the "XREF (N)"
-  // tab label without waiting for first activation. Stale-fetch guard via
-  // `cancelled`. The `active` prop is intentionally NOT a gate -- the xref is
-  // cheap to extract from pdfcpu's already-parsed state.
+  // Latch the current tabId on a genuine activation (active false->true). Keyed
+  // on `active` only (tabId via ref): a document switch does not re-run this, so
+  // the transient stale `active=true` that lingers one render after a switch
+  // cannot latch the new tabId or trigger an eager fetch. A real re-activation
+  // of the XREF tab on the new document latches it and lets the fetch proceed.
+  useEffect(() => {
+    if (active) setLatchedTabId(tabIdRef.current);
+  }, [active]);
+
+  // Derived activation gate: true only for the tabId the user opened XREF on.
+  // The render-phase reset above nulls the latch on any tabId change, so this is
+  // false in the same render as a switch AND on a return visit to a
+  // previously-opened document -- no stale-true window for the fetch effect.
+  const everActive = latchedTabId === tabId;
+
+  // Fetch on FIRST activation of the XREF tab, then cache for the document's
+  // lifetime. Gated on `everActive` (not `active`): the payload can be very
+  // large (a 750-page, 129k-entry PDF serializes ~12 MB of JSON), and this pane
+  // is force-mounted, so an unconditional fetch would JSON.parse ~12 MB + render
+  // 129k rows on the main thread on EVERY document open -- freezing the UI while
+  // the user is still on the Object tree. Deferring to activation keeps open
+  // instant; the "XREF (N)" count label populates on first XREF open instead of
+  // on load. Because `active` is not a dependency, toggling the tab off/on
+  // mid-flight cannot start a duplicate fetch; `cancelled` only guards a tabId
+  // (document) change.
   useEffect(() => {
     if (!tabId) return;
+    if (!everActive) return;
     if (dataRef.current !== null) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
@@ -94,13 +152,13 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
         inFlightRef.current = false;
       });
     return () => {
-      // Clear inFlightRef in the cleanup too: the .then/.catch branches return
-      // early when cancelled, so without this the slot stays "in flight"
-      // forever and a re-activation under the same tabId would be blocked.
+      // Clear inFlightRef so a StrictMode remount or a tabId reset can fetch
+      // again; the .then/.catch branches return early when cancelled. An
+      // active-toggle never reaches here because `active` is not a dependency.
       cancelled = true;
       inFlightRef.current = false;
     };
-  }, [tabId]);
+  }, [tabId, everActive]);
 
   // 200ms loading debounce -- mirrors the showContentStreamLoading pattern in
   // DetailPanel.tsx.
@@ -112,6 +170,57 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     const timer = setTimeout(() => setShowLoading(true), 200);
     return () => clearTimeout(timer);
   }, [loading]);
+
+  // --- Viewport virtualization (see class doc). The scroll container mounts
+  // only once `data` is present (after the early returns below), so the measure
+  // and reset effects key on `data` rather than `[]`. ---
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  // Row index to focus after the window updates. Because virtualization unmounts
+  // off-window rows, arrow-key navigation cannot walk DOM siblings; instead it
+  // scrolls the target index into view and focuses it here once it is rendered.
+  const pendingFocusRef = useRef<number | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setViewportHeight(el.clientHeight);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  // Reset the window to the top when the document (row set) changes, so a stale
+  // scrollTop never slices past the end of a shorter table.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [data]);
+
+  // Focus the pending arrow-key target once the window has updated to include it.
+  // Runs on focusTick (a key press) and scrollTop (the window shifted); if the
+  // row is not yet rendered, the pending index survives to the next run.
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (target === null) return;
+    const entry = dataRef.current?.entries?.[target];
+    if (!entry) {
+      pendingFocusRef.current = null;
+      return;
+    }
+    const row = scrollRef.current?.querySelector<HTMLElement>(`[data-testid="xref-row-${entry.objNum}"]`);
+    if (row) {
+      row.focus();
+      pendingFocusRef.current = null;
+    }
+  }, [focusTick, scrollTop]);
 
   /** Click handler: free rows are no-ops; in-use / in-objstm dispatch navigation. */
   const handleRowClick = useCallback(
@@ -125,20 +234,30 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
 
   /**
    * Keyboard handler per AC4: ArrowDown / ArrowUp move row focus (no wrap);
-   * Enter / Space activate non-free rows.
+   * Enter / Space activate non-free rows. `index` is the row's absolute position
+   * in the full entry list. Because the table is virtualized, moving focus walks
+   * the index (not DOM siblings, which would hit spacer rows or unmounted rows):
+   * it scrolls the target into view and defers the focus to the effect above.
    */
   const handleRowKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTableRowElement>, entry: XRefEntryData) => {
-      if (e.key === 'ArrowDown') {
+    (e: React.KeyboardEvent<HTMLTableRowElement>, index: number, entry: XRefEntryData) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const next = e.currentTarget.nextElementSibling as HTMLTableRowElement | null;
-        if (next) next.focus();
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = e.currentTarget.previousElementSibling as HTMLTableRowElement | null;
-        if (prev) prev.focus();
+        const total = dataRef.current?.entries?.length ?? 0;
+        const target = e.key === 'ArrowDown' ? index + 1 : index - 1;
+        if (target < 0 || target >= total) return; // no wrap
+        const el = scrollRef.current;
+        if (el) {
+          // Ensure the target row is inside the scroll viewport so it renders in
+          // the next window; the effect then focuses it.
+          const rowTop = target * XREF_ROW_HEIGHT;
+          const rowBottom = rowTop + XREF_ROW_HEIGHT;
+          if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+          else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
+          setScrollTop(el.scrollTop);
+        }
+        pendingFocusRef.current = target;
+        setFocusTick((t) => t + 1);
         return;
       }
       if (e.key === 'Enter' || e.key === ' ') {
@@ -182,8 +301,22 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
     return <div className="h-full" data-testid="xref-empty-initial" />;
   }
 
+  const entries = data.entries ?? [];
+  const totalRows = entries.length;
+  const firstVisible = Math.max(0, Math.floor(scrollTop / XREF_ROW_HEIGHT) - XREF_OVERSCAN);
+  // A zero clientHeight (jsdom / pre-measure) falls back to a bounded default so
+  // the window stays small rather than rendering every row.
+  const visibleCount = Math.ceil((viewportHeight || 320) / XREF_ROW_HEIGHT) + XREF_OVERSCAN * 2;
+  const lastVisible = Math.min(totalRows, firstVisible + visibleCount);
+  const rowsToRender = entries.slice(firstVisible, lastVisible);
+
   return (
-    <div className="h-full overflow-auto" data-testid="xref-table-container">
+    <div
+      className="h-full overflow-auto"
+      data-testid="xref-table-container"
+      ref={scrollRef}
+      onScroll={handleScroll}
+    >
       <table className="w-full text-xs font-mono border-collapse">
         {/* `position: sticky` on <thead> is unreliable on WebKit2GTK and older
             Safari/WebKit; apply sticky on each <th> so the header sticks on every
@@ -199,7 +332,14 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
           </tr>
         </thead>
         <tbody>
-          {(data.entries ?? []).map((entry) => {
+          {/* Top spacer reserves the scroll height of the rows above the window. */}
+          {firstVisible > 0 && (
+            <tr aria-hidden="true" style={{ height: firstVisible * XREF_ROW_HEIGHT }}>
+              <td colSpan={5} />
+            </tr>
+          )}
+          {rowsToRender.map((entry, i) => {
+            const index = firstVisible + i;
             const isFree = entry.status === 'free';
             const isInObjStm = entry.status === 'in-objstm';
             const rowClass = [
@@ -217,11 +357,12 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
               <tr
                 key={`${entry.objNum}:${entry.gen}`}
                 className={rowClass}
+                style={{ height: XREF_ROW_HEIGHT }}
                 tabIndex={0}
                 aria-disabled={isFree ? 'true' : undefined}
                 data-testid={`xref-row-${entry.objNum}`}
                 onClick={() => handleRowClick(entry)}
-                onKeyDown={(e) => handleRowKeyDown(e, entry)}
+                onKeyDown={(e) => handleRowKeyDown(e, index, entry)}
               >
                 <td className="px-2 py-1 text-right text-text" data-testid={`xref-row-objnum-${entry.objNum}`}>
                   {entry.objNum}
@@ -245,6 +386,12 @@ export function XRefTableView({ tabId, active: _active, onNavigate, onLoaded }: 
               </tr>
             );
           })}
+          {/* Bottom spacer reserves the scroll height of the rows below. */}
+          {lastVisible < totalRows && (
+            <tr aria-hidden="true" style={{ height: (totalRows - lastVisible) * XREF_ROW_HEIGHT }}>
+              <td colSpan={5} />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
