@@ -134,3 +134,38 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 		t.Errorf("[P1] 14.3-INTG-002: --ops silently emits only stream 1's operators; a multi-stream page must emit all streams' operators or a distinct trailing truncation meta record (AC4):\n%s", stdout)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 14.3-INTG-002 [P1] AC4 (--raw surface): `dump stream --page 1 --raw` on a
+// multi-stream page must not present stream 1's bytes as the whole content
+// stream with no signal. --raw's stdout stays a verbatim byte dump (an inline
+// marker would corrupt it), so the truncation must be disclosed on STDERR.
+// GREEN: stdout is stream 1 only (byte-exact, no stream-2 content) AND stderr
+// carries the truncation note; exit 0. Guards the floor path's --raw surface,
+// which is otherwise a silent truncation.
+// ---------------------------------------------------------------------------
+
+func TestMultiStream_RawSignalsTruncationOnStderr(t *testing.T) {
+	bin := buildCLI(t)
+	f := fixturePath(t, "multi-content-stream.pdf")
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--page", "1", "--raw", f)
+	if ec != 0 {
+		t.Fatalf("[P1] 14.3-INTG-002 (--raw): must exit 0, got %d\nstderr: %s", ec, stderr)
+	}
+
+	// stdout stays a byte-exact dump of stream 1 ONLY: stream 1's `cm` is present,
+	// and no stream-2 content (`BT`, `Hello`) leaks in or corrupts the bytes.
+	if !strings.Contains(stdout, "cm") {
+		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout missing stream 1 content (expected `cm`): %q", stdout)
+	}
+	if strings.Contains(stdout, "Hello") || strings.Contains(stdout, "BT") {
+		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout leaked stream 2 content; --raw must dump only the first decoded stream: %q", stdout)
+	}
+
+	// The truncation must be disclosed on stderr - the only channel that does not
+	// corrupt the raw byte stream. Without it, --raw is a silent truncation.
+	if !strings.Contains(stderr, "truncated") || !strings.Contains(stderr, "of 2") {
+		t.Errorf("[P1] 14.3-INTG-002 (--raw): multi-stream truncation must be disclosed on stderr (expected a `truncated ... of 2` note), got: %q", stderr)
+	}
+}

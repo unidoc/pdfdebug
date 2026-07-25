@@ -7,16 +7,23 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
-// its content stream. Returns empty string (no error) when the page has no
-// Contents entry. For pages with an array of content stream refs, returns the
-// first ref's node ID.
-func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
+// GetPageContentStreamRef resolves a 1-based page number to its content
+// stream's node ID AND the number of content streams in its /Contents entry, in
+// a SINGLE page-dict resolution. Node ID is empty (no error) when the page has
+// no /Contents; for an array it is the first ref's node ID (error if the first
+// element is not an indirect reference). streamCount is 0 with no /Contents, 1
+// for a single indirect ref, and for an array the count of its indirect-ref
+// elements only - a degenerate null / non-ref element contributes no stream per
+// ISO 32000-1 7.8.2, so counting len(v) would falsely report "showing stream 1
+// of N" for e.g. [ref null] where the single stream is shown in full. Combining
+// the two reads keeps the Story 14.3 multi-stream truncation marker from
+// resolving (and cache-mutating) the page dict twice per dump.
+func (ins *Inspector) GetPageContentStreamRef(tabID string, pageNum int) (nodeID string, streamCount int, err error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	// AC1: PageDict mutates the pdfcpu page-resolution cache; serialize.
+	// PageDict mutates the pdfcpu page-resolution cache; serialize.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
@@ -27,92 +34,49 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 		return e
 	})
 	if err != nil {
-		return "", wrapPDFError(err)
+		return "", 0, wrapPDFError(err)
 	}
 
 	if pageDict == nil {
-		return "", nil
+		return "", 0, nil
 	}
 
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
-		return "", nil
+		return "", 0, nil
 	}
 
 	switch v := contents.(type) {
 	case pdfcpu_types.IndirectRef:
-		return fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value()), nil
+		return fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value()), 1, nil
 	case pdfcpu_types.Array:
 		if len(v) == 0 {
-			return "", nil
+			return "", 0, nil
 		}
-		ref, ok := v[0].(pdfcpu_types.IndirectRef)
-		if !ok {
-			return "", fmt.Errorf("contents array element is not an indirect reference")
-		}
-		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), nil
-	default:
-		return "", fmt.Errorf("unexpected Contents type: %T", contents)
-	}
-}
-
-// GetPageContentStreamCount resolves a 1-based page number to the number of
-// content streams in its /Contents entry: 0 when the page has no /Contents, 1
-// for a single indirect ref, and, for an array, the count of its indirect-ref
-// elements (a degenerate null / non-ref element contributes no stream per ISO
-// 32000-1 7.8.2, so it is not counted). It is the additive companion to
-// GetPageContentStreamNodeID (whose
-// single-string return discards the array length) added for the Story 14.3
-// multi-stream truncation marker; keeping it a separate method avoids rippling
-// the widely-called GetPageContentStreamNodeID signature. Returns 0 (no error)
-// for a page with no Contents.
-func (ins *Inspector) GetPageContentStreamCount(tabID string, pageNum int) (int, error) {
-	doc, err := ins.GetDocument(tabID)
-	if err != nil {
-		return 0, err
-	}
-	// PageDict mutates the pdfcpu page-resolution cache; serialize (same as
-	// GetPageContentStreamNodeID).
-	doc.pdfMu.Lock()
-	defer doc.pdfMu.Unlock()
-
-	var pageDict pdfcpu_types.Dict
-	err = safeCall(func() error {
-		var e error
-		pageDict, _, _, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
-	})
-	if err != nil {
-		return 0, wrapPDFError(err)
-	}
-	if pageDict == nil {
-		return 0, nil
-	}
-
-	contents, found := pageDict.Find("Contents")
-	if !found || contents == nil {
-		return 0, nil
-	}
-
-	switch v := contents.(type) {
-	case pdfcpu_types.IndirectRef:
-		return 1, nil
-	case pdfcpu_types.Array:
-		// Count only indirect-ref elements: per ISO 32000-1 7.8.2 the content is
-		// the concatenation of the array's STREAM refs, so a degenerate null or
-		// non-ref element contributes no stream. Counting len(v) would report a
-		// false "showing stream 1 of N" truncation for e.g. [ref null] where the
-		// single stream is in fact shown in full.
 		count := 0
 		for _, e := range v {
 			if _, ok := e.(pdfcpu_types.IndirectRef); ok {
 				count++
 			}
 		}
-		return count, nil
+		ref, ok := v[0].(pdfcpu_types.IndirectRef)
+		if !ok {
+			return "", 0, fmt.Errorf("contents array element is not an indirect reference")
+		}
+		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), count, nil
 	default:
-		return 0, nil
+		return "", 0, fmt.Errorf("unexpected Contents type: %T", contents)
 	}
+}
+
+// GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
+// its content stream. Returns empty string (no error) when the page has no
+// Contents entry. For pages with an array of content stream refs, returns the
+// first ref's node ID. Thin wrapper over GetPageContentStreamRef that discards
+// the stream count (bound in pdfservice.Service; signature preserved).
+func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
+	nodeID, _, err := ins.GetPageContentStreamRef(tabID, pageNum)
+	return nodeID, err
 }
 
 // GetPageNode resolves a 1-based page number to a fully-populated TreeNode for

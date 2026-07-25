@@ -404,7 +404,7 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // 14.3-UNIT-002 [P1] AC3 (Story 14.3, Code Review #1 fix): the anti-false-
-// positive negative path of GetPageContentStreamCount.
+// positive negative path of GetPageContentStreamRef's stream count.
 //
 // The multi-stream truncation marker fires only when streamCount >= 2. Per ISO
 // 32000-1 7.8.2 a page's content is the concatenation of its /Contents array's
@@ -419,18 +419,18 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 // The `[ref null]` case is built by an in-memory page-dict mutation, not a disk
 // fixture: pdfcpu rejects an on-disk /Contents array containing a null element
 // at read time (DereferenceStreamDict: wrong type <nil>), so the only way to
-// drive that degenerate array into GetPageContentStreamCount is to inject it
+// drive that degenerate array into GetPageContentStreamRef is to inject it
 // after a valid open. This still exercises the production count loop verbatim.
 // ---------------------------------------------------------------------------
 
 // contentStreamObj builds a minimal, valid content-stream object body numbered
-// n for the GetPageContentStreamCount fixtures.
+// n for the GetPageContentStreamRef count fixtures.
 func contentStreamObj(n int) string {
 	body := "BT /F1 12 Tf 100 700 Td (x) Tj ET"
 	return fmt.Sprintf("%d 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n", n, len(body), body)
 }
 
-func TestGetPageContentStreamCount(t *testing.T) {
+func TestGetPageContentStreamRefCount(t *testing.T) {
 	catalog := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
 	pages := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
 
@@ -469,7 +469,7 @@ func TestGetPageContentStreamCount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			objs := append([]string{catalog, pages, tc.page}, tc.objs...)
 			ins, tabID := writeTempPDF(t, "count.pdf", assembleDiffPDF(1, objs...))
-			got, err := ins.GetPageContentStreamCount(tabID, 1)
+			_, got, err := ins.GetPageContentStreamRef(tabID, 1)
 			if err != nil {
 				t.Fatalf("[14.3-UNIT-002] %s: unexpected error: %v", tc.name, err)
 			}
@@ -506,7 +506,7 @@ func TestGetPageContentStreamCount(t *testing.T) {
 		// Inject the degenerate [ref null] shape the fix guards against.
 		pageDict["Contents"] = pdfcpu_types.Array{ref, nil}
 
-		got, err := ins.GetPageContentStreamCount(tabID, 1)
+		_, got, err := ins.GetPageContentStreamRef(tabID, 1)
 		if err != nil {
 			t.Fatalf("[14.3-UNIT-002] unexpected error: %v", err)
 		}

@@ -194,6 +194,13 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 	}
 
 	if flags.raw {
+		// A marker cannot ride stdout without corrupting the verbatim byte dump,
+		// so on a multi-stream page disclose the truncation on STDERR instead -
+		// otherwise --raw would present stream 1's bytes as the whole content
+		// stream with no signal on any channel (Story 14.3 AC4, --raw surface).
+		if result.Truncated {
+			fmt.Fprint(os.Stderr, multiStreamTruncationNote(result))
+		}
 		if _, err := io.WriteString(os.Stdout, result.Raw); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write raw output: %v\n", err)
 			return 2
@@ -220,6 +227,14 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 	return 0
 }
 
+// multiStreamTruncationNote is the one-line note disclosing that a multi-stream
+// page's /Contents was truncated to its first decoded stream (Story 14.3 floor
+// path). Shared by the plain-text (stdout) and --raw (stderr) surfaces so their
+// wording cannot drift; callers guard on result.Truncated before emitting it.
+func multiStreamTruncationNote(result *pdfcore.ContentStreamData) string {
+	return fmt.Sprintf("(truncated: showing stream %d of %d; page /Contents is a multi-stream array)\n", result.Shown, result.StreamCount)
+}
+
 // printStreamPlain renders the decoded content stream as a human-readable
 // operator listing: one operator per line, operands before the operator in
 // PDF content-stream order (let it flow; do not tabulate). NON-CONTRACTUAL;
@@ -233,7 +248,7 @@ func printStreamPlain(out io.Writer, result *pdfcore.ContentStreamData) error {
 	// to zero operators must still disclose that streams 2..N exist, otherwise
 	// the "(empty content stream)" line would be a silent truncation.
 	if result.Truncated {
-		fmt.Fprintf(&b, "(truncated: showing stream %d of %d; page /Contents is a multi-stream array)\n", result.Shown, result.StreamCount)
+		b.WriteString(multiStreamTruncationNote(result))
 	}
 	// A content-stream object can exist yet decode to zero operators (an empty
 	// /Contents stream). Surface that as a one-line note so plain output is never
@@ -306,14 +321,10 @@ func resolveStreamNode(inspector *pdfcore.Inspector, info *pdfcore.DocumentInfo,
 			writeJSONError(os.Stderr, fmt.Sprintf("page %d out of range: document has %d pages", flags.page, info.PageCount))
 			return "", 0, 0, 2
 		}
-		id, err := inspector.GetPageContentStreamNodeID("cli", flags.page)
-		if err != nil {
-			writeJSONError(os.Stderr, err.Error())
-			return "", 0, 0, 2
-		}
-		// Surface the /Contents array length so a multi-stream page can be marked
-		// as truncated (only the first stream is decoded on the floor path).
-		count, err := inspector.GetPageContentStreamCount("cli", flags.page)
+		// One call resolves the page dict once and returns both the nodeID and
+		// the /Contents array length (the count surfaces the multi-stream
+		// truncation marker; only the first stream is decoded on the floor path).
+		id, count, err := inspector.GetPageContentStreamRef("cli", flags.page)
 		if err != nil {
 			writeJSONError(os.Stderr, err.Error())
 			return "", 0, 0, 2
