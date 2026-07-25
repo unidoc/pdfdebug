@@ -403,34 +403,31 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-UNIT-002 [P1] AC3 (Story 14.3, Code Review #1 fix): the anti-false-
-// positive negative path of GetPageContentStreamRef's stream count.
+// 14.3-UNIT-002 [P1] AC3 (Story 14.3): pageContentStreamNodeIDs enumerates the
+// page's content-stream refs (the concatenation order/set).
 //
-// The multi-stream truncation marker fires only when streamCount >= 2. Per ISO
-// 32000-1 7.8.2 a page's content is the concatenation of its /Contents array's
-// STREAM refs, so a degenerate null / non-ref element contributes NO stream.
-// Before the code-review fix the body returned len(v), so `[ref null]` reported
-// streamCount 2 and the CLI falsely marked a single, fully-shown stream as
-// "stream 1 of 2, truncated". This test pins the fixed contract: a single
-// indirect ref, a one-element array `[ref]`, and the degenerate `[ref null]`
-// all count 1 (no marker); only a genuine multi-ref array `[ref ref]` counts 2;
-// a page with no /Contents counts 0.
+// Per ISO 32000-1 7.8.2 a page's content is the concatenation of its /Contents
+// array's STREAM refs, so a degenerate null / non-ref element contributes NO
+// stream and must be skipped (not counted, not concatenated). This test pins
+// that: a single indirect ref, a one-element array `[ref]`, and the degenerate
+// `[ref null]` all enumerate to 1 stream; a genuine multi-ref array `[ref ref]`
+// enumerates 2; a page with no /Contents enumerates 0.
 //
 // The `[ref null]` case is built by an in-memory page-dict mutation, not a disk
 // fixture: pdfcpu rejects an on-disk /Contents array containing a null element
 // at read time (DereferenceStreamDict: wrong type <nil>), so the only way to
-// drive that degenerate array into GetPageContentStreamRef is to inject it
-// after a valid open. This still exercises the production count loop verbatim.
+// drive that degenerate array into pageContentStreamNodeIDs is to inject it
+// after a valid open. This still exercises the production enumeration verbatim.
 // ---------------------------------------------------------------------------
 
 // contentStreamObj builds a minimal, valid content-stream object body numbered
-// n for the GetPageContentStreamRef count fixtures.
+// n for the pageContentStreamNodeIDs fixtures.
 func contentStreamObj(n int) string {
 	body := "BT /F1 12 Tf 100 700 Td (x) Tj ET"
 	return fmt.Sprintf("%d 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n", n, len(body), body)
 }
 
-func TestGetPageContentStreamRefCount(t *testing.T) {
+func TestPageContentStreamNodeIDs(t *testing.T) {
 	catalog := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
 	pages := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
 
@@ -469,7 +466,8 @@ func TestGetPageContentStreamRefCount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			objs := append([]string{catalog, pages, tc.page}, tc.objs...)
 			ins, tabID := writeTempPDF(t, "count.pdf", assembleDiffPDF(1, objs...))
-			_, got, err := ins.GetPageContentStreamRef(tabID, 1)
+			ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+			got := len(ids)
 			if err != nil {
 				t.Fatalf("[14.3-UNIT-002] %s: unexpected error: %v", tc.name, err)
 			}
@@ -506,12 +504,12 @@ func TestGetPageContentStreamRefCount(t *testing.T) {
 		// Inject the degenerate [ref null] shape the fix guards against.
 		pageDict["Contents"] = pdfcpu_types.Array{ref, nil}
 
-		_, got, err := ins.GetPageContentStreamRef(tabID, 1)
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
 		if err != nil {
 			t.Fatalf("[14.3-UNIT-002] unexpected error: %v", err)
 		}
-		if got != 1 {
-			t.Errorf("[14.3-UNIT-002] [ref null] count = %d, want 1 (a null element is not a stream; counting it would fire a false truncation marker)", got)
+		if got := len(ids); got != 1 {
+			t.Errorf("[14.3-UNIT-002] [ref null] stream count = %d, want 1 (a null element is not a stream, so it is skipped in concatenation)", got)
 		}
 	})
 }

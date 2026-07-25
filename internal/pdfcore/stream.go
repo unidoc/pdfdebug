@@ -7,21 +7,18 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// GetPageContentStreamRef resolves a 1-based page number to its content
-// stream's node ID AND the number of content streams in its /Contents entry, in
-// a SINGLE page-dict resolution. Node ID is empty (no error) when the page has
-// no /Contents; for an array it is the first ref's node ID (error if the first
-// element is not an indirect reference). streamCount is 0 with no /Contents, 1
-// for a single indirect ref, and for an array the count of its indirect-ref
-// elements only - a degenerate null / non-ref element contributes no stream per
-// ISO 32000-1 7.8.2, so counting len(v) would falsely report "showing stream 1
-// of N" for e.g. [ref null] where the single stream is shown in full. Combining
-// the two reads keeps the Story 14.3 multi-stream truncation marker from
-// resolving (and cache-mutating) the page dict twice per dump.
-func (ins *Inspector) GetPageContentStreamRef(tabID string, pageNum int) (nodeID string, streamCount int, err error) {
+// pageContentStreamNodeIDs resolves a 1-based page number to the ordered node
+// IDs of its content stream(s) in a SINGLE page-dict resolution: empty slice
+// (no error) when the page has no /Contents, one ID for a single indirect ref,
+// and, for an array, every indirect-ref element in order (a degenerate null /
+// non-ref element is skipped per ISO 32000-1 7.8.2 - it is not a stream). An
+// array whose FIRST element is not an indirect ref is an error (preserving the
+// GetPageContentStreamNodeID contract). The order is the concatenation order:
+// a page's content is the join of these streams (7.8.2).
+func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]string, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
 	// PageDict mutates the pdfcpu page-resolution cache; serialize.
 	doc.pdfMu.Lock()
@@ -34,49 +31,112 @@ func (ins *Inspector) GetPageContentStreamRef(tabID string, pageNum int) (nodeID
 		return e
 	})
 	if err != nil {
-		return "", 0, wrapPDFError(err)
+		return nil, wrapPDFError(err)
 	}
 
 	if pageDict == nil {
-		return "", 0, nil
+		return nil, nil
 	}
 
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
-		return "", 0, nil
+		return nil, nil
 	}
 
 	switch v := contents.(type) {
 	case pdfcpu_types.IndirectRef:
-		return fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value()), 1, nil
+		return []string{fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value())}, nil
 	case pdfcpu_types.Array:
 		if len(v) == 0 {
-			return "", 0, nil
+			return nil, nil
 		}
-		count := 0
+		if _, ok := v[0].(pdfcpu_types.IndirectRef); !ok {
+			return nil, fmt.Errorf("contents array element is not an indirect reference")
+		}
+		ids := make([]string, 0, len(v))
 		for _, e := range v {
-			if _, ok := e.(pdfcpu_types.IndirectRef); ok {
-				count++
+			ref, ok := e.(pdfcpu_types.IndirectRef)
+			if !ok {
+				continue // null / non-ref element: not a stream, skip
 			}
+			ids = append(ids, fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()))
 		}
-		ref, ok := v[0].(pdfcpu_types.IndirectRef)
-		if !ok {
-			return "", 0, fmt.Errorf("contents array element is not an indirect reference")
-		}
-		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), count, nil
+		return ids, nil
 	default:
-		return "", 0, fmt.Errorf("unexpected Contents type: %T", contents)
+		return nil, fmt.Errorf("unexpected Contents type: %T", contents)
 	}
 }
 
 // GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
-// its content stream. Returns empty string (no error) when the page has no
-// Contents entry. For pages with an array of content stream refs, returns the
-// first ref's node ID. Thin wrapper over GetPageContentStreamRef that discards
-// the stream count (bound in pdfservice.Service; signature preserved).
+// its FIRST content stream. Returns empty string (no error) when the page has
+// no Contents entry. Bound in pdfservice.Service (GoToPage), so its signature
+// is preserved; callers wanting the whole page content use GetPageContentStream.
 func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
-	nodeID, _, err := ins.GetPageContentStreamRef(tabID, pageNum)
-	return nodeID, err
+	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
+	if err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
+		return "", nil
+	}
+	return ids[0], nil
+}
+
+// GetPageContentStreamRef returns the page's FIRST content-stream node ID and
+// the count of content streams in its /Contents entry. Thin adapter over
+// pageContentStreamNodeIDs, used by the CLI page-stream resolver's truncation
+// marker.
+func (ins *Inspector) GetPageContentStreamRef(tabID string, pageNum int) (nodeID string, streamCount int, err error) {
+	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
+	if err != nil {
+		return "", 0, err
+	}
+	if len(ids) == 0 {
+		return "", 0, nil
+	}
+	return ids[0], len(ids), nil
+}
+
+// GetPageContentStream returns the page's COMPLETE content stream: the decoded
+// content of every stream in its /Contents entry, concatenated in array order
+// and joined by a single newline (ISO 32000-1 7.8.2 requires whitespace between
+// streams so a token spanning a boundary - e.g. an operator split across two
+// streams, or `q` in stream 1 with its `Q` in stream 2 - does not fuse), then
+// tokenized and formatted as ONE program. Returns nil (no error) when the page
+// has no /Contents. A per-stream decode failure surfaces as a ContentStreamData
+// carrying Error (not a Go error), matching GetContentStream. The returned
+// NodeID is the first stream's node (a representative anchor).
+func (ins *Inspector) GetPageContentStream(tabID string, pageNum int) (*ContentStreamData, error) {
+	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	// Decode each stream via GetContentStream (which locks pdfMu per call, so we
+	// must NOT hold pdfMu here - pageContentStreamNodeIDs already released it).
+	raws := make([]string, 0, len(ids))
+	for _, id := range ids {
+		cs, err := ins.GetContentStream(tabID, id)
+		if err != nil {
+			return nil, err
+		}
+		if cs.Error != "" {
+			// Surface the first stream's decode/type failure verbatim.
+			return &ContentStreamData{NodeID: id, Error: cs.Error}, nil
+		}
+		raws = append(raws, cs.Raw)
+	}
+
+	combined := strings.Join(raws, "\n")
+	result := &ContentStreamData{NodeID: ids[0], Raw: combined}
+	if combined != "" {
+		result.Tokenized = tokenizeContentStream(combined)
+		result.Formatted = Format(result.Tokenized)
+	}
+	return result, nil
 }
 
 // GetPageNode resolves a 1-based page number to a fully-populated TreeNode for
