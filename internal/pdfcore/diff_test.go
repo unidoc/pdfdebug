@@ -257,6 +257,146 @@ func containsStr(ss []string, s string) bool {
 	return false
 }
 
+// diffDeepChain builds a single-page PDF with a LINEAR chain of nested dict
+// refs hanging off the catalog's /Deep key: obj4 -> obj5 -> ... each
+// << /L (n+1) 0 R >>, terminating in a << /V value >> leaf. With chainLen well
+// above maxResolveDepth (32) the diff's depth cap cuts the chain before it
+// reaches the leaf, so a change in the leaf's /V is HIDDEN behind the shallow
+// summary at the cut (Story 14.3 #2). Mirrors testdata/correctness/
+// deep-change-{a,b}.pdf without touching disk.
+func diffDeepChain(chainLen int, leafValue string) []byte {
+	objs := []string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Deep 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+	}
+	base := 4 // first chain object number
+	for i := 0; i < chainLen; i++ {
+		num := base + i
+		objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /L %d 0 R >>\nendobj\n", num, num+1))
+	}
+	objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /V %s >>\nendobj\n", base+chainLen, leafValue))
+	return assembleDiffPDF(1, objs...)
+}
+
+// diffSharedDeepAndShallow builds a single-page PDF where ONE object is
+// reachable two ways: directly off the catalog's /Shallow key (depth 1, fully
+// walked) AND at the bottom of a linear /Deep chain long enough that the ref to
+// it lands past maxResolveDepth (depth-capped). It is the topology that made the
+// depth-cap over-count TruncatedSubtrees before reconcileTruncation: the shared
+// pair is fully accounted for on the shallow path, so the capped encounter hides
+// nothing. Catalog keys sort alphabetically, so /Deep is walked BEFORE /Shallow
+// (deep-first order) -- the case a mere check-reorder would not fix.
+func diffSharedDeepAndShallow(chainLen int, sharedValue string) []byte {
+	shared := 4 + chainLen // shared object number, immediately after the chain
+	objs := []string{
+		fmt.Sprintf("1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Shallow %d 0 R /Deep 4 0 R >>\nendobj\n", shared),
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+	}
+	base := 4
+	for i := 0; i < chainLen; i++ {
+		num := base + i
+		// The last chain object (num == shared-1) points its /L at the shared obj.
+		objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /L %d 0 R >>\nendobj\n", num, num+1))
+	}
+	objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /V %s >>\nendobj\n", shared, sharedValue))
+	return assembleDiffPDF(1, objs...)
+}
+
+// ---------------------------------------------------------------------------
+// 14.3-UNIT-001b [P1] AC2 regression (Story 14.3 code review): a shared object
+// reachable both shallow (fully walked) and past the depth cap must NOT be
+// counted as a truncated subtree. Before reconcileTruncation the capped
+// encounter over-counted TruncatedSubtrees, flipping an IDENTICAL pair to a
+// false "not identical" / exit 1 -- the same false-positive class the spec's
+// adversarial review flagged. Exercises the deep-first DFS order.
+// ---------------------------------------------------------------------------
+
+func TestDiff_SharedRefWalkedElsewhereNotTruncated(t *testing.T) {
+	// Chain length == maxResolveDepth lands the shared ref EXACTLY at the first
+	// cap (diffChild depth 32), so the shared object is the only capped node and
+	// no deep-only intermediate is cut. Identical inputs: the sole "truncation"
+	// is that shared object seen past the cap on the /Deep path, which is fully
+	// walked on the /Shallow path.
+	pdf := diffSharedDeepAndShallow(maxResolveDepth, "111")
+	ins, l, r := openTwoForDiff(t, "sharedA.pdf", pdf, "sharedB.pdf", pdf)
+
+	res, err := ins.DiffDocuments(l, r)
+	if err != nil {
+		t.Fatalf("[P1] 14.3-UNIT-001b: DiffDocuments returned error: %v", err)
+	}
+	if res.Summary.TruncatedSubtrees != 0 {
+		t.Errorf("[P1] 14.3-UNIT-001b: TruncatedSubtrees = %d, want 0 (the shared object is fully walked on the shallow path)", res.Summary.TruncatedSubtrees)
+	}
+	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
+		t.Errorf("[P1] 14.3-UNIT-001b: identical inputs reported deltas Added=%d Removed=%d Changed=%d, want all 0", res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
+	}
+	// No node may still carry the Truncated mark after reconciliation.
+	for _, n := range collectDiffNodes(res.Root) {
+		if n.Truncated {
+			t.Errorf("[P1] 14.3-UNIT-001b: node %q still marked Truncated after reconciliation", n.Path)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 14.3-UNIT-001 [P1] AC1/AC2 (Story 14.3): a deep chain diffed past the
+// maxResolveDepth cap marks the cut node DiffNode.Truncated and tallies it in
+// DiffSummary.TruncatedSubtrees, and does so only at the depth-cap arm (a
+// self-diff of a SHALLOW graph counts zero). This is the co-located pdfcore
+// logic assertion the ATDD step deferred until the production types existed.
+// ---------------------------------------------------------------------------
+
+func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
+	// A chain far deeper than maxResolveDepth (32); the two sides differ only in
+	// the leaf /V, well below the cut, so the difference is hidden.
+	left := diffDeepChain(45, "111")
+	right := diffDeepChain(45, "222")
+	ins, l, r := openTwoForDiff(t, "deepA.pdf", left, "deepB.pdf", right)
+
+	res, err := ins.DiffDocuments(l, r)
+	if err != nil {
+		t.Fatalf("[P1] 14.3-UNIT-001: DiffDocuments returned error: %v", err)
+	}
+
+	if res.Summary.TruncatedSubtrees < 1 {
+		t.Errorf("[P1] 14.3-UNIT-001: TruncatedSubtrees = %d, want >= 1 (the deep chain is cut at the depth cap)", res.Summary.TruncatedSubtrees)
+	}
+
+	nodes := collectDiffNodes(res.Root)
+	truncated := 0
+	for _, n := range nodes {
+		if n.Truncated {
+			truncated++
+			// A truncated node is the depth-capped ref, compared by shallow
+			// summary, so it carries Kind "ref" and no children.
+			if n.Kind != "ref" {
+				t.Errorf("[P1] 14.3-UNIT-001: truncated node %q kind = %q, want \"ref\"", n.Path, n.Kind)
+			}
+			if len(n.Children) != 0 {
+				t.Errorf("[P1] 14.3-UNIT-001: truncated node %q has %d children, want 0 (subtree not walked)", n.Path, len(n.Children))
+			}
+		}
+	}
+	if truncated != res.Summary.TruncatedSubtrees {
+		t.Errorf("[P1] 14.3-UNIT-001: %d nodes carry Truncated but summary counts %d", truncated, res.Summary.TruncatedSubtrees)
+	}
+
+	// Guardrail (the "only the depth cap is truncation" rule): a SHALLOW graph
+	// diffed against itself must not mark anything -- else every real PDF's
+	// back-edges/dedup would flip to a false non-identical.
+	shallow := diffOnePage()
+	ins2, l2, r2 := openTwoForDiff(t, "s1.pdf", shallow, "s2.pdf", shallow)
+	res2, err := ins2.DiffDocuments(l2, r2)
+	if err != nil {
+		t.Fatalf("[P1] 14.3-UNIT-001: shallow self-diff returned error: %v", err)
+	}
+	if res2.Summary.TruncatedSubtrees != 0 {
+		t.Errorf("[P1] 14.3-UNIT-001: shallow self-diff TruncatedSubtrees = %d, want 0 (cycles/dedup are not truncation)", res2.Summary.TruncatedSubtrees)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 13.6-UNIT-001 [P0] AC1/AC6: a document diffed against ITSELF (same bytes,
 // two tabs) yields an all-unchanged tree and a zero-delta summary.

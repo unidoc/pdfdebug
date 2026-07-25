@@ -2,10 +2,13 @@ package pdfcore
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -397,6 +400,120 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 	if nodeID != "" {
 		t.Errorf("expected empty node ID for page with no Contents entry, got: %q", nodeID)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 14.3-UNIT-002 [P1] AC3 (Story 14.3, Code Review #1 fix): the anti-false-
+// positive negative path of GetPageContentStreamCount.
+//
+// The multi-stream truncation marker fires only when streamCount >= 2. Per ISO
+// 32000-1 7.8.2 a page's content is the concatenation of its /Contents array's
+// STREAM refs, so a degenerate null / non-ref element contributes NO stream.
+// Before the code-review fix the body returned len(v), so `[ref null]` reported
+// streamCount 2 and the CLI falsely marked a single, fully-shown stream as
+// "stream 1 of 2, truncated". This test pins the fixed contract: a single
+// indirect ref, a one-element array `[ref]`, and the degenerate `[ref null]`
+// all count 1 (no marker); only a genuine multi-ref array `[ref ref]` counts 2;
+// a page with no /Contents counts 0.
+//
+// The `[ref null]` case is built by an in-memory page-dict mutation, not a disk
+// fixture: pdfcpu rejects an on-disk /Contents array containing a null element
+// at read time (DereferenceStreamDict: wrong type <nil>), so the only way to
+// drive that degenerate array into GetPageContentStreamCount is to inject it
+// after a valid open. This still exercises the production count loop verbatim.
+// ---------------------------------------------------------------------------
+
+// contentStreamObj builds a minimal, valid content-stream object body numbered
+// n for the GetPageContentStreamCount fixtures.
+func contentStreamObj(n int) string {
+	body := "BT /F1 12 Tf 100 700 Td (x) Tj ET"
+	return fmt.Sprintf("%d 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n", n, len(body), body)
+}
+
+func TestGetPageContentStreamCount(t *testing.T) {
+	catalog := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+	pages := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+
+	cases := []struct {
+		name string
+		page string
+		objs []string
+		want int
+	}{
+		{
+			name: "single indirect ref",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n",
+			objs: []string{contentStreamObj(4)},
+			want: 1,
+		},
+		{
+			name: "one-element array [ref]",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			objs: []string{contentStreamObj(4)},
+			want: 1,
+		},
+		{
+			name: "multi-ref array [ref ref]",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R 5 0 R] >>\nendobj\n",
+			objs: []string{contentStreamObj(4), contentStreamObj(5)},
+			want: 2,
+		},
+		{
+			name: "no /Contents entry",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+			objs: nil,
+			want: 0,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			objs := append([]string{catalog, pages, tc.page}, tc.objs...)
+			ins, tabID := writeTempPDF(t, "count.pdf", assembleDiffPDF(1, objs...))
+			got, err := ins.GetPageContentStreamCount(tabID, 1)
+			if err != nil {
+				t.Fatalf("[14.3-UNIT-002] %s: unexpected error: %v", tc.name, err)
+			}
+			if got != tc.want {
+				t.Errorf("[14.3-UNIT-002] %s: count = %d, want %d", tc.name, got, tc.want)
+			}
+		})
+	}
+
+	// Anti-false-positive: a degenerate [ref null] array must count 1, not 2.
+	// pdfcpu rejects this shape on disk, so open a valid [ref] fixture and inject
+	// the trailing null into the live page dict before the count call.
+	t.Run("degenerate array [ref null] is not truncation", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "refnull.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		// Inject the degenerate [ref null] shape the fix guards against.
+		pageDict["Contents"] = pdfcpu_types.Array{ref, nil}
+
+		got, err := ins.GetPageContentStreamCount(tabID, 1)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] unexpected error: %v", err)
+		}
+		if got != 1 {
+			t.Errorf("[14.3-UNIT-002] [ref null] count = %d, want 1 (a null element is not a stream; counting it would fire a false truncation marker)", got)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------

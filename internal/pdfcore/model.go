@@ -60,12 +60,22 @@ type ValueEntry struct {
 }
 
 // ContentStreamData holds raw and tokenized content stream data for a page.
+//
+// StreamCount/Truncated/Shown are the Story 14.3 multi-stream truncation marker
+// (AC3/AC4): when a page's /Contents is an array of more than one stream, the
+// CLI decodes only the first and sets StreamCount to the array length, Shown to
+// 1, and Truncated true so no consumer mistakes the partial (often unbalanced)
+// program for the whole content stream. All three are zero/false - and omitted
+// from JSON - for single-stream pages and non-page streams.
 type ContentStreamData struct {
-	NodeID    string          `json:"nodeId"`
-	Raw       string          `json:"raw"`
-	Tokenized []Token         `json:"tokenized"`
-	Formatted []FormattedLine `json:"formatted"`
-	Error     string          `json:"error"`
+	NodeID      string          `json:"nodeId"`
+	Raw         string          `json:"raw"`
+	Tokenized   []Token         `json:"tokenized"`
+	Formatted   []FormattedLine `json:"formatted"`
+	Error       string          `json:"error"`
+	StreamCount int             `json:"streamCount,omitempty"`
+	Shown       int             `json:"shown,omitempty"`
+	Truncated   bool            `json:"truncated,omitempty"`
 }
 
 // FormattedLine is one logical PDF operation in a content stream: zero or more

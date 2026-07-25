@@ -141,3 +141,54 @@ overflows: `0xFFFE + 2 = 0x10000` -> trailing = `0x0000`, carry 1 into the
 leading unit -> `0x00FF + 1 = 0x0100`. Result: `[0100 0000]` = `U+0100
 U+0000`. Pre-fix this entry was silently dropped (the `break` on `tail >
 0xFFFF`); post-fix the carry propagates correctly.
+
+## deep-change-a.pdf / deep-change-b.pdf
+
+A pair of single-page PDFs that are byte-identical EXCEPT one scalar nested far
+below the catalog, used to make the `diff` depth cap honest (Story 14-3, #2).
+
+```
+obj 1: /Type /Catalog /Pages 2 0 R /Deep 4 0 R
+obj 2: /Type /Pages /Kids [3 0 R] /Count 1
+obj 3: /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
+obj 4..47: << /L (n+1) 0 R >>          (a linear chain of nested dicts)
+obj 48: << /V 111 >>   (deep-change-a) | << /V 222 >>   (deep-change-b)
+```
+
+The catalog is diff depth 0; `diffChild` increments before the depth check, so
+the depth-32 cap first cuts at catalog-depth 33 -- the `/Root/Deep/L/.../L` node
+(32 `/L` steps). At that cut the one-level shallow summary is `<< /L <ref> >>`,
+identical on both sides (refs render number-independent), so the differing
+scalar at obj 48 (catalog-depth ~45, well below the cut) is never reached.
+
+Pre-fix `diff deep-change-a deep-change-b` reports "Documents are structurally
+identical." at exit 0 -- an inverted answer. Post-fix the cut node is marked
+`truncated`, `DiffSummary.truncatedSubtrees > 0`, the run is not called
+identical, and the exit code is 1. The `/V` value is a fixed 3-digit token so
+the two files share identical byte lengths and xref offsets. 48 objects each.
+
+## multi-content-stream.pdf
+
+Single-page PDF whose `/Contents` is an ARRAY of two content-stream refs whose
+operators only balance when concatenated (Story 14-3, #5):
+
+```
+obj 3: /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
+       /Resources << >> /Contents [4 0 R 5 0 R]
+obj 4 (stream 1): q
+                  1 0 0 1 50 700 cm          (opens a q, no matching Q)
+obj 5 (stream 2): BT
+                  /F1 24 Tf
+                  0 0 Td
+                  (Hello) Tj
+                  ET
+                  Q                           (the matching Q + a text block)
+```
+
+Per ISO 32000-1 7.8.2 the page content is the concatenation of both streams
+joined by whitespace. Pre-fix `GetPageContentStreamNodeID` returns only the
+first ref's node ID, so `dump stream --page 1` decodes ONLY stream 1 (`q`, `cm`)
+and presents an unbalanced partial program with no marker. Post-fix the tool
+either concatenates both streams (operators from both appear) or emits a
+machine-visible truncation marker (`streamCount`/`truncated`) on `--json` and
+`--ops`. 5 objects total.

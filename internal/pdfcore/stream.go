@@ -56,6 +56,65 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 	}
 }
 
+// GetPageContentStreamCount resolves a 1-based page number to the number of
+// content streams in its /Contents entry: 0 when the page has no /Contents, 1
+// for a single indirect ref, and, for an array, the count of its indirect-ref
+// elements (a degenerate null / non-ref element contributes no stream per ISO
+// 32000-1 7.8.2, so it is not counted). It is the additive companion to
+// GetPageContentStreamNodeID (whose
+// single-string return discards the array length) added for the Story 14.3
+// multi-stream truncation marker; keeping it a separate method avoids rippling
+// the widely-called GetPageContentStreamNodeID signature. Returns 0 (no error)
+// for a page with no Contents.
+func (ins *Inspector) GetPageContentStreamCount(tabID string, pageNum int) (int, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return 0, err
+	}
+	// PageDict mutates the pdfcpu page-resolution cache; serialize (same as
+	// GetPageContentStreamNodeID).
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
+	var pageDict pdfcpu_types.Dict
+	err = safeCall(func() error {
+		var e error
+		pageDict, _, _, e = doc.PDFContext.PageDict(pageNum, false)
+		return e
+	})
+	if err != nil {
+		return 0, wrapPDFError(err)
+	}
+	if pageDict == nil {
+		return 0, nil
+	}
+
+	contents, found := pageDict.Find("Contents")
+	if !found || contents == nil {
+		return 0, nil
+	}
+
+	switch v := contents.(type) {
+	case pdfcpu_types.IndirectRef:
+		return 1, nil
+	case pdfcpu_types.Array:
+		// Count only indirect-ref elements: per ISO 32000-1 7.8.2 the content is
+		// the concatenation of the array's STREAM refs, so a degenerate null or
+		// non-ref element contributes no stream. Counting len(v) would report a
+		// false "showing stream 1 of N" truncation for e.g. [ref null] where the
+		// single stream is in fact shown in full.
+		count := 0
+		for _, e := range v {
+			if _, ok := e.(pdfcpu_types.IndirectRef); ok {
+				count++
+			}
+		}
+		return count, nil
+	default:
+		return 0, nil
+	}
+}
+
 // GetPageNode resolves a 1-based page number to a fully-populated TreeNode for
 // that page's page dict (/Type /Page object), suitable for rooting a tree walk.
 // The returned node carries the page object's ObjectRef ("<num> <gen> R") and
