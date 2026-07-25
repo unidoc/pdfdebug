@@ -89,8 +89,10 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 // streams, or `q` in stream 1 with its `Q` in stream 2 - does not fuse), then
 // tokenized and formatted as ONE program. Returns nil (no error) when the page
 // has no /Contents. A per-stream decode failure surfaces as a ContentStreamData
-// carrying Error (not a Go error), matching GetContentStream. The returned
-// NodeID is the first stream's node (a representative anchor).
+// carrying Error (not a Go error), matching GetContentStream. On success the
+// returned NodeID is the first stream's node (a representative anchor); on a
+// decode failure it is the node of the stream that FAILED, which may be any
+// element of the array, so the caller can tell which one broke.
 func (ins *Inspector) GetPageContentStream(tabID string, pageNum int) (*ContentStreamData, error) {
 	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
 	if err != nil {
@@ -109,7 +111,8 @@ func (ins *Inspector) GetPageContentStream(tabID string, pageNum int) (*ContentS
 			return nil, err
 		}
 		if cs.Error != "" {
-			// Surface the first stream's decode/type failure verbatim.
+			// Surface the first FAILING stream's decode/type failure verbatim.
+			// NodeID is that stream, not ids[0], so the error names the culprit.
 			return &ContentStreamData{NodeID: id, Error: cs.Error}, nil
 		}
 		raws = append(raws, cs.Raw)

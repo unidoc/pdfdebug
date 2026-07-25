@@ -1,22 +1,16 @@
 /**
  * Story 14.3: DiffView depth-cap truncation display branch (AC5, 14.3-COMP-001).
  *
- * RED PHASE: DiffView's `identical` const (DiffView.tsx) mirrors Go's
- * diffIsIdentical over the node counts + document flags only; it does not yet
- * account for `summary.truncatedSubtrees`. Given a result whose walk was bounded
- * by the depth cap (truncatedSubtrees > 0) but whose visible node counts are all
- * zero, the component today computes identical === true and renders the
- * "No structural differences" banner with NO truncation marker -- the exact
- * quiet lie this story closes, mirrored on the GUI surface.
+ * DiffView's `identical` const (DiffView.tsx) mirrors Go's diffIsIdentical, and
+ * that includes `summary.truncatedSubtrees === 0`. Given a result whose walk was
+ * bounded by the depth cap (truncatedSubtrees > 0) but whose visible node counts
+ * are all zero, the component must NOT compute identical === true and must NOT
+ * render the "No structural differences" banner without a truncation marker --
+ * the quiet lie this story closes, mirrored on the GUI surface.
  *
- * GREEN target: `identical` gains `&& s.truncatedSubtrees === 0`, so the banner
- * is suppressed, and a depth-cap marker is rendered so the bounded walk is
- * visible. This is the thin display branch of a backend-verified field, kept at
- * the component level (NOT E2E).
- *
- * Test files are excluded from the app tsc build, so the `truncatedSubtrees`
- * field (not yet on DiffSummaryData) does not break `npm run typecheck`; only
- * vitest exercises this file.
+ * Before the fix these cases were red: `identical` ignored truncatedSubtrees, so
+ * the banner appeared on a bounded walk. This is the thin display branch of a
+ * backend-verified field, kept at the component level (NOT E2E).
  *
  * Naming: 14.3-COMP-001 [P1].
  * Run: cd frontend && npx vitest run src/components/DiffView.truncation.test.tsx
@@ -49,8 +43,8 @@ const depthCappedResult = {
     encryptionChanged: false,
     infoChanged: false,
     xmpChanged: false,
-    // Additive field surfaced by the Go DiffSummary (AC2). Cast through unknown
-    // because DiffSummaryData does not declare it yet (red-phase seam).
+    // Additive field surfaced by the Go DiffSummary (AC2); declared on
+    // DiffSummaryData in DiffView.tsx.
     truncatedSubtrees: 1,
   },
   root: {
