@@ -136,16 +136,14 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-002 [P1] AC4 (--raw surface): `dump stream --page 1 --raw` on a
-// multi-stream page must not present stream 1's bytes as the whole content
-// stream with no signal. --raw's stdout stays a verbatim byte dump (an inline
-// marker would corrupt it), so the truncation must be disclosed on STDERR.
-// GREEN: stdout is stream 1 only (byte-exact, no stream-2 content) AND stderr
-// carries the truncation note; exit 0. Guards the floor path's --raw surface,
-// which is otherwise a silent truncation.
+// 14.3-INTG-002 [P1] AC3/AC4 (--raw surface): `dump stream --page 1 --raw` on a
+// multi-stream page must dump the CONCATENATION of all streams' decoded bytes
+// (ISO 32000-1 7.8.2), not just stream 1. GREEN: stdout carries content from
+// BOTH stream 1 (`cm`) and stream 2 (`Hello`), exit 0, and no truncation note
+// (nothing was dropped). Guards that --raw is not a silent partial.
 // ---------------------------------------------------------------------------
 
-func TestMultiStream_RawSignalsTruncationOnStderr(t *testing.T) {
+func TestMultiStream_RawConcatenatesAllStreams(t *testing.T) {
 	bin := buildCLI(t)
 	f := fixturePath(t, "multi-content-stream.pdf")
 
@@ -154,18 +152,17 @@ func TestMultiStream_RawSignalsTruncationOnStderr(t *testing.T) {
 		t.Fatalf("[P1] 14.3-INTG-002 (--raw): must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 
-	// stdout stays a byte-exact dump of stream 1 ONLY: stream 1's `cm` is present,
-	// and no stream-2 content (`BT`, `Hello`) leaks in or corrupts the bytes.
+	// stdout must carry BOTH streams' decoded bytes: stream 1's `cm` and stream
+	// 2's `Hello`/`Q`, joined per 7.8.2.
 	if !strings.Contains(stdout, "cm") {
 		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout missing stream 1 content (expected `cm`): %q", stdout)
 	}
-	if strings.Contains(stdout, "Hello") || strings.Contains(stdout, "BT") {
-		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout leaked stream 2 content; --raw must dump only the first decoded stream: %q", stdout)
+	if !strings.Contains(stdout, "Hello") || !strings.Contains(stdout, "Q") {
+		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout missing stream 2 content; --raw must dump the concatenation of all streams (expected `Hello` and `Q`): %q", stdout)
 	}
 
-	// The truncation must be disclosed on stderr - the only channel that does not
-	// corrupt the raw byte stream. Without it, --raw is a silent truncation.
-	if !strings.Contains(stderr, "truncated") || !strings.Contains(stderr, "of 2") {
-		t.Errorf("[P1] 14.3-INTG-002 (--raw): multi-stream truncation must be disclosed on stderr (expected a `truncated ... of 2` note), got: %q", stderr)
+	// Nothing was truncated, so no truncation note should appear on either channel.
+	if strings.Contains(stdout, "truncated") || strings.Contains(stderr, "truncated") {
+		t.Errorf("[P1] 14.3-INTG-002 (--raw): unexpected truncation note after full concatenation\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 }

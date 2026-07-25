@@ -82,21 +82,6 @@ func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (str
 	return ids[0], nil
 }
 
-// GetPageContentStreamRef returns the page's FIRST content-stream node ID and
-// the count of content streams in its /Contents entry. Thin adapter over
-// pageContentStreamNodeIDs, used by the CLI page-stream resolver's truncation
-// marker.
-func (ins *Inspector) GetPageContentStreamRef(tabID string, pageNum int) (nodeID string, streamCount int, err error) {
-	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
-	if err != nil {
-		return "", 0, err
-	}
-	if len(ids) == 0 {
-		return "", 0, nil
-	}
-	return ids[0], len(ids), nil
-}
-
 // GetPageContentStream returns the page's COMPLETE content stream: the decoded
 // content of every stream in its /Contents entry, concatenated in array order
 // and joined by a single newline (ISO 32000-1 7.8.2 requires whitespace between

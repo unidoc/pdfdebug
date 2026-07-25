@@ -137,70 +137,47 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 	}
 	defer func() { _ = inspector.Close("cli") }()
 
-	// Resolve the content-stream nodeID and, for --ops, the page number whose
-	// resources back Do classification (0 = no page-backed Do resolution), plus
-	// the /Contents array length for the multi-stream truncation marker.
-	nodeID, opsPageNum, streamCount, code := resolveStreamNode(inspector, info, flags)
+	// Resolve the input mode: --ref/--xobject address a single stream; the page
+	// mode (opsPageNum > 0) resolves to the page's COMPLETE content, and the
+	// page number also backs Do classification under --ops.
+	nodeID, opsPageNum, code := resolveStreamNode(inspector, info, flags)
 	if code != 0 {
 		return code
 	}
 
-	// No Contents entry on a page: valid PDF, just no stream.
-	if nodeID == "" {
-		if flags.ops {
-			// NDJSON contract: zero lines on stdout, condition on stderr, exit 0.
-			fmt.Fprintln(os.Stderr, "page has no content stream")
-			return 0
-		}
-		result := &pdfcore.ContentStreamData{Raw: "", Error: "page has no content stream"}
-		if flags.json {
-			if err := emit(os.Stdout, result, flags.pretty); err != nil {
-				writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
-				return 2
-			}
-			return 0
-		}
-		// Plain default: surface the no-stream condition as a one-line note (the
-		// page is valid, just has no /Contents).
-		if _, err := io.WriteString(os.Stdout, "(page has no content stream)\n"); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
+	var result *pdfcore.ContentStreamData
+	if opsPageNum > 0 {
+		// Page mode: a page's content is the CONCATENATION of every stream in its
+		// /Contents array (ISO 32000-1 7.8.2), assembled and tokenized as one
+		// program - no stream is dropped or presented as if it were the whole.
+		r, err := inspector.GetPageContentStream("cli", opsPageNum)
+		if err != nil {
+			writeJSONError(os.Stderr, err.Error())
 			return 2
 		}
-		return 0
+		if r == nil {
+			// No /Contents on the page: valid PDF, just no stream.
+			return writeNoContentStream(flags)
+		}
+		result = r
+	} else {
+		// --ref / --xobject: a single addressed stream.
+		r, err := inspector.GetContentStream("cli", nodeID)
+		if err != nil {
+			writeJSONError(os.Stderr, err.Error())
+			return 2
+		}
+		result = r
 	}
 
-	result, err := inspector.GetContentStream("cli", nodeID)
-	if err != nil {
-		writeJSONError(os.Stderr, err.Error())
-		return 2
-	}
-	// GetContentStream returns a non-error ContentStreamData{Error:...} for
-	// "node is not a stream object" and decode failures. Map that to exit 2.
+	// GetContentStream/GetPageContentStream return a non-error ContentStreamData{
+	// Error:...} for "node is not a stream object" and decode failures. exit 2.
 	if result.Error != "" {
 		writeJSONError(os.Stderr, result.Error)
 		return 2
 	}
 
-	// Multi-stream truncation marker (Story 14.3 AC3/AC4, floor path): when the
-	// page's /Contents array holds more than one stream, only the first was
-	// decoded, so mark the result partial. A single stream (streamCount <= 1) is
-	// complete and carries no marker. --raw stays a verbatim byte dump of the one
-	// decoded stream (a marker would corrupt the bytes); the note rides plain
-	// text, --json, and --ops instead.
-	if streamCount > 1 {
-		result.StreamCount = streamCount
-		result.Shown = 1
-		result.Truncated = true
-	}
-
 	if flags.raw {
-		// A marker cannot ride stdout without corrupting the verbatim byte dump,
-		// so on a multi-stream page disclose the truncation on STDERR instead -
-		// otherwise --raw would present stream 1's bytes as the whole content
-		// stream with no signal on any channel (Story 14.3 AC4, --raw surface).
-		if result.Truncated {
-			fmt.Fprint(os.Stderr, multiStreamTruncationNote(result))
-		}
 		if _, err := io.WriteString(os.Stdout, result.Raw); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write raw output: %v\n", err)
 			return 2
@@ -227,12 +204,28 @@ func execStreamDump(filePath string, flags streamFlags) (exitCode int) {
 	return 0
 }
 
-// multiStreamTruncationNote is the one-line note disclosing that a multi-stream
-// page's /Contents was truncated to its first decoded stream (Story 14.3 floor
-// path). Shared by the plain-text (stdout) and --raw (stderr) surfaces so their
-// wording cannot drift; callers guard on result.Truncated before emitting it.
-func multiStreamTruncationNote(result *pdfcore.ContentStreamData) string {
-	return fmt.Sprintf("(truncated: showing stream %d of %d; page /Contents is a multi-stream array)\n", result.Shown, result.StreamCount)
+// writeNoContentStream renders the "page has no /Contents" condition on the
+// selected surface and exits 0 (a valid page, just no stream): zero NDJSON
+// lines with the note on stderr for --ops, a JSON object carrying the note for
+// --json, and a one-line note on stdout otherwise (plain and --raw).
+func writeNoContentStream(flags streamFlags) int {
+	if flags.ops {
+		fmt.Fprintln(os.Stderr, "page has no content stream")
+		return 0
+	}
+	if flags.json {
+		result := &pdfcore.ContentStreamData{Raw: "", Error: "page has no content stream"}
+		if err := emit(os.Stdout, result, flags.pretty); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
+			return 2
+		}
+		return 0
+	}
+	if _, err := io.WriteString(os.Stdout, "(page has no content stream)\n"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
+		return 2
+	}
+	return 0
 }
 
 // printStreamPlain renders the decoded content stream as a human-readable
@@ -241,15 +234,6 @@ func multiStreamTruncationNote(result *pdfcore.ContentStreamData) string {
 // use --json for structured operators, --ops for NDJSON, --raw for bytes.
 func printStreamPlain(out io.Writer, result *pdfcore.ContentStreamData) error {
 	var b strings.Builder
-	// Multi-stream truncation note (Story 14.3 AC3, floor path): a one-line
-	// header so the human reader is not shown a partial (often unbalanced)
-	// program as if it were the whole content stream. Emitted BEFORE the
-	// empty-stream early return: a multi-stream page whose first stream decodes
-	// to zero operators must still disclose that streams 2..N exist, otherwise
-	// the "(empty content stream)" line would be a silent truncation.
-	if result.Truncated {
-		b.WriteString(multiStreamTruncationNote(result))
-	}
 	// A content-stream object can exist yet decode to zero operators (an empty
 	// /Contents stream). Surface that as a one-line note so plain output is never
 	// a silent zero-byte write and always ends with a newline.
@@ -276,60 +260,53 @@ func printStreamPlain(out io.Writer, result *pdfcore.ContentStreamData) error {
 	return err
 }
 
-// resolveStreamNode maps the input flags to a content-stream nodeID. It returns
-// the nodeID (or "" when a page has no /Contents), the page number to back Do
-// classification under --ops (0 when not a page stream), the number of streams
-// in the page's /Contents array (Story 14.3 multi-stream marker; 0 for the
-// --ref/--xobject modes and single-stream pages that need no marker), and a
-// non-zero exit code on error (already reported to stderr).
-func resolveStreamNode(inspector *pdfcore.Inspector, info *pdfcore.DocumentInfo, flags streamFlags) (nodeID string, opsPageNum int, streamCount int, code int) {
+// resolveStreamNode maps the input flags to a content-stream target. For
+// --ref/--xobject it returns the addressed stream's nodeID with opsPageNum 0.
+// For page mode it returns nodeID "" and opsPageNum = the (validated) page
+// number: the caller fetches the page's complete content via
+// GetPageContentStream (a single page-dict resolution), and opsPageNum also
+// backs Do classification under --ops. code is non-zero on error (reported).
+func resolveStreamNode(inspector *pdfcore.Inspector, info *pdfcore.DocumentInfo, flags streamFlags) (nodeID string, opsPageNum int, code int) {
 	switch {
 	case flags.xobject != "":
 		ownerNodeID, c := xobjectOwnerNodeID(inspector, info, flags)
 		if c != 0 {
-			return "", 0, 0, c
+			return "", 0, c
 		}
 		resources, err := inspector.GetXObjectResources("cli", ownerNodeID)
 		if err != nil {
 			writeJSONError(os.Stderr, err.Error())
-			return "", 0, 0, 2
+			return "", 0, 2
 		}
 		entry, ok := resources[flags.xobject]
 		if !ok || entry.NodeID == "" {
 			writeJSONError(os.Stderr, fmt.Sprintf("XObject %q not found in resources", flags.xobject))
-			return "", 0, 0, 2
+			return "", 0, 2
 		}
 		// A resolved form/image XObject stream has no page; Do classification is
 		// page-scoped only (Decision: --ops resourceType only for page streams).
-		return entry.NodeID, 0, 0, 0
+		return entry.NodeID, 0, 0
 
 	case flags.ref != "":
 		objNum, genNum, err := parseObjectRef(flags.ref)
 		if err != nil {
 			writeJSONError(os.Stderr, err.Error())
-			return "", 0, 0, 1
+			return "", 0, 1
 		}
-		return fmt.Sprintf("obj:%d:%d", genNum, objNum), 0, 0, 0
+		return fmt.Sprintf("obj:%d:%d", genNum, objNum), 0, 0
 
 	default:
-		// Page content stream.
+		// Page mode: validate the range only. GetPageContentStream (caller)
+		// resolves and concatenates the page's content in a single page-dict pass.
 		if info.PageCount == 0 {
 			writeJSONError(os.Stderr, "cannot determine page count for this PDF")
-			return "", 0, 0, 2
+			return "", 0, 2
 		}
 		if flags.page > info.PageCount {
 			writeJSONError(os.Stderr, fmt.Sprintf("page %d out of range: document has %d pages", flags.page, info.PageCount))
-			return "", 0, 0, 2
+			return "", 0, 2
 		}
-		// One call resolves the page dict once and returns both the nodeID and
-		// the /Contents array length (the count surfaces the multi-stream
-		// truncation marker; only the first stream is decoded on the floor path).
-		id, count, err := inspector.GetPageContentStreamRef("cli", flags.page)
-		if err != nil {
-			writeJSONError(os.Stderr, err.Error())
-			return "", 0, 0, 2
-		}
-		return id, flags.page, count, 0
+		return "", flags.page, 0
 	}
 }
 
@@ -423,30 +400,7 @@ func emitOps(inspector *pdfcore.Inspector, result *pdfcore.ContentStreamData, pa
 		}
 	}
 
-	// Multi-stream truncation marker (Story 14.3 AC4): NDJSON has no envelope
-	// and Story 14-1 pins --ops to one JSON object PER OPERATOR, so the marker
-	// rides a DISTINCT trailing meta record with NO "op" key (a phantom
-	// {"op":""} record would breach that contract). It is emitted only for the
-	// floor path (a genuinely multi-stream page); the operator records above are
-	// stream 1's alone.
-	if result.Truncated {
-		meta := opsTruncationMeta{Truncated: true, StreamCount: result.StreamCount, Shown: result.Shown}
-		if err := enc.Encode(meta); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write NDJSON output: %v\n", err)
-			return 2
-		}
-	}
 	return 0
-}
-
-// opsTruncationMeta is the trailing --ops NDJSON meta record for a multi-stream
-// page (Story 14.3 AC4). It deliberately has NO Op field so consumers keying on
-// "op" skip it as a non-operator record, and it carries the /Contents array
-// length so a script sees that only Shown of StreamCount streams were emitted.
-type opsTruncationMeta struct {
-	Truncated   bool `json:"truncated"`
-	StreamCount int  `json:"streamCount"`
-	Shown       int  `json:"shown"`
 }
 
 // classifyDo attaches resourceType + objectRef to a Do op when its name operand
