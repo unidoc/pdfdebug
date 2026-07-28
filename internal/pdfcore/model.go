@@ -60,9 +60,9 @@ type ValueEntry struct {
 }
 
 // ContentStreamData holds raw and tokenized content stream data for a page. For
-// a multi-stream page (/Contents is an array) the CLI assembles this from the
-// concatenation of every stream (see Inspector.GetPageContentStream), so Raw /
-// Tokenized / Formatted already cover the whole page content.
+// a multi-stream page (/Contents is an array) Inspector.GetPageContentStream
+// concatenates every stream before tokenizing, so Raw / Tokenized / Formatted
+// already cover the whole page content for every caller, not just the CLI.
 type ContentStreamData struct {
 	NodeID    string          `json:"nodeId"`
 	Raw       string          `json:"raw"`
