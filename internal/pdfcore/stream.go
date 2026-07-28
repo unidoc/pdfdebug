@@ -10,9 +10,11 @@ import (
 // pageContentStreamNodeIDs resolves a 1-based page number to the ordered node
 // IDs of its content stream(s) in a SINGLE page-dict resolution: empty slice
 // (no error) when the page has no /Contents, one ID for a single indirect ref,
-// and, for an array, every indirect-ref element in order (a degenerate null /
-// non-ref element is skipped per ISO 32000-1 7.8.2 - it is not a stream). An
-// array whose FIRST element is not an indirect ref is an error (preserving the
+// and, for an array, every indirect-ref element in order. A null element is
+// skipped - it is not a stream and carries no content (ISO 32000-1 7.8.2) - but
+// any other non-ref element is an ERROR naming its index and type, never a
+// silent skip, since dropping it could omit part of the page. An array whose
+// FIRST element is not an indirect ref is likewise an error (preserving the
 // GetPageContentStreamNodeID contract). The order is the concatenation order:
 // a page's content is the join of these streams (7.8.2).
 func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]string, error) {
@@ -54,10 +56,19 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 			return nil, fmt.Errorf("contents array element is not an indirect reference")
 		}
 		ids := make([]string, 0, len(v))
-		for _, e := range v {
+		for i, e := range v {
+			// A null element carries no content, so skipping it drops nothing
+			// (pdfcpu decodes PDF null to a Go nil element). Anything else that
+			// is not an indirect ref is malformed - /Contents elements must be
+			// refs to streams (7.8.2) and streams are always indirect (7.3.8) -
+			// and is reported rather than skipped: silently dropping it could
+			// omit part of the page content, the exact failure this avoids.
+			if e == nil {
+				continue
+			}
 			ref, ok := e.(pdfcpu_types.IndirectRef)
 			if !ok {
-				continue // null / non-ref element: not a stream, skip
+				return nil, fmt.Errorf("contents array element %d is not an indirect reference: %T", i, e)
 			}
 			ids = append(ids, fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()))
 		}

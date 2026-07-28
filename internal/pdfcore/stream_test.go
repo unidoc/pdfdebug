@@ -512,6 +512,42 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 			t.Errorf("[14.3-UNIT-002] [ref null] stream count = %d, want 1 (a null element is not a stream, so it is skipped in concatenation)", got)
 		}
 	})
+
+	// A non-null, non-ref element is malformed rather than empty: /Contents
+	// elements are refs to streams (7.8.2) and streams are always indirect
+	// (7.3.8). Skipping it could omit real page content, so it must be reported.
+	// Same in-memory injection as above - pdfcpu rejects the shape on disk.
+	t.Run("[ref junk] errors instead of silently skipping", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "refjunk.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		pageDict["Contents"] = pdfcpu_types.Array{ref, pdfcpu_types.Integer(42)}
+
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+		if err == nil {
+			t.Fatalf("[14.3-UNIT-002] [ref 42] returned %d ids and no error; a non-null non-ref element must be reported, not skipped", len(ids))
+		}
+		if !strings.Contains(err.Error(), "element 1") {
+			t.Errorf("[14.3-UNIT-002] error must name the offending index, got: %v", err)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
