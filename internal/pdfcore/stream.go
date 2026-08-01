@@ -52,17 +52,15 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 		if len(v) == 0 {
 			return nil, nil
 		}
-		if _, ok := v[0].(pdfcpu_types.IndirectRef); !ok {
-			return nil, fmt.Errorf("contents array element is not an indirect reference")
-		}
 		ids := make([]string, 0, len(v))
 		for i, e := range v {
 			// A null element carries no content, so skipping it drops nothing
-			// (pdfcpu decodes PDF null to a Go nil element). Anything else that
-			// is not an indirect ref is malformed - /Contents elements must be
-			// refs to streams (7.8.2) and streams are always indirect (7.3.8) -
-			// and is reported rather than skipped: silently dropping it could
-			// omit part of the page content, the exact failure this avoids.
+			// (pdfcpu decodes PDF null to a Go nil element) - at ANY index,
+			// including the first. Anything else that is not an indirect ref is
+			// malformed - /Contents elements must be refs to streams (7.8.2) and
+			// streams are always indirect (7.3.8) - and is reported (with index +
+			// type) rather than skipped: silently dropping it could omit part of
+			// the page content, the exact failure this avoids.
 			if e == nil {
 				continue
 			}

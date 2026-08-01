@@ -513,6 +513,42 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		}
 	})
 
+	// A null at index 0 is skipped just like a null anywhere else (PR review:
+	// null handling must not depend on position). [null ref] enumerates the one
+	// real stream, exactly like [ref null].
+	t.Run("degenerate array [null ref] skips the leading null", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "nullref.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		// Inject the null AT INDEX 0.
+		pageDict["Contents"] = pdfcpu_types.Array{nil, ref}
+
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+		if err != nil {
+			t.Fatalf("[14.3-UNIT-002] [null ref] unexpected error: %v (a leading null must be skipped, not rejected)", err)
+		}
+		if got := len(ids); got != 1 {
+			t.Errorf("[14.3-UNIT-002] [null ref] stream count = %d, want 1 (leading null skipped like any other null)", got)
+		}
+	})
+
 	// A non-null, non-ref element is malformed rather than empty: /Contents
 	// elements are refs to streams (7.8.2) and streams are always indirect
 	// (7.3.8). Skipping it could omit real page content, so it must be reported.

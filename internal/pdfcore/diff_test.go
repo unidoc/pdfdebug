@@ -340,6 +340,41 @@ func TestDiff_SharedRefWalkedElsewhereNotTruncated(t *testing.T) {
 	}
 }
 
+// TestReconcileTruncation_EntryNotCompletion pins the honesty guarantee behind
+// the entry-populated enteredPairs set (PR review, diff.go:reconcileTruncation):
+// enteredPairs records a pair on diff ENTRY, not on completion of a full walk,
+// so a pair entered near the depth cap whose own subtree is then cut is in the
+// set exactly like a fully-walked pair. Clearing a redundant past-the-cap
+// encounter of such a pair must NOT zero TruncatedSubtrees, because the deeper,
+// genuinely-unresolved pair retains its own mark. Asserted directly on
+// reconcileTruncation + countDelta so it does not depend on a brittle
+// depth-33 PDF fixture.
+func TestReconcileTruncation_EntryNotCompletion(t *testing.T) {
+	// childP: a redundant past-cap encounter of pair "P" that WAS entered
+	// elsewhere -> in enteredPairs -> its mark clears.
+	// childQ: pair "Q" that was NEVER entered elsewhere (genuinely unresolved,
+	// e.g. a child of P cut when P's own entry walk hit the cap) -> survives.
+	childP := &DiffNode{Path: "/Root/P", Status: "unchanged", Kind: "ref", Truncated: true, capRefPair: "P"}
+	childQ := &DiffNode{Path: "/Root/Q", Status: "unchanged", Kind: "ref", Truncated: true, capRefPair: "Q"}
+	root := &DiffNode{Path: "/Root", Status: "unchanged", Kind: "dict", Children: []*DiffNode{childP, childQ}}
+
+	enteredPairs := map[string]bool{"P": true} // P entered elsewhere; Q was not
+
+	reconcileTruncation(root, enteredPairs)
+
+	if childP.Truncated {
+		t.Errorf("childP: a pair entered elsewhere should have its redundant mark cleared")
+	}
+	if !childQ.Truncated {
+		t.Errorf("childQ: a pair never entered elsewhere is genuinely unresolved and must stay truncated")
+	}
+	var s DiffSummary
+	countDelta(root, &s)
+	if s.TruncatedSubtrees != 1 {
+		t.Errorf("TruncatedSubtrees = %d, want 1: clearing an entered-but-not-fully-walked pair must not zero the count while a genuinely-unresolved pair remains", s.TruncatedSubtrees)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 14.3-UNIT-001 [P1] AC1/AC2 (Story 14.3): a deep chain diffed past the
 // maxResolveDepth cap marks the cut node DiffNode.Truncated and tallies it in

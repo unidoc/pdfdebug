@@ -103,12 +103,14 @@ type DiffSummary struct {
 type diffContext struct {
 	left  *DocumentState
 	right *DocumentState
-	// visitedPairs records the (left,right) indirect-ref pairs already fully
-	// diffed, keyed "numL:genL|numR:genR". It is a GLOBAL (never-cleared)
-	// cross-path dedup: a subgraph shared by many referrers (e.g. one /Resources
-	// referenced by every page) is walked once, and a crafted diamond graph
-	// cannot blow up exponentially. Distinct from the path-scoped visited sets,
-	// which cut only back-edges (cycles) on the current ancestor path.
+	// visitedPairs records the (left,right) indirect-ref pairs whose diff has
+	// been ENTERED (recorded before recursing, not on completion), keyed
+	// "numL:genL|numR:genR". It is a GLOBAL (never-cleared) cross-path dedup: a
+	// subgraph shared by many referrers (e.g. one /Resources referenced by every
+	// page) is walked once, and a crafted diamond graph cannot blow up
+	// exponentially. Distinct from the path-scoped visited sets, which cut only
+	// back-edges (cycles) on the current ancestor path. See reconcileTruncation
+	// for why entry (vs full-walk) semantics still keep the truncation count honest.
 	visitedPairs map[string]bool
 }
 
@@ -443,25 +445,35 @@ func (dc *diffContext) singleSided(path string, doc *DocumentState, val pdfcpu_t
 }
 
 // reconcileTruncation clears the depth-cap Truncated mark on any node whose
-// ref-pair was fully walked elsewhere in the graph (its capRefPair is in
-// walkedPairs). A pair diffed on a shallow path is fully accounted for, so a
-// second encounter past the depth cap hides nothing; marking it would
-// over-count DiffSummary.TruncatedSubtrees and wrongly withhold the "identical"
-// verdict (Story 14.3). It runs once after the walk, when walkedPairs is
-// complete, so it corrects BOTH DFS orders (shallow-first: the deep leg is
-// cleared here; deep-first: the deep leg is marked during the walk, then
-// cleared here once the shallow leg has populated walkedPairs). Depth-cap cuts
-// with no ref-pair (deep DIRECT nesting, or a ref aligned against a non-ref)
-// carry no capRefPair and are left marked - they are genuinely unresolved.
-func reconcileTruncation(n *DiffNode, walkedPairs map[string]bool) {
+// ref-pair was ENTERED elsewhere in the graph (its capRefPair is in
+// enteredPairs). It runs once after the walk, when enteredPairs is complete, so
+// it corrects BOTH DFS orders (shallow-first: the deep leg is cleared here;
+// deep-first: the deep leg is marked during the walk, then cleared once the
+// shallow leg has populated enteredPairs). Depth-cap cuts with no ref-pair (deep
+// DIRECT nesting, or a ref aligned against a non-ref) carry no capRefPair and
+// are left marked - they are genuinely unresolved.
+//
+// enteredPairs is populated on diff ENTRY (diffChild records the pair before
+// recursing), NOT on completion of a full walk, so a pair entered at
+// nextDepth == maxResolveDepth - whose own children are then cut one level
+// deeper - is in the set exactly like a pair walked to its leaves. Clearing a
+// past-the-cap encounter of such a pair is nonetheless honest, and the count
+// cannot wrongly reach zero, because the entry walk of that pair EXAMINED its
+// direct children: each child is either a counted delta, a fully-walked
+// subtree, or itself a depth-cap cut carrying its OWN capRefPair. That deeper
+// mark survives reconciliation unless ITS pair was also entered elsewhere -
+// i.e. unless it too was genuinely reached. So the deepest genuinely-unresolved
+// pair always retains a mark; clearing the shallower, redundant encounter only
+// removes double-counting. (Pinned by TestReconcileTruncation_EntryNotCompletion.)
+func reconcileTruncation(n *DiffNode, enteredPairs map[string]bool) {
 	if n == nil {
 		return
 	}
-	if n.Truncated && n.capRefPair != "" && walkedPairs[n.capRefPair] {
+	if n.Truncated && n.capRefPair != "" && enteredPairs[n.capRefPair] {
 		n.Truncated = false
 	}
 	for _, c := range n.Children {
-		reconcileTruncation(c, walkedPairs)
+		reconcileTruncation(c, enteredPairs)
 	}
 }
 
