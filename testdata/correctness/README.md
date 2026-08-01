@@ -188,7 +188,21 @@ obj 5 (stream 2): BT
 Per ISO 32000-1 7.8.2 the page content is the concatenation of both streams
 joined by whitespace. Pre-fix `GetPageContentStreamNodeID` returns only the
 first ref's node ID, so `dump stream --page 1` decodes ONLY stream 1 (`q`, `cm`)
-and presents an unbalanced partial program with no marker. Post-fix the tool
-either concatenates both streams (operators from both appear) or emits a
-machine-visible truncation marker (`streamCount`/`truncated`) on `--json` and
-`--ops`. 5 objects total.
+and presents an unbalanced partial program. Post-fix `dump stream --page 1`
+concatenates ALL of the page's content streams (via `GetPageContentStream`),
+newline-joined, and tokenizes them as one program - operators from both streams
+appear on `--json`, `--ops`, plain text, and `--raw`. 5 objects total.
+
+**`--raw` contract change:** for a multi-stream page, `--raw` now emits every
+stream's decoded bytes joined by a single injected `\n` (the whole page content
+per 7.8.2), not one stream verbatim. A script that diffed `--raw` output against
+one extracted stream's bytes must instead compare against the concatenation.
+
+**Still not handled (visible/deferred, not silent):**
+- `/Contents` given as an indirect ref to an array (`/Contents 6 0 R` where obj6
+  is `[4 0 R 5 0 R]`): errors visibly (`node is not a stream object`, exit 2)
+  rather than concatenating - pdfcpu does not pre-dereference `/Contents`.
+- GUI "Go to Page" still lands on the first content stream alone: `GoToPage`
+  returns `GetPageContentStreamNodeID` (a single tree node) and `DetailPanel`
+  fetches it via `GetContentStream`. `GetPageContentStream` is not yet bound
+  into `pdfservice`, so the concatenation fix is CLI-only for now.

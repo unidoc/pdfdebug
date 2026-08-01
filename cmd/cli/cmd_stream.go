@@ -233,15 +233,14 @@ func writeNoContentStream(flags streamFlags) int {
 // PDF content-stream order (let it flow; do not tabulate). NON-CONTRACTUAL;
 // use --json for structured operators, --ops for NDJSON, --raw for bytes.
 func printStreamPlain(out io.Writer, result *pdfcore.ContentStreamData) error {
-	var b strings.Builder
 	// A content-stream object can exist yet decode to zero operators (an empty
 	// /Contents stream). Surface that as a one-line note so plain output is never
 	// a silent zero-byte write and always ends with a newline.
 	if len(result.Formatted) == 0 {
-		b.WriteString("(empty content stream)\n")
-		_, err := io.WriteString(out, b.String())
+		_, err := io.WriteString(out, "(empty content stream)\n")
 		return err
 	}
+	var b strings.Builder
 	for _, fl := range result.Formatted {
 		for range fl.Indent {
 			b.WriteString("  ")
@@ -399,7 +398,6 @@ func emitOps(inspector *pdfcore.Inspector, result *pdfcore.ContentStreamData, pa
 			return 2
 		}
 	}
-
 	return 0
 }
 
