@@ -86,14 +86,23 @@ describe('DiffView depth-cap truncation (Story 14.3)', () => {
     expect(text).not.toMatch(/no structural differences|no differ|identical/);
   });
 
-  // 14.3-COMP-001 [P1] AC5: the depth-cap marker is rendered somewhere in the
-  // view so the bounded walk is visible to the user (mirrors the CLI marker).
-  test('14.3-COMP-001 renders a depth-cap truncation marker', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+  // 14.3-COMP-001 [P1] AC5: the per-node [truncated: depth cap] ROW renders, not
+  // just the summary note. The depth-capped node reports status "unchanged", so
+  // hasDelta must treat `truncated` as a delta for its ancestors to auto-expand;
+  // otherwise the marker sits under an unexpanded ancestor and is unreachable.
+  // Asserts the bracketed row text (distinct from the summary note's "truncated
+  // at the depth cap") AND the cut node's path, so it genuinely covers the
+  // DiffView.tsx per-node marker branch rather than passing on the summary note.
+  test('14.3-COMP-001 auto-expands to the depth-cap node and renders its row marker', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await waitFor(() => expect(mockDiffDocuments).toHaveBeenCalled());
     await screen.findByTestId('diff-summary');
-    const body = (container.textContent ?? '').toLowerCase();
-    expect(body).toMatch(/truncat|depth cap/);
+
+    // The cut node itself is rendered (its ancestors auto-expanded to reach it).
+    expect(screen.getAllByText('/Root/Deep').length).toBeGreaterThan(0);
+    // ...carrying the per-node marker: bracketed row text, which the summary
+    // note ("... truncated at the depth cap ...") does not contain.
+    expect(screen.getAllByText(/\[truncated: depth cap\]/).length).toBeGreaterThan(0);
   });
 });

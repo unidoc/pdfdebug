@@ -56,9 +56,12 @@ export interface DiffViewProps {
   active: boolean;
 }
 
-/** Reports whether a node or any descendant is not "unchanged". */
+/** Reports whether a node or any descendant is not "unchanged", or is a
+ *  depth-cap truncated ref. A truncated node reports status "unchanged" but must
+ *  still route auto-expansion so its [truncated: depth cap] marker is reachable
+ *  without hand-expanding every level (mirrors Go's diffNodeHasDelta). */
 function hasDelta(node: DiffNodeData): boolean {
-  if (node.status !== 'unchanged') return true;
+  if (node.status !== 'unchanged' || node.truncated) return true;
   return (node.children ?? []).some(hasDelta);
 }
 
