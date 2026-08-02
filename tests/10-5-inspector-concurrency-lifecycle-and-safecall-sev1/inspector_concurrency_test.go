@@ -134,11 +134,25 @@ var methodFileMap = map[string]string{
 	"GetXRefTable":               "internal/pdfcore/xreftable.go",
 }
 
+// pdfMuLockOwner maps a method that only DELEGATES to the helper that performs
+// the locked work, so the grep looks where the mutex actually lives. The
+// guarantee asserted is unchanged (the page-dict resolution happens under
+// doc.pdfMu); it is just one call deeper. GetPageContentStreamNodeID resolves
+// through pageContentStreamNodeIDs, which locks, so that both it and
+// GetPageContentStream share one page-dict resolution.
+var pdfMuLockOwner = map[string]string{
+	"GetPageContentStreamNodeID": "pageContentStreamNodeIDs",
+}
+
 // Test_10_5_AC1_MethodsAcquirePdfMu [P0] AC#1: every method in
 // pdfMuRequiredMethods MUST contain a `doc.pdfMu.Lock()` call and a
 // `defer doc.pdfMu.Unlock()` immediately after the `GetDocument` call.
 // We assert the two substrings appear in the function body via a
 // per-method file read + regex scoped to the function range.
+//
+// A method listed in pdfMuLockOwner is checked in two steps instead: it must
+// call its declared helper, and the HELPER must carry the lock pattern. A
+// method that neither locks nor delegates still fails.
 //
 // The function boundary is approximated by `func (ins *Inspector) <Name>(`
 // up to the next `func (` at the same depth -- adequate for grep purposes.
@@ -150,15 +164,26 @@ func Test_10_5_AC1_MethodsAcquirePdfMu(t *testing.T) {
 				t.Fatalf("internal test bug: methodFileMap missing %q", method)
 			}
 			src := readSource(t, path)
-			body := extractFunctionBody(t, src, method)
+			target := method
+			if owner, ok := pdfMuLockOwner[method]; ok {
+				caller := extractFunctionBody(t, src, method)
+				if caller == "" {
+					t.Fatalf("[P0] 10-5-AC1: could not locate `func (ins *Inspector) %s(` in %s", method, path)
+				}
+				if !strings.Contains(caller, owner+"(") {
+					t.Errorf("[P0] 10-5-AC1: %s in %s must either lock doc.pdfMu itself or delegate to %s, which does", method, path, owner)
+				}
+				target = owner
+			}
+			body := extractFunctionBody(t, src, target)
 			if body == "" {
-				t.Fatalf("[P0] 10-5-AC1: could not locate `func (ins *Inspector) %s(` in %s", method, path)
+				t.Fatalf("[P0] 10-5-AC1: could not locate `func (ins *Inspector) %s(` in %s", target, path)
 			}
 			if !strings.Contains(body, "doc.pdfMu.Lock()") {
-				t.Errorf("[P0] 10-5-AC1: %s in %s must call `doc.pdfMu.Lock()` (AC1: acquire per-document mutex immediately after GetDocument)", method, path)
+				t.Errorf("[P0] 10-5-AC1: %s in %s must call `doc.pdfMu.Lock()` (AC1: acquire per-document mutex immediately after GetDocument)", target, path)
 			}
 			if !strings.Contains(body, "defer doc.pdfMu.Unlock()") {
-				t.Errorf("[P0] 10-5-AC1: %s in %s must call `defer doc.pdfMu.Unlock()` (AC1: deferred Unlock pattern)", method, path)
+				t.Errorf("[P0] 10-5-AC1: %s in %s must call `defer doc.pdfMu.Unlock()` (AC1: deferred Unlock pattern)", target, path)
 			}
 		})
 	}

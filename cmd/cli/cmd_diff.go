@@ -95,8 +95,12 @@ func execDiff(leftPath, rightPath string, jsonOut, pretty, full bool) (exitCode 
 // the counts and must be checked explicitly or a /Producer-only or
 // encryption-only change would wrongly report "identical" (exit 0).
 func diffIsIdentical(s pdfcore.DiffSummary) bool {
+	// A depth-capped walk (TruncatedSubtrees > 0) left a subtree unexplored, so
+	// the pair cannot be certified identical even with zero visible deltas
+	// (Story 14.3 AC2): exit 1 ("not provably identical") is the honest signal.
 	return s.Added == 0 && s.Removed == 0 && s.Changed == 0 &&
-		!s.VersionChanged && !s.EncryptionChanged && !s.InfoChanged && !s.XMPChanged
+		!s.VersionChanged && !s.EncryptionChanged && !s.InfoChanged && !s.XMPChanged &&
+		s.TruncatedSubtrees == 0
 }
 
 // printDiffPlain renders the summary plus a path-indented delta. NON-CONTRACTUAL
@@ -118,6 +122,11 @@ func printDiffPlain(out io.Writer, res *pdfcore.DiffResult, full bool) error {
 	}
 	if s.XMPChanged {
 		b.WriteString("XMP metadata changed\n")
+	}
+	if s.TruncatedSubtrees > 0 {
+		// Depth-cap honesty (Story 14.3 AC2): state plainly that the walk was
+		// bounded so no consumer mistakes it for a complete comparison.
+		fmt.Fprintf(&b, "%d subtree(s) compared only to the depth cap (truncated); deeper differences cannot be ruled out\n", s.TruncatedSubtrees)
 	}
 	b.WriteString("\n")
 
@@ -158,15 +167,24 @@ func writeDiffLines(b *strings.Builder, n *pdfcore.DiffNode, depth int, full boo
 			fmt.Fprintf(b, "  %s", n.LeftSummary)
 		}
 	}
+	if n.Truncated {
+		// The depth-cap tag (Story 14.3 AC1): a truncated node carries
+		// Status "unchanged", so without this it would print without any
+		// indication its subtree was left unwalked.
+		b.WriteString("  [truncated: depth cap]")
+	}
 	b.WriteString("\n")
 	for _, c := range n.Children {
 		writeDiffLines(b, c, depth+1, full)
 	}
 }
 
-// diffNodeHasDelta reports whether n or any descendant is not "unchanged".
+// diffNodeHasDelta reports whether n or any descendant is not "unchanged", or
+// is depth-cap truncated. A truncated node reports Status "unchanged" but must
+// surface in the default (non-full) delta so its [truncated: depth cap] tag is
+// visible (Story 14.3 AC1).
 func diffNodeHasDelta(n *pdfcore.DiffNode) bool {
-	if n.Status != "unchanged" {
+	if n.Status != "unchanged" || n.Truncated {
 		return true
 	}
 	for _, c := range n.Children {

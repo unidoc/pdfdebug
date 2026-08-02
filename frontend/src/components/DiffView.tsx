@@ -20,6 +20,8 @@ export interface DiffNodeData {
   leftSummary: string;
   rightSummary: string;
   children?: DiffNodeData[];
+  /** True when this ref was left unwalked at the depth cap (Story 14.3 AC1). */
+  truncated?: boolean;
 }
 
 /** The document-level tally, mirroring `pdfcore.DiffSummary`. */
@@ -33,6 +35,9 @@ export interface DiffSummaryData {
   encryptionChanged: boolean;
   infoChanged: boolean;
   xmpChanged: boolean;
+  /** Count of subtrees compared only to the depth cap (Story 14.3 AC2); when
+   *  > 0 the walk was bounded and identity cannot be claimed. */
+  truncatedSubtrees: number;
 }
 
 /** The diff outcome, mirroring `pdfcore.DiffResult`. */
@@ -51,9 +56,12 @@ export interface DiffViewProps {
   active: boolean;
 }
 
-/** Reports whether a node or any descendant is not "unchanged". */
+/** Reports whether a node or any descendant is not "unchanged", or is a
+ *  depth-cap truncated ref. A truncated node reports status "unchanged" but must
+ *  still route auto-expansion so its [truncated: depth cap] marker is reachable
+ *  without hand-expanding every level (mirrors Go's diffNodeHasDelta). */
 function hasDelta(node: DiffNodeData): boolean {
-  if (node.status !== 'unchanged') return true;
+  if (node.status !== 'unchanged' || node.truncated) return true;
   return (node.children ?? []).some(hasDelta);
 }
 
@@ -238,6 +246,9 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
   // Mirror Go's diffIsIdentical: node counts alone miss document-level deltas
   // (encryption, /Version, /Info, XMP) that live off the catalog walk, so a
   // flags-only change must not report "No structural differences".
+  // A depth-capped walk (truncatedSubtrees > 0) left a subtree unexplored, so
+  // identity cannot be claimed even with zero visible deltas (Story 14.3 AC2/
+  // 14.3-COMP-001), mirroring Go's diffIsIdentical.
   const identical =
     s.added === 0 &&
     s.removed === 0 &&
@@ -245,7 +256,8 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
     !s.versionChanged &&
     !s.encryptionChanged &&
     !s.infoChanged &&
-    !s.xmpChanged;
+    !s.xmpChanged &&
+    s.truncatedSubtrees === 0;
 
   return (
     <div className="h-full flex flex-col" data-testid="diff-view">
@@ -264,6 +276,12 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           {s.infoChanged ? ' | /Info changed' : ''}
           {s.xmpChanged ? ' | XMP changed' : ''}
         </div>
+        {s.truncatedSubtrees > 0 && (
+          <div className="text-warning mt-0.5" data-testid="diff-truncation-note">
+            {s.truncatedSubtrees} subtree{s.truncatedSubtrees === 1 ? '' : 's'} truncated at the depth
+            cap; deeper differences cannot be ruled out.
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-surface flex-shrink-0">
@@ -329,6 +347,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 <span>{diffMarker(node.status)} </span>
                 <span>{node.path}</span>
                 {node.leftSummary ? <span className="text-text-muted"> {node.leftSummary}</span> : null}
+                {node.truncated ? <span className="text-warning"> [truncated: depth cap]</span> : null}
               </div>
             );
           })}
