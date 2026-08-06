@@ -145,10 +145,12 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 func embeddedFileFromFilespec(doc *DocumentState, fs pdfcpu_types.Dict, fsRef string) EmbeddedFile {
 	ef := EmbeddedFile{FilespecRef: fsRef}
 
-	// Display name: /UF preferred, else /F.
-	if uf := stringValue(fs["UF"]); uf != "" {
+	// Display name: /UF preferred, else /F. Both are PDF TEXT strings, so they
+	// go through the shared decoder; textStringOrRaw keeps an undecodable /UF
+	// present (raw) instead of silently falling through to /F.
+	if uf := textStringOrRaw(fs["UF"]); uf != "" {
 		ef.Name = uf
-	} else if f := stringValue(fs["F"]); f != "" {
+	} else if f := textStringOrRaw(fs["F"]); f != "" {
 		ef.Name = f
 	}
 
@@ -306,8 +308,14 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 }
 
 // stringValue renders a PDF string-like object (StringLiteral / HexLiteral) as
-// its plain text, returning "" for any other type. Used for filespec /F, /UF,
-// and /Params /CheckSum, /ModDate.
+// its RAW bytes - the literal's escaped body for a StringLiteral, the hex digit
+// text for a HexLiteral - returning "" for any other type. This is the
+// deliberate no-decode path for byte-carrying and already-ASCII fields:
+// filespec /Params /CheckSum (binary) and /Params /ModDate (ASCII date), the
+// /Info date keys, catalog /Lang, and the signature dict's /T, /Name, /Reason,
+// /Location, /ContactInfo (text strings still awaiting a decode wiring). PDF
+// TEXT fields use textStringOrRaw instead; stringValue is also its raw
+// fallback, so it must not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.StringLiteral:

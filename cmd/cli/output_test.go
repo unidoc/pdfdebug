@@ -1,9 +1,54 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"testing"
+
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
+
+// TestASCIISafe_EscapesOnlyWhenNeeded pins asciiSafe's conditional contract: a
+// printable-ASCII value is returned byte-identically (existing plain output must
+// never gain quotes), while any byte outside 0x20-0x7e triggers the
+// strconv.QuoteToASCII escape. The control-byte rows matter for the table
+// presenters: a raw 0x0A in a cell splits one logical row across two lines, and
+// a raw multi-byte rune breaks their len()-based column padding.
+func TestASCIISafe_EscapesOnlyWhenNeeded(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		in     string
+		escape bool // true: expect strconv.QuoteToASCII(in); false: expect in verbatim
+	}{
+		{name: "empty", in: "", escape: false},
+		{name: "printable ASCII unchanged", in: "Invoice 2024-001", escape: false},
+		{name: "space and tilde are printable", in: " ~", escape: false},
+		{name: "non-ASCII latin", in: "Größe", escape: true},
+		{name: "CJK", in: "中文", escape: true},
+		{name: "newline", in: "Da\nta", escape: true},
+		{name: "tab", in: "a\tb", escape: true},
+		{name: "NUL", in: "a\x00b", escape: true},
+		{name: "DEL", in: "a\x7fb", escape: true},
+		{name: "invalid UTF-8", in: "\x80\xca", escape: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want := tc.in
+			if tc.escape {
+				want = strconv.QuoteToASCII(tc.in)
+			}
+			got := asciiSafe(tc.in)
+			if got != want {
+				t.Fatalf("asciiSafe(%q) = %q, want %q", tc.in, got, want)
+			}
+			// Whatever the branch, the result must be printable ASCII.
+			for i := 0; i < len(got); i++ {
+				if got[i] < 0x20 || got[i] > 0x7e {
+					t.Fatalf("asciiSafe(%q) = %q still carries byte 0x%02x at %d", tc.in, got, got[i], i)
+				}
+			}
+		})
+	}
+}
 
 // TestKVWriter_AlignsColon verifies the colon column is aligned across rows
 // (the value column starts at the same offset for every key/value row).
@@ -62,15 +107,129 @@ func TestTableWriter_HeaderAndRows(t *testing.T) {
 // TestHumanizeBytes spot-checks the byte humanizer across unit boundaries.
 func TestHumanizeBytes(t *testing.T) {
 	cases := map[int64]string{
-		0:        "0 B",
-		512:      "512 B",
-		1024:     "1.0 KB",
-		1536:     "1.5 KB",
-		1048576:  "1.0 MB",
+		0:       "0 B",
+		512:     "512 B",
+		1024:    "1.0 KB",
+		1536:    "1.5 KB",
+		1048576: "1.0 MB",
 	}
 	for n, want := range cases {
 		if got := humanizeBytes(n); got != want {
 			t.Errorf("humanizeBytes(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped pins the documented split on
+// the `dump metadata` plain surface: /Info values are ASCII-escaped, while the
+// XMP packet below the "XMP:" heading is UTF-8 XML passed through VERBATIM
+// (escaping it would corrupt it as XML; story 14.4 Out of Scope).
+//
+// This exists because the acceptance suite cannot pin it: its fixture has no
+// /Metadata stream, so 14.4-INTG-006's Info-block-scoped ASCII assertion would
+// pass either way. Without this test the exemption is prose and a godoc only.
+func TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped(t *testing.T) {
+	md := &pdfcore.DocumentMetadata{
+		Info: map[string]string{"Title": "Rechnung Größe 中文"},
+		XMP:  "<x:xmpmeta><dc:title>Größe 中文</dc:title></x:xmpmeta>",
+	}
+	var b strings.Builder
+	if err := printMetadataPlain(&b, md); err != nil {
+		t.Fatalf("printMetadataPlain: %v", err)
+	}
+	out := b.String()
+
+	i := strings.Index(out, "\nXMP:\n")
+	if i < 0 {
+		t.Fatalf("expected an XMP: heading line in:\n%s", out)
+	}
+	infoBlock, xmpBlock := out[:i], out[i:]
+
+	// The Info block must be pure printable ASCII (newlines aside).
+	for j := 0; j < len(infoBlock); j++ {
+		if c := infoBlock[j]; c != '\n' && (c < 0x20 || c > 0x7e) {
+			t.Fatalf("Info block carries byte 0x%02x at %d; decoded values must be escaped:\n%s", c, j, infoBlock)
+		}
+	}
+	if want := strconv.QuoteToASCII("Rechnung Größe 中文"); !strings.Contains(infoBlock, want) {
+		t.Errorf("Info block must carry the escaped title %s; got:\n%s", want, infoBlock)
+	}
+
+	// The XMP packet must survive byte-for-byte, non-ASCII included.
+	if !strings.Contains(xmpBlock, md.XMP) {
+		t.Errorf("XMP packet must be passed through verbatim; got:\n%s", xmpBlock)
+	}
+	if !strings.Contains(xmpBlock, "Größe 中文") {
+		t.Errorf("XMP packet must retain its non-ASCII bytes (it is UTF-8 XML, not an ASCII surface); got:\n%s", xmpBlock)
+	}
+}
+
+// TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped pins that EVERY
+// PDF-derived cell is escaped, not just Name. AFRelationship and Subtype come
+// from PDF Names, whose #xx escapes resolve to arbitrary bytes: a raw 0x0A there
+// splits one logical row across two lines, and a raw multi-byte rune breaks
+// tableWriter's len()-based padding.
+//
+// The acceptance fixture cannot pin this - its /AFRelationship and /Subtype are
+// pure ASCII, so removing the escape from those two cells leaves every 14.4
+// scenario green.
+func TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped(t *testing.T) {
+	files := []pdfcore.EmbeddedFile{{
+		Name:            "größe-中文.xml",
+		AFRelationship:  "Da\nta",    // a raw newline would split the row
+		Subtype:         "text/xéml", // raw multi-byte would break padding
+		Size:            70,
+		FilespecRef:     "6 0 R",
+		EmbeddedFileRef: "4 0 R",
+	}}
+	var b strings.Builder
+	if err := printEmbeddedListPlain(&b, files); err != nil {
+		t.Fatalf("printEmbeddedListPlain: %v", err)
+	}
+	out := b.String()
+
+	for i := 0; i < len(out); i++ {
+		if c := out[i]; c != '\n' && (c < 0x20 || c > 0x7e) {
+			t.Fatalf("table carries byte 0x%02x at %d; every PDF-derived cell must be escaped:\n%s", c, i, out)
+		}
+	}
+	// Header + exactly one data row: a raw 0x0A in a cell would make three lines.
+	if got := len(strings.Split(strings.TrimRight(out, "\n"), "\n")); got != 2 {
+		t.Errorf("expected 2 lines (header + 1 row), got %d - a cell newline leaked and split the row:\n%s", got, out)
+	}
+	for _, want := range []string{
+		strconv.QuoteToASCII("größe-中文.xml"),
+		strconv.QuoteToASCII("Da\nta"),
+		strconv.QuoteToASCII("text/xéml"),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table must carry the escaped cell %s; got:\n%s", want, out)
+		}
+	}
+}
+
+// TestAnyNameDiffersFromDisplay covers the three reasons a name copied out of
+// the plain table will not match the --name selector. The selector matches the
+// decoded pdfcore value; the table shows an escaped, dash-substituted and
+// space-padded rendering of it.
+func TestAnyNameDiffersFromDisplay(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files []pdfcore.EmbeddedFile
+		want  bool
+	}{
+		{name: "all plain ASCII", files: []pdfcore.EmbeddedFile{{Name: "a.xml"}, {Name: "b.xml"}}, want: false},
+		{name: "non-ASCII is escaped for display", files: []pdfcore.EmbeddedFile{{Name: "a.xml"}, {Name: "größe.xml"}}, want: true},
+		{name: "control byte is escaped for display", files: []pdfcore.EmbeddedFile{{Name: "a\nb.xml"}}, want: true},
+		{name: "empty name renders as a dash", files: []pdfcore.EmbeddedFile{{Name: ""}}, want: true},
+		{name: "leading space is invisible in a padded column", files: []pdfcore.EmbeddedFile{{Name: " a.xml"}}, want: true},
+		{name: "trailing space is invisible in a padded column", files: []pdfcore.EmbeddedFile{{Name: "a.xml "}}, want: true},
+		{name: "no files at all", files: nil, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := anyNameDiffersFromDisplay(tc.files); got != tc.want {
+				t.Errorf("anyNameDiffersFromDisplay(%v) = %v, want %v", tc.files, got, tc.want)
+			}
+		})
 	}
 }

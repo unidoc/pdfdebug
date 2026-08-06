@@ -87,6 +87,20 @@ func execEmbeddedList(filePath string, jsonOut bool) (exitCode int) {
 	return 0
 }
 
+// anyNameDiffersFromDisplay reports whether the plain table's Name cell can
+// differ from the --name selector value for any attachment, which is the whole
+// reason a copied-from-the-table name might not match. Three causes, not one:
+// the escape (asciiSafe), dashIfEmpty rendering an empty name as "-", and
+// leading/trailing spaces that column padding makes invisible.
+func anyNameDiffersFromDisplay(files []pdfcore.EmbeddedFile) bool {
+	for _, f := range files {
+		if f.Name == "" || asciiSafe(f.Name) != f.Name || strings.TrimSpace(f.Name) != f.Name {
+			return true
+		}
+	}
+	return false
+}
+
 // printEmbeddedListPlain renders the embedded-file list as an aligned table:
 // Name, Relationship, MIME, Size, Filespec, EmbeddedFile. NON-CONTRACTUAL; use
 // --json to parse.
@@ -94,9 +108,13 @@ func printEmbeddedListPlain(out io.Writer, files []pdfcore.EmbeddedFile) error {
 	t := newTable("Name", "Relationship", "MIME", "Size", "Filespec", "EmbeddedFile")
 	for _, f := range files {
 		t.AddRow(
-			dashIfEmpty(f.Name),
-			dashIfEmpty(f.AFRelationship),
-			dashIfEmpty(f.Subtype),
+			// Every PDF-derived cell needs escaping, not just the decoded name:
+			// AFRelationship and Subtype come from PDF Names, whose #xx escapes
+			// resolve to arbitrary bytes. A raw 0x0A there splits one logical row
+			// across two lines; a raw multi-byte rune breaks len()-based padding.
+			dashIfEmpty(asciiSafe(f.Name)),
+			dashIfEmpty(asciiSafe(f.AFRelationship)),
+			dashIfEmpty(asciiSafe(f.Subtype)),
 			humanizeBytes(f.Size),
 			dashIfEmpty(f.FilespecRef),
 			dashIfEmpty(f.EmbeddedFileRef),
@@ -166,7 +184,13 @@ func execEmbeddedExtractByName(filePath, name string) (exitCode int) {
 
 	switch len(matches) {
 	case 0:
+		// The selector matches the DECODED name, while the plain table prints its
+		// ASCII-escaped form, so a name copied out of that table will not match.
+		// Point at --json, which carries the exact selector value.
 		fmt.Fprintf(os.Stderr, "error: no embedded file named %q\n", name)
+		if anyNameDiffersFromDisplay(list.Files) {
+			fmt.Fprintf(os.Stderr, "hint: this document has attachment names the plain table cannot show verbatim (escaped, empty, or space-padded). Use `dump embedded --json` and select on the exact \"name\" value.\n")
+		}
 		return 2
 	case 1:
 		if matches[0].EmbeddedFileNodeID == "" {
