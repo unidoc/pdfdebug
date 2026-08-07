@@ -310,10 +310,19 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 // stringValue renders a PDF string-like object (StringLiteral / HexLiteral) as
 // its RAW bytes - the literal's escaped body for a StringLiteral, the hex digit
 // text for a HexLiteral - returning "" for any other type. This is the
-// deliberate no-decode path for byte-carrying and already-ASCII fields:
-// filespec /Params /CheckSum (binary) and /Params /ModDate (ASCII date), the
-// /Info date keys, catalog /Lang, and the signature dict's /T, /Name, /Reason,
-// /Location, /ContactInfo (text strings still awaiting a decode wiring). PDF
+// deliberate no-decode path for two DIFFERENT reasons, and the distinction
+// matters:
+//
+//   - Genuinely byte-carrying, where decoding would CORRUPT the value: filespec
+//     /Params /CheckSum, signature /Contents and /Cert, trailer /ID.
+//   - Scoped out, where decoding would be harmless but simply is not wired yet:
+//     filespec /Params /ModDate and the /Info date keys (ISO 32000-1 7.9.4
+//     defines a date AS a text string, so these MAY legally be UTF-16BE - the
+//     raw rendering is a scope decision, NOT a safety requirement, and a
+//     <FEFF...> date does currently surface as hex digits), catalog /Lang, and
+//     the signature dict's /T, /Name, /Reason, /Location, /ContactInfo.
+//
+// PDF
 // TEXT fields use textStringOrRaw instead; stringValue is also its raw
 // fallback, so it must not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {

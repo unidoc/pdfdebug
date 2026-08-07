@@ -92,9 +92,14 @@ func execEmbeddedList(filePath string, jsonOut bool) (exitCode int) {
 // reason a copied-from-the-table name might not match. Three causes, not one:
 // the escape (asciiSafe), dashIfEmpty rendering an empty name as "-", and
 // leading/trailing spaces that column padding makes invisible.
+//
+// The space check is strings.Trim on a literal " ", not TrimSpace: every other
+// byte TrimSpace would strip (tab, CR, LF, NBSP, U+2000..) is outside
+// 0x20-0x7e and is therefore already caught by the asciiSafe clause, so the
+// narrow form is equivalent here and says what this branch actually means.
 func anyNameDiffersFromDisplay(files []pdfcore.EmbeddedFile) bool {
 	for _, f := range files {
-		if f.Name == "" || asciiSafe(f.Name) != f.Name || strings.TrimSpace(f.Name) != f.Name {
+		if f.Name == "" || asciiSafe(f.Name) != f.Name || strings.Trim(f.Name, " ") != f.Name {
 			return true
 		}
 	}
