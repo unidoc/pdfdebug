@@ -16,7 +16,7 @@ import (
 
 const (
 	// utf16TitleHex is UTF-16BE-with-BOM for utf16TitleText. No 0x5C byte
-	// (AC1: pdfcpu's HexLiteralToString silently swallows one).
+	// (pdfcpu's HexLiteralToString silently swallows one).
 	utf16TitleHex  = "FEFF0052006500630068006E0075006E006700200047007200F600DF006500204E2D6587"
 	utf16TitleText = "Rechnung Größe 中文"
 
@@ -178,7 +178,7 @@ func TestDecodeTextString_BOMWithOddTrailingByteDoesNotError(t *testing.T) {
 			got, []byte(got))
 	}
 	if got == "" {
-		t.Errorf("this input must NOT produce \"\" -- do not use it as the AC1 fallback case")
+		t.Errorf("this input must NOT produce \"\" -- do not use it as the fallback case")
 	}
 }
 
@@ -286,7 +286,7 @@ func TestTextStringOrRaw_EmptyDecodeIsNotAFailure(t *testing.T) {
 
 	// The failure path is unchanged: a real decode error still falls back to raw.
 	if got := textStringOrRaw(pdfcpu_types.HexLiteral(undecodableHex)); got != undecodableHex {
-		t.Errorf("undecodable input = %q, want the raw rendering %q (the AC1 fallback must survive)",
+		t.Errorf("undecodable input = %q, want the raw rendering %q (the fallback must survive)",
 			got, undecodableHex)
 	}
 }
@@ -471,7 +471,7 @@ func TestCollectInfoFields_NonASCIIDateStaysRaw(t *testing.T) {
 		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if got := md.Info["ModDate"]; got != utf16DateHex {
-		t.Errorf("Info[\"ModDate\"] = %q, want the raw hex digits %q - the date keys must stay on stringValue (AC2 scope boundary)",
+		t.Errorf("Info[\"ModDate\"] = %q, want the raw hex digits %q - the date keys must stay on stringValue",
 			got, utf16DateHex)
 	}
 }

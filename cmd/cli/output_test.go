@@ -9,11 +9,8 @@ import (
 )
 
 // TestASCIISafe_EscapesOnlyWhenNeeded pins asciiSafe's conditional contract: a
-// printable-ASCII value is returned byte-identically (existing plain output must
-// never gain quotes), while any byte outside 0x20-0x7e triggers the
-// strconv.QuoteToASCII escape. The control-byte rows matter for the table
-// presenters: a raw 0x0A in a cell splits one logical row across two lines, and
-// a raw multi-byte rune breaks their len()-based column padding.
+// printable-ASCII value is returned unchanged, while any byte outside
+// 0x20-0x7e triggers the strconv.QuoteToASCII escape.
 func TestASCIISafe_EscapesOnlyWhenNeeded(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -120,14 +117,12 @@ func TestHumanizeBytes(t *testing.T) {
 	}
 }
 
-// TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped pins the documented split on
-// the `dump metadata` plain surface: /Info values are ASCII-escaped, while the
-// XMP packet below the "XMP:" heading is UTF-8 XML passed through VERBATIM
-// (escaping it would corrupt it as XML; story 14.4 Out of Scope).
+// TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped pins the split on the
+// `dump metadata` plain surface: /Info values are ASCII-escaped, while the XMP
+// packet below the "XMP:" heading is UTF-8 XML passed through verbatim
+// (escaping it would corrupt it as XML).
 //
-// This exists because the acceptance suite cannot pin it: its fixture has no
-// /Metadata stream, so the -006 case's Info-block-scoped ASCII assertion would
-// pass either way. Without this test the exemption is prose and a godoc only.
+// The acceptance fixture has no /Metadata stream, so it cannot cover this.
 func TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped(t *testing.T) {
 	md := &pdfcore.DocumentMetadata{
 		Info: map[string]string{"Title": "Rechnung Größe 中文"},
@@ -164,15 +159,13 @@ func TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped(t *testing.T) {
 	}
 }
 
-// TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped pins that EVERY
+// TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped pins that every
 // PDF-derived cell is escaped, not just Name. AFRelationship and Subtype come
-// from PDF Names, whose #xx escapes resolve to arbitrary bytes: a raw 0x0A there
-// splits one logical row across two lines, and a raw multi-byte rune breaks
+// from PDF Names, whose #xx escapes resolve to arbitrary bytes: a raw 0x0A
+// splits one logical row across two lines, and a multi-byte rune breaks
 // tableWriter's len()-based padding.
 //
-// The acceptance fixture cannot pin this - its /AFRelationship and /Subtype are
-// pure ASCII, so removing the escape from those two cells leaves every 14.4
-// scenario green.
+// The acceptance fixture's values are pure ASCII, so it cannot cover this.
 func TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped(t *testing.T) {
 	files := []pdfcore.EmbeddedFile{{
 		Name:            "größe-中文.xml",
@@ -208,10 +201,8 @@ func TestPrintEmbeddedListPlain_AllPDFDerivedCellsEscaped(t *testing.T) {
 	}
 }
 
-// TestAnyNameDiffersFromDisplay covers the three reasons a name copied out of
-// the plain table will not match the --name selector. The selector matches the
-// decoded pdfcore value; the table shows an escaped, dash-substituted and
-// space-padded rendering of it.
+// TestAnyNameDiffersFromDisplay covers the reasons a name copied out of the
+// plain table will not match the --name selector.
 func TestAnyNameDiffersFromDisplay(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

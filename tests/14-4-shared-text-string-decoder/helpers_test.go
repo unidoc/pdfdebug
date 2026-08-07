@@ -37,7 +37,7 @@ const (
 	asciiSubject = "Plain ASCII subject"
 
 	// rawCheckSumHex is the fixture's /Params /CheckSum, a binary hex string in
-	// the SAME dict family as the changed fields. It must stay raw (AC4).
+	// the same dict family as the decoded fields. It must stay raw.
 	rawCheckSumHex = "DEADBEEFCAFEF00D0011223344556677"
 )
 

@@ -215,7 +215,7 @@ func TestPlainSurfaces_ASCIIValuesRenderUnquoted(t *testing.T) {
 			t.Errorf("plain metadata must still contain the bare ASCII value %q; got:\n%s", v, mdOut)
 		}
 		if strings.Contains(mdOut, strconv.Quote(v)) {
-			t.Errorf("plain metadata wrapped the all-ASCII value %q in quotes; the AC5 escape must be CONDITIONAL", v)
+			t.Errorf("plain metadata wrapped the all-ASCII value %q in quotes; the escape must be conditional", v)
 		}
 	}
 
@@ -227,7 +227,7 @@ func TestPlainSurfaces_ASCIIValuesRenderUnquoted(t *testing.T) {
 		t.Errorf("plain embedded table must still contain the bare ASCII name %q; got:\n%s", asciiName, embOut)
 	}
 	if strings.Contains(embOut, strconv.Quote(asciiName)) {
-		t.Errorf("plain embedded table wrapped the all-ASCII name %q in quotes; the AC5 escape must be CONDITIONAL", asciiName)
+		t.Errorf("plain embedded table wrapped the all-ASCII name %q in quotes; the escape must be conditional", asciiName)
 	}
 }
 
