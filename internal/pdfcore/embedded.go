@@ -145,10 +145,11 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 func embeddedFileFromFilespec(doc *DocumentState, fs pdfcpu_types.Dict, fsRef string) EmbeddedFile {
 	ef := EmbeddedFile{FilespecRef: fsRef}
 
-	// Display name: /UF preferred, else /F.
-	if uf := stringValue(fs["UF"]); uf != "" {
+	// Display name: /UF preferred, else /F. Both are text strings. An
+	// undecodable /UF stays present as raw bytes rather than deferring to /F.
+	if uf := textStringOrRaw(fs["UF"]); uf != "" {
 		ef.Name = uf
-	} else if f := stringValue(fs["F"]); f != "" {
+	} else if f := textStringOrRaw(fs["F"]); f != "" {
 		ef.Name = f
 	}
 
@@ -305,9 +306,17 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 	return arr
 }
 
-// stringValue renders a PDF string-like object (StringLiteral / HexLiteral) as
-// its plain text, returning "" for any other type. Used for filespec /F, /UF,
-// and /Params /CheckSum, /ModDate.
+// stringValue renders a PDF string-like object as its raw bytes - the escaped
+// body for a StringLiteral, the hex digit text for a HexLiteral - and "" for
+// any other type.
+//
+// Used for two kinds of field. Decoding would corrupt the first: filespec
+// /Params /CheckSum, signature /Contents and /Cert, trailer /ID. The second is
+// only unwired: /Params /ModDate and the /Info date keys (legally text strings),
+// catalog /Lang, and the signature /T, /Name, /Reason, /Location, /ContactInfo.
+//
+// Text fields use textStringOrRaw, which also falls back to this, so it must
+// not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.StringLiteral:

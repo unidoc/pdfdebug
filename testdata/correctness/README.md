@@ -206,3 +206,56 @@ one extracted stream's bytes must instead compare against the concatenation.
   returns `GetPageContentStreamNodeID` (a single tree node) and `DetailPanel`
   fetches it via `GetContentStream`. `GetPageContentStream` is not yet bound
   into `pdfservice`, so the concatenation fix is CLI-only for now.
+
+## text-string-encoding.pdf
+
+PDF text strings (ISO 32000-1 7.9.2.2) carried as UTF-16BE-with-BOM hex
+literals in the two reader paths that go through the shared text-string
+decoder, alongside the binary and ASCII control values that must stay raw.
+
+```
+obj 1: /Type /Catalog /Pages 2 0 R /AF [6 0 R 8 0 R]
+       /Names << /EmbeddedFiles 9 0 R >>
+obj 2: /Type /Pages /Kids [3 0 R] /Count 1
+obj 3: /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
+obj 4: /Type /EmbeddedFile /Subtype /text#2Fxml /Length 70
+       /Params << /Size 70
+                  /CheckSum <DEADBEEFCAFEF00D0011223344556677>
+                  /ModDate (D:20240101000000Z) >>
+obj 5: /Title <FEFF0052006500630068006E0075006E006700200047007200F600DF
+               006500204E2D6587>
+       /Author (ACME GmbH) /Subject (Plain ASCII subject)
+       /Producer (pdfdebug-fixture) /CreationDate (D:20240101000000Z)
+obj 6: /Type /Filespec /F (groesse.xml)
+       /UF <FEFF0067007200F600DF0065002D4E2D6587002E0078006D006C>
+       /AFRelationship /Data /EF << /F 4 0 R /UF 4 0 R >>
+obj 7: /Type /EmbeddedFile /Subtype /text#2Fxml /Length 29
+       /Params << /Size 29 /CheckSum <DEADBEEFCAFEF00D0011223344556677>
+                  /ModDate (D:20240101000000Z) >>
+       (second attachment, ASCII-named. /Params is spelled out because the
+       binary-boundary test asserts the raw /CheckSum and /ModDate on BOTH
+       entries.)
+obj 8: /Type /Filespec /F (plain.xml) /UF (plain.xml)
+       /AFRelationship /Source /EF << /F 7 0 R /UF 7 0 R >>
+obj 9: /Names [(groesse.xml) 6 0 R (plain.xml) 8 0 R]
+trailer: /Root 1 0 R /Info 5 0 R
+```
+
+The `/Title` hex decodes to "Rechnung Groesse <U+4E2D><U+6587>" (with `oe` =
+U+00F6, `ss` = U+00DF); the `/UF` hex decodes to
+"groesse-<U+4E2D><U+6587>.xml" with the same two Latin-1 letters. Neither hex
+payload contains a `0x5C` byte -- pdfcpu's `HexLiteralToString` runs `Unescape`
+over the already-decoded bytes and would silently swallow one.
+
+Both string values are DIRECT (inline) objects, never indirect refs:
+`collectInfoFields` and `embeddedFileFromFilespec` do not dereference, so an
+indirect value would make the test pass or fail for the wrong reason.
+
+Pre-fix both readers use raw `stringValue`, and pdfcpu stores a `HexLiteral`
+as its hex DIGIT text, so `dump metadata --json` reports
+`info.Title == "FEFF0052..."` and `dump embedded --json` reports
+`name == "FEFF0067..."` -- a hex dump masquerading as text. Post-fix both are
+correct UTF-8. The `/Params /CheckSum` hex literal and the ASCII `/ModDate`,
+`/Author`, `/Subject`, `/CreationDate` and second attachment name stay
+byte-identical either way: they pin the text-vs-binary boundary and the
+conditional plain-text ASCII escape. 9 objects total.

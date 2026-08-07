@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -81,6 +82,20 @@ func (w *kvWriter) Render(out io.Writer) error {
 	}
 	_, err := io.WriteString(out, b.String())
 	return err
+}
+
+// asciiSafe renders a value on the ASCII-only plain-text surface. A printable
+// ASCII value is returned unchanged; anything carrying a byte outside
+// 0x20-0x7e is escaped with strconv.QuoteToASCII. Escaping also keeps
+// tableWriter's len()-based column padding aligned, which raw multi-byte UTF-8
+// breaks.
+func asciiSafe(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return strconv.QuoteToASCII(s)
+		}
+	}
+	return s
 }
 
 // tableWriter renders uniform repeated records as a header row plus aligned

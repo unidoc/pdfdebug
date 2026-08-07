@@ -513,10 +513,12 @@ func checkXMPMetadata(doc *DocumentState) []ruleHit {
 	}
 	var hits []ruleHit
 	for _, m := range infoXMPMap {
-		// Decode the /Info value as a PDF text string (UTF-16BE with BOM,
-		// PDFDocEncoding/CP1252, or UTF-8) so a non-ASCII value is compared as
-		// text, not as raw bytes -- otherwise every UTF-16 /Info entry would be a
-		// false mismatch against the UTF-8 XMP value.
+		// Decode the /Info value as a PDF text string (UTF-16BE with BOM, UTF-8,
+		// or pdfcpu's Latin-1 byte fallback -- see decodeTextString) so a
+		// non-ASCII value is compared as text, not as raw bytes; otherwise every
+		// UTF-16 /Info entry would be a false mismatch against the UTF-8 XMP
+		// value. "" correctly means "skip" here, so the bare decoder is right at
+		// this site and textStringOrRaw is not.
 		infoVal := normalizeXMPText(decodeTextString(dereference(doc, info[m.infoKey])))
 		if infoVal == "" {
 			continue
@@ -791,20 +793,6 @@ func streamUsesDeviceColor(sd pdfcpu_types.StreamDict) bool {
 		}
 	}
 	return false
-}
-
-// decodeTextString decodes a PDF string object (StringLiteral or HexLiteral) to
-// Go text, honoring UTF-16BE-with-BOM and PDFDocEncoding/CP1252 the same way
-// pdfcpu renders text strings. Returns "" for non-string objects or a decode
-// failure (never guesses).
-func decodeTextString(obj pdfcpu_types.Object) string {
-	switch obj.(type) {
-	case pdfcpu_types.StringLiteral, pdfcpu_types.HexLiteral:
-		if s, err := pdfcpu_types.StringOrHexLiteral(obj); err == nil && s != nil {
-			return *s
-		}
-	}
-	return ""
 }
 
 // xmpEntityReplacer unescapes the five predefined XML entities so an XMP value

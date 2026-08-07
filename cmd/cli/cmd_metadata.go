@@ -70,13 +70,18 @@ func execMetadataDump(filePath string, jsonOut, pretty bool) (exitCode int) {
 // printMetadataPlain renders DocumentMetadata as an aligned "Key: value" Info
 // block followed by the verbatim XMP packet. NON-CONTRACTUAL; use --json to
 // parse. infoFieldOrder fixes the row order so output is stable.
+//
+// ASCII-only applies to the Info block. The XMP packet is UTF-8 XML and is
+// passed through verbatim, so this command can emit non-ASCII bytes below the
+// "XMP:" heading.
 func printMetadataPlain(out io.Writer, md *pdfcore.DocumentMetadata) error {
 	var w kvWriter
 	w.Heading("Info:")
 	any := false
 	for _, key := range infoFieldOrder {
 		if v, ok := md.Info[key]; ok && v != "" {
-			w.Add("  "+key, v)
+			// This surface is ASCII-only.
+			w.Add("  "+key, asciiSafe(v))
 			any = true
 		}
 	}

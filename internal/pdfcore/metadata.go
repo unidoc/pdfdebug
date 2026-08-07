@@ -14,6 +14,16 @@ var infoFields = []string{
 	"Creator", "Producer", "CreationDate", "ModDate",
 }
 
+// infoTextFields is the subset of infoFields that is decoded as PDF text.
+//
+// The date keys are excluded by scope, not for safety: ISO 32000-1 7.9.4
+// defines a date as a text string, so a UTF-16BE /ModDate is legal and renders
+// as hex digits today.
+var infoTextFields = map[string]bool{
+	"Title": true, "Author": true, "Subject": true,
+	"Keywords": true, "Creator": true, "Producer": true,
+}
+
 // DocumentMetadata is the document-level metadata view: the catalog /Metadata
 // XMP packet (passed through VERBATIM after any /Filter decompression) and the
 // trailer /Info dictionary fields. A document with neither is a normal empty
@@ -74,7 +84,13 @@ func collectInfoFields(doc *DocumentState, md *DocumentMetadata) {
 		return
 	}
 	for _, key := range infoFields {
-		if v := stringValue(info[key]); v != "" {
+		var v string
+		if infoTextFields[key] {
+			v = textStringOrRaw(info[key])
+		} else {
+			v = stringValue(info[key]) // date keys stay raw
+		}
+		if v != "" {
 			md.Info[key] = v
 		}
 	}
