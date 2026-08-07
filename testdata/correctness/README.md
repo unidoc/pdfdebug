@@ -210,8 +210,8 @@ one extracted stream's bytes must instead compare against the concatenation.
 ## text-string-encoding.pdf
 
 PDF text strings (ISO 32000-1 7.9.2.2) carried as UTF-16BE-with-BOM hex
-literals in the two reader paths Story 14-4 wires through the shared decoder,
-alongside the binary and ASCII control values that must stay raw.
+literals in the two reader paths that go through the shared text-string
+decoder, alongside the binary and ASCII control values that must stay raw.
 
 ```
 obj 1: /Type /Catalog /Pages 2 0 R /AF [6 0 R 8 0 R]
@@ -232,10 +232,9 @@ obj 6: /Type /Filespec /F (groesse.xml)
 obj 7: /Type /EmbeddedFile /Subtype /text#2Fxml /Length 29
        /Params << /Size 29 /CheckSum <DEADBEEFCAFEF00D0011223344556677>
                   /ModDate (D:20240101000000Z) >>
-       (second attachment, ASCII-named. Its /Params is spelled out here
-       because 14.4-INTG-004 loops over BOTH entries asserting the raw
-       /CheckSum and /ModDate - an elided description would leave the
-       assertion's premise unreviewable.)
+       (second attachment, ASCII-named. /Params is spelled out because the
+       binary-boundary test asserts the raw /CheckSum and /ModDate on BOTH
+       entries.)
 obj 8: /Type /Filespec /F (plain.xml) /UF (plain.xml)
        /AFRelationship /Source /EF << /F 7 0 R /UF 7 0 R >>
 obj 9: /Names [(groesse.xml) 6 0 R (plain.xml) 8 0 R]

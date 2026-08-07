@@ -5,7 +5,7 @@
 // fixture testdata/correctness/text-string-encoding.pdf. This module has its own
 // go.mod, so it runs via the per-suite tests/*/ loop rather than `go test ./...`.
 //
-// Run: cd tests/14-4-shared-text-string-decoder && go test -v -count=1 ./...
+// Run: cd tests/shared-text-string-decoder && go test -v -count=1 ./...
 package shared_text_string_decoder_test
 
 import (
