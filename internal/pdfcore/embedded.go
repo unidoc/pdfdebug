@@ -322,8 +322,7 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 //     <FEFF...> date does currently surface as hex digits), catalog /Lang, and
 //     the signature dict's /T, /Name, /Reason, /Location, /ContactInfo.
 //
-// PDF
-// TEXT fields use textStringOrRaw instead; stringValue is also its raw
+// PDF TEXT fields use textStringOrRaw instead; stringValue is also its raw
 // fallback, so it must not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
