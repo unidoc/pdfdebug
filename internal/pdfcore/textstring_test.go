@@ -1,31 +1,5 @@
-// Story 14-4 co-located unit tests for the shared PDF text-string decoder
-// (AC 1, 2, 3, 4, 6). Authored red in the ATDD step; green since the dev step.
-//
-// Two layers live here, and the distinction is deliberate:
-//
-//  1. 14.4-UNIT-001 pins the SEMANTICS of the existing package-level decoder
-//     (`decodeTextString`, relocated from validate.go to
-//     textstring.go by Task 1). Those rows pass today and MUST keep passing:
-//     they are the guard against "fixing" pdfcpu's Latin-1 fallback into a
-//     CP1252 or PDFDocEncoding table, which AC1 explicitly forbids. The table
-//     is the eight-row table mandated by AC6, verbatim, with the exact bytes
-//     empirically produced by pdfcpu v0.12.1.
-//
-//  2. 14.4-UNIT-002..005 exercise the two NEW call sites through their
-//     in-package entry points (`GetDocumentMetadata` -> collectInfoFields,
-//     `GetEmbeddedFiles` -> embeddedFileFromFilespec). UNIT-002 and UNIT-003
-//     were RED before 14.4: both readers returned raw `stringValue`, so a UTF-16BE
-//     `/Title` / `/UF` surfaces as literal hex DIGITS instead of UTF-8.
-//     UNIT-004 and UNIT-005 are boundary guards that pass today and must keep
-//     passing: they fail the moment a dev wires `decodeTextString` directly
-//     (dropping an undecodable field, AC1) or lets the decoder reach a binary
-//     field (AC4).
-//
-// This file COMPILES against the current tree on purpose: while red, the
-// failures came from wrong decoded values rather than missing symbols, so
-// `go test ./...` stayed runnable for the whole main module throughout.
-//
-// Naming: 14.4-UNIT-NNN [Px] per the story Testing Requirements (AC6).
+// Unit tests for the shared PDF text-string decoder and its two reader call
+// sites (collectInfoFields, embeddedFileFromFilespec).
 //
 // Run: go test ./internal/pdfcore/ -run 'TextString|DecodeTextString' -v
 package pdfcore
@@ -50,22 +24,21 @@ const (
 	utf16UFHex  = "FEFF0067007200F600DF0065002D4E2D6587002E0078006D006C"
 	utf16UFText = "größe-中文.xml"
 
-	// undecodableHex is a BOM followed by an UNPAIRED LOW surrogate. Verified to
-	// make decodeTextString return "" (Source verification #3). Do NOT swap in
-	// "FEFF005469" ("BOM + odd trailing byte"): that one does NOT error.
+	// undecodableHex is a BOM followed by an unpaired low surrogate, which makes
+	// decodeTextString return "". "FEFF005469" does NOT error - do not swap it in.
 	undecodableHex = "FEFFDC00"
 
-	// rawCheckSumHex is the binary /Params /CheckSum guard value (AC4). It must
-	// surface as these literal hex DIGITS, never as decoded bytes.
+	// rawCheckSumHex is the binary /Params /CheckSum guard value: it must surface
+	// as these literal hex digits, never as decoded bytes.
 	rawCheckSumHex = "DEADBEEFCAFEF00D0011223344556677"
 )
 
 // --- fixture builders (uniquely named; the package already has 13-2 builders) -
 
 // textStringEmbeddedStreamObj returns an /EmbeddedFile stream whose /Params
-// carries a HEX-literal /CheckSum, so AC4's "binary hex field is not
-// text-decoded" boundary can be asserted on the same dict as the changed
-// fields. /Subtype must be a Name with #2F escapes or pdfcpu rejects the doc.
+// carries a hex-literal /CheckSum, so the binary boundary can be asserted on the
+// same dict as the decoded fields. /Subtype must use #2F escapes or pdfcpu
+// rejects the doc.
 func textStringEmbeddedStreamObj(num int, payload string) string {
 	return strconv.Itoa(num) + " 0 obj\n" +
 		"<< /Type /EmbeddedFile /Subtype /text#2Fxml /Length " + strconv.Itoa(len(payload)) +
@@ -74,22 +47,19 @@ func textStringEmbeddedStreamObj(num int, payload string) string {
 		"stream\n" + payload + "\nendstream\nendobj\n"
 }
 
-// textStringInfoPDF builds a doc whose trailer /Info (object 4) carries
-// titleObj VERBATIM as the /Title value, plus ASCII control values. titleObj is
-// written as-is, so callers pass either "(literal)" or "<HEX>". The /Title is a
-// DIRECT string object: neither new call site dereferences (Source
-// verification #6), so an indirect value would make the test prove nothing.
+// textStringInfoPDF builds a doc whose trailer /Info carries titleObj verbatim
+// as /Title, plus ASCII controls. Callers pass "(literal)" or "<HEX>". The value
+// is a DIRECT object: the call sites do not dereference, so an indirect one
+// would prove nothing.
 func textStringInfoPDF(titleObj string) []byte {
 	return textStringInfoPDFKey("Title", titleObj)
 }
 
 // textStringInfoPDFKey is textStringInfoPDF with the carrying key chosen by the
-// caller, so one table can exercise all six infoTextFields entries. The two date
-// keys are always ASCII controls.
+// caller, so one table can exercise every infoTextFields entry.
 func textStringInfoPDFKey(key, valueObj string) []byte {
-	// Every control key is emitted only when it is not the carrying key, so no
-	// key is ever written twice (a duplicate would silently shadow the value
-	// under test).
+	// A control key is emitted only when it is not the carrying key; a duplicate
+	// would shadow the value under test.
 	info := "4 0 obj\n<< /" + key + " " + valueObj
 	for _, ctrl := range [][2]string{
 		{"CreationDate", "(D:20240101000000Z)"},
@@ -111,8 +81,8 @@ func textStringInfoPDFKey(key, valueObj string) []byte {
 }
 
 // textStringFilespecPDF builds a doc with one attachment whose /Filespec
-// (object 5) carries ufObj VERBATIM as /UF and an ASCII /F fallback. ufObj is a
-// DIRECT string object for the same reason as textStringInfoPDF.
+// carries ufObj verbatim as /UF, with an ASCII /F fallback. Direct object, for
+// the same reason as textStringInfoPDF.
 func textStringFilespecPDF(ufObj string) []byte {
 	return assembleWithInfo([]string{
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AF [5 0 R] >>\nendobj\n",
@@ -124,14 +94,9 @@ func textStringFilespecPDF(ufObj string) []byte {
 	}, 1, 0)
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-001 [P1] AC1/AC6 (R-14-05): the shared decoder's per-literal-type
-// semantics, asserted as EXACT bytes. This is the eight-row AC6 table.
-//
-// GREEN TODAY BY DESIGN. These rows pin what pdfcpu actually does so the dev
-// cannot "improve" the fallback into CP1252 (U+20AC for 0x80) or PDFDocEncoding
-// (U+2022 for 0x80) while relocating the helper. AC1 accepts pdfcpu as-is.
-// ---------------------------------------------------------------------------
+// The decoder's per-literal-type semantics as
+// exact bytes. Pins what pdfcpu does so the Latin-1 fallback is not "fixed"
+// into a CP1252 or PDFDocEncoding table.
 
 func TestDecodeTextString_SemanticsTable(t *testing.T) {
 	tests := []struct {
@@ -196,75 +161,52 @@ func TestDecodeTextString_SemanticsTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := decodeTextString(tc.in)
 			if got != tc.want {
-				t.Errorf("[P1] 14.4-UNIT-001: decodeTextString(%T %v) = %q (% x), want %q (% x)\nreason: %s",
+				t.Errorf("decodeTextString(%T %v) = %q (% x), want %q (% x)\nreason: %s",
 					tc.in, tc.in, got, []byte(got), tc.want, []byte(tc.want), tc.why)
 			}
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-001b [P1] AC1/AC6: the non-erroring lookalike. "BOM + odd trailing
-// BYTE" is NOT an undecodable case -- IsUTF16BE rejects odd byte length, the
-// UTF-16 branch is skipped, and the raw bytes come back. Pinned so nobody
-// substitutes it for a real fallback case.
-// ---------------------------------------------------------------------------
+// "BOM + odd trailing byte" does NOT error - it
+// skips the UTF-16 branch and returns non-empty bytes. Not a fallback case.
 
 func TestDecodeTextString_BOMWithOddTrailingByteDoesNotError(t *testing.T) {
 	got := decodeTextString(pdfcpu_types.HexLiteral("FEFF005469"))
 	if got != "\xfe\xff\x00Ti" {
-		t.Errorf("[P1] 14.4-UNIT-001b: got %q (% x), want the raw bytes \"\\xfe\\xff\\x00Ti\"",
+		t.Errorf("got %q (% x), want the raw bytes \"\\xfe\\xff\\x00Ti\"",
 			got, []byte(got))
 	}
 	if got == "" {
-		t.Errorf("[P1] 14.4-UNIT-001b: this input must NOT produce \"\" -- do not use it as the AC1 fallback case")
+		t.Errorf("this input must NOT produce \"\" -- do not use it as the AC1 fallback case")
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-002 [P1] AC2 (R-14-05): collectInfoFields decodes a UTF-16BE-with-
-// BOM /Title into UTF-8.
-//
-// Before 14.4: metadata.go used stringValue, so a HexLiteral /Title surfaced
-// as the literal hex DIGITS "FEFF0052...".
-// ---------------------------------------------------------------------------
+// CollectInfoFields decodes a UTF-16BE-with-BOM /Title.
 
 func TestCollectInfoFields_DecodesUTF16BETitle(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "info-utf16.pdf", textStringInfoPDF("<"+utf16TitleHex+">"))
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-002: GetDocumentMetadata error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if got := md.Info["Title"]; got != utf16TitleText {
-		t.Errorf("[P1] 14.4-UNIT-002: Info[\"Title\"] = %q, want %q (UTF-16BE-with-BOM must be decoded, not echoed as hex digits)",
+		t.Errorf("Info[\"Title\"] = %q, want %q (UTF-16BE-with-BOM must be decoded, not echoed as hex digits)",
 			got, utf16TitleText)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-002b [P1] AC2: the ASCII /Info values and the two DATE keys are
-// unchanged by the decode wiring. /CreationDate and /ModDate stay on
-// stringValue (they are ASCII "D:YYYY..." and need no decode).
-//
-// GREEN TODAY: boundary guard against routing the whole infoFields list
-// through the decoder.
-//
-// NOTE on the rationale (corrected at code review): the date keys stay on
-// stringValue as a SCOPE decision, not because decoding would harm them. ISO
-// 32000-1 7.9.4 defines a date AS a text string, so a UTF-16BE-with-BOM
-// /ModDate is legal, and routing a conforming ASCII date through the decoder
-// would be a harmless no-op. That is why the ASCII rows below cannot on their
-// own detect a wrongly-routed date key - the non-ASCII row in
-// TestCollectInfoFields_NonASCIIDateStaysRaw is what actually pins the boundary.
-// ---------------------------------------------------------------------------
+// ASCII /Info values and the date keys are unchanged.
+// The ASCII values alone cannot detect a wrongly-routed date key (decoding them
+// is a no-op); TestCollectInfoFields_NonASCIIDateStaysRaw is the falsifiable guard.
 
 func TestCollectInfoFields_ASCIIAndDatesUnchanged(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "info-ascii.pdf", textStringInfoPDF("(Invoice 2024-001)"))
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-002b: GetDocumentMetadata error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	for key, want := range map[string]string{
 		"Title":        "Invoice 2024-001",
@@ -274,80 +216,52 @@ func TestCollectInfoFields_ASCIIAndDatesUnchanged(t *testing.T) {
 		"ModDate":      "D:20240102000000Z",
 	} {
 		if got := md.Info[key]; got != want {
-			t.Errorf("[P1] 14.4-UNIT-002b: Info[%q] = %q, want %q (decode must be a no-op on ASCII)", key, got, want)
+			t.Errorf("Info[%q] = %q, want %q (decode must be a no-op on ASCII)", key, got, want)
 		}
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-003 [P1] AC3 (R-14-05): embeddedFileFromFilespec decodes the
-// filespec /UF display name, keeping /UF-preferred-else-/F precedence.
-//
-// Before 14.4: embedded.go used stringValue, so /UF surfaced as hex digits.
-// ---------------------------------------------------------------------------
+// EmbeddedFileFromFilespec decodes a UTF-16BE /UF and
+// does not fall through to the ASCII /F.
 
 func TestEmbeddedFileName_DecodesUTF16BEUF(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "filespec-utf16.pdf", textStringFilespecPDF("<"+utf16UFHex+">"))
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-003: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-003: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].Name; got != utf16UFText {
-		t.Errorf("[P1] 14.4-UNIT-003: Name = %q, want %q (/UF must be decoded and must still win over the ASCII /F)",
+		t.Errorf("Name = %q, want %q (/UF must be decoded and must still win over the ASCII /F)",
 			got, utf16UFText)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-004 [P1] AC1 (R-14-05): NEVER trade mojibake for absence. A display
-// field whose decode FAILS must still be present, falling back to stringValue's
-// raw rendering -- decodeTextString's ""-on-failure contract would otherwise
-// delete the row via the `v != ""` write guard at metadata.go:77 (and empty the
-// name at embedded.go:149).
-//
-// The guard is built on the filespec /UF, not on /Info /Title, for a hard
-// reason verified during ATDD authoring: pdfcpu's reader VALIDATES /Info text
-// strings, so a document carrying `/Title <FEFFDC00>` is rejected outright by
-// ReadContextFile ("decodeUTF16String: corrupt UTF16BE byte length") and never
-// reaches collectInfoFields. The filespec /UF is not validated that way, so it
-// is the only reachable surface for this contract. The wrapper is shared, so
-// pinning it here pins it for both call sites.
-//
-// GREEN TODAY (stringValue already yields the raw digits) and it must STAY
-// green: it fails the moment the dev wires decodeTextString directly.
-// An undecodable /UF must not empty the Name and must not fall through to /F --
-// /UF is present, so /UF wins, raw.
-// ---------------------------------------------------------------------------
+// An undecodable /UF surfaces as raw bytes rather than
+// emptying and deferring to /F.
 
 func TestEmbeddedFileName_UndecodableUFFallsBackToRaw(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "filespec-undecodable.pdf", textStringFilespecPDF("<"+undecodableHex+">"))
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-004: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-004: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].Name; got != undecodableHex {
-		t.Errorf("[P1] 14.4-UNIT-004: Name = %q, want the raw rendering %q (an undecodable /UF must not empty the name nor silently fall through to /F)",
+		t.Errorf("Name = %q, want the raw rendering %q (an undecodable /UF must not empty the name nor silently fall through to /F)",
 			got, undecodableHex)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-004b [P1] AC1 (R-14-05): the OTHER side of the raw fallback. An
-// EMPTY text string is not an undecodable one. HexLiteral("FEFF") is a
-// well-formed, BOM-only UTF-16BE string that decodes cleanly to "" with no
-// error, so the wrapper must return "" -- not stringValue's raw hex digits
-// "FEFF". Keying the fallback on `decoded != ""` instead of on the decode's
-// success bit would render an empty /Title as the literal text "FEFF": a
-// fabricated value, the same quiet lie AC1's fallback exists to prevent.
-// ---------------------------------------------------------------------------
+// An empty decode is not a failure. HexLiteral("FEFF")
+// is a well-formed BOM-only string worth "", so it must not be rescued into the
+// raw hex digits.
 
 func TestTextStringOrRaw_EmptyDecodeIsNotAFailure(t *testing.T) {
 	tests := []struct {
@@ -361,10 +275,10 @@ func TestTextStringOrRaw_EmptyDecodeIsNotAFailure(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Precondition: this input decodes SUCCESSFULLY to the empty string.
 			if _, ok := decodeTextStringOK(tc.in); !ok {
-				t.Fatalf("[P1] 14.4-UNIT-004b: %T %v was expected to decode without error", tc.in, tc.in)
+				t.Fatalf("%T %v was expected to decode without error", tc.in, tc.in)
 			}
 			if got := textStringOrRaw(tc.in); got != "" {
-				t.Errorf("[P1] 14.4-UNIT-004b: textStringOrRaw(%T %v) = %q (% x), want \"\" -- an empty text string must not be rescued into its raw rendering",
+				t.Errorf("textStringOrRaw(%T %v) = %q (% x), want \"\" -- an empty text string must not be rescued into its raw rendering",
 					tc.in, tc.in, got, []byte(got))
 			}
 		})
@@ -372,70 +286,49 @@ func TestTextStringOrRaw_EmptyDecodeIsNotAFailure(t *testing.T) {
 
 	// The failure path is unchanged: a real decode error still falls back to raw.
 	if got := textStringOrRaw(pdfcpu_types.HexLiteral(undecodableHex)); got != undecodableHex {
-		t.Errorf("[P1] 14.4-UNIT-004b: undecodable input = %q, want the raw rendering %q (the AC1 fallback must survive)",
+		t.Errorf("undecodable input = %q, want the raw rendering %q (the AC1 fallback must survive)",
 			got, undecodableHex)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-005 [P1] AC4 (R-14-06): the binary boundary. /Params /CheckSum is a
-// HEX literal carrying binary bytes and must stay RAW (the literal hex digits);
-// /Params /ModDate is an ASCII date and stays verbatim. Both live in the SAME
-// dict family as the fields being changed, so this pins the exact boundary.
-//
-// GREEN TODAY and must stay green: it fails if the decoder leaks past the
-// enumerated text keys.
-// ---------------------------------------------------------------------------
+// /Params /CheckSum and /ModDate stay raw.
 
 func TestEmbeddedFileParams_BinaryCheckSumStaysRaw(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "filespec-binary.pdf", textStringFilespecPDF("<"+utf16UFHex+">"))
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-005: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-005: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	f := list.Files[0]
 	if f.CheckSum != rawCheckSumHex {
-		t.Errorf("[P1] 14.4-UNIT-005: CheckSum = %q, want the raw hex digits %q (a binary field must NOT be routed through the text decoder)",
+		t.Errorf("CheckSum = %q, want the raw hex digits %q (a binary field must NOT be routed through the text decoder)",
 			f.CheckSum, rawCheckSumHex)
 	}
 	if f.ModDate != "D:20240101000000Z" {
-		t.Errorf("[P1] 14.4-UNIT-005: ModDate = %q, want the verbatim ASCII date", f.ModDate)
+		t.Errorf("ModDate = %q, want the verbatim ASCII date", f.ModDate)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-006 [P1] AC4: stringValue survives as the RAW renderer. It must NOT
-// be deleted or re-pointed at the decoder -- /CheckSum, /ModDate, catalog /Lang
-// and the five deferred signature text fields still depend on it.
-// ---------------------------------------------------------------------------
+// StringValue stays the raw renderer.
 
 func TestStringValue_StaysRaw(t *testing.T) {
 	if got := stringValue(pdfcpu_types.HexLiteral(utf16TitleHex)); got != utf16TitleHex {
-		t.Errorf("[P1] 14.4-UNIT-006: stringValue(HexLiteral) = %q, want the hex digits %q verbatim", got, utf16TitleHex)
+		t.Errorf("stringValue(HexLiteral) = %q, want the hex digits %q verbatim", got, utf16TitleHex)
 	}
 	if got := stringValue(pdfcpu_types.StringLiteral("\x80")); got != "\x80" {
-		t.Errorf("[P1] 14.4-UNIT-006: stringValue(StringLiteral) = %q, want the raw byte verbatim", got)
+		t.Errorf("stringValue(StringLiteral) = %q, want the raw byte verbatim", got)
 	}
 	if got := stringValue(pdfcpu_types.Integer(42)); got != "" {
-		t.Errorf("[P1] 14.4-UNIT-006: stringValue(non-string) = %q, want \"\"", got)
+		t.Errorf("stringValue(non-string) = %q, want \"\"", got)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-007 [P1] AC1/AC5: a decode that SUCCEEDS but yields invalid UTF-8
-// must be treated as a failure and fall back to the raw rendering.
-//
-// Only the HexLiteral branch can produce this: it returns non-UTF-16 bytes
-// verbatim with no encoding fallback (the StringLiteral branch always ends in a
-// byte->codepoint map, so it is always valid UTF-8). Without the guard the bad
-// bytes reach json.Marshal, which silently substitutes one U+FFFD per invalid
-// byte -- destroying the value on the MACHINE-READABLE surface, where the raw
-// hex rendering it replaced was at least recoverable.
-// ---------------------------------------------------------------------------
+// A decode that succeeds but yields invalid UTF-8
+// falls back to raw, so the bytes never reach json.Marshal to become U+FFFD.
 
 func TestTextStringOrRaw_InvalidUTF8FallsBackToRaw(t *testing.T) {
 	const badHex = "80CAFE" // not UTF-16BE (no BOM), not valid UTF-8
@@ -443,62 +336,46 @@ func TestTextStringOrRaw_InvalidUTF8FallsBackToRaw(t *testing.T) {
 	// Precondition: pdfcpu reports SUCCESS here, returning the bytes verbatim.
 	decoded, ok := decodeTextStringOK(pdfcpu_types.HexLiteral(badHex))
 	if !ok {
-		t.Fatalf("[P1] 14.4-UNIT-007: HexLiteral(%q) was expected to decode without error", badHex)
+		t.Fatalf("HexLiteral(%q) was expected to decode without error", badHex)
 	}
 	if utf8.ValidString(decoded) {
-		t.Fatalf("[P1] 14.4-UNIT-007: HexLiteral(%q) decoded to valid UTF-8 %q; this case no longer exercises the guard",
+		t.Fatalf("HexLiteral(%q) decoded to valid UTF-8 %q; this case no longer exercises the guard",
 			badHex, decoded)
 	}
 
 	got := textStringOrRaw(pdfcpu_types.HexLiteral(badHex))
 	if got != badHex {
-		t.Errorf("[P1] 14.4-UNIT-007: textStringOrRaw(HexLiteral(%q)) = %q (% x), want the raw rendering %q -- invalid UTF-8 must not reach the JSON surface",
+		t.Errorf("textStringOrRaw(HexLiteral(%q)) = %q (% x), want the raw rendering %q -- invalid UTF-8 must not reach the JSON surface",
 			badHex, got, []byte(got), badHex)
 	}
 	if !utf8.ValidString(got) {
-		t.Errorf("[P1] 14.4-UNIT-007: result %q is still invalid UTF-8; json.Marshal would replace it with U+FFFD", got)
+		t.Errorf("result %q is still invalid UTF-8; json.Marshal would replace it with U+FFFD", got)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-008 [P1] AC2: ALL SIX enumerated /Info text keys decode, not just
-// /Title. infoTextFields is a hand-maintained subset of infoFields, so without
-// this table dropping a key from the map leaves every other test green.
-// ---------------------------------------------------------------------------
+// All six /Info text keys decode, not just /Title.
 
 func TestCollectInfoFields_AllSixTextKeysDecode(t *testing.T) {
 	for _, key := range []string{"Title", "Author", "Subject", "Keywords", "Creator", "Producer"} {
 		t.Run(key, func(t *testing.T) {
 			if !infoTextFields[key] {
-				t.Fatalf("[P1] 14.4-UNIT-008: %q is missing from infoTextFields", key)
+				t.Fatalf("%q is missing from infoTextFields", key)
 			}
 			ins, tabID := writeTempPDF(t, "info-utf16-"+key+".pdf",
 				textStringInfoPDFKey(key, "<"+utf16TitleHex+">"))
 			md, err := ins.GetDocumentMetadata(tabID)
 			if err != nil {
-				t.Fatalf("[P1] 14.4-UNIT-008: GetDocumentMetadata error: %v", err)
+				t.Fatalf("GetDocumentMetadata error: %v", err)
 			}
 			if got := md.Info[key]; got != utf16TitleText {
-				t.Errorf("[P1] 14.4-UNIT-008: Info[%q] = %q, want %q", key, got, utf16TitleText)
+				t.Errorf("Info[%q] = %q, want %q", key, got, utf16TitleText)
 			}
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-009 [P1] AC4 (R-14-06): the tree renderer boundary. scalarDisplay
-// is the raw renderer AC4 names FIRST, and diff.go:501/550 reuses it for the
-// 13-6 structural diff. It has no key context, so it cannot tell a text /Title
-// from a binary /ID -- routing it through the decoder is the story's headline
-// failure mode. Pin that the very bytes the readers now decode still render as
-// raw hex here.
-//
-// (Deviation: the story's AC6 asked for this guard at the `dump tree` CLI level.
-// The CLI tree view exposes scalarDisplay only for ARRAY-ELEMENT scalars -- keyed
-// dict values render as a type label ("CheckSum string"), not a value -- and the
-// fixture has no hex string in an array position, so the guard lives here at the
-// unit level instead. Record at trace time.)
-// ---------------------------------------------------------------------------
+// ScalarDisplay still renders text bytes as raw hex.
+// It has no key context, so it cannot tell a text /Title from a binary /ID.
 
 func TestScalarDisplay_TextBytesStillRenderRaw(t *testing.T) {
 	for _, tc := range []struct {
@@ -511,57 +388,42 @@ func TestScalarDisplay_TextBytesStillRenderRaw(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := scalarDisplay(tc.in); got != tc.want {
-				t.Errorf("[P1] 14.4-UNIT-009: scalarDisplay = %q, want %q (the tree renderer must NOT be text-decoded)",
+				t.Errorf("scalarDisplay = %q, want %q (the tree renderer must NOT be text-decoded)",
 					got, tc.want)
 			}
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-007b [P1] AC1/AC5: the OTHER branch of the UTF-8 guard. A
-// StringLiteral carrying raw bytes that FAIL to decode reaches the raw fallback,
-// and stringValue hands back those same invalid bytes - so without a check the
-// fallback path re-opens the U+FFFD hole that UNIT-007 closes on the decode
-// path. UNIT-007 alone cannot catch this: it uses a HexLiteral, whose raw
-// rendering is ASCII hex digits by construction, so it is green for the wrong
-// reason.
-//
-// This input is PRE-EXISTING behavior, not a 14.4 regression (stringValue fed
-// json.Marshal the same bytes at c69af69, verified). The guard exists so that
-// textStringOrRaw's result is valid UTF-8 on EVERY branch.
-// ---------------------------------------------------------------------------
+// The raw-fallback branch is UTF-8-validated too,
+// and renders as hex digits when it is not.
+// TestTextStringOrRaw_InvalidUTF8FallsBackToRaw uses a HexLiteral, whose raw
+// form is already ASCII, so it does not cover this branch.
 
 func TestTextStringOrRaw_RawFallbackIsAlwaysValidUTF8(t *testing.T) {
 	// BOM + unpaired low surrogate, carried as a literal rather than as hex.
 	in := pdfcpu_types.StringLiteral("\xfe\xff\xdc\x00")
 
 	if _, ok := decodeTextStringOK(in); ok {
-		t.Fatalf("[P1] 14.4-UNIT-007b: this input was expected to FAIL to decode")
+		t.Fatalf("this input was expected to FAIL to decode")
 	}
 	if utf8.ValidString(stringValue(in)) {
-		t.Fatalf("[P1] 14.4-UNIT-007b: stringValue already returns valid UTF-8; this case no longer exercises the guard")
+		t.Fatalf("stringValue already returns valid UTF-8; this case no longer exercises the guard")
 	}
 
 	got := textStringOrRaw(in)
 	if !utf8.ValidString(got) {
-		t.Errorf("[P1] 14.4-UNIT-007b: textStringOrRaw = %q (% x), which is invalid UTF-8 - json.Marshal would replace it with U+FFFD",
+		t.Errorf("textStringOrRaw = %q (% x), which is invalid UTF-8 - json.Marshal would replace it with U+FFFD",
 			got, []byte(got))
 	}
 	if got != "FEFFDC00" {
-		t.Errorf("[P1] 14.4-UNIT-007b: textStringOrRaw = %q, want the uppercase hex digits \"FEFFDC00\" (undecodable input must render the same shape whichever literal type carried it)",
+		t.Errorf("textStringOrRaw = %q, want the uppercase hex digits \"FEFFDC00\" (undecodable input must render the same shape whichever literal type carried it)",
 			got)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-008b [P1] AC2/AC4: infoTextFields exhaustiveness in the direction
-// that actually matters. UNIT-008 asserts the six known keys ARE in the map;
-// this asserts the CONVERSE - that every infoFields member is either a known
-// date key or a decoded text key. Without it, a text key added to infoFields
-// alone would silently fall into collectInfoFields' else branch, whose comment
-// claims the value is a date.
-// ---------------------------------------------------------------------------
+// Every non-date infoFields key is in
+// infoTextFields, so a new text key cannot silently render raw.
 
 func TestInfoTextFields_CoversEveryNonDateInfoKey(t *testing.T) {
 	dateKeys := map[string]bool{"CreationDate": true, "ModDate": true}
@@ -569,54 +431,35 @@ func TestInfoTextFields_CoversEveryNonDateInfoKey(t *testing.T) {
 		if dateKeys[key] || infoTextFields[key] {
 			continue
 		}
-		t.Errorf("[P1] 14.4-UNIT-008b: infoFields key %q is neither a known date key nor a member of infoTextFields, so it silently renders RAW while collectInfoFields' else branch claims it is a date. Add it to infoTextFields or to this test's dateKeys set.",
+		t.Errorf("infoFields key %q is neither a known date key nor a member of infoTextFields, so it silently renders RAW while collectInfoFields' else branch claims it is a date. Add it to infoTextFields or to this test's dateKeys set.",
 			key)
 	}
 	if len(infoTextFields)+len(dateKeys) != len(infoFields) {
-		t.Errorf("[P1] 14.4-UNIT-008b: infoTextFields(%d) + dateKeys(%d) != infoFields(%d); the sets have drifted",
+		t.Errorf("infoTextFields(%d) + dateKeys(%d) != infoFields(%d); the sets have drifted",
 			len(infoTextFields), len(dateKeys), len(infoFields))
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-003b [P2] AC3: records a PRECEDENCE change that AC3's "precedence is
-// unchanged" claim does not cover. A BOM-only /UF <FEFF> decodes cleanly to ""
-// (UNIT-004b), so it now falls through to /F. Before 14.4 the same input
-// rendered as the raw digits "FEFF" - non-empty - and /UF won.
-//
-// The new behavior is the correct one (an empty text string IS empty, and a
-// fabricated "FEFF" display name is the quiet lie AC1 forbids), but it is a
-// user-visible change and was shipping unpinned.
-// ---------------------------------------------------------------------------
+// A BOM-only /UF decodes to "" and defers to /F.
 
 func TestEmbeddedFileName_EmptyUFFallsThroughToF(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "filespec-empty-uf.pdf", textStringFilespecPDF("<FEFF>"))
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P2] 14.4-UNIT-003b: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P2] 14.4-UNIT-003b: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].Name; got != "groesse.xml" {
-		t.Errorf("[P2] 14.4-UNIT-003b: Name = %q, want the /F value \"groesse.xml\" (an empty /UF must defer to /F, not render as \"FEFF\")",
+		t.Errorf("Name = %q, want the /F value \"groesse.xml\" (an empty /UF must defer to /F, not render as \"FEFF\")",
 			got)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-002c [P2] AC2 boundary: the date keys are FALSIFIABLY off the
-// decoder. 14.4-UNIT-002b's values are all printable ASCII, where decoding is a
-// no-op, so it passes whether or not the date keys are routed through the
-// decoder - the guard it advertises does not exist. This row does: a UTF-16BE-
-// with-BOM /ModDate WOULD decode to readable text, so it stays as the raw hex
-// digits only while the date keys remain on stringValue.
-//
-// This also pins the current DEFERRED behavior (see deferred-work.md): a
-// <FEFF...> date renders as a hex dump. If that debt is ever closed, this test
-// is the one to update, deliberately.
-// ---------------------------------------------------------------------------
+// A UTF-16BE-with-BOM /ModDate stays raw hex, which
+// only holds while the date keys are off the decoder.
 
 func TestCollectInfoFields_NonASCIIDateStaysRaw(t *testing.T) {
 	// UTF-16BE-with-BOM for "D:20240101000000Z".
@@ -625,36 +468,25 @@ func TestCollectInfoFields_NonASCIIDateStaysRaw(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "info-utf16-date.pdf", textStringInfoPDFKey("ModDate", "<"+utf16DateHex+">"))
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P2] 14.4-UNIT-002c: GetDocumentMetadata error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if got := md.Info["ModDate"]; got != utf16DateHex {
-		t.Errorf("[P2] 14.4-UNIT-002c: Info[\"ModDate\"] = %q, want the raw hex digits %q - the date keys must stay on stringValue (AC2 scope boundary)",
+		t.Errorf("Info[\"ModDate\"] = %q, want the raw hex digits %q - the date keys must stay on stringValue (AC2 scope boundary)",
 			got, utf16DateHex)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-005b [P1] AC4 (R-14-06): a FALSIFIABLE binary-boundary guard.
-//
-// 14.4-UNIT-005 and 14.4-INTG-004 both assert the fixture's /Params /CheckSum
-// equals its literal hex digits, and both claim to fail "the moment the decoder
-// leaks past the enumerated text keys". They do not. Verified against pdfcpu
-// v0.12.1: HexLiteral("DEADBEEFCAFEF00D...") decodes SUCCESSFULLY to bytes that
-// are invalid UTF-8, so textStringOrRaw's own guard rejects the decode and falls
-// back to the same hex digits - wiring /CheckSum through the wrapper leaves all
-// of those assertions green.
-//
-// A checksum whose bytes happen to begin FE FF is the case that separates them:
-// HexLiteral("FEFF0041") decodes cleanly to "A". So this test fails loudly if
-// /Params /CheckSum is ever routed through textStringOrRaw OR decodeTextString.
-// ---------------------------------------------------------------------------
+// A /CheckSum whose bytes begin FE FF stays raw.
+// TestEmbeddedFileParams_BinaryCheckSumStaysRaw uses a value that decodes to
+// invalid UTF-8 and so falls back to the same digits either way; this one
+// decodes to "A", so it detects a leak.
 
 func TestEmbeddedFileCheckSum_BOMPrefixedBinaryStaysRaw(t *testing.T) {
 	const bomCheckSum = "FEFF0041" // decodes to "A" if text-decoded
 
 	// Precondition: this value really does decode to something different.
 	if decoded, ok := decodeTextStringOK(pdfcpu_types.HexLiteral(bomCheckSum)); !ok || decoded == bomCheckSum {
-		t.Fatalf("[P1] 14.4-UNIT-005b: HexLiteral(%q) must decode to a DIFFERENT value for this guard to be falsifiable; got %q ok=%v",
+		t.Fatalf("HexLiteral(%q) must decode to a DIFFERENT value for this guard to be falsifiable; got %q ok=%v",
 			bomCheckSum, decoded, ok)
 	}
 
@@ -672,27 +504,19 @@ func TestEmbeddedFileCheckSum_BOMPrefixedBinaryStaysRaw(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "checksum-bom.pdf", pdf)
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-005b: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-005b: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].CheckSum; got != bomCheckSum {
-		t.Errorf("[P1] 14.4-UNIT-005b: CheckSum = %q, want the raw hex digits %q - a binary field must NOT be text-decoded even when its bytes look like a UTF-16BE BOM",
+		t.Errorf("CheckSum = %q, want the raw hex digits %q - a binary field must NOT be text-decoded even when its bytes look like a UTF-16BE BOM",
 			got, bomCheckSum)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-003c [P1] AC3 (R-14-05): the /F decode branch, which AC3 names as a
-// call site but which no other scenario pins.
-//
-// Every existing filespec test carries a /UF, so the else-branch that decodes
-// /F never runs under assertion. Verified during the trace step: reverting
-// embedded.go's `textStringOrRaw(fs["F"])` to `stringValue(fs["F"])` left all 30
-// scenarios green. A /F-only filespec (legal - /UF is optional) is the only
-// shape that reaches it.
-// ---------------------------------------------------------------------------
+// A /F-only filespec decodes /F. Every other filespec
+// case carries a /UF, so this is the only one reaching the /F branch.
 
 func TestEmbeddedFileName_FOnlyFilespecIsDecoded(t *testing.T) {
 	pdf := assembleWithInfo([]string{
@@ -708,38 +532,20 @@ func TestEmbeddedFileName_FOnlyFilespecIsDecoded(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "filespec-f-only.pdf", pdf)
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-003c: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-003c: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].Name; got != utf16UFText {
-		t.Errorf("[P1] 14.4-UNIT-003c: Name = %q, want %q - a /F-only filespec must decode /F, not echo its hex digits",
+		t.Errorf("Name = %q, want %q - a /F-only filespec must decode /F, not echo its hex digits",
 			got, utf16UFText)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 14.4-UNIT-005c [P1] AC3/AC4 (R-14-06): the filespec /Params /ModDate binary-
-// boundary guard, and the last raw field in that dict with no falsifiable pin.
-//
-// AC3 and AC4 name THREE fields that must stay on stringValue: /Params
-// /CheckSum, /Params /ModDate, and the /Info date keys. Two of the three got a
-// falsifiable guard (14.4-UNIT-005b for /CheckSum, 14.4-UNIT-002c for /Info
-// /ModDate); the filespec /ModDate did not. 14.4-UNIT-005's ModDate assertion
-// is the same tautology those two replaced: its value is the printable-ASCII
-// "D:20240101000000Z", where decoding is a no-op, so it passes whether or not
-// the field is routed through the decoder. Verified by mutation - swapping
-// embedded.go's `stringValue(params["ModDate"])` for either textStringOrRaw OR
-// decodeTextString left all 31 scenarios green.
-//
-// A date whose bytes carry a UTF-16BE BOM separates them: ISO 32000-1 7.9.4
-// defines a date AS a text string, so <FEFF0044003A...> is legal and decodes
-// cleanly to readable "D:..." text. Asserting it stays as hex digits therefore
-// fails loudly the moment /Params /ModDate reaches either decoder, and doubles
-// as the pin for the deferred date-decode debt (change it deliberately if that
-// debt is ever closed).
-// ---------------------------------------------------------------------------
+// A UTF-16BE-with-BOM /Params /ModDate stays raw.
+// TestEmbeddedFileParams_BinaryCheckSumStaysRaw's ASCII date cannot detect a
+// leak on this field.
 
 func TestEmbeddedFileModDate_BOMPrefixedDateStaysRaw(t *testing.T) {
 	// UTF-16BE-with-BOM for "D:20240101000000Z".
@@ -749,7 +555,7 @@ func TestEmbeddedFileModDate_BOMPrefixedDateStaysRaw(t *testing.T) {
 	// Precondition: this value really does decode to something different, so a
 	// leak into either decoder cannot pass unnoticed.
 	if decoded, ok := decodeTextStringOK(pdfcpu_types.HexLiteral(utf16ModDateHex)); !ok || decoded != utf16ModDateText {
-		t.Fatalf("[P1] 14.4-UNIT-005c: HexLiteral(%q) must decode to %q for this guard to be falsifiable; got %q ok=%v",
+		t.Fatalf("HexLiteral(%q) must decode to %q for this guard to be falsifiable; got %q ok=%v",
 			utf16ModDateHex, utf16ModDateText, decoded, ok)
 	}
 
@@ -767,13 +573,13 @@ func TestEmbeddedFileModDate_BOMPrefixedDateStaysRaw(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "moddate-bom.pdf", pdf)
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 14.4-UNIT-005c: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) != 1 {
-		t.Fatalf("[P1] 14.4-UNIT-005c: expected 1 embedded file, got %d", len(list.Files))
+		t.Fatalf("expected 1 embedded file, got %d", len(list.Files))
 	}
 	if got := list.Files[0].ModDate; got != utf16ModDateHex {
-		t.Errorf("[P1] 14.4-UNIT-005c: ModDate = %q, want the raw hex digits %q - filespec /Params /ModDate must stay on stringValue even when its bytes decode as a UTF-16BE text string",
+		t.Errorf("ModDate = %q, want the raw hex digits %q - filespec /Params /ModDate must stay on stringValue even when its bytes decode as a UTF-16BE text string",
 			got, utf16ModDateHex)
 	}
 }

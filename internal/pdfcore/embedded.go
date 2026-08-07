@@ -145,9 +145,8 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 func embeddedFileFromFilespec(doc *DocumentState, fs pdfcpu_types.Dict, fsRef string) EmbeddedFile {
 	ef := EmbeddedFile{FilespecRef: fsRef}
 
-	// Display name: /UF preferred, else /F. Both are PDF TEXT strings, so they
-	// go through the shared decoder; textStringOrRaw keeps an undecodable /UF
-	// present (raw) instead of silently falling through to /F.
+	// Display name: /UF preferred, else /F. Both are text strings. An
+	// undecodable /UF stays present as raw bytes rather than deferring to /F.
 	if uf := textStringOrRaw(fs["UF"]); uf != "" {
 		ef.Name = uf
 	} else if f := textStringOrRaw(fs["F"]); f != "" {
@@ -307,23 +306,17 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 	return arr
 }
 
-// stringValue renders a PDF string-like object (StringLiteral / HexLiteral) as
-// its RAW bytes - the literal's escaped body for a StringLiteral, the hex digit
-// text for a HexLiteral - returning "" for any other type. This is the
-// deliberate no-decode path for two DIFFERENT reasons, and the distinction
-// matters:
+// stringValue renders a PDF string-like object as its raw bytes - the escaped
+// body for a StringLiteral, the hex digit text for a HexLiteral - and "" for
+// any other type.
 //
-//   - Genuinely byte-carrying, where decoding would CORRUPT the value: filespec
-//     /Params /CheckSum, signature /Contents and /Cert, trailer /ID.
-//   - Scoped out, where decoding would be harmless but simply is not wired yet:
-//     filespec /Params /ModDate and the /Info date keys (ISO 32000-1 7.9.4
-//     defines a date AS a text string, so these MAY legally be UTF-16BE - the
-//     raw rendering is a scope decision, NOT a safety requirement, and a
-//     <FEFF...> date does currently surface as hex digits), catalog /Lang, and
-//     the signature dict's /T, /Name, /Reason, /Location, /ContactInfo.
+// Used for two kinds of field. Decoding would corrupt the first: filespec
+// /Params /CheckSum, signature /Contents and /Cert, trailer /ID. The second is
+// only unwired: /Params /ModDate and the /Info date keys (legally text strings),
+// catalog /Lang, and the signature /T, /Name, /Reason, /Location, /ContactInfo.
 //
-// PDF TEXT fields use textStringOrRaw instead; stringValue is also its raw
-// fallback, so it must not be re-pointed at the decoder.
+// Text fields use textStringOrRaw, which also falls back to this, so it must
+// not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.StringLiteral:

@@ -126,7 +126,7 @@ func TestHumanizeBytes(t *testing.T) {
 // (escaping it would corrupt it as XML; story 14.4 Out of Scope).
 //
 // This exists because the acceptance suite cannot pin it: its fixture has no
-// /Metadata stream, so 14.4-INTG-006's Info-block-scoped ASCII assertion would
+// /Metadata stream, so the -006 case's Info-block-scoped ASCII assertion would
 // pass either way. Without this test the exemption is prose and a godoc only.
 func TestPrintMetadataPlain_XMPIsVerbatimInfoIsEscaped(t *testing.T) {
 	md := &pdfcore.DocumentMetadata{

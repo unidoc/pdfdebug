@@ -14,18 +14,11 @@ var infoFields = []string{
 	"Creator", "Producer", "CreationDate", "ModDate",
 }
 
-// infoTextFields is the subset of infoFields carrying PDF TEXT strings, which
-// are decoded (UTF-16BE-with-BOM / pdfcpu's byte fallback).
+// infoTextFields is the subset of infoFields that is decoded as PDF text.
 //
-// The two date keys are absent because story 14.4 scoped them out, NOT because
-// decoding would harm them: ISO 32000-1 7.9.4 defines a date as a text string,
-// so /CreationDate and /ModDate MAY legally be UTF-16BE-with-BOM, and routing a
-// conforming ASCII "D:YYYY..." date through the decoder would be a harmless
-// no-op. The live consequence of the exclusion is an inconsistency, not a
-// safeguard: a /ModDate <FEFF...> renders as hex digits while a /Title <FEFF...>
-// in the same dict renders as text. Recorded as deferred debt alongside
-// signature.go's five text fields; nothing in the tree parses these values, so
-// the blast radius is display/JSON only.
+// The date keys are excluded by scope, not for safety: ISO 32000-1 7.9.4
+// defines a date as a text string, so a UTF-16BE /ModDate is legal and renders
+// as hex digits today.
 var infoTextFields = map[string]bool{
 	"Title": true, "Author": true, "Subject": true,
 	"Keywords": true, "Creator": true, "Producer": true,
@@ -95,7 +88,7 @@ func collectInfoFields(doc *DocumentState, md *DocumentMetadata) {
 		if infoTextFields[key] {
 			v = textStringOrRaw(info[key])
 		} else {
-			v = stringValue(info[key]) // date keys: raw, see infoTextFields
+			v = stringValue(info[key]) // date keys stay raw
 		}
 		if v != "" {
 			md.Info[key] = v

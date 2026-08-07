@@ -84,14 +84,11 @@ func (w *kvWriter) Render(out io.Writer) error {
 	return err
 }
 
-// asciiSafe renders a decoded PDF text value on the ASCII-only plain-text
-// surface. The escape is CONDITIONAL on purpose: an already printable-ASCII
-// value is returned byte-identically (so existing output never gains quotes),
-// and only a value carrying a non-ASCII or non-printable byte is escaped with
-// strconv.QuoteToASCII (the validate.go precedent), where the quotes read as a
-// visible "this was escaped" marker. Escaping also keeps tableWriter's
-// len()-based column padding aligned, which raw multi-byte UTF-8 breaks. (Only
-// tableWriter: kvWriter pads on KEY width, so no value can misalign it.)
+// asciiSafe renders a value on the ASCII-only plain-text surface. A printable
+// ASCII value is returned unchanged; anything carrying a byte outside
+// 0x20-0x7e is escaped with strconv.QuoteToASCII. Escaping also keeps
+// tableWriter's len()-based column padding aligned, which raw multi-byte UTF-8
+// breaks.
 func asciiSafe(s string) string {
 	for i := 0; i < len(s); i++ {
 		if s[i] < 0x20 || s[i] > 0x7e {

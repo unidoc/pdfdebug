@@ -88,15 +88,9 @@ func execEmbeddedList(filePath string, jsonOut bool) (exitCode int) {
 }
 
 // anyNameDiffersFromDisplay reports whether the plain table's Name cell can
-// differ from the --name selector value for any attachment, which is the whole
-// reason a copied-from-the-table name might not match. Three causes, not one:
-// the escape (asciiSafe), dashIfEmpty rendering an empty name as "-", and
-// leading/trailing spaces that column padding makes invisible.
-//
-// The space check is strings.Trim on a literal " ", not TrimSpace: every other
-// byte TrimSpace would strip (tab, CR, LF, NBSP, U+2000..) is outside
-// 0x20-0x7e and is therefore already caught by the asciiSafe clause, so the
-// narrow form is equivalent here and says what this branch actually means.
+// differ from the --name selector value, so a name copied out of the table may
+// not match. Causes: the asciiSafe escape, dashIfEmpty rendering an empty name
+// as "-", and leading/trailing spaces hidden by column padding.
 func anyNameDiffersFromDisplay(files []pdfcore.EmbeddedFile) bool {
 	for _, f := range files {
 		if f.Name == "" || asciiSafe(f.Name) != f.Name || strings.Trim(f.Name, " ") != f.Name {
@@ -113,10 +107,9 @@ func printEmbeddedListPlain(out io.Writer, files []pdfcore.EmbeddedFile) error {
 	t := newTable("Name", "Relationship", "MIME", "Size", "Filespec", "EmbeddedFile")
 	for _, f := range files {
 		t.AddRow(
-			// Every PDF-derived cell needs escaping, not just the decoded name:
-			// AFRelationship and Subtype come from PDF Names, whose #xx escapes
-			// resolve to arbitrary bytes. A raw 0x0A there splits one logical row
-			// across two lines; a raw multi-byte rune breaks len()-based padding.
+			// Every PDF-derived cell is escaped: AFRelationship and Subtype come
+			// from PDF Names, whose #xx escapes resolve to arbitrary bytes. A raw
+			// 0x0A would split the row; a multi-byte rune would break padding.
 			dashIfEmpty(asciiSafe(f.Name)),
 			dashIfEmpty(asciiSafe(f.AFRelationship)),
 			dashIfEmpty(asciiSafe(f.Subtype)),
@@ -189,9 +182,7 @@ func execEmbeddedExtractByName(filePath, name string) (exitCode int) {
 
 	switch len(matches) {
 	case 0:
-		// The selector matches the DECODED name, while the plain table prints its
-		// ASCII-escaped form, so a name copied out of that table will not match.
-		// Point at --json, which carries the exact selector value.
+		// The selector matches the decoded name; the table prints an escaped form.
 		fmt.Fprintf(os.Stderr, "error: no embedded file named %q\n", name)
 		if anyNameDiffersFromDisplay(list.Files) {
 			fmt.Fprintf(os.Stderr, "hint: this document has attachment names the plain table cannot show verbatim (escaped, empty, or space-padded). Use `dump embedded --json` and select on the exact \"name\" value.\n")

@@ -71,19 +71,16 @@ func execMetadataDump(filePath string, jsonOut, pretty bool) (exitCode int) {
 // block followed by the verbatim XMP packet. NON-CONTRACTUAL; use --json to
 // parse. infoFieldOrder fixes the row order so output is stable.
 //
-// ASCII-only applies to the INFO BLOCK, not to the XMP packet: XMP is UTF-8 XML
-// by spec and is passed through verbatim by design (story 14.4 Out of Scope -
-// "XMP packet handling ... verbatim per its own path"), so `dump metadata` on a
-// document with a non-ASCII dc:title emits non-ASCII bytes below the "XMP:"
-// heading. Escaping the packet would corrupt it as XML. Acceptance assertions
-// about ASCII-ness must therefore be scoped to the Info block.
+// ASCII-only applies to the Info block. The XMP packet is UTF-8 XML and is
+// passed through verbatim, so this command can emit non-ASCII bytes below the
+// "XMP:" heading.
 func printMetadataPlain(out io.Writer, md *pdfcore.DocumentMetadata) error {
 	var w kvWriter
 	w.Heading("Info:")
 	any := false
 	for _, key := range infoFieldOrder {
 		if v, ok := md.Info[key]; ok && v != "" {
-			// Decoded /Info text can be non-ASCII; this surface is ASCII-only.
+			// This surface is ASCII-only.
 			w.Add("  "+key, asciiSafe(v))
 			any = true
 		}

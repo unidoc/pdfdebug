@@ -1,19 +1,9 @@
-// Story 14-4 acceptance harness for the shared PDF text-string decoder on the
-// CLI machine-contract surface (`dump metadata`, `dump embedded`).
+// Acceptance harness for the PDF text-string decoder on the CLI surface
+// (`dump metadata`, `dump embedded`).
 //
-// Black-box: build the pdfdebug CLI binary and run it as a subprocess against
-// the committed fixture testdata/correctness/text-string-encoding.pdf. The
-// tests assert the decoded post-implementation contract and fail at RUNTIME,
-// never at compile time. This module has its own go.mod and is not part of the
-// main build (mirrors tests/14-1-trustworthy-stream-op-output), so it is run by
-// the per-suite tests/*/ loop rather than by `go test ./...` at the root.
-//
-// Test pyramid: every case here is Go integration-level against the built CLI
-// binary -- the project's established level for CLI acceptance. There is NO
-// frontend change in this story (no IPC or binding change), so no Vitest and no
-// Playwright layer is warranted.
-//
-// Naming: 14.4-INTG-NNN [Px] per the story Testing Requirements (AC6).
+// Black-box: builds the pdfdebug binary and runs it against the committed
+// fixture testdata/correctness/text-string-encoding.pdf. This module has its own
+// go.mod, so it runs via the per-suite tests/*/ loop rather than `go test ./...`.
 //
 // Run: cd tests/14-4-shared-text-string-decoder && go test -v -count=1 ./...
 package shared_text_string_decoder_test
@@ -29,24 +19,19 @@ import (
 	"testing"
 )
 
-// fixtureName is the hand-authored correctness-corpus fixture for this story.
-// It carries a UTF-16BE-with-BOM /Info /Title and a non-ASCII filespec /UF,
-// both as DIRECT (inline) string objects -- neither call site dereferences, so
-// an indirect value would make these tests prove nothing.
+// fixtureName carries a UTF-16BE-with-BOM /Info /Title and a non-ASCII filespec
+// /UF, both as direct objects: the call sites do not dereference.
 const fixtureName = "text-string-encoding.pdf"
 
-// Expected decoded values, plus the raw hex digits the CLI emitted BEFORE 14.4.
-// The hex forms are asserted absent, which is what made 14.4-INTG-001 red for the
-// right reason while it was red.
+// Expected decoded values, plus the undecoded hex forms, which are asserted
+// absent.
 const (
 	wantTitle    = "Rechnung Größe 中文"
 	rawTitleHex  = "FEFF0052006500630068006E0075006E006700200047007200F600DF006500204E2D6587"
 	wantUFName   = "größe-中文.xml"
 	rawUFNameHex = "FEFF0067007200F600DF0065002D4E2D6587002E0078006D006C"
 
-	// asciiName / asciiAuthor are the all-ASCII control values in the same
-	// fixture. They pin AC5's CONDITIONAL escape: an already-printable-ASCII
-	// value must render byte-identically to today, WITHOUT added quotes.
+	// All-ASCII control values: they must render byte-identically, unquoted.
 	asciiName    = "plain.xml"
 	asciiAuthor  = "ACME GmbH"
 	asciiSubject = "Plain ASCII subject"
@@ -77,9 +62,8 @@ type embeddedEntryJSON struct {
 
 // --- harness -----------------------------------------------------------------
 
-// TestMain removes the temp dir holding the once-built CLI binary after the
-// whole package has run. A per-test t.Cleanup cannot do this: the binary is
-// shared across every test in the module via cliBuildOnce.
+// TestMain removes the temp dir holding the built CLI binary. A per-test
+// t.Cleanup cannot: the binary is shared across the module via cliBuildOnce.
 func TestMain(m *testing.M) {
 	code := m.Run()
 	if cliTmpDir != "" {
@@ -88,9 +72,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// projectRoot walks up from the test directory to find the main module's go.mod.
-// Memoized: the answer is constant for the process, and buildCLI + fixturePath
-// both call it on every test.
+// projectRoot walks up to the main module's go.mod. Memoized.
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	projectRootOnce.Do(func() {
@@ -132,13 +114,11 @@ var (
 	cliBuildOnce sync.Once
 	cliBinPath   string
 	cliBuildErr  string
-	// cliTmpDir is tracked separately from cliBinPath so a run where MkdirTemp
-	// succeeded but `go build` FAILED still gets cleaned up - that is the run you
-	// iterate on most, and cliBinPath stays empty on it.
+	// Tracked separately from cliBinPath so a failed build still cleans up.
 	cliTmpDir string
 
-	// projectRootOnce memoizes the upward go.mod walk: it is constant for the
-	// process, and buildCLI + fixturePath call it on every single test.
+	// Memoizes the upward go.mod walk, which buildCLI and fixturePath both call
+	// on every test.
 	projectRootOnce sync.Once
 	projectRootDir  string
 )
@@ -147,10 +127,8 @@ var (
 // Cached via sync.Once: the binary is identical for every test in the module.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	// projectRoot ends in t.Fatalf on failure, which is runtime.Goexit - if it
-	// ran INSIDE Do, the deferred flag-set would still mark the Once complete
-	// while leaving both cliBinPath and cliBuildErr empty, and every later test
-	// would exec "" and report a bogus cause. Resolve it before entering Do.
+	// Resolved before Do: projectRoot ends in t.Fatalf (runtime.Goexit), which
+	// inside Do would mark the Once complete with both globals empty.
 	root := projectRoot(t)
 	cliBuildOnce.Do(func() {
 		binName := "pdfdebug"
@@ -162,7 +140,7 @@ func buildCLI(t *testing.T) string {
 			cliBuildErr = "failed to create temp dir: " + err.Error()
 			return
 		}
-		cliTmpDir = tmpDir // record BEFORE the build, so a build failure still cleans up
+		cliTmpDir = tmpDir // before the build, so a failure still cleans up
 		binPath := filepath.Join(tmpDir, binName)
 		cmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli/")
 		cmd.Dir = root
@@ -209,12 +187,12 @@ func mustParseJSON(t *testing.T, s string, target any) {
 }
 
 // dumpMetadataJSON runs `dump metadata --json` on the fixture and decodes it.
-func dumpMetadataJSON(t *testing.T, id string) metadataJSON {
+func dumpMetadataJSON(t *testing.T) metadataJSON {
 	t.Helper()
 	bin := buildCLI(t)
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", "--json", fixturePath(t, fixtureName))
 	if ec != 0 {
-		t.Fatalf("[%s] expected exit 0, got %d (stderr: %s)", id, ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var md metadataJSON
 	mustParseJSON(t, stdout, &md)
@@ -222,24 +200,21 @@ func dumpMetadataJSON(t *testing.T, id string) metadataJSON {
 }
 
 // dumpEmbeddedJSON runs `dump embedded --json` on the fixture and decodes it.
-func dumpEmbeddedJSON(t *testing.T, id string) []embeddedEntryJSON {
+func dumpEmbeddedJSON(t *testing.T) []embeddedEntryJSON {
 	t.Helper()
 	bin := buildCLI(t)
 	stdout, stderr, ec := runCLI(t, bin, "dump", "embedded", "--json", fixturePath(t, fixtureName))
 	if ec != 0 {
-		t.Fatalf("[%s] expected exit 0, got %d (stderr: %s)", id, ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var entries []embeddedEntryJSON
 	mustParseJSON(t, stdout, &entries)
 	return entries
 }
 
-// firstNonASCII returns the offset and byte of the first byte in s that the
-// plain-text surface should not contain, or (-1, 0) when s is clean. The window
-// deliberately MATCHES cmd/cli asciiSafe's (< 0x20 || > 0x7e) rather than the
-// looser > 0x7f: a stray 0x7f or C0 control byte is exactly what asciiSafe
-// exists to escape, and a raw 0x0A in a table cell splits one logical row
-// across two lines. Line-separator newlines are the one legitimate exception.
+// firstNonASCII returns the offset and byte of the first byte the plain-text
+// surface should not contain, or (-1, 0) when s is clean. The window matches
+// asciiSafe's (< 0x20 || > 0x7e); newlines are the one exception.
 func firstNonASCII(s string) (int, byte) {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\n' {
