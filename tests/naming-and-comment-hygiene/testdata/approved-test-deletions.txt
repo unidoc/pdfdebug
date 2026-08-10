@@ -1,0 +1,8 @@
+# Go test/benchmark/fuzz functions deliberately removed from the tree, one per
+# line, as "<FuncName>  # <file> :: <grep target> :: <bucket>".
+#
+# The inventory gate subtracts the number of entries here from the expected
+# total. Adding an entry is how a deliberate deletion is itemized; a removal
+# that is not listed here fails the gate as an unexplained loss.
+#
+# Blank lines and lines starting with '#' are ignored.
