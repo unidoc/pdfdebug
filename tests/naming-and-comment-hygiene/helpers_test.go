@@ -86,7 +86,7 @@ func trackedFiles(t *testing.T, root string) []string {
 		t.Fatalf("git ls-files in %s: %v: %s", root, err, stderr.String())
 	}
 	var paths []string
-	for _, p := range strings.Split(string(out), "\x00") {
+	for p := range strings.SplitSeq(string(out), "\x00") {
 		if p != "" {
 			paths = append(paths, filepath.ToSlash(p))
 		}

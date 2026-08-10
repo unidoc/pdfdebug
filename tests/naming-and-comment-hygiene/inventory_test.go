@@ -59,7 +59,7 @@ func readFixtureLines(t *testing.T, name string) []string {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
 	var lines []string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -85,7 +85,7 @@ func goTestFuncOccurrences(t *testing.T, root string) (map[string]int, int) {
 		if err != nil {
 			t.Fatalf("read %s: %v", rel, err)
 		}
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			if m := goTestFuncDecl.FindStringSubmatch(line); m != nil {
 				counts[m[1]]++
 				total++
@@ -167,7 +167,7 @@ func countCalls(t *testing.T, root string, pick, re *regexp.Regexp) (int, []stri
 		if err != nil {
 			t.Fatalf("read %s: %v", rel, err)
 		}
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			total += len(re.FindAllString(line, -1))
 		}
 	}

@@ -77,7 +77,7 @@ func TestNoStoryNumberedSuiteModuleNames(t *testing.T) {
 		if err != nil {
 			rel = mod
 		}
-		line := strings.SplitN(strings.TrimSpace(string(data)), "\n", 2)[0]
+		line, _, _ := strings.Cut(strings.TrimSpace(string(data)), "\n")
 		offenders = append(offenders, filepath.ToSlash(rel)+": "+strings.TrimSpace(line))
 	}
 	if len(offenders) > 0 {

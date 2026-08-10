@@ -30,7 +30,7 @@ func windowsSubset(t *testing.T, root string) []string {
 	}
 	var entries []string
 	inArray := false
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		trimmed := strings.TrimSpace(line)
 		if !inArray {
 			if strings.HasPrefix(trimmed, "win_subset=(") {
