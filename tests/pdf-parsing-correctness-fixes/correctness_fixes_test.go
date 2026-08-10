@@ -110,10 +110,10 @@ var correctnessFixtures = []string{
 	"cjk-cmap-carry.pdf",
 }
 
-// Test_10_6_AC1_FixtureCorpusExists [P0] AC#1: the five named PDF fixtures
-// MUST live under testdata/correctness/. Each is a hand-authored uncompressed
-// PDF demonstrating one failure mode.
-func Test_10_6_AC1_FixtureCorpusExists(t *testing.T) {
+// TestFixtureCorpusExists asserts the five named PDF fixtures live under
+// testdata/correctness/. Each is a hand-authored uncompressed PDF demonstrating one
+// failure mode.
+func TestFixtureCorpusExists(t *testing.T) {
 	root := projectRoot(t)
 	for _, name := range correctnessFixtures {
 		path := filepath.Join(root, "testdata", "correctness", name)
@@ -134,10 +134,10 @@ func Test_10_6_AC1_FixtureCorpusExists(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC1_FixtureCorpusReadme [P0] AC#1: a README.md MUST sit alongside
-// the fixtures, describing each fixture's purpose and byte-level structure
-// sufficient for a future engineer to regenerate by hand.
-func Test_10_6_AC1_FixtureCorpusReadme(t *testing.T) {
+// TestFixtureCorpusReadme asserts a README.md sits alongside the fixtures,
+// describing each fixture's purpose and byte-level structure well enough for a
+// future engineer to regenerate it by hand.
+func TestFixtureCorpusReadme(t *testing.T) {
 	root := projectRoot(t)
 	readmePath := filepath.Join(root, "testdata", "correctness", "README.md")
 	data, err := os.ReadFile(readmePath)
@@ -156,12 +156,11 @@ func Test_10_6_AC1_FixtureCorpusReadme(t *testing.T) {
 // AC#2 -- drop depth cap in buildReachableSet AND findPathToObject
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC2_BuildReachableSetNoDepthCap [P0] AC#2: the depth guard
-// `if head.depth >= maxRefDepth { continue }` at internal/pdfcore/object
-// index.go:123 MUST be REMOVED. The visited-set (entries map) already
-// prevents cycles; the depth cap mislabels legitimate-but-deep PDFs as
-// orphan trees.
-func Test_10_6_AC2_BuildReachableSetNoDepthCap(t *testing.T) {
+// TestBuildReachableSetNoDepthCap asserts buildReachableSet in
+// internal/pdfcore/objectindex.go carries no `head.depth >= maxRefDepth` guard.
+// The visited-set (entries map) already prevents cycles, and a depth cap mislabels
+// legitimate-but-deep PDFs as orphan trees.
+func TestBuildReachableSetNoDepthCap(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/objectindex.go")
 	body := extractTopLevelFuncBody(t, src, "buildReachableSet")
 	if body == "" {
@@ -175,11 +174,10 @@ func Test_10_6_AC2_BuildReachableSetNoDepthCap(t *testing.T) {
 	// the depth-test removal.
 }
 
-// Test_10_6_AC2_FindPathToObjectNoDepthCap [P0] AC#2: the matching depth
-// guard `if entry.depth >= maxRefDepth { continue }` at internal/pdfcore/
-// inspector.go:512 inside findPathToObject MUST be REMOVED for consistency
-// (same package, same orphan-detection semantics).
-func Test_10_6_AC2_FindPathToObjectNoDepthCap(t *testing.T) {
+// TestFindPathToObjectNoDepthCap asserts findPathToObject in
+// internal/pdfcore/inspector.go carries no `entry.depth >= maxRefDepth` guard
+// either -- same package, same orphan-detection semantics.
+func TestFindPathToObjectNoDepthCap(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractTopLevelFuncBody(t, src, "findPathToObject")
 	if body == "" {
@@ -190,11 +188,11 @@ func Test_10_6_AC2_FindPathToObjectNoDepthCap(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC2_TreeMaxRefDepthRetained [P0] AC#2: the maxRefDepth constant
-// at internal/pdfcore/tree.go MUST be retained for the page-tree caller at
-// tree.go (different cycle-tolerance semantics that this story does NOT
-// change). A one-line comment noting the retention MUST be present.
-func Test_10_6_AC2_TreeMaxRefDepthRetained(t *testing.T) {
+// TestTreeMaxRefDepthRetained asserts the maxRefDepth constant in
+// internal/pdfcore/tree.go is retained for the page-tree caller, whose
+// cycle-tolerance semantics differ, along with the one-line comment noting why it
+// stays.
+func TestTreeMaxRefDepthRetained(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/tree.go")
 	if !strings.Contains(src, "maxRefDepth = 32") {
 		t.Errorf("[P0] 10-6-AC2: internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (AC2: tree.go semantics unchanged by this story)")
@@ -221,11 +219,10 @@ func Test_10_6_AC2_TreeMaxRefDepthRetained(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC2_BuildReachableSetTestExists [P0] AC#2: the new test
-// TestBuildReachableSetDeepNesting MUST be declared in
-// internal/pdfcore/objectindex_test.go. The story spec is explicit: the
-// test exercises boundary at depth 32 AND well past it (e.g. depth 50).
-func Test_10_6_AC2_BuildReachableSetTestExists(t *testing.T) {
+// TestBuildReachableSetTestExists asserts TestBuildReachableSetDeepNesting is
+// declared in internal/pdfcore/objectindex_test.go, covering the boundary at depth
+// 32 and well past it.
+func TestBuildReachableSetTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/objectindex_test.go")
 	needle := "func TestBuildReachableSetDeepNesting(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -233,10 +230,9 @@ func Test_10_6_AC2_BuildReachableSetTestExists(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC2_FindPathToObjectTestExists [P0] AC#2: the new test
-// TestFindPathToObjectDeepNesting MUST be declared in
-// internal/pdfcore/inspector_test.go.
-func Test_10_6_AC2_FindPathToObjectTestExists(t *testing.T) {
+// TestFindPathToObjectTestExists asserts TestFindPathToObjectDeepNesting is
+// declared in internal/pdfcore/inspector_test.go.
+func TestFindPathToObjectTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector_test.go")
 	needle := "func TestFindPathToObjectDeepNesting(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -248,12 +244,11 @@ func Test_10_6_AC2_FindPathToObjectTestExists(t *testing.T) {
 // AC#3 -- extractStreamInfo gains doc *DocumentState; IndirectRef length resolved
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC3_ExtractStreamInfoSignature [P0] AC#3: the function signature
-// at internal/pdfcore/inspector.go MUST be `func extractStreamInfo(doc
-// *DocumentState, obj pdfcpu_types.Object) *StreamInfo`. The pre-fix
-// signature `func extractStreamInfo(obj pdfcpu_types.Object) *StreamInfo`
-// has no DocumentState handle and cannot dereference IndirectRef lengths.
-func Test_10_6_AC3_ExtractStreamInfoSignature(t *testing.T) {
+// TestExtractStreamInfoSignature asserts the signature in
+// internal/pdfcore/inspector.go is `func extractStreamInfo(doc *DocumentState, obj
+// pdfcpu_types.Object) *StreamInfo`. Without the DocumentState handle the function
+// cannot dereference IndirectRef lengths.
+func TestExtractStreamInfoSignature(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	want := "func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo"
 	if !strings.Contains(src, want) {
@@ -268,12 +263,11 @@ func Test_10_6_AC3_ExtractStreamInfoSignature(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC3_ExtractStreamInfoDereferencesIndirect [P0] AC#3: the post-fix
-// extractStreamInfo body MUST handle the case where sd.StreamLength is nil
-// by inspecting sd.Dict["Length"]; an Integer is used directly, an
-// IndirectRef is resolved via doc.PDFContext.Dereference. Pin the load-
-// bearing tokens.
-func Test_10_6_AC3_ExtractStreamInfoDereferencesIndirect(t *testing.T) {
+// TestExtractStreamInfoDereferencesIndirect asserts the extractStreamInfo body
+// handles a nil sd.StreamLength by inspecting sd.Dict["Length"]: an Integer is used
+// directly and an IndirectRef is resolved via doc.PDFContext.Dereference. The
+// load-bearing tokens are pinned.
+func TestExtractStreamInfoDereferencesIndirect(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractTopLevelFuncBody(t, src, "extractStreamInfo")
 	if body == "" {
@@ -296,10 +290,10 @@ func Test_10_6_AC3_ExtractStreamInfoDereferencesIndirect(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC3_GetObjectDetailPassesDoc [P0] AC#3: the three extractStreamInfo
-// call sites inside GetObjectDetail MUST pass `doc` as the first argument.
-// Pre-fix call shape: `extractStreamInfo(obj)`. Post-fix: `extractStreamInfo(doc, obj)`.
-func Test_10_6_AC3_GetObjectDetailPassesDoc(t *testing.T) {
+// TestGetObjectDetailPassesDoc asserts the three extractStreamInfo call sites
+// inside GetObjectDetail pass `doc` as the first argument, i.e.
+// `extractStreamInfo(doc, obj)`.
+func TestGetObjectDetailPassesDoc(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "GetObjectDetail")
 	if body == "" {
@@ -318,11 +312,10 @@ func Test_10_6_AC3_GetObjectDetailPassesDoc(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC3_IndirectLengthTestExists [P0] AC#3: TestExtractStreamInfo
-// IndirectLength MUST be declared in internal/pdfcore/inspector_test.go.
-// The spec also requires a pre-step that asserts sd.StreamLength == nil for
-// the fixture's stream object -- the test owner is the Dev step.
-func Test_10_6_AC3_IndirectLengthTestExists(t *testing.T) {
+// TestIndirectLengthTestExists asserts TestExtractStreamInfoIndirectLength is
+// declared in internal/pdfcore/inspector_test.go. That test also needs a pre-step
+// asserting sd.StreamLength == nil for the fixture's stream object.
+func TestIndirectLengthTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector_test.go")
 	needle := "func TestExtractStreamInfoIndirectLength(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -334,13 +327,11 @@ func Test_10_6_AC3_IndirectLengthTestExists(t *testing.T) {
 // AC#4 -- latin1Decode doc comment rewrite + full-range pinning test
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC4_Latin1DecodeBodyUnchanged [P0] AC#4: the latin1Decode body
-// at internal/pdfcore/plaintext.go is UNCHANGED. The story explicitly says
-// the implementation does not change -- only the doc comment and a new
-// pinning test. We pin the load-bearing branch (rune(b) cast inside the
-// 0x09/0x0A/0x0D + 0x20<=c!=0x7F branches) so the Dev cannot accidentally
+// TestLatin1DecodeBodyUnchanged pins the load-bearing branch of latin1Decode in
+// internal/pdfcore/plaintext.go: the rune(b) cast inside the 0x09/0x0A/0x0D and
+// 0x20 <= c != 0x7F branches. The implementation must not change, so nobody can
 // "fix" the C1 behavior by extending the U+FFFD replacement range.
-func Test_10_6_AC4_Latin1DecodeBodyUnchanged(t *testing.T) {
+func TestLatin1DecodeBodyUnchanged(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractTopLevelFuncBody(t, src, "latin1Decode")
 	if body == "" {
@@ -358,12 +349,11 @@ func Test_10_6_AC4_Latin1DecodeBodyUnchanged(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC4_Latin1DecodeDocCommentRewritten [P0] AC#4: the doc comment
-// at internal/pdfcore/plaintext.go MUST accurately describe behavior. The
-// post-fix comment includes the phrase "C1 controls" (explicitly naming the
-// 0x80-0x9F range) and "map verbatim" (the lossless Latin-1 contract).
-// Pre-fix comment carries neither phrase.
-func Test_10_6_AC4_Latin1DecodeDocCommentRewritten(t *testing.T) {
+// TestLatin1DecodeDocCommentRewritten asserts the doc comment in
+// internal/pdfcore/plaintext.go describes the real behavior: it must contain "C1
+// controls" (naming the 0x80-0x9F range) and "map verbatim" (the lossless Latin-1
+// contract).
+func TestLatin1DecodeDocCommentRewritten(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	// Anchor on the comment immediately preceding `func latin1Decode`.
 	idx := strings.Index(src, "func latin1Decode(")
@@ -403,11 +393,10 @@ func Test_10_6_AC4_Latin1DecodeDocCommentRewritten(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC4_Latin1FullRangeUnitTestExists [P0] AC#4: TestLatin1DecodeFull
-// Range MUST be declared in internal/pdfcore/plaintext_test.go. The spec
-// says it pins the byte-for-codepoint contract for every byte 0x00-0xFF via
-// a direct call (no fixture).
-func Test_10_6_AC4_Latin1FullRangeUnitTestExists(t *testing.T) {
+// TestLatin1FullRangeUnitTestExists asserts TestLatin1DecodeFullRange is declared
+// in internal/pdfcore/plaintext_test.go, pinning the byte-for-codepoint contract
+// for every byte 0x00-0xFF via a direct call with no fixture.
+func TestLatin1FullRangeUnitTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext_test.go")
 	needle := "func TestLatin1DecodeFullRange(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -415,11 +404,10 @@ func Test_10_6_AC4_Latin1FullRangeUnitTestExists(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC4_Latin1C1IntegrationTestExists [P0] AC#4: TestGetPlainText
-// Latin1C1 MUST be declared in plaintext_test.go (or inspector_test.go).
-// This is the integration test that opens the fixture and asserts the C1
-// region maps verbatim.
-func Test_10_6_AC4_Latin1C1IntegrationTestExists(t *testing.T) {
+// TestLatin1C1IntegrationTestExists asserts TestGetPlainTextLatin1C1 is declared in
+// plaintext_test.go or inspector_test.go. That is the integration test which opens
+// the fixture and asserts the C1 region maps verbatim.
+func TestLatin1C1IntegrationTestExists(t *testing.T) {
 	root := projectRoot(t)
 	needle := "func TestGetPlainTextLatin1C1(t *testing.T)"
 	// Test can live in either plaintext_test.go or inspector_test.go.
@@ -443,13 +431,12 @@ func Test_10_6_AC4_Latin1C1IntegrationTestExists(t *testing.T) {
 // AC#5 -- parseDifferences out-of-range guard
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC5_ParseDifferencesBoundsGuard [P0] AC#5: at internal/pdfcore/
-// font.go inside parseDifferences, after the `currentCode = int(v)` line,
-// a guard `if currentCode < 0 || currentCode > 255 { continue }` MUST be
-// present. The pre-fix code has no such guard; /Differences arrays carrying
-// out-of-range integers (-1, 999, etc.) leak rows into the encoding table
+// TestParseDifferencesBoundsGuard asserts parseDifferences in
+// internal/pdfcore/font.go carries `if currentCode < 0 || currentCode > 255 {
+// continue }` after the `currentCode = int(v)` line. Without it, /Differences
+// arrays holding out-of-range integers (-1, 999) leak rows into the encoding table
 // with garbage codes.
-func Test_10_6_AC5_ParseDifferencesBoundsGuard(t *testing.T) {
+func TestParseDifferencesBoundsGuard(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseDifferences")
 	if body == "" {
@@ -474,11 +461,11 @@ func Test_10_6_AC5_ParseDifferencesBoundsGuard(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC5_ParseDifferencesOutOfRangeTestExists [P0] AC#5: TestParse
-// DifferencesOutOfRange MUST be declared in internal/pdfcore/font_test.go.
-// The spec says it calls parseDifferences directly with a synthesized array
-// (Integer(-1), Integer(999), and a name).
-func Test_10_6_AC5_ParseDifferencesOutOfRangeTestExists(t *testing.T) {
+// TestParseDifferencesOutOfRangeTestExists asserts
+// TestParseDifferencesOutOfRange is declared in internal/pdfcore/font_test.go,
+// calling parseDifferences directly with a synthesized array (Integer(-1),
+// Integer(999), and a name).
+func TestParseDifferencesOutOfRangeTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font_test.go")
 	needle := "func TestParseDifferencesOutOfRange(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -490,15 +477,11 @@ func Test_10_6_AC5_ParseDifferencesOutOfRangeTestExists(t *testing.T) {
 // AC#6 -- parseBfrange overflow break replaced with carry propagation
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC6_ParseBfrangeNoSilentBreak [P0] AC#6: the existing overflow
-// `break` at internal/pdfcore/font.go (lines 780-783) MUST be REPLACED with
-// a carry implementation. The structural marker for the pre-fix shape is
-// the `if tail > 0xFFFF { break }` pattern; that pattern is silent data
-// loss for ranges that legitimately cross UTF-16 unit boundaries.
-//
-// We assert the literal `if tail > 0xFFFF {\n\t\t\t\tbreak\n\t\t\t}` (or a
-// loose form thereof) is gone, and a carry-propagation marker is present.
-func Test_10_6_AC6_ParseBfrangeNoSilentBreak(t *testing.T) {
+// TestParseBfrangeNoSilentBreak asserts parseBfrange in internal/pdfcore/font.go
+// carries no `if tail > 0xFFFF { break }` overflow bail-out, which is silent data
+// loss for ranges that legitimately cross UTF-16 unit boundaries, and that a
+// carry-propagation marker is present instead.
+func TestParseBfrangeNoSilentBreak(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
@@ -513,12 +496,10 @@ func Test_10_6_AC6_ParseBfrangeNoSilentBreak(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC6_ParseBfrangeCarryShape [P0] AC#6: the post-fix parseBfrange
-// MUST carry into higher UTF-16 units when the trailing unit overflows.
-// Pin the load-bearing tokens of the carry implementation: setting
-// units[last] to `tail & 0xFFFF` AND propagating `tail >> 16` (or
-// equivalent) into the next-higher unit.
-func Test_10_6_AC6_ParseBfrangeCarryShape(t *testing.T) {
+// TestParseBfrangeCarryShape asserts parseBfrange carries into higher UTF-16 units
+// when the trailing unit overflows, pinning the load-bearing tokens: units[last]
+// set to `tail & 0xFFFF` and `tail >> 16` propagated into the next-higher unit.
+func TestParseBfrangeCarryShape(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
@@ -541,11 +522,10 @@ func Test_10_6_AC6_ParseBfrangeCarryShape(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC6_ParseBfrangePreLoopSpanCheckUnchanged [P0] AC#6: the
-// pre-loop span check at internal/pdfcore/font.go (`high-low+1 >
-// maxBfrangeSpan`) MUST be UNCHANGED. AC6 carry concerns the per-iteration
-// trailing-unit overflow only.
-func Test_10_6_AC6_ParseBfrangePreLoopSpanCheckUnchanged(t *testing.T) {
+// TestParseBfrangePreLoopSpanCheckUnchanged asserts the pre-loop span check in
+// internal/pdfcore/font.go (`high-low+1 > maxBfrangeSpan`) is untouched. The carry
+// handling concerns the per-iteration trailing-unit overflow only.
+func TestParseBfrangePreLoopSpanCheckUnchanged(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
@@ -556,12 +536,11 @@ func Test_10_6_AC6_ParseBfrangePreLoopSpanCheckUnchanged(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC6_ParseBfrangeCarryTestExists [P0] AC#6: TestParseBfrangeCarry
-// MUST be declared in internal/pdfcore/font_test.go. The spec covers three
-// cases: (a) trailing-unit carry into higher unit; (b) leading-unit overflow
-// stops the loop; (c) the existing pre-loop span-cap rejection still returns
-// an error.
-func Test_10_6_AC6_ParseBfrangeCarryTestExists(t *testing.T) {
+// TestParseBfrangeCarryTestExists asserts TestParseBfrangeCarry is declared in
+// internal/pdfcore/font_test.go, covering three cases: trailing-unit carry into a
+// higher unit, leading-unit overflow stopping the loop, and the pre-loop span-cap
+// rejection still returning an error.
+func TestParseBfrangeCarryTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font_test.go")
 	needle := "func TestParseBfrangeCarry(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -573,10 +552,9 @@ func Test_10_6_AC6_ParseBfrangeCarryTestExists(t *testing.T) {
 // AC#7 -- DocumentState.FileSize captured at Open; redundant os.Stat removed
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC7_DocumentStateHasFileSize [P0] AC#7: DocumentState MUST
-// declare a new `FileSize int64` field. The field is pinned by name -- a
-// renamed or relocated field defeats the assertion.
-func Test_10_6_AC7_DocumentStateHasFileSize(t *testing.T) {
+// TestDocumentStateHasFileSize asserts DocumentState declares a `FileSize int64`
+// field. The field is pinned by name, so a rename or relocation fails.
+func TestDocumentStateHasFileSize(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	// Anchor: field declaration shape on its own line.
 	re := regexp.MustCompile(`(?m)^\s*FileSize\s+int64\b`)
@@ -585,13 +563,10 @@ func Test_10_6_AC7_DocumentStateHasFileSize(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_OpenPopulatesFileSize [P0] AC#7: Inspector.Open MUST set
-// the new FileSize field on the DocumentState literal -- the existing
-// `fileSize := fi.Size()` is already captured and passed into DocumentInfo,
-// so the change is literal: include `FileSize: fileSize` inside the
-// `doc := &DocumentState{...}` literal (NOT the DocumentInfo literal,
-// which already has it pre-fix).
-func Test_10_6_AC7_OpenPopulatesFileSize(t *testing.T) {
+// TestOpenPopulatesFileSize asserts Inspector.Open sets FileSize inside the `doc
+// := &DocumentState{...}` literal, not only inside the DocumentInfo literal. The
+// value is already captured as `fileSize := fi.Size()`.
+func TestOpenPopulatesFileSize(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "Open")
 	if body == "" {
@@ -634,11 +609,10 @@ func Test_10_6_AC7_OpenPopulatesFileSize(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_GetPlainTextSizeUsesCachedField [P0] AC#7: Inspector.Get
-// PlainTextSize at internal/pdfcore/plaintext.go MUST return `doc.FileSize`
-// directly. The pre-fix body calls `os.Stat(doc.FilePath)` -- AC7 removes
-// that call entirely.
-func Test_10_6_AC7_GetPlainTextSizeUsesCachedField(t *testing.T) {
+// TestGetPlainTextSizeUsesCachedField asserts Inspector.GetPlainTextSize in
+// internal/pdfcore/plaintext.go returns `doc.FileSize` directly and makes no
+// `os.Stat(doc.FilePath)` call.
+func TestGetPlainTextSizeUsesCachedField(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractFunctionBody(t, src, "GetPlainTextSize")
 	if body == "" {
@@ -652,13 +626,11 @@ func Test_10_6_AC7_GetPlainTextSizeUsesCachedField(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_ReadPlainTextSignatureTakesSize [P0] AC#7: the helper
-// readPlainText at internal/pdfcore/plaintext.go MUST gain a `size int64`
-// parameter and remove the in-function `os.Stat(path)` call. The pre-fix
-// signature is `func readPlainText(ctx context.Context, path, tabID string)`;
-// post-fix is `func readPlainText(ctx context.Context, path string, size int64, tabID string)`
-// (or an equivalent ordering -- pin only the presence of `size int64`).
-func Test_10_6_AC7_ReadPlainTextSignatureTakesSize(t *testing.T) {
+// TestReadPlainTextSignatureTakesSize asserts the readPlainText helper in
+// internal/pdfcore/plaintext.go takes a `size int64` parameter, so it needs no
+// in-function `os.Stat(path)` call. Only the presence of `size int64` is pinned,
+// not the parameter ordering.
+func TestReadPlainTextSignatureTakesSize(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	// Anchor on `func readPlainText(` and assert `size int64` appears in
 	// the parameter list before the next `)`.
@@ -677,10 +649,9 @@ func Test_10_6_AC7_ReadPlainTextSignatureTakesSize(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_ReadPlainTextNoStat [P0] AC#7: the readPlainText body MUST
-// NOT call `os.Stat(path)`. The pre-fix body calls it at line 140 to get
-// totalBytes; post-fix uses the passed-in `size` argument.
-func Test_10_6_AC7_ReadPlainTextNoStat(t *testing.T) {
+// TestReadPlainTextNoStat asserts the readPlainText body does not call
+// `os.Stat(path)`: totalBytes comes from the passed-in `size` argument.
+func TestReadPlainTextNoStat(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractTopLevelFuncBody(t, src, "readPlainText")
 	if body == "" {
@@ -691,12 +662,11 @@ func Test_10_6_AC7_ReadPlainTextNoStat(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_GetPlainTextSizeDocCommentUpdated [P0] AC#7: the doc comment
-// on GetPlainTextSize MUST be updated. The pre-fix wording "surfaces the raw
-// os.Stat error when the file moves post-Open" must be REMOVED; the post-fix
-// wording mentions "captured at Open" (or equivalent), affirming that
-// post-Open file moves do not affect the returned value.
-func Test_10_6_AC7_GetPlainTextSizeDocCommentUpdated(t *testing.T) {
+// TestGetPlainTextSizeDocCommentUpdated asserts the doc comment on
+// GetPlainTextSize describes the cached-size behavior: it mentions "captured at
+// Open" (or equivalent) and no longer claims to surface a raw os.Stat error when
+// the file moves after Open.
+func TestGetPlainTextSizeDocCommentUpdated(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	// Anchor on the doc-comment block immediately preceding GetPlainTextSize.
 	idx := strings.Index(src, "func (ins *Inspector) GetPlainTextSize(")
@@ -743,11 +713,10 @@ func Test_10_6_AC7_GetPlainTextSizeDocCommentUpdated(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_GetPlainTextThreadsSizeToReadPlainText [P0] AC#7: GetPlainText
-// MUST pass `doc.FileSize` (or equivalent) to readPlainText. The pre-fix call
-// is `readPlainText(ctx, doc.FilePath, tabID)`; post-fix MUST include the
-// size argument.
-func Test_10_6_AC7_GetPlainTextThreadsSizeToReadPlainText(t *testing.T) {
+// TestGetPlainTextThreadsSizeToReadPlainText asserts GetPlainText passes
+// `doc.FileSize` (or equivalent) into readPlainText rather than calling it with
+// path and tabID alone.
+func TestGetPlainTextThreadsSizeToReadPlainText(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractFunctionBody(t, src, "GetPlainText")
 	if body == "" {
@@ -763,11 +732,11 @@ func Test_10_6_AC7_GetPlainTextThreadsSizeToReadPlainText(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC7_GetPlainTextSizeAfterRemoveTestExists [P0] AC#7:
-// TestGetPlainTextSizeAfterRemove MUST be declared in either inspector_test.go
-// or plaintext_test.go. The spec says it opens a temp PDF, removes the file,
-// and asserts GetPlainTextSize returns the original size without error.
-func Test_10_6_AC7_GetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
+// TestGetPlainTextSizeAfterRemoveTestExists asserts
+// TestGetPlainTextSizeAfterRemove is declared in inspector_test.go or
+// plaintext_test.go: it opens a temp PDF, removes the file, and asserts
+// GetPlainTextSize returns the original size without error.
+func TestGetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
 	root := projectRoot(t)
 	needle := "func TestGetPlainTextSizeAfterRemove(t *testing.T)"
 	candidates := []string{
@@ -790,15 +759,11 @@ func Test_10_6_AC7_GetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
 // AC#8 -- baseline regression invariant: existing Story-10-1 tests survive
 // ---------------------------------------------------------------------------
 
-// Test_10_6_AC8_PlainTextAsyncTestsExist [P0] AC#8: the Story 10-1 async
-// plaintext test surface MUST continue to exist after AC7's refactor. The
-// test file is internal/pdfcore/plaintext_async_test.go.
-//
-// This is a baseline-invariant pin: passes pre-fix, MUST keep passing
-// post-fix. AC7's audit step ("Audit any Story-10-1 test that asserts the
-// post-Open-stat error path") may update assertions inside these tests,
-// but the test functions themselves must remain.
-func Test_10_6_AC8_PlainTextAsyncTestsExist(t *testing.T) {
+// TestPlainTextAsyncTestsExist asserts the async plaintext test surface in
+// internal/pdfcore/plaintext_async_test.go still exists. It is a baseline
+// invariant: assertions inside those tests may be updated as the post-Open-stat
+// error path changes, but the test functions themselves must remain.
+func TestPlainTextAsyncTestsExist(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext_async_test.go")
 	// At least one Test function MUST be declared in this file.
 	re := regexp.MustCompile(`(?m)^func Test\w+\(t \*testing\.T\)`)
@@ -807,12 +772,10 @@ func Test_10_6_AC8_PlainTextAsyncTestsExist(t *testing.T) {
 	}
 }
 
-// Test_10_6_AC8_SafeCallContractTestsPreserved [P0] AC#8: the safeCall
-// contract tests pinned by Story 10-5 AC6 (and originally 10-4 STRUCT_010)
-// MUST continue to exist. This story does not touch safeCall, but its
-// fixture-corpus tests will run alongside the rest of the pdfcore suite,
-// so the baseline invariant remains.
-func Test_10_6_AC8_SafeCallContractTestsPreserved(t *testing.T) {
+// TestSafeCallContractTestsPreserved asserts the safeCall contract tests still
+// exist. Nothing here touches safeCall, but the fixture-corpus tests run alongside
+// the rest of the pdfcore suite, so the baseline invariant is worth pinning.
+func TestSafeCallContractTestsPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors_test.go")
 	required := []string{
 		"TestSafeCallSuccess",
