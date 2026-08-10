@@ -39,9 +39,9 @@ var goEmittedEvents = []string{
 	"splash:timeout",
 }
 
-// Test_12_3_INTG_060_GoEventEmitNamesPreserved [P0] AC8, AC11: every Go-emitted
-// event name still appears in main.go after the bump.
-func Test_12_3_INTG_060_GoEventEmitNamesPreserved(t *testing.T) {
+// TestGoEventEmitNamesPreserved asserts every Go-emitted event name still appears
+// in main.go after the bump.
+func TestGoEventEmitNamesPreserved(t *testing.T) {
 	src := readSource(t, "main.go")
 	for _, name := range goEmittedEvents {
 		if !strings.Contains(src, `"`+name+`"`) {
@@ -70,15 +70,14 @@ var jsConsumedEvents = []string{
 	"common:WindowDidResize",
 }
 
-// Test_12_3_INTG_061_JsEventOnNamesPreserved [P0] AC8, AC11: every event the
-// frontend listens for still appears as an Events.On('<name>', ...) SUBSCRIPTION
-// call under frontend/src (non-test files only). Matching the call form
-// (Events.On('name' / Events.On("name") rather than a bare quoted literal --
-// same pattern INTG-062 uses -- avoids the brittle whole-tree-grep failure mode
-// (project memory project_struct_grep_tests_brittle.md): a bare literal can
-// false-pass on a match in a comment or unrelated string. Every consumed event
-// is verified subscribed via this call form (App.jsx, main.jsx, TabBar.tsx).
-func Test_12_3_INTG_061_JsEventOnNamesPreserved(t *testing.T) {
+// TestJsEventOnNamesPreserved asserts every event the frontend listens for still
+// appears as an Events.On('<name>', ...) subscription call under frontend/src
+// (non-test files only). Matching the call form rather than a bare quoted literal
+// -- the same pattern TestJsToGoEventContract uses -- avoids the brittle
+// whole-tree-grep failure mode, where a bare literal false-passes on a match in a
+// comment or an unrelated string. Every consumed event is verified subscribed via
+// this call form (App.jsx, main.jsx, TabBar.tsx).
+func TestJsEventOnNamesPreserved(t *testing.T) {
 	src := loadFrontendSrcConcat(t)
 	for _, name := range jsConsumedEvents {
 		needle1 := fmt.Sprintf(`Events.On('%s'`, name)
@@ -89,10 +88,9 @@ func Test_12_3_INTG_061_JsEventOnNamesPreserved(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_062_JsToGoEventContract [P1] AC11: the inbound
-// document:batch-cancel contract holds on both sides -- frontend Events.Emit and
-// a main.go app.Event.On listener.
-func Test_12_3_INTG_062_JsToGoEventContract(t *testing.T) {
+// TestJsToGoEventContract asserts the inbound document:batch-cancel contract holds
+// on both sides: a frontend Events.Emit and a main.go app.Event.On listener.
+func TestJsToGoEventContract(t *testing.T) {
 	const name = "document:batch-cancel"
 	mainSrc := readSource(t, "main.go")
 	frontSrc := loadFrontendSrcConcat(t)
@@ -108,12 +106,11 @@ func Test_12_3_INTG_062_JsToGoEventContract(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_063_NoNativeEventPrefix [P1] AC8 (pre-flight invariant): the
-// bump must not introduce the deprecated `native:` event prefix anywhere in
-// main.go or frontend/src. The story's pre-flight verified ZERO native:* usage;
-// this pins that the alpha2 upgrade does not regress that (the one documented
-// alpha2.103 breaking change does not reach us).
-func Test_12_3_INTG_063_NoNativeEventPrefix(t *testing.T) {
+// TestNoNativeEventPrefix asserts the deprecated `native:` event prefix appears
+// nowhere in main.go or frontend/src. The tree carries zero native:* usage, and
+// this pins that the alpha2 upgrade does not regress it, since the one documented
+// alpha2.103 breaking change does not reach this code.
+func TestNoNativeEventPrefix(t *testing.T) {
 	for _, lit := range []string{`"native:`, `'native:`} {
 		if scanRepoFor(t, lit) {
 			t.Errorf("[P1] 12.3-INTG-063: found a %s event literal in main.go or frontend/src -- alpha2.103 deprecated the native:* prefix (-> common:*); the pre-flight verified we use ZERO native:* events, do not introduce one (AC8)", lit)

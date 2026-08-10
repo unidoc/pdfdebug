@@ -224,19 +224,18 @@ var expectedServiceMethods = []struct {
 	{"ConsumePendingOpenFiles", "func (s *PDFService) ConsumePendingOpenFiles() []string"},
 }
 
-// Test_10_3_STRUCT_010 [P0] AC#2, AC#8: each documented PDFService method is
-// PRESENT with its expected signature.
+// TestPDFServiceMethodSurface asserts each documented PDFService method is present
+// with its expected signature.
 //
-// Story 12.3 (AC 6) dropped the former exact-count assertion (`count == N`):
-// it churned 20 -> 22 across bumps and tested the wrong invariant ("the surface
-// is exactly N methods") instead of the one that matters ("the methods callers
-// depend on still exist with their shape"). Per project_struct_grep_tests_brittle.md
-// the magic-number pin is removed entirely; no exact count is asserted here. The
-// consumer-driven presence contract against the REGENERATED binding artifact
-// lives in tests/12-3-wails-alpha2-103-upgrade/ (Test_12_3_INTG_040). This test
-// keeps only the per-signature substring checks, which tolerate adding NEW
-// methods but still catch a reshaped or removed documented one.
-func Test_10_3_STRUCT_010_PDFServiceMethodSurface(t *testing.T) {
+// No exact method count is asserted. A `count == N` pin churned 20 -> 22 across
+// bumps and tested the wrong invariant ("the surface is exactly N methods")
+// instead of the one that matters ("the methods callers depend on still exist with
+// their shape"); per project_struct_grep_tests_brittle.md the magic number is out.
+// The consumer-driven presence contract against the regenerated binding artifact
+// lives in TestBindingsExportConsumerMethods in the alpha2.103 suite. What is left
+// here is the per-signature substring check, which tolerates adding NEW methods
+// but still catches a reshaped or removed documented one.
+func TestPDFServiceMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	// Verify each documented signature appears verbatim. No exact-count pin
 	// (AC 6): a method ADDED by a future change must not fail this test.
@@ -316,10 +315,10 @@ var expectedJSONTags = map[string][]string{
 	},
 }
 
-// Test_10_3_STRUCT_011 [P0] AC#2: every documented JSON tag still appears in
-// its source file. Catches a rename like `json:"tabId"` -> `json:"tabID"`
-// that would silently break the frontend's payload destructuring.
-func Test_10_3_STRUCT_011_JSONTagsPreserved(t *testing.T) {
+// TestJSONTagsPreserved asserts every documented JSON tag still appears in its
+// source file, catching a rename like `json:"tabId"` -> `json:"tabID"` that would
+// silently break the frontend's payload destructuring.
+func TestJSONTagsPreserved(t *testing.T) {
 	for path, tags := range expectedJSONTags {
 		src := readSource(t, path)
 		for _, tag := range tags {
@@ -334,11 +333,11 @@ func Test_10_3_STRUCT_011_JSONTagsPreserved(t *testing.T) {
 // AC#2 -- regenerated bindings carry the post-10-1 method surface
 // ---------------------------------------------------------------------------
 
-// Test_10_3_STRUCT_020 [P0] AC#2: the regenerated frontend Wails binding
+// TestBindingsExportAll20Methods asserts the regenerated frontend Wails binding
 // exports each of the 20 PDFService methods. A failed regen step leaves stale
-// bindings; this assertion fails loud if the dev forgets to run
-// `wails3 generate bindings -clean=true` after the bump.
-func Test_10_3_STRUCT_020_BindingsExportAll20Methods(t *testing.T) {
+// bindings, so this fails loud when `wails3 generate bindings -clean=true` was not
+// run after a bump.
+func TestBindingsExportAll20Methods(t *testing.T) {
 	relPath := "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 	if !fileExists(t, relPath) {
 		t.Fatalf("[P0] 10-3-STRUCT-020: regenerated binding %s must exist (Task 3.1)", relPath)
@@ -352,11 +351,10 @@ func Test_10_3_STRUCT_020_BindingsExportAll20Methods(t *testing.T) {
 	}
 }
 
-// Test_10_3_STRUCT_021 [P0] AC#2: the regenerated binding does NOT carry the
-// pre-10-1 GetPlainTextFull symbol (10-1's removal must remain removed). This
-// is a regression guard, not a 10-3-introduced requirement; included because
-// a `-clean=false` regen of stale bindings would silently re-introduce it.
-func Test_10_3_STRUCT_021_BindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
+// TestBindingsDoNotResurrectGetPlainTextFull asserts the regenerated binding does
+// not carry the removed GetPlainTextFull symbol. A `-clean=false` regen of stale
+// bindings would silently re-introduce it.
+func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	relPath := "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 	if !fileExists(t, relPath) {
 		t.Skipf("[P0] 10-3-STRUCT-021: %s missing -- see 10-3-STRUCT-020", relPath)
@@ -398,12 +396,11 @@ var goEmittedEvents = []string{
 	"splash:timeout",
 }
 
-// Test_10_3_STRUCT_030 [P0] AC#11: every Go-emitted event name in the
-// authoritative list still appears in main.go. A bump that introduces a
-// renamed Emit symbol but leaves the literal strings unchanged is fine; a
-// bump that erases an Emit call (e.g. because a Wails-level rename forces a
-// site-edit) fails loud here.
-func Test_10_3_STRUCT_030_GoEventEmitNamesPreserved(t *testing.T) {
+// TestGoEventEmitNamesPreserved asserts every Go-emitted event name in the
+// authoritative list still appears in main.go. A bump that renames the Emit symbol
+// but leaves the literal strings alone is fine; a bump that erases an Emit call
+// fails loud here.
+func TestGoEventEmitNamesPreserved(t *testing.T) {
 	src := readSource(t, "main.go")
 	for _, name := range goEmittedEvents {
 		// Tolerate single or double quotes; main.go uses double.
@@ -437,11 +434,11 @@ var jsConsumedEvents = []string{
 	"common:WindowDidResize",
 }
 
-// Test_10_3_STRUCT_031 [P0] AC#11: every event the frontend listens for still
-// appears as an `Events.On('<name>', ...)` literal somewhere under
-// frontend/src/. The walker scans .jsx + .tsx files only; .test.* files are
-// excluded so test mocks don't satisfy the assertion.
-func Test_10_3_STRUCT_031_JsEventOnNamesPreserved(t *testing.T) {
+// TestJsEventOnNamesPreserved asserts every event the frontend listens for still
+// appears as an `Events.On('<name>', ...)` literal somewhere under frontend/src/.
+// The walker scans .jsx and .tsx files only; .test.* files are excluded so test
+// mocks cannot satisfy the assertion.
+func TestJsEventOnNamesPreserved(t *testing.T) {
 	src := loadFrontendSrcConcat(t)
 	for _, name := range jsConsumedEvents {
 		// Tolerate single OR double quotes.
@@ -459,11 +456,11 @@ var jsEmittedEvents = []string{
 	"document:batch-cancel",
 }
 
-// Test_10_3_STRUCT_032 [P0] AC#11: every JS-emitted event still appears as
-// `Events.Emit('<name>', ...)` in the frontend, and main.go still has an
-// `app.Event.On("<name>", ...)` listener for it. Inbound contract must hold
-// on both sides.
-func Test_10_3_STRUCT_032_JsToGoEventContract(t *testing.T) {
+// TestJsToGoEventContract asserts every JS-emitted event still appears as
+// `Events.Emit('<name>', ...)` in the frontend and that main.go still has an
+// `app.Event.On("<name>", ...)` listener for it, so the inbound contract holds on
+// both sides.
+func TestJsToGoEventContract(t *testing.T) {
 	mainSrc := readSource(t, "main.go")
 	frontSrc := loadFrontendSrcConcat(t)
 	for _, name := range jsEmittedEvents {
@@ -479,11 +476,10 @@ func Test_10_3_STRUCT_032_JsToGoEventContract(t *testing.T) {
 	}
 }
 
-// Test_10_3_STRUCT_033 [P0] AC#11: the spec EXPLICITLY notes that
-// `document:batch-progress` is a phantom event that does NOT exist in the
-// codebase. The dev agent must not chase the phantom. This assertion fails
-// only if a future agent adds the name back; it pins the spec's note.
-func Test_10_3_STRUCT_033_NoPhantomBatchProgressEvent(t *testing.T) {
+// TestNoPhantomBatchProgressEvent asserts `document:batch-progress` stays absent
+// from the codebase. It is a phantom event nothing emits or consumes, and this
+// fails only if a future edit adds the name back.
+func TestNoPhantomBatchProgressEvent(t *testing.T) {
 	if scanRepoForPhantom(t, "document:batch-progress") {
 		t.Errorf("[P0] 10-3-STRUCT-033: phantom event %q found in frontend/src or main.go -- AC11 spec note: this event does NOT exist in the codebase; do not introduce it during the bump", "document:batch-progress")
 	}
@@ -493,11 +489,11 @@ func Test_10_3_STRUCT_033_NoPhantomBatchProgressEvent(t *testing.T) {
 // AC#10 -- window geometry runtime calls still present in App.jsx
 // ---------------------------------------------------------------------------
 
-// Test_10_3_STRUCT_040 [P0] AC#10: App.jsx still calls Screens.GetAll(),
-// Window.SetSize(), Window.SetPosition() from the Wails JS runtime. A runtime
-// rename in a new alpha (e.g. SetSize -> setSize) would break window
-// geometry restore on cold-start.
-func Test_10_3_STRUCT_040_WailsJSRuntimeGeometryCalls(t *testing.T) {
+// TestWailsJSRuntimeGeometryCalls asserts App.jsx still calls Screens.GetAll(),
+// Window.SetSize() and Window.SetPosition() from the Wails JS runtime. A runtime
+// rename in a new alpha (SetSize -> setSize) would break window geometry restore
+// on cold start.
+func TestWailsJSRuntimeGeometryCalls(t *testing.T) {
 	src := readSource(t, "frontend/src/App.jsx")
 	required := []string{"Screens.GetAll", "Window.SetSize", "Window.SetPosition"}
 	for _, sym := range required {
@@ -507,11 +503,11 @@ func Test_10_3_STRUCT_040_WailsJSRuntimeGeometryCalls(t *testing.T) {
 	}
 }
 
-// Test_10_3_STRUCT_041 [P0] AC#10: windowGeometryGuard consumes the
-// Screens.GetAll().WorkArea payload. A rename of `WorkArea` upstream
-// (PascalCase -> camelCase, or to `workingArea`) would silently produce a
-// stuck-off-screen window. Check the file references the field name.
-func Test_10_3_STRUCT_041_WindowGeometryGuardWorkAreaField(t *testing.T) {
+// TestWindowGeometryGuardWorkAreaField asserts windowGeometryGuard still
+// references the `WorkArea` field it consumes off Screens.GetAll(). An upstream
+// rename (PascalCase -> camelCase, or to `workingArea`) would silently produce a
+// window stuck off screen.
+func TestWindowGeometryGuardWorkAreaField(t *testing.T) {
 	src := readSource(t, "frontend/src/lib/windowGeometryGuard.ts")
 	if !strings.Contains(src, "WorkArea") {
 		t.Errorf("[P0] 10-3-STRUCT-041: windowGeometryGuard.ts must reference Screens.GetAll().WorkArea -- AC10: a runtime rename here is a silent off-screen-guard regression")
@@ -522,14 +518,13 @@ func Test_10_3_STRUCT_041_WindowGeometryGuardWorkAreaField(t *testing.T) {
 // AC#9 -- dev-loop quirks documented in vite.config.ts
 // ---------------------------------------------------------------------------
 
-// Test_10_3_STRUCT_050 [P0] AC#9: vite.config.ts retains either (a) the IPv4
-// host pin + the lucide-react optimizeDeps include, with their explanatory
-// comments preserved, OR (b) explicit removal with a Wails-CHANGELOG link in
-// the doc trail (the latter is documented in Completion Notes per the story
-// spec). The structural assertion enforces (a) by default; if the dev removes
-// the quirks, this assertion fails and the dev must update the assertion
-// in the same commit, which is the audit signal the story spec wants.
-func Test_10_3_STRUCT_050_ViteConfigQuirks(t *testing.T) {
+// TestViteConfigQuirks asserts vite.config.ts retains the IPv4 host pin and the
+// lucide-react optimizeDeps include, with their explanatory comments. The
+// alternative the story spec allows -- explicit removal with a Wails-CHANGELOG
+// link recorded in the doc trail -- is not enforceable from here, so removing
+// either quirk fails this test and the assertion must be updated in the same
+// commit. That forced edit is the audit signal.
+func TestViteConfigQuirks(t *testing.T) {
 	src := readSource(t, "frontend/vite.config.ts")
 	// The IPv4 pin -- the load-bearing line is `host: '127.0.0.1'`.
 	if !strings.Contains(src, "'127.0.0.1'") && !strings.Contains(src, `"127.0.0.1"`) {
@@ -545,12 +540,11 @@ func Test_10_3_STRUCT_050_ViteConfigQuirks(t *testing.T) {
 // AC#6 -- splash lifecycle source intact (does not behavior-test; pins layout)
 // ---------------------------------------------------------------------------
 
-// Test_10_3_STRUCT_060 [P0] AC#6: the splash lifecycle event names main.go
-// emits (splash:dismiss, splash:dismissed, splash:timeout) match the names
-// main.jsx + the in-app splash WebView consume. Already partly covered by
-// 10-3-STRUCT-030/031 -- this is the explicit AC6 pin: a renamed splash event
-// silently leaves the splash window stuck open or the main window black.
-func Test_10_3_STRUCT_060_SplashEventTriad(t *testing.T) {
+// TestSplashEventTriad asserts the splash lifecycle event names main.go emits
+// (splash:dismiss, splash:dismissed, splash:timeout) match the names main.jsx and
+// the in-app splash WebView consume. A renamed splash event silently leaves the
+// splash window stuck open or the main window black.
+func TestSplashEventTriad(t *testing.T) {
 	mainGoSrc := readSource(t, "main.go")
 	mainJsxSrc := readSource(t, "frontend/src/main.jsx")
 	for _, name := range []string{"splash:dismiss", "splash:dismissed", "splash:timeout"} {

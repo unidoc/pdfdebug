@@ -40,11 +40,10 @@ var objectDetailWireKeys = []string{
 	"properties",
 }
 
-// Test_14_2_INTG_003_ObjectDetailWireShape [P0] AC3.3: `dump object` emits the
-// ObjectDetail payload with the expected camelCase top-level keys. Fails loud if
-// a regen under the bump re-tags a field (e.g. nodeId -> nodeID). Passes on the
-// current tree and stands as the standing regression net through the bump.
-func Test_14_2_INTG_003_ObjectDetailWireShape(t *testing.T) {
+// TestObjectDetailWireShape asserts `dump object` emits the ObjectDetail payload
+// with the expected camelCase top-level keys, so a regen that re-tags a field
+// (nodeId -> nodeID) fails loud.
+func TestObjectDetailWireShape(t *testing.T) {
 	bin := buildCLI(t)
 	// minimal.pdf object 1 is the /Catalog (a dict with /Pages + /Type).
 	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
@@ -63,12 +62,11 @@ func Test_14_2_INTG_003_ObjectDetailWireShape(t *testing.T) {
 	}
 }
 
-// Test_14_2_INTG_003_NestedPropertyValueWireShape [P0] AC3.3: the nested
-// PropertyEntry + ValueEntry shape on the same payload carries its camelCase
-// keys. These are the deepest part of the wire contract the frontend walks
-// (reference navigation reads value.refTarget), so a re-tag here is the
-// hardest-to-spot drift.
-func Test_14_2_INTG_003_NestedPropertyValueWireShape(t *testing.T) {
+// TestNestedPropertyValueWireShape asserts the nested PropertyEntry and ValueEntry
+// shape on the same payload carries its camelCase keys. These are the deepest part
+// of the wire contract the frontend walks (reference navigation reads
+// value.refTarget), so a re-tag here is the hardest drift to spot.
+func TestNestedPropertyValueWireShape(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
 	if code != 0 {

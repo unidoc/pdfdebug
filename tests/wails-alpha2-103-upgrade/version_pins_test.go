@@ -14,10 +14,9 @@ import (
 // AC 1 -- Go dependency bumped
 // ---------------------------------------------------------------------------
 
-// Test_12_3_INTG_010_GoModWailsBumped [P0] AC1: go.mod's wails/v3 pin is
-// strictly newer than the pre-bump baseline alpha.95. RED today: the pin is
-// alpha.95 (ordinal 95), which is NOT > 95.
-func Test_12_3_INTG_010_GoModWailsBumped(t *testing.T) {
+// TestGoModWailsBumped asserts go.mod's wails/v3 pin is strictly newer than the
+// pre-bump baseline alpha.95.
+func TestGoModWailsBumped(t *testing.T) {
 	line := goWailsLine(t)
 	if line == "" {
 		t.Fatalf("[P0] 12.3-INTG-010: go.mod must declare a `github.com/wailsapp/wails/v3` require")
@@ -32,11 +31,10 @@ func Test_12_3_INTG_010_GoModWailsBumped(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_011_GoSumCarriesNewPin [P0] AC1: go.sum carries an entry for
-// the bumped wails/v3 pin (proves `go mod tidy` ran). RED until go.mod is
-// bumped; skips cleanly while go.mod is still at the baseline so the failure
-// signal stays on INTG-010.
-func Test_12_3_INTG_011_GoSumCarriesNewPin(t *testing.T) {
+// TestGoSumCarriesNewPin asserts go.sum carries an entry for the bumped wails/v3
+// pin, which proves `go mod tidy` ran. It skips cleanly while go.mod is still at
+// the baseline so the failure signal stays on TestGoModWailsBumped.
+func TestGoSumCarriesNewPin(t *testing.T) {
 	line := goWailsLine(t)
 	got := alphaOrdinal(goWailsRe, line)
 	if got <= preBumpBaselineOrdinal {
@@ -50,11 +48,11 @@ func Test_12_3_INTG_011_GoSumCarriesNewPin(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_012_Webview2NotHandPinned [P2] AC1: the indirect
-// github.com/wailsapp/wails/webview2 dependency stays marked `// indirect` and
-// is left for `go mod tidy` to resolve (the story: "do NOT hand-pin it"). This
-// is a low-priority guard against a dev manually freezing the transitive pin.
-func Test_12_3_INTG_012_Webview2NotHandPinned(t *testing.T) {
+// TestWebview2NotHandPinned asserts the indirect
+// github.com/wailsapp/wails/webview2 dependency stays marked `// indirect` and is
+// left for `go mod tidy` to resolve rather than hand-pinned, guarding against a
+// dev manually freezing the transitive pin.
+func TestWebview2NotHandPinned(t *testing.T) {
 	src := readSource(t, "go.mod")
 	var webview2Line string
 	for _, l := range strings.Split(src, "\n") {
@@ -104,22 +102,22 @@ func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
 	}
 }
 
-// Test_12_3_INTG_020_CiWorkflowPinParity [P0] AC2: ci.yml's wails3 CLI install
-// pin is bumped and equals the go.mod library pin.
-func Test_12_3_INTG_020_CiWorkflowPinParity(t *testing.T) {
+// TestCiWorkflowPinParity asserts ci.yml's wails3 CLI install pin is bumped and
+// equals the go.mod library pin.
+func TestCiWorkflowPinParity(t *testing.T) {
 	assertWorkflowPinMatchesGoMod(t, ".github/workflows/ci.yml", "12.3-INTG-020")
 }
 
-// Test_12_3_INTG_021_ReleaseWorkflowPinParity [P0] AC2: release.yml's wails3 CLI
-// install pin is bumped and equals the go.mod library pin.
-func Test_12_3_INTG_021_ReleaseWorkflowPinParity(t *testing.T) {
+// TestReleaseWorkflowPinParity asserts release.yml's wails3 CLI install pin is
+// bumped and equals the go.mod library pin.
+func TestReleaseWorkflowPinParity(t *testing.T) {
 	assertWorkflowPinMatchesGoMod(t, ".github/workflows/release.yml", "12.3-INTG-021")
 }
 
-// Test_12_3_INTG_022_ReleaseExpectedFilesInvariant [P1] AC2 (regression net):
-// release.yml retains the EXPECTED_FILES=6 publish invariant. A bump must not
-// disturb the artifact-count contract.
-func Test_12_3_INTG_022_ReleaseExpectedFilesInvariant(t *testing.T) {
+// TestReleaseExpectedFilesInvariant asserts release.yml retains the
+// EXPECTED_FILES=6 publish invariant, so a bump cannot disturb the artifact-count
+// contract.
+func TestReleaseExpectedFilesInvariant(t *testing.T) {
 	src := readSource(t, ".github/workflows/release.yml")
 	if !strings.Contains(src, "EXPECTED_FILES=6") {
 		t.Errorf("[P1] 12.3-INTG-022: release.yml must retain EXPECTED_FILES=6 invariant across the bump")
@@ -130,11 +128,11 @@ func Test_12_3_INTG_022_ReleaseExpectedFilesInvariant(t *testing.T) {
 // AC 3 -- Frontend runtime: verify-only, bump only if npm has a newer publish
 // ---------------------------------------------------------------------------
 
-// Test_12_3_INTG_030_RuntimePinWellFormedNoPhantom [P0] AC3: @wailsio/runtime is
-// a well-formed 3.0.0-alpha.N tag with N >= the pre-bump pin (alpha.79). It must
-// NOT be rewritten to a phantom alpha2.* tag -- npm publishes no alpha2 runtime,
-// and the story explicitly forbids inventing one.
-func Test_12_3_INTG_030_RuntimePinWellFormedNoPhantom(t *testing.T) {
+// TestRuntimePinWellFormedNoPhantom asserts @wailsio/runtime is a well-formed
+// 3.0.0-alpha.N tag with N at or above the pre-bump pin (alpha.79), and is not
+// rewritten to a phantom alpha2.* tag: npm publishes no alpha2 runtime and one
+// must not be invented.
+func TestRuntimePinWellFormedNoPhantom(t *testing.T) {
 	src := readSource(t, "frontend/package.json")
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(src), &pkg); err != nil {
@@ -162,11 +160,11 @@ func Test_12_3_INTG_030_RuntimePinWellFormedNoPhantom(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_031_PackageLockRuntimeNotRegressed [P1] AC3: the lockfile's
-// @wailsio/runtime resolution is not regressed below alpha.79. AC3's expected
-// outcome is NO change (the runtime stays at alpha.79); this only fails if the
-// lockfile carries an older or phantom-alpha2 runtime, i.e. a corrupt edit.
-func Test_12_3_INTG_031_PackageLockRuntimeNotRegressed(t *testing.T) {
+// TestPackageLockRuntimeNotRegressed asserts the lockfile's @wailsio/runtime
+// resolution is not regressed below alpha.79. The expected outcome is no change at
+// all -- the runtime stays at alpha.79 -- so this fails only on an older or
+// phantom-alpha2 runtime, meaning a corrupt edit.
+func TestPackageLockRuntimeNotRegressed(t *testing.T) {
 	relPath := "frontend/package-lock.json"
 	if !fileExists(t, relPath) {
 		t.Fatalf("[P1] 12.3-INTG-031: %s must exist", relPath)

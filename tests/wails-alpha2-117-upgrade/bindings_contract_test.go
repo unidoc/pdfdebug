@@ -52,12 +52,11 @@ var consumerBoundMethods = []string{
 // bindingRelPath is the regenerated Wails JS binding for PDFService.
 const bindingRelPath = "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 
-// Test_14_2_INTG_002_BindingsExportConsumerMethods [P0] AC3.2/AC3.3: the
-// (re)generated binding exports every method the frontend actually invokes.
-// The presence contract that replaces the count==N pin. A `-clean=true` regen
-// under the alpha2.117 bump that drops or renames a consumer method fails loud
-// here; an unrelated change to the full method surface does NOT.
-func Test_14_2_INTG_002_BindingsExportConsumerMethods(t *testing.T) {
+// TestBindingsExportConsumerMethods asserts the (re)generated binding exports every
+// method the frontend actually invokes. This presence contract replaces a count==N
+// pin: a `-clean=true` regen that drops or renames a consumer method fails loud
+// here, while an unrelated change to the full method surface does not.
+func TestBindingsExportConsumerMethods(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
 		t.Fatalf("[P0] 14.2-INTG-002: regenerated binding %s must exist (run `wails3 generate bindings -clean=true`, AC3.2 / Task 2.2)", bindingRelPath)
 	}
@@ -70,13 +69,12 @@ func Test_14_2_INTG_002_BindingsExportConsumerMethods(t *testing.T) {
 	}
 }
 
-// Test_14_2_INTG_002_BindingsDoNotResurrectGetPlainTextFull [P1] AC3.2: a
-// `-clean=true` regen must not re-introduce the GetPlainTextFull symbol that
-// Story 10-1 removed. Guards against a stale / non-clean regen re-baselining a
-// dead binding under the bump.
-func Test_14_2_INTG_002_BindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
+// TestBindingsDoNotResurrectGetPlainTextFull asserts a `-clean=true` regen does not
+// re-introduce the removed GetPlainTextFull symbol, guarding against a stale or
+// non-clean regen re-baselining a dead binding.
+func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
-		t.Skipf("[P1] 14.2-INTG-002: %s missing -- see Test_14_2_INTG_002_BindingsExportConsumerMethods", bindingRelPath)
+		t.Skipf("[P1] 14.2-INTG-002: %s missing -- see TestBindingsExportConsumerMethods", bindingRelPath)
 	}
 	src := readSource(t, bindingRelPath)
 	if strings.Contains(src, "GetPlainTextFull") {

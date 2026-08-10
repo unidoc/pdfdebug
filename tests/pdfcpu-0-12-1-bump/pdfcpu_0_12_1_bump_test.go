@@ -108,9 +108,9 @@ func findRequireLine(src string) string {
 // AC#1 -- go.mod version literal change + go.sum settled
 // ---------------------------------------------------------------------------
 
-// Test_10_4_STRUCT_001 [P0] AC#1: go.mod declares pdfcpu at the target version.
-// FAILS on the pre-bump tree because the literal is still v0.12.0.
-func Test_10_4_STRUCT_001_GoModPdfcpuAtTargetVersion(t *testing.T) {
+// TestGoModPdfcpuAtTargetVersion asserts go.mod declares pdfcpu at the target
+// version.
+func TestGoModPdfcpuAtTargetVersion(t *testing.T) {
 	src := readSource(t, "go.mod")
 	line := findRequireLine(src)
 	if line == "" {
@@ -122,10 +122,10 @@ func Test_10_4_STRUCT_001_GoModPdfcpuAtTargetVersion(t *testing.T) {
 	}
 }
 
-// Test_10_4_STRUCT_002 [P0] AC#1: go.mod must NOT still carry the pre-bump
-// literal on the pdfcpu require line. A stale `v0.12.0` here is the dev forgot
-// to edit, or edited the wrong line.
-func Test_10_4_STRUCT_002_GoModDoesNotCarryPreBumpVersion(t *testing.T) {
+// TestGoModDoesNotCarryPreBumpVersion asserts go.mod no longer carries the
+// pre-bump literal on the pdfcpu require line. A stale `v0.12.0` means the edit
+// was missed or landed on the wrong line.
+func TestGoModDoesNotCarryPreBumpVersion(t *testing.T) {
 	src := readSource(t, "go.mod")
 	line := findRequireLine(src)
 	if line == "" {
@@ -137,11 +137,12 @@ func Test_10_4_STRUCT_002_GoModDoesNotCarryPreBumpVersion(t *testing.T) {
 	}
 }
 
-// Test_10_4_STRUCT_003 [P0] AC#1: go.sum carries the v0.12.1 hash + go.mod
-// hash for pdfcpu. A bumped go.mod with stale go.sum is a build break -- this
-// catches a missed `go mod tidy`. Skips if STRUCT_001 has not yet been
-// satisfied (the gate for "go mod tidy has been run").
-func Test_10_4_STRUCT_003_GoSumCarriesTargetVersion(t *testing.T) {
+// TestGoSumCarriesTargetVersion asserts go.sum carries the v0.12.1 hash and go.mod
+// hash for pdfcpu, catching a missed `go mod tidy` that would leave a bumped
+// go.mod with a stale go.sum and a broken build. It skips while
+// TestGoModPdfcpuAtTargetVersion is unsatisfied, which is the gate for "go mod
+// tidy has been run".
+func TestGoSumCarriesTargetVersion(t *testing.T) {
 	gomod := readSource(t, "go.mod")
 	line := findRequireLine(gomod)
 	if !strings.Contains(line, pdfcpuModulePath+" "+targetVersion) {
@@ -168,15 +169,15 @@ func Test_10_4_STRUCT_003_GoSumCarriesTargetVersion(t *testing.T) {
 // AC#5 -- safeCall re-panic guarantee + named errors_test.go suite intact
 // ---------------------------------------------------------------------------
 
-// Test_10_4_STRUCT_010 [P0] AC#5: internal/pdfcore/errors.go's safeCall body
-// retains the runtime.Error re-panic. The contract: when recover() returns a
-// runtime.Error (nil deref / slice OOB / bad type assertion), it is re-panicked
-// instead of being laundered into ErrMalformedPDF. AC5 explicitly forbids
-// relaxing this even if pdfcpu's internal panic surface changes in v0.12.1.
+// TestSafeCallRePanicsRuntimeError asserts internal/pdfcore/errors.go's safeCall
+// body retains the runtime.Error re-panic: when recover() returns a runtime.Error
+// (nil deref, slice out of range, bad type assertion) it is re-panicked rather
+// than laundered into ErrMalformedPDF. That holds even if pdfcpu's internal panic
+// surface changes.
 //
-// The substring matches the exact source shape; whitespace tolerant by virtue
-// of a non-greedy regex.
-func Test_10_4_STRUCT_010_SafeCallRePanicsRuntimeError(t *testing.T) {
+// The substring matches the exact source shape and is whitespace tolerant by
+// virtue of a non-greedy regex.
+func TestSafeCallRePanicsRuntimeError(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	// The contract is two adjacent lines:
 	//   if _, ok := r.(runtime.Error); ok {
@@ -213,10 +214,10 @@ var wrapPDFErrorNamedTests = []string{
 	"TestWrapPDFErrorPreservesOriginal",
 }
 
-// Test_10_4_STRUCT_011 [P0] AC#5: every named test in the AC5 contract still
-// exists in errors_test.go. A `func TestX(t *testing.T)` substring match is
+// TestSafeCallNamedTestsExist asserts every test named in the safeCall contract
+// still exists in errors_test.go. A `func TestX(t *testing.T)` substring match is
 // stable against doc-comment edits but catches a renamed or deleted test.
-func Test_10_4_STRUCT_011_SafeCallNamedTestsExist(t *testing.T) {
+func TestSafeCallNamedTestsExist(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors_test.go")
 	all := append([]string{}, safeCallNamedTests...)
 	all = append(all, wrapPDFErrorNamedTests...)
@@ -232,11 +233,10 @@ func Test_10_4_STRUCT_011_SafeCallNamedTestsExist(t *testing.T) {
 // AC#6 -- image.go memory guards + pdfcpu_render call surface preserved
 // ---------------------------------------------------------------------------
 
-// Test_10_4_STRUCT_020 [P0] AC#6: the three numeric memory-guard constants in
-// internal/pdfcore/image.go are unchanged. AC6 explicitly pins the numeric
-// values: maxImageBytes = 50 MB, maxImagePixels = 100_000_000, io.LimitReader
-// cap at maxImageBytes+1.
-func Test_10_4_STRUCT_020_ImageMemoryGuardsUnchanged(t *testing.T) {
+// TestImageMemoryGuardsUnchanged asserts the three numeric memory-guard constants
+// in internal/pdfcore/image.go are unchanged: maxImageBytes = 50 MB,
+// maxImagePixels = 100_000_000, and the io.LimitReader cap at maxImageBytes+1.
+func TestImageMemoryGuardsUnchanged(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/image.go")
 	guards := []string{
 		"maxImageBytes = 50 * 1024 * 1024",
@@ -250,10 +250,11 @@ func Test_10_4_STRUCT_020_ImageMemoryGuardsUnchanged(t *testing.T) {
 	}
 }
 
-// Test_10_4_STRUCT_021 [P0] AC#6: image.go still calls the two pdfcpu_render
-// functions the AC6 contract names. A v0.12.1 rename of either is the kind of
-// upstream regression AC9 calls out -- this test surfaces it instantly.
-func Test_10_4_STRUCT_021_ImageRenderCallsiteIntact(t *testing.T) {
+// TestImageRenderCallsiteIntact asserts image.go still calls the two
+// pdfcpu_render functions it depends on. An upstream rename of either is exactly
+// the kind of regression a version bump can carry, and this surfaces it
+// instantly.
+func TestImageRenderCallsiteIntact(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/image.go")
 	calls := []string{
 		"pdfcpu_render.ColorSpaceComponents(",
@@ -270,10 +271,10 @@ func Test_10_4_STRUCT_021_ImageRenderCallsiteIntact(t *testing.T) {
 // AC#7 -- stream decode path + inline-image opacity test intact
 // ---------------------------------------------------------------------------
 
-// Test_10_4_STRUCT_030 [P0] AC#7: internal/pdfcore/stream.go retains the
-// `safeCall(func() error { return sd.Decode() })` wrap. AC7 anchors on this
-// specific call site by line number; we anchor on substring shape.
-func Test_10_4_STRUCT_030_StreamDecodeWrappedInSafeCall(t *testing.T) {
+// TestStreamDecodeWrappedInSafeCall asserts internal/pdfcore/stream.go retains the
+// `safeCall(func() error { return sd.Decode() })` wrap, anchored on the substring
+// shape rather than a line number.
+func TestStreamDecodeWrappedInSafeCall(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/stream.go")
 	if !strings.Contains(src, "sd.Decode()") {
 		t.Errorf("[P0] 10-4-STRUCT-030: internal/pdfcore/stream.go must still call sd.Decode() (AC7 content-stream decode contract)")
@@ -304,10 +305,10 @@ func Test_10_4_STRUCT_030_StreamDecodeWrappedInSafeCall(t *testing.T) {
 	}
 }
 
-// Test_10_4_STRUCT_031 [P0] AC#7: internal/pdfcore/stream_test.go still
-// declares TestTokenizeInlineImagePayloadOpaque. AC7 names this test by
-// line number; we anchor on the function declaration substring.
-func Test_10_4_STRUCT_031_InlineImagePayloadTestExists(t *testing.T) {
+// TestInlineImagePayloadTestExists asserts internal/pdfcore/stream_test.go still
+// declares TestTokenizeInlineImagePayloadOpaque, anchored on the function
+// declaration substring rather than a line number.
+func TestInlineImagePayloadTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/stream_test.go")
 	needle := "func TestTokenizeInlineImagePayloadOpaque(t *testing.T)"
 	if !strings.Contains(src, needle) {
@@ -319,13 +320,11 @@ func Test_10_4_STRUCT_031_InlineImagePayloadTestExists(t *testing.T) {
 // pdfcpu blank-import pin preserved (Dev Notes invariant)
 // ---------------------------------------------------------------------------
 
-// Test_10_4_STRUCT_040 [P0] Dev Notes invariant: internal/pdfcore/doc.go retains
-// the blank import that pins pdfcpu in go.mod. Without this, a `go mod tidy`
-// after the bump would drop pdfcpu entirely (no direct import path remains
-// when all call sites use sub-packages). The project-context.md explicitly
-// calls this out: "pdfcpu dependency is pinned via blank import in
-// internal/pdfcore/doc.go so go mod tidy won't remove it."
-func Test_10_4_STRUCT_040_PdfcpuBlankImportPinPreserved(t *testing.T) {
+// TestPdfcpuBlankImportPinPreserved asserts internal/pdfcore/doc.go retains the
+// blank import that pins pdfcpu in go.mod. Without it a `go mod tidy` would drop
+// pdfcpu entirely, because every call site uses sub-packages and no direct import
+// path remains.
+func TestPdfcpuBlankImportPinPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/doc.go")
 	if !strings.Contains(src, `import _ "github.com/pdfcpu/pdfcpu/pkg/api"`) {
 		t.Errorf("[P0] 10-4-STRUCT-040: internal/pdfcore/doc.go must retain the blank import `import _ \"github.com/pdfcpu/pdfcpu/pkg/api\"` (Dev Notes: prevents `go mod tidy` from removing pdfcpu when all call sites use sub-packages)")

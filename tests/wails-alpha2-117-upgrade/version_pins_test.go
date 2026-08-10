@@ -25,12 +25,11 @@ import (
 // AC1/AC2 -- go.mod library pin reaches the committed target
 // ---------------------------------------------------------------------------
 
-// Test_14_2_INTG_001_GoModPinAtTarget [P0] AC1/AC2: go.mod's wails/v3 pin
-// reaches the committed target alpha2.117. Authored RED (pin at alpha2.103,
-// below the target floor); GREEN once the bump lands. The assertion is a floor (>= target), not
-// an exact ==, so a defensibly-newer most-baked pick per AC1 still passes while
-// the current pin and both fallback rungs (alpha2.103, alpha.102) stay red.
-func Test_14_2_INTG_001_GoModPinAtTarget(t *testing.T) {
+// TestGoModPinAtTarget asserts go.mod's wails/v3 pin reaches the committed target
+// alpha2.117. The assertion is a floor (>= target) rather than an exact ==, so a
+// defensibly-newer most-baked pick still passes while the fallback rungs
+// (alpha2.103, alpha.102) do not.
+func TestGoModPinAtTarget(t *testing.T) {
 	line := goWailsLine(t)
 	if line == "" {
 		t.Fatalf("[P0] 14.2-INTG-001: go.mod must declare a `github.com/wailsapp/wails/v3` require")
@@ -45,14 +44,13 @@ func Test_14_2_INTG_001_GoModPinAtTarget(t *testing.T) {
 	}
 }
 
-// Test_14_2_INTG_001_GoSumCarriesNewPin [P0] AC2/AC8: go.sum carries an entry
-// for the bumped wails/v3 pin (proves `go mod tidy` ran). Skips cleanly while
-// go.mod is still below the target so the RED signal stays on
-// Test_14_2_INTG_001_GoModPinAtTarget.
-func Test_14_2_INTG_001_GoSumCarriesNewPin(t *testing.T) {
+// TestGoSumCarriesNewPin asserts go.sum carries an entry for the bumped wails/v3
+// pin, which proves `go mod tidy` ran. It skips cleanly while go.mod is still
+// below the target so the failure signal stays on TestGoModPinAtTarget.
+func TestGoSumCarriesNewPin(t *testing.T) {
 	got := alphaOrdinal(goWailsRe, goWailsLine(t))
 	if got < targetOrdinal {
-		t.Skipf("[P0] 14.2-INTG-001: skipped -- go.mod not bumped to target yet (see Test_14_2_INTG_001_GoModPinAtTarget)")
+		t.Skipf("[P0] 14.2-INTG-001: skipped -- go.mod not bumped to target yet (see TestGoModPinAtTarget)")
 	}
 	needle := "github.com/wailsapp/wails/v3 v3.0.0-" + tagFromOrdinal(got)
 	gosum := readSource(t, "go.sum")
@@ -94,22 +92,22 @@ func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
 	}
 }
 
-// Test_14_2_INTG_001_CiWorkflowPinParity [P0] AC3.1: ci.yml's wails3 CLI install
-// pin is bumped and equals the go.mod library pin.
-func Test_14_2_INTG_001_CiWorkflowPinParity(t *testing.T) {
+// TestCiWorkflowPinParity asserts ci.yml's wails3 CLI install pin is bumped and
+// equals the go.mod library pin.
+func TestCiWorkflowPinParity(t *testing.T) {
 	assertWorkflowPinMatchesGoMod(t, ".github/workflows/ci.yml", "14.2-INTG-001")
 }
 
-// Test_14_2_INTG_001_ReleaseWorkflowPinParity [P0] AC3.1: release.yml's wails3
-// CLI install pin is bumped and equals the go.mod library pin.
-func Test_14_2_INTG_001_ReleaseWorkflowPinParity(t *testing.T) {
+// TestReleaseWorkflowPinParity asserts release.yml's wails3 CLI install pin is
+// bumped and equals the go.mod library pin.
+func TestReleaseWorkflowPinParity(t *testing.T) {
 	assertWorkflowPinMatchesGoMod(t, ".github/workflows/release.yml", "14.2-INTG-001")
 }
 
-// Test_14_2_INTG_001_ReleaseExpectedFilesInvariant [P1] AC8 (regression net):
-// release.yml retains the EXPECTED_FILES=6 publish invariant. A framework bump
-// must not disturb the artifact-count contract. Passes today; stands as a net.
-func Test_14_2_INTG_001_ReleaseExpectedFilesInvariant(t *testing.T) {
+// TestReleaseExpectedFilesInvariant asserts release.yml retains the
+// EXPECTED_FILES=6 publish invariant, so a framework bump cannot disturb the
+// artifact-count contract.
+func TestReleaseExpectedFilesInvariant(t *testing.T) {
 	src := readSource(t, ".github/workflows/release.yml")
 	if !strings.Contains(src, "EXPECTED_FILES=6") {
 		t.Errorf("[P1] 14.2-INTG-001: release.yml must retain EXPECTED_FILES=6 invariant across the bump")
@@ -120,15 +118,13 @@ func Test_14_2_INTG_001_ReleaseExpectedFilesInvariant(t *testing.T) {
 // AC5/AC8 -- runtime held to what upstream publishes (no phantom alpha2)
 // ---------------------------------------------------------------------------
 
-// Test_14_2_INTG_004_RuntimePinNoPhantomAlpha2 [P0] AC5/AC8: @wailsio/runtime is
-// a well-formed 3.0.0-alpha.N tag with N >= the current pin (alpha.79). It must
-// NOT be rewritten to a phantom alpha2.* tag -- npm publishes no alpha2 runtime,
-// and Go-side currency (the alpha2.117 library bump) does NOT license runtime
-// skew. This mirrors tests/12-3 INTG-030 and stays GREEN today (runtime is
-// alpha.79); it HARD-FAILS if the bump hand-rolls an alpha2 runtime string.
-// NOTE (AC8): if upstream DOES publish a matching alpha2.* runtime and it is
-// adopted, this guard must be relaxed in lockstep or it goes red.
-func Test_14_2_INTG_004_RuntimePinNoPhantomAlpha2(t *testing.T) {
+// TestRuntimePinNoPhantomAlpha2 asserts @wailsio/runtime is a well-formed
+// 3.0.0-alpha.N tag with N at or above the current pin (alpha.79), and is NOT
+// rewritten to a phantom alpha2.* tag: npm publishes no alpha2 runtime, and
+// Go-side currency from the alpha2.117 library bump does not license runtime skew.
+// If upstream ever publishes a matching alpha2.* runtime and it is adopted, this
+// guard must be relaxed in lockstep or it goes red.
+func TestRuntimePinNoPhantomAlpha2(t *testing.T) {
 	src := readSource(t, "frontend/package.json")
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(src), &pkg); err != nil {
@@ -156,10 +152,9 @@ func Test_14_2_INTG_004_RuntimePinNoPhantomAlpha2(t *testing.T) {
 	}
 }
 
-// Test_14_2_INTG_004_PackageLockRuntimeNotRegressed [P1] AC5/AC8: the lockfile's
-// @wailsio/runtime resolution is not regressed below alpha.79 and carries no
-// phantom alpha2.* tag. Mirrors tests/12-3 INTG-031. Passes today.
-func Test_14_2_INTG_004_PackageLockRuntimeNotRegressed(t *testing.T) {
+// TestPackageLockRuntimeNotRegressed asserts the lockfile's @wailsio/runtime
+// resolution is not regressed below alpha.79 and carries no phantom alpha2.* tag.
+func TestPackageLockRuntimeNotRegressed(t *testing.T) {
 	relPath := "frontend/package-lock.json"
 	if !fileExists(t, relPath) {
 		t.Fatalf("[P1] 14.2-INTG-004: %s must exist", relPath)

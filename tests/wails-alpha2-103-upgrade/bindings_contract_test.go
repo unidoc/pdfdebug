@@ -57,13 +57,12 @@ var consumerBoundMethods = []string{
 // bindingRelPath is the regenerated Wails JS binding for PDFService.
 const bindingRelPath = "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 
-// Test_12_3_INTG_040_BindingsExportConsumerMethods [P0] AC4, AC6: the
-// REGENERATED binding exports every method the frontend actually invokes. This
-// is the presence contract that replaces the count==N pin. A `-clean=true` regen
-// that drops or renames a consumer method (e.g. forced by the alpha2 event/
-// binding reorg) fails loud here; an unrelated change to the full method surface
-// does NOT.
-func Test_12_3_INTG_040_BindingsExportConsumerMethods(t *testing.T) {
+// TestBindingsExportConsumerMethods asserts the regenerated binding exports every
+// method the frontend actually invokes. This presence contract replaces a count==N
+// pin: a `-clean=true` regen that drops or renames a consumer method (as an alpha2
+// event/binding reorg could force) fails loud here, while an unrelated change to
+// the full method surface does not.
+func TestBindingsExportConsumerMethods(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
 		t.Fatalf("[P0] 12.3-INTG-040: regenerated binding %s must exist (run `wails3 generate bindings -clean=true`, AC4 / Task 2.1)", bindingRelPath)
 	}
@@ -76,11 +75,10 @@ func Test_12_3_INTG_040_BindingsExportConsumerMethods(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_041_BindingsDoNotResurrectGetPlainTextFull [P1] AC4: a
-// `-clean=true` regen must not re-introduce the GetPlainTextFull symbol that
-// Story 10-1 removed. Guards against a stale / non-clean regen re-baselining a
-// dead binding.
-func Test_12_3_INTG_041_BindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
+// TestBindingsDoNotResurrectGetPlainTextFull asserts a `-clean=true` regen does not
+// re-introduce the removed GetPlainTextFull symbol, guarding against a stale or
+// non-clean regen re-baselining a dead binding.
+func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
 		t.Skipf("[P1] 12.3-INTG-041: %s missing -- see 12.3-INTG-040", bindingRelPath)
 	}
@@ -90,13 +88,12 @@ func Test_12_3_INTG_041_BindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	}
 }
 
-// Test_12_3_INTG_050_NoExactMethodCountPin [P0] AC6 (anti-brittleness
-// meta-guard): NO test in THIS suite re-introduces an exact method-count pin.
-// The story drops the `count == N` assertion entirely (it churned 20 -> 22 at
-// 12.1). This scans the 12-3 suite's own *_test.go for the two brittle
-// signatures -- the receiver-line count grep and a `count ==` comparison
+// TestNoExactMethodCountPin is an anti-brittleness meta-guard: no test in this
+// suite may re-introduce an exact method-count pin, since such a pin churned from
+// 20 to 22 once already. It scans the suite's own *_test.go files for the two
+// brittle signatures -- the receiver-line count grep and a `count ==` comparison
 // against it -- and fails if a future edit re-pins a magic number.
-func Test_12_3_INTG_050_NoExactMethodCountPin(t *testing.T) {
+func TestNoExactMethodCountPin(t *testing.T) {
 	// Skip this guard's own file: it holds the forbidden patterns as detection
 	// literals, which would otherwise self-trip the scan.
 	own := loadOwnTestSources(t, "bindings_contract_test.go")
