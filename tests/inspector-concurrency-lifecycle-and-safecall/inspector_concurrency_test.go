@@ -64,11 +64,10 @@ func readSource(t *testing.T, relPath string) string {
 // AC#1 -- DocumentState.pdfMu field + per-method lock acquisition
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC1_DocumentStateHasPdfMu [P0] AC#1: DocumentState carries a new
-// `pdfMu sync.Mutex` field. The field name is pinned in the spec; a renamed
-// or relocated field defeats the assertion. The field MUST live INSIDE the
-// DocumentState struct, not on Inspector.
-func Test_10_5_AC1_DocumentStateHasPdfMu(t *testing.T) {
+// TestDocumentStateHasPdfMu asserts DocumentState carries a `pdfMu sync.Mutex`
+// field. The field name is pinned, so a renamed or relocated field fails, and the
+// field must live INSIDE the DocumentState struct rather than on Inspector.
+func TestDocumentStateHasPdfMu(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	// Anchor the search to lines inside the DocumentState struct. A naive
 	// substring search would also match a comment elsewhere; require the
@@ -81,11 +80,11 @@ func Test_10_5_AC1_DocumentStateHasPdfMu(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC1_DocumentStateHasRevBuildOnce [P0] AC#1/AC#7: DocumentState
-// also carries `revBuildOnce sync.Once` to gate the lazy reverse-refs build.
-// Same-position check as pdfMu -- it MUST be a field on the struct, not a
-// package-level variable.
-func Test_10_5_AC1_DocumentStateHasRevBuildOnce(t *testing.T) {
+// TestDocumentStateHasRevBuildOnce asserts DocumentState also carries
+// `revBuildOnce sync.Once` to gate the lazy reverse-refs build. Same
+// position check as pdfMu: it must be a field on the struct, not a package-level
+// variable.
+func TestDocumentStateHasRevBuildOnce(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	re := regexp.MustCompile(`(?m)^\s*revBuildOnce\s+sync\.Once\b`)
 	if !re.MatchString(src) {
@@ -144,19 +143,18 @@ var pdfMuLockOwner = map[string]string{
 	"GetPageContentStreamNodeID": "pageContentStreamNodeIDs",
 }
 
-// Test_10_5_AC1_MethodsAcquirePdfMu [P0] AC#1: every method in
-// pdfMuRequiredMethods MUST contain a `doc.pdfMu.Lock()` call and a
-// `defer doc.pdfMu.Unlock()` immediately after the `GetDocument` call.
-// We assert the two substrings appear in the function body via a
-// per-method file read + regex scoped to the function range.
+// TestMethodsAcquirePdfMu asserts every method in pdfMuRequiredMethods contains a
+// `doc.pdfMu.Lock()` call and a `defer doc.pdfMu.Unlock()` immediately after its
+// `GetDocument` call, by reading the file and scanning a regex scoped to the
+// function range.
 //
-// A method listed in pdfMuLockOwner is checked in two steps instead: it must
-// call its declared helper, and the HELPER must carry the lock pattern. A
-// method that neither locks nor delegates still fails.
+// A method listed in pdfMuLockOwner is checked in two steps instead: it must call
+// its declared helper, and the HELPER must carry the lock pattern. A method that
+// neither locks nor delegates still fails.
 //
-// The function boundary is approximated by `func (ins *Inspector) <Name>(`
-// up to the next `func (` at the same depth -- adequate for grep purposes.
-func Test_10_5_AC1_MethodsAcquirePdfMu(t *testing.T) {
+// The function boundary is approximated by `func (ins *Inspector) <Name>(` up to
+// the next `func (` at the same depth, which is adequate for grep purposes.
+func TestMethodsAcquirePdfMu(t *testing.T) {
 	for _, method := range pdfMuRequiredMethods {
 		t.Run(method, func(t *testing.T) {
 			path, ok := methodFileMap[method]
@@ -214,22 +212,15 @@ func extractFunctionBody(t *testing.T, src, name string) string {
 // AC#3 -- stream.go cache contract: streamMu held for resolve+decode
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC3_GetContentStreamHoldsStreamMuForDecode [P0] AC#3:
-// The post-fix GetContentStream body MUST NOT release streamMu between the
-// cache check and the cache write. The simplest structural check: count the
-// `doc.streamMu.Unlock()` calls inside the GetContentStream body. The
-// post-fix shape has exactly one Unlock (paired with the single Lock that
-// covers the whole path) plus the early-return Unlock for the cache hit.
-// Today the body has 4 Unlocks (cache-hit return, post-cache-check, after
-// "not a stream" early return, and the final write). The contract is "no
-// drop-and-reacquire", which translates to: the Lock paired with the cache
-// MISS path is the same Lock that wraps the cache WRITE.
+// TestGetContentStreamHoldsStreamMuForDecode asserts the GetContentStream body does
+// not release streamMu between the cache check and the cache write. The contract is
+// "no drop-and-reacquire": the Lock paired with the cache MISS path must be the
+// same Lock that wraps the cache WRITE.
 //
-// We assert the simpler form: the substring
-// `doc.streamMu.Unlock()\n\tif _, ok := doc.streamCache[nodeID]` -- the
-// current code shape between cache check and decode -- MUST NOT be present
-// after the fix. That literal exists today; this test fails today.
-func Test_10_5_AC3_GetContentStreamHoldsStreamMuForDecode(t *testing.T) {
+// The structural form asserted is the absence of the substring
+// `doc.streamMu.Unlock()\n\tif _, ok := doc.streamCache[nodeID]`, which is the
+// drop-and-reacquire shape.
+func TestGetContentStreamHoldsStreamMuForDecode(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/stream.go")
 	// The current "drop the lock and reacquire" idiom uses the exact shape:
 	//   doc.streamMu.Unlock()
@@ -252,10 +243,10 @@ func Test_10_5_AC3_GetContentStreamHoldsStreamMuForDecode(t *testing.T) {
 // AC#5 -- pdfservice top-level recover helper + per-method defer
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC5_RecoverRuntimePanicHelperExists [P0] AC#5: service.go MUST
-// declare the recoverRuntimePanic helper with the exact signature pinned by
-// AC5: `func recoverRuntimePanic(methodName string, errOut *error)`.
-func Test_10_5_AC5_RecoverRuntimePanicHelperExists(t *testing.T) {
+// TestRecoverRuntimePanicHelperExists asserts service.go declares the
+// recoverRuntimePanic helper with the exact signature
+// `func recoverRuntimePanic(methodName string, errOut *error)`.
+func TestRecoverRuntimePanicHelperExists(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := "func recoverRuntimePanic(methodName string, errOut *error)"
 	if !strings.Contains(src, needle) {
@@ -263,11 +254,11 @@ func Test_10_5_AC5_RecoverRuntimePanicHelperExists(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC5_RecoverHelperConvertsToMalformedPDF [P0] AC#5: the helper
-// MUST construct the error via `fmt.Errorf(\"%w: internal error\",
-// pdfcore.ErrMalformedPDF)` so errors.Is(err, pdfcore.ErrMalformedPDF)
-// holds at the call site AND the frontend's /malformed/i regex matches.
-func Test_10_5_AC5_RecoverHelperConvertsToMalformedPDF(t *testing.T) {
+// TestRecoverHelperConvertsToMalformedPDF asserts the helper constructs the error
+// via `fmt.Errorf(\"%w: internal error\", pdfcore.ErrMalformedPDF)`, so
+// errors.Is(err, pdfcore.ErrMalformedPDF) holds at the call site and the frontend's
+// /malformed/i regex matches.
+func TestRecoverHelperConvertsToMalformedPDF(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := `fmt.Errorf("%w: internal error", pdfcore.ErrMalformedPDF)`
 	if !strings.Contains(src, needle) {
@@ -275,10 +266,10 @@ func Test_10_5_AC5_RecoverHelperConvertsToMalformedPDF(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC5_RecoverHelperLogsViaPrintf [P0] AC#5: the helper MUST emit
-// a `log.Printf("pdfservice: runtime.Error in %s: %v\n%s", ...)` line with
-// debug.Stack() so devs can diagnose the underlying Go bug from logs.
-func Test_10_5_AC5_RecoverHelperLogsViaPrintf(t *testing.T) {
+// TestRecoverHelperLogsViaPrintf asserts the helper emits a
+// `log.Printf("pdfservice: runtime.Error in %s: %v\n%s", ...)` line carrying
+// debug.Stack(), so the underlying Go bug is diagnosable from logs.
+func TestRecoverHelperLogsViaPrintf(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := `log.Printf("pdfservice: runtime.Error in %s: %v\n%s"`
 	if !strings.Contains(src, needle) {
@@ -289,15 +280,14 @@ func Test_10_5_AC5_RecoverHelperLogsViaPrintf(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC5_RecoverHelperRePanicsNonRuntimeError [P0] AC#5: non-runtime
-// panics MUST be re-panicked so genuine Go bugs outside pdfcpu's documented
-// surface still crash the test binary loudly. The shape is `panic(r)` after
-// the negative type assertion.
-func Test_10_5_AC5_RecoverHelperRePanicsNonRuntimeError(t *testing.T) {
+// TestRecoverHelperRePanicsNonRuntimeError asserts non-runtime panics are
+// re-panicked, so genuine Go bugs outside pdfcpu's documented surface still crash
+// loudly. The shape is `panic(r)` after the negative type assertion.
+func TestRecoverHelperRePanicsNonRuntimeError(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	body := extractFunctionBodyTopLevel(t, src, "recoverRuntimePanic")
 	if body == "" {
-		t.Skipf("[P0] 10-5-AC5: recoverRuntimePanic not declared yet (see Test_10_5_AC5_RecoverRuntimePanicHelperExists)")
+		t.Skipf("[P0] 10-5-AC5: recoverRuntimePanic not declared yet (see TestRecoverRuntimePanicHelperExists)")
 	}
 	if !strings.Contains(body, "panic(r)") {
 		t.Errorf("[P0] 10-5-AC5: recoverRuntimePanic must re-panic non-runtime errors via `panic(r)` (AC5: preserves the test-binary-crash diagnostic for genuine bugs)")
@@ -355,11 +345,11 @@ var pdfserviceUnwrappedMethods = []string{
 	"GetPlainTextSize",
 }
 
-// Test_10_5_AC5_WrappedMethodsHaveDeferRecover [P0] AC#5: every method in
-// pdfserviceWrappedMethods MUST contain `defer recoverRuntimePanic(` in its
-// body. The exact methodName argument is also checked to catch a copy-paste
-// bug where every wrapper logs the same string.
-func Test_10_5_AC5_WrappedMethodsHaveDeferRecover(t *testing.T) {
+// TestWrappedMethodsHaveDeferRecover asserts every method in
+// pdfserviceWrappedMethods contains `defer recoverRuntimePanic(` in its body. The
+// methodName argument is checked too, which catches a copy-paste bug where every
+// wrapper logs the same string.
+func TestWrappedMethodsHaveDeferRecover(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	for _, method := range pdfserviceWrappedMethods {
 		t.Run(method, func(t *testing.T) {
@@ -375,11 +365,11 @@ func Test_10_5_AC5_WrappedMethodsHaveDeferRecover(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC5_UnwrappedMethodsHaveNoDeferRecover [P0] AC#5: methods in
-// pdfserviceUnwrappedMethods MUST NOT contain `defer recoverRuntimePanic(`.
-// Wrapping them is a contract violation (launders Go bugs in non-pdfcpu
-// code as ErrMalformedPDF -- misleading user-facing message).
-func Test_10_5_AC5_UnwrappedMethodsHaveNoDeferRecover(t *testing.T) {
+// TestUnwrappedMethodsHaveNoDeferRecover asserts methods in
+// pdfserviceUnwrappedMethods do NOT contain `defer recoverRuntimePanic(`. Wrapping
+// them would launder Go bugs in non-pdfcpu code as ErrMalformedPDF, giving a
+// misleading user-facing message.
+func TestUnwrappedMethodsHaveNoDeferRecover(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	for _, method := range pdfserviceUnwrappedMethods {
 		t.Run(method, func(t *testing.T) {
@@ -428,10 +418,10 @@ var safeCallContractTests = []string{
 	"TestSafeCallPropagatesRuntimeError",
 }
 
-// Test_10_5_AC6_SafeCallContractTestsExist [P0] AC#6: each named test in
-// errors_test.go MUST still be declared. This is a contract pin -- the test
-// already passes today; a future Dev removal turns it red.
-func Test_10_5_AC6_SafeCallContractTestsExist(t *testing.T) {
+// TestSafeCallContractTestsExist asserts each named safeCall contract test in
+// errors_test.go is still declared. It is a contract pin: a later removal turns it
+// red.
+func TestSafeCallContractTestsExist(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors_test.go")
 	for _, name := range safeCallContractTests {
 		needle := "func " + name + "(t *testing.T)"
@@ -441,11 +431,11 @@ func Test_10_5_AC6_SafeCallContractTestsExist(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC6_SafeCallRePanicsRuntimeErrorPreserved [P0] AC#6:
-// internal/pdfcore/errors.go's safeCall MUST retain the runtime.Error
-// re-panic. AC6 says: "the Sev-1 fix lives at the pdfservice boundary
-// (AC5), NOT inside safeCall." Same contract as 10-4 STRUCT_010.
-func Test_10_5_AC6_SafeCallRePanicsRuntimeErrorPreserved(t *testing.T) {
+// TestSafeCallRePanicsRuntimeErrorPreserved asserts internal/pdfcore/errors.go's
+// safeCall retains the runtime.Error re-panic. The Sev-1 fix lives at the
+// pdfservice boundary, NOT inside safeCall. The pdfcpu bump suite pins the same
+// contract from its own angle.
+func TestSafeCallRePanicsRuntimeErrorPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	re := regexp.MustCompile(`if\s+_,\s*ok\s*:=\s*r\.\(runtime\.Error\)`)
 	if !re.MatchString(src) {
@@ -460,12 +450,10 @@ func Test_10_5_AC6_SafeCallRePanicsRuntimeErrorPreserved(t *testing.T) {
 // AC#7 -- reverse-refs build moved out of Open
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC7_OpenNoLongerCallsBuildReverseRefs [P0] AC#7: the
-// Inspector.Open body MUST NOT call buildReverseRefs. The build was at
-// inspector.go lines 140-156 under the comment "Build the reverse-ref
-// index inside safeCall."; AC7 moves this to buildReverseRefsOnce invoked
-// by the first GetReverseRefs call.
-func Test_10_5_AC7_OpenNoLongerCallsBuildReverseRefs(t *testing.T) {
+// TestOpenNoLongerCallsBuildReverseRefs asserts the Inspector.Open body does not
+// call buildReverseRefs. The reverse-ref build belongs to buildReverseRefsOnce,
+// invoked by the first GetReverseRefs call.
+func TestOpenNoLongerCallsBuildReverseRefs(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "Open")
 	if body == "" {
@@ -476,11 +464,11 @@ func Test_10_5_AC7_OpenNoLongerCallsBuildReverseRefs(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC7_BuildReverseRefsOnceHelperExists [P0] AC#7: a new helper
-// `buildReverseRefsOnce(doc *DocumentState)` MUST be declared in pdfcore.
-// It owns the lazy-build path: acquires doc.pdfMu, invokes the sync.Once
-// inner safeCall-wrapped builder, sets revRefsBuildFailed on panic.
-func Test_10_5_AC7_BuildReverseRefsOnceHelperExists(t *testing.T) {
+// TestBuildReverseRefsOnceHelperExists asserts pdfcore declares
+// `buildReverseRefsOnce(doc *DocumentState)`. That helper owns the lazy-build
+// path: it acquires doc.pdfMu, invokes the sync.Once inner safeCall-wrapped
+// builder, and sets revRefsBuildFailed on panic.
+func TestBuildReverseRefsOnceHelperExists(t *testing.T) {
 	root := projectRoot(t)
 	// The helper can live in inspector.go or reverserefs.go -- search both.
 	candidates := []string{"internal/pdfcore/inspector.go", "internal/pdfcore/reverserefs.go"}
@@ -501,11 +489,10 @@ func Test_10_5_AC7_BuildReverseRefsOnceHelperExists(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC7_GetReverseRefsCallsBuildReverseRefsOnce [P0] AC#7:
-// Inspector.GetReverseRefs MUST call buildReverseRefsOnce BEFORE the
-// existing revRefsBuildFailed check, so the very first invocation triggers
-// the build.
-func Test_10_5_AC7_GetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
+// TestGetReverseRefsCallsBuildReverseRefsOnce asserts Inspector.GetReverseRefs
+// calls buildReverseRefsOnce BEFORE the revRefsBuildFailed check, so the very
+// first invocation triggers the build.
+func TestGetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/reverserefs.go")
 	body := extractFunctionBody(t, src, "GetReverseRefs")
 	if body == "" {
@@ -520,12 +507,11 @@ func Test_10_5_AC7_GetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 // AC#8 -- main.go openFileAndEmitWithWarning dispatches pdfcpu read to goroutine
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC8_OpenFileAndEmitDispatchesGoroutine [P0] AC#8: the
-// openFileAndEmitWithWarning function MUST dispatch the pdfcpu read to a
-// `go func(...)` so the Wails event-dispatch goroutine returns immediately.
-// We anchor on (a) the function's signature gaining a *sync.WaitGroup
-// parameter per AC9, and (b) a `go func(` appearing inside the body.
-func Test_10_5_AC8_OpenFileAndEmitDispatchesGoroutine(t *testing.T) {
+// TestOpenFileAndEmitDispatchesGoroutine asserts openFileAndEmitWithWarning
+// dispatches the pdfcpu read to a `go func(...)` so the Wails event-dispatch
+// goroutine returns immediately. It anchors on the signature carrying a
+// *sync.WaitGroup parameter and on a `go func(` inside the body.
+func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	src := readSource(t, "main.go")
 	// AC9 task 7 gains an extra *sync.WaitGroup parameter.
 	sigRe := regexp.MustCompile(`func openFileAndEmitWithWarning\([^)]*\*sync\.WaitGroup[^)]*\)`)
@@ -572,11 +558,10 @@ func extractTopLevelFuncBody(t *testing.T, src, name string) string {
 // AC#9 -- main.go openFilesBatch uses per-iteration WaitGroup.Wait()
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC9_OpenFilesBatchUsesWaitGroup [P0] AC#9: the batch open
-// dispatcher MUST declare a local `sync.WaitGroup` and call `wg.Wait()`
-// at the end of each iteration of the dispatch loop. The exact shape is
-// pinned in AC9's code block.
-func Test_10_5_AC9_OpenFilesBatchUsesWaitGroup(t *testing.T) {
+// TestOpenFilesBatchUsesWaitGroup asserts the batch open dispatcher declares a
+// local `sync.WaitGroup` and calls `wg.Wait()` at the end of each iteration of the
+// dispatch loop.
+func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 	src := readSource(t, "main.go")
 	// openFilesBatch is a closure assignment (`openFilesBatch := func(...)`),
 	// not a top-level func -- search for the assignment + body.
@@ -606,11 +591,11 @@ func Test_10_5_AC9_OpenFilesBatchUsesWaitGroup(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC9_OpenFilesBatchHasFinalWait [P0] AC#9: the
-// `app.Event.Emit("document:batch-complete", nil)` line MUST be preceded
-// by a final `wg.Wait()` (defensive -- by per-iteration Wait the wg is
-// already drained, but the explicit Wait survives future refactors).
-func Test_10_5_AC9_OpenFilesBatchHasFinalWait(t *testing.T) {
+// TestOpenFilesBatchHasFinalWait asserts the
+// `app.Event.Emit("document:batch-complete", nil)` line is preceded by a final
+// `wg.Wait()`. The per-iteration Wait already drains the group, so the explicit
+// final Wait is there to survive future refactors.
+func TestOpenFilesBatchHasFinalWait(t *testing.T) {
 	src := readSource(t, "main.go")
 	emitNeedle := `app.Event.Emit("document:batch-complete"`
 	emitIdx := strings.Index(src, emitNeedle)
@@ -625,12 +610,10 @@ func Test_10_5_AC9_OpenFilesBatchHasFinalWait(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC9_BatchCancelledCheckBetweenIterations [P0] AC#9: the
-// `batchCancelled.Load()` check MUST sit between iterations so cancel
-// skips remaining un-kicked files without preempting in-flight ones.
-// Baseline already has this -- pin it so the AC9 refactor does not lose
-// the contract.
-func Test_10_5_AC9_BatchCancelledCheckBetweenIterations(t *testing.T) {
+// TestBatchCancelledCheckBetweenIterations asserts the `batchCancelled.Load()`
+// check sits between iterations, so a cancel skips the remaining un-kicked files
+// without preempting the in-flight ones.
+func TestBatchCancelledCheckBetweenIterations(t *testing.T) {
 	src := readSource(t, "main.go")
 	if !strings.Contains(src, "batchCancelled.Load()") {
 		t.Errorf("[P0] 10-5-AC9: main.go must retain `batchCancelled.Load()` check between iterations (AC9: cancel skips un-kicked files)")
