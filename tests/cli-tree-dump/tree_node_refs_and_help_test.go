@@ -17,16 +17,17 @@ import (
 	"testing"
 )
 
-// treeNode113 is a minimal view of the tree JSON for 11.3 assertions.
-type treeNode113 struct {
-	ID       string        `json:"id"`
-	PdfRef   string        `json:"pdfRef"`
-	TypeName string        `json:"typeName"`
-	Children []treeNode113 `json:"children"`
+// treeNodeView is a minimal view of the tree JSON: id, pdfRef, typeName and
+// children.
+type treeNodeView struct {
+	ID       string         `json:"id"`
+	PdfRef   string         `json:"pdfRef"`
+	TypeName string         `json:"typeName"`
+	Children []treeNodeView `json:"children"`
 }
 
 // collectIndirect returns all nodes whose id is of the form obj:G:N.
-func collectIndirect(n treeNode113, out *[]treeNode113) {
+func collectIndirect(n treeNodeView, out *[]treeNodeView) {
 	if strings.HasPrefix(n.ID, "obj:") {
 		*out = append(*out, n)
 	}
@@ -51,7 +52,7 @@ func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
 		t.Fatalf("[P0] 11.3-INTG-001: expected exit code 0, got %d", exitCode)
 	}
 
-	var root treeNode113
+	var root treeNodeView
 	mustParseJSON(t, stdout, &root)
 
 	// Root catalog node is not an indirect obj: node -> must omit pdfRef.
@@ -59,7 +60,7 @@ func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
 		t.Errorf("[P0] 11.3-INTG-001: root node (id=%q) should omit pdfRef, got %q", root.ID, root.PdfRef)
 	}
 
-	var indirect []treeNode113
+	var indirect []treeNodeView
 	collectIndirect(root, &indirect)
 	if len(indirect) == 0 {
 		t.Fatal("[P0] 11.3-INTG-001: no indirect (obj:) nodes found in multipage.pdf tree")
@@ -160,7 +161,7 @@ func TestTreeDump_PageFlag_RootsAtPageDict(t *testing.T) {
 		t.Fatalf("[P0] 11.3-INTG-003: expected exit code 0 for --page 1, got %d", exitCode)
 	}
 
-	var root treeNode113
+	var root treeNodeView
 	mustParseJSON(t, stdout, &root)
 
 	// Rooted at a page dict -> root is an indirect object node, not the catalog.
