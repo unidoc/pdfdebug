@@ -19,11 +19,11 @@ import (
 	"testing"
 )
 
-// Test_12_3_UNIT_001_DocumentInfoWireShape [P0] AC7: a populated DocumentInfo
-// marshals to exactly the camelCase keys the frontend destructures off the
-// `document:opened` payload (useDocumentState.tsx OPEN_DOCUMENT). Fails loud if
-// an alpha.96-style struct-tag drift re-tags any field.
-func Test_12_3_UNIT_001_DocumentInfoWireShape(t *testing.T) {
+// TestDocumentInfoWireShape asserts a populated DocumentInfo marshals to exactly
+// the camelCase keys the frontend destructures off the `document:opened` payload
+// (useDocumentState.tsx OPEN_DOCUMENT). A struct-tag drift that re-tags any field
+// fails loud.
+func TestDocumentInfoWireShape(t *testing.T) {
 	in := DocumentInfo{
 		TabID:     "cli",
 		FileName:  "sample.pdf",

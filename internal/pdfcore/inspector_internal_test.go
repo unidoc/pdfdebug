@@ -22,28 +22,11 @@ import (
 // AC#4 -- tabID-collision lifecycle: re-Open invokes prior cancel
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC4_OpenSameTabIDReleasesPrior [P0] AC#4:
-// When Open(tabID, newPath) is called against a tabID that already has a
-// DocumentState with a registered plainTextLoadCancel, the prior cancel func
-// is invoked exactly once BEFORE the new entry is inserted, and the new
-// DocumentState pointer differs from the prior one.
-//
-// Failure shape today (baseline at story creation, inspector.go:158-163):
-//   ins.mu.Lock()
-//   delete(ins.documents, tabID)
-//   ins.documents[tabID] = doc
-//   ins.mu.Unlock()
-// The cancel func is NEVER invoked; counter reads 0; test fails.
-//
-// Post-fix shape (Story 10-5 Task 6):
-//   Open extracts the prior entry under ins.mu and calls closeDocLocked,
-//   which acquires plainTextCancelMu and fires the cancel; counter reads 1.
-//
-// Verification deliberately does NOT depend on an in-flight GetPlainText
-// returning context.Canceled (no read is in flight; we install only the
-// cancel func) and does NOT use goroutine counts / lsof (flaky / unobservable
-// because pdfcpu closes the file synchronously inside ReadContextFile).
-func Test_10_5_AC4_OpenSameTabIDReleasesPrior(t *testing.T) {
+// TestOpenSameTabIDReleasesPrior asserts that re-Opening a tabID which already
+// holds a DocumentState invokes the prior plainTextLoadCancel exactly once before
+// the new entry is inserted, and that the new DocumentState pointer differs from
+// the prior one.
+func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 	ins := NewInspector()
 	tabID := "10-5-ac4-tab"
 
@@ -92,21 +75,11 @@ func Test_10_5_AC4_OpenSameTabIDReleasesPrior(t *testing.T) {
 // AC#7 -- reverse-refs build deferred to first GetReverseRefs call
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC7_OpenDoesNotBuildReverseRefs [P0] AC#7:
-// Immediately after Inspector.Open returns, doc.reverseRefs MUST be nil and
-// doc.revRefsBuildFailed MUST be false. The build is now triggered lazily by
-// the first GetReverseRefs call via revBuildOnce.
-//
-// Failure shape today (baseline at story creation, inspector.go:140-156):
-//   Open builds the reverse-ref index eagerly inside safeCall and writes
-//   doc.reverseRefs = revMap before returning. The map is therefore NOT nil
-//   after Open; the assertion below fires; test fails.
-//
-// Post-fix shape (Story 10-5 Task 5):
-//   Open no longer calls buildReverseRefs; doc.reverseRefs stays nil and
-//   doc.revRefsBuildFailed stays false until the first GetReverseRefs call
-//   triggers buildReverseRefsOnce via revBuildOnce sync.Once.
-func Test_10_5_AC7_OpenDoesNotBuildReverseRefs(t *testing.T) {
+// TestOpenDoesNotBuildReverseRefs asserts that immediately after Inspector.Open
+// returns, doc.reverseRefs is nil and doc.revRefsBuildFailed is false: the
+// reverse-ref build is deferred to the first GetReverseRefs call via
+// revBuildOnce.
+func TestOpenDoesNotBuildReverseRefs(t *testing.T) {
 	ins := NewInspector()
 	tabID := "10-5-ac7-tab"
 
@@ -129,20 +102,10 @@ func Test_10_5_AC7_OpenDoesNotBuildReverseRefs(t *testing.T) {
 	}
 }
 
-// Test_10_5_AC7_FirstGetReverseRefsTriggersBuild [P0] AC#7:
-// The first GetReverseRefs call MUST cause doc.reverseRefs to become
-// non-nil (assuming the BFS succeeds on a clean fixture). Subsequent calls
-// MUST observe the same populated map (the sync.Once does not re-run).
-//
-// Pre-fix: doc.reverseRefs is already non-nil after Open, so the
-// pre-condition "nil at this point" is violated -- the t.Fatalf at the
-// pre-call check fires and the test fails before reaching the post-call
-// assertion. That's still a red-phase signal: the lazy-build contract is
-// not implemented.
-//
-// Post-fix: pre-call check passes (nil), post-call assertion passes
-// (non-nil).
-func Test_10_5_AC7_FirstGetReverseRefsTriggersBuild(t *testing.T) {
+// TestFirstGetReverseRefsTriggersBuild asserts the first GetReverseRefs call
+// makes doc.reverseRefs non-nil, having first confirmed the map was still nil.
+// The sync.Once does not re-run, so later calls observe the same populated map.
+func TestFirstGetReverseRefsTriggersBuild(t *testing.T) {
 	ins := NewInspector()
 	tabID := "10-5-ac7-trigger-tab"
 

@@ -38,23 +38,15 @@ func (p *panickingInspector) GetTreeRoot(_ string) (*pdfcore.TreeNode, error) {
 	return nil, nil
 }
 
-// Test_10_5_AC5_ServiceRecoversRuntimeError [P0] AC#5:
-// A runtime.Error panicked inside a pdfcpu-bound Inspector method called from
-// a PDFService method MUST be converted to a returned error satisfying
-// errors.Is(err, pdfcore.ErrMalformedPDF), with no app crash.
+// TestServiceRecoversRuntimeError asserts a runtime.Error panicked inside a
+// pdfcpu-bound Inspector method called from a PDFService method is converted to a
+// returned error satisfying errors.Is(err, pdfcore.ErrMalformedPDF), with no
+// crash and a zero-value first return.
 //
-// Expected production code (post-implementation):
-//   - service.go declares: type inspectorAPI interface { GetTreeRoot(...) ... ; ... }
-//   - PDFService.inspector field type changes from *pdfcore.Inspector to inspectorAPI
-//   - Every pdfcpu-touching service method begins with:
-//       defer recoverRuntimePanic("MethodName", &err)
-//
-// Pre-implementation: this test file is build-tag-gated (//go:build
-// story_10_5_seam) so it does NOT compile by default and does NOT contribute
-// to today's test runs. The structural assertions in the per-story suite
-// (Test_10_5_AC5_RecoverRuntimePanicHelperExists,
-// Test_10_5_AC5_WrappedMethodsHaveDeferRecover) carry the red signal today.
-func Test_10_5_AC5_ServiceRecoversRuntimeError(t *testing.T) {
+// The inspector is replaced with a stub that panics on GetTreeRoot. The deferred
+// recover in the test body is a net so a missing recoverRuntimePanic fails the
+// test rather than killing the runner.
+func TestServiceRecoversRuntimeError(t *testing.T) {
 	svc := NewPDFService(nil)
 	// Substitute the inspector with the panicking stub. Requires the seam:
 	// PDFService.inspector field must be assignable to inspectorAPI.

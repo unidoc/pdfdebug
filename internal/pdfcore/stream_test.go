@@ -1231,33 +1231,19 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 // Story 10-5 AC#3 -- concurrent cache-build race avoidance
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC3_GetContentStreamConcurrentSameNode [P0] AC#3:
-// Two concurrent GetContentStream calls against the SAME nodeID with an
-// initially-empty streamCache must collapse to one resolve+decode pass; both
-// callers receive the same *ContentStreamData pointer and Raw is non-empty.
+// TestGetContentStreamConcurrentSameNode asserts two concurrent GetContentStream
+// calls against the SAME nodeID with an initially-empty streamCache collapse to
+// one resolve+decode pass: both callers receive the same *ContentStreamData
+// pointer and Raw is non-empty.
 //
 // The goroutines park on a shared `start` channel and are released
-// simultaneously so they hit the cache-check critical section in the same
-// window. Without that barrier the two calls could serialize naturally and
-// pass even if the bug were present.
+// simultaneously so they hit the cache-check critical section in the same window.
+// Without that barrier the two calls could serialize naturally and pass even when
+// streamMu is dropped between the cache check and the cache write.
 //
-// Pre-fix shape of GetContentStream (stream.go lines 77-145, baseline at
-// story creation): drops streamMu between the cache check and the
-// decode+write, so two callers can both miss the cache, both decode, and
-// both store their own result. The second cached entry clobbers the first
-// and they receive DIFFERENT *ContentStreamData pointers.
-//
-// Post-fix shape: streamMu is held for the entire resolve+decode+write so
-// the second caller observes the populated cache and returns the SAME
-// pointer.
-//
-// Failure mode this test catches: pointer inequality between the two
-// returned *ContentStreamData. A pass under the current code is possible
-// only if the OS happens to serialize the goroutines; the barrier makes
-// that path statistically unlikely. Combined with the AC2 -race soak
-// (which surfaces the streamCache write race directly), this is the
-// behavioural complement.
-func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
+// The failure mode this catches is pointer inequality between the two returned
+// *ContentStreamData.
+func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 	ins, tabID := openContentStream(t)
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 

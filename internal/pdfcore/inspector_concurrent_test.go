@@ -39,10 +39,10 @@ import (
 	"time"
 )
 
-// Test_10_5_AC2_InspectorConcurrentSoak [P0] AC#2: 50 goroutines hammer the
-// nine pdfcpu-touching Inspector methods against the same tabID for 1 second.
-// Failing under -race today; passing under -race after pdfMu lands.
-func Test_10_5_AC2_InspectorConcurrentSoak(t *testing.T) {
+// TestInspectorConcurrentSoak drives 50 goroutines against the nine
+// pdfcpu-touching Inspector methods on a single tabID for one second. Under
+// -race it fails unless per-document pdfMu serializes pdfcpu access.
+func TestInspectorConcurrentSoak(t *testing.T) {
 	if testing.Short() {
 		t.Skip("[P0] 10-5-AC2: skipping concurrent soak under -short")
 	}

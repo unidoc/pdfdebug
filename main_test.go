@@ -12,7 +12,7 @@ import (
 )
 
 // slowOpener is a pdfOpener stub that blocks inside OpenFile for sleepFor.
-// Used by Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes to
+// Used by TestOpenFileAndEmitReturnsBeforeParseCompletes to
 // verify openFileAndEmitWithWarning returns BEFORE the parse completes
 // (AC8 50ms wallclock budget while the goroutine sleeps for 2s).
 type slowOpener struct {
@@ -66,19 +66,17 @@ func (r *recordingEmitter) snapshot() []string {
 	return out
 }
 
-// Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes [P0] AC#8:
-// openFileAndEmitWithWarning MUST return within 50ms while the parse is
-// still in flight (svc.OpenFile sleeps for 2s in this test). The function
-// dispatches the pdfcpu read to a goroutine so the Wails event-dispatch
-// goroutine is freed to service window resize / menu clicks during the
-// parse. The 50ms ceiling is wallclock budget accounting for race-detector
-// overhead, GC pause, and synchronous event-emit dispatch.
+// TestOpenFileAndEmitReturnsBeforeParseCompletes asserts
+// openFileAndEmitWithWarning returns within 50ms while the parse is still in
+// flight (svc.OpenFile sleeps for 2s here): it dispatches the pdfcpu read to a
+// goroutine so the Wails event-dispatch goroutine stays free to service window
+// resize and menu clicks. The 50ms ceiling is a wallclock budget covering
+// race-detector overhead, GC pause and synchronous event-emit dispatch.
 //
-// Verified at the unit layer via a slow-OpenFile seam (pdfOpener
-// interface) and a recording emitter (eventEmitter interface). The
-// production types *pdfservice.PDFService and *application.EventManager
-// satisfy these interfaces implicitly; this test injects stubs.
-func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
+// Driven through a slow-OpenFile seam (pdfOpener) and a recording emitter
+// (eventEmitter); *pdfservice.PDFService and *application.EventManager satisfy
+// both interfaces implicitly.
+func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	const parseDuration = 2 * time.Second
 	const latencyBudget = 50 * time.Millisecond
 
