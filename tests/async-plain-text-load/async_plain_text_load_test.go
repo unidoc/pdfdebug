@@ -101,45 +101,45 @@ func readSource(t *testing.T, relPath string) string {
 // AC#10, AC#11, AC#14, AC#15, AC#21 -- core GetPlainText contract
 // ---------------------------------------------------------------------------
 
-// 10-1-INTG-001 [P0] AC#11, AC#15: open a small fixture, GetPlainText returns
-// the full content with TotalBytes equal to the on-disk size and Latin-1
-// decode rules preserved.
-func Test_10_1_INTG_001_HappyPath(t *testing.T) {
+// TestHappyPath opens a small fixture and asserts GetPlainText returns the full
+// content, with TotalBytes equal to the on-disk size and the Latin-1 decode rules
+// preserved.
+func TestHappyPath(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-001", "TestGetPlainTextAsyncHappyPath")
 }
 
-// 10-1-INTG-002 [P0] AC#4, AC#11: large fixture, cancel mid-load returns an
-// error satisfying errors.Is(err, context.Canceled) == true. Assert against
-// the identity, NOT the substring -- the story explicitly mandates this is the
+// TestCancelReturnsContextCanceled asserts that cancelling mid-load on a large
+// fixture returns an error satisfying errors.Is(err, context.Canceled). The
+// assertion is on the sentinel identity, not a substring: that identity is the
 // authoritative cancellation contract.
-func Test_10_1_INTG_002_CancelReturnsContextCanceled(t *testing.T) {
+func TestCancelReturnsContextCanceled(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-002", "TestGetPlainTextAsyncCancelReturnsContextCanceled")
 }
 
-// 10-1-INTG-003 [P0] AC#9: kick a load on a large fixture, call Close while
-// the read is in progress, assert (via delta runtime.NumGoroutine with a
-// bounded retry loop) the goroutine exits within ~2 seconds. Delta-with-retry
-// avoids the well-known absolute-count flakiness on runtime.NumGoroutine.
-func Test_10_1_INTG_003_CloseReleasesGoroutine(t *testing.T) {
+// TestCloseReleasesGoroutine kicks a load on a large fixture, calls Close while the
+// read is in progress, and asserts the goroutine exits within about two seconds.
+// The measurement is a delta on runtime.NumGoroutine with a bounded retry loop,
+// which avoids the absolute-count flakiness that plagues that counter.
+func TestCloseReleasesGoroutine(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-003", "TestGetPlainTextAsyncCloseReleasesGoroutine")
 }
 
-// 10-1-INTG-004 [P0] AC#13, AC#14, AC#19: unknown-tab path returns
-// errors.Is(..., ErrDocumentNotFound) for GetPlainText, CancelPlainText, and
+// TestUnknownTabSentinels asserts the unknown-tab path returns
+// errors.Is(..., ErrDocumentNotFound) for GetPlainText, CancelPlainText and
 // GetPlainTextSize.
-func Test_10_1_INTG_004_UnknownTabSentinels(t *testing.T) {
+func TestUnknownTabSentinels(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-004", "TestGetPlainTextAsyncUnknownTabSentinels")
 }
 
-// 10-1-INTG-005 [P0] AC#19: GetPlainTextSize happy path returns matching
-// os.Stat size; file-moved returns an error.
-func Test_10_1_INTG_005_GetPlainTextSize(t *testing.T) {
+// TestGetPlainTextSize asserts the happy path returns a size matching os.Stat, and
+// that a moved file returns an error.
+func TestGetPlainTextSize(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-005", "TestGetPlainTextAsyncGetPlainTextSize")
 }
 
-// 10-1-INTG-006 [P0] AC#21: zero-byte file edge -- GetPlainText returns
-// Content="" and TotalBytes=0 with no error.
-func Test_10_1_INTG_006_ZeroByteFile(t *testing.T) {
+// TestZeroByteFile asserts GetPlainText on a zero-byte file returns Content="" and
+// TotalBytes=0 with no error.
+func TestZeroByteFile(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-006", "TestGetPlainTextAsyncZeroByteFile")
 }
 
@@ -147,22 +147,21 @@ func Test_10_1_INTG_006_ZeroByteFile(t *testing.T) {
 // AC#10 -- concurrent callers + cancel-with-waiter interleaving
 // ---------------------------------------------------------------------------
 
-// 10-1-INTG-007 [P0] AC#10: two concurrent callers for the same tab serialize
-// on plainTextMu; the second observes the cached pointer (pointer equality).
-// At most one disk read occurs.
-func Test_10_1_INTG_007_ConcurrentSharesIO(t *testing.T) {
+// TestConcurrentSharesIO asserts two concurrent callers for the same tab serialize
+// on plainTextMu, the second observing the cached pointer by pointer equality, so
+// at most one disk read occurs.
+func TestConcurrentSharesIO(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-007", "TestGetPlainTextAsyncConcurrentSharesIO")
 }
 
-// 10-1-INTG-008 [P0] AC#11: cache hit pointer equality across consecutive
-// successful calls.
-func Test_10_1_INTG_008_CacheHit(t *testing.T) {
+// TestCacheHit asserts pointer equality across consecutive successful calls.
+func TestCacheHit(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-008", "TestGetPlainTextAsyncCacheHit")
 }
 
-// 10-1-INTG-009 [P0] AC#11: cancelled load does NOT populate plainTextCache
-// (cache slot stays nil; subsequent call performs a fresh read).
-func Test_10_1_INTG_009_CancelDoesNotPopulateCache(t *testing.T) {
+// TestCancelDoesNotPopulateCache asserts a cancelled load leaves plainTextCache
+// empty, so the cache slot stays nil and a subsequent call performs a fresh read.
+func TestCancelDoesNotPopulateCache(t *testing.T) {
 	runPdfcoreTest(t, "10-1-INTG-009", "TestGetPlainTextAsyncCancelDoesNotPopulateCache")
 }
 
@@ -170,9 +169,10 @@ func Test_10_1_INTG_009_CancelDoesNotPopulateCache(t *testing.T) {
 // AC#18 -- removal of GetPlainTextFull surface (model + service + bindings + grep)
 // ---------------------------------------------------------------------------
 
-// 10-1-INTG-020 [P0] AC#18: model.go's PlainTextDocument struct drops
-// Truncated and CapBytes fields; retains only TabID, Content, TotalBytes.
-func Test_10_1_INTG_020_ModelPlainTextDocumentSlim(t *testing.T) {
+// TestModelPlainTextDocumentSlim asserts model.go's PlainTextDocument struct
+// carries only TabID, Content and TotalBytes, with no Truncated or CapBytes
+// fields.
+func TestModelPlainTextDocumentSlim(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type PlainTextDocument struct") {
 		t.Fatalf("[P0] 10-1-INTG-020: model.go must still declare `type PlainTextDocument struct`")
@@ -212,17 +212,18 @@ func Test_10_1_INTG_020_ModelPlainTextDocumentSlim(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-021 [P0] AC#18: service.go no longer declares GetPlainTextFull.
-func Test_10_1_INTG_021_ServiceDropsGetPlainTextFull(t *testing.T) {
+// TestServiceDropsGetPlainTextFull asserts service.go does not declare
+// GetPlainTextFull.
+func TestServiceDropsGetPlainTextFull(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if strings.Contains(src, "GetPlainTextFull") {
 		t.Fatalf("[P0] 10-1-INTG-021: service.go must NOT declare GetPlainTextFull -- removed by 10-1 (AC18)")
 	}
 }
 
-// 10-1-INTG-022 [P0] AC#18: service.go declares the new CancelPlainText and
-// GetPlainTextSize methods with the documented return signatures.
-func Test_10_1_INTG_022_ServiceDeclaresNewMethods(t *testing.T) {
+// TestServiceDeclaresNewMethods asserts service.go declares CancelPlainText and
+// GetPlainTextSize with their documented return signatures.
+func TestServiceDeclaresNewMethods(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "CancelPlainText") {
 		t.Errorf("[P0] 10-1-INTG-022: service.go must declare CancelPlainText(tabID string) error (Task 2.1)")
@@ -236,10 +237,10 @@ func Test_10_1_INTG_022_ServiceDeclaresNewMethods(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-023 [P0] AC#18: plaintext.go declares the new
-// Inspector.CancelPlainText and Inspector.GetPlainTextSize methods and no
-// longer declares GetPlainTextFull.
-func Test_10_1_INTG_023_InspectorMethodSurface(t *testing.T) {
+// TestInspectorMethodSurface asserts plaintext.go declares
+// Inspector.CancelPlainText and Inspector.GetPlainTextSize and does not declare
+// GetPlainTextFull.
+func TestInspectorMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if strings.Contains(src, "GetPlainTextFull") {
 		t.Errorf("[P0] 10-1-INTG-023: plaintext.go must NOT declare GetPlainTextFull -- removed by 10-1 (AC18)")
@@ -252,10 +253,10 @@ func Test_10_1_INTG_023_InspectorMethodSurface(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-024 [P0] AC#11, AC#12: Inspector.DocumentState carries the new
-// plainTextLoadCancel + plainTextCancelMu fields. Task 1.1 + Dev Notes
-// "Cancel + waiter interleaving" -- the separate mutex is the deadlock guard.
-func Test_10_1_INTG_024_DocumentStateCarriesCancelFields(t *testing.T) {
+// TestDocumentStateCarriesCancelFields asserts Inspector.DocumentState carries the
+// plainTextLoadCancel and plainTextCancelMu fields. The separate mutex is the
+// deadlock guard for cancel-and-waiter interleaving.
+func TestDocumentStateCarriesCancelFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "plainTextLoadCancel") {
 		t.Errorf("[P0] 10-1-INTG-024: inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc (Task 1.1)")
@@ -272,10 +273,11 @@ func Test_10_1_INTG_024_DocumentStateCarriesCancelFields(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-025 [P0] AC#9: Inspector.Close acquires plainTextCancelMu and
-// invokes the cancel func before dropping the entry from the map. Structural
-// guard -- the behavioral leak test runs as TestGetPlainTextAsyncCloseReleasesGoroutine.
-func Test_10_1_INTG_025_CloseInvokesCancel(t *testing.T) {
+// TestCloseInvokesCancel asserts Inspector.Close acquires plainTextCancelMu and
+// invokes the cancel func before dropping the entry from the map. This is the
+// structural guard; the behavioral leak test is
+// TestGetPlainTextAsyncCloseReleasesGoroutine.
+func TestCloseInvokesCancel(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	// Verify Close references plainTextLoadCancel + plainTextCancelMu.
 	closeStart := strings.Index(src, "func (ins *Inspector) Close(")
@@ -295,11 +297,11 @@ func Test_10_1_INTG_025_CloseInvokesCancel(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-026 [P0] AC#11 + Dev Notes: GetPlainText must bypass wrapPDFError
-// for context.Canceled (errors.Is(err, context.Canceled) early-return BEFORE
-// any wrapping). Pinned as a structural assertion so a refactor that drops
-// the early-return fails loud.
-func Test_10_1_INTG_026_GetPlainTextBypassesWrapForCanceled(t *testing.T) {
+// TestGetPlainTextBypassesWrapForCanceled asserts GetPlainText bypasses
+// wrapPDFError for context.Canceled, early-returning on
+// errors.Is(err, context.Canceled) BEFORE any wrapping. Pinned structurally so a
+// refactor that drops the early return fails loud.
+func TestGetPlainTextBypassesWrapForCanceled(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if !strings.Contains(src, "context.Canceled") {
 		t.Fatalf("[P0] 10-1-INTG-026: plaintext.go must reference context.Canceled (AC4 / AC11 error wrapping rule)")
@@ -310,12 +312,11 @@ func Test_10_1_INTG_026_GetPlainTextBypassesWrapForCanceled(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-027 [P0] AC#18: repo-wide grep for GetPlainTextFull returns zero
-// hits outside this story's archived references. Scans the working tree for
-// the symbol; counts a hit when found in production source. Excluded paths:
-// the story spec itself, retrospective documents, test artifacts, deferred-work
-// notes, and the docs repo symlink target.
-func Test_10_1_INTG_027_RepoWideGrepGetPlainTextFull(t *testing.T) {
+// TestRepoWideGrepGetPlainTextFull scans the working tree for the GetPlainTextFull
+// symbol and counts a hit when it appears in production source. Excluded paths: the
+// story spec, retrospective documents, test artifacts, deferred-work notes and the
+// docs repo symlink target.
+func TestRepoWideGrepGetPlainTextFull(t *testing.T) {
 	root := projectRoot(t)
 	// Production directories scanned for GetPlainTextFull. The project root
 	// itself (containing the GUI entry point) is intentionally omitted from
@@ -368,9 +369,9 @@ func Test_10_1_INTG_027_RepoWideGrepGetPlainTextFull(t *testing.T) {
 	}
 }
 
-// 10-1-INTG-028 [P0] AC#18: the frontend Wails binding file no longer exports
-// GetPlainTextFull and DOES export CancelPlainText + GetPlainTextSize.
-func Test_10_1_INTG_028_WailsBindingsRegenerated(t *testing.T) {
+// TestWailsBindingsRegenerated asserts the frontend Wails binding file no longer
+// exports GetPlainTextFull and does export CancelPlainText and GetPlainTextSize.
+func TestWailsBindingsRegenerated(t *testing.T) {
 	root := projectRoot(t)
 	bindingsPath := filepath.Join(root, "frontend", "bindings", "unidoc-pdf-debugger", "internal", "pdfservice", "pdfservice.js")
 	data, err := os.ReadFile(bindingsPath)
@@ -399,9 +400,9 @@ func Test_10_1_INTG_028_WailsBindingsRegenerated(t *testing.T) {
 // asserted in PlainTextView.async.test.tsx. We assert here only that the
 // wiring points referenced by AC1..AC8 / AC16 / AC17 / AC20 exist in source.
 
-// 10-1-STRUCT-001 [P0] AC#1, AC#2, AC#3: PlainTextView carries the
-// load-bearing data-testids for the new async loading card flow.
-func Test_10_1_STRUCT_001_PlainTextViewLoadingCardTestIds(t *testing.T) {
+// TestPlainTextViewLoadingCardTestIds asserts PlainTextView carries the
+// load-bearing data-testids for the async loading card flow.
+func TestPlainTextViewLoadingCardTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{
 		"plain-text-loading-card",    // AC1
@@ -418,9 +419,10 @@ func Test_10_1_STRUCT_001_PlainTextViewLoadingCardTestIds(t *testing.T) {
 	}
 }
 
-// 10-1-STRUCT-002 [P0] AC#18: PlainTextView no longer references the deleted
-// truncation banner testid / Load all button / Retry-on-full-load button.
-func Test_10_1_STRUCT_002_PlainTextViewDropsDeletedSurface(t *testing.T) {
+// TestPlainTextViewDropsDeletedSurface asserts PlainTextView references none of the
+// removed surface: the truncation banner testid, the Load all button, or the
+// Retry-on-full-load button.
+func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	deleted := []string{
 		"plain-text-truncated-banner",
@@ -446,10 +448,10 @@ func Test_10_1_STRUCT_002_PlainTextViewDropsDeletedSurface(t *testing.T) {
 	}
 }
 
-// 10-1-STRUCT-003 [P0] AC#3, AC#4: PlainTextView imports CancelPlainText and
-// GetPlainTextSize from the regenerated binding and DOES NOT import
+// TestPlainTextViewImports asserts PlainTextView imports CancelPlainText and
+// GetPlainTextSize from the regenerated binding and does not import
 // GetPlainTextFull.
-func Test_10_1_STRUCT_003_PlainTextViewImports(t *testing.T) {
+func TestPlainTextViewImports(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	required := []string{"GetPlainText", "CancelPlainText", "GetPlainTextSize"}
 	for _, sym := range required {
@@ -459,39 +461,37 @@ func Test_10_1_STRUCT_003_PlainTextViewImports(t *testing.T) {
 	}
 }
 
-// 10-1-STRUCT-004 [P0] AC#2: the loading card heading reads exactly "Loading
-// plain text" (no trailing ellipsis, no "..."). The previous 9-11 surface used
-// "Loading plain text..." -- the new card heading is the same words without
-// the dots.
-func Test_10_1_STRUCT_004_LoadingCardHeading(t *testing.T) {
+// TestLoadingCardHeading asserts the loading card heading reads exactly "Loading
+// plain text", with no trailing ellipsis.
+func TestLoadingCardHeading(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Loading plain text") {
 		t.Fatalf("[P0] 10-1-STRUCT-004: PlainTextView.tsx must render the heading 'Loading plain text' (AC2)")
 	}
 }
 
-// 10-1-STRUCT-005 [P0] AC#5: the cancelled-state body reads exactly
-// "Plain text load cancelled." (literal, period included).
-func Test_10_1_STRUCT_005_CancelledCopy(t *testing.T) {
+// TestCancelledCopy asserts the cancelled-state body reads exactly "Plain text load
+// cancelled.", period included.
+func TestCancelledCopy(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Plain text load cancelled.") {
 		t.Fatalf("[P0] 10-1-STRUCT-005: PlainTextView.tsx must render 'Plain text load cancelled.' (AC5 verbatim)")
 	}
 }
 
-// 10-1-STRUCT-006 [P0] AC#5, AC#6: the cancelled-state CTA label is exactly
-// "Load plain text".
-func Test_10_1_STRUCT_006_LoadPlainTextCTA(t *testing.T) {
+// TestLoadPlainTextCTA asserts the cancelled-state CTA label is exactly "Load plain
+// text".
+func TestLoadPlainTextCTA(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Load plain text") {
 		t.Fatalf("[P0] 10-1-STRUCT-006: PlainTextView.tsx must render the 'Load plain text' CTA label (AC5 / AC6)")
 	}
 }
 
-// 10-1-STRUCT-007 [P0] AC#4: the Cancel button's disabled-state label is the
-// single word "Cancelling" (no trailing punctuation; the disabled attribute is
-// the affordance).
-func Test_10_1_STRUCT_007_CancellingLabel(t *testing.T) {
+// TestCancellingLabel asserts the Cancel button's disabled-state label is the
+// single word "Cancelling", with no trailing punctuation -- the disabled attribute
+// is the affordance.
+func TestCancellingLabel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Cancelling") {
 		t.Fatalf("[P0] 10-1-STRUCT-007: PlainTextView.tsx must render the 'Cancelling' label (AC4)")
@@ -502,8 +502,8 @@ func Test_10_1_STRUCT_007_CancellingLabel(t *testing.T) {
 	}
 }
 
-// 10-1-STRUCT-008 [P0]: Vitest suite for the new async behavior exists.
-func Test_10_1_STRUCT_008_AsyncTestFileExists(t *testing.T) {
+// TestAsyncTestFileExists asserts the Vitest suite for the async behavior exists.
+func TestAsyncTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.async.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {

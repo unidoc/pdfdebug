@@ -96,17 +96,17 @@ func fileExists(t *testing.T, relPath string) bool {
 // documented exports. Behavioral tests live in findMatches.test.ts.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-001 [P0] Task 2.1: frontend/src/lib/findMatches.ts exists.
-func Test_10_2_STRUCT_001_FindMatchesModuleExists(t *testing.T) {
+// TestFindMatchesModuleExists asserts frontend/src/lib/findMatches.ts exists.
+func TestFindMatchesModuleExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/lib/findMatches.ts") {
 		t.Fatalf("[P0] 10-2-STRUCT-001: frontend/src/lib/findMatches.ts must exist (Task 2.1)")
 	}
 }
 
-// 10-2-STRUCT-002 [P0] Task 2.1, AC#4: findMatches.ts exports findMatches,
-// buildLineStartOffsets, and the Match interface. The Match shape carries
-// start, end, line per AC4.
-func Test_10_2_STRUCT_002_FindMatchesExports(t *testing.T) {
+// TestFindMatchesExports asserts findMatches.ts exports findMatches,
+// buildLineStartOffsets and the Match interface, and that the Match shape carries
+// start, end and line.
+func TestFindMatchesExports(t *testing.T) {
 	src := readSource(t, "frontend/src/lib/findMatches.ts")
 	required := []string{
 		"export function findMatches",
@@ -126,8 +126,8 @@ func Test_10_2_STRUCT_002_FindMatchesExports(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-003 [P0] Task 2.3: co-located findMatches.test.ts exists.
-func Test_10_2_STRUCT_003_FindMatchesTestExists(t *testing.T) {
+// TestFindMatchesTestExists asserts the co-located findMatches.test.ts exists.
+func TestFindMatchesTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/lib/findMatches.test.ts") {
 		t.Fatalf("[P0] 10-2-STRUCT-003: frontend/src/lib/findMatches.test.ts must exist (Task 2.3)")
 	}
@@ -137,15 +137,15 @@ func Test_10_2_STRUCT_003_FindMatchesTestExists(t *testing.T) {
 // AC#1..AC#3, AC#7..AC#11, AC#13, AC#15, AC#22 -- useFindBar hook surface.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-010 [P0] Task 3.1: frontend/src/hooks/useFindBar.ts exists.
-func Test_10_2_STRUCT_010_UseFindBarHookExists(t *testing.T) {
+// TestUseFindBarHookExists asserts frontend/src/hooks/useFindBar.ts exists.
+func TestUseFindBarHookExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useFindBar.ts") {
 		t.Fatalf("[P0] 10-2-STRUCT-010: frontend/src/hooks/useFindBar.ts must exist (Task 3.1)")
 	}
 }
 
-// 10-2-STRUCT-011 [P0] Task 3.1: useFindBar.ts exports useFindBar.
-func Test_10_2_STRUCT_011_UseFindBarExport(t *testing.T) {
+// TestUseFindBarExport asserts useFindBar.ts exports useFindBar.
+func TestUseFindBarExport(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useFindBar.ts")
 	if !strings.Contains(src, "export function useFindBar") &&
 		!strings.Contains(src, "export const useFindBar") {
@@ -153,8 +153,8 @@ func Test_10_2_STRUCT_011_UseFindBarExport(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-012 [P0] Task 3.7: co-located useFindBar.test.ts exists.
-func Test_10_2_STRUCT_012_UseFindBarTestExists(t *testing.T) {
+// TestUseFindBarTestExists asserts the co-located useFindBar.test.ts exists.
+func TestUseFindBarTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useFindBar.test.ts") {
 		t.Fatalf("[P0] 10-2-STRUCT-012: frontend/src/hooks/useFindBar.test.ts must exist (Task 3.7)")
 	}
@@ -165,15 +165,15 @@ func Test_10_2_STRUCT_012_UseFindBarTestExists(t *testing.T) {
 // component surface.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-020 [P0] Task 4.1: frontend/src/components/FindBar.tsx exists.
-func Test_10_2_STRUCT_020_FindBarComponentExists(t *testing.T) {
+// TestFindBarComponentExists asserts frontend/src/components/FindBar.tsx exists.
+func TestFindBarComponentExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/FindBar.tsx") {
 		t.Fatalf("[P0] 10-2-STRUCT-020: frontend/src/components/FindBar.tsx must exist (Task 4.1)")
 	}
 }
 
-// 10-2-STRUCT-021 [P0] Task 4.1: FindBar.tsx exports FindBar.
-func Test_10_2_STRUCT_021_FindBarExport(t *testing.T) {
+// TestFindBarExport asserts FindBar.tsx exports FindBar.
+func TestFindBarExport(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	if !strings.Contains(src, "export function FindBar") &&
 		!strings.Contains(src, "export const FindBar") {
@@ -181,18 +181,18 @@ func Test_10_2_STRUCT_021_FindBarExport(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-022 [P0] Task 4.5: co-located FindBar.test.tsx exists.
-func Test_10_2_STRUCT_022_FindBarTestExists(t *testing.T) {
+// TestFindBarTestExists asserts the co-located FindBar.test.tsx exists.
+func TestFindBarTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/FindBar.test.tsx") {
 		t.Fatalf("[P0] 10-2-STRUCT-022: frontend/src/components/FindBar.test.tsx must exist (Task 4.5)")
 	}
 }
 
-// 10-2-STRUCT-023 [P0] AC#1: FindBar.tsx renders the documented data-testids
-// for the static structure (input, count, case toggle, prev, next, close).
-// Conditional testids (wrap-status, non-Latin-1 hint, gutter marker) are
-// asserted in their dedicated component / integration tests.
-func Test_10_2_STRUCT_023_FindBarTestIds(t *testing.T) {
+// TestFindBarTestIds asserts FindBar.tsx renders the documented data-testids for
+// its static structure (input, count, case toggle, prev, next, close). The
+// conditional testids -- wrap-status, non-Latin-1 hint, gutter marker -- are
+// asserted in their dedicated component and integration tests.
+func TestFindBarTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredTestIds := []string{
 		"plain-text-find-bar",          // AC1 root
@@ -211,10 +211,10 @@ func Test_10_2_STRUCT_023_FindBarTestIds(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-024 [P0] AC#1, AC#21: FindBar.tsx wires the documented aria
-// attributes (role=search, aria-label="Find in plain text", aria-live="polite"
-// on count + wrap-status, aria-pressed on case toggle).
-func Test_10_2_STRUCT_024_FindBarAriaContract(t *testing.T) {
+// TestFindBarAriaContract asserts FindBar.tsx wires the documented aria attributes:
+// role=search, aria-label="Find in plain text", aria-live="polite" on count and
+// wrap-status, aria-pressed on the case toggle.
+func TestFindBarAriaContract(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredAria := []string{
 		`role="search"`,                  // AC1 root role
@@ -234,10 +234,10 @@ func Test_10_2_STRUCT_024_FindBarAriaContract(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-025 [P0] AC#12: FindBar.tsx wires the non-Latin-1 hint testid
-// and the documented copy. The aria-describedby linkage from the input to
-// the hint id is part of the same contract.
-func Test_10_2_STRUCT_025_FindBarNonLatin1Hint(t *testing.T) {
+// TestFindBarNonLatin1Hint asserts FindBar.tsx wires the non-Latin-1 hint testid
+// and its documented copy, plus the aria-describedby linkage from the input to the
+// hint id.
+func TestFindBarNonLatin1Hint(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredFragments := []string{
 		"plain-text-find-non-latin1-hint",            // AC12 testid + id
@@ -255,9 +255,9 @@ func Test_10_2_STRUCT_025_FindBarNonLatin1Hint(t *testing.T) {
 // AC#5, AC#6, AC#7, AC#11, AC#13, AC#17 -- PlainTextView integration.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-030 [P0] Task 5.1: PlainTextView.tsx imports useFindBar and
+// TestPlainTextViewImportsFindBar asserts PlainTextView.tsx imports useFindBar and
 // FindBar.
-func Test_10_2_STRUCT_030_PlainTextViewImportsFindBar(t *testing.T) {
+func TestPlainTextViewImportsFindBar(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	required := []string{
 		"useFindBar",
@@ -270,9 +270,9 @@ func Test_10_2_STRUCT_030_PlainTextViewImportsFindBar(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-031 [P0] AC#5: PlainTextView.tsx wires the active-match and
-// non-active-match testids for the per-row <mark> overlay (Task 5.3).
-func Test_10_2_STRUCT_031_PlainTextViewMarkTestIds(t *testing.T) {
+// TestPlainTextViewMarkTestIds asserts PlainTextView.tsx wires the active-match and
+// non-active-match testids for the per-row <mark> overlay.
+func TestPlainTextViewMarkTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	required := []string{
 		"plain-text-find-active-match",  // AC5 active match
@@ -285,20 +285,19 @@ func Test_10_2_STRUCT_031_PlainTextViewMarkTestIds(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-032 [P0] AC#6: PlainTextView.tsx wires the gutter density
-// marker testid prefix (Task 5.4). The {lineNo} suffix is asserted in the
-// integration Vitest.
-func Test_10_2_STRUCT_032_PlainTextViewGutterMarker(t *testing.T) {
+// TestPlainTextViewGutterMarker asserts PlainTextView.tsx wires the gutter density
+// marker testid prefix. The {lineNo} suffix is asserted in the integration Vitest.
+func TestPlainTextViewGutterMarker(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "plain-text-find-gutter-marker") {
 		t.Errorf("[P0] 10-2-STRUCT-032: PlainTextView.tsx must reference data-testid=plain-text-find-gutter-marker-{lineNo} (AC6 / Task 5.4)")
 	}
 }
 
-// 10-2-STRUCT-033 [P0] Task 5.6: PlainTextView.find.test.tsx exists for the
-// integration assertions (per-row <mark> + gutter marker + auto-scroll +
-// inner-tab persistence + tabId reset + Esc scope + Cmd+F gate on data===null).
-func Test_10_2_STRUCT_033_PlainTextFindTestExists(t *testing.T) {
+// TestPlainTextFindTestExists asserts PlainTextView.find.test.tsx exists for the
+// integration assertions: per-row <mark>, gutter marker, auto-scroll, inner-tab
+// persistence, tabId reset, Esc scope and the Cmd+F gate on data === null.
+func TestPlainTextFindTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/PlainTextView.find.test.tsx") {
 		t.Fatalf("[P0] 10-2-STRUCT-033: frontend/src/components/PlainTextView.find.test.tsx must exist (Task 5.6)")
 	}
@@ -308,8 +307,9 @@ func Test_10_2_STRUCT_033_PlainTextFindTestExists(t *testing.T) {
 // AC#10, AC#11, AC#14 -- TabState.findCaseSensitive + SET_FIND_CASE_SENSITIVE.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-040 [P0] Task 1.1: TabState declares findCaseSensitive: boolean.
-func Test_10_2_STRUCT_040_TabStateCarriesFindCaseSensitive(t *testing.T) {
+// TestTabStateCarriesFindCaseSensitive asserts TabState declares
+// findCaseSensitive: boolean.
+func TestTabStateCarriesFindCaseSensitive(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useDocumentState.tsx")
 	if !strings.Contains(src, "findCaseSensitive") {
 		t.Fatalf("[P0] 10-2-STRUCT-040: useDocumentState.tsx must declare findCaseSensitive on TabState (Task 1.1 / AC10)")
@@ -320,9 +320,9 @@ func Test_10_2_STRUCT_040_TabStateCarriesFindCaseSensitive(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-041 [P0] Task 1.2: AppAction union declares
+// TestSetFindCaseSensitiveAction asserts the AppAction union declares
 // SET_FIND_CASE_SENSITIVE with payload { tabId, value }.
-func Test_10_2_STRUCT_041_SetFindCaseSensitiveAction(t *testing.T) {
+func TestSetFindCaseSensitiveAction(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useDocumentState.tsx")
 	if !strings.Contains(src, "SET_FIND_CASE_SENSITIVE") {
 		t.Fatalf("[P0] 10-2-STRUCT-041: useDocumentState.tsx must declare the SET_FIND_CASE_SENSITIVE action (Task 1.2 / AC10)")
@@ -333,10 +333,10 @@ func Test_10_2_STRUCT_041_SetFindCaseSensitiveAction(t *testing.T) {
 	}
 }
 
-// 10-2-STRUCT-042 [P0] Task 1.3: useDocumentState.find.test.tsx exists with
-// reducer coverage for SET_FIND_CASE_SENSITIVE + OPEN_DOCUMENT defaulting +
+// TestReducerFindTestExists asserts useDocumentState.find.test.tsx exists with
+// reducer coverage for SET_FIND_CASE_SENSITIVE, OPEN_DOCUMENT defaulting and
 // CLOSE_DOCUMENT cleanup.
-func Test_10_2_STRUCT_042_ReducerFindTestExists(t *testing.T) {
+func TestReducerFindTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.find.test.tsx") {
 		t.Fatalf("[P0] 10-2-STRUCT-042: frontend/src/hooks/useDocumentState.find.test.tsx must exist (Task 1.3)")
 	}
@@ -346,11 +346,10 @@ func Test_10_2_STRUCT_042_ReducerFindTestExists(t *testing.T) {
 // AC#5, AC#6 -- Tailwind tokens registered in style.css.
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-050 [P0] Task 6.1: style.css registers the five find-color CSS
-// custom properties and exposes them via @theme inline. The exact RGB values
-// are not pinned (designer-tunable); we pin only the variable names and the
-// @theme registration.
-func Test_10_2_STRUCT_050_FindColorTokens(t *testing.T) {
+// TestFindColorTokens asserts style.css registers the five find-color CSS custom
+// properties and exposes them via @theme inline. Only the variable names and the
+// @theme registration are pinned; the RGB values stay designer-tunable.
+func TestFindColorTokens(t *testing.T) {
 	src := readSource(t, "frontend/src/style.css")
 	requiredVars := []string{
 		"--color-find-match",
@@ -373,10 +372,10 @@ func Test_10_2_STRUCT_050_FindColorTokens(t *testing.T) {
 // Out-of-scope guards: no Cmd+G rebinding (AC#9 -- F3 only).
 // ---------------------------------------------------------------------------
 
-// 10-2-STRUCT-060 [P0] AC#9: useFindBar.ts must NOT bind Cmd+G / Ctrl+G for
-// Find-Next. App.jsx owns that combo for Open Go to Page (Story 9-4). The
-// only Find-Next keystroke is F3 / Shift+F3.
-func Test_10_2_STRUCT_060_NoCmdGRebinding(t *testing.T) {
+// TestNoCmdGRebinding asserts useFindBar.ts does not bind Cmd+G / Ctrl+G for
+// Find-Next. App.jsx owns that combo for Open Go to Page, so the only Find-Next
+// keystroke is F3 / Shift+F3.
+func TestNoCmdGRebinding(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useFindBar.ts")
 	// Use a literal lowercase-and-uppercase form check; either is a regression.
 	for _, forbidden := range []string{`e.key === 'g'`, `e.key === 'G'`, `key: 'g'`, `key: 'G'`} {
