@@ -25,13 +25,12 @@ import (
 	"testing"
 )
 
-// Test_12_1_INTG_003_RouteOpenPathDecision [P0] AC7: a main-package test named
-// with `RouteOpenPath` (matched by `-run RouteOpenPath`) must exist and pass.
-// It pins the queued-vs-ready verdict of the routing helper with a fake open
-// func. Today no such test exists, so `go test -run RouteOpenPath .` reports
-// "no tests to run" / "testing: warning: no tests to run", which this test
-// treats as the red-phase failure.
-func Test_12_1_INTG_003_RouteOpenPathDecision(t *testing.T) {
+// TestRouteOpenPathDecision asserts a main-package test named with `RouteOpenPath`
+// (matched by `-run RouteOpenPath`) exists and passes, pinning the
+// queued-vs-ready verdict of the routing helper with a fake open func. When no
+// such test exists, `go test -run RouteOpenPath .` reports "no tests to run",
+// which this treats as a failure.
+func TestRouteOpenPathDecision(t *testing.T) {
 	out, err := runMainPackageTest(t, "RouteOpenPath")
 
 	// A passing delegation requires BOTH: the command succeeded AND it

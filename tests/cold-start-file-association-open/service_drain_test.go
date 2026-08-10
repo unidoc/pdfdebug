@@ -38,11 +38,11 @@ import (
 )
 `
 
-// Test_12_1_INTG_001_ConsumeDelegatesToDrain [P0] AC5: a wired PDFService
-// delegates ConsumePendingOpenFiles to the queue's Drain -- it returns the
-// queued cold-path paths, flips the queue ready, and a second call returns
-// empty (drain-on-read idempotency survives the service boundary).
-func Test_12_1_INTG_001_ConsumeDelegatesToDrain(t *testing.T) {
+// TestConsumeDelegatesToDrain asserts a wired PDFService delegates
+// ConsumePendingOpenFiles to the queue's Drain: it returns the queued cold-path
+// paths, flips the queue ready, and a second call returns empty, so drain-on-read
+// idempotency survives the service boundary.
+func TestConsumeDelegatesToDrain(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": serviceHarnessPreamble + `
 func TestConsumeDelegates(t *testing.T) {
@@ -72,11 +72,11 @@ func TestConsumeDelegates(t *testing.T) {
 	}
 }
 
-// Test_12_1_INTG_002_ConsumeNilGuard [P1] AC5: when no queue is wired, the
-// method returns nil rather than panicking. The frontend null-guards this
-// (Go nil slice marshals to JSON null), so a nil return is the contract for
-// the unwired-or-empty case.
-func Test_12_1_INTG_002_ConsumeNilGuard(t *testing.T) {
+// TestConsumePendingOpenFilesNilWhenUnwired asserts that with no queue wired the
+// method returns nil rather than panicking. The frontend null-guards this (a Go
+// nil slice marshals to JSON null), so a nil return is the contract for the
+// unwired-or-empty case.
+func TestConsumePendingOpenFilesNilWhenUnwired(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": serviceHarnessPreambleNoQueue + `
 func TestConsumeNilGuard(t *testing.T) {

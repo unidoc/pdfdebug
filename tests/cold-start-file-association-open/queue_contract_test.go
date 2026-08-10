@@ -45,10 +45,9 @@ import (
 )
 `
 
-// Test_12_1_UNIT_001_ColdAddQueuesReturnsFalse [P0] AC3: before any Drain, Add
-// returns false (path queued, not opened) and the path is delivered by the
-// subsequent Drain.
-func Test_12_1_UNIT_001_ColdAddQueuesReturnsFalse(t *testing.T) {
+// TestColdAddQueuesReturnsFalse asserts that before any Drain, Add returns false
+// (path queued, not opened) and the path is delivered by the subsequent Drain.
+func TestColdAddQueuesReturnsFalse(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestColdAddQueues(t *testing.T) {
@@ -68,10 +67,10 @@ func TestColdAddQueues(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_002_WarmAddReturnsTrueNoQueue [P0] AC2/AC3: after Drain marks
-// the queue ready, Add returns true (caller opens immediately) and does NOT
-// queue -- the next Drain stays empty.
-func Test_12_1_UNIT_002_WarmAddReturnsTrueNoQueue(t *testing.T) {
+// TestWarmAddReturnsTrueNoQueue asserts that once Drain has marked the queue
+// ready, Add returns true (caller opens immediately) and does NOT queue -- the
+// next Drain stays empty.
+func TestWarmAddReturnsTrueNoQueue(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestWarmAddImmediate(t *testing.T) {
@@ -91,9 +90,8 @@ func TestWarmAddImmediate(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_003_DrainInsertionOrder [P1] AC3: Drain returns queued paths
-// in insertion order.
-func Test_12_1_UNIT_003_DrainInsertionOrder(t *testing.T) {
+// TestDrainInsertionOrder asserts Drain returns queued paths in insertion order.
+func TestDrainInsertionOrder(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestInsertionOrder(t *testing.T) {
@@ -119,11 +117,10 @@ func TestInsertionOrder(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_004_SecondDrainEmptyStaysReady [P0] AC4: a second Drain
-// returns an empty slice and the queue stays ready (Add still returns true).
-// This is the drain-on-read idempotency that makes StrictMode double-effects
-// and dev-mode reloads safe.
-func Test_12_1_UNIT_004_SecondDrainEmptyStaysReady(t *testing.T) {
+// TestSecondDrainEmptyStaysReady asserts a second Drain returns an empty slice and
+// the queue stays ready (Add still returns true). That drain-on-read idempotency
+// is what makes StrictMode double-effects and dev-mode reloads safe.
+func TestSecondDrainEmptyStaysReady(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestSecondDrainEmpty(t *testing.T) {
@@ -148,12 +145,11 @@ func TestSecondDrainEmpty(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_005_QueuedDedupExactRawString [P1] AC3: while queued, the same
-// raw path is recorded once (double-fire of the same file during launch opens
-// it once). Dedup is EXACT string equality -- semantic variants (a trailing
-// slash, a distinct casing) are NOT deduped; that stays the frontend reducer's
-// job.
-func Test_12_1_UNIT_005_QueuedDedupExactRawString(t *testing.T) {
+// TestQueuedDedupExactRawString asserts that while queued, the same raw path is
+// recorded once, so a double-fire of the same file during launch opens it once.
+// Dedup is EXACT string equality -- semantic variants (a trailing slash, a
+// distinct casing) are NOT deduped; that stays the frontend reducer's job.
+func TestQueuedDedupExactRawString(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestQueuedDedup(t *testing.T) {
@@ -179,12 +175,12 @@ func TestQueuedDedup(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_006_ReadyPathNeverDedups [P0] AC3: once ready, Add returns
-// true for EVERY path INCLUDING repeats. The ready path must never dedup --
-// warm duplicate handling belongs to the existing frontend re-activation flow,
-// and deduping warm opens in the queue would break AC2. This is the
-// warm-start regression guard at the queue layer.
-func Test_12_1_UNIT_006_ReadyPathNeverDedups(t *testing.T) {
+// TestReadyPathNeverDedups asserts that once ready, Add returns true for EVERY
+// path INCLUDING repeats. The ready path must never dedup: warm duplicate
+// handling belongs to the frontend re-activation flow, and deduping warm opens in
+// the queue would break the immediate-open contract. This is the warm-start
+// regression guard at the queue layer.
+func TestReadyPathNeverDedups(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreamble + `
 func TestReadyNoDedup(t *testing.T) {
@@ -208,16 +204,16 @@ func TestReadyNoDedup(t *testing.T) {
 	}
 }
 
-// Test_12_1_UNIT_007_ExactlyOnceUnderRace [P0] AC4: across concurrent Add and a
-// single Drain, every queued path is delivered exactly once -- no loss, no
-// duplication. The harness runs under `go test -race` (runHarness passes
-// -race), so a data race on the mutex-guarded queue fails the build/run.
+// TestQueueDeliversEachPathExactlyOnceUnderRace asserts that across concurrent Add
+// calls and a single Drain, every queued path is delivered exactly once -- no
+// loss, no duplication. The harness runs under `go test -race` (runHarness passes
+// -race), so a data race on the mutex-guarded queue fails the run.
 //
 // The harness fires N concurrent Adds, then a Drain, then more Adds (which may
-// land on either side of ready). It asserts: union of drained paths plus
-// post-drain ready-true Adds covers every input exactly once, and no path
+// land on either side of ready). It asserts that the union of drained paths plus
+// post-drain ready-true Adds covers every input exactly once, and that no path
 // appears twice in the drained slice.
-func Test_12_1_UNIT_007_ExactlyOnceUnderRace(t *testing.T) {
+func TestQueueDeliversEachPathExactlyOnceUnderRace(t *testing.T) {
 	out, err := runHarness(t, map[string]string{
 		"harness_test.go": queueHarnessPreambleSync + `
 func TestExactlyOnceUnderRace(t *testing.T) {
