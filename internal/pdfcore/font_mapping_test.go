@@ -169,7 +169,7 @@ func TestFontHealth_EncodingCodesWithoutToUnicode(t *testing.T) {
 		t.Fatalf("GetFontDetail: %v", err)
 	}
 	if detail.Health == nil {
-		t.Fatalf("expected FontDetail.Health to be populated (AC2)")
+		t.Fatalf("expected FontDetail.Health to be populated")
 	}
 	codes := map[int]bool{}
 	for _, c := range detail.Health.EncodingWithoutToUnicodeCodes {
@@ -191,7 +191,7 @@ func TestFontHealth_ToUnicodeMissingFlagged(t *testing.T) {
 		t.Fatalf("GetFontDetail: %v", err)
 	}
 	if detail.Health == nil {
-		t.Fatalf("expected FontDetail.Health to be populated (AC2)")
+		t.Fatalf("expected FontDetail.Health to be populated")
 	}
 	if !detail.Health.ToUnicodeMissing {
 		t.Errorf("ToUnicodeMissing = false, want true (obj 5 has no /ToUnicode)")
@@ -207,7 +207,7 @@ func TestFontHealth_ToUnicodePresentNotFlagged(t *testing.T) {
 		t.Fatalf("GetFontDetail: %v", err)
 	}
 	if detail.Health == nil {
-		t.Fatalf("expected FontDetail.Health to be populated (AC2)")
+		t.Fatalf("expected FontDetail.Health to be populated")
 	}
 	if detail.Health.ToUnicodeMissing {
 		t.Errorf("ToUnicodeMissing = true, want false (obj 6 has /ToUnicode)")
@@ -224,7 +224,7 @@ func TestFontHealth_DeclaredCodeCount(t *testing.T) {
 		t.Fatalf("GetFontDetail: %v", err)
 	}
 	if detail.Health == nil {
-		t.Fatalf("expected FontDetail.Health to be populated (AC2)")
+		t.Fatalf("expected FontDetail.Health to be populated")
 	}
 	if detail.Health.DeclaredCodeCount != 3 {
 		t.Errorf("DeclaredCodeCount = %d, want 3 (union of declared codes)", detail.Health.DeclaredCodeCount)
@@ -248,7 +248,7 @@ func TestFontMapping_MalformedToUnicode_DegradesNotCrash(t *testing.T) {
 	}
 	// Health must still be present even when ToUnicode failed to parse.
 	if detail.Health == nil {
-		t.Fatalf("expected FontDetail.Health populated even on malformed ToUnicode (AC2/AC5)")
+		t.Fatalf("expected FontDetail.Health populated even on malformed ToUnicode")
 	}
 	// A malformed/unparseable ToUnicode counts as effectively missing coverage.
 	if !detail.Health.ToUnicodeMissing {

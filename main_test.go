@@ -96,7 +96,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	// AC8 contract: return-time-versus-parse-time. The function MUST
 	// return well before the 2s parse completes.
 	if elapsed > latencyBudget {
-		t.Errorf("[P0] 10-5-AC8: openFileAndEmitWithWarning returned in %v, exceeds %v budget (AC8: returns within 50ms while parse is in flight). Per AC8 flake-handling note: if CI flakes above 50ms, raise to 200ms; never to 0.", elapsed, latencyBudget)
+		t.Errorf("openFileAndEmitWithWarning returned in %v, exceeds %v budget (returns within 50ms while parse is in flight). flake-handling note: if CI flakes above 50ms, raise to 200ms; never to 0.", elapsed, latencyBudget)
 	}
 
 	// The dispatched goroutine MUST be in flight (OpenFile entered) before
@@ -107,7 +107,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	case <-opener.openReached:
 		// goroutine reached OpenFile and is now sleeping.
 	case <-time.After(latencyBudget):
-		t.Fatalf("[P0] 10-5-AC8: openFileAndEmitWithWarning returned but the dispatched goroutine did not reach OpenFile within %v -- contract violated (parse should already be in flight)", latencyBudget)
+		t.Fatalf("openFileAndEmitWithWarning returned but the dispatched goroutine did not reach OpenFile within %v -- contract violated (parse should already be in flight)", latencyBudget)
 	}
 
 	// document:load-start MUST be emitted synchronously (before return) so
@@ -116,7 +116,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	// synchronously (already does)" contract from the Decision section.
 	events := emitter.snapshot()
 	if len(events) == 0 || events[0] != "document:load-start" {
-		t.Errorf("[P0] 10-5-AC8: expected document:load-start to be emitted synchronously before return; got events=%v", events)
+		t.Errorf("expected document:load-start to be emitted synchronously before return; got events=%v", events)
 	}
 
 	// document:opened / document:error MUST NOT yet be emitted -- the
@@ -124,7 +124,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	// the parse completes, the dispatch shape is broken.
 	for _, e := range events[1:] {
 		if e == "document:opened" || e == "document:error" {
-			t.Errorf("[P0] 10-5-AC8: event %q fired before parse completed -- the pdfcpu read is not actually dispatched to a goroutine", e)
+			t.Errorf("event %q fired before parse completed -- the pdfcpu read is not actually dispatched to a goroutine", e)
 		}
 	}
 
@@ -141,11 +141,11 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	case <-done:
 		// goroutine completed cleanly.
 	case <-time.After(parseDuration + 500*time.Millisecond):
-		t.Fatalf("[P0] 10-5-AC8: dispatched goroutine did not complete within %v -- wg.Done() not reached", parseDuration+500*time.Millisecond)
+		t.Fatalf("dispatched goroutine did not complete within %v -- wg.Done not reached", parseDuration+500*time.Millisecond)
 	}
 
 	if !opener.openCalled.Load() {
-		t.Errorf("[P0] 10-5-AC8: slowOpener.OpenFile was never called -- the dispatched goroutine did not run")
+		t.Errorf("slowOpener.OpenFile was never called -- the dispatched goroutine did not run")
 	}
 }
 

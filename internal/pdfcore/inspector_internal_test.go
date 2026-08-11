@@ -34,12 +34,12 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 	path2 := filepath.Join("..", "..", "testdata", "multipage.pdf")
 
 	if _, err := ins.Open(tabID, path1); err != nil {
-		t.Fatalf("[P0] 10-5-AC4: first Open(%q) failed: %v", path1, err)
+		t.Fatalf("first Open(%q) failed: %v", path1, err)
 	}
 
 	prior, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC4: GetDocument(prior) failed: %v", err)
+		t.Fatalf("GetDocument(prior) failed: %v", err)
 	}
 
 	// Install a wrapping cancel func that increments an atomic counter.
@@ -54,20 +54,20 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 	prior.plainTextCancelMu.Unlock()
 
 	if _, err := ins.Open(tabID, path2); err != nil {
-		t.Fatalf("[P0] 10-5-AC4: second Open(%q) failed: %v", path2, err)
+		t.Fatalf("second Open(%q) failed: %v", path2, err)
 	}
 
 	got := cancelCalls.Load()
 	if got != 1 {
-		t.Errorf("[P0] 10-5-AC4: prior.plainTextLoadCancel invoked %d times after re-Open under same tabID -- want exactly 1 (AC4: re-Open must release the prior DocumentState's cancel before inserting the new entry)", got)
+		t.Errorf("prior.plainTextLoadCancel invoked %d times after re-Open under same tabID -- want exactly 1 (re-Open must release the prior DocumentState's cancel before inserting the new entry)", got)
 	}
 
 	current, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC4: GetDocument(current) failed: %v", err)
+		t.Fatalf("GetDocument(current) failed: %v", err)
 	}
 	if current == prior {
-		t.Errorf("[P0] 10-5-AC4: new DocumentState pointer equals prior pointer -- expected re-Open to replace the entry with a fresh DocumentState")
+		t.Errorf("new DocumentState pointer equals prior pointer -- expected re-Open to replace the entry with a fresh DocumentState")
 	}
 }
 
@@ -85,20 +85,20 @@ func TestOpenDoesNotBuildReverseRefs(t *testing.T) {
 
 	path := filepath.Join("..", "..", "testdata", "multipage.pdf")
 	if _, err := ins.Open(tabID, path); err != nil {
-		t.Fatalf("[P0] 10-5-AC7: Open(%q) failed: %v", path, err)
+		t.Fatalf("Open(%q) failed: %v", path, err)
 	}
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC7: GetDocument failed: %v", err)
+		t.Fatalf("GetDocument failed: %v", err)
 	}
 
 	if doc.reverseRefs != nil {
-		t.Errorf("[P0] 10-5-AC7: doc.reverseRefs is NOT nil immediately after Open -- expected lazy build deferred to first GetReverseRefs call (AC7: revBuildOnce sync.Once)")
+		t.Errorf("doc.reverseRefs is NOT nil immediately after Open -- expected lazy build deferred to first GetReverseRefs call (revBuildOnce sync.Once)")
 	}
 	if doc.revRefsBuildFailed {
-		t.Errorf("[P0] 10-5-AC7: doc.revRefsBuildFailed = true immediately after Open -- expected false (build has not yet been attempted)")
+		t.Errorf("doc.revRefsBuildFailed = true immediately after Open -- expected false (build has not yet been attempted)")
 	}
 }
 
@@ -111,27 +111,27 @@ func TestFirstGetReverseRefsTriggersBuild(t *testing.T) {
 
 	path := filepath.Join("..", "..", "testdata", "multipage.pdf")
 	if _, err := ins.Open(tabID, path); err != nil {
-		t.Fatalf("[P0] 10-5-AC7: Open(%q) failed: %v", path, err)
+		t.Fatalf("Open(%q) failed: %v", path, err)
 	}
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC7: GetDocument failed: %v", err)
+		t.Fatalf("GetDocument failed: %v", err)
 	}
 
 	// Pre-condition: build has not yet been triggered.
 	if doc.reverseRefs != nil {
-		t.Fatalf("[P0] 10-5-AC7: doc.reverseRefs already populated before any GetReverseRefs call -- lazy-build contract violated (AC7)")
+		t.Fatalf("doc.reverseRefs already populated before any GetReverseRefs call -- lazy-build contract violated")
 	}
 
 	// Trigger build via first GetReverseRefs call. The catalog object is
 	// well-known and present in multipage.pdf; the call should succeed.
 	if _, err := ins.GetReverseRefs(tabID, "obj:0:1"); err != nil {
-		t.Fatalf("[P0] 10-5-AC7: first GetReverseRefs failed: %v", err)
+		t.Fatalf("first GetReverseRefs failed: %v", err)
 	}
 
 	if doc.reverseRefs == nil && !doc.revRefsBuildFailed {
-		t.Errorf("[P0] 10-5-AC7: after first GetReverseRefs, doc.reverseRefs is still nil and doc.revRefsBuildFailed is false -- expected the call to trigger the build (AC7: buildReverseRefsOnce)")
+		t.Errorf("after first GetReverseRefs, doc.reverseRefs is still nil and doc.revRefsBuildFailed is false -- expected the call to trigger the build (buildReverseRefsOnce)")
 	}
 }

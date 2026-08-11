@@ -61,14 +61,14 @@ func TestServiceRecoversRuntimeError(t *testing.T) {
 			if _, ok := r.(runtime.Error); ok {
 				t.Errorf("[P0] 10-5-AC5: GetTreeRoot propagated runtime.Error (%v) instead of being recovered by pdfservice -- AC5 contract violated", r)
 			} else {
-				t.Errorf("[P0] 10-5-AC5: unexpected non-runtime panic propagated: %v", r)
+				t.Errorf("unexpected non-runtime panic propagated: %v", r)
 			}
 		}
 	}()
 
 	result, err := svc.GetTreeRoot("any-tab-id")
 	if err == nil {
-		t.Fatalf("[P0] 10-5-AC5: expected error from recovered runtime.Error, got nil (result=%v)", result)
+		t.Fatalf("expected error from recovered runtime.Error, got nil (result=%v)", result)
 	}
 	if !errors.Is(err, pdfcore.ErrMalformedPDF) {
 		t.Errorf("[P0] 10-5-AC5: expected errors.Is(err, ErrMalformedPDF) -- AC5 requires conversion via `fmt.Errorf(\"%%w: internal error\", pdfcore.ErrMalformedPDF)` so the frontend regex /malformed/i matches. Got: %v", err)
@@ -76,7 +76,7 @@ func TestServiceRecoversRuntimeError(t *testing.T) {
 	// Result MUST be the zero value (nil for *TreeNode). Go's named-return
 	// semantics guarantee this when the inner call panics before returning.
 	if result != nil {
-		t.Errorf("[P0] 10-5-AC5: expected nil *TreeNode on recovered runtime.Error, got %v -- named-return zero-value semantics violated (helper must NOT touch the first return)", result)
+		t.Errorf("expected nil *TreeNode on recovered runtime.Error, got %v -- named-return zero-value semantics violated (helper must NOT touch the first return)", result)
 	}
 
 	// Sanity hint -- the recover helper is required to log via log.Printf.

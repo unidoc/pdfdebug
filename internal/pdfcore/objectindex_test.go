@@ -366,15 +366,15 @@ func TestBuildReachableSetDeepNesting(t *testing.T) {
 	// Boundary check: obj 33 sits at depth 32 pre-fix (the first depth
 	// that the cap blocked). Assert reachable.
 	if e := byNum[33]; e == nil || !e.Reachable {
-		t.Errorf("AC2 boundary: obj 33 (depth 32) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("boundary: obj 33 (depth 32) reachable=%v, want true", e != nil && e.Reachable)
 	}
 	// Well past the boundary: obj 50 must also be reachable (depth 49).
 	if e := byNum[50]; e == nil || !e.Reachable {
-		t.Errorf("AC2 well-past-32: obj 50 (depth 49) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("well-past-32: obj 50 (depth 49) reachable=%v, want true", e != nil && e.Reachable)
 	}
 	// Leaf page at obj 53.
 	if e := byNum[53]; e == nil || !e.Reachable {
-		t.Errorf("AC2 leaf: obj 53 (leaf Page) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("leaf: obj 53 (leaf Page) reachable=%v, want true", e != nil && e.Reachable)
 	}
 }
 

@@ -34,23 +34,23 @@ func TestDocumentInfoWireShape(t *testing.T) {
 	}
 	raw, err := json.Marshal(in)
 	if err != nil {
-		t.Fatalf("[P0] 12.3-UNIT-001: marshal DocumentInfo: %v", err)
+		t.Fatalf("marshal DocumentInfo: %v", err)
 	}
 	var got map[string]any
 	if err := json.Unmarshal(raw, &got); err != nil {
-		t.Fatalf("[P0] 12.3-UNIT-001: unmarshal DocumentInfo JSON: %v\nraw: %s", err, raw)
+		t.Fatalf("unmarshal DocumentInfo JSON: %v\nraw: %s", err, raw)
 	}
 	// The exact camelCase keys the frontend reads (see useDocumentState.tsx
 	// OPEN_DOCUMENT and the document:opened payload contract in project-context).
 	wantKeys := []string{"tabId", "fileName", "filePath", "pageCount", "fileSize", "error"}
 	for _, k := range wantKeys {
 		if _, ok := got[k]; !ok {
-			t.Errorf("[P0] 12.3-UNIT-001: DocumentInfo JSON missing key %q (case-sensitive) -- an alpha.96 struct-tag drift would silently break the document:opened payload destructuring (AC7)\nraw: %s", k, raw)
+			t.Errorf("DocumentInfo JSON missing key %q (case-sensitive) -- an alpha.96 struct-tag drift would silently break the document:opened payload destructuring\nraw: %s", k, raw)
 		}
 	}
 	// No extra/renamed keys: a drift that renames a field would surface as both a
 	// missing wanted key AND an unexpected key, so pin the exact set.
 	if len(got) != len(wantKeys) {
-		t.Errorf("[P0] 12.3-UNIT-001: DocumentInfo JSON has %d keys, want exactly %d (%v) -- an unexpected key signals a re-tag or an added field that the frontend payload contract does not know about (AC7)\nraw: %s", len(got), len(wantKeys), wantKeys, raw)
+		t.Errorf("DocumentInfo JSON has %d keys, want exactly %d (%v) -- an unexpected key signals a re-tag or an added field that the frontend payload contract does not know about\nraw: %s", len(got), len(wantKeys), wantKeys, raw)
 	}
 }

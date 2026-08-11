@@ -77,10 +77,10 @@ func TestGetDocumentMetadata_ReturnsXMP(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-020: GetDocumentMetadata error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if md == nil || md.XMP == "" {
-		t.Fatalf("[P0] 13.2-UNIT-020: expected non-empty XMP, got %+v", md)
+		t.Fatalf("expected non-empty XMP, got %+v", md)
 	}
 }
 
@@ -98,7 +98,7 @@ func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
 		t.Fatalf("[P0] 13.2-UNIT-021: error: %v", err)
 	}
 	if md.XMP != xmpPacket {
-		t.Errorf("[P0] 13.2-UNIT-021: XMP not verbatim\n got: %q\nwant: %q", md.XMP, xmpPacket)
+		t.Errorf("XMP not verbatim\n got: %q\nwant: %q", md.XMP, xmpPacket)
 	}
 }
 
@@ -114,13 +114,13 @@ func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
 		t.Fatalf("[P0] 13.2-UNIT-022: error: %v", err)
 	}
 	if got := md.Info["Title"]; got != "Invoice 2024-001" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Title] = %q, want %q", got, "Invoice 2024-001")
+		t.Errorf("Info[Title] = %q, want %q", got, "Invoice 2024-001")
 	}
 	if got := md.Info["Author"]; got != "ACME GmbH" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Author] = %q, want %q", got, "ACME GmbH")
+		t.Errorf("Info[Author] = %q, want %q", got, "ACME GmbH")
 	}
 	if got := md.Info["Producer"]; got != "pdfdebug-test" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Producer] = %q, want %q", got, "pdfdebug-test")
+		t.Errorf("Info[Producer] = %q, want %q", got, "pdfdebug-test")
 	}
 }
 
@@ -139,16 +139,16 @@ func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-023: missing metadata must NOT error, got %v", err)
+		t.Fatalf("missing metadata must NOT error, got %v", err)
 	}
 	if md == nil {
-		t.Fatalf("[P1] 13.2-UNIT-023: expected a non-nil empty result")
+		t.Fatalf("expected a non-nil empty result")
 	}
 	if md.XMP != "" {
-		t.Errorf("[P1] 13.2-UNIT-023: expected empty XMP, got %q", md.XMP)
+		t.Errorf("expected empty XMP, got %q", md.XMP)
 	}
 	if len(md.Info) != 0 {
-		t.Errorf("[P1] 13.2-UNIT-023: expected empty Info, got %+v", md.Info)
+		t.Errorf("expected empty Info, got %+v", md.Info)
 	}
 }
 
@@ -184,10 +184,10 @@ func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
 
 	xmp, warning := decodeXMPStream(sd)
 	if xmp != "" {
-		t.Errorf("[P0] 13.2-UNIT-024: undecodable /Metadata must yield empty XMP, got %q", xmp)
+		t.Errorf("undecodable /Metadata must yield empty XMP, got %q", xmp)
 	}
 	if strings.TrimSpace(warning) == "" {
-		t.Errorf("[P0] 13.2-UNIT-024: undecodable /Metadata must surface a warning")
+		t.Errorf("undecodable /Metadata must surface a warning")
 	}
 }
 
@@ -212,9 +212,9 @@ func TestDecodeXMPStream_UnfilteredVerbatimNoWarning(t *testing.T) {
 
 	xmp, warning := decodeXMPStream(sd)
 	if xmp != xmpPacket {
-		t.Errorf("[P1] 13.2-UNIT-025: unfiltered XMP not verbatim\n got: %q\nwant: %q", xmp, xmpPacket)
+		t.Errorf("unfiltered XMP not verbatim\n got: %q\nwant: %q", xmp, xmpPacket)
 	}
 	if warning != "" {
-		t.Errorf("[P1] 13.2-UNIT-025: unfiltered XMP must NOT warn, got %q", warning)
+		t.Errorf("unfiltered XMP must NOT warn, got %q", warning)
 	}
 }

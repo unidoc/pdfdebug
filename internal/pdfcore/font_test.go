@@ -147,7 +147,7 @@ func TestGetFontDetail_Type0CIDSystemInfoFields(t *testing.T) {
 	}
 	cid := detail.Descendant.CIDSystemInfo
 	if cid == nil {
-		t.Fatal("expected Descendant.CIDSystemInfo to be populated (AC7)")
+		t.Fatal("expected Descendant.CIDSystemInfo to be populated")
 	}
 	if cid.Registry != "Adobe" {
 		t.Errorf("Registry = %q, want Adobe", cid.Registry)
@@ -159,10 +159,10 @@ func TestGetFontDetail_Type0CIDSystemInfoFields(t *testing.T) {
 		t.Errorf("Supplement = %d, want 0", cid.Supplement)
 	}
 	if detail.Descendant.CIDToGIDMap != "Identity" {
-		t.Errorf("CIDToGIDMap = %q, want Identity (AC7)", detail.Descendant.CIDToGIDMap)
+		t.Errorf("CIDToGIDMap = %q, want Identity", detail.Descendant.CIDToGIDMap)
 	}
 	if detail.Descendant.DefaultWidth != 1000 {
-		t.Errorf("DefaultWidth = %d, want 1000 (AC7)", detail.Descendant.DefaultWidth)
+		t.Errorf("DefaultWidth = %d, want 1000", detail.Descendant.DefaultWidth)
 	}
 }
 
@@ -1315,7 +1315,7 @@ func TestParseDifferencesOutOfRange(t *testing.T) {
 	}
 	for _, d := range out {
 		if d.Code < 0 || d.Code > 255 {
-			t.Errorf("parseDifferences leaked out-of-range code %d (AC5: skip silently)", d.Code)
+			t.Errorf("parseDifferences leaked out-of-range code %d (skip silently)", d.Code)
 		}
 		if got, ok := want[d.Code]; !ok || got != d.GlyphName {
 			t.Errorf("parseDifferences code=%d glyph=%q, want code=%d glyph=%q", d.Code, d.GlyphName, d.Code, got)

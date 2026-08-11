@@ -135,16 +135,16 @@ func TestResolveRef_CycleTerminatesAndMarksCyclic(t *testing.T) {
 	// the visited set (objNum:gen) must break A->B->A.
 	node, err := ins.ResolveRef(tabID, "obj:0:4", ResolveOpts{MaxDepth: 16})
 	if err != nil {
-		t.Fatalf("[P0] 11.5-UNIT-AC3-001: ResolveRef returned error: %v", err)
+		t.Fatalf("ResolveRef returned error: %v", err)
 	}
 	if node == nil {
-		t.Fatal("[P0] 11.5-UNIT-AC3-001: ResolveRef returned nil for obj 4")
+		t.Fatal("ResolveRef returned nil for obj 4")
 	}
 
 	// Some node in the resolved graph must carry Cyclic=true (the back-edge that
 	// re-enters object 4). Walk children and assert at least one Cyclic marker.
 	if !anyCyclic(node) {
-		t.Errorf("[P0] 11.5-UNIT-AC3-001: expected a Cyclic marker on the A->B->A back-edge; found none in resolved graph")
+		t.Errorf("expected a Cyclic marker on the A->B->A back-edge; found none in resolved graph")
 	}
 }
 
@@ -157,13 +157,13 @@ func TestResolveRef_SelfReferenceTerminates(t *testing.T) {
 
 	node, err := ins.ResolveRef(tabID, "obj:0:4", ResolveOpts{MaxDepth: 16})
 	if err != nil {
-		t.Fatalf("[P0] 11.5-UNIT-AC3-002: ResolveRef returned error: %v", err)
+		t.Fatalf("ResolveRef returned error: %v", err)
 	}
 	if node == nil {
-		t.Fatal("[P0] 11.5-UNIT-AC3-002: ResolveRef returned nil for self-ref obj 4")
+		t.Fatal("ResolveRef returned nil for self-ref obj 4")
 	}
 	if !anyCyclic(node) {
-		t.Errorf("[P0] 11.5-UNIT-AC3-002: expected a Cyclic marker on the A->A self-edge; found none")
+		t.Errorf("expected a Cyclic marker on the A->A self-edge; found none")
 	}
 }
 
@@ -179,18 +179,18 @@ func TestResolveRef_DeepChainTruncatedAtCap(t *testing.T) {
 	// (to obj7) unresolved and marked Truncated.
 	node, err := ins.ResolveRef(tabID, "obj:0:4", ResolveOpts{MaxDepth: 2})
 	if err != nil {
-		t.Fatalf("[P0] 11.5-UNIT-AC3-003: ResolveRef returned error: %v", err)
+		t.Fatalf("ResolveRef returned error: %v", err)
 	}
 	if node == nil {
-		t.Fatal("[P0] 11.5-UNIT-AC3-003: ResolveRef returned nil")
+		t.Fatal("ResolveRef returned nil")
 	}
 
 	depth := chainDepthResolved(node)
 	if depth < 2 {
-		t.Errorf("[P0] 11.5-UNIT-AC3-003: chain resolved to depth %d, want at least 2 below the cap", depth)
+		t.Errorf("chain resolved to depth %d, want at least 2 below the cap", depth)
 	}
 	if !anyTruncated(node) {
-		t.Errorf("[P0] 11.5-UNIT-AC3-003: expected a Truncated marker at the MaxDepth=2 cap; found none")
+		t.Errorf("expected a Truncated marker at the MaxDepth=2 cap; found none")
 	}
 }
 
@@ -204,16 +204,16 @@ func TestResolveRef_MaxDepthZeroLeavesChildRefsUnfollowed(t *testing.T) {
 
 	node, err := ins.ResolveRef(tabID, "obj:0:4", ResolveOpts{MaxDepth: 0})
 	if err != nil {
-		t.Fatalf("[P0] 11.5-UNIT-AC3-004: ResolveRef returned error: %v", err)
+		t.Fatalf("ResolveRef returned error: %v", err)
 	}
 	if node == nil {
-		t.Fatal("[P0] 11.5-UNIT-AC3-004: ResolveRef returned nil")
+		t.Fatal("ResolveRef returned nil")
 	}
 
 	// At MaxDepth=0 the /Next ref inside object 4 must NOT have been followed:
 	// no resolved child carrying object 5's ObjectRef should appear.
 	if chainDepthResolved(node) != 0 {
-		t.Errorf("[P0] 11.5-UNIT-AC3-004: MaxDepth=0 followed a child ref (resolved depth > 0); child refs must stay unfollowed")
+		t.Errorf("MaxDepth=0 followed a child ref (resolved depth > 0); child refs must stay unfollowed")
 	}
 }
 
@@ -234,10 +234,10 @@ func TestResolveRef_NegativeMaxDepthRejectedOrClamped(t *testing.T) {
 	}
 	// Clamped-to-0 contract: must behave exactly like MaxDepth=0.
 	if node == nil {
-		t.Fatal("[P1] 11.5-UNIT-AC3-005: negative MaxDepth neither errored nor returned a node")
+		t.Fatal("negative MaxDepth neither errored nor returned a node")
 	}
 	if chainDepthResolved(node) != 0 {
-		t.Errorf("[P1] 11.5-UNIT-AC3-005: negative MaxDepth was neither rejected nor clamped to 0 (resolved child refs)")
+		t.Errorf("negative MaxDepth was neither rejected nor clamped to 0 (resolved child refs)")
 	}
 }
 
@@ -252,19 +252,19 @@ func TestResolveRef_JSONShapeContract(t *testing.T) {
 
 	node, err := ins.ResolveRef(tabID, "obj:0:4", ResolveOpts{MaxDepth: 1})
 	if err != nil {
-		t.Fatalf("[P1] 11.5-UNIT-AC3-006: ResolveRef error: %v", err)
+		t.Fatalf("ResolveRef error: %v", err)
 	}
 	b, err := json.Marshal(node)
 	if err != nil {
-		t.Fatalf("[P1] 11.5-UNIT-AC3-006: ResolvedNode does not marshal to JSON: %v", err)
+		t.Fatalf("ResolvedNode does not marshal to JSON: %v", err)
 	}
 	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
-		t.Fatalf("[P1] 11.5-UNIT-AC3-006: ResolvedNode JSON is not an object: %v\nraw: %s", err, b)
+		t.Fatalf("ResolvedNode JSON is not an object: %v\nraw: %s", err, b)
 	}
 	for _, key := range []string{"objectRef", "cyclic", "truncated"} {
 		if _, ok := m[key]; !ok {
-			t.Errorf("[P1] 11.5-UNIT-AC3-006: ResolvedNode JSON missing contract key %q (keys present: %v)", key, keysOf(m))
+			t.Errorf("ResolvedNode JSON missing contract key %q (keys present: %v)", key, keysOf(m))
 		}
 	}
 }

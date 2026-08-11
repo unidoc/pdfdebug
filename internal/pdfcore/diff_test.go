@@ -324,18 +324,18 @@ func TestDiff_SharedRefWalkedElsewhereNotTruncated(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 14.3-UNIT-001b: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.TruncatedSubtrees != 0 {
-		t.Errorf("[P1] 14.3-UNIT-001b: TruncatedSubtrees = %d, want 0 (the shared object is fully walked on the shallow path)", res.Summary.TruncatedSubtrees)
+		t.Errorf("TruncatedSubtrees = %d, want 0 (the shared object is fully walked on the shallow path)", res.Summary.TruncatedSubtrees)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P1] 14.3-UNIT-001b: identical inputs reported deltas Added=%d Removed=%d Changed=%d, want all 0", res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
+		t.Errorf("identical inputs reported deltas Added=%d Removed=%d Changed=%d, want all 0", res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	// No node may still carry the Truncated mark after reconciliation.
 	for _, n := range collectDiffNodes(res.Root) {
 		if n.Truncated {
-			t.Errorf("[P1] 14.3-UNIT-001b: node %q still marked Truncated after reconciliation", n.Path)
+			t.Errorf("node %q still marked Truncated after reconciliation", n.Path)
 		}
 	}
 }
@@ -392,11 +392,11 @@ func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 14.3-UNIT-001: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 
 	if res.Summary.TruncatedSubtrees < 1 {
-		t.Errorf("[P1] 14.3-UNIT-001: TruncatedSubtrees = %d, want >= 1 (the deep chain is cut at the depth cap)", res.Summary.TruncatedSubtrees)
+		t.Errorf("TruncatedSubtrees = %d, want >= 1 (the deep chain is cut at the depth cap)", res.Summary.TruncatedSubtrees)
 	}
 
 	nodes := collectDiffNodes(res.Root)
@@ -407,15 +407,15 @@ func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
 			// A truncated node is the depth-capped ref, compared by shallow
 			// summary, so it carries Kind "ref" and no children.
 			if n.Kind != "ref" {
-				t.Errorf("[P1] 14.3-UNIT-001: truncated node %q kind = %q, want \"ref\"", n.Path, n.Kind)
+				t.Errorf("truncated node %q kind = %q, want \"ref\"", n.Path, n.Kind)
 			}
 			if len(n.Children) != 0 {
-				t.Errorf("[P1] 14.3-UNIT-001: truncated node %q has %d children, want 0 (subtree not walked)", n.Path, len(n.Children))
+				t.Errorf("truncated node %q has %d children, want 0 (subtree not walked)", n.Path, len(n.Children))
 			}
 		}
 	}
 	if truncated != res.Summary.TruncatedSubtrees {
-		t.Errorf("[P1] 14.3-UNIT-001: %d nodes carry Truncated but summary counts %d", truncated, res.Summary.TruncatedSubtrees)
+		t.Errorf("%d nodes carry Truncated but summary counts %d", truncated, res.Summary.TruncatedSubtrees)
 	}
 
 	// Guardrail (the "only the depth cap is truncation" rule): a SHALLOW graph
@@ -425,10 +425,10 @@ func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
 	ins2, l2, r2 := openTwoForDiff(t, "s1.pdf", shallow, "s2.pdf", shallow)
 	res2, err := ins2.DiffDocuments(l2, r2)
 	if err != nil {
-		t.Fatalf("[P1] 14.3-UNIT-001: shallow self-diff returned error: %v", err)
+		t.Fatalf("shallow self-diff returned error: %v", err)
 	}
 	if res2.Summary.TruncatedSubtrees != 0 {
-		t.Errorf("[P1] 14.3-UNIT-001: shallow self-diff TruncatedSubtrees = %d, want 0 (cycles/dedup are not truncation)", res2.Summary.TruncatedSubtrees)
+		t.Errorf("shallow self-diff TruncatedSubtrees = %d, want 0 (cycles/dedup are not truncation)", res2.Summary.TruncatedSubtrees)
 	}
 }
 
@@ -443,21 +443,21 @@ func TestDiff_SelfIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-001: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Root == nil {
-		t.Fatalf("[P0] 13.6-UNIT-001: result Root is nil")
+		t.Fatalf("result Root is nil")
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-001: Root.Status = %q, want unchanged", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged", res.Root.Status)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-001: self-diff summary not zero: +%d -%d ~%d",
+		t.Errorf("self-diff summary not zero: +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	for _, n := range collectDiffNodes(res.Root) {
 		if n.Status != "unchanged" {
-			t.Errorf("[P0] 13.6-UNIT-001: node %q has status %q in a self-diff (want all unchanged)", n.Path, n.Status)
+			t.Errorf("node %q has status %q in a self-diff (want all unchanged)", n.Path, n.Status)
 		}
 	}
 }
@@ -473,14 +473,14 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-002: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-002: path-alignment failed -- renumbered-but-identical pair shows delta +%d -%d ~%d (must be 0/0/0)",
+		t.Errorf("path-alignment failed -- renumbered-but-identical pair shows delta +%d -%d ~%d (must be 0/0/0)",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-002: Root.Status = %q, want unchanged for a renumbered-identical pair", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged for a renumbered-identical pair", res.Root.Status)
 	}
 }
 
@@ -497,14 +497,14 @@ func TestDiff_MultiLevelRenumberedIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-002b: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-002b: multi-level renumbered-identical pair shows delta +%d -%d ~%d (must be 0/0/0); cut-point summaries are leaking object numbers",
+		t.Errorf("multi-level renumbered-identical pair shows delta +%d -%d ~%d (must be 0/0/0); cut-point summaries are leaking object numbers",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-002b: Root.Status = %q, want unchanged", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged", res.Root.Status)
 	}
 }
 
@@ -518,10 +518,10 @@ func TestDiff_AddedObject(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-003: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added < 1 {
-		t.Errorf("[P1] 13.6-UNIT-003: summary.Added = %d, want >=1", res.Summary.Added)
+		t.Errorf("summary.Added = %d, want >=1", res.Summary.Added)
 	}
 	var found *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -531,13 +531,13 @@ func TestDiff_AddedObject(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P1] 13.6-UNIT-003: no node with status \"added\" in the tree")
+		t.Fatalf("no node with status \"added\" in the tree")
 	}
 	if found.LeftSummary != "" {
-		t.Errorf("[P1] 13.6-UNIT-003: added node LeftSummary = %q, want empty (nothing on the left)", found.LeftSummary)
+		t.Errorf("added node LeftSummary = %q, want empty (nothing on the left)", found.LeftSummary)
 	}
 	if found.RightSummary == "" {
-		t.Errorf("[P1] 13.6-UNIT-003: added node RightSummary is empty, want the right value repr")
+		t.Errorf("added node RightSummary is empty, want the right value repr")
 	}
 }
 
@@ -551,10 +551,10 @@ func TestDiff_RemovedObject(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-004: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Removed < 1 {
-		t.Errorf("[P1] 13.6-UNIT-004: summary.Removed = %d, want >=1", res.Summary.Removed)
+		t.Errorf("summary.Removed = %d, want >=1", res.Summary.Removed)
 	}
 	var found *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -564,10 +564,10 @@ func TestDiff_RemovedObject(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P1] 13.6-UNIT-004: no node with status \"removed\" in the tree")
+		t.Fatalf("no node with status \"removed\" in the tree")
 	}
 	if found.RightSummary != "" {
-		t.Errorf("[P1] 13.6-UNIT-004: removed node RightSummary = %q, want empty (nothing on the right)", found.RightSummary)
+		t.Errorf("removed node RightSummary = %q, want empty (nothing on the right)", found.RightSummary)
 	}
 }
 
@@ -581,10 +581,10 @@ func TestDiff_ChangedDictReportsChangedKey(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-005: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Changed < 1 {
-		t.Errorf("[P0] 13.6-UNIT-005: summary.Changed = %d, want >=1", res.Summary.Changed)
+		t.Errorf("summary.Changed = %d, want >=1", res.Summary.Changed)
 	}
 	var pageNode *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -594,7 +594,7 @@ func TestDiff_ChangedDictReportsChangedKey(t *testing.T) {
 		}
 	}
 	if pageNode == nil {
-		t.Fatalf("[P0] 13.6-UNIT-005: no changed dict reports ChangedKeys containing \"MediaBox\"")
+		t.Fatalf("no changed dict reports ChangedKeys containing \"MediaBox\"")
 	}
 }
 
@@ -608,7 +608,7 @@ func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-006: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	var leaf *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -618,10 +618,10 @@ func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
 		}
 	}
 	if leaf == nil {
-		t.Fatalf("[P1] 13.6-UNIT-006: no changed scalar leaf carries both a LeftSummary and a RightSummary")
+		t.Fatalf("no changed scalar leaf carries both a LeftSummary and a RightSummary")
 	}
 	if leaf.LeftSummary == leaf.RightSummary {
-		t.Errorf("[P1] 13.6-UNIT-006: changed leaf has identical summaries %q; a value change must differ", leaf.LeftSummary)
+		t.Errorf("changed leaf has identical summaries %q; a value change must differ", leaf.LeftSummary)
 	}
 }
 
@@ -634,13 +634,13 @@ func TestDiff_SummaryPageCountChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-007: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.PageCountLeft != 1 {
-		t.Errorf("[P0] 13.6-UNIT-007: summary.PageCountLeft = %d, want 1", res.Summary.PageCountLeft)
+		t.Errorf("summary.PageCountLeft = %d, want 1", res.Summary.PageCountLeft)
 	}
 	if res.Summary.PageCountRight != 2 {
-		t.Errorf("[P0] 13.6-UNIT-007: summary.PageCountRight = %d, want 2", res.Summary.PageCountRight)
+		t.Errorf("summary.PageCountRight = %d, want 2", res.Summary.PageCountRight)
 	}
 }
 
@@ -653,10 +653,10 @@ func TestDiff_SummaryVersionChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-008: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.VersionChanged {
-		t.Errorf("[P1] 13.6-UNIT-008: summary.VersionChanged = false, want true (catalog /Version differs)")
+		t.Errorf("summary.VersionChanged = false, want true (catalog /Version differs)")
 	}
 }
 
@@ -673,15 +673,15 @@ func TestDiff_SummaryShapeStableOnSelfDiff(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P2] 13.6-UNIT-009: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	s := res.Summary
 	if s.VersionChanged || s.EncryptionChanged || s.InfoChanged || s.XMPChanged {
-		t.Errorf("[P2] 13.6-UNIT-009: self-diff flags must all be false, got version=%v enc=%v info=%v xmp=%v",
+		t.Errorf("self-diff flags must all be false, got version=%v enc=%v info=%v xmp=%v",
 			s.VersionChanged, s.EncryptionChanged, s.InfoChanged, s.XMPChanged)
 	}
 	if s.PageCountLeft != s.PageCountRight {
-		t.Errorf("[P2] 13.6-UNIT-009: self-diff page counts differ: %d vs %d", s.PageCountLeft, s.PageCountRight)
+		t.Errorf("self-diff page counts differ: %d vs %d", s.PageCountLeft, s.PageCountRight)
 	}
 }
 
@@ -697,13 +697,13 @@ func TestDiff_CyclicGraphTerminates(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P2] 13.6-UNIT-010: DiffDocuments returned error on a cyclic graph: %v", err)
+		t.Fatalf("DiffDocuments returned error on a cyclic graph: %v", err)
 	}
 	if res.Root == nil {
-		t.Fatalf("[P2] 13.6-UNIT-010: result Root is nil")
+		t.Fatalf("result Root is nil")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P2] 13.6-UNIT-010: cyclic self-diff should be zero delta, got +%d -%d ~%d",
+		t.Errorf("cyclic self-diff should be zero delta, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
@@ -722,10 +722,10 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added == 0 && res.Summary.Changed == 0 {
-		t.Fatalf("[P1] 13.6-UNIT-012: retargeted ref produced no delta (+%d ~%d); the change was missed",
+		t.Fatalf("retargeted ref produced no delta (+%d ~%d); the change was missed",
 			res.Summary.Added, res.Summary.Changed)
 	}
 
@@ -737,10 +737,10 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 		}
 	}
 	if openAction == nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: no /Root/OpenAction node in the tree (ref not dereferenced by path)")
+		t.Fatalf("no /Root/OpenAction node in the tree (ref not dereferenced by path)")
 	}
 	if openAction.Status != "changed" {
-		t.Fatalf("[P1] 13.6-UNIT-012: /Root/OpenAction status = %q, want changed", openAction.Status)
+		t.Fatalf("Root/OpenAction status = %q, want changed", openAction.Status)
 	}
 	// The retarget must be reported by the TARGET's content: a changed /S leaf
 	// carrying the actual name values (/GoTo -> /Named), never a bare "N G R".
@@ -752,13 +752,13 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 		}
 	}
 	if sLeaf == nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: no /Root/OpenAction/S leaf; retarget not compared by target content")
+		t.Fatalf("no /Root/OpenAction/S leaf; retarget not compared by target content")
 	}
 	if sLeaf.Status != "changed" {
-		t.Errorf("[P1] 13.6-UNIT-012: /Root/OpenAction/S status = %q, want changed", sLeaf.Status)
+		t.Errorf("Root/OpenAction/S status = %q, want changed", sLeaf.Status)
 	}
 	if !strings.Contains(sLeaf.LeftSummary, "GoTo") || !strings.Contains(sLeaf.RightSummary, "Named") {
-		t.Errorf("[P1] 13.6-UNIT-012: /S change reported as %q -> %q, want the target names (GoTo -> Named); a raw object number here means alignment leaked the ref target",
+		t.Errorf("S change reported as %q -> %q, want the target names (GoTo -> Named); a raw object number here means alignment leaked the ref target",
 			sLeaf.LeftSummary, sLeaf.RightSummary)
 	}
 }
@@ -771,7 +771,7 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 func TestDiff_UnknownTabReturnsError(t *testing.T) {
 	ins := NewInspector()
 	if _, err := ins.DiffDocuments("nope-left", "nope-right"); err == nil {
-		t.Errorf("[P1] 13.6-UNIT-011: DiffDocuments on unknown tabs returned nil error, want an error")
+		t.Errorf("DiffDocuments on unknown tabs returned nil error, want an error")
 	}
 }
 
@@ -821,14 +821,14 @@ func TestDiff_SharedSubgraphDedupTerminates(t *testing.T) {
 
 	select {
 	case err := <-errc:
-		t.Fatalf("[P1] 13.6-UNIT-013: DiffDocuments error on a shared-subgraph graph: %v", err)
+		t.Fatalf("DiffDocuments error on a shared-subgraph graph: %v", err)
 	case res := <-done:
 		if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-			t.Errorf("[P1] 13.6-UNIT-013: shared-subgraph self-diff should be zero delta, got +%d -%d ~%d",
+			t.Errorf("shared-subgraph self-diff should be zero delta, got +%d -%d ~%d",
 				res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 		}
 	case <-time.After(10 * time.Second):
-		t.Fatalf("[P1] 13.6-UNIT-013: DiffDocuments did not terminate within 10s on a diamond ladder; cross-path dedup regressed (exponential re-walk)")
+		t.Fatalf("DiffDocuments did not terminate within 10s on a diamond ladder; cross-path dedup regressed (exponential re-walk)")
 	}
 }
 
@@ -863,13 +863,13 @@ func TestDiff_SummaryInfoChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-014: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.InfoChanged {
-		t.Errorf("[P1] 13.6-UNIT-014: summary.InfoChanged = false, want true (trailer /Info /Producer differs)")
+		t.Errorf("summary.InfoChanged = false, want true (trailer /Info /Producer differs)")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P1] 13.6-UNIT-014: /Info lives OFF the catalog walk, so node counts must stay 0/0/0, got +%d -%d ~%d",
+		t.Errorf("Info lives OFF the catalog walk, so node counts must stay 0/0/0, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
@@ -902,13 +902,13 @@ func TestDiff_SummaryXMPChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-015: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.XMPChanged {
-		t.Errorf("[P1] 13.6-UNIT-015: summary.XMPChanged = false, want true (catalog /Metadata XMP packet differs)")
+		t.Errorf("summary.XMPChanged = false, want true (catalog /Metadata XMP packet differs)")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P1] 13.6-UNIT-015: equal-length XMP means the stream dict is identical and bodies are not diffed, so node counts must stay 0/0/0, got +%d -%d ~%d",
+		t.Errorf("equal-length XMP means the stream dict is identical and bodies are not diffed, so node counts must stay 0/0/0, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
@@ -926,13 +926,13 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-016: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Root.Status != "changed" {
-		t.Fatalf("[P1] 13.6-UNIT-016: /Root status = %q, want changed (a key was added to the catalog)", res.Root.Status)
+		t.Fatalf("Root status = %q, want changed (a key was added to the catalog)", res.Root.Status)
 	}
 	if !containsStr(res.Root.ChangedKeys, "Metadata") {
-		t.Errorf("[P1] 13.6-UNIT-016: /Root.ChangedKeys = %v, want it to name the added key \"Metadata\"", res.Root.ChangedKeys)
+		t.Errorf("Root.ChangedKeys = %v, want it to name the added key \"Metadata\"", res.Root.ChangedKeys)
 	}
 	var meta *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -942,9 +942,9 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 		}
 	}
 	if meta == nil {
-		t.Fatalf("[P1] 13.6-UNIT-016: no /Root/Metadata node; an added key must appear as an added child")
+		t.Fatalf("no /Root/Metadata node; an added key must appear as an added child")
 	}
 	if meta.Status != "added" {
-		t.Errorf("[P1] 13.6-UNIT-016: /Root/Metadata status = %q, want added", meta.Status)
+		t.Errorf("Root/Metadata status = %q, want added", meta.Status)
 	}
 }

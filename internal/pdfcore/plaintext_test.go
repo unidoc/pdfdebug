@@ -320,7 +320,7 @@ func TestGetPlainTextSizeAfterRemove(t *testing.T) {
 	}
 	got, err := ins.GetPlainTextSize(tabID)
 	if err != nil {
-		t.Fatalf("GetPlainTextSize after remove: expected nil error (AC7), got %v", err)
+		t.Fatalf("GetPlainTextSize after remove: expected nil error, got %v", err)
 	}
 	if got != wantSize {
 		t.Errorf("GetPlainTextSize after remove = %d, want cached %d", got, wantSize)
@@ -358,6 +358,6 @@ func TestGetPlainTextLatin1C1(t *testing.T) {
 		// like 0x00..0x1F that the fixture author did not include. Locate
 		// the offending byte.
 		idx := strings.IndexRune(pt.Content, '�')
-		t.Errorf("plain-text view contains U+FFFD at offset %d (AC4: C1 region must map verbatim, not via the replacement table)", idx)
+		t.Errorf("plain-text view contains U+FFFD at offset %d (C1 region must map verbatim, not via the replacement table)", idx)
 	}
 }

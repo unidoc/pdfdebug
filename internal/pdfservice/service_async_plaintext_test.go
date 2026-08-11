@@ -42,7 +42,7 @@ func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
 	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	if err := svc.CancelPlainText(info.TabID); err != nil {
-		t.Errorf("CancelPlainText on idle tab: err = %v, want nil (AC12)", err)
+		t.Errorf("CancelPlainText on idle tab: err = %v, want nil", err)
 	}
 }
 

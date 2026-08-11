@@ -44,14 +44,14 @@ import (
 // -race it fails unless per-document pdfMu serializes pdfcpu access.
 func TestInspectorConcurrentSoak(t *testing.T) {
 	if testing.Short() {
-		t.Skip("[P0] 10-5-AC2: skipping concurrent soak under -short")
+		t.Skip("skipping concurrent soak under -short")
 	}
 
 	ins := NewInspector()
 	tabID := "10-5-ac2-soak"
 	_, err := ins.Open(tabID, filepath.Join(testdataDir(t), "multipage.pdf"))
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC2: failed to open multipage.pdf: %v", err)
+		t.Fatalf("failed to open multipage.pdf: %v", err)
 	}
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
@@ -65,7 +65,7 @@ func TestInspectorConcurrentSoak(t *testing.T) {
 	// race detector to observe.
 	pageNodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC2: GetPageContentStreamNodeID(1) failed: %v", err)
+		t.Fatalf("GetPageContentStreamNodeID(1) failed: %v", err)
 	}
 	if pageNodeID == "" {
 		// multipage.pdf has no /Contents on page 1 -- use a known indirect
@@ -119,6 +119,6 @@ func TestInspectorConcurrentSoak(t *testing.T) {
 	// before the goroutines started) and the race detector had nothing to
 	// observe. Treat that as a fixture/setup failure, NOT a race.
 	if got := iterCount.Load(); got < int64(goroutineCount) {
-		t.Errorf("[P0] 10-5-AC2: only %d iterations across %d goroutines in 1s -- expected >= %d (one per goroutine). Fixture/setup may be broken.", got, goroutineCount, goroutineCount)
+		t.Errorf("only %d iterations across %d goroutines in 1s -- expected >= %d (one per goroutine). Fixture/setup may be broken.", got, goroutineCount, goroutineCount)
 	}
 }

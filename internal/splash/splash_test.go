@@ -222,7 +222,7 @@ func TestSplashRenderVersionPrereleaseSuffix(t *testing.T) {
 	for _, c := range cases {
 		got := RenderVersion(c.in)
 		if got != c.want {
-			t.Errorf("RenderVersion(%q) = %q, want %q (AC12: full semver, no strip)", c.in, got, c.want)
+			t.Errorf("RenderVersion(%q) = %q, want %q (full semver, no strip)", c.in, got, c.want)
 		}
 		if strings.HasSuffix(c.in, "-rc1") && !strings.Contains(got, "-rc1") {
 			t.Errorf("RenderVersion(%q) dropped the -rc1 suffix: got %q", c.in, got)

@@ -469,10 +469,10 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 			ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
 			got := len(ids)
 			if err != nil {
-				t.Fatalf("[14.3-UNIT-002] %s: unexpected error: %v", tc.name, err)
+				t.Fatalf("%s: unexpected error: %v", tc.name, err)
 			}
 			if got != tc.want {
-				t.Errorf("[14.3-UNIT-002] %s: count = %d, want %d", tc.name, got, tc.want)
+				t.Errorf("%s: count = %d, want %d", tc.name, got, tc.want)
 			}
 		})
 	}
@@ -490,15 +490,15 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		ins, tabID := writeTempPDF(t, "refnull.pdf", assembleDiffPDF(1, objs...))
 		doc, err := ins.GetDocument(tabID)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+			t.Fatalf("GetDocument: %v", err)
 		}
 		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+			t.Fatalf("PageDict: %v", err)
 		}
 		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
 		if !ok || len(arr) != 1 {
-			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
 		}
 		ref := arr[0].(pdfcpu_types.IndirectRef)
 		// Inject the degenerate [ref null] shape the fix guards against.
@@ -506,10 +506,10 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 
 		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] unexpected error: %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if got := len(ids); got != 1 {
-			t.Errorf("[14.3-UNIT-002] [ref null] stream count = %d, want 1 (a null element is not a stream, so it is skipped in concatenation)", got)
+			t.Errorf("[ref null] stream count = %d, want 1 (a null element is not a stream, so it is skipped in concatenation)", got)
 		}
 	})
 
@@ -526,15 +526,15 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		ins, tabID := writeTempPDF(t, "nullref.pdf", assembleDiffPDF(1, objs...))
 		doc, err := ins.GetDocument(tabID)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+			t.Fatalf("GetDocument: %v", err)
 		}
 		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+			t.Fatalf("PageDict: %v", err)
 		}
 		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
 		if !ok || len(arr) != 1 {
-			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
 		}
 		ref := arr[0].(pdfcpu_types.IndirectRef)
 		// Inject the null AT INDEX 0.
@@ -542,10 +542,10 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 
 		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] [null ref] unexpected error: %v (a leading null must be skipped, not rejected)", err)
+			t.Fatalf("[null ref] unexpected error: %v (a leading null must be skipped, not rejected)", err)
 		}
 		if got := len(ids); got != 1 {
-			t.Errorf("[14.3-UNIT-002] [null ref] stream count = %d, want 1 (leading null skipped like any other null)", got)
+			t.Errorf("[null ref] stream count = %d, want 1 (leading null skipped like any other null)", got)
 		}
 	})
 
@@ -563,25 +563,25 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		ins, tabID := writeTempPDF(t, "refjunk.pdf", assembleDiffPDF(1, objs...))
 		doc, err := ins.GetDocument(tabID)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] GetDocument: %v", err)
+			t.Fatalf("GetDocument: %v", err)
 		}
 		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
 		if err != nil {
-			t.Fatalf("[14.3-UNIT-002] PageDict: %v", err)
+			t.Fatalf("PageDict: %v", err)
 		}
 		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
 		if !ok || len(arr) != 1 {
-			t.Fatalf("[14.3-UNIT-002] fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
 		}
 		ref := arr[0].(pdfcpu_types.IndirectRef)
 		pageDict["Contents"] = pdfcpu_types.Array{ref, pdfcpu_types.Integer(42)}
 
 		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
 		if err == nil {
-			t.Fatalf("[14.3-UNIT-002] [ref 42] returned %d ids and no error; a non-null non-ref element must be reported, not skipped", len(ids))
+			t.Fatalf("[ref 42] returned %d ids and no error; a non-null non-ref element must be reported, not skipped", len(ids))
 		}
 		if !strings.Contains(err.Error(), "element 1") {
-			t.Errorf("[14.3-UNIT-002] error must name the offending index, got: %v", err)
+			t.Errorf("error must name the offending index, got: %v", err)
 		}
 	})
 }
@@ -1095,18 +1095,18 @@ func TestTokenizeInlineImageTrailingWhitespaceStripped(t *testing.T) {
 		}
 	}
 	if idIdx == -1 || eiIdx == -1 {
-		t.Fatalf("[14.1-UNIT-002] expected ID and EI operators; got tokens=%+v", toks)
+		t.Fatalf("expected ID and EI operators; got tokens=%+v", toks)
 	}
 	if eiIdx-idIdx != 2 {
-		t.Fatalf("[14.1-UNIT-002] expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+		t.Fatalf("expected exactly one payload token between ID and EI; got %d, sequence=%+v",
 			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
 	}
 	payload := toks[idIdx+1]
 	if payload.Value != "\x00\x01\x02" {
-		t.Errorf("[14.1-UNIT-002] payload Value = %q, want %q (\"\\r\\n\" CRLF delimiter before EI must be stripped, CR included)", payload.Value, "\x00\x01\x02")
+		t.Errorf("payload Value = %q, want %q (\"\\r\\n\" CRLF delimiter before EI must be stripped, CR included)", payload.Value, "\x00\x01\x02")
 	}
 	if strings.HasSuffix(payload.Value, "\r") || strings.HasSuffix(payload.Value, "\n") {
-		t.Errorf("[14.1-UNIT-002] payload Value = %q retains trailing whitespace", payload.Value)
+		t.Errorf("payload Value = %q retains trailing whitespace", payload.Value)
 	}
 }
 
@@ -1128,15 +1128,15 @@ func TestTokenizeInlineImagePayloadWhitespaceValuedByteKept(t *testing.T) {
 		}
 	}
 	if idIdx == -1 || eiIdx == -1 {
-		t.Fatalf("[14.1-UNIT-002b] expected ID and EI operators; got tokens=%+v", toks)
+		t.Fatalf("expected ID and EI operators; got tokens=%+v", toks)
 	}
 	if eiIdx-idIdx != 2 {
-		t.Fatalf("[14.1-UNIT-002b] expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+		t.Fatalf("expected exactly one payload token between ID and EI; got %d, sequence=%+v",
 			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
 	}
 	payload := toks[idIdx+1]
 	if payload.Value != "\x00\x20" {
-		t.Errorf("[14.1-UNIT-002b] payload Value = %q, want %q (whitespace-valued payload byte before the single-LF delimiter must be preserved, not stripped)", payload.Value, "\x00\x20")
+		t.Errorf("payload Value = %q, want %q (whitespace-valued payload byte before the single-LF delimiter must be preserved, not stripped)", payload.Value, "\x00\x20")
 	}
 }
 
@@ -1172,14 +1172,14 @@ func TestTokenizeLeadingSignNumbers(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tokens := tokenizeContentStream(tc.input)
 			if len(tokens) != 1 {
-				t.Fatalf("[14.1-UNIT-001] %q: got %d tokens, want exactly 1 (single number token); tokens=%+v",
+				t.Fatalf("%q: got %d tokens, want exactly 1 (single number token); tokens=%+v",
 					tc.input, len(tokens), tokens)
 			}
 			if tokens[0].Type != "number" {
-				t.Errorf("[14.1-UNIT-001] %q: token Type = %q, want \"number\"", tc.input, tokens[0].Type)
+				t.Errorf("%q: token Type = %q, want \"number\"", tc.input, tokens[0].Type)
 			}
 			if tokens[0].Value != tc.want {
-				t.Errorf("[14.1-UNIT-001] %q: token Value = %q, want %q", tc.input, tokens[0].Value, tc.want)
+				t.Errorf("%q: token Value = %q, want %q", tc.input, tokens[0].Value, tc.want)
 			}
 		})
 	}
@@ -1198,10 +1198,10 @@ func TestTokenizeLeadingSignNumbers(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tokens := tokenizeContentStream(tc.input)
 			if len(tokens) == 0 {
-				t.Fatalf("[14.1-UNIT-001] %q: got 0 tokens, want at least 1", tc.input)
+				t.Fatalf("%q: got 0 tokens, want at least 1", tc.input)
 			}
 			if tokens[0].Type != "operator" || tokens[0].Value != tc.want {
-				t.Errorf("[14.1-UNIT-001] %q: token[0] = %+v, want operator(%s)", tc.input, tokens[0], tc.want)
+				t.Errorf("%q: token[0] = %+v, want operator(%s)", tc.input, tokens[0], tc.want)
 			}
 		})
 	}
@@ -1252,10 +1252,10 @@ func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 	// GetPageContentStreamNodeID(tabID, 1)").
 	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC3: GetPageContentStreamNodeID(1) failed: %v", err)
+		t.Fatalf("GetPageContentStreamNodeID(1) failed: %v", err)
 	}
 	if nodeID == "" {
-		t.Fatalf("[P0] 10-5-AC3: page 1 of content-stream.pdf has no Contents node -- fixture broken")
+		t.Fatalf("page 1 of content-stream.pdf has no Contents node -- fixture broken")
 	}
 
 	// Sanity check: cache MUST start empty. If a prior call populated it
@@ -1263,12 +1263,12 @@ func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 	// collapses and the test passes for the wrong reason.
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC3: GetDocument failed: %v", err)
+		t.Fatalf("GetDocument failed: %v", err)
 	}
 	doc.streamMu.Lock()
 	if _, exists := doc.streamCache[nodeID]; exists {
 		doc.streamMu.Unlock()
-		t.Fatalf("[P0] 10-5-AC3: streamCache already populated for %q -- prerequisite violated", nodeID)
+		t.Fatalf("streamCache already populated for %q -- prerequisite violated", nodeID)
 	}
 	doc.streamMu.Unlock()
 
@@ -1298,23 +1298,23 @@ func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 
 	for i, e := range errs {
 		if e != nil {
-			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned error: %v", i, e)
+			t.Fatalf("goroutine %d returned error: %v", i, e)
 		}
 		if results[i] == nil {
-			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned nil *ContentStreamData", i)
+			t.Fatalf("goroutine %d returned nil *ContentStreamData", i)
 		}
 	}
 
 	// Pointer equality: both goroutines MUST see the SAME cached pointer.
 	// Inequality is the bug signal (each goroutine wrote its own object).
 	if results[0] != results[1] {
-		t.Errorf("[P0] 10-5-AC3: concurrent GetContentStream returned different *ContentStreamData pointers (%p vs %p) -- expected pointer equality (single cache entry)", results[0], results[1])
+		t.Errorf("concurrent GetContentStream returned different *ContentStreamData pointers (%p vs %p) -- expected pointer equality (single cache entry)", results[0], results[1])
 	}
 
 	// Raw must be non-empty -- a clobbered placeholder (zero-length result
 	// written before decode completed) is the other tell-tale of the race.
 	if results[0] != nil && results[0].Raw == "" {
-		t.Errorf("[P0] 10-5-AC3: result[0].Raw is empty -- expected decoded content (clobbered placeholder?)")
+		t.Errorf("result[0].Raw is empty -- expected decoded content (clobbered placeholder?)")
 	}
 
 	// Cache must contain exactly one entry for this nodeID, and that entry
@@ -1324,13 +1324,13 @@ func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 	cacheLen := len(doc.streamCache)
 	doc.streamMu.Unlock()
 	if !ok {
-		t.Errorf("[P0] 10-5-AC3: streamCache missing %q after concurrent calls -- single resolve+decode pass should have written exactly one entry", nodeID)
+		t.Errorf("streamCache missing %q after concurrent calls -- single resolve+decode pass should have written exactly one entry", nodeID)
 	}
 	if cached != results[0] {
-		t.Errorf("[P0] 10-5-AC3: cached pointer differs from returned pointer (%p vs %p)", cached, results[0])
+		t.Errorf("cached pointer differs from returned pointer (%p vs %p)", cached, results[0])
 	}
 	if cacheLen < 1 {
-		t.Errorf("[P0] 10-5-AC3: streamCache size = %d, expected >= 1", cacheLen)
+		t.Errorf("streamCache size = %d, expected >= 1", cacheLen)
 	}
 }
 

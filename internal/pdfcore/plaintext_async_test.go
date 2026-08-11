@@ -184,19 +184,19 @@ func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 	if _, err := ins.GetPlainText("no-such-tab"); err == nil {
 		t.Errorf("GetPlainText: expected error, got nil")
 	} else if !errors.Is(err, ErrDocumentNotFound) {
-		t.Errorf("GetPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound) (AC14)", err)
+		t.Errorf("GetPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
 	}
 
 	if err := ins.CancelPlainText("no-such-tab"); err == nil {
 		t.Errorf("CancelPlainText: expected error, got nil")
 	} else if !errors.Is(err, ErrDocumentNotFound) {
-		t.Errorf("CancelPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound) (AC13)", err)
+		t.Errorf("CancelPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
 	}
 
 	if _, err := ins.GetPlainTextSize("no-such-tab"); err == nil {
 		t.Errorf("GetPlainTextSize: expected error, got nil")
 	} else if !errors.Is(err, ErrDocumentNotFound) {
-		t.Errorf("GetPlainTextSize: err = %v, want errors.Is(..., ErrDocumentNotFound) (AC19)", err)
+		t.Errorf("GetPlainTextSize: err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
 	}
 }
 
@@ -307,10 +307,10 @@ func TestGetPlainTextAsyncZeroByteFile(t *testing.T) {
 		t.Errorf("TabID = %q, want %q", got.TabID, tabID)
 	}
 	if got.Content != "" {
-		t.Errorf("Content = %q, want \"\" (AC21)", got.Content)
+		t.Errorf("Content = %q, want \"\"", got.Content)
 	}
 	if got.TotalBytes != 0 {
-		t.Errorf("TotalBytes = %d, want 0 (AC21)", got.TotalBytes)
+		t.Errorf("TotalBytes = %d, want 0", got.TotalBytes)
 	}
 }
 
@@ -340,7 +340,7 @@ func TestGetPlainTextAsyncConcurrentSharesIO(t *testing.T) {
 	}
 	for i := 1; i < n; i++ {
 		if ptrs[i] != ptrs[0] {
-			t.Errorf("concurrent callers got different pointers (i=%d): want pointer equality (AC10)", i)
+			t.Errorf("concurrent callers got different pointers (i=%d): want pointer equality", i)
 			break
 		}
 	}
@@ -360,7 +360,7 @@ func TestGetPlainTextAsyncCacheHit(t *testing.T) {
 		t.Fatalf("second: %v", err)
 	}
 	if first != second {
-		t.Errorf("cache returned different pointers on consecutive calls (AC11.10)")
+		t.Errorf("cache returned different pointers on consecutive calls")
 	}
 }
 
@@ -418,7 +418,7 @@ func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 	cachedAfterCancel := doc.plainTextCache
 	doc.plainTextMu.Unlock()
 	if cachedAfterCancel != nil {
-		t.Errorf("plainTextCache populated after cancellation; want nil (AC11.10)")
+		t.Errorf("plainTextCache populated after cancellation; want nil")
 	}
 
 	// Second call (no cancel): should succeed and populate the cache.
@@ -440,7 +440,7 @@ func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
 
 	// Cancel with no load in flight: must return nil.
 	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Errorf("CancelPlainText with no load in flight: err = %v, want nil (AC12)", err)
+		t.Errorf("CancelPlainText with no load in flight: err = %v, want nil", err)
 	}
 
 	// Run a load to completion, then cancel after-the-fact: still nil.
@@ -448,7 +448,7 @@ func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
 		t.Fatalf("GetPlainText: %v", err)
 	}
 	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Errorf("CancelPlainText after completed load: err = %v, want nil (AC12)", err)
+		t.Errorf("CancelPlainText after completed load: err = %v, want nil", err)
 	}
 }
 
@@ -467,7 +467,7 @@ func TestGetPlainTextAsyncMaxAllocCeiling(t *testing.T) {
 	// guard; this in-package test validates the value.
 	const want = int64(4) << 30 // 4 GiB
 	if maxPlainTextAlloc != want {
-		t.Errorf("maxPlainTextAlloc = %d, want %d (AC11.5: 4 GiB ceiling)", maxPlainTextAlloc, want)
+		t.Errorf("maxPlainTextAlloc = %d, want %d (4 GiB ceiling)", maxPlainTextAlloc, want)
 	}
 }
 
