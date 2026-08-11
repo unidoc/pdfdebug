@@ -215,7 +215,7 @@ func TestTreeMaxRefDepthRetained(t *testing.T) {
 		}
 	}
 	if !hit {
-		t.Errorf("[P0] 10-6-AC2: tree.go must carry a one-line comment near `maxRefDepth = 32` noting its retention rationale (e.g. \"retained for buildChildren / page-tree\", AC2 task 2)")
+		t.Errorf("tree.go must carry a one-line comment near `maxRefDepth = 32` noting its retention rationale (e.g. \"retained for buildChildren / page-tree\")")
 	}
 }
 
@@ -303,12 +303,12 @@ func TestGetObjectDetailPassesDoc(t *testing.T) {
 	// StreamDict / ObjectStreamDict / XRefStreamDict branch).
 	postFixCount := strings.Count(body, "extractStreamInfo(doc,")
 	if postFixCount < 3 {
-		t.Errorf("[P0] 10-6-AC3: GetObjectDetail must invoke `extractStreamInfo(doc, ...)` at all 3 stream-type branches (got %d occurrences of the new signature in the function body; AC3)", postFixCount)
+		t.Errorf("GetObjectDetail must invoke `extractStreamInfo(doc, ...)` at all 3 stream-type branches (got %d occurrences of that signature in the function body)", postFixCount)
 	}
 	// And the pre-fix single-arg call shape MUST be absent in this function.
 	preFixRe := regexp.MustCompile(`extractStreamInfo\(obj\)`)
 	if preFixRe.MatchString(body) {
-		t.Errorf("[P0] 10-6-AC3: GetObjectDetail must NOT retain `extractStreamInfo(obj)` (the pre-fix call signature) -- AC3 threads doc through")
+		t.Errorf("GetObjectDetail must NOT retain the single-argument `extractStreamInfo(obj)` call -- doc is threaded through")
 	}
 }
 
@@ -492,7 +492,7 @@ func TestParseBfrangeNoSilentBreak(t *testing.T) {
 	// MUST NOT contain the standalone `if tail > 0xFFFF {\n\t\t\t\tbreak`.
 	silentBreakRe := regexp.MustCompile(`if\s+tail\s*>\s*0xFFFF\s*{\s*break\s*}`)
 	if silentBreakRe.MatchString(body) {
-		t.Errorf("[P0] 10-6-AC6: parseBfrange must NOT keep the silent `if tail > 0xFFFF { break }` overflow handler -- AC6 replaces it with carry propagation across UTF-16 units")
+		t.Errorf("parseBfrange must NOT keep the silent `if tail > 0xFFFF { break }` overflow handler -- carry propagation across UTF-16 units replaces it")
 	}
 }
 
@@ -619,7 +619,7 @@ func TestGetPlainTextSizeUsesCachedField(t *testing.T) {
 		t.Fatalf("could not locate GetPlainTextSize in plaintext.go")
 	}
 	if strings.Contains(body, "os.Stat(") {
-		t.Errorf("[P0] 10-6-AC7: GetPlainTextSize must NOT call `os.Stat(...)` -- AC7 removes the redundant re-stat and returns the value captured at Open")
+		t.Errorf("GetPlainTextSize must NOT call `os.Stat(...)` -- it returns the size captured at Open")
 	}
 	if !strings.Contains(body, "doc.FileSize") {
 		t.Errorf("GetPlainTextSize must return `doc.FileSize` (cached-at-Open value)")
@@ -658,7 +658,7 @@ func TestReadPlainTextNoStat(t *testing.T) {
 		t.Fatalf("could not locate readPlainText in plaintext.go")
 	}
 	if strings.Contains(body, "os.Stat(") {
-		t.Errorf("[P0] 10-6-AC7: readPlainText must NOT call `os.Stat(...)` -- AC7 removes the redundant stat and uses the passed-in `size` argument")
+		t.Errorf("readPlainText must NOT call `os.Stat(...)` -- it uses the passed-in `size` argument")
 	}
 }
 
@@ -693,7 +693,7 @@ func TestGetPlainTextSizeDocCommentUpdated(t *testing.T) {
 	commentBlock := strings.Join(commentLines, "\n")
 	// Pre-fix wording MUST be gone.
 	if strings.Contains(commentBlock, "surfaces the raw os.Stat error") {
-		t.Errorf("[P0] 10-6-AC7: GetPlainTextSize doc comment must NOT retain \"surfaces the raw os.Stat error when the file moves post-Open\" -- AC7 removes the re-stat and the contract changes")
+		t.Errorf("GetPlainTextSize doc comment must NOT retain \"surfaces the raw os.Stat error when the file moves post-Open\" -- there is no re-stat and the contract no longer says that")
 	}
 	// Post-fix wording: any of these phrases anchor the new contract.
 	postFixMarkers := []string{
@@ -728,7 +728,7 @@ func TestGetPlainTextThreadsSizeToReadPlainText(t *testing.T) {
 	// Pre-fix call shape MUST be gone.
 	preFix := "readPlainText(ctx, doc.FilePath, tabID)"
 	if strings.Contains(body, preFix) {
-		t.Errorf("[P0] 10-6-AC7: GetPlainText must NOT keep the pre-fix call `%s` -- AC7 inserts the size argument", preFix)
+		t.Errorf("GetPlainText must NOT keep the size-less call `%s` -- the cached size is passed in", preFix)
 	}
 }
 

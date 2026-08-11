@@ -64,7 +64,7 @@ const bindingRelPath = "frontend/bindings/unidoc-pdf-debugger/internal/pdfservic
 // the full method surface does not.
 func TestBindingsExportConsumerMethods(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
-		t.Fatalf("[P0] 12.3-INTG-040: regenerated binding %s must exist (run `wails3 generate bindings -clean=true`, AC4 / Task 2.1)", bindingRelPath)
+		t.Fatalf("regenerated binding %s must exist -- run `wails3 generate bindings -clean=true`", bindingRelPath)
 	}
 	src := readSource(t, bindingRelPath)
 	for _, m := range consumerBoundMethods {
@@ -80,7 +80,7 @@ func TestBindingsExportConsumerMethods(t *testing.T) {
 // non-clean regen re-baselining a dead binding.
 func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
-		t.Skipf("[P1] 12.3-INTG-041: %s missing -- see 12.3-INTG-040", bindingRelPath)
+		t.Skipf("%s missing -- the regenerated binding does not exist", bindingRelPath)
 	}
 	src := readSource(t, bindingRelPath)
 	if strings.Contains(src, "GetPlainTextFull") {
@@ -99,12 +99,12 @@ func TestNoExactMethodCountPin(t *testing.T) {
 	own := loadOwnTestSources(t, "bindings_contract_test.go")
 	// The exact brittle pattern STRUCT-010 used: counting receiver lines.
 	if strings.Contains(own, `Count(`) && strings.Contains(own, `func (s *PDFService)`) {
-		t.Errorf("[P0] 12.3-INTG-050: the 12-3 suite must NOT count `func (s *PDFService)` receiver lines -- AC6 drops the exact-count pin entirely (project_struct_grep_tests_brittle.md). Use the consumer-driven presence contract (12.3-INTG-040) instead.")
+		t.Errorf("this suite must NOT count `func (s *PDFService)` receiver lines -- the exact-count pin is dropped entirely (project_struct_grep_tests_brittle.md). Use the consumer-driven presence contract in TestBindingsExportConsumerMethods instead.")
 	}
 	// A method-surface count compared to a fixed N (e.g. `count != 22`).
 	for _, frag := range []string{"count == 2", "count != 2", "count == len(expectedServiceMethods)", "MethodCount"} {
 		if strings.Contains(own, frag) {
-			t.Errorf("[P0] 12.3-INTG-050: the 12-3 suite must NOT assert an exact PDFService method count (found %q) -- AC6 forbids re-pinning a magic number; the count lives only as informational prose in project-context.md", frag)
+			t.Errorf("this suite must NOT assert an exact PDFService method count (found %q) -- re-pinning a magic number is forbidden; the count lives only as informational prose in project-context.md", frag)
 		}
 	}
 }

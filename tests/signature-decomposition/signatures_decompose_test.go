@@ -215,7 +215,7 @@ func TestSignatures_NoTrustClaimsAndTrustNote(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("plain expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNoTrustClaims(t, "13.4-INTG-018/plain", plain)
+	assertNoTrustClaims(t, "plain", plain)
 	if !strings.Contains(strings.ToLower(plain), "trust not verified") {
 		t.Errorf("plain output missing the \"trust not verified\" note:\n%s", plain)
 	}
@@ -224,5 +224,5 @@ func TestSignatures_NoTrustClaimsAndTrustNote(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--json expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNoTrustClaims(t, "13.4-INTG-018/json", jsonOut)
+	assertNoTrustClaims(t, "json", jsonOut)
 }

@@ -249,7 +249,7 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	}
 	got, err := ins2.GetPlainTextSize(tabID2)
 	if err != nil {
-		t.Errorf("GetPlainTextSize on moved file: expected nil error (Story 10.6 AC7), got %v", err)
+		t.Errorf("GetPlainTextSize on moved file: expected nil error from the size cached at Open, got %v", err)
 	}
 	if got != wantSize {
 		t.Errorf("GetPlainTextSize on moved file = %d, want cached %d", got, wantSize)

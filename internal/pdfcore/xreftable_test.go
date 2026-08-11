@@ -192,7 +192,7 @@ func TestGetXRefTableCompressedNodeIDTargetsUnderlying(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Skip("no in-objstm entries in this fixture; AC12 NodeID assertion not exercised at backend layer")
+		t.Skip("no in-objstm entries in this fixture; the NodeID assertion is not exercised at the backend layer")
 	}
 }
 

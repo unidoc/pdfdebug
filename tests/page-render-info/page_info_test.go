@@ -62,7 +62,7 @@ func TestPageInfo_GeometryInheritsFromPagesAncestor(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC1-002: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -101,7 +101,7 @@ func TestPageInfo_ExtGStateResolvedWithSMaskDescriptor(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC2-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -146,7 +146,7 @@ func TestPageInfo_ExtGStateSMaskNoneIsLiteral(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC2-002: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -172,7 +172,7 @@ func TestPageInfo_FormXObjectGroupResolved(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC3-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -221,7 +221,7 @@ func TestPageInfo_ImageXObjectColorSpaceClassified(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC3-002: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -267,7 +267,7 @@ func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC1-003: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -306,7 +306,7 @@ func TestPageInfo_StructuralOnlyNoComputedColor(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC7-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	// Guard: forbidden computed-color / composited keys must not appear as JSON
 	// keys. These would indicate the view crossed the structural/rendering seam.

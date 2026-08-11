@@ -487,7 +487,7 @@ func TestDetailPanelDetailViewReset(t *testing.T) {
 	// and `[activeTabId]` to appear in the source. A loose match is the right
 	// granularity because dev may write the effect inline or hoist it.
 	if !strings.Contains(src, `setDetailView('object')`) && !strings.Contains(src, `setDetailView("object")`) {
-		t.Fatalf("[P0] 9.11-STRUCT-004: DetailPanel.tsx must call setDetailView('object') -- the reset path for AC#11 / AC#17")
+		t.Fatalf("DetailPanel.tsx must call setDetailView('object') -- the reset path on active-tab change")
 	}
 }
 

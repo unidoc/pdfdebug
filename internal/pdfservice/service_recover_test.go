@@ -59,7 +59,7 @@ func TestServiceRecoversRuntimeError(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
-				t.Errorf("[P0] 10-5-AC5: GetTreeRoot propagated runtime.Error (%v) instead of being recovered by pdfservice -- AC5 contract violated", r)
+				t.Errorf("GetTreeRoot propagated runtime.Error (%v) instead of being recovered by pdfservice", r)
 			} else {
 				t.Errorf("unexpected non-runtime panic propagated: %v", r)
 			}
@@ -71,7 +71,7 @@ func TestServiceRecoversRuntimeError(t *testing.T) {
 		t.Fatalf("expected error from recovered runtime.Error, got nil (result=%v)", result)
 	}
 	if !errors.Is(err, pdfcore.ErrMalformedPDF) {
-		t.Errorf("[P0] 10-5-AC5: expected errors.Is(err, ErrMalformedPDF) -- AC5 requires conversion via `fmt.Errorf(\"%%w: internal error\", pdfcore.ErrMalformedPDF)` so the frontend regex /malformed/i matches. Got: %v", err)
+		t.Errorf("expected errors.Is(err, ErrMalformedPDF) -- the recover helper must convert via `fmt.Errorf(\"%%w: internal error\", pdfcore.ErrMalformedPDF)` so the frontend regex /malformed/i matches. Got: %v", err)
 	}
 	// Result MUST be the zero value (nil for *TreeNode). Go's named-return
 	// semantics guarantee this when the inner call panics before returning.

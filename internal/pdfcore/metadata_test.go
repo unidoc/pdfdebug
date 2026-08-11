@@ -95,7 +95,7 @@ func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-021: error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if md.XMP != xmpPacket {
 		t.Errorf("XMP not verbatim\n got: %q\nwant: %q", md.XMP, xmpPacket)
@@ -111,7 +111,7 @@ func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-022: error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if got := md.Info["Title"]; got != "Invoice 2024-001" {
 		t.Errorf("Info[Title] = %q, want %q", got, "Invoice 2024-001")

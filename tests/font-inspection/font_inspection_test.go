@@ -616,7 +616,7 @@ func TestFontPreviewComponentFileExists(t *testing.T) {
 	// through the handler (matching the ImagePreview / ContentStreamViewer
 	// presentational pattern).
 	if !strings.Contains(src, "onReferenceClick") {
-		t.Fatalf("[P0] 9.9-STRUCT-001: FontPreview.tsx must accept an onReferenceClick prop so DetailPanel threads its handleReferenceClick handler through (Task 4.1, AC#8)")
+		t.Fatalf("FontPreview.tsx must accept an onReferenceClick prop so DetailPanel threads its handleReferenceClick handler through")
 	}
 	if !strings.Contains(src, "detail") {
 		t.Fatalf("FontPreview.tsx must accept a `detail` prop carrying the FontDetail data")
@@ -655,7 +655,7 @@ func TestDetailPanelMountsFontPreview(t *testing.T) {
 	// itself is covered by 9.9-UNIT-204 in DetailPanel.fontPreview.test.tsx
 	// (asserts the font-loading indicator at both sides of the 200ms edge).
 	if !strings.Contains(src, "showFontLoading") {
-		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must declare a `showFontLoading` state for the 200ms-debounced indicator (AC#9, Task 5.2)")
+		t.Fatalf("DetailPanel.tsx must declare a `showFontLoading` state for the 200ms-debounced indicator")
 	}
 }
 
@@ -683,7 +683,7 @@ func TestDetailPanelFontHeaderLabel(t *testing.T) {
 	// SOMETHING in DetailPanel.tsx must mention 'Font' in label-building
 	// context post-implementation.
 	if !strings.Contains(src, "'Font'") && !strings.Contains(src, `"Font"`) {
-		t.Fatalf("[P1] 9.9-STRUCT-005: DetailPanel.tsx must surface a 'Font' label string when FontPreview is active (AC#11, Task 5.4)")
+		t.Fatalf("DetailPanel.tsx must surface a 'Font' label string when FontPreview is active")
 	}
 }
 

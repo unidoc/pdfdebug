@@ -346,7 +346,7 @@ func TestBindingsExportAll20Methods(t *testing.T) {
 	for _, m := range expectedServiceMethods {
 		needle := "export function " + m.id
 		if !strings.Contains(src, needle) {
-			t.Errorf("[P0] 10-3-STRUCT-020: pdfservice.js must export %s (re-run `wails3 generate bindings -clean=true` after the bump, AC2 / Task 3.1)", m.id)
+			t.Errorf("pdfservice.js must export %s -- re-run `wails3 generate bindings -clean=true` after the bump", m.id)
 		}
 	}
 }
@@ -357,11 +357,11 @@ func TestBindingsExportAll20Methods(t *testing.T) {
 func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	relPath := "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 	if !fileExists(t, relPath) {
-		t.Skipf("[P0] 10-3-STRUCT-021: %s missing -- see 10-3-STRUCT-020", relPath)
+		t.Skipf("%s missing -- the regenerated binding does not exist", relPath)
 	}
 	src := readSource(t, relPath)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("[P0] 10-3-STRUCT-021: pdfservice.js must NOT export GetPlainTextFull -- 10-1 removed the Go method; a stale regen here re-introduces a dead binding (AC2 + Story 10-1 AC18)")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- the Go method was removed; a stale regen here re-introduces a dead binding")
 	}
 }
 
@@ -481,7 +481,7 @@ func TestJsToGoEventContract(t *testing.T) {
 // fails only if a future edit adds the name back.
 func TestNoPhantomBatchProgressEvent(t *testing.T) {
 	if scanRepoForPhantom(t, "document:batch-progress") {
-		t.Errorf("[P0] 10-3-STRUCT-033: phantom event %q found in frontend/src or main.go -- AC11 spec note: this event does NOT exist in the codebase; do not introduce it during the bump", "document:batch-progress")
+		t.Errorf("phantom event %q found in frontend/src or main.go -- this event does NOT exist in the codebase; do not introduce it during the bump", "document:batch-progress")
 	}
 }
 
@@ -498,7 +498,7 @@ func TestWailsJSRuntimeGeometryCalls(t *testing.T) {
 	required := []string{"Screens.GetAll", "Window.SetSize", "Window.SetPosition"}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
-			t.Errorf("[P0] 10-3-STRUCT-040: App.jsx must still call %s -- AC10: Wails JS runtime contract for window geometry restore", sym)
+			t.Errorf("App.jsx must still call %s -- the Wails JS runtime contract for window geometry restore depends on it", sym)
 		}
 	}
 }
@@ -510,7 +510,7 @@ func TestWailsJSRuntimeGeometryCalls(t *testing.T) {
 func TestWindowGeometryGuardWorkAreaField(t *testing.T) {
 	src := readSource(t, "frontend/src/lib/windowGeometryGuard.ts")
 	if !strings.Contains(src, "WorkArea") {
-		t.Errorf("[P0] 10-3-STRUCT-041: windowGeometryGuard.ts must reference Screens.GetAll().WorkArea -- AC10: a runtime rename here is a silent off-screen-guard regression")
+		t.Errorf("windowGeometryGuard.ts must reference Screens.GetAll().WorkArea -- a runtime rename here is a silent off-screen-guard regression")
 	}
 }
 

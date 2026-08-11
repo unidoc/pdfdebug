@@ -171,7 +171,7 @@ func TestValidate_HonestyGuardrail(t *testing.T) {
 	pdf := writeTempPDF(t, "non-embedded-font.pdf", nonEmbeddedFontPDF())
 
 	stdout, _, _ := runCLI(t, bin, "validate", pdf)
-	assertNoComplianceVerdict(t, "13.5-INTG-005/plain", stdout)
+	assertNoComplianceVerdict(t, "plain", stdout)
 
 	jsonOut, _, _ := runCLI(t, bin, "validate", "--json", pdf)
 	// The disclaimer must survive into the JSON surface too (a JSON consumer
@@ -342,7 +342,7 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 		t.Fatalf("clean-for-profile doc must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	assertNotJSON(t, "13.5-INTG-021", stdout)
-	assertNoComplianceVerdict(t, "13.5-INTG-021", stdout)
+	assertNoComplianceVerdict(t, "plain", stdout)
 	if !strings.Contains(strings.ToLower(stdout), "no structural problems found") {
 		t.Errorf("clean plain output must say \"no structural problems found\":\n%s", stdout)
 	}

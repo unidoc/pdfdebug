@@ -235,7 +235,7 @@ func TestGetContentStreamHoldsStreamMuForDecode(t *testing.T) {
 	}
 	unlockCount := strings.Count(body, "doc.streamMu.Unlock()")
 	if unlockCount > 2 {
-		t.Errorf("[P0] 10-5-AC3: GetContentStream contains %d `doc.streamMu.Unlock()` calls -- post-fix shape expects <= 2 (single critical section covering resolve+decode+write). Today's drop-and-reacquire pattern violates AC3.", unlockCount)
+		t.Errorf("GetContentStream contains %d `doc.streamMu.Unlock()` calls -- expected <= 2, one single critical section covering resolve+decode+write. A drop-and-reacquire pattern reopens the race.", unlockCount)
 	}
 }
 
@@ -460,7 +460,7 @@ func TestOpenNoLongerCallsBuildReverseRefs(t *testing.T) {
 		t.Fatalf("could not locate Inspector.Open in inspector.go")
 	}
 	if strings.Contains(body, "buildReverseRefs(doc") {
-		t.Errorf("[P0] 10-5-AC7: Inspector.Open must NOT call `buildReverseRefs(doc, ...)` -- AC7 defers the build to first GetReverseRefs via buildReverseRefsOnce")
+		t.Errorf("Inspector.Open must NOT call `buildReverseRefs(doc, ...)` -- the build is deferred to the first GetReverseRefs via buildReverseRefsOnce")
 	}
 }
 
@@ -516,7 +516,7 @@ func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	// AC9 task 7 gains an extra *sync.WaitGroup parameter.
 	sigRe := regexp.MustCompile(`func openFileAndEmitWithWarning\([^)]*\*sync\.WaitGroup[^)]*\)`)
 	if !sigRe.MatchString(src) {
-		t.Errorf("[P0] 10-5-AC8: openFileAndEmitWithWarning signature must include a `*sync.WaitGroup` parameter (AC8 + AC9 Task 7)")
+		t.Errorf("openFileAndEmitWithWarning signature must include a `*sync.WaitGroup` parameter")
 	}
 	body := extractTopLevelFuncBody(t, src, "openFileAndEmitWithWarning")
 	if body == "" {

@@ -162,7 +162,7 @@ func TestGetEmbeddedFiles_EntryCarriesDiscriminatingFields(t *testing.T) {
 		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) == 0 {
-		t.Fatalf("[P0] 13.2-UNIT-004: no entries")
+		t.Fatalf("GetEmbeddedFiles returned no entries")
 	}
 	f := list.Files[0]
 	if f.Name != "factur-x.xml" {
@@ -193,7 +193,7 @@ func TestGetEmbeddedFiles_SurfacesParams(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-005: error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	f := list.Files[0]
 	if f.CheckSum == "" {
@@ -399,7 +399,7 @@ func TestGetEmbeddedFiles_SizeFallsBackToStreamLength(t *testing.T) {
 		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) == 0 {
-		t.Fatalf("[P1] 13.2-UNIT-007: no entries")
+		t.Fatalf("GetEmbeddedFiles returned no entries")
 	}
 	f := list.Files[0]
 	if f.Size != int64(len(payload)) {

@@ -303,11 +303,11 @@ func assertNoComplianceVerdict(t *testing.T, id, out string) {
 	lower := strings.ToLower(out)
 	for _, p := range forbiddenVerdictPhrases {
 		if strings.Contains(lower, p) {
-			t.Errorf("[%s] AC5 authoritative conformance verdict %q present:\n%s", id, p, out)
+			t.Errorf("[%s] authoritative conformance verdict %q present:\n%s", id, p, out)
 		}
 	}
 	if !strings.Contains(lower, "structural checks only") {
-		t.Errorf("[%s] AC5 output must always carry the \"structural checks only\" disclaimer:\n%s", id, out)
+		t.Errorf("[%s] output must always carry the \"structural checks only\" disclaimer:\n%s", id, out)
 	}
 }
 

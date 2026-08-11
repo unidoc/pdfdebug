@@ -207,7 +207,7 @@ func TestModelPlainTextDocumentSlim(t *testing.T) {
 		`json:"capBytes"`,
 	} {
 		if strings.Contains(structBody, deletedField) {
-			t.Errorf("[P0] 10-1-INTG-020: PlainTextDocument must NOT carry %q -- field deleted in 10-1 AC18", deletedField)
+			t.Errorf("PlainTextDocument must NOT carry the deleted field %q", deletedField)
 		}
 	}
 }
@@ -293,7 +293,7 @@ func TestCloseInvokesCancel(t *testing.T) {
 		t.Errorf("Inspector.Close must invoke plainTextLoadCancel")
 	}
 	if !strings.Contains(closeBody, "plainTextCancelMu") {
-		t.Errorf("[P0] 10-1-INTG-025: Inspector.Close must acquire plainTextCancelMu (Task 1.5 / AC9 / Dev Notes deadlock-guard)")
+		t.Errorf("Inspector.Close must acquire plainTextCancelMu -- the deadlock guard depends on it")
 	}
 }
 

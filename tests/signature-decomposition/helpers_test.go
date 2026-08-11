@@ -233,7 +233,7 @@ func assertNoTrustClaims(t *testing.T, id, out string) {
 			}
 			pos := i + j
 			if !trustWordAllowed(lower, pos, w) {
-				t.Errorf("[%s] AC4 trust-claim language %q at offset %d (context: %q)",
+				t.Errorf("[%s] trust-claim language %q at offset %d (context: %q)",
 					id, w, pos, snippet(out, pos))
 				break
 			}

@@ -20,7 +20,7 @@ func TestForms_NotWalkedByDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC4-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -154,7 +154,7 @@ func TestSection_GeometryOnly(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "geometry", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC5-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -182,7 +182,7 @@ func TestSection_ExtGStatesOnly(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "extgstates", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC5-002: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)

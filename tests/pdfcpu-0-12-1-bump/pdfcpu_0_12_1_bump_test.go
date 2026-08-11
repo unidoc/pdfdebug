@@ -133,7 +133,7 @@ func TestGoModDoesNotCarryPreBumpVersion(t *testing.T) {
 	}
 	stale := pdfcpuModulePath + " " + preBumpVersion
 	if strings.Contains(line, stale) {
-		t.Errorf("[P0] 10-4-STRUCT-002: go.mod pdfcpu require line still carries the pre-bump pin %q -- AC1 requires the literal change v0.12.0 -> v0.12.1", stale)
+		t.Errorf("go.mod pdfcpu require line still carries the pre-bump pin %q -- it must read v0.12.1", stale)
 	}
 }
 
@@ -146,7 +146,7 @@ func TestGoSumCarriesTargetVersion(t *testing.T) {
 	gomod := readSource(t, "go.mod")
 	line := findRequireLine(gomod)
 	if !strings.Contains(line, pdfcpuModulePath+" "+targetVersion) {
-		t.Skipf("[P0] 10-4-STRUCT-003: skipped -- go.mod not bumped yet (see 10-4-STRUCT-001)")
+		t.Skipf("skipped -- go.mod is not bumped to the target pdfcpu version yet")
 	}
 	gosum := readSource(t, "go.sum")
 	hashLine := pdfcpuModulePath + " " + targetVersion + " h1:"
@@ -262,7 +262,7 @@ func TestImageRenderCallsiteIntact(t *testing.T) {
 	}
 	for _, c := range calls {
 		if !strings.Contains(src, c) {
-			t.Errorf("[P0] 10-4-STRUCT-021: internal/pdfcore/image.go must still call %s -- AC6 contract: a v0.12.1 rename here is an upstream regression to investigate via AC9", c)
+			t.Errorf("internal/pdfcore/image.go must still call %s -- a rename here is an upstream regression to investigate before bumping", c)
 		}
 	}
 }

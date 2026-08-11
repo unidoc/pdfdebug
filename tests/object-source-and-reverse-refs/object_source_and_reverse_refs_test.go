@@ -466,7 +466,7 @@ func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	// Either form below proves the assertion exists.
 	hasMappingAssertion := strings.Contains(src, "obj:0:5") && strings.Contains(src, "5 0 R")
 	if !hasMappingAssertion {
-		t.Fatalf("[P0] 9.10-STRUCT-006: ObjectInfoPanel.test.tsx must assert the AC4 mapping `5 0 R` -> `obj:0:5` (capture1=num, capture2=gen). Without this, a swap would dispatch the wrong nodeID silently.")
+		t.Fatalf("ObjectInfoPanel.test.tsx must assert the `5 0 R` -> `obj:0:5` mapping (capture1=num, capture2=gen). Without this, a swap would dispatch the wrong nodeID silently.")
 	}
 }
 

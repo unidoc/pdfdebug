@@ -18,7 +18,7 @@ import "testing"
 // clean working tree, so it runs in CI or locally rather than as a headless Go
 // test.
 func TestZeroDiffBindings(t *testing.T) {
-	t.Skip("[P0] 14.2-GATE-001: DEFERRED to the Dev/CI gate -- `wails3 generate bindings -clean=true` must yield an EMPTY `git diff frontend/bindings/` (or a reconciled diff re-passing 14.2-INTG-002/003). Needs the wails3 CLI at the target pin + a clean git tree; not automatable in a headless red-phase Go test. See 14.2-INTG-002 / 14.2-INTG-003 for the automated drift nets.")
+	t.Skip("DEFERRED to the Dev/CI gate -- `wails3 generate bindings -clean=true` must yield an EMPTY `git diff frontend/bindings/`, or a reconciled diff that still passes the binding presence and wire-shape tests. Needs the wails3 CLI at the target pin and a clean git tree; not automatable in a headless Go test. TestBindingsExportConsumerMethods and TestObjectDetailWireShape are the automated drift nets.")
 }
 
 // TestThreeRunnerBuildSmoke records a deferred gate: the 3-runner
@@ -46,5 +46,5 @@ func TestDesktopWebViewSmoke(t *testing.T) {
 // items. Human observation on real hardware; nothing is implemented against
 // either GUI primitive.
 func TestGuiRegressionSweep(t *testing.T) {
-	t.Skip("[P1] 14.2-MANUAL-002: DEFERRED human/hardware gate -- GUI regression sweep + AC10 record-only unblock check, folded into the manual pass on real macOS + Windows. Not automatable; evidence/record in the Dev Agent Record.")
+	t.Skip("DEFERRED human/hardware gate -- GUI regression sweep plus the record-only unblock check on the two framework-gated GUI items, folded into the manual pass on real macOS + Windows. Not automatable; evidence recorded in the Dev Agent Record.")
 }

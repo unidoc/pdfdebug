@@ -58,7 +58,7 @@ const bindingRelPath = "frontend/bindings/unidoc-pdf-debugger/internal/pdfservic
 // here, while an unrelated change to the full method surface does not.
 func TestBindingsExportConsumerMethods(t *testing.T) {
 	if !fileExists(t, bindingRelPath) {
-		t.Fatalf("[P0] 14.2-INTG-002: regenerated binding %s must exist (run `wails3 generate bindings -clean=true`, AC3.2 / Task 2.2)", bindingRelPath)
+		t.Fatalf("regenerated binding %s must exist -- run `wails3 generate bindings -clean=true`", bindingRelPath)
 	}
 	src := readSource(t, bindingRelPath)
 	for _, m := range consumerBoundMethods {

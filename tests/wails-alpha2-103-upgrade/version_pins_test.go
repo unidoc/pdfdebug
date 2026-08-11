@@ -38,7 +38,7 @@ func TestGoSumCarriesNewPin(t *testing.T) {
 	line := goWailsLine(t)
 	got := alphaOrdinal(goWailsRe, line)
 	if got <= preBumpBaselineOrdinal {
-		t.Skipf("[P0] 12.3-INTG-011: skipped -- go.mod not bumped yet (see 12.3-INTG-010)")
+		t.Skipf("skipped -- go.mod is not bumped past the baseline wails/v3 pin yet")
 	}
 	tag := tagFromOrdinal(got)
 	gosum := readSource(t, "go.sum")
@@ -79,25 +79,25 @@ func TestWebview2NotHandPinned(t *testing.T) {
 // CLI-pin parity assertions: the workflow must install wails3 with a v3.0.0
 // alpha pin, every alpha pin in the file must be strictly newer than the
 // baseline, and every one must EQUAL the go.mod pin exactly (CLI == library).
-func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
+func assertWorkflowPinMatchesGoMod(t *testing.T, relPath string) {
 	t.Helper()
 	src := readSource(t, relPath)
 	if !strings.Contains(src, "wails3@v3.0.0-alpha") {
-		t.Fatalf("%s: %s must install wails3 with a v3.0.0-alpha pin", testID, relPath)
+		t.Fatalf("%s must install wails3 with a v3.0.0-alpha pin", relPath)
 	}
 	got := allAlphaOrdinals(goWailsRe, src)
 	if len(got) == 0 {
-		t.Fatalf("%s: %s must reference a v3.0.0-alpha pin", testID, relPath)
+		t.Fatalf("%s must reference a v3.0.0-alpha pin", relPath)
 	}
 	goOrd := alphaOrdinal(goWailsRe, goWailsLine(t))
 	for _, n := range got {
 		if n <= preBumpBaselineOrdinal {
-			t.Errorf("%s: %s carries %s -- must be strictly newer than baseline %s",
-				testID, relPath, fmtOrdinal(n), fmtOrdinal(preBumpBaselineOrdinal))
+			t.Errorf("%s carries %s -- must be strictly newer than baseline %s",
+				relPath, fmtOrdinal(n), fmtOrdinal(preBumpBaselineOrdinal))
 		}
 		if goOrd > 0 && n != goOrd {
-			t.Errorf("[P0] %s: %s pin %s must EQUAL the go.mod pin %s exactly (CLI == library, AC2)",
-				testID, relPath, fmtOrdinal(n), fmtOrdinal(goOrd))
+			t.Errorf("%s pin %s must EQUAL the go.mod pin %s exactly -- the CLI and the library must be the same version",
+				relPath, fmtOrdinal(n), fmtOrdinal(goOrd))
 		}
 	}
 }
@@ -105,13 +105,13 @@ func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
 // TestCiWorkflowPinParity asserts ci.yml's wails3 CLI install pin is bumped and
 // equals the go.mod library pin.
 func TestCiWorkflowPinParity(t *testing.T) {
-	assertWorkflowPinMatchesGoMod(t, ".github/workflows/ci.yml", "12.3-INTG-020")
+	assertWorkflowPinMatchesGoMod(t, ".github/workflows/ci.yml")
 }
 
 // TestReleaseWorkflowPinParity asserts release.yml's wails3 CLI install pin is
 // bumped and equals the go.mod library pin.
 func TestReleaseWorkflowPinParity(t *testing.T) {
-	assertWorkflowPinMatchesGoMod(t, ".github/workflows/release.yml", "12.3-INTG-021")
+	assertWorkflowPinMatchesGoMod(t, ".github/workflows/release.yml")
 }
 
 // TestReleaseExpectedFilesInvariant asserts release.yml retains the

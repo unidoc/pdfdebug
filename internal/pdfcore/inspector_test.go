@@ -1104,7 +1104,7 @@ func TestFindPathToObjectDeepNesting(t *testing.T) {
 		t.Fatalf("GetAncestorPath(obj:0:53): %v", err)
 	}
 	if len(got) < 33 {
-		t.Errorf("ancestor path length = %d, want >= 33 (depth cap was 32; AC2 removes it)", len(got))
+		t.Errorf("ancestor path length = %d, want >= 33 -- the path must not be truncated at a depth cap", len(got))
 	}
 	if got[0] != "root" {
 		t.Errorf("ancestor path[0] = %q, want %q", got[0], "root")

@@ -26,7 +26,7 @@ func TestPageDump_FullObject(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-001: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var obj map[string]any
 	mustParseJSON(t, stdout, &obj)
@@ -60,7 +60,7 @@ func TestPageDump_RecursiveForms_SelfRefTerminates(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--forms-recursive", "--forms-depth", "5", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-002: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var obj struct {
 		Forms []struct {
@@ -97,7 +97,7 @@ func TestPageDump_NoRecursionByDefault(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[P1] 11.6-INTG-003: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	var obj map[string]any
 	mustParseJSON(t, stdout, &obj)
@@ -253,7 +253,7 @@ func TestPageDump_StructuralOnly_NoComputedColor(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--forms-recursive", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-UNIT-009: exit %d", ec)
+		t.Fatalf("exit %d", ec)
 	}
 	lower := strings.ToLower(stdout)
 	for _, forbidden := range []string{"\"rgb\"", "\"cmyk\"", "composited", "renderedcolor", "\"colortorgb\"", "tintvalue"} {
