@@ -175,7 +175,7 @@ func TestCancelDoesNotPopulateCache(t *testing.T) {
 func TestModelPlainTextDocumentSlim(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type PlainTextDocument struct") {
-		t.Fatalf("[P0] 10-1-INTG-020: model.go must still declare `type PlainTextDocument struct`")
+		t.Fatalf("model.go must still declare `type PlainTextDocument struct`")
 	}
 	// Scope all field assertions to the PlainTextDocument struct body. The
 	// negative checks below collide with sibling structs (ResolvedNode and the
@@ -183,18 +183,18 @@ func TestModelPlainTextDocumentSlim(t *testing.T) {
 	// whole-file grep produces false positives -- isolate the struct first.
 	structStart := strings.Index(src, "type PlainTextDocument struct {")
 	if structStart == -1 {
-		t.Fatalf("[P0] 10-1-INTG-020: model.go must still declare `type PlainTextDocument struct`")
+		t.Fatalf("model.go must still declare `type PlainTextDocument struct`")
 	}
 	structEnd := strings.Index(src[structStart:], "\n}")
 	if structEnd == -1 {
-		t.Fatalf("[P0] 10-1-INTG-020: could not locate end of PlainTextDocument struct body")
+		t.Fatalf("could not locate end of PlainTextDocument struct body")
 	}
 	structBody := src[structStart : structStart+structEnd]
 
 	requiredFields := []string{"TabID", "Content", "TotalBytes"}
 	for _, f := range requiredFields {
 		if !strings.Contains(structBody, f) {
-			t.Errorf("[P0] 10-1-INTG-020: PlainTextDocument must retain field %q (AC18)", f)
+			t.Errorf("PlainTextDocument must retain field %q", f)
 		}
 	}
 	// Negative: the deleted fields must NOT appear in the struct body.
@@ -217,7 +217,7 @@ func TestModelPlainTextDocumentSlim(t *testing.T) {
 func TestServiceDropsGetPlainTextFull(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Fatalf("[P0] 10-1-INTG-021: service.go must NOT declare GetPlainTextFull -- removed by 10-1 (AC18)")
+		t.Fatalf("service.go must NOT declare GetPlainTextFull -- removed by 10-1")
 	}
 }
 
@@ -226,14 +226,14 @@ func TestServiceDropsGetPlainTextFull(t *testing.T) {
 func TestServiceDeclaresNewMethods(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "CancelPlainText") {
-		t.Errorf("[P0] 10-1-INTG-022: service.go must declare CancelPlainText(tabID string) error (Task 2.1)")
+		t.Errorf("service.go must declare CancelPlainText(tabID string) error (Task 2.1)")
 	}
 	if !strings.Contains(src, "GetPlainTextSize") {
-		t.Errorf("[P0] 10-1-INTG-022: service.go must declare GetPlainTextSize(tabID string) (int64, error) (Task 2.1)")
+		t.Errorf("service.go must declare GetPlainTextSize(tabID string) (int64, error) (Task 2.1)")
 	}
 	// Return type assertion for GetPlainTextSize.
 	if !strings.Contains(src, "GetPlainTextSize(tabID string) (int64, error)") {
-		t.Errorf("[P0] 10-1-INTG-022: service.go GetPlainTextSize must return (int64, error)")
+		t.Errorf("service.go GetPlainTextSize must return (int64, error)")
 	}
 }
 
@@ -243,13 +243,13 @@ func TestServiceDeclaresNewMethods(t *testing.T) {
 func TestInspectorMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("[P0] 10-1-INTG-023: plaintext.go must NOT declare GetPlainTextFull -- removed by 10-1 (AC18)")
+		t.Errorf("plaintext.go must NOT declare GetPlainTextFull -- removed by 10-1")
 	}
 	if !strings.Contains(src, "CancelPlainText") {
-		t.Errorf("[P0] 10-1-INTG-023: plaintext.go must declare Inspector.CancelPlainText (Task 1.4 / AC12)")
+		t.Errorf("plaintext.go must declare Inspector.CancelPlainText")
 	}
 	if !strings.Contains(src, "GetPlainTextSize") {
-		t.Errorf("[P0] 10-1-INTG-023: plaintext.go must declare Inspector.GetPlainTextSize (Task 1.4 / AC19)")
+		t.Errorf("plaintext.go must declare Inspector.GetPlainTextSize")
 	}
 }
 
@@ -259,17 +259,17 @@ func TestInspectorMethodSurface(t *testing.T) {
 func TestDocumentStateCarriesCancelFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "plainTextLoadCancel") {
-		t.Errorf("[P0] 10-1-INTG-024: inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc (Task 1.1)")
+		t.Errorf("inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc (Task 1.1)")
 	}
 	if !strings.Contains(src, "plainTextCancelMu") {
-		t.Errorf("[P0] 10-1-INTG-024: inspector.go DocumentState must carry plainTextCancelMu sync.Mutex (Task 1.1 / Dev Notes)")
+		t.Errorf("inspector.go DocumentState must carry plainTextCancelMu sync.Mutex (Task 1.1 / Dev Notes)")
 	}
 	// The plainTextFullCache + plainTextFullMu fields MUST be deleted (Task 1.3).
 	if strings.Contains(src, "plainTextFullCache") {
-		t.Errorf("[P0] 10-1-INTG-024: inspector.go DocumentState must NOT carry plainTextFullCache -- deleted by 10-1 Task 1.3")
+		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullCache -- deleted by 10-1 Task 1.3")
 	}
 	if strings.Contains(src, "plainTextFullMu") {
-		t.Errorf("[P0] 10-1-INTG-024: inspector.go DocumentState must NOT carry plainTextFullMu -- deleted by 10-1 Task 1.3")
+		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullMu -- deleted by 10-1 Task 1.3")
 	}
 }
 
@@ -282,7 +282,7 @@ func TestCloseInvokesCancel(t *testing.T) {
 	// Verify Close references plainTextLoadCancel + plainTextCancelMu.
 	closeStart := strings.Index(src, "func (ins *Inspector) Close(")
 	if closeStart == -1 {
-		t.Fatalf("[P0] 10-1-INTG-025: could not locate Inspector.Close in inspector.go")
+		t.Fatalf("could not locate Inspector.Close in inspector.go")
 	}
 	closeEnd := closeStart + 800
 	if closeEnd > len(src) {
@@ -290,7 +290,7 @@ func TestCloseInvokesCancel(t *testing.T) {
 	}
 	closeBody := src[closeStart:closeEnd]
 	if !strings.Contains(closeBody, "plainTextLoadCancel") {
-		t.Errorf("[P0] 10-1-INTG-025: Inspector.Close must invoke plainTextLoadCancel (Task 1.5 / AC9)")
+		t.Errorf("Inspector.Close must invoke plainTextLoadCancel")
 	}
 	if !strings.Contains(closeBody, "plainTextCancelMu") {
 		t.Errorf("[P0] 10-1-INTG-025: Inspector.Close must acquire plainTextCancelMu (Task 1.5 / AC9 / Dev Notes deadlock-guard)")
@@ -304,11 +304,11 @@ func TestCloseInvokesCancel(t *testing.T) {
 func TestGetPlainTextBypassesWrapForCanceled(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if !strings.Contains(src, "context.Canceled") {
-		t.Fatalf("[P0] 10-1-INTG-026: plaintext.go must reference context.Canceled (AC4 / AC11 error wrapping rule)")
+		t.Fatalf("plaintext.go must reference context.Canceled (error wrapping rule)")
 	}
 	// The early-return pattern must appear: errors.Is(err, context.Canceled).
 	if !strings.Contains(src, "errors.Is(err, context.Canceled)") {
-		t.Errorf("[P0] 10-1-INTG-026: plaintext.go must early-return on errors.Is(err, context.Canceled) BEFORE wrapPDFError (story Dev Notes 'Why bypass wrapPDFError')")
+		t.Errorf("plaintext.go must early-return on errors.Is(err, context.Canceled) BEFORE wrapPDFError (story Dev Notes 'Why bypass wrapPDFError')")
 	}
 }
 
@@ -359,7 +359,7 @@ func TestRepoWideGrepGetPlainTextFull(t *testing.T) {
 				return nil
 			}
 			if strings.Contains(string(data), "GetPlainTextFull") {
-				t.Errorf("[P0] 10-1-INTG-027: GetPlainTextFull found in %s -- must be removed repo-wide outside story archives (AC18)", path)
+				t.Errorf("GetPlainTextFull found in %s -- must be removed repo-wide outside story archives", path)
 			}
 			return nil
 		})
@@ -376,17 +376,17 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 	bindingsPath := filepath.Join(root, "frontend", "bindings", "unidoc-pdf-debugger", "internal", "pdfservice", "pdfservice.js")
 	data, err := os.ReadFile(bindingsPath)
 	if err != nil {
-		t.Fatalf("[P0] 10-1-INTG-028: cannot read %s: %v", bindingsPath, err)
+		t.Fatalf("cannot read %s: %v", bindingsPath, err)
 	}
 	src := string(data)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("[P0] 10-1-INTG-028: pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method (AC18 / Task 2.3)")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method (/ Task 2.3)")
 	}
 	if !strings.Contains(src, "export function CancelPlainText") {
-		t.Errorf("[P0] 10-1-INTG-028: pdfservice.js must export CancelPlainText (AC18 / Task 2.3)")
+		t.Errorf("pdfservice.js must export CancelPlainText (/ Task 2.3)")
 	}
 	if !strings.Contains(src, "export function GetPlainTextSize") {
-		t.Errorf("[P0] 10-1-INTG-028: pdfservice.js must export GetPlainTextSize (AC18 / Task 2.3)")
+		t.Errorf("pdfservice.js must export GetPlainTextSize (/ Task 2.3)")
 	}
 }
 
@@ -414,7 +414,7 @@ func TestPlainTextViewLoadingCardTestIds(t *testing.T) {
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
-			t.Errorf("[P0] 10-1-STRUCT-001: PlainTextView.tsx missing data-testid=%q", tid)
+			t.Errorf("PlainTextView.tsx missing data-testid=%q", tid)
 		}
 	}
 }
@@ -437,13 +437,13 @@ func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 	}
 	for _, sym := range deleted {
 		if strings.Contains(src, sym) {
-			t.Errorf("[P0] 10-1-STRUCT-002: PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (AC18 / Task 3)", sym)
+			t.Errorf("PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (/ Task 3)", sym)
 		}
 	}
 	// The PlainTextDocumentData interface drops truncated + capBytes (AC18).
 	for _, deletedField := range []string{"truncated: boolean", "capBytes: number"} {
 		if strings.Contains(src, deletedField) {
-			t.Errorf("[P0] 10-1-STRUCT-002: PlainTextDocumentData must NOT declare %q -- deleted by 10-1 (AC18)", deletedField)
+			t.Errorf("PlainTextDocumentData must NOT declare %q -- deleted by 10-1", deletedField)
 		}
 	}
 }
@@ -456,7 +456,7 @@ func TestPlainTextViewImports(t *testing.T) {
 	required := []string{"GetPlainText", "CancelPlainText", "GetPlainTextSize"}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
-			t.Errorf("[P0] 10-1-STRUCT-003: PlainTextView.tsx must import %q from the pdfservice bindings (Task 3.3)", sym)
+			t.Errorf("PlainTextView.tsx must import %q from the pdfservice bindings (Task 3.3)", sym)
 		}
 	}
 }
@@ -466,7 +466,7 @@ func TestPlainTextViewImports(t *testing.T) {
 func TestLoadingCardHeading(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Loading plain text") {
-		t.Fatalf("[P0] 10-1-STRUCT-004: PlainTextView.tsx must render the heading 'Loading plain text' (AC2)")
+		t.Fatalf("PlainTextView.tsx must render the heading 'Loading plain text'")
 	}
 }
 
@@ -475,7 +475,7 @@ func TestLoadingCardHeading(t *testing.T) {
 func TestCancelledCopy(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Plain text load cancelled.") {
-		t.Fatalf("[P0] 10-1-STRUCT-005: PlainTextView.tsx must render 'Plain text load cancelled.' (AC5 verbatim)")
+		t.Fatalf("PlainTextView.tsx must render 'Plain text load cancelled.' (verbatim)")
 	}
 }
 
@@ -484,7 +484,7 @@ func TestCancelledCopy(t *testing.T) {
 func TestLoadPlainTextCTA(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Load plain text") {
-		t.Fatalf("[P0] 10-1-STRUCT-006: PlainTextView.tsx must render the 'Load plain text' CTA label (AC5 / AC6)")
+		t.Fatalf("PlainTextView.tsx must render the 'Load plain text' CTA label")
 	}
 }
 
@@ -494,11 +494,11 @@ func TestLoadPlainTextCTA(t *testing.T) {
 func TestCancellingLabel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "Cancelling") {
-		t.Fatalf("[P0] 10-1-STRUCT-007: PlainTextView.tsx must render the 'Cancelling' label (AC4)")
+		t.Fatalf("PlainTextView.tsx must render the 'Cancelling' label")
 	}
 	// Negative: must NOT add a trailing ellipsis to "Cancelling".
 	if strings.Contains(src, "Cancelling...") {
-		t.Errorf("[P0] 10-1-STRUCT-007: PlainTextView.tsx must NOT use 'Cancelling...' -- single word, no punctuation (AC4)")
+		t.Errorf("PlainTextView.tsx must NOT use 'Cancelling...' -- single word, no punctuation")
 	}
 }
 
@@ -507,6 +507,6 @@ func TestAsyncTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.async.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 10-1-STRUCT-008: frontend/src/components/PlainTextView.async.test.tsx must exist (Task 4)")
+		t.Fatalf("frontend/src/components/PlainTextView.async.test.tsx must exist (Task 4)")
 	}
 }

@@ -78,7 +78,7 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 	// Verify testdata/minimal.pdf exists (prerequisite)
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetTreeRoot
@@ -105,7 +105,7 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 func TestGetChildrenRoot(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenRoot
@@ -128,7 +128,7 @@ func TestGetChildrenRoot(t *testing.T) {
 func TestGetChildrenDictNode(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenDictNode
@@ -151,7 +151,7 @@ func TestGetChildrenArrayNode(t *testing.T) {
 	// multipage.pdf has /Pages with /Kids array containing multiple page refs
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenArrayNode
@@ -191,7 +191,7 @@ func TestErrorNodeCreation(t *testing.T) {
 func TestSemanticLabelPages(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestSemanticLabelPages
@@ -213,7 +213,7 @@ func TestSemanticLabelFont(t *testing.T) {
 	// content-stream.pdf or multipage.pdf should have font resources
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestSemanticLabelFont
@@ -233,7 +233,7 @@ func TestSemanticLabelFont(t *testing.T) {
 func TestNodeTypeAssignment(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestNodeTypeAssignment
@@ -343,7 +343,7 @@ func TestGetChildrenUnknownTabID(t *testing.T) {
 func TestGetChildrenInvalidNodeID(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenInvalidNodeID
@@ -363,7 +363,7 @@ func TestGetChildrenInvalidNodeID(t *testing.T) {
 func TestScalarLeafNodes(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestScalarLeafNodes
@@ -384,7 +384,7 @@ func TestScalarLeafNodes(t *testing.T) {
 func TestIconHintCatalog(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetTreeRoot
@@ -404,19 +404,19 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 	treePath := filepath.Join(root, "internal", "pdfcore", "tree.go")
 	content, err := os.ReadFile(treePath)
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-018: internal/pdfcore/tree.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/tree.go does not exist: %v", err)
 	}
 
 	treeContent := string(content)
 
 	// Verify GetTreeRoot method signature
 	if !strings.Contains(treeContent, "func (ins *Inspector) GetTreeRoot(") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go missing GetTreeRoot method on Inspector")
+		t.Error("tree.go missing GetTreeRoot method on Inspector")
 	}
 
 	// Verify GetChildren method signature
 	if !strings.Contains(treeContent, "func (ins *Inspector) GetChildren(") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go missing GetChildren method on Inspector")
+		t.Error("tree.go missing GetChildren method on Inspector")
 	}
 
 	// Verify unexported helpers exist
@@ -429,13 +429,13 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 	}
 	for _, h := range helpers {
 		if !strings.Contains(treeContent, h) {
-			t.Errorf("[P1] 2.2-UNIT-018: tree.go missing helper: %s", h)
+			t.Errorf("tree.go missing helper: %s", h)
 		}
 	}
 
 	// Verify no Wails imports
 	if strings.Contains(treeContent, "wailsapp") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go imports Wails -- pdfcore must have zero Wails dependencies")
+		t.Error("tree.go imports Wails -- pdfcore must have zero Wails dependencies")
 	}
 }
 
@@ -453,11 +453,11 @@ func TestAllTreeTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-019: pdfcore test suite failed:\n%s", string(output))
+		t.Fatalf("pdfcore test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.2-UNIT-019: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -473,7 +473,7 @@ func TestPdfcoreGoVetWithTree(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-020: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 	_ = output
 }
@@ -491,7 +491,7 @@ func TestPdfcoreCompiles(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-021: go build ./internal/pdfcore/... failed:\n%s", string(output))
+		t.Fatalf("go build./internal/pdfcore/... failed:\n%s", string(output))
 	}
 	_ = output
 }

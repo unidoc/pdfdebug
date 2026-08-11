@@ -81,7 +81,7 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 func TestOpenPartialSuccessWithWarning(t *testing.T) {
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 2.9-INTG-001: testdata/malformed.pdf does not exist -- prerequisite missing")
+		t.Fatalf("testdata/malformed.pdf does not exist -- prerequisite missing")
 	}
 
 	runPdfcoreTest(t, "TestOpenPartialSuccess")
@@ -96,7 +96,7 @@ func TestOpenPartialSuccessWithWarning(t *testing.T) {
 func TestOpenPartialSuccessDocumentStored(t *testing.T) {
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 2.9-INTG-002: testdata/malformed.pdf does not exist -- prerequisite missing")
+		t.Fatalf("testdata/malformed.pdf does not exist -- prerequisite missing")
 	}
 
 	runPdfcoreTest(t, "TestOpenPartialSuccessDocStored")
@@ -128,11 +128,11 @@ func TestGetObjectDetailErrorPrefixCheck(t *testing.T) {
 	path := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P0] 2.9-STRUCT-001: cannot read inspector.go: %v", err)
+		t.Fatalf("cannot read inspector.go: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, `strings.HasPrefix(nodeID, "error:")`) {
-		t.Fatalf("[P0] 2.9-STRUCT-001: inspector.go GetObjectDetail must check for error: prefix")
+		t.Fatalf("inspector.go GetObjectDetail must check for error: prefix")
 	}
 }
 
@@ -159,11 +159,11 @@ func TestStateHasDocumentWarning(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P0] 2.9-STRUCT-003: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "documentWarning") {
-		t.Fatalf("[P0] 2.9-STRUCT-003: useDocumentState.tsx AppState must have documentWarning field")
+		t.Fatalf("useDocumentState.tsx AppState must have documentWarning field")
 	}
 }
 
@@ -176,11 +176,11 @@ func TestStateHasSetDocumentWarningAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P0] 2.9-STRUCT-004: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "SET_DOCUMENT_WARNING") {
-		t.Fatalf("[P0] 2.9-STRUCT-004: useDocumentState.tsx must have SET_DOCUMENT_WARNING action")
+		t.Fatalf("useDocumentState.tsx must have SET_DOCUMENT_WARNING action")
 	}
 }
 
@@ -193,11 +193,11 @@ func TestStateHasDismissWarningAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P0] 2.9-STRUCT-005: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "DISMISS_WARNING") {
-		t.Fatalf("[P0] 2.9-STRUCT-005: useDocumentState.tsx must have DISMISS_WARNING action")
+		t.Fatalf("useDocumentState.tsx must have DISMISS_WARNING action")
 	}
 }
 
@@ -215,11 +215,11 @@ func TestErrorBannerSeverityTestId(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ErrorBanner.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-006: cannot read ErrorBanner.tsx: %v", err)
+		t.Fatalf("cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "warning-banner") {
-		t.Fatalf("[P1] 2.9-STRUCT-006: ErrorBanner.tsx must use data-testid='warning-banner' for warning severity")
+		t.Fatalf("ErrorBanner.tsx must use data-testid='warning-banner' for warning severity")
 	}
 }
 
@@ -233,14 +233,14 @@ func TestErrorBannerSeverityIcon(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ErrorBanner.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-007: cannot read ErrorBanner.tsx: %v", err)
+		t.Fatalf("cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "(!)") {
-		t.Fatalf("[P1] 2.9-STRUCT-007: ErrorBanner.tsx must have (!) icon for warning severity")
+		t.Fatalf("ErrorBanner.tsx must have (!) icon for warning severity")
 	}
 	if !strings.Contains(src, "(x)") {
-		t.Fatalf("[P1] 2.9-STRUCT-007: ErrorBanner.tsx must have (x) icon for error severity")
+		t.Fatalf("ErrorBanner.tsx must have (x) icon for error severity")
 	}
 }
 
@@ -254,11 +254,11 @@ func TestErrorBannerDismissAriaLabel(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ErrorBanner.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-008: cannot read ErrorBanner.tsx: %v", err)
+		t.Fatalf("cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "Dismiss warning") {
-		t.Fatalf("[P1] 2.9-STRUCT-008: ErrorBanner.tsx dismiss button must have aria-label 'Dismiss warning' for warning severity")
+		t.Fatalf("ErrorBanner.tsx dismiss button must have aria-label 'Dismiss warning' for warning severity")
 	}
 }
 
@@ -272,7 +272,7 @@ func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ErrorBanner.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P2] 2.9-STRUCT-009: cannot read ErrorBanner.tsx: %v", err)
+		t.Fatalf("cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
 	// Re-pinned 2026-05-22 (Epic 9 retro): the original dark:bg-* pin was stale.
@@ -281,13 +281,13 @@ func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
 	// a tinted banner with dark: variants would mismatch surrounding chrome.
 	// Contract now asserts the documented decision is preserved.
 	if !strings.Contains(src, "bg-red-100") {
-		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must use bg-red-100 for error background")
+		t.Fatalf("ErrorBanner.tsx must use bg-red-100 for error background")
 	}
 	if !strings.Contains(src, "bg-amber-100") {
-		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must use bg-amber-100 for warning background")
+		t.Fatalf("ErrorBanner.tsx must use bg-amber-100 for warning background")
 	}
 	if strings.Contains(src, "dark:bg-red") || strings.Contains(src, "dark:bg-amber") {
-		t.Fatalf("[P2] 2.9-STRUCT-009: ErrorBanner.tsx must NOT reintroduce dark:bg-* variants (mismatches app shell tokens; see in-file rationale)")
+		t.Fatalf("ErrorBanner.tsx must NOT reintroduce dark:bg-* variants (mismatches app shell tokens; see in-file rationale)")
 	}
 }
 
@@ -305,14 +305,14 @@ func TestAppJsxWarningBanner(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "App.jsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-010: cannot read App.jsx: %v", err)
+		t.Fatalf("cannot read App.jsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "documentWarning") {
-		t.Fatalf("[P1] 2.9-STRUCT-010: App.jsx must read documentWarning from state")
+		t.Fatalf("App.jsx must read documentWarning from state")
 	}
 	if !strings.Contains(src, "DISMISS_WARNING") {
-		t.Fatalf("[P1] 2.9-STRUCT-010: App.jsx must dispatch DISMISS_WARNING on warning banner dismiss")
+		t.Fatalf("App.jsx must dispatch DISMISS_WARNING on warning banner dismiss")
 	}
 }
 
@@ -326,11 +326,11 @@ func TestAppJsxEventWarningPropagation(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "App.jsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-011: cannot read App.jsx: %v", err)
+		t.Fatalf("cannot read App.jsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "SET_DOCUMENT_WARNING") {
-		t.Fatalf("[P1] 2.9-STRUCT-011: App.jsx must dispatch SET_DOCUMENT_WARNING from document:opened event")
+		t.Fatalf("App.jsx must dispatch SET_DOCUMENT_WARNING from document:opened event")
 	}
 }
 
@@ -347,11 +347,11 @@ func TestUsePDFServiceWarningField(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "usePDFService.ts")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.9-STRUCT-012: cannot read usePDFService.ts: %v", err)
+		t.Fatalf("cannot read usePDFService.ts: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "warning") {
-		t.Fatalf("[P1] 2.9-STRUCT-012: usePDFService.ts OpenPDFResult must have warning field")
+		t.Fatalf("usePDFService.ts OpenPDFResult must have warning field")
 	}
 }
 

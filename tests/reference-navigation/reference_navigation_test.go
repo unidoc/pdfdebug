@@ -78,11 +78,11 @@ func TestGetAncestorPathMethodExists(t *testing.T) {
 	path := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-INTG-001: cannot read inspector.go: %v", err)
+		t.Fatalf("cannot read inspector.go: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "GetAncestorPath") {
-		t.Fatalf("[P1] 2.8-INTG-001: inspector.go must contain GetAncestorPath method")
+		t.Fatalf("inspector.go must contain GetAncestorPath method")
 	}
 }
 
@@ -96,11 +96,11 @@ func TestFindPathToObjectExists(t *testing.T) {
 	path := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-INTG-002: cannot read inspector.go: %v", err)
+		t.Fatalf("cannot read inspector.go: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "findPathToObject") {
-		t.Fatalf("[P1] 2.8-INTG-002: inspector.go must contain findPathToObject helper")
+		t.Fatalf("inspector.go must contain findPathToObject helper")
 	}
 }
 
@@ -114,7 +114,7 @@ func TestGetAncestorPathUnitTestPasses(t *testing.T) {
 	// Verify testdata/minimal.pdf exists (prerequisite)
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 2.8-INTG-003: testdata/minimal.pdf does not exist -- prerequisite missing")
+		t.Fatalf("testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
 	runPdfcoreTest(t, "TestGetAncestorPath")
@@ -129,7 +129,7 @@ func TestGetAncestorPathUnitTestPasses(t *testing.T) {
 func TestGetAncestorPathRootNode(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] 2.8-INTG-004: testdata/minimal.pdf does not exist -- prerequisite missing")
+		t.Fatalf("testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
 	runPdfcoreTest(t, "TestGetAncestorPathRoot$")
@@ -143,7 +143,7 @@ func TestGetAncestorPathRootNode(t *testing.T) {
 func TestGetAncestorPathDanglingRef(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] 2.8-INTG-005: testdata/minimal.pdf does not exist -- prerequisite missing")
+		t.Fatalf("testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
 	runPdfcoreTest(t, "TestGetAncestorPathDangling")
@@ -159,11 +159,11 @@ func TestServiceGetAncestorPathExists(t *testing.T) {
 	path := filepath.Join(root, "internal", "pdfservice", "service.go")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-INTG-006: cannot read service.go: %v", err)
+		t.Fatalf("cannot read service.go: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "GetAncestorPath") {
-		t.Fatalf("[P1] 2.8-INTG-006: service.go must contain GetAncestorPath method")
+		t.Fatalf("service.go must contain GetAncestorPath method")
 	}
 }
 
@@ -177,11 +177,11 @@ func TestStateHasPendingNavTarget(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-001: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "pendingNavTarget") {
-		t.Fatalf("[P1] 2.8-STRUCT-001: useDocumentState.tsx must have pendingNavTarget in TabState")
+		t.Fatalf("useDocumentState.tsx must have pendingNavTarget in TabState")
 	}
 }
 
@@ -195,11 +195,11 @@ func TestStateHasNavError(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-002: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "navError") {
-		t.Fatalf("[P1] 2.8-STRUCT-002: useDocumentState.tsx must have navError in TabState")
+		t.Fatalf("useDocumentState.tsx must have navError in TabState")
 	}
 }
 
@@ -213,11 +213,11 @@ func TestStateHasNavigateToRefAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-003: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "NAVIGATE_TO_REF") {
-		t.Fatalf("[P1] 2.8-STRUCT-003: useDocumentState.tsx must have NAVIGATE_TO_REF action")
+		t.Fatalf("useDocumentState.tsx must have NAVIGATE_TO_REF action")
 	}
 }
 
@@ -231,11 +231,11 @@ func TestStateHasClearNavTargetAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-004: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "CLEAR_NAV_TARGET") {
-		t.Fatalf("[P1] 2.8-STRUCT-004: useDocumentState.tsx must have CLEAR_NAV_TARGET action")
+		t.Fatalf("useDocumentState.tsx must have CLEAR_NAV_TARGET action")
 	}
 }
 
@@ -249,11 +249,11 @@ func TestStateHasNavErrorAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-005: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "NAV_ERROR") {
-		t.Fatalf("[P1] 2.8-STRUCT-005: useDocumentState.tsx must have NAV_ERROR action")
+		t.Fatalf("useDocumentState.tsx must have NAV_ERROR action")
 	}
 }
 
@@ -267,11 +267,11 @@ func TestStateHasDismissNavErrorAction(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-006: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "DISMISS_NAV_ERROR") {
-		t.Fatalf("[P1] 2.8-STRUCT-006: useDocumentState.tsx must have DISMISS_NAV_ERROR action")
+		t.Fatalf("useDocumentState.tsx must have DISMISS_NAV_ERROR action")
 	}
 }
 
@@ -285,11 +285,11 @@ func TestValueDisplayHasOnReferenceClick(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailShared.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-007: cannot read DetailShared.tsx: %v", err)
+		t.Fatalf("cannot read DetailShared.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "onReferenceClick") {
-		t.Fatalf("[P1] 2.8-STRUCT-007: DetailShared.tsx ValueDisplay must accept onReferenceClick prop")
+		t.Fatalf("DetailShared.tsx ValueDisplay must accept onReferenceClick prop")
 	}
 }
 
@@ -303,11 +303,11 @@ func TestDetailPanelHasHandleReferenceClick(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-008: cannot read DetailPanel.tsx: %v", err)
+		t.Fatalf("cannot read DetailPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "handleReferenceClick") || !strings.Contains(src, "NAVIGATE_TO_REF") {
-		t.Fatalf("[P1] 2.8-STRUCT-008: DetailPanel.tsx must have handleReferenceClick that dispatches NAVIGATE_TO_REF")
+		t.Fatalf("DetailPanel.tsx must have handleReferenceClick that dispatches NAVIGATE_TO_REF")
 	}
 }
 
@@ -327,14 +327,14 @@ func TestObjectInfoPanelDispatchesNavigateToRefOnClick(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-009: cannot read ObjectInfoPanel.tsx: %v", err)
+		t.Fatalf("cannot read ObjectInfoPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "useAppDispatch") {
-		t.Fatalf("[P1] 2.8-STRUCT-009: ObjectInfoPanel.tsx must use useAppDispatch")
+		t.Fatalf("ObjectInfoPanel.tsx must use useAppDispatch")
 	}
 	if !strings.Contains(src, "NAVIGATE_TO_REF") {
-		t.Fatalf("[P1] 2.8-STRUCT-009: ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
+		t.Fatalf("ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
 	}
 }
 
@@ -349,11 +349,11 @@ func TestTreePanelHasTreeRef(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "TreePanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-010: cannot read TreePanel.tsx: %v", err)
+		t.Fatalf("cannot read TreePanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "treeRef") {
-		t.Fatalf("[P1] 2.8-STRUCT-010: TreePanel.tsx must have treeRef for react-arborist TreeApi")
+		t.Fatalf("TreePanel.tsx must have treeRef for react-arborist TreeApi")
 	}
 }
 
@@ -368,14 +368,14 @@ func TestTreePanelWatchesPendingNavTarget(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "TreePanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-011: cannot read TreePanel.tsx: %v", err)
+		t.Fatalf("cannot read TreePanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "pendingNavTarget") {
-		t.Fatalf("[P1] 2.8-STRUCT-011: TreePanel.tsx must watch pendingNavTarget")
+		t.Fatalf("TreePanel.tsx must watch pendingNavTarget")
 	}
 	if !strings.Contains(src, "GetAncestorPath") {
-		t.Fatalf("[P1] 2.8-STRUCT-011: TreePanel.tsx must call GetAncestorPath during navigation")
+		t.Fatalf("TreePanel.tsx must call GetAncestorPath during navigation")
 	}
 }
 
@@ -389,11 +389,11 @@ func TestTreePanelHasFlashNodeId(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "TreePanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P2] 2.8-STRUCT-012: cannot read TreePanel.tsx: %v", err)
+		t.Fatalf("cannot read TreePanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "flashNodeId") {
-		t.Fatalf("[P2] 2.8-STRUCT-012: TreePanel.tsx must have flashNodeId state for flash effect")
+		t.Fatalf("TreePanel.tsx must have flashNodeId state for flash effect")
 	}
 }
 
@@ -407,14 +407,14 @@ func TestTreePanelHasNavErrorDisplay(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "TreePanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P2] 2.8-STRUCT-013: cannot read TreePanel.tsx: %v", err)
+		t.Fatalf("cannot read TreePanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "navError") {
-		t.Fatalf("[P2] 2.8-STRUCT-013: TreePanel.tsx must display navError")
+		t.Fatalf("TreePanel.tsx must display navError")
 	}
 	if !strings.Contains(src, "DISMISS_NAV_ERROR") {
-		t.Fatalf("[P2] 2.8-STRUCT-013: TreePanel.tsx must auto-dismiss navError via DISMISS_NAV_ERROR")
+		t.Fatalf("TreePanel.tsx must auto-dismiss navError via DISMISS_NAV_ERROR")
 	}
 }
 
@@ -428,19 +428,19 @@ func TestGetAncestorPathUsesSafeCall(t *testing.T) {
 	path := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.8-STRUCT-014: cannot read inspector.go: %v", err)
+		t.Fatalf("cannot read inspector.go: %v", err)
 	}
 	src := string(content)
 	// GetAncestorPath should exist and the file should contain safeCall
 	// (safeCall is already used elsewhere; we verify it is used near findPathToObject)
 	if !strings.Contains(src, "GetAncestorPath") {
-		t.Fatalf("[P1] 2.8-STRUCT-014: inspector.go must contain GetAncestorPath")
+		t.Fatalf("inspector.go must contain GetAncestorPath")
 	}
 	if !strings.Contains(src, "findPathToObject") {
-		t.Fatalf("[P1] 2.8-STRUCT-014: inspector.go must contain findPathToObject")
+		t.Fatalf("inspector.go must contain findPathToObject")
 	}
 	// Verify safeCall is used in the file (already is, but verify it is still present)
 	if !strings.Contains(src, "safeCall") {
-		t.Fatalf("[P1] 2.8-STRUCT-014: inspector.go must use safeCall for panic recovery")
+		t.Fatalf("inspector.go must use safeCall for panic recovery")
 	}
 }

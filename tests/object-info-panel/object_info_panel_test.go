@@ -77,7 +77,7 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 func TestGetObjectDetailDict(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailDict
@@ -107,7 +107,7 @@ func TestGetObjectDetailDict(t *testing.T) {
 func TestGetObjectDetailArray(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailArray
@@ -132,7 +132,7 @@ func TestGetObjectDetailArray(t *testing.T) {
 func TestGetObjectDetailScalar(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailScalar
@@ -159,7 +159,7 @@ func TestGetObjectDetailStream(t *testing.T) {
 	// content-stream.pdf or multipage.pdf should have stream objects
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailStream
@@ -183,7 +183,7 @@ func TestGetObjectDetailStream(t *testing.T) {
 func TestGetObjectDetailObjectRef(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailObjectRef
@@ -254,7 +254,7 @@ func TestGetObjectDetailUnknownTabID(t *testing.T) {
 func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailInvalidNodeID
@@ -275,7 +275,7 @@ func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 func TestGetObjectDetailRefTarget(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailRefTarget
@@ -298,13 +298,13 @@ func TestGetObjectDetailMethodExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-011: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func (ins *Inspector) GetObjectDetail(") {
-		t.Error("[P1] 2.6-UNIT-011: inspector.go missing GetObjectDetail method on Inspector")
+		t.Error("inspector.go missing GetObjectDetail method on Inspector")
 	}
 }
 
@@ -319,13 +319,13 @@ func TestValueEntryHelperExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-012: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func valueEntryFromObject(") {
-		t.Error("[P1] 2.6-UNIT-012: inspector.go missing valueEntryFromObject helper")
+		t.Error("inspector.go missing valueEntryFromObject helper")
 	}
 }
 
@@ -340,13 +340,13 @@ func TestExtractStreamInfoHelperExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-013: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func extractStreamInfo(") {
-		t.Error("[P1] 2.6-UNIT-013: inspector.go missing extractStreamInfo helper")
+		t.Error("inspector.go missing extractStreamInfo helper")
 	}
 }
 
@@ -361,14 +361,14 @@ func TestGetObjectDetailPanicRecovery(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-014: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	// GetObjectDetail must use safeCall
 	if !strings.Contains(src, "safeCall") {
-		t.Error("[P1] 2.6-UNIT-014: inspector.go GetObjectDetail does not use safeCall for panic recovery")
+		t.Error("inspector.go GetObjectDetail does not use safeCall for panic recovery")
 	}
 }
 
@@ -383,13 +383,13 @@ func TestInspectorNoWailsImports(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-015: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if strings.Contains(src, "wailsapp") || strings.Contains(src, "wails/v3") {
-		t.Error("[P1] 2.6-UNIT-015: inspector.go imports Wails -- pdfcore must have zero Wails dependencies")
+		t.Error("inspector.go imports Wails -- pdfcore must have zero Wails dependencies")
 	}
 }
 
@@ -405,11 +405,11 @@ func TestAllPdfcoreTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-016: pdfcore test suite failed:\n%s", string(output))
+		t.Fatalf("pdfcore test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.6-UNIT-016: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -425,7 +425,7 @@ func TestPdfcoreGoVetWithObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-017: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 	_ = output
 }
@@ -442,7 +442,7 @@ func TestPdfcoreCompilesWithObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-018: go build ./internal/pdfcore/... failed:\n%s", string(output))
+		t.Fatalf("go build./internal/pdfcore/... failed:\n%s", string(output))
 	}
 	_ = output
 }

@@ -105,11 +105,11 @@ func TestObjectSourceFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "internal", "pdfcore", "objectsource.go")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-INTG-001: internal/pdfcore/objectsource.go does not exist")
+		t.Fatalf("internal/pdfcore/objectsource.go does not exist")
 	}
 	src := readSource(t, "internal/pdfcore/objectsource.go")
 	if !strings.Contains(src, "GetObjectSource") {
-		t.Fatalf("[P0] 9.10-INTG-001: objectsource.go must declare GetObjectSource method on Inspector")
+		t.Fatalf("objectsource.go must declare GetObjectSource method on Inspector")
 	}
 }
 
@@ -117,7 +117,7 @@ func TestObjectSourceFileExists(t *testing.T) {
 func TestObjectSourceDictAndArrayForms(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-INTG-002: testdata/minimal.pdf missing")
+		t.Fatalf("testdata/minimal.pdf missing")
 	}
 	runPdfcoreTest(t, "TestObjectSourceSerializeForms")
 }
@@ -178,11 +178,11 @@ func TestReverseRefsFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "internal", "pdfcore", "reverserefs.go")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-INTG-009: internal/pdfcore/reverserefs.go does not exist")
+		t.Fatalf("internal/pdfcore/reverserefs.go does not exist")
 	}
 	src := readSource(t, "internal/pdfcore/reverserefs.go")
 	if !strings.Contains(src, "GetReverseRefs") {
-		t.Fatalf("[P0] 9.10-INTG-009: reverserefs.go must declare GetReverseRefs method on Inspector")
+		t.Fatalf("reverserefs.go must declare GetReverseRefs method on Inspector")
 	}
 }
 
@@ -195,10 +195,10 @@ func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 	// alongside streamCache. We do not pin the exact field name here, but we
 	// do require BOTH a reverse-refs storage field and a build-failed flag.
 	if !strings.Contains(src, "revRefsBuildFailed") {
-		t.Fatalf("[P0] 9.10-INTG-010: inspector.go DocumentState must carry revRefsBuildFailed bool")
+		t.Fatalf("inspector.go DocumentState must carry revRefsBuildFailed bool")
 	}
 	if !strings.Contains(src, "ReverseRef") {
-		t.Fatalf("[P0] 9.10-INTG-010: inspector.go must reference ReverseRef (index storage)")
+		t.Fatalf("inspector.go must reference ReverseRef (index storage)")
 	}
 }
 
@@ -209,7 +209,7 @@ func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 func TestReverseRefSentinelErrorDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	if !strings.Contains(src, "ErrReverseRefIndexUnavailable") {
-		t.Fatalf("[P0] 9.10-INTG-011: errors.go must declare ErrReverseRefIndexUnavailable sentinel")
+		t.Fatalf("errors.go must declare ErrReverseRefIndexUnavailable sentinel")
 	}
 }
 
@@ -220,10 +220,10 @@ func TestReverseRefSentinelErrorDeclared(t *testing.T) {
 func TestReverseRefIndexBuiltAtOpen(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "buildReverseRefs") && !strings.Contains(src, "BuildReverseRefs") {
-		t.Fatalf("[P0] 9.10-INTG-012: inspector.go Open must call a reverse-refs build entry point (buildReverseRefs / BuildReverseRefs)")
+		t.Fatalf("inspector.go Open must call a reverse-refs build entry point (buildReverseRefs / BuildReverseRefs)")
 	}
 	if !strings.Contains(src, "safeCall") {
-		t.Fatalf("[P0] 9.10-INTG-012: inspector.go must use safeCall (already true today; check preserved)")
+		t.Fatalf("inspector.go must use safeCall (already true today; check preserved)")
 	}
 }
 
@@ -234,7 +234,7 @@ func TestReverseRefIndexBuiltAtOpen(t *testing.T) {
 func TestReverseRefIndexBuildFromCatalog(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-INTG-013: testdata/multipage.pdf missing")
+		t.Fatalf("testdata/multipage.pdf missing")
 	}
 	runPdfcoreTest(t, "TestReverseRefIndexBuildPopulatesPagesAndKids")
 }
@@ -255,11 +255,11 @@ func TestReverseRefIndexUsesVisitedSetNotDepthCap(t *testing.T) {
 	// visited set alone. (We grep for the constant by name; if dev wants to
 	// rename the constant later, they update this test alongside the rename.)
 	if strings.Contains(src, "maxRefDepth") {
-		t.Fatalf("[P1] 9.10-INTG-015: reverserefs.go MUST NOT reuse maxRefDepth -- cycle protection lives in the visited set keyed by (num, gen). Using a depth cap would falsely mark deeply nested objects as orphans.")
+		t.Fatalf("reverserefs.go MUST NOT reuse maxRefDepth -- cycle protection lives in the visited set keyed by (num, gen). Using a depth cap would falsely mark deeply nested objects as orphans.")
 	}
 	// And the source must reference a visited construct (set/map).
 	if !strings.Contains(src, "visited") {
-		t.Fatalf("[P1] 9.10-INTG-015: reverserefs.go must use a visited set/map for cycle protection")
+		t.Fatalf("reverserefs.go must use a visited set/map for cycle protection")
 	}
 }
 
@@ -273,7 +273,7 @@ func TestReverseRefIndexUsesVisitedSetNotDepthCap(t *testing.T) {
 func TestReverseRefStructShape(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "ReverseRef") {
-		t.Fatalf("[P0] 9.10-INTG-016: model.go must declare type ReverseRef")
+		t.Fatalf("model.go must declare type ReverseRef")
 	}
 	requiredFields := []string{
 		`ParentNodeID`,
@@ -283,7 +283,7 @@ func TestReverseRefStructShape(t *testing.T) {
 	}
 	for _, f := range requiredFields {
 		if !strings.Contains(src, f) {
-			t.Fatalf("[P0] 9.10-INTG-016: ReverseRef must declare field %q", f)
+			t.Fatalf("ReverseRef must declare field %q", f)
 		}
 	}
 	requiredJSONTags := []string{
@@ -294,13 +294,13 @@ func TestReverseRefStructShape(t *testing.T) {
 	}
 	for _, tag := range requiredJSONTags {
 		if !strings.Contains(src, tag) {
-			t.Fatalf("[P0] 9.10-INTG-016: ReverseRef must declare JSON tag %q -- frontend serialization contract", tag)
+			t.Fatalf("ReverseRef must declare JSON tag %q -- frontend serialization contract", tag)
 		}
 	}
 	// ParentType MUST be *string (omitempty pointer). A non-pointer type would
 	// lose the "absent vs empty" distinction required by Task 6.4.
 	if !strings.Contains(src, "ParentType *string") {
-		t.Fatalf("[P0] 9.10-INTG-016: ParentType must be *string so the frontend can distinguish 'key absent' from 'value is empty name'")
+		t.Fatalf("ParentType must be *string so the frontend can distinguish 'key absent' from 'value is empty name'")
 	}
 }
 
@@ -320,7 +320,7 @@ func TestReverseRefEntriesDeterministicOrdering(t *testing.T) {
 func TestReverseRefIndexCatalogHasZeroEntries(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] 9.10-INTG-018: testdata/multipage.pdf missing")
+		t.Fatalf("testdata/multipage.pdf missing")
 	}
 	runPdfcoreTest(t, "TestReverseRefIndexCatalogIsEmpty")
 }
@@ -350,7 +350,7 @@ func TestReverseRefIndexPerDocument(t *testing.T) {
 func TestServiceExposesGetObjectSource(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetObjectSource") {
-		t.Fatalf("[P0] 9.10-INTG-021: service.go must expose GetObjectSource")
+		t.Fatalf("service.go must expose GetObjectSource")
 	}
 }
 
@@ -359,13 +359,13 @@ func TestServiceExposesGetObjectSource(t *testing.T) {
 func TestServiceExposesGetReverseRefs(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetReverseRefs") {
-		t.Fatalf("[P0] 9.10-INTG-022: service.go must expose GetReverseRefs")
+		t.Fatalf("service.go must expose GetReverseRefs")
 	}
 	// Return type signature -- the frontend bindings depend on the exact slice
 	// element type. Loose match: must contain *pdfcore.ReverseRef in the
 	// signature line.
 	if !strings.Contains(src, "[]*pdfcore.ReverseRef") {
-		t.Fatalf("[P0] 9.10-INTG-022: service.go GetReverseRefs must return []*pdfcore.ReverseRef")
+		t.Fatalf("service.go GetReverseRefs must return []*pdfcore.ReverseRef")
 	}
 }
 
@@ -384,18 +384,18 @@ func TestObjectInfoPanelRenamedExport(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-STRUCT-001: ObjectInfoPanel.tsx must still exist (in-place rewrite, file NOT renamed)")
+		t.Fatalf("ObjectInfoPanel.tsx must still exist (in-place rewrite, file NOT renamed)")
 	}
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("[P0] 9.10-STRUCT-001: ObjectInfoPanel.tsx must export ObjectSourcePanel (the renamed component per Task 5.1)")
+		t.Fatalf("ObjectInfoPanel.tsx must export ObjectSourcePanel (the renamed component per Task 5.1)")
 	}
 	// The new data-testid replaces the old one.
 	if !strings.Contains(src, `"object-source-panel"`) {
-		t.Fatalf("[P0] 9.10-STRUCT-001: ObjectInfoPanel.tsx must use data-testid \"object-source-panel\" (Task 5.1)")
+		t.Fatalf("ObjectInfoPanel.tsx must use data-testid \"object-source-panel\" (Task 5.1)")
 	}
 	if strings.Contains(src, `"object-info-panel"`) {
-		t.Fatalf("[P0] 9.10-STRUCT-001: ObjectInfoPanel.tsx must NOT keep the old data-testid \"object-info-panel\" -- replace with \"object-source-panel\"")
+		t.Fatalf("ObjectInfoPanel.tsx must NOT keep the old data-testid \"object-info-panel\" -- replace with \"object-source-panel\"")
 	}
 }
 
@@ -404,7 +404,7 @@ func TestObjectInfoPanelRenamedExport(t *testing.T) {
 func TestMainLayoutImportsObjectSourcePanel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/MainLayout.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("[P0] 9.10-STRUCT-002: MainLayout.tsx must import ObjectSourcePanel (Task 5.1)")
+		t.Fatalf("MainLayout.tsx must import ObjectSourcePanel (Task 5.1)")
 	}
 }
 
@@ -413,11 +413,11 @@ func TestReverseRefsSectionExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ReverseRefsSection.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-STRUCT-003: frontend/src/components/ReverseRefsSection.tsx must exist (Task 6.1)")
+		t.Fatalf("frontend/src/components/ReverseRefsSection.tsx must exist (Task 6.1)")
 	}
 	src := readSource(t, "frontend/src/components/ReverseRefsSection.tsx")
 	if !strings.Contains(src, "export") || !strings.Contains(src, "ReverseRefsSection") {
-		t.Fatalf("[P0] 9.10-STRUCT-003: ReverseRefsSection.tsx must export ReverseRefsSection")
+		t.Fatalf("ReverseRefsSection.tsx must export ReverseRefsSection")
 	}
 }
 
@@ -426,10 +426,10 @@ func TestReverseRefsSectionExists(t *testing.T) {
 func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "ReverseRefsSection") {
-		t.Fatalf("[P0] 9.10-STRUCT-004: DetailPanel.tsx must mount <ReverseRefsSection> (Task 7.1)")
+		t.Fatalf("DetailPanel.tsx must mount <ReverseRefsSection> (Task 7.1)")
 	}
 	if !strings.Contains(src, "GetReverseRefs") {
-		t.Fatalf("[P0] 9.10-STRUCT-004: DetailPanel.tsx must fetch GetReverseRefs on selection change (Task 7.2)")
+		t.Fatalf("DetailPanel.tsx must fetch GetReverseRefs on selection change (Task 7.2)")
 	}
 	// The remount-on-selection-change contract uses key={selectedNodeId} on
 	// the section element itself (Task 6.3). We do NOT pin the exact text
@@ -438,7 +438,7 @@ func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	// A loose substring match catches the obvious failure modes (key on a
 	// wrapper, or key omitted entirely).
 	if !strings.Contains(src, "key={selectedNodeId}") {
-		t.Fatalf("[P0] 9.10-STRUCT-004: DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId} ...> so the section unmounts/remounts on selection change (Task 6.3 reset rule)")
+		t.Fatalf("DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId}...> so the section unmounts/remounts on selection change (Task 6.3 reset rule)")
 	}
 }
 
@@ -447,7 +447,7 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ReverseRefsSection.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.10-STRUCT-005: frontend/src/components/ReverseRefsSection.test.tsx must exist")
+		t.Fatalf("frontend/src/components/ReverseRefsSection.test.tsx must exist")
 	}
 }
 
@@ -457,10 +457,10 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.test.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("[P0] 9.10-STRUCT-006: ObjectInfoPanel.test.tsx must reference the renamed ObjectSourcePanel")
+		t.Fatalf("ObjectInfoPanel.test.tsx must reference the renamed ObjectSourcePanel")
 	}
 	if !strings.Contains(src, "GetObjectSource") {
-		t.Fatalf("[P0] 9.10-STRUCT-006: ObjectInfoPanel.test.tsx must mock GetObjectSource (the new fetcher)")
+		t.Fatalf("ObjectInfoPanel.test.tsx must mock GetObjectSource (the new fetcher)")
 	}
 	// The load-bearing mapping test: 5 0 R -> obj:0:5 (NOT obj:5:0).
 	// Either form below proves the assertion exists.
@@ -475,7 +475,7 @@ func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 func TestReferenceNavigationTestUpdated(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ReferenceNavigation.test.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("[P1] 9.10-STRUCT-007: ReferenceNavigation.test.tsx must reference ObjectSourcePanel (Task 8.4 rename)")
+		t.Fatalf("ReferenceNavigation.test.tsx must reference ObjectSourcePanel (Task 8.4 rename)")
 	}
 }
 

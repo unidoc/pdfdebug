@@ -105,11 +105,11 @@ func TestFontFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "internal", "pdfcore", "font.go")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.9-INTG-001: internal/pdfcore/font.go does not exist")
+		t.Fatalf("internal/pdfcore/font.go does not exist")
 	}
 	src := readSource(t, "internal/pdfcore/font.go")
 	if !strings.Contains(src, "func (ins *Inspector) GetFontDetail(") {
-		t.Fatalf("[P0] 9.9-INTG-001: font.go must declare GetFontDetail method on Inspector with signature 'func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error)'")
+		t.Fatalf("font.go must declare GetFontDetail method on Inspector with signature 'func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error)'")
 	}
 }
 
@@ -122,7 +122,7 @@ func TestFontFileExists(t *testing.T) {
 func TestErrNotAFontSentinelDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	if !strings.Contains(src, "ErrNotAFont") {
-		t.Fatalf("[P0] 9.9-INTG-002: errors.go must declare ErrNotAFont sentinel (Task 1.3). The frontend keys off this sentinel to fall back to DictView for the /Resources /Font resource-map false-positive case.")
+		t.Fatalf("errors.go must declare ErrNotAFont sentinel (Task 1.3). The frontend keys off this sentinel to fall back to DictView for the /Resources /Font resource-map false-positive case.")
 	}
 }
 
@@ -133,7 +133,7 @@ func TestErrNotAFontSentinelDeclared(t *testing.T) {
 func TestFontUsesResolveNodeObject(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	if !strings.Contains(src, "resolveNodeObject") {
-		t.Fatalf("[P0] 9.9-INTG-003: font.go must use resolveNodeObject (existing helper) so ObjStm packaging and IndirectRef chains work transparently per AC#10")
+		t.Fatalf("font.go must use resolveNodeObject (existing helper) so ObjStm packaging and IndirectRef chains work transparently")
 	}
 }
 
@@ -143,7 +143,7 @@ func TestFontUsesResolveNodeObject(t *testing.T) {
 func TestFontUsesSafeCall(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	if !strings.Contains(src, "safeCall") {
-		t.Fatalf("[P0] 9.9-INTG-004: font.go must wrap pdfcpu calls in safeCall (project-wide panic-recovery invariant; CMap parsing on malformed streams is a real panic surface)")
+		t.Fatalf("font.go must wrap pdfcpu calls in safeCall (project-wide panic-recovery invariant; CMap parsing on malformed streams is a real panic surface)")
 	}
 }
 
@@ -158,7 +158,7 @@ func TestFontUsesSafeCall(t *testing.T) {
 func TestFontDetailStructShape(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type FontDetail struct") {
-		t.Fatalf("[P0] 9.9-INTG-005: model.go must declare type FontDetail struct")
+		t.Fatalf("model.go must declare type FontDetail struct")
 	}
 	requiredFields := []string{
 		"NodeID",
@@ -178,7 +178,7 @@ func TestFontDetailStructShape(t *testing.T) {
 	}
 	for _, f := range requiredFields {
 		if !strings.Contains(src, f) {
-			t.Errorf("[P0] 9.9-INTG-005: FontDetail must declare field %q", f)
+			t.Errorf("FontDetail must declare field %q", f)
 		}
 	}
 	requiredJSONTags := []string{
@@ -199,7 +199,7 @@ func TestFontDetailStructShape(t *testing.T) {
 	}
 	for _, tag := range requiredJSONTags {
 		if !strings.Contains(src, tag) {
-			t.Errorf("[P0] 9.9-INTG-005: FontDetail must declare JSON tag %q (frontend serialization contract)", tag)
+			t.Errorf("FontDetail must declare JSON tag %q (frontend serialization contract)", tag)
 		}
 	}
 	// Descendant is *FontDetail (recursive pointer; nil for non-Type0 fonts).
@@ -208,10 +208,10 @@ func TestFontDetailStructShape(t *testing.T) {
 	// of whitespace before substring matching to avoid false negatives.
 	normalized := strings.Join(strings.Fields(src), " ")
 	if !strings.Contains(normalized, "FontDescriptor *FontDescriptorInfo") {
-		t.Errorf("[P0] 9.9-INTG-005: FontDetail.FontDescriptor must be *FontDescriptorInfo (nil-able). A non-pointer would lose the absent-vs-empty distinction the FontPreview keys off")
+		t.Errorf("FontDetail.FontDescriptor must be *FontDescriptorInfo (nil-able). A non-pointer would lose the absent-vs-empty distinction the FontPreview keys off")
 	}
 	if !strings.Contains(normalized, "Descendant *FontDetail") {
-		t.Errorf("[P0] 9.9-INTG-005: FontDetail.Descendant must be *FontDetail (nil for non-composite fonts)")
+		t.Errorf("FontDetail.Descendant must be *FontDetail (nil for non-composite fonts)")
 	}
 }
 
@@ -222,25 +222,25 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 
 	if !strings.Contains(src, "type EncodingDifference struct") {
-		t.Errorf("[P0] 9.9-INTG-006: model.go must declare type EncodingDifference struct (Task 1.2)")
+		t.Errorf("model.go must declare type EncodingDifference struct (Task 1.2)")
 	}
 	for _, tag := range []string{`json:"code"`, `json:"glyphName"`} {
 		if !strings.Contains(src, tag) {
-			t.Errorf("[P0] 9.9-INTG-006: EncodingDifference must carry JSON tag %q", tag)
+			t.Errorf("EncodingDifference must carry JSON tag %q", tag)
 		}
 	}
 
 	if !strings.Contains(src, "type ToUnicodeMapping struct") {
-		t.Errorf("[P0] 9.9-INTG-006: model.go must declare type ToUnicodeMapping struct (Task 1.2)")
+		t.Errorf("model.go must declare type ToUnicodeMapping struct (Task 1.2)")
 	}
 	for _, tag := range []string{`json:"unicode"`, `json:"glyph"`} {
 		if !strings.Contains(src, tag) {
-			t.Errorf("[P0] 9.9-INTG-006: ToUnicodeMapping must carry JSON tag %q", tag)
+			t.Errorf("ToUnicodeMapping must carry JSON tag %q", tag)
 		}
 	}
 
 	if !strings.Contains(src, "type FontDescriptorInfo struct") {
-		t.Errorf("[P0] 9.9-INTG-006: model.go must declare type FontDescriptorInfo struct (Task 1.2)")
+		t.Errorf("model.go must declare type FontDescriptorInfo struct (Task 1.2)")
 	}
 	requiredFDFields := []string{
 		"FontName",
@@ -257,7 +257,7 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 	}
 	for _, f := range requiredFDFields {
 		if !strings.Contains(src, f) {
-			t.Errorf("[P0] 9.9-INTG-006: FontDescriptorInfo must declare field %q", f)
+			t.Errorf("FontDescriptorInfo must declare field %q", f)
 		}
 	}
 	for _, tag := range []string{
@@ -274,7 +274,7 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 		`json:"fontFileSize"`,
 	} {
 		if !strings.Contains(src, tag) {
-			t.Errorf("[P0] 9.9-INTG-006: FontDescriptorInfo must carry JSON tag %q", tag)
+			t.Errorf("FontDescriptorInfo must carry JSON tag %q", tag)
 		}
 	}
 }
@@ -498,11 +498,11 @@ func TestFontDetailType0CIDFields(t *testing.T) {
 func TestServiceExposesGetFontDetail(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetFontDetail") {
-		t.Fatalf("[P0] 9.9-INTG-031: service.go must expose GetFontDetail (Task 3.1)")
+		t.Fatalf("service.go must expose GetFontDetail (Task 3.1)")
 	}
 	// Return signature -- the frontend bindings depend on the exact element type.
 	if !strings.Contains(src, "*pdfcore.FontDetail") {
-		t.Fatalf("[P0] 9.9-INTG-031: service.go GetFontDetail must return *pdfcore.FontDetail (Task 3.1)")
+		t.Fatalf("service.go GetFontDetail must return *pdfcore.FontDetail (Task 3.1)")
 	}
 }
 
@@ -547,7 +547,7 @@ func TestFontDetailType3DoesNotPanic(t *testing.T) {
 func TestFontFileZeroWailsImports(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	if strings.Contains(src, "wailsapp") {
-		t.Errorf("[P1] 9.9-INTG-035: internal/pdfcore/font.go imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies")
+		t.Errorf("internal/pdfcore/font.go imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies")
 	}
 }
 
@@ -558,7 +558,7 @@ func TestPdfcoreGoVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 9.9-INTG-036: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 }
 
@@ -571,10 +571,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 9.9-INTG-037: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "ok") && !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 9.9-INTG-037: expected PASS or ok in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS or ok in output but got:\n%s", string(output))
 	}
 }
 
@@ -586,10 +586,10 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 9.9-INTG-038: pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "ok") && !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 9.9-INTG-038: expected PASS or ok in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS or ok in output but got:\n%s", string(output))
 	}
 }
 
@@ -604,11 +604,11 @@ func TestFontPreviewComponentFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "FontPreview.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.9-STRUCT-001: frontend/src/components/FontPreview.tsx must exist (Task 4.1)")
+		t.Fatalf("frontend/src/components/FontPreview.tsx must exist (Task 4.1)")
 	}
 	src := readSource(t, "frontend/src/components/FontPreview.tsx")
 	if !strings.Contains(src, "FontPreview") {
-		t.Fatalf("[P0] 9.9-STRUCT-001: FontPreview.tsx must export a FontPreview component")
+		t.Fatalf("FontPreview.tsx must export a FontPreview component")
 	}
 	// Per the story Task 4.1: FontPreview is a pure presentational component
 	// that takes a `detail` prop AND an `onReferenceClick` handler. We pin
@@ -619,7 +619,7 @@ func TestFontPreviewComponentFileExists(t *testing.T) {
 		t.Fatalf("[P0] 9.9-STRUCT-001: FontPreview.tsx must accept an onReferenceClick prop so DetailPanel threads its handleReferenceClick handler through (Task 4.1, AC#8)")
 	}
 	if !strings.Contains(src, "detail") {
-		t.Fatalf("[P0] 9.9-STRUCT-001: FontPreview.tsx must accept a `detail` prop carrying the FontDetail data")
+		t.Fatalf("FontPreview.tsx must accept a `detail` prop carrying the FontDetail data")
 	}
 }
 
@@ -629,7 +629,7 @@ func TestFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "FontPreview.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.9-STRUCT-002: frontend/src/components/FontPreview.test.tsx must exist (Task 6.1)")
+		t.Fatalf("frontend/src/components/FontPreview.test.tsx must exist (Task 6.1)")
 	}
 }
 
@@ -645,10 +645,10 @@ func TestFontPreviewTestFileExists(t *testing.T) {
 func TestDetailPanelMountsFontPreview(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "FontPreview") {
-		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must import and render FontPreview (Task 5.1)")
+		t.Fatalf("DetailPanel.tsx must import and render FontPreview (Task 5.1)")
 	}
 	if !strings.Contains(src, "GetFontView") {
-		t.Fatalf("[P0] 9.9-STRUCT-003: DetailPanel.tsx must call GetFontView when iconHint==='font' (unified endpoint)")
+		t.Fatalf("DetailPanel.tsx must call GetFontView when iconHint==='font' (unified endpoint)")
 	}
 	// AC#9: 200ms debounce parallel to imageLoading/showImageLoading. The
 	// loading state lives in the showFontLoading flag; the debounce behavior
@@ -666,7 +666,7 @@ func TestDetailPanelFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.fontPreview.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] 9.9-STRUCT-004: frontend/src/components/DetailPanel.fontPreview.test.tsx must exist (Task 6.2 integration test)")
+		t.Fatalf("frontend/src/components/DetailPanel.fontPreview.test.tsx must exist (Task 6.2 integration test)")
 	}
 }
 
