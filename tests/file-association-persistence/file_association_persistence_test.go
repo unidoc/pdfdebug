@@ -62,7 +62,7 @@ func TestExtractPDFPaths(t *testing.T) {
 	// Verify main_test.go exists with extractPDFPaths tests
 	mainTestPath := filepath.Join(root, "main_test.go")
 	if _, err := os.Stat(mainTestPath); os.IsNotExist(err) {
-		t.Fatal("[P2] 4.4-UNIT-005: main_test.go does not exist in project root -- create extractPDFPaths tests")
+		t.Fatal("main_test.go does not exist in project root -- create extractPDFPaths tests")
 	}
 
 	// Run the extractPDFPaths tests in the project root
@@ -70,10 +70,10 @@ func TestExtractPDFPaths(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P2] 4.4-UNIT-005: extractPDFPaths tests failed:\n%s", string(output))
+		t.Fatalf("extractPDFPaths tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P2] 4.4-UNIT-005: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -125,14 +125,14 @@ func TestLinuxDesktopFileAssociation(t *testing.T) {
 	desktopPath := filepath.Join(root, "build", "linux", "unidoc-pdf-debugger.desktop")
 	content, err := os.ReadFile(desktopPath)
 	if err != nil {
-		t.Fatalf("[P2] 4.4-STRUCT-006: cannot read unidoc-pdf-debugger.desktop: %v", err)
+		t.Fatalf("cannot read unidoc-pdf-debugger.desktop: %v", err)
 	}
 	s := string(content)
 	if !strings.Contains(s, "MimeType=application/pdf") {
-		t.Error("[P2] 4.4-STRUCT-006: .desktop file missing MimeType=application/pdf")
+		t.Error(".desktop file missing MimeType=application/pdf")
 	}
 	if !strings.Contains(s, "%"+"f") {
-		t.Errorf("[P2] 4.4-STRUCT-006: .desktop file missing %s in Exec line", "%f")
+		t.Errorf(".desktop file missing %s in Exec line", "%f")
 	}
 }
 
@@ -148,7 +148,7 @@ func TestVitestWindowPersistenceTests(t *testing.T) {
 	// Verify test file exists
 	testPath := filepath.Join(root, "frontend", "src", "hooks", "useWindowPersistence.test.ts")
 	if _, err := os.Stat(testPath); os.IsNotExist(err) {
-		t.Fatal("[P1] 4.4-STRUCT-007: useWindowPersistence.test.ts does not exist")
+		t.Fatal("useWindowPersistence.test.ts does not exist")
 	}
 
 	// Run the Vitest tests
@@ -156,7 +156,7 @@ func TestVitestWindowPersistenceTests(t *testing.T) {
 	cmd.Dir = filepath.Join(root, "frontend")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 4.4-STRUCT-007: useWindowPersistence Vitest tests failed:\n%s", string(output))
+		t.Fatalf("useWindowPersistence Vitest tests failed:\n%s", string(output))
 	}
 }
 
@@ -172,7 +172,7 @@ func TestVitestMainLayoutPersistenceTests(t *testing.T) {
 	// Verify test file exists
 	testPath := filepath.Join(root, "frontend", "src", "components", "MainLayout.persistence.test.tsx")
 	if _, err := os.Stat(testPath); os.IsNotExist(err) {
-		t.Fatal("[P1] 4.4-STRUCT-008: MainLayout.persistence.test.tsx does not exist")
+		t.Fatal("MainLayout.persistence.test.tsx does not exist")
 	}
 
 	// Run the Vitest tests
@@ -180,7 +180,7 @@ func TestVitestMainLayoutPersistenceTests(t *testing.T) {
 	cmd.Dir = filepath.Join(root, "frontend")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 4.4-STRUCT-008: MainLayout persistence Vitest tests failed:\n%s", string(output))
+		t.Fatalf("MainLayout persistence Vitest tests failed:\n%s", string(output))
 	}
 }
 
@@ -195,10 +195,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 4.4-REGR-001: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 4.4-REGR-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -213,10 +213,10 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 4.4-REGR-002: pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 4.4-REGR-002: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -231,6 +231,6 @@ func TestGoVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 4.4-REGR-003: go vet failed:\n%s", string(output))
+		t.Fatalf("go vet failed:\n%s", string(output))
 	}
 }

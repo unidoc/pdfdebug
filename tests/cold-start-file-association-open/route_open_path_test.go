@@ -38,9 +38,9 @@ func TestRouteOpenPathDecision(t *testing.T) {
 	// the regexp matches nothing, emitting the "no tests to run" warning, so
 	// we must reject that case explicitly or the red phase would pass.
 	if strings.Contains(out, "no tests to run") {
-		t.Fatalf("[P0] 12.1-INTG-003 red phase: no main-package test matching `RouteOpenPath` exists yet (Task 2.4: routeOpenPath helper + table test with a fake open func). Output:\n%s", out)
+		t.Fatalf("red phase: no main-package test matching `RouteOpenPath` exists yet (Task 2.4: routeOpenPath helper + table test with a fake open func). Output:\n%s", out)
 	}
 	if err != nil {
-		t.Fatalf("[P0] 12.1-INTG-003: main-package RouteOpenPath test failed:\n%s", out)
+		t.Fatalf("main-package RouteOpenPath test failed:\n%s", out)
 	}
 }

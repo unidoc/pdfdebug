@@ -99,40 +99,40 @@ func fileExists(t *testing.T, relPath string) bool {
 
 func TestPlatformDetectionUtilityExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/lib/platform.ts") {
-		t.Fatal("[P1] frontend/src/lib/platform.ts does not exist")
+		t.Fatal("frontend/src/lib/platform.ts does not exist")
 	}
 
 	content := readFile(t, "frontend/src/lib/platform.ts")
 
 	// Must export getPlatformModifier function
 	if !strings.Contains(content, "getPlatformModifier") {
-		t.Error("[P1] platform.ts missing getPlatformModifier function")
+		t.Error("platform.ts missing getPlatformModifier function")
 	}
 
 	// Must export getShortcutHint function
 	if !strings.Contains(content, "getShortcutHint") {
-		t.Error("[P1] platform.ts missing getShortcutHint function")
+		t.Error("platform.ts missing getShortcutHint function")
 	}
 
 	// Must detect macOS via navigator.platform
 	if !strings.Contains(content, "navigator.platform") {
-		t.Error("[P1] platform.ts must use navigator.platform for primary detection")
+		t.Error("platform.ts must use navigator.platform for primary detection")
 	}
 
 	// Must return "Cmd" for macOS
 	if !strings.Contains(content, "Cmd") {
-		t.Error("[P1] platform.ts must return 'Cmd' for macOS platform")
+		t.Error("platform.ts must return 'Cmd' for macOS platform")
 	}
 
 	// Must return "Ctrl" for non-macOS
 	if !strings.Contains(content, "Ctrl") {
-		t.Error("[P1] platform.ts must return 'Ctrl' for non-macOS platforms")
+		t.Error("platform.ts must return 'Ctrl' for non-macOS platforms")
 	}
 
 	// Must check for Mac/iPhone/iPad patterns
 	macPatternRe := regexp.MustCompile(`Mac|iPhone|iPad`)
 	if !macPatternRe.MatchString(content) {
-		t.Error("[P1] platform.ts must check for Mac/iPhone/iPad in navigator.platform")
+		t.Error("platform.ts must check for Mac/iPhone/iPad in navigator.platform")
 	}
 }
 
@@ -161,7 +161,7 @@ func TestPlatformDetectionUtilityExists(t *testing.T) {
 
 func TestAppJsxIntegratesEmptyState(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("[P1] frontend/src/App.jsx does not exist")
+		t.Fatal("frontend/src/App.jsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/App.jsx")
@@ -169,31 +169,31 @@ func TestAppJsxIntegratesEmptyState(t *testing.T) {
 	// Must import EmptyState component
 	emptyStateImportRe := regexp.MustCompile(`import\s+.*EmptyState.*from`)
 	if !emptyStateImportRe.MatchString(content) {
-		t.Error("[P1] App.jsx must import EmptyState component")
+		t.Error("App.jsx must import EmptyState component")
 	}
 
 	// Must render <EmptyState /> (or <EmptyState ...)
 	emptyStateRenderRe := regexp.MustCompile(`<EmptyState\s*/?>|<EmptyState\s+`)
 	if !emptyStateRenderRe.MatchString(content) {
-		t.Error("[P1] App.jsx must render <EmptyState /> component")
+		t.Error("App.jsx must render <EmptyState /> component")
 	}
 
 	// Must NOT contain GreetService import (Wails template removed)
 	if strings.Contains(content, "GreetService") {
-		t.Error("[P1] App.jsx still contains GreetService import -- Wails template code must be removed")
+		t.Error("App.jsx still contains GreetService import -- Wails template code must be removed")
 	}
 
 	// Must NOT import WML or Events from Wails runtime
 	if strings.Contains(content, "WML") {
-		t.Error("[P1] App.jsx still contains WML import -- Wails template code must be removed")
+		t.Error("App.jsx still contains WML import -- Wails template code must be removed")
 	}
 
 	// Must NOT contain wails.png or react.svg references
 	if strings.Contains(content, "wails.png") {
-		t.Error("[P1] App.jsx still references wails.png -- Wails template code must be removed")
+		t.Error("App.jsx still references wails.png -- Wails template code must be removed")
 	}
 	if strings.Contains(content, "react.svg") {
-		t.Error("[P1] App.jsx still references react.svg -- Wails template code must be removed")
+		t.Error("App.jsx still references react.svg -- Wails template code must be removed")
 	}
 }
 
@@ -204,12 +204,12 @@ func TestAppJsxIntegratesEmptyState(t *testing.T) {
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("[P0] frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
+		t.Fatal("frontend/src/App.jsx does not exist -- must keep.jsx extension per project convention")
 	}
 
 	// Must NOT have been renamed to .tsx
 	if fileExists(t, "frontend/src/App.tsx") {
-		t.Error("[P0] frontend/src/App.tsx exists -- App should remain .jsx per project convention (Wails-generated files keep original extension)")
+		t.Error("frontend/src/App.tsx exists -- App should remain.jsx per project convention (Wails-generated files keep original extension)")
 	}
 }
 
@@ -250,7 +250,7 @@ func TestCSSHeightRuleForCentering(t *testing.T) {
 	// This is required for h-full to fill the Wails WebView correctly
 	heightRuleRe := regexp.MustCompile(`(?s)(html|body|#root)[^{]*\{[^}]*height\s*:\s*100%`)
 	if !heightRuleRe.MatchString(css) {
-		t.Error("[P1] style.css missing 'height: 100%' rule for html, body, or #root (required for EmptyState h-full centering in Wails WebView)")
+		t.Error("style.css missing 'height: 100%' rule for html, body, or #root (required for EmptyState h-full centering in Wails WebView)")
 	}
 
 	// Check specifically for #root having height: 100%
@@ -259,7 +259,7 @@ func TestCSSHeightRuleForCentering(t *testing.T) {
 		// Also check combined selector (html, body, #root { height: 100% })
 		combinedRe := regexp.MustCompile(`(?s)(html\s*,\s*body\s*,\s*#root|#root)[^{]*\{[^}]*height\s*:\s*100%`)
 		if !combinedRe.MatchString(css) {
-			t.Error("[P1] style.css missing 'height: 100%' on #root element")
+			t.Error("style.css missing 'height: 100%' on #root element")
 		}
 	}
 }
@@ -281,11 +281,11 @@ func TestNoBarrelFilesCreated(t *testing.T) {
 	for _, dir := range dirsToCheck {
 		indexPath := filepath.Join(root, dir, "index.ts")
 		if _, err := os.Stat(indexPath); err == nil {
-			t.Errorf("[P0] %s/index.ts exists -- barrel files are forbidden by project rules", dir)
+			t.Errorf("%s/index.ts exists -- barrel files are forbidden by project rules", dir)
 		}
 		indexTsxPath := filepath.Join(root, dir, "index.tsx")
 		if _, err := os.Stat(indexTsxPath); err == nil {
-			t.Errorf("[P0] %s/index.tsx exists -- barrel files are forbidden by project rules", dir)
+			t.Errorf("%s/index.tsx exists -- barrel files are forbidden by project rules", dir)
 		}
 	}
 }
@@ -312,13 +312,13 @@ func TestPlatformDetectionSSRGuard(t *testing.T) {
 
 	// Must guard against undefined navigator for SSR/test environments
 	if !strings.Contains(content, "typeof navigator") {
-		t.Error("[P2] platform.ts must guard against undefined navigator (SSR/non-browser environments)")
+		t.Error("platform.ts must guard against undefined navigator (SSR/non-browser environments)")
 	}
 
 	// Must return 'Ctrl' as default when navigator is unavailable
 	undefinedGuardRe := regexp.MustCompile(`(?s)typeof navigator\s*===?\s*['"]undefined['"].*return\s+['"]Ctrl['"]`)
 	if !undefinedGuardRe.MatchString(content) {
-		t.Error("[P2] platform.ts must return 'Ctrl' when navigator is undefined")
+		t.Error("platform.ts must return 'Ctrl' when navigator is undefined")
 	}
 }
 
@@ -332,12 +332,12 @@ func TestPlatformDetectionUserAgentDataFallback(t *testing.T) {
 
 	// Must check userAgentData as secondary detection
 	if !strings.Contains(content, "userAgentData") {
-		t.Error("[P2] platform.ts must include userAgentData as secondary detection method")
+		t.Error("platform.ts must include userAgentData as secondary detection method")
 	}
 
 	// Must check for "macOS" string in userAgentData (single or double quotes)
 	if !strings.Contains(content, `"macOS"`) && !strings.Contains(content, `'macOS'`) {
-		t.Error("[P2] platform.ts must check for 'macOS' in userAgentData.platform")
+		t.Error("platform.ts must check for 'macOS' in userAgentData.platform")
 	}
 }
 

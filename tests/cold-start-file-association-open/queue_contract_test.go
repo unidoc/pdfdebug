@@ -63,7 +63,7 @@ func TestColdAddQueues(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-UNIT-001 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestWarmAddImmediate(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-UNIT-002 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestInsertionOrder(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P1] 12.1-UNIT-003 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -141,7 +141,7 @@ func TestSecondDrainEmpty(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-UNIT-004 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestQueuedDedup(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P1] 12.1-UNIT-005 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -200,7 +200,7 @@ func TestReadyNoDedup(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-UNIT-006 red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
 	}
 }
 
@@ -291,6 +291,6 @@ func itoa(i int) string {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-UNIT-007 red phase (expected until internal/pendingopen lands; also fails on any -race violation):\n%s", out)
+		t.Fatalf("red phase (expected until internal/pendingopen lands; also fails on any -race violation):\n%s", out)
 	}
 }

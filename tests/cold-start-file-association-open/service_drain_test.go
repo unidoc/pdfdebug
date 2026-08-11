@@ -68,7 +68,7 @@ func TestConsumeDelegates(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P0] 12.1-INTG-001 red phase (expected until SetPendingOpens/ConsumePendingOpenFiles land):\n%s", out)
+		t.Fatalf("red phase (expected until SetPendingOpens/ConsumePendingOpenFiles land):\n%s", out)
 	}
 }
 
@@ -89,6 +89,6 @@ func TestConsumeNilGuard(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("[P1] 12.1-INTG-002 red phase (expected until the nil-guarded method lands):\n%s", out)
+		t.Fatalf("red phase (expected until the nil-guarded method lands):\n%s", out)
 	}
 }

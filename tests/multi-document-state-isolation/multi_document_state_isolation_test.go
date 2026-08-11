@@ -86,7 +86,7 @@ func TestTwoIndependentDocumentStates(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	for _, f := range []string{minimalPDF, multipagePDF} {
 		if _, err := os.Stat(f); os.IsNotExist(err) {
-			t.Fatalf("[P0] test fixture does not exist: %s", f)
+			t.Fatalf("test fixture does not exist: %s", f)
 		}
 	}
 
@@ -124,7 +124,7 @@ func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
 
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); os.IsNotExist(err) {
-		t.Fatalf("[P1] testdata/malformed.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/malformed.pdf does not exist -- create test fixture first")
 	}
 
 	runColocatedTest(t, root, "TestMalformedPDFDoesNotAffectOtherTab", "./internal/pdfcore/...")
@@ -144,7 +144,7 @@ func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
 
 	encryptedPDF := filepath.Join(testdataDir(t), "encrypted.pdf")
 	if _, err := os.Stat(encryptedPDF); os.IsNotExist(err) {
-		t.Fatalf("[P1] testdata/encrypted.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/encrypted.pdf does not exist -- create test fixture first")
 	}
 
 	runColocatedTest(t, root, "TestEncryptedPDFFailDoesNotAffectOtherTab", "./internal/pdfcore/...")
@@ -177,10 +177,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -195,9 +195,9 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }

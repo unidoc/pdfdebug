@@ -142,11 +142,11 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 
 	mainWinIdx := strings.Index(src, "app.Window.NewWithOptions(application.WebviewWindowOptions{")
 	if mainWinIdx == -1 {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): expected main WebviewWindow creation site (`app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
+		t.Fatalf("expected main WebviewWindow creation site (`app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
 	}
 
 	if splashIdx[0] >= mainWinIdx {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder per story Task 2.1.", splashIdx[0], mainWinIdx)
+		t.Fatalf("splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder per story Task 2.1.", splashIdx[0], mainWinIdx)
 	}
 }
 
@@ -201,32 +201,32 @@ func TestSplashHTMLContent(t *testing.T) {
 
 	// Wordmark literal text
 	if !strings.Contains(src, "UniDoc PDF Debugger") {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.b): splash content must contain wordmark 'UniDoc PDF Debugger'")
+		t.Errorf("splash content must contain wordmark 'UniDoc PDF Debugger'")
 	}
 
 	// Inlined SVG icon: <svg ... or base64 PNG fallback. Story Task 3.1
 	// says inline the SVG contents of assets/branding/icon.svg.
 	if !regexp.MustCompile(`(?is)<svg[^>]*>`).MatchString(src) &&
 		!regexp.MustCompile(`data:image/(svg\+xml|png);base64,`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.a): splash content must inline the brand icon (either <svg ...> or data:image/...;base64,). External /assets/... URLs are forbidden per AC10.")
+		t.Errorf("splash content must inline the brand icon (either <svg...> or data:image/...;base64,). External /assets/... URLs are forbidden.")
 	}
 
 	// Three-dot activity indicator: CSS @keyframes referenced + at least
 	// three elements with staggered animation-delay (0s / 0.4s / 0.8s per
 	// Task 3.3).
 	if !regexp.MustCompile(`@keyframes`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.c): splash content must define a CSS @keyframes for the three-dot pulse animation (Task 3.3, 1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
+		t.Errorf("splash content must define a CSS @keyframes for the three-dot pulse animation (Task 3.3, 1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
 	}
 	if !regexp.MustCompile(`animation-delay:\s*0\.4s`).MatchString(src) ||
 		!regexp.MustCompile(`animation-delay:\s*0\.8s`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.c): splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay (Task 3.3).")
+		t.Errorf("splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay (Task 3.3).")
 	}
 
 	// Version string placeholder: dev injects the runtime value of
 	// main.version. Either {{.Version}} (templated) or a string-format
 	// placeholder like %s, or a JS variable substitution.
 	if !regexp.MustCompile(`\{\{\.?[Vv]ersion\}\}|%s|__VERSION__|window\.__VERSION__|\$\{version\}|<!--VERSION-->`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.d / AC12): splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
+		t.Errorf(": splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
 	}
 
 	// Forbidden content per AC2: no progress bar / percent / "Loading..." text
@@ -239,7 +239,7 @@ func TestSplashHTMLContent(t *testing.T) {
 	}
 	for _, bad := range forbidden {
 		if strings.Contains(src, bad) {
-			t.Errorf("[P0] 9.13-INTG-003 (AC2): splash must NOT contain %q (no progress bar, no percentage, no 'Loading...' text per AC2).", bad)
+			t.Errorf("splash must NOT contain %q (no progress bar, no percentage, no 'Loading...' text).", bad)
 		}
 	}
 }
@@ -267,7 +267,7 @@ func TestSplashBackgroundColorLiteral(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-004 (AC9): splash background must use literal #f8fafc (rgb 248,250,252) to match main window's main.go:348. None of [NewRGB(248,250,252) / #f8fafc / rgb(248,250,252)] were found.")
+	t.Errorf("splash background must use literal #f8fafc (rgb 248,250,252) to match main window's main.go:348. None of [NewRGB(248,250,252) / #f8fafc / rgb(248,250,252)] were found.")
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +306,7 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 
 	for _, f := range forbidden {
 		if re := regexp.MustCompile(f.pattern); re.MatchString(src) {
-			t.Errorf("[P0] 9.13-INTG-005 (AC10): splash HTML contains forbidden external resource pattern %q. %s", f.pattern, f.why)
+			t.Errorf("splash HTML contains forbidden external resource pattern %q. %s", f.pattern, f.why)
 		}
 	}
 }
@@ -328,7 +328,7 @@ func TestSplashMinDisplayMsConstant(t *testing.T) {
 	// call with no named constant binding).
 	re := regexp.MustCompile(`splashMinDisplayMs\s*=\s*400\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("[P0] 9.13-INTG-006 (AC4): a named constant `splashMinDisplayMs = 400` must exist (Task 4.1). Magic 400ms literals inside time.AfterFunc are not sufficient.")
+		t.Fatalf("a named constant `splashMinDisplayMs = 400` must exist (Task 4.1). Magic 400ms literals inside time.AfterFunc are not sufficient.")
 	}
 }
 
@@ -343,7 +343,7 @@ func TestSplashTimeoutMsConstant(t *testing.T) {
 
 	re := regexp.MustCompile(`splashTimeoutMs\s*=\s*30000\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("[P0] 9.13-INTG-007 (AC7): a named constant `splashTimeoutMs = 30000` must exist (Task 5.1).")
+		t.Fatalf("a named constant `splashTimeoutMs = 30000` must exist (Task 5.1).")
 	}
 }
 
@@ -414,7 +414,7 @@ func TestSplashIsClosedAfterDismissal(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-009 (AC6): splash window must be Close()'d or Destroy()'d after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
+	t.Errorf("splash window must be Close'd or Destroy'd after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
 }
 
 // ---------------------------------------------------------------------------
@@ -511,7 +511,7 @@ func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
 	}
 	for _, p := range forbidden {
 		if regexp.MustCompile(p).MatchString(src) {
-			t.Errorf("[P1] 9.13-INTG-011 (AC11): splash must show on every launch. Found a first-launch/warm-launch gate matching %q. Per AC11 + 2026-05-19 design decision, no such branch is allowed.", p)
+			t.Errorf("splash must show on every launch. Found a first-launch/warm-launch gate matching %q. + 2026-05-19 design decision, no such branch is allowed.", p)
 		}
 	}
 }
@@ -527,20 +527,20 @@ func TestSplashTimeoutErrorPaneContent(t *testing.T) {
 	src := splashSource(t)
 
 	if !strings.Contains(src, "Could not start. Please reinstall.") {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): timeout error pane must contain the exact literal 'Could not start. Please reinstall.' (Task 5.2 / AC7).")
+		t.Errorf("timeout error pane must contain the exact literal 'Could not start. Please reinstall.'.")
 	}
 
 	// Close button: either a <button>Close</button>, or a button with
 	// id/class containing "close", or a button with Close text.
 	if !regexp.MustCompile(`(?is)<button[^>]*>[^<]*Close[^<]*</button>`).MatchString(src) &&
 		!regexp.MustCompile(`(?i)id\s*=\s*["']splashClose["']`).MatchString(src) {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): timeout error pane must include a Close button (Task 5.2). Searched for <button>Close</button> and id=splashClose.")
+		t.Errorf("timeout error pane must include a Close button (Task 5.2). Searched for <button>Close</button> and id=splashClose.")
 	}
 
 	// Wails event channel that the inline JS listens on for timeout
 	// transition (per AC7 revised mechanism).
 	if !regexp.MustCompile(`splash:timeout`).MatchString(src) {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): backend must emit a `splash:timeout` Wails event for the error-pane handoff (Task 5.2). Event name not found.")
+		t.Errorf("backend must emit a `splash:timeout` Wails event for the error-pane handoff (Task 5.2). Event name not found.")
 	}
 }
 
@@ -562,7 +562,7 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 	root := projectRoot(t)
 	pkgDir := filepath.Join(root, "internal", "splash")
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
-		t.Fatalf("[P0] 9.13-UNIT-001 (AC4/AC7/AC12): internal/splash package missing. Story Task 6.1 requires extracting the splash scheduler + version-render into an importable package with an injectable clock. Expected at %s", pkgDir)
+		t.Fatalf(": internal/splash package missing. Story Task 6.1 requires extracting the splash scheduler + version-render into an importable package with an injectable clock. Expected at %s", pkgDir)
 	}
 
 	// Delegate. Run all tests matching the splash unit-test naming
@@ -586,12 +586,12 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 		out, err := cmd.CombinedOutput()
 		output := string(out)
 		if err != nil {
-			t.Errorf("[P0] 9.13-UNIT-001: delegated unit test %s failed in internal/splash:\n%s\nerr: %v", pattern, output, err)
+			t.Errorf("delegated unit test %s failed in internal/splash:\n%s\nerr: %v", pattern, output, err)
 			continue
 		}
 		// `go test -run <regex>` exits 0 when no tests match. Catch that.
 		if strings.Contains(output, "no tests to run") || strings.Contains(output, "no test files") {
-			t.Errorf("[P0] 9.13-UNIT-001: no matching test found for pattern %q in internal/splash. The story Task 6.1 contract requires this test name.", pattern)
+			t.Errorf("no matching test found for pattern %q in internal/splash. The story Task 6.1 contract requires this test name.", pattern)
 		}
 	}
 }
@@ -629,7 +629,7 @@ func TestSplashVersionRenderIsNotStripped(t *testing.T) {
 	}
 	for _, p := range antiPatterns {
 		if regexp.MustCompile(p).MatchString(src) {
-			t.Errorf("[P1] 9.13-INTG-013 (AC12): version stripping pattern detected (%q). Per AC12 the FULL semver including prerelease suffix MUST be rendered.", p)
+			t.Errorf("version stripping pattern detected (%q). the FULL semver including prerelease suffix MUST be rendered.", p)
 		}
 	}
 }
@@ -686,7 +686,7 @@ func TestMainWindowFirstPaintIsTransparent(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-014 (AC5): main window must start invisible (body/html/#root opacity 0, or wait on a splash:dismissed event) so the crossfade is not defeated by an opaque first paint. None of the expected patterns found in %d candidate files.", len(candidates))
+	t.Errorf("main window must start invisible (body/html/#root opacity 0, or wait on a splash:dismissed event) so the crossfade is not defeated by an opaque first paint. None of the expected patterns found in %d candidate files.", len(candidates))
 }
 
 // ---------------------------------------------------------------------------
@@ -715,7 +715,7 @@ func TestVersionLDFlagsPreserveFullSemver(t *testing.T) {
 
 		// -X main.version=... must appear, bound to the unstripped VERSION.
 		if !regexp.MustCompile(`-X\s+main\.version=`).MatchString(content) {
-			t.Errorf("[P1] 9.13-INTG-015 (AC12): build/%s/Taskfile.yml does not contain `-X main.version=...` ldflag binding. The splash version-render depends on it.", platform)
+			t.Errorf("build/%s/Taskfile.yml does not contain `-X main.version=...` ldflag binding. The splash version-render depends on it.", platform)
 			continue
 		}
 
@@ -730,7 +730,7 @@ func TestVersionLDFlagsPreserveFullSemver(t *testing.T) {
 		}
 		for _, p := range stripPatterns {
 			if regexp.MustCompile(p).MatchString(content) {
-				t.Errorf("[P1] 9.13-INTG-015 (AC12): build/%s/Taskfile.yml strips the version (%q) before reaching the Go binary. Per AC12 the prerelease suffix must be preserved.", platform, p)
+				t.Errorf("build/%s/Taskfile.yml strips the version (%q) before reaching the Go binary. the prerelease suffix must be preserved.", platform, p)
 			}
 		}
 	}

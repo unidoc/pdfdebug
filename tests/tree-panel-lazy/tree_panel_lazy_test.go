@@ -67,7 +67,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // 2.5-INTG-001 [P0]: TreePanel.tsx component file exists
 func TestTreePanelComponentExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Fatal("[P0] 2.5-INTG-001: frontend/src/components/TreePanel.tsx does not exist")
+		t.Fatal("frontend/src/components/TreePanel.tsx does not exist")
 	}
 }
 
@@ -84,7 +84,7 @@ func TestTreePanelHasTestID(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, `data-testid="tree-panel"`) {
-		t.Error("[P0] 2.5-INTG-002: TreePanel.tsx missing data-testid=\"tree-panel\"")
+		t.Error("TreePanel.tsx missing data-testid=\"tree-panel\"")
 	}
 }
 
@@ -97,11 +97,11 @@ func TestTreePanelHasNodeTestID(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, `data-testid="tree-node"`) {
-		t.Error("[P0] 2.5-INTG-003: TreePanel.tsx missing data-testid=\"tree-node\" on node rows")
+		t.Error("TreePanel.tsx missing data-testid=\"tree-node\" on node rows")
 	}
 
 	if !strings.Contains(content, `data-node-id`) {
-		t.Error("[P0] 2.5-INTG-003: TreePanel.tsx missing data-node-id attribute on node rows")
+		t.Error("TreePanel.tsx missing data-node-id attribute on node rows")
 	}
 }
 
@@ -118,7 +118,7 @@ func TestTreePanelUsesReactArborist(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "react-arborist") {
-		t.Error("[P0] 2.5-INTG-004: TreePanel.tsx must import from react-arborist for virtualized tree")
+		t.Error("TreePanel.tsx must import from react-arborist for virtualized tree")
 	}
 }
 
@@ -135,7 +135,7 @@ func TestTreePanelImportsGetChildren(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "GetChildren") {
-		t.Error("[P0] 2.5-INTG-005: TreePanel.tsx must import and use GetChildren for lazy-loading children")
+		t.Error("TreePanel.tsx must import and use GetChildren for lazy-loading children")
 	}
 }
 
@@ -148,7 +148,7 @@ func TestReducerHasSelectNodeAction(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	if !strings.Contains(content, "SELECT_NODE") {
-		t.Error("[P0] 2.5-INTG-006: useDocumentState.tsx must define SELECT_NODE action type")
+		t.Error("useDocumentState.tsx must define SELECT_NODE action type")
 	}
 }
 
@@ -157,7 +157,7 @@ func TestTabStateHasSelectedNodeId(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	if !strings.Contains(content, "selectedNodeId") {
-		t.Error("[P0] 2.5-INTG-007: TabState must have selectedNodeId field")
+		t.Error("TabState must have selectedNodeId field")
 	}
 }
 
@@ -183,12 +183,12 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 
 	// Error nodes must have text-error for warning icon
 	if !strings.Contains(content, "text-error") {
-		t.Error("[P1] 2.5-INTG-010: TreePanel.tsx must use text-error class for error node warning icon")
+		t.Error("TreePanel.tsx must use text-error class for error node warning icon")
 	}
 
 	// Error nodes must have text-text-muted for label
 	if !strings.Contains(content, "text-text-muted") {
-		t.Error("[P1] 2.5-INTG-010: TreePanel.tsx must use text-text-muted class for error node label")
+		t.Error("TreePanel.tsx must use text-text-muted class for error node label")
 	}
 }
 
@@ -205,11 +205,11 @@ func TestTreePanelSelectedStyling(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "bg-surface-selected") {
-		t.Error("[P1] 2.5-INTG-011: TreePanel.tsx must use bg-surface-selected for selected node")
+		t.Error("TreePanel.tsx must use bg-surface-selected for selected node")
 	}
 
 	if !strings.Contains(content, "border-") {
-		t.Error("[P1] 2.5-INTG-011: TreePanel.tsx must have left border accent on selected node")
+		t.Error("TreePanel.tsx must have left border accent on selected node")
 	}
 }
 
@@ -226,7 +226,7 @@ func TestTreePanelHoverStyling(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "bg-surface-hover") {
-		t.Error("[P1] 2.5-INTG-012: TreePanel.tsx must use bg-surface-hover for hover state")
+		t.Error("TreePanel.tsx must use bg-surface-hover for hover state")
 	}
 }
 
@@ -243,7 +243,7 @@ func TestTreePanelHeader(t *testing.T) {
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "Document Structure") {
-		t.Error("[P1] 2.5-INTG-013: TreePanel.tsx must have 'Document Structure' header")
+		t.Error("TreePanel.tsx must have 'Document Structure' header")
 	}
 }
 
@@ -264,7 +264,7 @@ func TestProjectCompiles(t *testing.T) {
 		cmd.Dir = root
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("[P0] 2.5-INTG-014: go build %s failed:\n%s", pkg, string(output))
+			t.Fatalf("go build %s failed:\n%s", pkg, string(output))
 		}
 	}
 }
@@ -277,7 +277,7 @@ func TestProjectVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.5-INTG-015: go vet ./... failed:\n%s", string(output))
+		t.Fatalf("go vet./... failed:\n%s", string(output))
 	}
 }
 
@@ -289,11 +289,11 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.5-INTG-016: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.5-INTG-016: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -305,11 +305,11 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.5-INTG-017: pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.5-INTG-017: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -320,7 +320,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	pdfcoreDir := filepath.Join(root, "internal", "pdfcore")
 	entries, err := os.ReadDir(pdfcoreDir)
 	if err != nil {
-		t.Fatalf("[P1] 2.5-INTG-018: cannot read internal/pdfcore/: %v", err)
+		t.Fatalf("cannot read internal/pdfcore/: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -337,7 +337,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 			continue
 		}
 		if strings.Contains(string(content), "wailsapp") {
-			t.Errorf("[P1] 2.5-INTG-018: %s imports Wails -- pdfcore must have zero Wails deps", entry.Name())
+			t.Errorf("%s imports Wails -- pdfcore must have zero Wails deps", entry.Name())
 		}
 	}
 }

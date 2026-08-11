@@ -60,17 +60,17 @@ func TestGetContentStreamValid(t *testing.T) {
 	// Verify fixture exists
 	contentStreamPDF := filepath.Join(testdataDir(t), "content-stream.pdf")
 	if _, err := os.Stat(contentStreamPDF); os.IsNotExist(err) {
-		t.Fatalf("[P0] testdata/content-stream.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/content-stream.pdf does not exist -- create test fixture first")
 	}
 
 	cmd := exec.Command("go", "test", "-v", "-run", "TestGetContentStreamValid", "-count=1", "./internal/pdfcore/...")
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-001: GetContentStream valid stream test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream valid stream test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -92,10 +92,10 @@ func TestGetContentStreamNonStream(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-002: GetContentStream non-stream node test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream non-stream node test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-002: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -111,10 +111,10 @@ func TestGetContentStreamUnknownTab(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-004: GetContentStream unknown tab test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream unknown tab test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-004: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -129,10 +129,10 @@ func TestGetContentStreamEmptyNodeID(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-005: GetContentStream empty nodeID test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream empty nodeID test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-005: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -148,10 +148,10 @@ func TestGetContentStreamCached(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-006: GetContentStream caching test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream caching test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-006: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -168,10 +168,10 @@ func TestGetContentStreamErrorNode(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 3.1-UNIT-006b: GetContentStream error node test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream error node test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 3.1-UNIT-006b: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -186,10 +186,10 @@ func TestGetContentStreamNodeIDPopulated(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-UNIT-009: GetContentStream NodeID population test failed:\n%s", string(output))
+		t.Fatalf("GetContentStream NodeID population test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-UNIT-009: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -206,10 +206,10 @@ func TestPDFServiceGetContentStreamValid(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-UNIT-010: PDFService.GetContentStream() valid test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetContentStream valid test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-UNIT-010: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -220,10 +220,10 @@ func TestPDFServiceGetContentStreamUnknown(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-UNIT-010b: PDFService.GetContentStream() unknown tab test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetContentStream unknown tab test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-UNIT-010b: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -240,10 +240,10 @@ func TestGetContentStreamIntegration(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-001: Full content stream decode pipeline failed:\n%s", string(output))
+		t.Fatalf("Full content stream decode pipeline failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-INTG-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -257,7 +257,7 @@ func TestStreamFileExists(t *testing.T) {
 
 	streamPath := filepath.Join(root, "internal", "pdfcore", "stream.go")
 	if _, err := os.Stat(streamPath); os.IsNotExist(err) {
-		t.Fatal("[P1] 3.1-INTG-002: internal/pdfcore/stream.go does not exist")
+		t.Fatal("internal/pdfcore/stream.go does not exist")
 	}
 }
 
@@ -273,10 +273,10 @@ func TestGetContentStreamMethodExists(t *testing.T) {
 	streamPath := filepath.Join(root, "internal", "pdfcore", "stream.go")
 	content, err := os.ReadFile(streamPath)
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-003: cannot read stream.go: %v", err)
+		t.Fatalf("cannot read stream.go: %v", err)
 	}
 	if !strings.Contains(string(content), "func (ins *Inspector) GetContentStream(") {
-		t.Error("[P1] 3.1-INTG-003: stream.go missing GetContentStream method on Inspector")
+		t.Error("stream.go missing GetContentStream method on Inspector")
 	}
 }
 
@@ -291,10 +291,10 @@ func TestServiceGetContentStreamMethodExists(t *testing.T) {
 	servicePath := filepath.Join(root, "internal", "pdfservice", "service.go")
 	content, err := os.ReadFile(servicePath)
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-004: cannot read service.go: %v", err)
+		t.Fatalf("cannot read service.go: %v", err)
 	}
 	if !strings.Contains(string(content), "func (s *PDFService) GetContentStream(") {
-		t.Error("[P1] 3.1-INTG-004: service.go missing GetContentStream method on PDFService")
+		t.Error("service.go missing GetContentStream method on PDFService")
 	}
 }
 
@@ -309,10 +309,10 @@ func TestDocumentStateHasStreamCache(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-005: cannot read inspector.go: %v", err)
+		t.Fatalf("cannot read inspector.go: %v", err)
 	}
 	if !strings.Contains(string(content), "streamCache") {
-		t.Error("[P1] 3.1-INTG-005: DocumentState does not have streamCache field")
+		t.Error("DocumentState does not have streamCache field")
 	}
 }
 
@@ -327,10 +327,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-006: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-INTG-006: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -345,10 +345,10 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-007: pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 3.1-INTG-007: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -363,6 +363,6 @@ func TestPdfcoreGoVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 3.1-INTG-008: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 }

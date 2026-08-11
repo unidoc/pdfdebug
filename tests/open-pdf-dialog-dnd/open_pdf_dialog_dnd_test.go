@@ -161,17 +161,17 @@ func TestReducerHandlesOpenDocument(t *testing.T) {
 
 	// The stub comment should be gone
 	if strings.Contains(content, "Stub reducer") {
-		t.Error("[P1] 2.4-INTG-011: useDocumentState.tsx still has stub reducer -- OPEN_DOCUMENT must be implemented")
+		t.Error("useDocumentState.tsx still has stub reducer -- OPEN_DOCUMENT must be implemented")
 	}
 
 	// Must handle OPEN_DOCUMENT action type
 	if !strings.Contains(content, "'OPEN_DOCUMENT'") && !strings.Contains(content, `"OPEN_DOCUMENT"`) {
-		t.Error("[P1] 2.4-INTG-011: reducer must handle OPEN_DOCUMENT action type")
+		t.Error("reducer must handle OPEN_DOCUMENT action type")
 	}
 
 	// AppState must have documentError field
 	if !strings.Contains(content, "documentError") {
-		t.Error("[P1] 2.4-INTG-011: AppState must have documentError field")
+		t.Error("AppState must have documentError field")
 	}
 }
 
@@ -185,11 +185,11 @@ func TestTabStateHasRootFields(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	if !strings.Contains(content, "rootNode") {
-		t.Error("[P1] 2.4-INTG-012: TabState must have rootNode field")
+		t.Error("TabState must have rootNode field")
 	}
 
 	if !strings.Contains(content, "rootChildren") {
-		t.Error("[P1] 2.4-INTG-012: TabState must have rootChildren field")
+		t.Error("TabState must have rootChildren field")
 	}
 }
 
@@ -202,11 +202,11 @@ func TestReducerHandlesErrorActions(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	if !strings.Contains(content, "SET_DOCUMENT_ERROR") {
-		t.Error("[P1] 2.4-INTG-013: reducer must handle SET_DOCUMENT_ERROR action")
+		t.Error("reducer must handle SET_DOCUMENT_ERROR action")
 	}
 
 	if !strings.Contains(content, "DISMISS_ERROR") {
-		t.Error("[P1] 2.4-INTG-013: reducer must handle DISMISS_ERROR action")
+		t.Error("reducer must handle DISMISS_ERROR action")
 	}
 }
 
@@ -221,13 +221,13 @@ func TestReducerHandlesCloseDocument(t *testing.T) {
 	// Must have non-stub handling for CLOSE_DOCUMENT
 	// Check for tab removal logic (filter or splice)
 	if !strings.Contains(content, "CLOSE_DOCUMENT") {
-		t.Error("[P1] 2.4-INTG-014: reducer must handle CLOSE_DOCUMENT action type")
+		t.Error("reducer must handle CLOSE_DOCUMENT action type")
 	}
 
 	// The reducer should modify state for CLOSE_DOCUMENT (not just return state)
 	// Look for filter or some mutation logic near CLOSE_DOCUMENT
 	if strings.Contains(content, "Stub reducer") {
-		t.Error("[P1] 2.4-INTG-014: reducer still has stub -- CLOSE_DOCUMENT must be implemented")
+		t.Error("reducer still has stub -- CLOSE_DOCUMENT must be implemented")
 	}
 }
 
@@ -242,7 +242,7 @@ func TestReducerHandlesCloseDocument(t *testing.T) {
 
 func TestErrorBannerComponentExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/ErrorBanner.tsx") {
-		t.Fatal("[P0] 2.4-INTG-015: frontend/src/components/ErrorBanner.tsx does not exist")
+		t.Fatal("frontend/src/components/ErrorBanner.tsx does not exist")
 	}
 }
 
@@ -269,7 +269,7 @@ func TestErrorBannerHasTestIDs(t *testing.T) {
 
 	for _, id := range testIDs {
 		if !strings.Contains(content, id) {
-			t.Errorf("[P0] 2.4-INTG-016: ErrorBanner.tsx missing %s", id)
+			t.Errorf("ErrorBanner.tsx missing %s", id)
 		}
 	}
 }
@@ -287,7 +287,7 @@ func TestErrorBannerHasAlertRole(t *testing.T) {
 	content := readFile(t, "frontend/src/components/ErrorBanner.tsx")
 
 	if !strings.Contains(content, `role="alert"`) {
-		t.Error("[P0] 2.4-INTG-017: ErrorBanner must have role=\"alert\" for accessibility")
+		t.Error("ErrorBanner must have role=\"alert\" for accessibility")
 	}
 }
 
@@ -305,13 +305,13 @@ func TestErrorBannerProps(t *testing.T) {
 
 	// Must define props with message, severity, onDismiss
 	if !strings.Contains(content, "message") {
-		t.Error("[P1] 2.4-INTG-018: ErrorBanner must accept message prop")
+		t.Error("ErrorBanner must accept message prop")
 	}
 	if !strings.Contains(content, "severity") {
-		t.Error("[P1] 2.4-INTG-018: ErrorBanner must accept severity prop")
+		t.Error("ErrorBanner must accept severity prop")
 	}
 	if !strings.Contains(content, "onDismiss") {
-		t.Error("[P1] 2.4-INTG-018: ErrorBanner must accept onDismiss prop")
+		t.Error("ErrorBanner must accept onDismiss prop")
 	}
 }
 
@@ -329,7 +329,7 @@ func TestAppHasFileDropTarget(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
 	if !strings.Contains(content, "data-file-drop-target") {
-		t.Error("[P0] 2.4-INTG-019: App.jsx must have data-file-drop-target on root container")
+		t.Error("App.jsx must have data-file-drop-target on root container")
 	}
 }
 
@@ -347,7 +347,7 @@ func TestAppListensForDocumentOpened(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
 	if !strings.Contains(content, "document:opened") {
-		t.Error("[P0] 2.4-INTG-020: App.jsx must listen for 'document:opened' event from backend")
+		t.Error("App.jsx must listen for 'document:opened' event from backend")
 	}
 }
 
@@ -360,7 +360,7 @@ func TestAppListensForDocumentError(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
 	if !strings.Contains(content, "document:error") {
-		t.Error("[P0] 2.4-INTG-021: App.jsx must listen for 'document:error' event from backend")
+		t.Error("App.jsx must listen for 'document:error' event from backend")
 	}
 }
 
@@ -373,11 +373,11 @@ func TestAppRendersErrorBanner(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
 	if !strings.Contains(content, "ErrorBanner") {
-		t.Error("[P0] 2.4-INTG-022: App.jsx must import and render ErrorBanner component")
+		t.Error("App.jsx must import and render ErrorBanner component")
 	}
 
 	if !strings.Contains(content, "documentError") {
-		t.Error("[P0] 2.4-INTG-022: App.jsx must check documentError state for ErrorBanner rendering")
+		t.Error("App.jsx must check documentError state for ErrorBanner rendering")
 	}
 }
 
@@ -403,7 +403,7 @@ func TestAppRendersErrorBanner(t *testing.T) {
 
 func TestUsePDFServiceHookExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/usePDFService.ts") {
-		t.Fatal("[P1] 2.4-INTG-024: frontend/src/hooks/usePDFService.ts does not exist")
+		t.Fatal("frontend/src/hooks/usePDFService.ts does not exist")
 	}
 }
 
@@ -420,7 +420,7 @@ func TestUsePDFServiceExportsOpenPDFFile(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/usePDFService.ts")
 
 	if !strings.Contains(content, "openPDFFile") {
-		t.Error("[P1] 2.4-INTG-025: usePDFService.ts must export openPDFFile function")
+		t.Error("usePDFService.ts must export openPDFFile function")
 	}
 }
 
@@ -456,7 +456,7 @@ func TestProjectCompiles(t *testing.T) {
 		cmd.Dir = root
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("[P0] 2.4-INTG-027: go build %s failed:\n%s", pkg, string(output))
+			t.Fatalf("go build %s failed:\n%s", pkg, string(output))
 		}
 	}
 }
@@ -473,7 +473,7 @@ func TestProjectVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.4-INTG-028: go vet ./... failed:\n%s", string(output))
+		t.Fatalf("go vet./... failed:\n%s", string(output))
 	}
 }
 
@@ -489,11 +489,11 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.4-INTG-029: pdfservice test suite failed:\n%s", string(output))
+		t.Fatalf("pdfservice test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.4-INTG-029: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -509,11 +509,11 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.4-INTG-030: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.4-INTG-030: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -530,7 +530,7 @@ func TestTypeScriptCompiles(t *testing.T) {
 	cmd.Dir = frontendDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.4-INTG-031: tsc --noEmit failed:\n%s", string(output))
+		t.Fatalf("tsc --noEmit failed:\n%s", string(output))
 	}
 }
 
@@ -545,7 +545,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	pdfcoreDir := filepath.Join(root, "internal", "pdfcore")
 	entries, err := os.ReadDir(pdfcoreDir)
 	if err != nil {
-		t.Fatalf("[P1] 2.4-INTG-032: cannot read internal/pdfcore/ directory: %v", err)
+		t.Fatalf("cannot read internal/pdfcore/ directory: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -562,7 +562,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 			continue
 		}
 		if strings.Contains(string(content), "wailsapp") {
-			t.Errorf("[P1] 2.4-INTG-032: %s imports Wails -- pdfcore must have zero Wails dependencies", entry.Name())
+			t.Errorf("%s imports Wails -- pdfcore must have zero Wails dependencies", entry.Name())
 		}
 	}
 }

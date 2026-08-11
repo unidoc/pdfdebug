@@ -61,7 +61,7 @@ func TestInspectorOpenValidPDF(t *testing.T) {
 	// Verify testdata/minimal.pdf exists (prerequisite: test fixture)
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Run the pdfcore unit test that validates Open with valid PDF.
@@ -78,12 +78,12 @@ func TestInspectorOpenValidPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.1-UNIT-001: Inspector.Open() valid PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open valid PDF test failed:\n%s", string(output))
 	}
 
 	// Verify the test actually ran (not just skipped)
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 2.1-UNIT-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -100,7 +100,7 @@ func TestInspectorOpenMalformedPDF(t *testing.T) {
 	// Verify testdata/malformed.pdf exists
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/malformed.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/malformed.pdf does not exist -- create test fixture first")
 	}
 
 	// Run the pdfcore unit test that validates Open with malformed PDF.
@@ -113,11 +113,11 @@ func TestInspectorOpenMalformedPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.1-UNIT-002: Inspector.Open() malformed PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open malformed PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 2.1-UNIT-002: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -142,11 +142,11 @@ func TestSafeCallCatchesPanic(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.1-UNIT-003: safeCall() panic recovery tests failed:\n%s", string(output))
+		t.Fatalf("safeCall panic recovery tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 2.1-UNIT-003: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -169,11 +169,11 @@ func TestInspectorOpenNonExistentFile(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] 2.1-UNIT-004: Inspector.Open() non-existent file test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open non-existent file test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] 2.1-UNIT-004: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -189,7 +189,7 @@ func TestInspectorOpenEncryptedPDF(t *testing.T) {
 	// Verify testdata/encrypted.pdf exists
 	encryptedPDF := filepath.Join(testdataDir(t), "encrypted.pdf")
 	if _, err := os.Stat(encryptedPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/encrypted.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/encrypted.pdf does not exist -- create test fixture first")
 	}
 
 	// Run the pdfcore unit test for encrypted PDF.
@@ -201,11 +201,11 @@ func TestInspectorOpenEncryptedPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-005: Inspector.Open() encrypted PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open encrypted PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.1-UNIT-005: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -222,7 +222,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	pdfcoreDir := filepath.Join(root, "internal", "pdfcore")
 	entries, err := os.ReadDir(pdfcoreDir)
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-006: cannot read internal/pdfcore/ directory: %v", err)
+		t.Fatalf("cannot read internal/pdfcore/ directory: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -236,11 +236,11 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 		filePath := filepath.Join(pdfcoreDir, entry.Name())
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Errorf("[P1] cannot read %s: %v", entry.Name(), err)
+			t.Errorf("cannot read %s: %v", entry.Name(), err)
 			continue
 		}
 		if strings.Contains(string(content), "wailsapp") {
-			t.Errorf("[P1] 2.1-UNIT-006: %s imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies", entry.Name())
+			t.Errorf("%s imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies", entry.Name())
 		}
 	}
 
@@ -249,12 +249,12 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-006: go list -deps failed: %v\n%s", err, string(output))
+		t.Fatalf("go list -deps failed: %v\n%s", err, string(output))
 	}
 
 	for _, line := range strings.Split(string(output), "\n") {
 		if strings.Contains(line, "wailsapp") {
-			t.Errorf("[P1] 2.1-UNIT-006: pdfcore transitively depends on Wails package: %s", line)
+			t.Errorf("pdfcore transitively depends on Wails package: %s", line)
 		}
 	}
 }
@@ -271,7 +271,7 @@ func TestInspectorOpenMultipagePDF(t *testing.T) {
 	// Verify testdata/multipage.pdf exists
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Run the pdfcore unit test for multipage PDF.
@@ -284,11 +284,11 @@ func TestInspectorOpenMultipagePDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-INTG-001: Inspector.Open() multipage PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open multipage PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.1-INTG-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -304,7 +304,7 @@ func TestModelTypesExist(t *testing.T) {
 	modelPath := filepath.Join(root, "internal", "pdfcore", "model.go")
 	content, err := os.ReadFile(modelPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-007: internal/pdfcore/model.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/model.go does not exist: %v", err)
 	}
 
 	modelContent := string(content)
@@ -323,7 +323,7 @@ func TestModelTypesExist(t *testing.T) {
 
 	for _, typeDef := range requiredTypes {
 		if !strings.Contains(modelContent, typeDef) {
-			t.Errorf("[P1] 2.1-UNIT-007: model.go missing type definition: %s", typeDef)
+			t.Errorf("model.go missing type definition: %s", typeDef)
 		}
 	}
 
@@ -349,7 +349,7 @@ func TestModelTypesExist(t *testing.T) {
 
 	for _, tag := range requiredTags {
 		if !strings.Contains(modelContent, tag) {
-			t.Errorf("[P1] 2.1-UNIT-007: model.go missing JSON tag: %s", tag)
+			t.Errorf("model.go missing JSON tag: %s", tag)
 		}
 	}
 }
@@ -365,7 +365,7 @@ func TestErrorTypesExist(t *testing.T) {
 	errorsPath := filepath.Join(root, "internal", "pdfcore", "errors.go")
 	content, err := os.ReadFile(errorsPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-008: internal/pdfcore/errors.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/errors.go does not exist: %v", err)
 	}
 
 	errorsContent := string(content)
@@ -380,18 +380,18 @@ func TestErrorTypesExist(t *testing.T) {
 
 	for _, errName := range requiredErrors {
 		if !strings.Contains(errorsContent, errName) {
-			t.Errorf("[P1] 2.1-UNIT-008: errors.go missing sentinel error: %s", errName)
+			t.Errorf("errors.go missing sentinel error: %s", errName)
 		}
 	}
 
 	// Verify safeCall function exists
 	if !strings.Contains(errorsContent, "func safeCall(") {
-		t.Error("[P1] 2.1-UNIT-008: errors.go missing safeCall() function")
+		t.Error("errors.go missing safeCall function")
 	}
 
 	// Verify wrapPDFError helper exists
 	if !strings.Contains(errorsContent, "func wrapPDFError(") {
-		t.Error("[P1] 2.1-UNIT-008: errors.go missing wrapPDFError() function")
+		t.Error("errors.go missing wrapPDFError function")
 	}
 }
 
@@ -406,19 +406,19 @@ func TestInspectorAPIExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-009: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	inspectorContent := string(content)
 
 	// Verify Inspector struct exists
 	if !strings.Contains(inspectorContent, "type Inspector struct") {
-		t.Error("[P1] 2.1-UNIT-009: inspector.go missing Inspector struct")
+		t.Error("inspector.go missing Inspector struct")
 	}
 
 	// Verify constructor
 	if !strings.Contains(inspectorContent, "func NewInspector()") {
-		t.Error("[P1] 2.1-UNIT-009: inspector.go missing NewInspector() constructor")
+		t.Error("inspector.go missing NewInspector constructor")
 	}
 
 	// Verify method signatures
@@ -430,13 +430,13 @@ func TestInspectorAPIExists(t *testing.T) {
 
 	for _, method := range requiredMethods {
 		if !strings.Contains(inspectorContent, method) {
-			t.Errorf("[P1] 2.1-UNIT-009: inspector.go missing method: %s", method)
+			t.Errorf("inspector.go missing method: %s", method)
 		}
 	}
 
 	// Verify DocumentState struct exists (internal state type)
 	if !strings.Contains(inspectorContent, "type DocumentState struct") {
-		t.Error("[P1] 2.1-UNIT-009: inspector.go missing DocumentState struct")
+		t.Error("inspector.go missing DocumentState struct")
 	}
 }
 
@@ -457,11 +457,11 @@ func TestInspectorCloseAndGetDocument(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-010: Inspector Close/GetDocument tests failed:\n%s", string(output))
+		t.Fatalf("Inspector Close/GetDocument tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.1-UNIT-010: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -479,11 +479,11 @@ func TestAllPdfcoreTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-011: pdfcore test suite failed:\n%s", string(output))
+		t.Fatalf("pdfcore test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.1-UNIT-011: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -499,6 +499,6 @@ func TestPdfcoreGoVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.1-UNIT-012: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 }

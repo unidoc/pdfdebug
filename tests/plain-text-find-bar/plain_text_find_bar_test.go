@@ -99,7 +99,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // TestFindMatchesModuleExists asserts frontend/src/lib/findMatches.ts exists.
 func TestFindMatchesModuleExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/lib/findMatches.ts") {
-		t.Fatalf("[P0] 10-2-STRUCT-001: frontend/src/lib/findMatches.ts must exist (Task 2.1)")
+		t.Fatalf("frontend/src/lib/findMatches.ts must exist (Task 2.1)")
 	}
 }
 
@@ -115,13 +115,13 @@ func TestFindMatchesExports(t *testing.T) {
 	}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
-			t.Errorf("[P0] 10-2-STRUCT-002: findMatches.ts must contain %q (Task 2.1)", sym)
+			t.Errorf("findMatches.ts must contain %q (Task 2.1)", sym)
 		}
 	}
 	// Match shape from AC4: { start, end, line }.
 	for _, field := range []string{"start", "end", "line"} {
 		if !strings.Contains(src, field) {
-			t.Errorf("[P0] 10-2-STRUCT-002: findMatches.ts Match interface must declare %q field (AC4)", field)
+			t.Errorf("findMatches.ts Match interface must declare %q field", field)
 		}
 	}
 }
@@ -129,7 +129,7 @@ func TestFindMatchesExports(t *testing.T) {
 // TestFindMatchesTestExists asserts the co-located findMatches.test.ts exists.
 func TestFindMatchesTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/lib/findMatches.test.ts") {
-		t.Fatalf("[P0] 10-2-STRUCT-003: frontend/src/lib/findMatches.test.ts must exist (Task 2.3)")
+		t.Fatalf("frontend/src/lib/findMatches.test.ts must exist (Task 2.3)")
 	}
 }
 
@@ -140,7 +140,7 @@ func TestFindMatchesTestExists(t *testing.T) {
 // TestUseFindBarHookExists asserts frontend/src/hooks/useFindBar.ts exists.
 func TestUseFindBarHookExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useFindBar.ts") {
-		t.Fatalf("[P0] 10-2-STRUCT-010: frontend/src/hooks/useFindBar.ts must exist (Task 3.1)")
+		t.Fatalf("frontend/src/hooks/useFindBar.ts must exist (Task 3.1)")
 	}
 }
 
@@ -149,14 +149,14 @@ func TestUseFindBarExport(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useFindBar.ts")
 	if !strings.Contains(src, "export function useFindBar") &&
 		!strings.Contains(src, "export const useFindBar") {
-		t.Errorf("[P0] 10-2-STRUCT-011: useFindBar.ts must export useFindBar (Task 3.1)")
+		t.Errorf("useFindBar.ts must export useFindBar (Task 3.1)")
 	}
 }
 
 // TestUseFindBarTestExists asserts the co-located useFindBar.test.ts exists.
 func TestUseFindBarTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useFindBar.test.ts") {
-		t.Fatalf("[P0] 10-2-STRUCT-012: frontend/src/hooks/useFindBar.test.ts must exist (Task 3.7)")
+		t.Fatalf("frontend/src/hooks/useFindBar.test.ts must exist (Task 3.7)")
 	}
 }
 
@@ -168,7 +168,7 @@ func TestUseFindBarTestExists(t *testing.T) {
 // TestFindBarComponentExists asserts frontend/src/components/FindBar.tsx exists.
 func TestFindBarComponentExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/FindBar.tsx") {
-		t.Fatalf("[P0] 10-2-STRUCT-020: frontend/src/components/FindBar.tsx must exist (Task 4.1)")
+		t.Fatalf("frontend/src/components/FindBar.tsx must exist (Task 4.1)")
 	}
 }
 
@@ -177,14 +177,14 @@ func TestFindBarExport(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	if !strings.Contains(src, "export function FindBar") &&
 		!strings.Contains(src, "export const FindBar") {
-		t.Errorf("[P0] 10-2-STRUCT-021: FindBar.tsx must export FindBar (Task 4.1)")
+		t.Errorf("FindBar.tsx must export FindBar (Task 4.1)")
 	}
 }
 
 // TestFindBarTestExists asserts the co-located FindBar.test.tsx exists.
 func TestFindBarTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/FindBar.test.tsx") {
-		t.Fatalf("[P0] 10-2-STRUCT-022: frontend/src/components/FindBar.test.tsx must exist (Task 4.5)")
+		t.Fatalf("frontend/src/components/FindBar.test.tsx must exist (Task 4.5)")
 	}
 }
 
@@ -206,7 +206,7 @@ func TestFindBarTestIds(t *testing.T) {
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
-			t.Errorf("[P0] 10-2-STRUCT-023: FindBar.tsx missing data-testid=%q (AC1 / AC7 / AC8)", tid)
+			t.Errorf("FindBar.tsx missing data-testid=%q", tid)
 		}
 	}
 }
@@ -229,7 +229,7 @@ func TestFindBarAriaContract(t *testing.T) {
 	}
 	for _, frag := range requiredAria {
 		if !strings.Contains(src, frag) {
-			t.Errorf("[P0] 10-2-STRUCT-024: FindBar.tsx must contain %q (AC1 / AC21)", frag)
+			t.Errorf("FindBar.tsx must contain %q", frag)
 		}
 	}
 }
@@ -246,7 +246,7 @@ func TestFindBarNonLatin1Hint(t *testing.T) {
 	}
 	for _, frag := range requiredFragments {
 		if !strings.Contains(src, frag) {
-			t.Errorf("[P0] 10-2-STRUCT-025: FindBar.tsx must contain %q (AC12)", frag)
+			t.Errorf("FindBar.tsx must contain %q", frag)
 		}
 	}
 }
@@ -265,7 +265,7 @@ func TestPlainTextViewImportsFindBar(t *testing.T) {
 	}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
-			t.Errorf("[P0] 10-2-STRUCT-030: PlainTextView.tsx must reference %q (Task 5.1)", sym)
+			t.Errorf("PlainTextView.tsx must reference %q (Task 5.1)", sym)
 		}
 	}
 }
@@ -280,7 +280,7 @@ func TestPlainTextViewMarkTestIds(t *testing.T) {
 	}
 	for _, tid := range required {
 		if !strings.Contains(src, tid) {
-			t.Errorf("[P0] 10-2-STRUCT-031: PlainTextView.tsx must reference data-testid=%q (AC5 / Task 5.3)", tid)
+			t.Errorf("PlainTextView.tsx must reference data-testid=%q (/ Task 5.3)", tid)
 		}
 	}
 }
@@ -290,7 +290,7 @@ func TestPlainTextViewMarkTestIds(t *testing.T) {
 func TestPlainTextViewGutterMarker(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "plain-text-find-gutter-marker") {
-		t.Errorf("[P0] 10-2-STRUCT-032: PlainTextView.tsx must reference data-testid=plain-text-find-gutter-marker-{lineNo} (AC6 / Task 5.4)")
+		t.Errorf("PlainTextView.tsx must reference data-testid=plain-text-find-gutter-marker-{lineNo} (/ Task 5.4)")
 	}
 }
 
@@ -299,7 +299,7 @@ func TestPlainTextViewGutterMarker(t *testing.T) {
 // persistence, tabId reset, Esc scope and the Cmd+F gate on data === null.
 func TestPlainTextFindTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/PlainTextView.find.test.tsx") {
-		t.Fatalf("[P0] 10-2-STRUCT-033: frontend/src/components/PlainTextView.find.test.tsx must exist (Task 5.6)")
+		t.Fatalf("frontend/src/components/PlainTextView.find.test.tsx must exist (Task 5.6)")
 	}
 }
 
@@ -312,11 +312,11 @@ func TestPlainTextFindTestExists(t *testing.T) {
 func TestTabStateCarriesFindCaseSensitive(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useDocumentState.tsx")
 	if !strings.Contains(src, "findCaseSensitive") {
-		t.Fatalf("[P0] 10-2-STRUCT-040: useDocumentState.tsx must declare findCaseSensitive on TabState (Task 1.1 / AC10)")
+		t.Fatalf("useDocumentState.tsx must declare findCaseSensitive on TabState")
 	}
 	// Pinned type: boolean. Catches accidental migration to a tri-state.
 	if !strings.Contains(src, "findCaseSensitive: boolean") {
-		t.Errorf("[P0] 10-2-STRUCT-040: TabState.findCaseSensitive must be typed boolean (Task 1.1)")
+		t.Errorf("TabState.findCaseSensitive must be typed boolean (Task 1.1)")
 	}
 }
 
@@ -325,11 +325,11 @@ func TestTabStateCarriesFindCaseSensitive(t *testing.T) {
 func TestSetFindCaseSensitiveAction(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useDocumentState.tsx")
 	if !strings.Contains(src, "SET_FIND_CASE_SENSITIVE") {
-		t.Fatalf("[P0] 10-2-STRUCT-041: useDocumentState.tsx must declare the SET_FIND_CASE_SENSITIVE action (Task 1.2 / AC10)")
+		t.Fatalf("useDocumentState.tsx must declare the SET_FIND_CASE_SENSITIVE action")
 	}
 	// Payload contract carries tabId + value (boolean).
 	if !strings.Contains(src, "tabId") || !strings.Contains(src, "value") {
-		t.Errorf("[P0] 10-2-STRUCT-041: SET_FIND_CASE_SENSITIVE payload must contain { tabId, value } (Task 1.2)")
+		t.Errorf("SET_FIND_CASE_SENSITIVE payload must contain { tabId, value } (Task 1.2)")
 	}
 }
 
@@ -338,7 +338,7 @@ func TestSetFindCaseSensitiveAction(t *testing.T) {
 // CLOSE_DOCUMENT cleanup.
 func TestReducerFindTestExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.find.test.tsx") {
-		t.Fatalf("[P0] 10-2-STRUCT-042: frontend/src/hooks/useDocumentState.find.test.tsx must exist (Task 1.3)")
+		t.Fatalf("frontend/src/hooks/useDocumentState.find.test.tsx must exist (Task 1.3)")
 	}
 }
 
@@ -360,11 +360,11 @@ func TestFindColorTokens(t *testing.T) {
 	}
 	for _, v := range requiredVars {
 		if !strings.Contains(src, v) {
-			t.Errorf("[P0] 10-2-STRUCT-050: style.css must declare %q (Task 6.1 / AC5 / AC6)", v)
+			t.Errorf("style.css must declare %q", v)
 		}
 	}
 	if !strings.Contains(src, "@theme inline") {
-		t.Errorf("[P0] 10-2-STRUCT-050: style.css must keep the @theme inline block for color token registration (Task 6.1)")
+		t.Errorf("style.css must keep the @theme inline block for color token registration (Task 6.1)")
 	}
 }
 
@@ -380,12 +380,12 @@ func TestNoCmdGRebinding(t *testing.T) {
 	// Use a literal lowercase-and-uppercase form check; either is a regression.
 	for _, forbidden := range []string{`e.key === 'g'`, `e.key === 'G'`, `key: 'g'`, `key: 'G'`} {
 		if strings.Contains(src, forbidden) {
-			t.Errorf("[P0] 10-2-STRUCT-060: useFindBar.ts must NOT bind %q (AC9: Cmd+G is owned by App.jsx for Open Go to Page; Find-Next is F3 only)", forbidden)
+			t.Errorf("useFindBar.ts must NOT bind %q (Cmd+G is owned by App.jsx for Open Go to Page; Find-Next is F3 only)", forbidden)
 		}
 	}
 	// F3 binding must be present.
 	if !strings.Contains(src, "F3") {
-		t.Errorf("[P0] 10-2-STRUCT-060: useFindBar.ts must bind F3 for Find-Next (AC9)")
+		t.Errorf("useFindBar.ts must bind F3 for Find-Next")
 	}
 }
 

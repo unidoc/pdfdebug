@@ -90,7 +90,7 @@ func fileExists(t *testing.T, relPath string) bool {
 
 func TestGreetServiceFileDeleted(t *testing.T) {
 	if fileExists(t, "greetservice.go") {
-		t.Error("[P0] greetservice.go still exists -- must be deleted (template leftover)")
+		t.Error("greetservice.go still exists -- must be deleted (template leftover)")
 	}
 }
 
@@ -134,7 +134,7 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 func TestUseDocumentStateFileExists(t *testing.T) {
 	// File uses .tsx extension because it contains JSX (AppProvider component)
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P0] frontend/src/hooks/useDocumentState.tsx does not exist -- must be created for AppProvider")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist -- must be created for AppProvider")
 	}
 }
 
@@ -142,7 +142,7 @@ func TestUseDocumentStateFileExists(t *testing.T) {
 
 func TestUseDocumentStateExports(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P0] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
@@ -150,19 +150,19 @@ func TestUseDocumentStateExports(t *testing.T) {
 	// Must export AppProvider component
 	appProviderExportRe := regexp.MustCompile(`export\s+(function|const)\s+AppProvider`)
 	if !appProviderExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported AppProvider component")
+		t.Error("useDocumentState.tsx missing exported AppProvider component")
 	}
 
 	// Must export useAppState hook
 	useAppStateExportRe := regexp.MustCompile(`export\s+(function|const)\s+useAppState`)
 	if !useAppStateExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported useAppState hook")
+		t.Error("useDocumentState.tsx missing exported useAppState hook")
 	}
 
 	// Must export useAppDispatch hook
 	useAppDispatchExportRe := regexp.MustCompile(`export\s+(function|const)\s+useAppDispatch`)
 	if !useAppDispatchExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported useAppDispatch hook")
+		t.Error("useDocumentState.tsx missing exported useAppDispatch hook")
 	}
 }
 
@@ -170,37 +170,37 @@ func TestUseDocumentStateExports(t *testing.T) {
 
 func TestAppStateShape(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define AppState interface/type
 	if !strings.Contains(content, "AppState") {
-		t.Error("[P1] useDocumentState.tsx missing AppState type/interface definition")
+		t.Error("useDocumentState.tsx missing AppState type/interface definition")
 	}
 
 	// Must have tabs field
 	if !strings.Contains(content, "tabs") {
-		t.Error("[P1] useDocumentState.tsx AppState missing 'tabs' field")
+		t.Error("useDocumentState.tsx AppState missing 'tabs' field")
 	}
 
 	// Must have activeTabId field
 	if !strings.Contains(content, "activeTabId") {
-		t.Error("[P1] useDocumentState.tsx AppState missing 'activeTabId' field")
+		t.Error("useDocumentState.tsx AppState missing 'activeTabId' field")
 	}
 
 	// Must define TabState interface/type
 	if !strings.Contains(content, "TabState") {
-		t.Error("[P1] useDocumentState.tsx missing TabState type/interface definition")
+		t.Error("useDocumentState.tsx missing TabState type/interface definition")
 	}
 
 	// TabState must have tabId and fileName
 	if !strings.Contains(content, "tabId") {
-		t.Error("[P1] useDocumentState.tsx TabState missing 'tabId' field")
+		t.Error("useDocumentState.tsx TabState missing 'tabId' field")
 	}
 	if !strings.Contains(content, "fileName") {
-		t.Error("[P1] useDocumentState.tsx TabState missing 'fileName' field")
+		t.Error("useDocumentState.tsx TabState missing 'fileName' field")
 	}
 }
 
@@ -208,24 +208,24 @@ func TestAppStateShape(t *testing.T) {
 
 func TestAppActionTypes(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define AppAction type
 	if !strings.Contains(content, "AppAction") {
-		t.Error("[P1] useDocumentState.tsx missing AppAction type definition")
+		t.Error("useDocumentState.tsx missing AppAction type definition")
 	}
 
 	// Must include OPEN_DOCUMENT action type
 	if !strings.Contains(content, "OPEN_DOCUMENT") {
-		t.Error("[P1] useDocumentState.tsx missing OPEN_DOCUMENT action type")
+		t.Error("useDocumentState.tsx missing OPEN_DOCUMENT action type")
 	}
 
 	// Must include CLOSE_DOCUMENT action type
 	if !strings.Contains(content, "CLOSE_DOCUMENT") {
-		t.Error("[P1] useDocumentState.tsx missing CLOSE_DOCUMENT action type")
+		t.Error("useDocumentState.tsx missing CLOSE_DOCUMENT action type")
 	}
 }
 
@@ -233,25 +233,25 @@ func TestAppActionTypes(t *testing.T) {
 
 func TestTwoSeparateContexts(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must use useReducer
 	if !strings.Contains(content, "useReducer") {
-		t.Error("[P1] useDocumentState.tsx must use useReducer for state management")
+		t.Error("useDocumentState.tsx must use useReducer for state management")
 	}
 
 	// Must use createContext (at least twice for state + dispatch)
 	createContextCount := strings.Count(content, "createContext")
 	if createContextCount < 2 {
-		t.Errorf("[P1] useDocumentState.tsx must create two separate contexts (state + dispatch), found %d createContext calls", createContextCount)
+		t.Errorf("useDocumentState.tsx must create two separate contexts (state + dispatch), found %d createContext calls", createContextCount)
 	}
 
 	// Must define appReducer function
 	if !strings.Contains(content, "appReducer") {
-		t.Error("[P1] useDocumentState.tsx missing appReducer function")
+		t.Error("useDocumentState.tsx missing appReducer function")
 	}
 }
 
@@ -264,7 +264,7 @@ func TestTwoSeparateContexts(t *testing.T) {
 
 func TestMainLayoutFileExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/MainLayout.tsx") {
-		t.Fatal("[P0] frontend/src/components/MainLayout.tsx does not exist -- must be created for two-column layout")
+		t.Fatal("frontend/src/components/MainLayout.tsx does not exist -- must be created for two-column layout")
 	}
 }
 
@@ -303,17 +303,17 @@ func TestAppJsxWrapsInAppProvider(t *testing.T) {
 	// Must import AppProvider from useDocumentState
 	appProviderImportRe := regexp.MustCompile(`import\s+.*AppProvider.*from\s+['"].*hooks/useDocumentState['"]`)
 	if !appProviderImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must import AppProvider from './hooks/useDocumentState'")
+		t.Error("App.jsx must import AppProvider from './hooks/useDocumentState'")
 	}
 
 	// Must render <AppProvider>
 	if !strings.Contains(content, "<AppProvider>") {
-		t.Error("[P0] App.jsx must render <AppProvider> to provide context to child components")
+		t.Error("App.jsx must render <AppProvider> to provide context to child components")
 	}
 
 	// Must close </AppProvider>
 	if !strings.Contains(content, "</AppProvider>") {
-		t.Error("[P0] App.jsx must close </AppProvider>")
+		t.Error("App.jsx must close </AppProvider>")
 	}
 }
 
@@ -325,12 +325,12 @@ func TestAppJsxRendersMainLayout(t *testing.T) {
 	// Must import MainLayout
 	mainLayoutImportRe := regexp.MustCompile(`import\s+.*MainLayout.*from\s+['"].*components/MainLayout['"]`)
 	if !mainLayoutImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must import MainLayout from './components/MainLayout'")
+		t.Error("App.jsx must import MainLayout from './components/MainLayout'")
 	}
 
 	// Must reference MainLayout in render (conditional)
 	if !strings.Contains(content, "<MainLayout") {
-		t.Error("[P0] App.jsx must render <MainLayout /> (conditionally, when document is open)")
+		t.Error("App.jsx must render <MainLayout /> (conditionally, when document is open)")
 	}
 }
 
@@ -342,12 +342,12 @@ func TestAppJsxStillRendersEmptyState(t *testing.T) {
 	// Must still import EmptyState
 	emptyStateImportRe := regexp.MustCompile(`import\s+.*EmptyState.*from`)
 	if !emptyStateImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must still import EmptyState component")
+		t.Error("App.jsx must still import EmptyState component")
 	}
 
 	// Must still render <EmptyState
 	if !strings.Contains(content, "<EmptyState") {
-		t.Error("[P0] App.jsx must still render <EmptyState /> (when no document is open)")
+		t.Error("App.jsx must still render <EmptyState /> (when no document is open)")
 	}
 }
 
@@ -359,17 +359,17 @@ func TestAppJsxUsesAppStateHook(t *testing.T) {
 	// Must import useAppState
 	useAppStateImportRe := regexp.MustCompile(`import\s+.*useAppState.*from\s+['"].*hooks/useDocumentState['"]`)
 	if !useAppStateImportRe.MatchString(content) {
-		t.Error("[P1] App.jsx must import useAppState from './hooks/useDocumentState'")
+		t.Error("App.jsx must import useAppState from './hooks/useDocumentState'")
 	}
 
 	// Must call useAppState()
 	if !strings.Contains(content, "useAppState()") {
-		t.Error("[P1] App.jsx must call useAppState() to access application state")
+		t.Error("App.jsx must call useAppState to access application state")
 	}
 
 	// Must reference activeTabId for conditional rendering
 	if !strings.Contains(content, "activeTabId") {
-		t.Error("[P1] App.jsx must use activeTabId from state for conditional rendering")
+		t.Error("App.jsx must use activeTabId from state for conditional rendering")
 	}
 }
 
@@ -381,14 +381,14 @@ func TestAppContentWrapperComponent(t *testing.T) {
 
 	// Must define AppContent (or similar inner component) that uses hooks inside AppProvider
 	if !strings.Contains(content, "AppContent") {
-		t.Error("[P1] App.jsx must define an AppContent wrapper component (hooks must be called inside AppProvider)")
+		t.Error("App.jsx must define an AppContent wrapper component (hooks must be called inside AppProvider)")
 	}
 
 	// AppContent must be rendered inside AppProvider
 	// Pattern: <AppProvider> ... <AppContent ... </AppProvider>
 	appContentInsideProviderRe := regexp.MustCompile(`(?s)<AppProvider>.*<AppContent.*</AppProvider>`)
 	if !appContentInsideProviderRe.MatchString(content) {
-		t.Error("[P1] App.jsx: AppContent must be rendered inside <AppProvider> (hooks require context)")
+		t.Error("App.jsx: AppContent must be rendered inside <AppProvider> (hooks require context)")
 	}
 }
 
@@ -408,7 +408,7 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 		for _, ext := range []string{"index.ts", "index.tsx"} {
 			indexPath := filepath.Join(root, dir, ext)
 			if _, err := os.Stat(indexPath); err == nil {
-				t.Errorf("[P0] %s/%s exists -- barrel files are forbidden by project rules", dir, ext)
+				t.Errorf("%s/%s exists -- barrel files are forbidden by project rules", dir, ext)
 			}
 		}
 	}
@@ -439,26 +439,26 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 
 func TestUseDocumentStateInitialState(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define initialState
 	if !strings.Contains(content, "initialState") {
-		t.Error("[P1] useDocumentState.tsx missing initialState definition")
+		t.Error("useDocumentState.tsx missing initialState definition")
 	}
 
 	// initialState must have empty tabs array
 	emptyTabsRe := regexp.MustCompile(`tabs\s*:\s*\[\s*\]`)
 	if !emptyTabsRe.MatchString(content) {
-		t.Error("[P1] useDocumentState.tsx initialState must have tabs: []")
+		t.Error("useDocumentState.tsx initialState must have tabs: []")
 	}
 
 	// initialState must have null activeTabId
 	nullActiveTabRe := regexp.MustCompile(`activeTabId\s*:\s*null`)
 	if !nullActiveTabRe.MatchString(content) {
-		t.Error("[P1] useDocumentState.tsx initialState must have activeTabId: null")
+		t.Error("useDocumentState.tsx initialState must have activeTabId: null")
 	}
 }
 
@@ -469,19 +469,19 @@ func TestUseDocumentStateInitialState(t *testing.T) {
 
 func TestUseDocumentStateContextNullGuards(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P2] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// useAppState must throw when context is null
 	if !strings.Contains(content, "useAppState must be used within") {
-		t.Error("[P2] useAppState hook missing null-guard error message")
+		t.Error("useAppState hook missing null-guard error message")
 	}
 
 	// useAppDispatch must throw when context is null
 	if !strings.Contains(content, "useAppDispatch must be used within") {
-		t.Error("[P2] useAppDispatch hook missing null-guard error message")
+		t.Error("useAppDispatch hook missing null-guard error message")
 	}
 }
 
@@ -491,10 +491,10 @@ func TestUseDocumentStateContextNullGuards(t *testing.T) {
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("[P0] frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
+		t.Fatal("frontend/src/App.jsx does not exist -- must keep.jsx extension per project convention")
 	}
 
 	if fileExists(t, "frontend/src/App.tsx") {
-		t.Error("[P0] frontend/src/App.tsx exists -- App should remain .jsx per project convention")
+		t.Error("frontend/src/App.tsx exists -- App should remain.jsx per project convention")
 	}
 }

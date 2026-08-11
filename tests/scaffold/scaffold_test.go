@@ -69,14 +69,14 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] wails3 build failed: %v\nOutput:\n%s", err, string(output))
+		t.Fatalf("wails3 build failed: %v\nOutput:\n%s", err, string(output))
 	}
 
 	// Verify binary was produced in bin/ (Wails v3 alpha outputs to bin/, not build/bin/)
 	binDir := filepath.Join(root, "bin")
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
-		t.Fatalf("[P0] bin/ directory not found after build: %v", err)
+		t.Fatalf("bin/ directory not found after build: %v", err)
 	}
 
 	foundBinary := false
@@ -87,7 +87,7 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 		}
 	}
 	if !foundBinary {
-		t.Fatalf("[P0] no binary found in bin/ after wails3 build")
+		t.Fatalf("no binary found in bin/ after wails3 build")
 	}
 }
 
@@ -103,12 +103,12 @@ func TestGoModuleDependencies(t *testing.T) {
 	goModPath := filepath.Join(root, "go.mod")
 	goModContent, err := os.ReadFile(goModPath)
 	if err != nil {
-		t.Fatalf("[P0] go.mod not found at project root: %v", err)
+		t.Fatalf("go.mod not found at project root: %v", err)
 	}
 
 	// Verify pdfcpu dependency is declared
 	if !strings.Contains(string(goModContent), "github.com/pdfcpu/pdfcpu") {
-		t.Fatal("[P0] pdfcpu dependency not found in go.mod")
+		t.Fatal("pdfcpu dependency not found in go.mod")
 	}
 
 	// Verify go mod tidy succeeds (no unresolved dependencies)
@@ -116,7 +116,7 @@ func TestGoModuleDependencies(t *testing.T) {
 	tidyCmd.Dir = root
 	tidyOutput, err := tidyCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] go mod tidy failed: %v\nOutput:\n%s", err, string(tidyOutput))
+		t.Fatalf("go mod tidy failed: %v\nOutput:\n%s", err, string(tidyOutput))
 	}
 
 	// Verify go vet passes (no structural issues)
@@ -124,7 +124,7 @@ func TestGoModuleDependencies(t *testing.T) {
 	vetCmd.Dir = root
 	vetOutput, err := vetCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] go vet ./... failed: %v\nOutput:\n%s", err, string(vetOutput))
+		t.Fatalf("go vet./... failed: %v\nOutput:\n%s", err, string(vetOutput))
 	}
 }
 
@@ -141,13 +141,13 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 	pkgJSONPath := filepath.Join(frontendDir, "package.json")
 	pkgJSONContent, err := os.ReadFile(pkgJSONPath)
 	if err != nil {
-		t.Fatalf("[P0] frontend/package.json not found: %v", err)
+		t.Fatalf("frontend/package.json not found: %v", err)
 	}
 
 	// Parse package.json to check dependencies
 	var pkgJSON map[string]interface{}
 	if err := json.Unmarshal(pkgJSONContent, &pkgJSON); err != nil {
-		t.Fatalf("[P0] failed to parse frontend/package.json: %v", err)
+		t.Fatalf("failed to parse frontend/package.json: %v", err)
 	}
 
 	// Check required dependencies exist (in either dependencies or devDependencies)
@@ -175,7 +175,7 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 
 	for _, dep := range requiredDeps {
 		if !deps[dep] {
-			t.Errorf("[P0] required frontend dependency missing from package.json: %s", dep)
+			t.Errorf("required frontend dependency missing from package.json: %s", dep)
 		}
 	}
 
@@ -183,13 +183,13 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 	tsconfigPath := filepath.Join(frontendDir, "tsconfig.json")
 	tsconfigContent, err := os.ReadFile(tsconfigPath)
 	if err != nil {
-		t.Fatalf("[P0] frontend/tsconfig.json not found: %v", err)
+		t.Fatalf("frontend/tsconfig.json not found: %v", err)
 	}
 
 	// Note: tsconfig.json may have comments (jsonc format). We do a string check
 	// as a pragmatic approach since Go's encoding/json doesn't handle comments.
 	if !strings.Contains(string(tsconfigContent), `"strict"`) {
-		t.Fatal("[P0] TypeScript strict mode not found in tsconfig.json")
+		t.Fatal("TypeScript strict mode not found in tsconfig.json")
 	}
 
 	// Verify TypeScript compiles successfully
@@ -197,7 +197,7 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 	tscCmd.Dir = frontendDir
 	tscOutput, err := tscCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] npx tsc --noEmit failed in frontend/: %v\nOutput:\n%s", err, string(tscOutput))
+		t.Fatalf("npx tsc --noEmit failed in frontend/: %v\nOutput:\n%s", err, string(tscOutput))
 	}
 }
 
@@ -223,11 +223,11 @@ func TestDirectoryStructure(t *testing.T) {
 		dirPath := filepath.Join(root, dir.path)
 		info, err := os.Stat(dirPath)
 		if err != nil {
-			t.Errorf("[P2] required directory missing: %s (%s): %v", dir.path, dir.description, err)
+			t.Errorf("required directory missing: %s (%s): %v", dir.path, dir.description, err)
 			continue
 		}
 		if !info.IsDir() {
-			t.Errorf("[P2] %s exists but is not a directory", dir.path)
+			t.Errorf("%s exists but is not a directory", dir.path)
 		}
 	}
 
@@ -245,20 +245,20 @@ func TestDirectoryStructure(t *testing.T) {
 		filePath := filepath.Join(root, f.path)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Errorf("[P2] required package file missing: %s: %v", f.path, err)
+			t.Errorf("required package file missing: %s: %v", f.path, err)
 			continue
 		}
 		if !strings.Contains(string(content), f.content) {
-			t.Errorf("[P2] %s does not contain expected package declaration %q", f.path, f.content)
+			t.Errorf("%s does not contain expected package declaration %q", f.path, f.content)
 		}
 	}
 
 	// Verify testdata/ directory exists (originally had .gitkeep, now has real PDF fixtures)
 	testdataPath := filepath.Join(root, "testdata")
 	if info, err := os.Stat(testdataPath); err != nil {
-		t.Errorf("[P2] testdata/ directory not found: %v", err)
+		t.Errorf("testdata/ directory not found: %v", err)
 	} else if !info.IsDir() {
-		t.Errorf("[P2] testdata is not a directory")
+		t.Errorf("testdata is not a directory")
 	}
 }
 
@@ -274,26 +274,26 @@ func TestLegalFiles(t *testing.T) {
 	licensePath := filepath.Join(root, "LICENSE")
 	licenseContent, err := os.ReadFile(licensePath)
 	if err != nil {
-		t.Fatalf("[P3] LICENSE file not found at project root: %v", err)
+		t.Fatalf("LICENSE file not found at project root: %v", err)
 	}
 	if !strings.Contains(string(licenseContent), "Apache License") {
-		t.Error("[P3] LICENSE file does not contain 'Apache License' text")
+		t.Error("LICENSE file does not contain 'Apache License' text")
 	}
 	if !strings.Contains(string(licenseContent), "Version 2.0") {
-		t.Error("[P3] LICENSE file does not contain 'Version 2.0' text")
+		t.Error("LICENSE file does not contain 'Version 2.0' text")
 	}
 
 	// Verify NOTICE file exists and contains UniDoc attribution
 	noticePath := filepath.Join(root, "NOTICE")
 	noticeContent, err := os.ReadFile(noticePath)
 	if err != nil {
-		t.Fatalf("[P3] NOTICE file not found at project root: %v", err)
+		t.Fatalf("NOTICE file not found at project root: %v", err)
 	}
 	if !strings.Contains(string(noticeContent), "UniDoc") {
-		t.Error("[P3] NOTICE file does not contain 'UniDoc' attribution")
+		t.Error("NOTICE file does not contain 'UniDoc' attribution")
 	}
 	if !strings.Contains(string(noticeContent), "Apache License") {
-		t.Error("[P3] NOTICE file does not reference Apache License")
+		t.Error("NOTICE file does not reference Apache License")
 	}
 }
 
@@ -308,7 +308,7 @@ func TestGitignoreCoverage(t *testing.T) {
 	gitignorePath := filepath.Join(root, ".gitignore")
 	content, err := os.ReadFile(gitignorePath)
 	if err != nil {
-		t.Fatalf("[P1] .gitignore not found at project root: %v", err)
+		t.Fatalf(".gitignore not found at project root: %v", err)
 	}
 
 	gitignoreContent := string(content)
@@ -326,7 +326,7 @@ func TestGitignoreCoverage(t *testing.T) {
 
 	for _, p := range requiredPatterns {
 		if !strings.Contains(gitignoreContent, p.pattern) {
-			t.Errorf("[P1] .gitignore missing pattern for %s (expected to contain %q)", p.description, p.pattern)
+			t.Errorf(".gitignore missing pattern for %s (expected to contain %q)", p.description, p.pattern)
 		}
 	}
 
@@ -346,7 +346,7 @@ func TestGitignoreCoverage(t *testing.T) {
 			}
 			// Simple check: the gitignore line should not exactly match the file we want to keep
 			if trimmed == mustKeep || trimmed == "/"+mustKeep {
-				t.Errorf("[P1] .gitignore must NOT ignore %s but found matching rule: %q", mustKeep, trimmed)
+				t.Errorf(".gitignore must NOT ignore %s but found matching rule: %q", mustKeep, trimmed)
 			}
 		}
 	}
@@ -376,7 +376,7 @@ func TestWailsProjectConfigFiles(t *testing.T) {
 	for _, cf := range configFiles {
 		filePath := filepath.Join(root, cf.path)
 		if _, err := os.Stat(filePath); err != nil {
-			t.Errorf("[P1] required config file missing: %s (%s): %v", cf.path, cf.description, err)
+			t.Errorf("required config file missing: %s (%s): %v", cf.path, cf.description, err)
 		}
 	}
 }
@@ -392,17 +392,17 @@ func TestViteConfigIncludesTailwind(t *testing.T) {
 	viteConfigPath := filepath.Join(root, "frontend", "vite.config.ts")
 	content, err := os.ReadFile(viteConfigPath)
 	if err != nil {
-		t.Fatalf("[P1] frontend/vite.config.ts not found: %v", err)
+		t.Fatalf("frontend/vite.config.ts not found: %v", err)
 	}
 
 	viteConfig := string(content)
 
 	// Verify Tailwind CSS v4 Vite plugin is imported and used
 	if !strings.Contains(viteConfig, "@tailwindcss/vite") {
-		t.Error("[P1] vite.config.ts does not import @tailwindcss/vite plugin")
+		t.Error("vite.config.ts does not import @tailwindcss/vite plugin")
 	}
 	if !strings.Contains(viteConfig, "tailwindcss()") && !strings.Contains(viteConfig, "tailwindcss(") {
-		t.Error("[P1] vite.config.ts does not appear to use the tailwindcss() plugin in plugins array")
+		t.Error("vite.config.ts does not appear to use the tailwindcss plugin in plugins array")
 	}
 }
 
@@ -417,13 +417,13 @@ func TestPdfcpuBlankImport(t *testing.T) {
 	docGoPath := filepath.Join(root, "internal", "pdfcore", "doc.go")
 	content, err := os.ReadFile(docGoPath)
 	if err != nil {
-		t.Fatalf("[P2] internal/pdfcore/doc.go not found: %v", err)
+		t.Fatalf("internal/pdfcore/doc.go not found: %v", err)
 	}
 
 	docGoContent := string(content)
 
 	// Verify blank import of pdfcpu to pin the dependency
 	if !strings.Contains(docGoContent, `_ "github.com/pdfcpu/pdfcpu`) {
-		t.Error("[P2] internal/pdfcore/doc.go does not contain blank import for pdfcpu (needed to pin dependency in go.mod)")
+		t.Error("internal/pdfcore/doc.go does not contain blank import for pdfcpu (needed to pin dependency in go.mod)")
 	}
 }
