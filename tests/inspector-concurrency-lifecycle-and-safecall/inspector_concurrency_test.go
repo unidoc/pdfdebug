@@ -76,7 +76,7 @@ func TestDocumentStateHasPdfMu(t *testing.T) {
 	// the canonical shape).
 	re := regexp.MustCompile(`(?m)^\s*pdfMu\s+sync\.Mutex\b`)
 	if !re.MatchString(src) {
-		t.Errorf("[P0] 10-5-AC1: internal/pdfcore/inspector.go must declare `pdfMu sync.Mutex` as a field on DocumentState (AC1: per-document mutex serializing pdfcpu calls)")
+		t.Errorf("internal/pdfcore/inspector.go must declare `pdfMu sync.Mutex` as a field on DocumentState (per-document mutex serializing pdfcpu calls)")
 	}
 }
 
@@ -88,7 +88,7 @@ func TestDocumentStateHasRevBuildOnce(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	re := regexp.MustCompile(`(?m)^\s*revBuildOnce\s+sync\.Once\b`)
 	if !re.MatchString(src) {
-		t.Errorf("[P0] 10-5-AC1/AC7: internal/pdfcore/inspector.go must declare `revBuildOnce sync.Once` as a field on DocumentState (AC7: lazy first-call build via sync.Once)")
+		t.Errorf("internal/pdfcore/inspector.go must declare `revBuildOnce sync.Once` as a field on DocumentState (lazy first-call build via sync.Once)")
 	}
 }
 
@@ -166,22 +166,22 @@ func TestMethodsAcquirePdfMu(t *testing.T) {
 			if owner, ok := pdfMuLockOwner[method]; ok {
 				caller := extractFunctionBody(t, src, method)
 				if caller == "" {
-					t.Fatalf("[P0] 10-5-AC1: could not locate `func (ins *Inspector) %s(` in %s", method, path)
+					t.Fatalf("could not locate `func (ins *Inspector) %s(` in %s", method, path)
 				}
 				if !strings.Contains(caller, owner+"(") {
-					t.Errorf("[P0] 10-5-AC1: %s in %s must either lock doc.pdfMu itself or delegate to %s, which does", method, path, owner)
+					t.Errorf("%s in %s must either lock doc.pdfMu itself or delegate to %s, which does", method, path, owner)
 				}
 				target = owner
 			}
 			body := extractFunctionBody(t, src, target)
 			if body == "" {
-				t.Fatalf("[P0] 10-5-AC1: could not locate `func (ins *Inspector) %s(` in %s", target, path)
+				t.Fatalf("could not locate `func (ins *Inspector) %s(` in %s", target, path)
 			}
 			if !strings.Contains(body, "doc.pdfMu.Lock()") {
-				t.Errorf("[P0] 10-5-AC1: %s in %s must call `doc.pdfMu.Lock()` (AC1: acquire per-document mutex immediately after GetDocument)", target, path)
+				t.Errorf("%s in %s must call `doc.pdfMu.Lock` (acquire per-document mutex immediately after GetDocument)", target, path)
 			}
 			if !strings.Contains(body, "defer doc.pdfMu.Unlock()") {
-				t.Errorf("[P0] 10-5-AC1: %s in %s must call `defer doc.pdfMu.Unlock()` (AC1: deferred Unlock pattern)", target, path)
+				t.Errorf("%s in %s must call `defer doc.pdfMu.Unlock` (deferred Unlock pattern)", target, path)
 			}
 		})
 	}
@@ -231,7 +231,7 @@ func TestGetContentStreamHoldsStreamMuForDecode(t *testing.T) {
 	// The pre-fix body has 4. Use that ceiling as the contract.
 	body := extractFunctionBody(t, src, "GetContentStream")
 	if body == "" {
-		t.Fatalf("[P0] 10-5-AC3: could not locate GetContentStream in stream.go")
+		t.Fatalf("could not locate GetContentStream in stream.go")
 	}
 	unlockCount := strings.Count(body, "doc.streamMu.Unlock()")
 	if unlockCount > 2 {
@@ -250,7 +250,7 @@ func TestRecoverRuntimePanicHelperExists(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := "func recoverRuntimePanic(methodName string, errOut *error)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-5-AC5: internal/pdfservice/service.go must declare %q (AC5: pinned helper signature)", needle)
+		t.Errorf("internal/pdfservice/service.go must declare %q (pinned helper signature)", needle)
 	}
 }
 
@@ -262,7 +262,7 @@ func TestRecoverHelperConvertsToMalformedPDF(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := `fmt.Errorf("%w: internal error", pdfcore.ErrMalformedPDF)`
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-5-AC5: internal/pdfservice/service.go must construct the recovered error as %q so errors.Is(err, ErrMalformedPDF) holds AND the frontend regex /malformed/i matches (AC5)", needle)
+		t.Errorf("internal/pdfservice/service.go must construct the recovered error as %q so errors.Is(err, ErrMalformedPDF) holds AND the frontend regex /malformed/i matches", needle)
 	}
 }
 
@@ -273,10 +273,10 @@ func TestRecoverHelperLogsViaPrintf(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	needle := `log.Printf("pdfservice: runtime.Error in %s: %v\n%s"`
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-5-AC5: internal/pdfservice/service.go must call %q ... debug.Stack()) when recovering a runtime.Error (AC5)", needle)
+		t.Errorf("internal/pdfservice/service.go must call %q... debug.Stack) when recovering a runtime.Error", needle)
 	}
 	if !strings.Contains(src, "debug.Stack()") {
-		t.Errorf("[P0] 10-5-AC5: internal/pdfservice/service.go must include debug.Stack() in the recover-helper log line (AC5)")
+		t.Errorf("internal/pdfservice/service.go must include debug.Stack in the recover-helper log line")
 	}
 }
 
@@ -287,10 +287,10 @@ func TestRecoverHelperRePanicsNonRuntimeError(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	body := extractFunctionBodyTopLevel(t, src, "recoverRuntimePanic")
 	if body == "" {
-		t.Skipf("[P0] 10-5-AC5: recoverRuntimePanic not declared yet (see TestRecoverRuntimePanicHelperExists)")
+		t.Skipf("recoverRuntimePanic not declared yet (see TestRecoverRuntimePanicHelperExists)")
 	}
 	if !strings.Contains(body, "panic(r)") {
-		t.Errorf("[P0] 10-5-AC5: recoverRuntimePanic must re-panic non-runtime errors via `panic(r)` (AC5: preserves the test-binary-crash diagnostic for genuine bugs)")
+		t.Errorf("recoverRuntimePanic must re-panic non-runtime errors via `panic(r)` (preserves the test-binary-crash diagnostic for genuine bugs)")
 	}
 }
 
@@ -355,11 +355,11 @@ func TestWrappedMethodsHaveDeferRecover(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			body := extractPDFServiceMethodBody(t, src, method)
 			if body == "" {
-				t.Fatalf("[P0] 10-5-AC5: could not locate `func (s *PDFService) %s(` in service.go", method)
+				t.Fatalf("could not locate `func (s *PDFService) %s(` in service.go", method)
 			}
 			needle := `defer recoverRuntimePanic("` + method + `", &err)`
 			if !strings.Contains(body, needle) {
-				t.Errorf("[P0] 10-5-AC5: PDFService.%s must contain %q (AC5: per-method wrapper with verbatim method name)", method, needle)
+				t.Errorf("PDFService.%s must contain %q (per-method wrapper with verbatim method name)", method, needle)
 			}
 		})
 	}
@@ -380,7 +380,7 @@ func TestUnwrappedMethodsHaveNoDeferRecover(t *testing.T) {
 				return
 			}
 			if strings.Contains(body, "defer recoverRuntimePanic(") {
-				t.Errorf("[P0] 10-5-AC5: PDFService.%s MUST NOT contain `defer recoverRuntimePanic(` (AC5: non-pdfcpu methods must not launder Go bugs as ErrMalformedPDF)", method)
+				t.Errorf("PDFService.%s MUST NOT contain `defer recoverRuntimePanic(` (non-pdfcpu methods must not launder Go bugs as ErrMalformedPDF)", method)
 			}
 		})
 	}
@@ -426,7 +426,7 @@ func TestSafeCallContractTestsExist(t *testing.T) {
 	for _, name := range safeCallContractTests {
 		needle := "func " + name + "(t *testing.T)"
 		if !strings.Contains(src, needle) {
-			t.Errorf("[P0] 10-5-AC6: internal/pdfcore/errors_test.go must still declare %s (AC6: the pdfcore-layer safeCall contract is unchanged by this story)", name)
+			t.Errorf("internal/pdfcore/errors_test.go must still declare %s (the pdfcore-layer safeCall contract is unchanged by this story)", name)
 		}
 	}
 }
@@ -439,10 +439,10 @@ func TestSafeCallRePanicsRuntimeErrorPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	re := regexp.MustCompile(`if\s+_,\s*ok\s*:=\s*r\.\(runtime\.Error\)`)
 	if !re.MatchString(src) {
-		t.Errorf("[P0] 10-5-AC6: internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover block (AC6: safeCall contract unchanged)")
+		t.Errorf("internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover block (safeCall contract unchanged)")
 	}
 	if !strings.Contains(src, "panic(r)") {
-		t.Errorf("[P0] 10-5-AC6: internal/pdfcore/errors.go must retain `panic(r)` in safeCall (AC6: the pdfcore-layer re-panic is preserved)")
+		t.Errorf("internal/pdfcore/errors.go must retain `panic(r)` in safeCall (the pdfcore-layer re-panic is preserved)")
 	}
 }
 
@@ -457,7 +457,7 @@ func TestOpenNoLongerCallsBuildReverseRefs(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "Open")
 	if body == "" {
-		t.Fatalf("[P0] 10-5-AC7: could not locate Inspector.Open in inspector.go")
+		t.Fatalf("could not locate Inspector.Open in inspector.go")
 	}
 	if strings.Contains(body, "buildReverseRefs(doc") {
 		t.Errorf("[P0] 10-5-AC7: Inspector.Open must NOT call `buildReverseRefs(doc, ...)` -- AC7 defers the build to first GetReverseRefs via buildReverseRefsOnce")
@@ -485,7 +485,7 @@ func TestBuildReverseRefsOnceHelperExists(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("[P0] 10-5-AC7: a helper `func buildReverseRefsOnce(doc *DocumentState)` must be declared in either internal/pdfcore/inspector.go or internal/pdfcore/reverserefs.go (AC7: lazy first-call build path)")
+		t.Errorf("a helper `func buildReverseRefsOnce(doc *DocumentState)` must be declared in either internal/pdfcore/inspector.go or internal/pdfcore/reverserefs.go (lazy first-call build path)")
 	}
 }
 
@@ -496,10 +496,10 @@ func TestGetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/reverserefs.go")
 	body := extractFunctionBody(t, src, "GetReverseRefs")
 	if body == "" {
-		t.Fatalf("[P0] 10-5-AC7: could not locate GetReverseRefs in reverserefs.go")
+		t.Fatalf("could not locate GetReverseRefs in reverserefs.go")
 	}
 	if !strings.Contains(body, "buildReverseRefsOnce(doc)") {
-		t.Errorf("[P0] 10-5-AC7: GetReverseRefs must invoke `buildReverseRefsOnce(doc)` BEFORE the revRefsBuildFailed check (AC7: lazy build)")
+		t.Errorf("GetReverseRefs must invoke `buildReverseRefsOnce(doc)` BEFORE the revRefsBuildFailed check (lazy build)")
 	}
 }
 
@@ -520,17 +520,17 @@ func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	}
 	body := extractTopLevelFuncBody(t, src, "openFileAndEmitWithWarning")
 	if body == "" {
-		t.Fatalf("[P0] 10-5-AC8: could not locate openFileAndEmitWithWarning in main.go")
+		t.Fatalf("could not locate openFileAndEmitWithWarning in main.go")
 	}
 	if !strings.Contains(body, "go func(") {
-		t.Errorf("[P0] 10-5-AC8: openFileAndEmitWithWarning must dispatch the pdfcpu read to `go func(...)` so the Wails event-dispatch goroutine returns immediately (AC8)")
+		t.Errorf("openFileAndEmitWithWarning must dispatch the pdfcpu read to `go func(...)` so the Wails event-dispatch goroutine returns immediately")
 	}
 	// The goroutine takes path/extraWarning/svc/app as explicit arguments
 	// for lifetime documentation. Loose anchor: the closure has at least
 	// one parameter (matches the AC8 spec shape).
 	closureRe := regexp.MustCompile(`go func\([^)]*\w+\s+\w+`)
 	if !closureRe.MatchString(body) {
-		t.Errorf("[P0] 10-5-AC8: the `go func(...)` in openFileAndEmitWithWarning should take explicit parameters (path, extraWarning, svc, app, wg) per AC8 (Goroutine arguments are used for explicit lifetime documentation)")
+		t.Errorf("the `go func(...)` in openFileAndEmitWithWarning should take explicit parameters (path, extraWarning, svc, app, wg) (Goroutine arguments are used for explicit lifetime documentation)")
 	}
 }
 
@@ -568,7 +568,7 @@ func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 	startNeedle := "openFilesBatch := func("
 	idx := strings.Index(src, startNeedle)
 	if idx == -1 {
-		t.Fatalf("[P0] 10-5-AC9: could not locate `openFilesBatch := func(` in main.go")
+		t.Fatalf("could not locate `openFilesBatch:= func(` in main.go")
 	}
 	// Bound the body by looking for the next top-level closure or func
 	// declaration. Anchor on the `document:batch-complete` emit which is
@@ -576,18 +576,18 @@ func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 	tail := src[idx:]
 	endIdx := strings.Index(tail, `app.Event.Emit("document:batch-complete"`)
 	if endIdx == -1 {
-		t.Fatalf("[P0] 10-5-AC9: could not locate `document:batch-complete` emit inside openFilesBatch")
+		t.Fatalf("could not locate `document:batch-complete` emit inside openFilesBatch")
 	}
 	body := tail[:endIdx]
 	// AC9 contract markers:
 	if !strings.Contains(body, "var wg sync.WaitGroup") {
-		t.Errorf("[P0] 10-5-AC9: openFilesBatch must declare a local `var wg sync.WaitGroup` (AC9 code shape)")
+		t.Errorf("openFilesBatch must declare a local `var wg sync.WaitGroup` (code shape)")
 	}
 	if !strings.Contains(body, "wg.Add(1)") {
-		t.Errorf("[P0] 10-5-AC9: openFilesBatch must call `wg.Add(1)` before each goroutine dispatch (AC9 code shape)")
+		t.Errorf("openFilesBatch must call `wg.Add(1)` before each goroutine dispatch (code shape)")
 	}
 	if !strings.Contains(body, "wg.Wait()") {
-		t.Errorf("[P0] 10-5-AC9: openFilesBatch must call `wg.Wait()` per iteration to serialize file dispatch (AC9 code shape)")
+		t.Errorf("openFilesBatch must call `wg.Wait` per iteration to serialize file dispatch (code shape)")
 	}
 }
 
@@ -600,13 +600,13 @@ func TestOpenFilesBatchHasFinalWait(t *testing.T) {
 	emitNeedle := `app.Event.Emit("document:batch-complete"`
 	emitIdx := strings.Index(src, emitNeedle)
 	if emitIdx == -1 {
-		t.Fatalf("[P0] 10-5-AC9: could not locate `document:batch-complete` emit in main.go")
+		t.Fatalf("could not locate `document:batch-complete` emit in main.go")
 	}
 	// Look back ~10 lines for wg.Wait()
 	start := max(emitIdx-400, 0)
 	pre := src[start:emitIdx]
 	if !strings.Contains(pre, "wg.Wait()") {
-		t.Errorf("[P0] 10-5-AC9: openFilesBatch must call `wg.Wait()` immediately before the `document:batch-complete` emit (AC9 defensive final Wait)")
+		t.Errorf("openFilesBatch must call `wg.Wait` immediately before the `document:batch-complete` emit (defensive final Wait)")
 	}
 }
 
@@ -616,6 +616,6 @@ func TestOpenFilesBatchHasFinalWait(t *testing.T) {
 func TestBatchCancelledCheckBetweenIterations(t *testing.T) {
 	src := readSource(t, "main.go")
 	if !strings.Contains(src, "batchCancelled.Load()") {
-		t.Errorf("[P0] 10-5-AC9: main.go must retain `batchCancelled.Load()` check between iterations (AC9: cancel skips un-kicked files)")
+		t.Errorf("main.go must retain `batchCancelled.Load` check between iterations (cancel skips un-kicked files)")
 	}
 }

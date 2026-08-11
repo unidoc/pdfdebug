@@ -32,14 +32,14 @@ import (
 func TestGoModPinAtTarget(t *testing.T) {
 	line := goWailsLine(t)
 	if line == "" {
-		t.Fatalf("[P0] 14.2-INTG-001: go.mod must declare a `github.com/wailsapp/wails/v3` require")
+		t.Fatalf("go.mod must declare a `github.com/wailsapp/wails/v3` require")
 	}
 	got := alphaOrdinal(goWailsRe, line)
 	if got < 0 {
-		t.Fatalf("[P0] 14.2-INTG-001: go.mod wails/v3 line %q must carry a v3.0.0-alpha.N or v3.0.0-alpha2.N tag", line)
+		t.Fatalf("go.mod wails/v3 line %q must carry a v3.0.0-alpha.N or v3.0.0-alpha2.N tag", line)
 	}
 	if got < targetOrdinal {
-		t.Errorf("[P0] 14.2-INTG-001: go.mod wails/v3 pin %s has not reached the committed target %s (AC1/AC2). Current known-good fallback rung 1 = alpha2.103, deeper rung 2 = alpha.102 both sit below this floor.",
+		t.Errorf("go.mod wails/v3 pin %s has not reached the committed target %s. Current known-good fallback rung 1 = alpha2.103, deeper rung 2 = alpha.102 both sit below this floor.",
 			fmtOrdinal(got), fmtOrdinal(targetOrdinal))
 	}
 }
@@ -50,12 +50,12 @@ func TestGoModPinAtTarget(t *testing.T) {
 func TestGoSumCarriesNewPin(t *testing.T) {
 	got := alphaOrdinal(goWailsRe, goWailsLine(t))
 	if got < targetOrdinal {
-		t.Skipf("[P0] 14.2-INTG-001: skipped -- go.mod not bumped to target yet (see TestGoModPinAtTarget)")
+		t.Skipf("skipped -- go.mod not bumped to target yet (see TestGoModPinAtTarget)")
 	}
 	needle := "github.com/wailsapp/wails/v3 v3.0.0-" + tagFromOrdinal(got)
 	gosum := readSource(t, "go.sum")
 	if !strings.Contains(gosum, needle) {
-		t.Errorf("[P0] 14.2-INTG-001: go.sum must contain %q -- run `go mod tidy` after editing go.mod (AC2 / Task 2.1)", needle)
+		t.Errorf("go.sum must contain %q -- run `go mod tidy` after editing go.mod (/ Task 2.1)", needle)
 	}
 }
 
@@ -73,16 +73,16 @@ func assertWorkflowPinMatchesGoMod(t *testing.T, relPath, testID string) {
 	t.Helper()
 	src := readSource(t, relPath)
 	if !strings.Contains(src, "wails3@v3.0.0-alpha") {
-		t.Fatalf("[P0] %s: %s must install wails3 with a v3.0.0-alpha pin", testID, relPath)
+		t.Fatalf("%s: %s must install wails3 with a v3.0.0-alpha pin", testID, relPath)
 	}
 	got := allAlphaOrdinals(goWailsRe, src)
 	if len(got) == 0 {
-		t.Fatalf("[P0] %s: %s must reference a v3.0.0-alpha pin", testID, relPath)
+		t.Fatalf("%s: %s must reference a v3.0.0-alpha pin", testID, relPath)
 	}
 	goOrd := alphaOrdinal(goWailsRe, goWailsLine(t))
 	for _, n := range got {
 		if n <= currentBaselineOrdinal {
-			t.Errorf("[P0] %s: %s carries %s -- a bump must move it strictly past the pre-bump baseline %s (AC3.1)",
+			t.Errorf("%s: %s carries %s -- a bump must move it strictly past the pre-bump baseline %s",
 				testID, relPath, fmtOrdinal(n), fmtOrdinal(currentBaselineOrdinal))
 		}
 		if goOrd > 0 && n != goOrd {
@@ -110,7 +110,7 @@ func TestReleaseWorkflowPinParity(t *testing.T) {
 func TestReleaseExpectedFilesInvariant(t *testing.T) {
 	src := readSource(t, ".github/workflows/release.yml")
 	if !strings.Contains(src, "EXPECTED_FILES=6") {
-		t.Errorf("[P1] 14.2-INTG-001: release.yml must retain EXPECTED_FILES=6 invariant across the bump")
+		t.Errorf("release.yml must retain EXPECTED_FILES=6 invariant across the bump")
 	}
 }
 
@@ -128,27 +128,27 @@ func TestRuntimePinNoPhantomAlpha2(t *testing.T) {
 	src := readSource(t, "frontend/package.json")
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(src), &pkg); err != nil {
-		t.Fatalf("[P0] 14.2-INTG-004: package.json is not valid JSON: %v", err)
+		t.Fatalf("package.json is not valid JSON: %v", err)
 	}
 	deps, ok := pkg["dependencies"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P0] 14.2-INTG-004: package.json must declare a dependencies object")
+		t.Fatalf("package.json must declare a dependencies object")
 	}
 	raw, ok := deps["@wailsio/runtime"].(string)
 	if !ok {
-		t.Fatalf("[P0] 14.2-INTG-004: dependencies must declare @wailsio/runtime as a string pin")
+		t.Fatalf("dependencies must declare @wailsio/runtime as a string pin")
 	}
 	m := jsRuntimeRe.FindStringSubmatch(raw)
 	if len(m) < 3 {
-		t.Fatalf("[P0] 14.2-INTG-004: @wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
+		t.Fatalf("@wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
 	}
 	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (AC5 anti-pattern).
 	if m[1] == "2" {
-		t.Errorf("[P0] 14.2-INTG-004: @wailsio/runtime pin %q uses a phantom alpha2.* tag -- npm publishes no alpha2 runtime; Go-side currency does not license runtime skew (AC5). Relax this guard ONLY if upstream publishes a matching runtime and it is adopted (AC8).", raw)
+		t.Errorf("@wailsio/runtime pin %q uses a phantom alpha2.* tag -- npm publishes no alpha2 runtime; Go-side currency does not license runtime skew. Relax this guard ONLY if upstream publishes a matching runtime and it is adopted.", raw)
 	}
 	n, _ := strconv.Atoi(m[2])
 	if n < jsRuntimeCurrentAlpha {
-		t.Errorf("[P0] 14.2-INTG-004: @wailsio/runtime alpha.%d must be >= the current pin alpha.%d (AC5: never regress the runtime)", n, jsRuntimeCurrentAlpha)
+		t.Errorf("@wailsio/runtime alpha.%d must be >= the current pin alpha.%d (never regress the runtime)", n, jsRuntimeCurrentAlpha)
 	}
 }
 
@@ -157,7 +157,7 @@ func TestRuntimePinNoPhantomAlpha2(t *testing.T) {
 func TestPackageLockRuntimeNotRegressed(t *testing.T) {
 	relPath := "frontend/package-lock.json"
 	if !fileExists(t, relPath) {
-		t.Fatalf("[P1] 14.2-INTG-004: %s must exist", relPath)
+		t.Fatalf("%s must exist", relPath)
 	}
 	src := readSource(t, relPath)
 	sawRuntime := false
@@ -171,14 +171,14 @@ func TestPackageLockRuntimeNotRegressed(t *testing.T) {
 		}
 		sawRuntime = true
 		if m[1] == "2" {
-			t.Errorf("[P1] 14.2-INTG-004: package-lock.json resolves @wailsio/runtime to a phantom alpha2.* tag -- no such runtime is published (AC5)")
+			t.Errorf("package-lock.json resolves @wailsio/runtime to a phantom alpha2.* tag -- no such runtime is published")
 			continue
 		}
 		if n, err := strconv.Atoi(m[2]); err == nil && n < jsRuntimeCurrentAlpha {
-			t.Errorf("[P1] 14.2-INTG-004: package-lock.json carries @wailsio/runtime alpha.%d, older than the current pin alpha.%d -- lockfile is corrupt or out of sync (AC5)", n, jsRuntimeCurrentAlpha)
+			t.Errorf("package-lock.json carries @wailsio/runtime alpha.%d, older than the current pin alpha.%d -- lockfile is corrupt or out of sync", n, jsRuntimeCurrentAlpha)
 		}
 	}
 	if !sawRuntime {
-		t.Errorf("[P1] 14.2-INTG-004: package-lock.json must reference an @wailsio/runtime 3.0.0-alpha.N resolution")
+		t.Errorf("package-lock.json must reference an @wailsio/runtime 3.0.0-alpha.N resolution")
 	}
 }

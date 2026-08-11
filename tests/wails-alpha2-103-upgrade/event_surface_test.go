@@ -45,7 +45,7 @@ func TestGoEventEmitNamesPreserved(t *testing.T) {
 	src := readSource(t, "main.go")
 	for _, name := range goEmittedEvents {
 		if !strings.Contains(src, `"`+name+`"`) {
-			t.Errorf("[P0] 12.3-INTG-060: main.go must still emit event %q -- the alpha2 event reorg must not drop a custom-namespace emit (AC8/AC11)", name)
+			t.Errorf("main.go must still emit event %q -- the alpha2 event reorg must not drop a custom-namespace emit", name)
 		}
 	}
 }
@@ -83,7 +83,7 @@ func TestJsEventOnNamesPreserved(t *testing.T) {
 		needle1 := fmt.Sprintf(`Events.On('%s'`, name)
 		needle2 := fmt.Sprintf(`Events.On("%s"`, name)
 		if !strings.Contains(src, needle1) && !strings.Contains(src, needle2) {
-			t.Errorf("[P0] 12.3-INTG-061: frontend/src must still Events.On(%q, ...) -- an alpha2 runtime rename of this event silently breaks the consumer (AC8/AC11)", name)
+			t.Errorf("frontend/src must still Events.On(%q,...) -- an alpha2 runtime rename of this event silently breaks the consumer", name)
 		}
 	}
 }
@@ -98,11 +98,11 @@ func TestJsToGoEventContract(t *testing.T) {
 	jsNeedle1 := fmt.Sprintf(`Events.Emit('%s'`, name)
 	jsNeedle2 := fmt.Sprintf(`Events.Emit("%s"`, name)
 	if !strings.Contains(frontSrc, jsNeedle1) && !strings.Contains(frontSrc, jsNeedle2) {
-		t.Errorf("[P1] 12.3-INTG-062: frontend must still Events.Emit(%q, ...) (AC11)", name)
+		t.Errorf("frontend must still Events.Emit(%q,...)", name)
 	}
 	goNeedle := fmt.Sprintf(`app.Event.On("%s"`, name)
 	if !strings.Contains(mainSrc, goNeedle) {
-		t.Errorf("[P1] 12.3-INTG-062: main.go must still app.Event.On(%q, ...) (AC11: JS->Go contract)", name)
+		t.Errorf("main.go must still app.Event.On(%q,...) (JS->Go contract)", name)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestJsToGoEventContract(t *testing.T) {
 func TestNoNativeEventPrefix(t *testing.T) {
 	for _, lit := range []string{`"native:`, `'native:`} {
 		if scanRepoFor(t, lit) {
-			t.Errorf("[P1] 12.3-INTG-063: found a %s event literal in main.go or frontend/src -- alpha2.103 deprecated the native:* prefix (-> common:*); the pre-flight verified we use ZERO native:* events, do not introduce one (AC8)", lit)
+			t.Errorf("found a %s event literal in main.go or frontend/src -- alpha2.103 deprecated the native:* prefix (-> common:*); the pre-flight verified we use ZERO native:* events, do not introduce one", lit)
 		}
 	}
 }

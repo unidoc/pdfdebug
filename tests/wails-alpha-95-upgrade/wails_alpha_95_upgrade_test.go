@@ -241,7 +241,7 @@ func TestPDFServiceMethodSurface(t *testing.T) {
 	// (AC 6): a method ADDED by a future change must not fail this test.
 	for _, m := range expectedServiceMethods {
 		if !strings.Contains(src, m.sig) {
-			t.Errorf("[P0] 10-3-STRUCT-010: PDFService.%s signature drift -- expected substring not found:\n  %s\n(AC2: a regenerated binding signature must match the pre-bump signature)", m.id, m.sig)
+			t.Errorf("PDFService.%s signature drift -- expected substring not found:\n %s\n(a regenerated binding signature must match the pre-bump signature)", m.id, m.sig)
 		}
 	}
 }
@@ -323,7 +323,7 @@ func TestJSONTagsPreserved(t *testing.T) {
 		src := readSource(t, path)
 		for _, tag := range tags {
 			if !strings.Contains(src, tag) {
-				t.Errorf("[P0] 10-3-STRUCT-011: %s must retain JSON tag `%s` (AC2: a regenerated binding must not silently rename a contract field)", path, tag)
+				t.Errorf("%s must retain JSON tag `%s` (a regenerated binding must not silently rename a contract field)", path, tag)
 			}
 		}
 	}
@@ -340,7 +340,7 @@ func TestJSONTagsPreserved(t *testing.T) {
 func TestBindingsExportAll20Methods(t *testing.T) {
 	relPath := "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 	if !fileExists(t, relPath) {
-		t.Fatalf("[P0] 10-3-STRUCT-020: regenerated binding %s must exist (Task 3.1)", relPath)
+		t.Fatalf("regenerated binding %s must exist (Task 3.1)", relPath)
 	}
 	src := readSource(t, relPath)
 	for _, m := range expectedServiceMethods {
@@ -405,7 +405,7 @@ func TestGoEventEmitNamesPreserved(t *testing.T) {
 	for _, name := range goEmittedEvents {
 		// Tolerate single or double quotes; main.go uses double.
 		if !strings.Contains(src, `"`+name+`"`) {
-			t.Errorf("[P0] 10-3-STRUCT-030: main.go must still emit event %q (AC11: live event surface preservation)", name)
+			t.Errorf("main.go must still emit event %q (live event surface preservation)", name)
 		}
 	}
 }
@@ -445,7 +445,7 @@ func TestJsEventOnNamesPreserved(t *testing.T) {
 		needle1 := fmt.Sprintf(`'%s'`, name)
 		needle2 := fmt.Sprintf(`"%s"`, name)
 		if !strings.Contains(src, needle1) && !strings.Contains(src, needle2) {
-			t.Errorf("[P0] 10-3-STRUCT-031: frontend/src must still subscribe to %q (AC11: a Wails runtime rename of this event would silently break the consumer)", name)
+			t.Errorf("frontend/src must still subscribe to %q (a Wails runtime rename of this event would silently break the consumer)", name)
 		}
 	}
 }
@@ -467,11 +467,11 @@ func TestJsToGoEventContract(t *testing.T) {
 		jsNeedle1 := fmt.Sprintf(`Events.Emit('%s'`, name)
 		jsNeedle2 := fmt.Sprintf(`Events.Emit("%s"`, name)
 		if !strings.Contains(frontSrc, jsNeedle1) && !strings.Contains(frontSrc, jsNeedle2) {
-			t.Errorf("[P0] 10-3-STRUCT-032: frontend must still Events.Emit(%q, ...) (AC11)", name)
+			t.Errorf("frontend must still Events.Emit(%q,...)", name)
 		}
 		goNeedle := fmt.Sprintf(`app.Event.On("%s"`, name)
 		if !strings.Contains(mainSrc, goNeedle) {
-			t.Errorf("[P0] 10-3-STRUCT-032: main.go must still app.Event.On(%q, ...) (AC11: JS->Go contract)", name)
+			t.Errorf("main.go must still app.Event.On(%q,...) (JS->Go contract)", name)
 		}
 	}
 }
@@ -528,11 +528,11 @@ func TestViteConfigQuirks(t *testing.T) {
 	src := readSource(t, "frontend/vite.config.ts")
 	// The IPv4 pin -- the load-bearing line is `host: '127.0.0.1'`.
 	if !strings.Contains(src, "'127.0.0.1'") && !strings.Contains(src, `"127.0.0.1"`) {
-		t.Errorf("[P0] 10-3-STRUCT-050: vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (AC9 / Task 7.1: the actual motivator is macOS resolving localhost to ::1; removing without that fix breaks macOS dev)")
+		t.Errorf("vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (/ Task 7.1: the actual motivator is macOS resolving localhost to::1; removing without that fix breaks macOS dev)")
 	}
 	// The lucide-react optimizeDeps entry.
 	if !strings.Contains(src, "lucide-react") {
-		t.Errorf("[P0] 10-3-STRUCT-050: vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link (AC9 / Task 7.2)")
+		t.Errorf("vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link (/ Task 7.2)")
 	}
 }
 
@@ -549,12 +549,12 @@ func TestSplashEventTriad(t *testing.T) {
 	mainJsxSrc := readSource(t, "frontend/src/main.jsx")
 	for _, name := range []string{"splash:dismiss", "splash:dismissed", "splash:timeout"} {
 		if !strings.Contains(mainGoSrc, `"`+name+`"`) {
-			t.Errorf("[P0] 10-3-STRUCT-060: main.go must emit %q (AC6 splash lifecycle)", name)
+			t.Errorf("main.go must emit %q (splash lifecycle)", name)
 		}
 	}
 	// main.jsx is the dismissal listener.
 	if !strings.Contains(mainJsxSrc, "'splash:dismissed'") && !strings.Contains(mainJsxSrc, `"splash:dismissed"`) {
-		t.Errorf("[P0] 10-3-STRUCT-060: frontend/src/main.jsx must Events.On('splash:dismissed', ...) (AC6 splash lifecycle handoff)")
+		t.Errorf("frontend/src/main.jsx must Events.On('splash:dismissed',...) (splash lifecycle handoff)")
 	}
 }
 

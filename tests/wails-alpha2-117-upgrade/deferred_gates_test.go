@@ -26,7 +26,7 @@ func TestZeroDiffBindings(t *testing.T) {
 // runtime. It runs in the CI matrix with the wails3 CLI installed at the target
 // pin and is not reproducible as a Go unit test.
 func TestThreeRunnerBuildSmoke(t *testing.T) {
-	t.Skip("[P1] 14.2-GATE-002: DEFERRED to the CI 3-runner matrix -- host `wails3 build` on ubuntu/macos/windows (compile+link only, not runtime). Needs the wails3 CLI at the target pin; not automatable in this Go module.")
+	t.Skip("DEFERRED to the CI 3-runner matrix -- host `wails3 build` on ubuntu/macos/windows (compile+link only, not runtime). Needs the wails3 CLI at the target pin; not automatable in this Go module.")
 }
 
 // TestDesktopWebViewSmoke records a deferred human/hardware gate: the 5-step
@@ -36,7 +36,7 @@ func TestThreeRunnerBuildSmoke(t *testing.T) {
 // observer. Headless CI cannot see the WebView and Playwright cannot drive it, so
 // the evidence is dated screenshots and recordings.
 func TestDesktopWebViewSmoke(t *testing.T) {
-	t.Skip("[P0] 14.2-MANUAL-001: DEFERRED human/hardware gate -- 5-step WebView smoke on real macOS + Windows, run out-of-band by a human, evidence in the Dev Agent Record (pending-human). Not automatable; no E2E authored per the test-pyramid directive.")
+	t.Skip("DEFERRED human/hardware gate -- 5-step WebView smoke on real macOS + Windows, run out-of-band by a human, evidence in the Dev Agent Record (pending-human). Not automatable; no E2E authored per the test-pyramid directive.")
 }
 
 // TestGuiRegressionSweep records a deferred human/hardware gate folded into the

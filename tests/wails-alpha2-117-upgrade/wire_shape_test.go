@@ -48,17 +48,17 @@ func TestObjectDetailWireShape(t *testing.T) {
 	// minimal.pdf object 1 is the /Catalog (a dict with /Pages + /Type).
 	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
 	if code != 0 {
-		t.Fatalf("[P0] 14.2-INTG-003: `dump object --ref \"1 0 R\" testdata/minimal.pdf` exited %d\nstderr: %s", code, stderr)
+		t.Fatalf("`dump object --ref \"1 0 R\" testdata/minimal.pdf` exited %d\nstderr: %s", code, stderr)
 	}
 	obj := mustParseJSONObject(t, stdout)
 	for _, key := range objectDetailWireKeys {
 		if _, ok := obj[key]; !ok {
-			t.Errorf("[P0] 14.2-INTG-003: ObjectDetail JSON missing key %q (case-sensitive) -- a bindings-regen struct-tag drift would silently break the frontend's payload destructuring (AC3.3)\nraw: %s", key, stdout)
+			t.Errorf("ObjectDetail JSON missing key %q (case-sensitive) -- a bindings-regen struct-tag drift would silently break the frontend's payload destructuring\nraw: %s", key, stdout)
 		}
 	}
 	// `type` must be the literal "dict" for the catalog -- pins value casing too.
 	if got, _ := obj["type"].(string); got != "dict" {
-		t.Errorf("[P0] 14.2-INTG-003: ObjectDetail.type for the catalog dict = %q, want \"dict\" (AC3.3: value contract, not just key presence)", got)
+		t.Errorf("ObjectDetail.type for the catalog dict = %q, want \"dict\" (value contract, not just key presence)", got)
 	}
 }
 
@@ -70,43 +70,43 @@ func TestNestedPropertyValueWireShape(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, stderr, code := runCLI(t, bin, "dump", "object", "--json", "--ref", "1 0 R", minimalPDFPath(t))
 	if code != 0 {
-		t.Fatalf("[P0] 14.2-INTG-003: dump object exited %d\nstderr: %s", code, stderr)
+		t.Fatalf("dump object exited %d\nstderr: %s", code, stderr)
 	}
 	obj := mustParseJSONObject(t, stdout)
 	props, ok := obj["properties"].([]any)
 	if !ok || len(props) == 0 {
-		t.Fatalf("[P0] 14.2-INTG-003: ObjectDetail.properties must be a non-empty array for the catalog dict (got %T)\nraw: %s", obj["properties"], stdout)
+		t.Fatalf("ObjectDetail.properties must be a non-empty array for the catalog dict (got %T)\nraw: %s", obj["properties"], stdout)
 	}
 	// PropertyEntry: { "key": ..., "value": { ValueEntry } }.
 	var sawReference bool
 	for _, p := range props {
 		entry, ok := p.(map[string]any)
 		if !ok {
-			t.Fatalf("[P0] 14.2-INTG-003: each properties element must be an object (PropertyEntry)\nraw: %s", stdout)
+			t.Fatalf("each properties element must be an object (PropertyEntry)\nraw: %s", stdout)
 		}
 		if _, ok := entry["key"]; !ok {
-			t.Errorf("[P0] 14.2-INTG-003: PropertyEntry missing key \"key\" -- regen re-tag (AC3.3)")
+			t.Errorf("PropertyEntry missing key \"key\" -- regen re-tag")
 		}
 		val, ok := entry["value"].(map[string]any)
 		if !ok {
-			t.Errorf("[P0] 14.2-INTG-003: PropertyEntry missing object \"value\" (ValueEntry) -- regen re-tag (AC3.3)")
+			t.Errorf("PropertyEntry missing object \"value\" (ValueEntry) -- regen re-tag")
 			continue
 		}
 		// ValueEntry load-bearing keys: type, display, raw, refTarget.
 		for _, vk := range []string{"type", "display", "raw", "refTarget"} {
 			if _, ok := val[vk]; !ok {
-				t.Errorf("[P0] 14.2-INTG-003: ValueEntry missing key %q (case-sensitive) -- the frontend reads value.refTarget for ref navigation; a re-tag is a silent break (AC3.3)", vk)
+				t.Errorf("ValueEntry missing key %q (case-sensitive) -- the frontend reads value.refTarget for ref navigation; a re-tag is a silent break", vk)
 			}
 		}
 		// The /Pages entry is a reference: pin that refTarget is the node-id form.
 		if vt, _ := val["type"].(string); vt == "reference" {
 			sawReference = true
 			if rt, _ := val["refTarget"].(string); rt == "" {
-				t.Errorf("[P0] 14.2-INTG-003: reference ValueEntry must carry a non-empty refTarget node id (AC3.3)")
+				t.Errorf("reference ValueEntry must carry a non-empty refTarget node id")
 			}
 		}
 	}
 	if !sawReference {
-		t.Errorf("[P0] 14.2-INTG-003: catalog properties must include the /Pages reference ValueEntry (the wire-shape fixture relies on it)\nraw: %s", stdout)
+		t.Errorf("catalog properties must include the /Pages reference ValueEntry (the wire-shape fixture relies on it)\nraw: %s", stdout)
 	}
 }

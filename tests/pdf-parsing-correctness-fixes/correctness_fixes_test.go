@@ -120,15 +120,15 @@ func TestFixtureCorpusExists(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			info, err := os.Stat(path)
 			if err != nil {
-				t.Errorf("[P0] 10-6-AC1: testdata/correctness/%s must exist (hand-authored uncompressed PDF demonstrating one failure mode)", name)
+				t.Errorf("testdata/correctness/%s must exist (hand-authored uncompressed PDF demonstrating one failure mode)", name)
 				return
 			}
 			if info.IsDir() {
-				t.Errorf("[P0] 10-6-AC1: testdata/correctness/%s must be a file, not a directory", name)
+				t.Errorf("testdata/correctness/%s must be a file, not a directory", name)
 				return
 			}
 			if info.Size() == 0 {
-				t.Errorf("[P0] 10-6-AC1: testdata/correctness/%s must not be empty (must be a valid minimal PDF)", name)
+				t.Errorf("testdata/correctness/%s must not be empty (must be a valid minimal PDF)", name)
 			}
 		})
 	}
@@ -142,12 +142,12 @@ func TestFixtureCorpusReadme(t *testing.T) {
 	readmePath := filepath.Join(root, "testdata", "correctness", "README.md")
 	data, err := os.ReadFile(readmePath)
 	if err != nil {
-		t.Fatalf("[P0] 10-6-AC1: testdata/correctness/README.md must exist and describe each fixture's purpose and byte-level structure: %v", err)
+		t.Fatalf("testdata/correctness/README.md must exist and describe each fixture's purpose and byte-level structure: %v", err)
 	}
 	body := string(data)
 	for _, name := range correctnessFixtures {
 		if !strings.Contains(body, name) {
-			t.Errorf("[P0] 10-6-AC1: testdata/correctness/README.md must mention %q (describe its purpose and byte-level structure)", name)
+			t.Errorf("testdata/correctness/README.md must mention %q (describe its purpose and byte-level structure)", name)
 		}
 	}
 }
@@ -164,10 +164,10 @@ func TestBuildReachableSetNoDepthCap(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/objectindex.go")
 	body := extractTopLevelFuncBody(t, src, "buildReachableSet")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC2: could not locate buildReachableSet in objectindex.go")
+		t.Fatalf("could not locate buildReachableSet in objectindex.go")
 	}
 	if strings.Contains(body, "head.depth >= maxRefDepth") {
-		t.Errorf("[P0] 10-6-AC2: buildReachableSet must NOT contain `head.depth >= maxRefDepth` -- drop the depth cap; the visited-set already prevents cycles (AC2)")
+		t.Errorf("buildReachableSet must NOT contain `head.depth >= maxRefDepth` -- drop the depth cap; the visited-set already prevents cycles")
 	}
 	// The reach-entry frame need no longer carry depth, but the spec leaves
 	// that as a refactor preference. We do NOT pin the struct shape; only
@@ -181,10 +181,10 @@ func TestFindPathToObjectNoDepthCap(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractTopLevelFuncBody(t, src, "findPathToObject")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC2: could not locate findPathToObject in inspector.go")
+		t.Fatalf("could not locate findPathToObject in inspector.go")
 	}
 	if strings.Contains(body, "entry.depth >= maxRefDepth") {
-		t.Errorf("[P0] 10-6-AC2: findPathToObject must NOT contain `entry.depth >= maxRefDepth` -- drop the depth cap (AC2: visited-set already prevents cycles)")
+		t.Errorf("findPathToObject must NOT contain `entry.depth >= maxRefDepth` -- drop the depth cap (visited-set already prevents cycles)")
 	}
 }
 
@@ -195,7 +195,7 @@ func TestFindPathToObjectNoDepthCap(t *testing.T) {
 func TestTreeMaxRefDepthRetained(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/tree.go")
 	if !strings.Contains(src, "maxRefDepth = 32") {
-		t.Errorf("[P0] 10-6-AC2: internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (AC2: tree.go semantics unchanged by this story)")
+		t.Errorf("internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (tree.go semantics unchanged by this story)")
 	}
 	// Look for an explanatory comment immediately above the constant. Loose
 	// match: any of these phrases anchor the retention rationale.
@@ -226,7 +226,7 @@ func TestBuildReachableSetTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/objectindex_test.go")
 	needle := "func TestBuildReachableSetDeepNesting(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC2: internal/pdfcore/objectindex_test.go must declare %q (AC2: boundary-at-32 AND well-past-32, e.g. 50)", needle)
+		t.Errorf("internal/pdfcore/objectindex_test.go must declare %q (boundary-at-32 AND well-past-32, e.g. 50)", needle)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestFindPathToObjectTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector_test.go")
 	needle := "func TestFindPathToObjectDeepNesting(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC2: internal/pdfcore/inspector_test.go must declare %q (AC2: same depth-cap removal, behavioural pin)", needle)
+		t.Errorf("internal/pdfcore/inspector_test.go must declare %q (same depth-cap removal, behavioural pin)", needle)
 	}
 }
 
@@ -252,14 +252,14 @@ func TestExtractStreamInfoSignature(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	want := "func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo"
 	if !strings.Contains(src, want) {
-		t.Errorf("[P0] 10-6-AC3: internal/pdfcore/inspector.go must declare %q (AC3: doc handle threaded so IndirectRef /Length can be resolved via doc.PDFContext.Dereference)", want)
+		t.Errorf("internal/pdfcore/inspector.go must declare %q (doc handle threaded so IndirectRef /Length can be resolved via doc.PDFContext.Dereference)", want)
 	}
 	// And the pre-fix signature MUST be gone. Substring overlap would let
 	// the post-fix line satisfy a contains check for the old signature,
 	// so anchor with the closing paren of the old one-arg form.
 	bad := "func extractStreamInfo(obj pdfcpu_types.Object) *StreamInfo"
 	if strings.Contains(src, bad) {
-		t.Errorf("[P0] 10-6-AC3: internal/pdfcore/inspector.go must NOT keep the pre-fix one-arg signature %q (AC3: the doc handle is mandatory)", bad)
+		t.Errorf("internal/pdfcore/inspector.go must NOT keep the pre-fix one-arg signature %q (the doc handle is mandatory)", bad)
 	}
 }
 
@@ -271,22 +271,22 @@ func TestExtractStreamInfoDereferencesIndirect(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractTopLevelFuncBody(t, src, "extractStreamInfo")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC3: could not locate extractStreamInfo in inspector.go")
+		t.Fatalf("could not locate extractStreamInfo in inspector.go")
 	}
 	// Pre-fix body uses `sd.StreamLength != nil`. Post-fix MUST additionally
 	// inspect sd.Dict["Length"] when StreamLength is nil. Loose-but-anchored
 	// substring checks; phrasing left to the Dev.
 	if !strings.Contains(body, `sd.Dict["Length"]`) {
-		t.Errorf("[P0] 10-6-AC3: extractStreamInfo must inspect `sd.Dict[\"Length\"]` when sd.StreamLength is nil (AC3 fallback path)")
+		t.Errorf("extractStreamInfo must inspect `sd.Dict[\"Length\"]` when sd.StreamLength is nil (fallback path)")
 	}
 	if !strings.Contains(body, "doc.PDFContext.Dereference") {
-		t.Errorf("[P0] 10-6-AC3: extractStreamInfo must call `doc.PDFContext.Dereference` to resolve an IndirectRef length (AC3)")
+		t.Errorf("extractStreamInfo must call `doc.PDFContext.Dereference` to resolve an IndirectRef length")
 	}
 	if !strings.Contains(body, "pdfcpu_types.IndirectRef") && !strings.Contains(body, "types.IndirectRef") {
-		t.Errorf("[P0] 10-6-AC3: extractStreamInfo must type-switch on `pdfcpu_types.IndirectRef` to drive the dereference branch (AC3)")
+		t.Errorf("extractStreamInfo must type-switch on `pdfcpu_types.IndirectRef` to drive the dereference branch")
 	}
 	if !strings.Contains(body, "pdfcpu_types.Integer") && !strings.Contains(body, "types.Integer") {
-		t.Errorf("[P0] 10-6-AC3: extractStreamInfo must type-switch on `pdfcpu_types.Integer` for the direct-integer branch (AC3)")
+		t.Errorf("extractStreamInfo must type-switch on `pdfcpu_types.Integer` for the direct-integer branch")
 	}
 }
 
@@ -297,7 +297,7 @@ func TestGetObjectDetailPassesDoc(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "GetObjectDetail")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC3: could not locate GetObjectDetail in inspector.go")
+		t.Fatalf("could not locate GetObjectDetail in inspector.go")
 	}
 	// Count post-fix call shape occurrences. Spec says 3 call sites (one per
 	// StreamDict / ObjectStreamDict / XRefStreamDict branch).
@@ -319,7 +319,7 @@ func TestIndirectLengthTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector_test.go")
 	needle := "func TestExtractStreamInfoIndirectLength(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC3: internal/pdfcore/inspector_test.go must declare %q (AC3: opens fixture, asserts non-zero length AND that StreamLength was nil pre-fix)", needle)
+		t.Errorf("internal/pdfcore/inspector_test.go must declare %q (opens fixture, asserts non-zero length AND that StreamLength was nil pre-fix)", needle)
 	}
 }
 
@@ -335,17 +335,17 @@ func TestLatin1DecodeBodyUnchanged(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractTopLevelFuncBody(t, src, "latin1Decode")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC4: could not locate latin1Decode in plaintext.go")
+		t.Fatalf("could not locate latin1Decode in plaintext.go")
 	}
 	// Pre-existing branches that AC4 says MUST stay:
 	if !strings.Contains(body, "c == 0x09 || c == 0x0A || c == 0x0D") {
-		t.Errorf("[P0] 10-6-AC4: latin1Decode must retain the `c == 0x09 || c == 0x0A || c == 0x0D` whitespace passthrough branch (AC4: implementation unchanged)")
+		t.Errorf("latin1Decode must retain the `c == 0x09 || c == 0x0A || c == 0x0D` whitespace passthrough branch (implementation unchanged)")
 	}
 	if !strings.Contains(body, "c >= 0x20 && c != 0x7F") {
-		t.Errorf("[P0] 10-6-AC4: latin1Decode must retain the `c >= 0x20 && c != 0x7F` Latin-1 passthrough branch (AC4: C1 and 0xA0-0xFF map verbatim via rune(c))")
+		t.Errorf("latin1Decode must retain the `c >= 0x20 && c != 0x7F` Latin-1 passthrough branch (C1 and 0xA0-0xFF map verbatim via rune(c))")
 	}
 	if !strings.Contains(body, "sb.WriteRune(rune(c))") {
-		t.Errorf("[P0] 10-6-AC4: latin1Decode must retain `sb.WriteRune(rune(c))` for the passthrough branches (AC4: lossless byte-for-codepoint mapping)")
+		t.Errorf("latin1Decode must retain `sb.WriteRune(rune(c))` for the passthrough branches (lossless byte-for-codepoint mapping)")
 	}
 }
 
@@ -358,7 +358,7 @@ func TestLatin1DecodeDocCommentRewritten(t *testing.T) {
 	// Anchor on the comment immediately preceding `func latin1Decode`.
 	idx := strings.Index(src, "func latin1Decode(")
 	if idx == -1 {
-		t.Fatalf("[P0] 10-6-AC4: could not locate latin1Decode in plaintext.go")
+		t.Fatalf("could not locate latin1Decode in plaintext.go")
 	}
 	// Walk back ~30 lines to capture the leading // comment block.
 	start := max(idx-2000, 0)
@@ -388,7 +388,7 @@ func TestLatin1DecodeDocCommentRewritten(t *testing.T) {
 	}
 	for _, p := range requiredPhrases {
 		if !strings.Contains(commentBlock, p) {
-			t.Errorf("[P0] 10-6-AC4: latin1Decode doc comment must mention %q (AC4: comment rewrite must accurately describe C1 passthrough). Got comment block:\n%s", p, commentBlock)
+			t.Errorf("latin1Decode doc comment must mention %q (comment rewrite must accurately describe C1 passthrough). Got comment block:\n%s", p, commentBlock)
 		}
 	}
 }
@@ -400,7 +400,7 @@ func TestLatin1FullRangeUnitTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext_test.go")
 	needle := "func TestLatin1DecodeFullRange(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC4: internal/pdfcore/plaintext_test.go must declare %q (AC4: pins the byte-for-codepoint contract for all 256 bytes via direct latin1Decode call)", needle)
+		t.Errorf("internal/pdfcore/plaintext_test.go must declare %q (pins the byte-for-codepoint contract for all 256 bytes via direct latin1Decode call)", needle)
 	}
 }
 
@@ -424,7 +424,7 @@ func TestLatin1C1IntegrationTestExists(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 10-6-AC4: %q must be declared in internal/pdfcore/plaintext_test.go (preferred) or inspector_test.go (AC4: integration test against testdata/correctness/latin1-c1.pdf)", needle)
+	t.Errorf("%q must be declared in internal/pdfcore/plaintext_test.go (preferred) or inspector_test.go (integration test against testdata/correctness/latin1-c1.pdf)", needle)
 }
 
 // ---------------------------------------------------------------------------
@@ -440,7 +440,7 @@ func TestParseDifferencesBoundsGuard(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseDifferences")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC5: could not locate parseDifferences in font.go")
+		t.Fatalf("could not locate parseDifferences in font.go")
 	}
 	// Loose anchor: any of these shapes satisfies the spec. The Dev gets
 	// some leeway on phrasing but must reject codes < 0 OR > 255.
@@ -457,7 +457,7 @@ func TestParseDifferencesBoundsGuard(t *testing.T) {
 		}
 	}
 	if !hit {
-		t.Errorf("[P0] 10-6-AC5: parseDifferences must contain a guard rejecting `currentCode < 0` and `currentCode > 255` after the `currentCode = int(v)` line (AC5: out-of-range codes skipped silently). Acceptable shapes: %v", candidatePatterns)
+		t.Errorf("parseDifferences must contain a guard rejecting `currentCode < 0` and `currentCode > 255` after the `currentCode = int(v)` line (out-of-range codes skipped silently). Acceptable shapes: %v", candidatePatterns)
 	}
 }
 
@@ -469,7 +469,7 @@ func TestParseDifferencesOutOfRangeTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font_test.go")
 	needle := "func TestParseDifferencesOutOfRange(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC5: internal/pdfcore/font_test.go must declare %q (AC5: synthesized array with Integer(-1), Integer(999), and a name)", needle)
+		t.Errorf("internal/pdfcore/font_test.go must declare %q (synthesized array with Integer(-1), Integer(999), and a name)", needle)
 	}
 }
 
@@ -485,7 +485,7 @@ func TestParseBfrangeNoSilentBreak(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC6: could not locate parseBfrange in font.go")
+		t.Fatalf("could not locate parseBfrange in font.go")
 	}
 	// The pre-fix pattern is the *combination* of `tail > 0xFFFF` AND `break`
 	// in a context with no carry propagation. Loose check: the post-fix
@@ -503,7 +503,7 @@ func TestParseBfrangeCarryShape(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC6: could not locate parseBfrange in font.go")
+		t.Fatalf("could not locate parseBfrange in font.go")
 	}
 	// Look for the bit-mask write into the trailing unit. Acceptable forms:
 	//   advanced[last] = uint16(tail & 0xFFFF)
@@ -511,14 +511,14 @@ func TestParseBfrangeCarryShape(t *testing.T) {
 	//   units[len(units)-1] = uint16(tail & 0xFFFF)
 	maskRe := regexp.MustCompile(`uint16\(\s*tail\s*&\s*0xFFFF\s*\)`)
 	if !maskRe.MatchString(body) {
-		t.Errorf("[P0] 10-6-AC6: parseBfrange must write the trailing UTF-16 unit as `uint16(tail & 0xFFFF)` (AC6 carry implementation)")
+		t.Errorf("parseBfrange must write the trailing UTF-16 unit as `uint16(tail & 0xFFFF)` (carry implementation)")
 	}
 	// Look for the high-bit propagation. Acceptable forms:
 	//   tail >> 16
 	//   carry := tail >> 16
 	shiftRe := regexp.MustCompile(`tail\s*>>\s*16`)
 	if !shiftRe.MatchString(body) {
-		t.Errorf("[P0] 10-6-AC6: parseBfrange must propagate the carry via `tail >> 16` into a higher UTF-16 unit (AC6 carry implementation)")
+		t.Errorf("parseBfrange must propagate the carry via `tail >> 16` into a higher UTF-16 unit (carry implementation)")
 	}
 }
 
@@ -529,10 +529,10 @@ func TestParseBfrangePreLoopSpanCheckUnchanged(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font.go")
 	body := extractTopLevelFuncBody(t, src, "parseBfrange")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC6: could not locate parseBfrange in font.go")
+		t.Fatalf("could not locate parseBfrange in font.go")
 	}
 	if !strings.Contains(body, "high-low+1 > maxBfrangeSpan") {
-		t.Errorf("[P0] 10-6-AC6: parseBfrange must retain the pre-loop span check `if high-low+1 > maxBfrangeSpan` (AC6: pre-loop span check unchanged)")
+		t.Errorf("parseBfrange must retain the pre-loop span check `if high-low+1 > maxBfrangeSpan` (pre-loop span check unchanged)")
 	}
 }
 
@@ -544,7 +544,7 @@ func TestParseBfrangeCarryTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/font_test.go")
 	needle := "func TestParseBfrangeCarry(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-6-AC6: internal/pdfcore/font_test.go must declare %q (AC6: covers trailing-unit carry, leading-unit overflow stop, AND the unchanged pre-loop span-cap rejection)", needle)
+		t.Errorf("internal/pdfcore/font_test.go must declare %q (covers trailing-unit carry, leading-unit overflow stop, AND the unchanged pre-loop span-cap rejection)", needle)
 	}
 }
 
@@ -559,7 +559,7 @@ func TestDocumentStateHasFileSize(t *testing.T) {
 	// Anchor: field declaration shape on its own line.
 	re := regexp.MustCompile(`(?m)^\s*FileSize\s+int64\b`)
 	if !re.MatchString(src) {
-		t.Errorf("[P0] 10-6-AC7: internal/pdfcore/inspector.go must declare `FileSize int64` as a field on DocumentState (AC7: stat-at-Open value, surfaced by GetPlainTextSize and threaded into readPlainText)")
+		t.Errorf("internal/pdfcore/inspector.go must declare `FileSize int64` as a field on DocumentState (stat-at-Open value, surfaced by GetPlainTextSize and threaded into readPlainText)")
 	}
 }
 
@@ -570,14 +570,14 @@ func TestOpenPopulatesFileSize(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "Open")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC7: could not locate Inspector.Open in inspector.go")
+		t.Fatalf("could not locate Inspector.Open in inspector.go")
 	}
 	// Anchor on the DocumentState struct literal specifically. Walk from
 	// `doc := &DocumentState{` to the matching closing `}` (brace count of 1
 	// is enough since the literal has no nested braces in the baseline).
 	openStart := strings.Index(body, "doc := &DocumentState{")
 	if openStart == -1 {
-		t.Fatalf("[P0] 10-6-AC7: could not locate `doc := &DocumentState{` in Inspector.Open body")
+		t.Fatalf("could not locate `doc:= &DocumentState{` in Inspector.Open body")
 	}
 	// Find the matching closing brace.
 	depth := 0
@@ -597,15 +597,15 @@ func TestOpenPopulatesFileSize(t *testing.T) {
 		}
 	}
 	if end == -1 {
-		t.Fatalf("[P0] 10-6-AC7: could not find closing brace for DocumentState literal in Inspector.Open")
+		t.Fatalf("could not find closing brace for DocumentState literal in Inspector.Open")
 	}
 	literal := body[openStart:end]
 	if !strings.Contains(literal, "FileSize:") {
-		t.Errorf("[P0] 10-6-AC7: Inspector.Open must include `FileSize: fileSize` inside the `doc := &DocumentState{...}` literal (AC7: stat-at-Open value cached on DocumentState). Got literal:\n%s", literal)
+		t.Errorf("Inspector.Open must include `FileSize: fileSize` inside the `doc:= &DocumentState{...}` literal (stat-at-Open value cached on DocumentState). Got literal:\n%s", literal)
 	}
 	// And the value MUST be the local `fileSize` variable, not a fresh stat.
 	if !strings.Contains(literal, "FileSize: fileSize") && !strings.Contains(literal, "FileSize:  fileSize") {
-		t.Errorf("[P0] 10-6-AC7: Inspector.Open must populate FileSize from the local `fileSize` variable captured at the start of Open (AC7: reuse the existing stat result; do NOT re-stat). Got literal:\n%s", literal)
+		t.Errorf("Inspector.Open must populate FileSize from the local `fileSize` variable captured at the start of Open (reuse the existing stat result; do NOT re-stat). Got literal:\n%s", literal)
 	}
 }
 
@@ -616,13 +616,13 @@ func TestGetPlainTextSizeUsesCachedField(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractFunctionBody(t, src, "GetPlainTextSize")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC7: could not locate GetPlainTextSize in plaintext.go")
+		t.Fatalf("could not locate GetPlainTextSize in plaintext.go")
 	}
 	if strings.Contains(body, "os.Stat(") {
 		t.Errorf("[P0] 10-6-AC7: GetPlainTextSize must NOT call `os.Stat(...)` -- AC7 removes the redundant re-stat and returns the value captured at Open")
 	}
 	if !strings.Contains(body, "doc.FileSize") {
-		t.Errorf("[P0] 10-6-AC7: GetPlainTextSize must return `doc.FileSize` (AC7: cached-at-Open value)")
+		t.Errorf("GetPlainTextSize must return `doc.FileSize` (cached-at-Open value)")
 	}
 }
 
@@ -636,16 +636,16 @@ func TestReadPlainTextSignatureTakesSize(t *testing.T) {
 	// the parameter list before the next `)`.
 	idx := strings.Index(src, "func readPlainText(")
 	if idx == -1 {
-		t.Fatalf("[P0] 10-6-AC7: could not locate readPlainText in plaintext.go")
+		t.Fatalf("could not locate readPlainText in plaintext.go")
 	}
 	tail := src[idx:]
 	closeIdx := strings.Index(tail, ")")
 	if closeIdx == -1 {
-		t.Fatalf("[P0] 10-6-AC7: malformed readPlainText signature in plaintext.go (no closing paren)")
+		t.Fatalf("malformed readPlainText signature in plaintext.go (no closing paren)")
 	}
 	signature := tail[:closeIdx+1]
 	if !strings.Contains(signature, "size int64") {
-		t.Errorf("[P0] 10-6-AC7: readPlainText signature must include `size int64` (AC7: caller threads doc.FileSize through). Got: %s", signature)
+		t.Errorf("readPlainText signature must include `size int64` (caller threads doc.FileSize through). Got: %s", signature)
 	}
 }
 
@@ -655,7 +655,7 @@ func TestReadPlainTextNoStat(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractTopLevelFuncBody(t, src, "readPlainText")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC7: could not locate readPlainText in plaintext.go")
+		t.Fatalf("could not locate readPlainText in plaintext.go")
 	}
 	if strings.Contains(body, "os.Stat(") {
 		t.Errorf("[P0] 10-6-AC7: readPlainText must NOT call `os.Stat(...)` -- AC7 removes the redundant stat and uses the passed-in `size` argument")
@@ -671,7 +671,7 @@ func TestGetPlainTextSizeDocCommentUpdated(t *testing.T) {
 	// Anchor on the doc-comment block immediately preceding GetPlainTextSize.
 	idx := strings.Index(src, "func (ins *Inspector) GetPlainTextSize(")
 	if idx == -1 {
-		t.Fatalf("[P0] 10-6-AC7: could not locate Inspector.GetPlainTextSize in plaintext.go")
+		t.Fatalf("could not locate Inspector.GetPlainTextSize in plaintext.go")
 	}
 	start := max(idx-2000, 0)
 	preface := src[start:idx]
@@ -709,7 +709,7 @@ func TestGetPlainTextSizeDocCommentUpdated(t *testing.T) {
 		}
 	}
 	if !hit {
-		t.Errorf("[P0] 10-6-AC7: GetPlainTextSize doc comment must affirm the value was \"captured at Open\" (AC7: post-Open moves/deletions do not affect this value). Got:\n%s", commentBlock)
+		t.Errorf("GetPlainTextSize doc comment must affirm the value was \"captured at Open\" (post-Open moves/deletions do not affect this value). Got:\n%s", commentBlock)
 	}
 }
 
@@ -720,10 +720,10 @@ func TestGetPlainTextThreadsSizeToReadPlainText(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	body := extractFunctionBody(t, src, "GetPlainText")
 	if body == "" {
-		t.Fatalf("[P0] 10-6-AC7: could not locate GetPlainText in plaintext.go")
+		t.Fatalf("could not locate GetPlainText in plaintext.go")
 	}
 	if !strings.Contains(body, "doc.FileSize") {
-		t.Errorf("[P0] 10-6-AC7: GetPlainText must pass `doc.FileSize` into readPlainText (AC7: caller threads cached size through)")
+		t.Errorf("GetPlainText must pass `doc.FileSize` into readPlainText (caller threads cached size through)")
 	}
 	// Pre-fix call shape MUST be gone.
 	preFix := "readPlainText(ctx, doc.FilePath, tabID)"
@@ -752,7 +752,7 @@ func TestGetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 10-6-AC7: %q must be declared in internal/pdfcore/plaintext_test.go (preferred) or inspector_test.go (AC7: opens temp PDF, removes file, asserts size returned without error)", needle)
+	t.Errorf("%q must be declared in internal/pdfcore/plaintext_test.go (preferred) or inspector_test.go (opens temp PDF, removes file, asserts size returned without error)", needle)
 }
 
 // ---------------------------------------------------------------------------
@@ -768,7 +768,7 @@ func TestPlainTextAsyncTestsExist(t *testing.T) {
 	// At least one Test function MUST be declared in this file.
 	re := regexp.MustCompile(`(?m)^func Test\w+\(t \*testing\.T\)`)
 	if !re.MatchString(src) {
-		t.Errorf("[P0] 10-6-AC8: internal/pdfcore/plaintext_async_test.go must continue to declare at least one Test* function (AC8 baseline: Story 10-1 async test surface preserved)")
+		t.Errorf("internal/pdfcore/plaintext_async_test.go must continue to declare at least one Test* function (baseline: Story 10-1 async test surface preserved)")
 	}
 }
 
@@ -787,7 +787,7 @@ func TestSafeCallContractTestsPreserved(t *testing.T) {
 	for _, name := range required {
 		needle := "func " + name + "(t *testing.T)"
 		if !strings.Contains(src, needle) {
-			t.Errorf("[P0] 10-6-AC8: internal/pdfcore/errors_test.go must still declare %s (baseline invariant: safeCall contract unchanged by this story)", name)
+			t.Errorf("internal/pdfcore/errors_test.go must still declare %s (baseline invariant: safeCall contract unchanged by this story)", name)
 		}
 	}
 }

@@ -70,7 +70,7 @@ func TestBindingsExportConsumerMethods(t *testing.T) {
 	for _, m := range consumerBoundMethods {
 		needle := "export function " + m + "("
 		if !strings.Contains(src, needle) {
-			t.Errorf("[P0] 12.3-INTG-040: pdfservice.js must export consumer-bound method %q after regen -- the frontend imports it directly; a dropped/renamed binding silently breaks the UI (AC4/AC6 presence contract, NOT a count)", m)
+			t.Errorf("pdfservice.js must export consumer-bound method %q after regen -- the frontend imports it directly; a dropped/renamed binding silently breaks the UI (presence contract, NOT a count)", m)
 		}
 	}
 }
@@ -84,7 +84,7 @@ func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	}
 	src := readSource(t, bindingRelPath)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("[P1] 12.3-INTG-041: pdfservice.js must NOT export GetPlainTextFull -- 10-1 removed the Go method; a stale (`-clean=false`) regen re-introduces a dead binding (AC4)")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- 10-1 removed the Go method; a stale (`-clean=false`) regen re-introduces a dead binding")
 	}
 }
 

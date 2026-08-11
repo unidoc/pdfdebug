@@ -114,11 +114,11 @@ func TestGoModPdfcpuAtTargetVersion(t *testing.T) {
 	src := readSource(t, "go.mod")
 	line := findRequireLine(src)
 	if line == "" {
-		t.Fatalf("[P0] 10-4-STRUCT-001: go.mod must declare a `%s` require (AC1)", pdfcpuModulePath)
+		t.Fatalf("go.mod must declare a `%s` require", pdfcpuModulePath)
 	}
 	want := pdfcpuModulePath + " " + targetVersion
 	if !strings.Contains(line, want) {
-		t.Errorf("[P0] 10-4-STRUCT-001: go.mod pdfcpu require line is %q; expected to contain %q (AC1: bump v0.12.0 -> v0.12.1)", line, want)
+		t.Errorf("go.mod pdfcpu require line is %q; expected to contain %q (bump v0.12.0 -> v0.12.1)", line, want)
 	}
 }
 
@@ -129,7 +129,7 @@ func TestGoModDoesNotCarryPreBumpVersion(t *testing.T) {
 	src := readSource(t, "go.mod")
 	line := findRequireLine(src)
 	if line == "" {
-		t.Fatalf("[P0] 10-4-STRUCT-002: go.mod must declare a `%s` require (AC1)", pdfcpuModulePath)
+		t.Fatalf("go.mod must declare a `%s` require", pdfcpuModulePath)
 	}
 	stale := pdfcpuModulePath + " " + preBumpVersion
 	if strings.Contains(line, stale) {
@@ -152,16 +152,16 @@ func TestGoSumCarriesTargetVersion(t *testing.T) {
 	hashLine := pdfcpuModulePath + " " + targetVersion + " h1:"
 	modLine := pdfcpuModulePath + " " + targetVersion + "/go.mod h1:"
 	if !strings.Contains(gosum, hashLine) {
-		t.Errorf("[P0] 10-4-STRUCT-003: go.sum must contain a line starting with %q -- run `go mod tidy` after editing go.mod (Task 1.2 / AC1)", hashLine)
+		t.Errorf("go.sum must contain a line starting with %q -- run `go mod tidy` after editing go.mod", hashLine)
 	}
 	if !strings.Contains(gosum, modLine) {
-		t.Errorf("[P0] 10-4-STRUCT-003: go.sum must contain a line starting with %q -- run `go mod tidy` after editing go.mod (Task 1.2 / AC1)", modLine)
+		t.Errorf("go.sum must contain a line starting with %q -- run `go mod tidy` after editing go.mod", modLine)
 	}
 	// Negative: pre-bump hashes for v0.12.0 must be evicted by `go mod tidy`.
 	// If both old and new are present, `go mod tidy` was not run cleanly.
 	staleHash := pdfcpuModulePath + " " + preBumpVersion + " h1:"
 	if strings.Contains(gosum, staleHash) {
-		t.Errorf("[P0] 10-4-STRUCT-003: go.sum still carries pre-bump hash line %q -- run `go mod tidy` to evict (AC1: the diff to go.sum is exactly the version literal change plus what `go mod tidy` writes)", staleHash)
+		t.Errorf("go.sum still carries pre-bump hash line %q -- run `go mod tidy` to evict (the diff to go.sum is exactly the version literal change plus what `go mod tidy` writes)", staleHash)
 	}
 }
 
@@ -185,10 +185,10 @@ func TestSafeCallRePanicsRuntimeError(t *testing.T) {
 	// Anchor on the type assertion + the bare `panic(r)`.
 	rePanic := regexp.MustCompile(`if\s+_,\s*ok\s*:=\s*r\.\(runtime\.Error\)`)
 	if !rePanic.MatchString(src) {
-		t.Errorf("[P0] 10-4-STRUCT-010: internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover() block (AC5: the re-panic guarantee pinned in Epic 9)")
+		t.Errorf("internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover block (the re-panic guarantee pinned in Epic 9)")
 	}
 	if !strings.Contains(src, "panic(r)") {
-		t.Errorf("[P0] 10-4-STRUCT-010: internal/pdfcore/errors.go must retain the `panic(r)` re-panic call in safeCall (AC5: runtime.Error must surface, not be laundered into ErrMalformedPDF)")
+		t.Errorf("internal/pdfcore/errors.go must retain the `panic(r)` re-panic call in safeCall (runtime.Error must surface, not be laundered into ErrMalformedPDF)")
 	}
 }
 
@@ -224,7 +224,7 @@ func TestSafeCallNamedTestsExist(t *testing.T) {
 	for _, name := range all {
 		needle := "func " + name + "(t *testing.T)"
 		if !strings.Contains(src, needle) {
-			t.Errorf("[P0] 10-4-STRUCT-011: internal/pdfcore/errors_test.go must still declare %s (AC5: the bump must not drop or rename the named tests)", name)
+			t.Errorf("internal/pdfcore/errors_test.go must still declare %s (the bump must not drop or rename the named tests)", name)
 		}
 	}
 }
@@ -245,7 +245,7 @@ func TestImageMemoryGuardsUnchanged(t *testing.T) {
 	}
 	for _, g := range guards {
 		if !strings.Contains(src, g) {
-			t.Errorf("[P0] 10-4-STRUCT-020: internal/pdfcore/image.go must retain the literal %q (AC6: numeric values are unchanged by this story)", g)
+			t.Errorf("internal/pdfcore/image.go must retain the literal %q (numeric values are unchanged by this story)", g)
 		}
 	}
 }
@@ -277,7 +277,7 @@ func TestImageRenderCallsiteIntact(t *testing.T) {
 func TestStreamDecodeWrappedInSafeCall(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/stream.go")
 	if !strings.Contains(src, "sd.Decode()") {
-		t.Errorf("[P0] 10-4-STRUCT-030: internal/pdfcore/stream.go must still call sd.Decode() (AC7 content-stream decode contract)")
+		t.Errorf("internal/pdfcore/stream.go must still call sd.Decode (content-stream decode contract)")
 	}
 	// Anchor that the call sits inside a safeCall closure. A line-by-line
 	// scan looking for `return sd.Decode()` immediately preceded (within 5
@@ -301,7 +301,7 @@ func TestStreamDecodeWrappedInSafeCall(t *testing.T) {
 		}
 	}
 	if !wrapped {
-		t.Errorf("[P0] 10-4-STRUCT-030: internal/pdfcore/stream.go must wrap `return sd.Decode()` inside a `safeCall(func() error {` closure (AC7: pdfcpu can panic on malformed content streams)")
+		t.Errorf("internal/pdfcore/stream.go must wrap `return sd.Decode` inside a `safeCall(func error {` closure (pdfcpu can panic on malformed content streams)")
 	}
 }
 
@@ -312,7 +312,7 @@ func TestInlineImagePayloadTestExists(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/stream_test.go")
 	needle := "func TestTokenizeInlineImagePayloadOpaque(t *testing.T)"
 	if !strings.Contains(src, needle) {
-		t.Errorf("[P0] 10-4-STRUCT-031: internal/pdfcore/stream_test.go must still declare TestTokenizeInlineImagePayloadOpaque (AC7: inline-image payload opacity guard)")
+		t.Errorf("internal/pdfcore/stream_test.go must still declare TestTokenizeInlineImagePayloadOpaque (inline-image payload opacity guard)")
 	}
 }
 
@@ -327,7 +327,7 @@ func TestInlineImagePayloadTestExists(t *testing.T) {
 func TestPdfcpuBlankImportPinPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/doc.go")
 	if !strings.Contains(src, `import _ "github.com/pdfcpu/pdfcpu/pkg/api"`) {
-		t.Errorf("[P0] 10-4-STRUCT-040: internal/pdfcore/doc.go must retain the blank import `import _ \"github.com/pdfcpu/pdfcpu/pkg/api\"` (Dev Notes: prevents `go mod tidy` from removing pdfcpu when all call sites use sub-packages)")
+		t.Errorf("internal/pdfcore/doc.go must retain the blank import `import _ \"github.com/pdfcpu/pdfcpu/pkg/api\"` (Dev Notes: prevents `go mod tidy` from removing pdfcpu when all call sites use sub-packages)")
 	}
 }
 
