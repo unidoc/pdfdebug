@@ -17,22 +17,22 @@ func TestMetadata_PlainShowsInfoAndXMP(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.2-INTG-020: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.2-INTG-020", stdout)
 
 	// Aligned key: value Info block -- a "key: value" line must be present.
 	if !strings.Contains(stdout, ":") {
-		t.Errorf("[P0] 13.2-INTG-020: expected an aligned key: value Info line:\n%s", stdout)
+		t.Errorf("expected an aligned key: value Info line:\n%s", stdout)
 	}
 	for _, want := range []string{"Invoice 2024-001", "ACME GmbH", "pdfdebug-test"} {
 		if !strings.Contains(stdout, want) {
-			t.Errorf("[P0] 13.2-INTG-020: expected Info value %q in plain output:\n%s", want, stdout)
+			t.Errorf("expected Info value %q in plain output:\n%s", want, stdout)
 		}
 	}
 	// The XMP packet is included; its verbatim marker survives.
 	if !strings.Contains(stdout, "marker-VERBATIM-XMP") {
-		t.Errorf("[P0] 13.2-INTG-020: expected the verbatim XMP packet in plain output:\n%s", stdout)
+		t.Errorf("expected the verbatim XMP packet in plain output:\n%s", stdout)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestMetadata_JSONShape(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.2-INTG-021: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var env struct {
 		Info map[string]string `json:"info"`
@@ -55,10 +55,10 @@ func TestMetadata_JSONShape(t *testing.T) {
 	mustParseJSON(t, stdout, &env)
 
 	if env.Info["Title"] != "Invoice 2024-001" {
-		t.Errorf("[P0] 13.2-INTG-021: info.Title = %q, want %q", env.Info["Title"], "Invoice 2024-001")
+		t.Errorf("info.Title = %q, want %q", env.Info["Title"], "Invoice 2024-001")
 	}
 	if !strings.Contains(env.XMP, "marker-VERBATIM-XMP") {
-		t.Errorf("[P0] 13.2-INTG-021: xmp must carry the verbatim packet, got %q", env.XMP)
+		t.Errorf("xmp must carry the verbatim packet, got %q", env.XMP)
 	}
 }
 
@@ -73,7 +73,7 @@ func TestMetadata_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.2-INTG-022: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertASCII(t, "13.2-INTG-022", stdout)
 	assertTrailingNewline(t, "13.2-INTG-022", stdout)
@@ -91,7 +91,7 @@ func TestMetadata_MissingIsEmptyExitZero(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.2-INTG-023: expected exit 0 for no-metadata doc, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0 for no-metadata doc, got %d (stderr: %s)", ec, stderr)
 	}
 	var env struct {
 		Info map[string]string `json:"info"`
@@ -99,10 +99,10 @@ func TestMetadata_MissingIsEmptyExitZero(t *testing.T) {
 	}
 	mustParseJSON(t, stdout, &env)
 	if env.XMP != "" {
-		t.Errorf("[P1] 13.2-INTG-023: expected empty xmp, got %q", env.XMP)
+		t.Errorf("expected empty xmp, got %q", env.XMP)
 	}
 	if len(env.Info) != 0 {
-		t.Errorf("[P1] 13.2-INTG-023: expected empty info, got %+v", env.Info)
+		t.Errorf("expected empty info, got %+v", env.Info)
 	}
 }
 
@@ -118,7 +118,7 @@ func TestMetadata_PrettyJSONIsIndented(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", "--json", "--pretty", pdf)
 	if ec != 0 {
-		t.Fatalf("[P2] 13.2-INTG-024: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var env struct {
 		Info map[string]string `json:"info"`
@@ -126,14 +126,14 @@ func TestMetadata_PrettyJSONIsIndented(t *testing.T) {
 	}
 	mustParseJSON(t, stdout, &env)
 	if env.Info["Title"] != "Invoice 2024-001" {
-		t.Errorf("[P2] 13.2-INTG-024: info.Title = %q, want %q", env.Info["Title"], "Invoice 2024-001")
+		t.Errorf("info.Title = %q, want %q", env.Info["Title"], "Invoice 2024-001")
 	}
 	// Pretty output is multi-line and indented; the compact form is single-line.
 	if !strings.Contains(stdout, "\n") {
-		t.Errorf("[P2] 13.2-INTG-024: --pretty output must be multi-line:\n%s", stdout)
+		t.Errorf("--pretty output must be multi-line:\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "  ") {
-		t.Errorf("[P2] 13.2-INTG-024: --pretty output must be indented:\n%s", stdout)
+		t.Errorf("--pretty output must be indented:\n%s", stdout)
 	}
 }
 
@@ -150,12 +150,12 @@ func TestMetadata_PlainNoneWhenEmpty(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "metadata", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.2-INTG-025: expected exit 0 for empty metadata, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0 for empty metadata, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.2-INTG-025", stdout)
 	assertASCII(t, "13.2-INTG-025", stdout)
 	assertTrailingNewline(t, "13.2-INTG-025", stdout)
 	if !strings.Contains(stdout, "(none)") {
-		t.Errorf("[P1] 13.2-INTG-025: expected a '(none)' placeholder for empty metadata:\n%s", stdout)
+		t.Errorf("expected a '(none)' placeholder for empty metadata:\n%s", stdout)
 	}
 }

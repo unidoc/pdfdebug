@@ -21,7 +21,7 @@ func TestSignatures_FixtureParsesThroughOpenPath(t *testing.T) {
 
 	_, stderr, ec := runCLI(t, bin, "dump", "objects", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-000: signed fixture rejected by the existing open path (exit %d): %s", ec, stderr)
+		t.Fatalf("signed fixture rejected by the existing open path (exit %d): %s", ec, stderr)
 	}
 }
 
@@ -36,12 +36,12 @@ func TestSignatures_PlainBlockHasCoreFacts(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-001: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.4-INTG-001", stdout)
 	for _, want := range []string{"Sig1", "adbe.pkcs7.detached", signerCN, issuerCN} {
 		if !strings.Contains(stdout, want) {
-			t.Errorf("[P0] 13.4-INTG-001: plain block missing %q:\n%s", want, stdout)
+			t.Errorf("plain block missing %q:\n%s", want, stdout)
 		}
 	}
 }
@@ -57,26 +57,26 @@ func TestSignatures_JSONEntryCoreShape(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-002: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-002", stdout)
 	if got := getStr(e, "fieldName"); got != "Sig1" {
-		t.Errorf("[P0] 13.4-INTG-002: fieldName = %q, want Sig1", got)
+		t.Errorf("fieldName = %q, want Sig1", got)
 	}
 	if !getBool(e, "signed") {
-		t.Errorf("[P0] 13.4-INTG-002: signed = false, want true")
+		t.Errorf("signed = false, want true")
 	}
 	if got := getStr(e, "signatureRef"); got != "5 0 R" {
-		t.Errorf("[P0] 13.4-INTG-002: signatureRef = %q, want \"5 0 R\"", got)
+		t.Errorf("signatureRef = %q, want \"5 0 R\"", got)
 	}
 	if got := getStr(e, "signatureNodeId"); got != "obj:0:5" {
-		t.Errorf("[P0] 13.4-INTG-002: signatureNodeId = %q, want obj:0:5", got)
+		t.Errorf("signatureNodeId = %q, want obj:0:5", got)
 	}
 	if got := getStr(e, "fieldNodeId"); got != "obj:0:4" {
-		t.Errorf("[P0] 13.4-INTG-002: fieldNodeId = %q, want obj:0:4", got)
+		t.Errorf("fieldNodeId = %q, want obj:0:4", got)
 	}
 	if got := getStr(e, "subFilter"); got != "adbe.pkcs7.detached" {
-		t.Errorf("[P0] 13.4-INTG-002: subFilter = %q, want adbe.pkcs7.detached", got)
+		t.Errorf("subFilter = %q, want adbe.pkcs7.detached", got)
 	}
 }
 
@@ -91,20 +91,20 @@ func TestSignatures_UnsignedPlaceholderListed(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-011: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-011", stdout)
 	if getStr(e, "fieldName") != "EmptySig" {
-		t.Errorf("[P0] 13.4-INTG-011: fieldName = %q, want EmptySig", getStr(e, "fieldName"))
+		t.Errorf("fieldName = %q, want EmptySig", getStr(e, "fieldName"))
 	}
 	if getBool(e, "signed") {
-		t.Errorf("[P0] 13.4-INTG-011: signed = true for a /V-less placeholder, want false")
+		t.Errorf("signed = true for a /V-less placeholder, want false")
 	}
 	if s := getMap(e, "signer"); s != nil {
-		t.Errorf("[P0] 13.4-INTG-011: unsigned placeholder must carry no signer decomposition, got %v", s)
+		t.Errorf("unsigned placeholder must carry no signer decomposition, got %v", s)
 	}
 	if de := getStr(e, "decomposeError"); de != "" {
-		t.Errorf("[P0] 13.4-INTG-011: unsigned placeholder must carry no error, got %q", de)
+		t.Errorf("unsigned placeholder must carry no error, got %q", de)
 	}
 }
 
@@ -119,20 +119,20 @@ func TestSignatures_ZeroSignaturesEmptyState(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-012: plain expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("plain expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.4-INTG-012", stdout)
 	if !strings.Contains(strings.ToLower(stdout), "no signature fields") {
-		t.Errorf("[P0] 13.4-INTG-012: plain empty state must say \"no signature fields\":\n%s", stdout)
+		t.Errorf("plain empty state must say \"no signature fields\":\n%s", stdout)
 	}
 
 	stdout, stderr, ec = runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-012: --json expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--json expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	arr := sigArray(t, "13.4-INTG-012", stdout)
 	if len(arr) != 0 {
-		t.Errorf("[P0] 13.4-INTG-012: expected empty array for zero signatures, got %d entries:\n%s", len(arr), stdout)
+		t.Errorf("expected empty array for zero signatures, got %d entries:\n%s", len(arr), stdout)
 	}
 }
 
@@ -148,14 +148,14 @@ func TestSignatures_KidsInheritedFTFullyQualifiedName(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.4-INTG-013: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-013", stdout)
 	if got := getStr(e, "fieldName"); got != "Parent.Child1" {
-		t.Errorf("[P1] 13.4-INTG-013: fieldName = %q, want Parent.Child1 (inherited /FT, FQ name)", got)
+		t.Errorf("fieldName = %q, want Parent.Child1 (inherited /FT, FQ name)", got)
 	}
 	if !getBool(e, "signed") {
-		t.Errorf("[P1] 13.4-INTG-013: signed = false, want true")
+		t.Errorf("signed = false, want true")
 	}
 }
 
@@ -170,15 +170,15 @@ func TestSignatures_DirectVDecomposesWithEmptyRef(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.4-INTG-014: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-014", stdout)
 	if got := getStr(e, "signatureRef"); got != "" {
-		t.Errorf("[P1] 13.4-INTG-014: signatureRef = %q for a direct /V, want empty", got)
+		t.Errorf("signatureRef = %q for a direct /V, want empty", got)
 	}
 	signer := getMap(e, "signer")
 	if signer == nil || !strings.Contains(getStr(signer, "subject"), signerCN) {
-		t.Errorf("[P1] 13.4-INTG-014: direct /V must still decompose (signer subject with %q), got %v", signerCN, signer)
+		t.Errorf("direct /V must still decompose (signer subject with %q), got %v", signerCN, signer)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestSignatures_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.4-INTG-019: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertASCII(t, "13.4-INTG-019", stdout)
 	assertTrailingNewline(t, "13.4-INTG-019", stdout)
@@ -210,7 +210,7 @@ func TestSignatures_UsageDocumentsResource(t *testing.T) {
 	stdout, stderr, _ := runCLI(t, bin, "--help")
 	combined := stdout + stderr
 	if !strings.Contains(combined, "dump signatures") {
-		t.Errorf("[P1] 13.4-INTG-020: --help does not mention `dump signatures`:\n%s", combined)
+		t.Errorf("--help does not mention `dump signatures`:\n%s", combined)
 	}
 }
 
@@ -225,13 +225,13 @@ func TestSignatures_EncryptedDocExitTwo(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", pdf)
 	if ec != 2 {
-		t.Fatalf("[P1] 13.4-INTG-021: expected exit 2 for encrypted doc, got %d (stdout: %s / stderr: %s)", ec, stdout, stderr)
+		t.Fatalf("expected exit 2 for encrypted doc, got %d (stdout: %s / stderr: %s)", ec, stdout, stderr)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 13.4-INTG-021: stdout must stay empty on open failure, got:\n%s", stdout)
+		t.Errorf("stdout must stay empty on open failure, got:\n%s", stdout)
 	}
 	if !strings.Contains(strings.ToLower(stderr), "encrypt") {
-		t.Errorf("[P1] 13.4-INTG-021: stderr should mention encryption, got: %s", stderr)
+		t.Errorf("stderr should mention encryption, got: %s", stderr)
 	}
 }
 
@@ -246,13 +246,13 @@ func TestSignatures_SigningTimeRawAndISO(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.4-INTG-022: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-022", stdout)
 	if got := getStr(e, "signingTimeRaw"); got != "D:20260101120000+00'00'" {
-		t.Errorf("[P1] 13.4-INTG-022: signingTimeRaw = %q, want the raw D: string", got)
+		t.Errorf("signingTimeRaw = %q, want the raw D: string", got)
 	}
 	if got := getStr(e, "signingTime"); !strings.HasPrefix(got, "2026-01-01T12:00:00") {
-		t.Errorf("[P1] 13.4-INTG-022: signingTime = %q, want ISO 8601 2026-01-01T12:00:00...", got)
+		t.Errorf("signingTime = %q, want ISO 8601 2026-01-01T12:00:00...", got)
 	}
 }

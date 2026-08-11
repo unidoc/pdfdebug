@@ -18,10 +18,10 @@ func TestEmbeddedExtract_ByRefWritesRawBytes(t *testing.T) {
 	// Object 4 is the /EmbeddedFile stream.
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "4 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.2-INTG-010: expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
 	}
 	if string(stdout) != payload {
-		t.Errorf("[P0] 13.2-INTG-010: extracted bytes mismatch\n got: %q\nwant: %q", string(stdout), payload)
+		t.Errorf("extracted bytes mismatch\n got: %q\nwant: %q", string(stdout), payload)
 	}
 }
 
@@ -36,10 +36,10 @@ func TestEmbeddedExtract_AcceptsNodeIDRefForm(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "obj:0:4", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.2-INTG-011: expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
 	}
 	if string(stdout) != payload {
-		t.Errorf("[P1] 13.2-INTG-011: obj:G:N form extracted bytes mismatch\n got: %q\nwant: %q", string(stdout), payload)
+		t.Errorf("obj:G:N form extracted bytes mismatch\n got: %q\nwant: %q", string(stdout), payload)
 	}
 }
 
@@ -55,10 +55,10 @@ func TestEmbeddedExtract_ByNameSingleMatch(t *testing.T) {
 	// "solo.xml" is the unique name -> single match extracts its bytes.
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--name", "solo.xml", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.2-INTG-012: expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
 	}
 	if string(stdout) != "<solo>only</solo>" {
-		t.Errorf("[P0] 13.2-INTG-012: --name single-match bytes mismatch, got %q", string(stdout))
+		t.Errorf("--name single-match bytes mismatch, got %q", string(stdout))
 	}
 }
 
@@ -74,10 +74,10 @@ func TestEmbeddedExtract_JSONDoesNotWrapPayload(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "4 0 R", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.2-INTG-013: expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
 	}
 	if string(stdout) != payload {
-		t.Errorf("[P1] 13.2-INTG-013: --json must NOT wrap the extraction payload; got %q want %q", string(stdout), payload)
+		t.Errorf("--json must NOT wrap the extraction payload; got %q want %q", string(stdout), payload)
 	}
 }
 
@@ -93,13 +93,13 @@ func TestEmbeddedExtract_UnknownRefEmptyStdoutNonZero(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "999 0 R", pdf)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.2-INTG-014: unknown ref must exit non-zero, got 0")
+		t.Fatalf("unknown ref must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P0] 13.2-INTG-014: stdout must be EMPTY on failure, got %q", string(stdout))
+		t.Errorf("stdout must be EMPTY on failure, got %q", string(stdout))
 	}
 	if strings.TrimSpace(string(stderr)) == "" {
-		t.Errorf("[P0] 13.2-INTG-014: expected an error message on stderr")
+		t.Errorf("expected an error message on stderr")
 	}
 }
 
@@ -115,13 +115,13 @@ func TestEmbeddedExtract_NonEmbeddedFileRefFails(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "2 0 R", pdf)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.2-INTG-015: non-EmbeddedFile ref must exit non-zero, got 0")
+		t.Fatalf("non-EmbeddedFile ref must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P0] 13.2-INTG-015: stdout must be EMPTY on failure, got %q", string(stdout))
+		t.Errorf("stdout must be EMPTY on failure, got %q", string(stdout))
 	}
 	if strings.TrimSpace(string(stderr)) == "" {
-		t.Errorf("[P0] 13.2-INTG-015: expected an error message on stderr")
+		t.Errorf("expected an error message on stderr")
 	}
 }
 
@@ -136,13 +136,13 @@ func TestEmbeddedExtract_NameZeroMatch(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--name", "does-not-exist.xml", pdf)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.2-INTG-016: zero-match --name must exit non-zero, got 0")
+		t.Fatalf("zero-match --name must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P0] 13.2-INTG-016: stdout must be EMPTY on zero match, got %q", string(stdout))
+		t.Errorf("stdout must be EMPTY on zero match, got %q", string(stdout))
 	}
 	if strings.TrimSpace(string(stderr)) == "" {
-		t.Errorf("[P0] 13.2-INTG-016: expected an error message on stderr")
+		t.Errorf("expected an error message on stderr")
 	}
 }
 
@@ -158,19 +158,19 @@ func TestEmbeddedExtract_NameMultiMatchListsRefs(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--name", "dup.xml", pdf)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.2-INTG-017: multi-match --name must exit non-zero, got 0")
+		t.Fatalf("multi-match --name must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P0] 13.2-INTG-017: multi-match must NOT emit a payload; stdout must be empty, got %q", string(stdout))
+		t.Errorf("multi-match must NOT emit a payload; stdout must be empty, got %q", string(stdout))
 	}
 	se := string(stderr)
 	if strings.TrimSpace(se) == "" {
-		t.Errorf("[P0] 13.2-INTG-017: expected a disambiguation error on stderr")
+		t.Errorf("expected a disambiguation error on stderr")
 	}
 	// The two matching EmbeddedFile object refs (4 and 8) must be listed so the
 	// user can disambiguate with --ref.
 	if !strings.Contains(se, "4") || !strings.Contains(se, "8") {
-		t.Errorf("[P0] 13.2-INTG-017: stderr must list the matching refs (4 and 8) for disambiguation:\n%s", se)
+		t.Errorf("stderr must list the matching refs (4 and 8) for disambiguation:\n%s", se)
 	}
 }
 
@@ -185,13 +185,13 @@ func TestEmbeddedExtract_RefAndNameMutuallyExclusive(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "4 0 R", "--name", "factur-x.xml", pdf)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.2-INTG-018: --ref + --name must exit non-zero, got 0")
+		t.Fatalf("--ref + --name must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P0] 13.2-INTG-018: stdout must be EMPTY on a usage error, got %q", string(stdout))
+		t.Errorf("stdout must be EMPTY on a usage error, got %q", string(stdout))
 	}
 	if !strings.Contains(strings.ToLower(string(stderr)), "mutually exclusive") {
-		t.Errorf("[P0] 13.2-INTG-018: expected a 'mutually exclusive' usage error on stderr:\n%s", string(stderr))
+		t.Errorf("expected a 'mutually exclusive' usage error on stderr:\n%s", string(stderr))
 	}
 }
 
@@ -216,12 +216,12 @@ func TestEmbeddedExtract_NameSingleMatchNoStreamFails(t *testing.T) {
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--name", "orphan.dat", pdf)
 	if ec == 0 {
-		t.Fatalf("[P1] 13.2-INTG-019: single match without /EmbeddedFile must exit non-zero, got 0")
+		t.Fatalf("single match without /EmbeddedFile must exit non-zero, got 0")
 	}
 	if len(stdout) != 0 {
-		t.Errorf("[P1] 13.2-INTG-019: stdout must be EMPTY when the named entry has no stream, got %q", string(stdout))
+		t.Errorf("stdout must be EMPTY when the named entry has no stream, got %q", string(stdout))
 	}
 	if strings.TrimSpace(string(stderr)) == "" {
-		t.Errorf("[P1] 13.2-INTG-019: expected an error message on stderr")
+		t.Errorf("expected an error message on stderr")
 	}
 }

@@ -60,15 +60,15 @@ func TestFontDump_JSON_CarriesMappingArray(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--json", "--ref", "6 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[13.3-INTG-001] expected exit 0, got %d", ec)
+		t.Fatalf("expected exit 0, got %d", ec)
 	}
 	var view fontViewJSON
 	mustParseJSON(t, stdout, &view)
 	if view.Kind != "detail" || view.Detail == nil {
-		t.Fatalf("[13.3-INTG-001] expected kind=detail with a detail payload, got kind=%q", view.Kind)
+		t.Fatalf("expected kind=detail with a detail payload, got kind=%q", view.Kind)
 	}
 	if len(view.Detail.MappingRows) == 0 {
-		t.Fatalf("[13.3-INTG-001] detail.mappingRows is empty; want the joined per-code rows (AC1)")
+		t.Fatalf("detail.mappingRows is empty; want the joined per-code rows")
 	}
 	var a *struct {
 		Code        int    `json:"code"`
@@ -84,13 +84,13 @@ func TestFontDump_JSON_CarriesMappingArray(t *testing.T) {
 		}
 	}
 	if a == nil {
-		t.Fatalf("[13.3-INTG-001] no mapping row for code 0x41")
+		t.Fatalf("no mapping row for code 0x41")
 	}
 	if a.Unicode != "U+0041" {
-		t.Errorf("[13.3-INTG-001] code 0x41 unicode = %q, want U+0041", a.Unicode)
+		t.Errorf("code 0x41 unicode = %q, want U+0041", a.Unicode)
 	}
 	if a.UnicodeText != "A" {
-		t.Errorf("[13.3-INTG-001] code 0x41 unicodeText = %q, want A", a.UnicodeText)
+		t.Errorf("code 0x41 unicodeText = %q, want A", a.UnicodeText)
 	}
 }
 
@@ -103,15 +103,15 @@ func TestFontDump_JSON_CarriesHealthSignals(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--json", "--ref", "5 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[13.3-INTG-002] expected exit 0, got %d", ec)
+		t.Fatalf("expected exit 0, got %d", ec)
 	}
 	var view fontViewJSON
 	mustParseJSON(t, stdout, &view)
 	if view.Detail == nil || view.Detail.Health == nil {
-		t.Fatalf("[13.3-INTG-002] detail.health missing; want the coverage signals (AC2)")
+		t.Fatalf("detail.health missing; want the coverage signals")
 	}
 	if !view.Detail.Health.ToUnicodeMissing {
-		t.Errorf("[13.3-INTG-002] health.toUnicodeMissing = false, want true (obj 5 has no /ToUnicode)")
+		t.Errorf("health.toUnicodeMissing = false, want true (obj 5 has no /ToUnicode)")
 	}
 	codes := map[int]bool{}
 	for _, c := range view.Detail.Health.EncodingWithoutToUnicodeCodes {
@@ -119,7 +119,7 @@ func TestFontDump_JSON_CarriesHealthSignals(t *testing.T) {
 	}
 	for _, want := range []int{32, 33, 34} {
 		if !codes[want] {
-			t.Errorf("[13.3-INTG-002] code %d missing from health.encodingWithoutToUnicodeCodes", want)
+			t.Errorf("code %d missing from health.encodingWithoutToUnicodeCodes", want)
 		}
 	}
 }
@@ -133,25 +133,25 @@ func TestFontDump_PlainSummary_BoundedNotFullTable(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--ref", "5 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[13.3-INTG-003] expected exit 0, got %d", ec)
+		t.Fatalf("expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.3-INTG-003] default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	// The summary must report a declared-code count for the mapping table.
 	if !strings.Contains(strings.ToLower(stdout), "code") {
-		t.Errorf("[13.3-INTG-003] plain summary should mention the mapping code count\n%s", stdout)
+		t.Errorf("plain summary should mention the mapping code count\n%s", stdout)
 	}
 	// The summary must surface the missing-ToUnicode health signal.
 	if !strings.Contains(strings.ToLower(stdout), "tounicode") {
-		t.Errorf("[13.3-INTG-003] plain summary should surface the ToUnicode health signal\n%s", stdout)
+		t.Errorf("plain summary should surface the ToUnicode health signal\n%s", stdout)
 	}
 	// Without --glyphs the full per-code TABLE header must NOT appear -- the
 	// summary is bounded. Anchor to the actual header line (four ordered
 	// columns) rather than free-floating uppercase tokens, which could match a
 	// health label or reformatted text anywhere in the output.
 	if perCodeTableHeaderPresent(stdout) {
-		t.Errorf("[13.3-INTG-003] plain summary leaked the full per-code table (use --glyphs for that)\n%s", stdout)
+		t.Errorf("plain summary leaked the full per-code table (use --glyphs for that)\n%s", stdout)
 	}
 }
 
@@ -179,18 +179,18 @@ func TestFontDump_Glyphs_FullPerCodeTable(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--glyphs", "--ref", "6 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[13.3-INTG-004] expected exit 0, got %d", ec)
+		t.Fatalf("expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.3-INTG-004] --glyphs output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("--glyphs output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	// Assert the anchored header row (CODE GLYPH UNICODE TEXT as ordered
 	// columns on one line), not four independent whole-output token greps.
 	if !perCodeTableHeaderPresent(stdout) {
-		t.Errorf("[13.3-INTG-004] --glyphs output missing the aligned per-code table header (CODE GLYPH UNICODE TEXT)\n%s", stdout)
+		t.Errorf("--glyphs output missing the aligned per-code table header (CODE GLYPH UNICODE TEXT)\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "U+0041") {
-		t.Errorf("[13.3-INTG-004] --glyphs table missing the 0x41->U+0041 row\n%s", stdout)
+		t.Errorf("--glyphs table missing the 0x41->U+0041 row\n%s", stdout)
 	}
 }
 
@@ -203,12 +203,12 @@ func TestFontDump_JSON_CompleteRegardlessOfGlyphs(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--json", "--ref", "6 0 R", pdf)
 	if ec != 0 {
-		t.Fatalf("[13.3-INTG-005] expected exit 0, got %d", ec)
+		t.Fatalf("expected exit 0, got %d", ec)
 	}
 	var view fontViewJSON
 	mustParseJSON(t, stdout, &view)
 	if view.Detail == nil || len(view.Detail.MappingRows) == 0 {
-		t.Fatalf("[13.3-INTG-005] --json (no --glyphs) must still carry the complete mapping array")
+		t.Fatalf("--json (no --glyphs) must still carry the complete mapping array")
 	}
 }
 
@@ -220,6 +220,6 @@ func TestFontDump_UsageDocumentsGlyphsFlag(t *testing.T) {
 	stdout, stderr, _ := runCLI(t, bin, "dump", "font")
 	combined := stdout + stderr
 	if !strings.Contains(combined, "--glyphs") {
-		t.Errorf("[13.3-INTG-006] `dump font` usage does not mention --glyphs:\n%s", combined)
+		t.Errorf("`dump font` usage does not mention --glyphs:\n%s", combined)
 	}
 }

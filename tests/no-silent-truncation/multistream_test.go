@@ -37,7 +37,7 @@ func TestMultiStream_FixtureParsesThroughOpenPath(t *testing.T) {
 	bin := buildCLI(t)
 	_, stderr, ec := runCLI(t, bin, "dump", "objects", fixturePath(t, "multi-content-stream.pdf"))
 	if ec != 0 {
-		t.Fatalf("[P0] 14.3-INTG-002: multi-content-stream.pdf rejected by the open path (exit %d): %s", ec, stderr)
+		t.Fatalf("multi-content-stream.pdf rejected by the open path (exit %d): %s", ec, stderr)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--page", "1", "--json", f)
 	if ec != 0 {
-		t.Fatalf("[P1] 14.3-INTG-002: `dump stream --page 1 --json` must exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("`dump stream --page 1 --json` must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 	res := parseObject(t, "14.3-INTG-002", stdout)
 
@@ -75,13 +75,13 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 	hasMarker := hasStreamCount || truncated
 
 	if !coversStream2 && !hasMarker {
-		t.Errorf("[P1] 14.3-INTG-002: --json presents a silent stream-1-only view (operators %v, no stream-2 op, no streamCount/truncated marker); a multi-stream page must either concatenate all streams or carry a truncation marker (AC3/AC4)", ops)
+		t.Errorf("--json presents a silent stream-1-only view (operators %v, no stream-2 op, no streamCount/truncated marker); a multi-stream page must either concatenate all streams or carry a truncation marker", ops)
 	}
 
 	// When the floor path is taken, the marker must report the real array length.
 	if hasMarker && !coversStream2 {
 		if sc, ok := res["streamCount"]; !ok || jsonInt(sc) != 2 {
-			t.Errorf("[P1] 14.3-INTG-002: floor-path marker must report streamCount == 2 (the /Contents array length), got %v", res["streamCount"])
+			t.Errorf("floor-path marker must report streamCount == 2 (the /Contents array length), got %v", res["streamCount"])
 		}
 	}
 }
@@ -101,7 +101,7 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--page", "1", "--ops", f)
 	if ec != 0 {
-		t.Fatalf("[P1] 14.3-INTG-002: `dump stream --page 1 --ops` must exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("`dump stream --page 1 --ops` must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 
 	coversStream2 := false
@@ -125,13 +125,13 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 		if _, ok := rec["streamCount"]; ok {
 			hasMetaMarker = true
 			if jsonInt(rec["streamCount"]) != 2 {
-				t.Errorf("[P1] 14.3-INTG-002 (--ops): meta marker streamCount = %v, want 2", rec["streamCount"])
+				t.Errorf("(--ops): meta marker streamCount = %v, want 2", rec["streamCount"])
 			}
 		}
 	}
 
 	if !coversStream2 && !hasMetaMarker {
-		t.Errorf("[P1] 14.3-INTG-002: --ops silently emits only stream 1's operators; a multi-stream page must emit all streams' operators or a distinct trailing truncation meta record (AC4):\n%s", stdout)
+		t.Errorf("--ops silently emits only stream 1's operators; a multi-stream page must emit all streams' operators or a distinct trailing truncation meta record:\n%s", stdout)
 	}
 }
 
@@ -149,20 +149,20 @@ func TestMultiStream_RawConcatenatesAllStreams(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--page", "1", "--raw", f)
 	if ec != 0 {
-		t.Fatalf("[P1] 14.3-INTG-002 (--raw): must exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("(--raw): must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 
 	// stdout must carry BOTH streams' decoded bytes: stream 1's `cm` and stream
 	// 2's `Hello`/`Q`, joined per 7.8.2.
 	if !strings.Contains(stdout, "cm") {
-		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout missing stream 1 content (expected `cm`): %q", stdout)
+		t.Errorf("(--raw): stdout missing stream 1 content (expected `cm`): %q", stdout)
 	}
 	if !strings.Contains(stdout, "Hello") || !strings.Contains(stdout, "Q") {
-		t.Errorf("[P1] 14.3-INTG-002 (--raw): stdout missing stream 2 content; --raw must dump the concatenation of all streams (expected `Hello` and `Q`): %q", stdout)
+		t.Errorf("(--raw): stdout missing stream 2 content; --raw must dump the concatenation of all streams (expected `Hello` and `Q`): %q", stdout)
 	}
 
 	// Nothing was truncated, so no truncation note should appear on either channel.
 	if strings.Contains(stdout, "truncated") || strings.Contains(stderr, "truncated") {
-		t.Errorf("[P1] 14.3-INTG-002 (--raw): unexpected truncation note after full concatenation\nstdout: %q\nstderr: %q", stdout, stderr)
+		t.Errorf("(--raw): unexpected truncation note after full concatenation\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 }

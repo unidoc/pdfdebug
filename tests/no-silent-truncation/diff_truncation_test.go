@@ -27,7 +27,7 @@ func TestDeepChange_FixturesParseThroughOpenPath(t *testing.T) {
 	for _, name := range []string{"deep-change-a.pdf", "deep-change-b.pdf"} {
 		_, stderr, ec := runCLI(t, bin, "dump", "objects", fixturePath(t, name))
 		if ec != 0 {
-			t.Fatalf("[P0] 14.3-INTG-000: fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
+			t.Fatalf("fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
 		}
 	}
 }
@@ -46,17 +46,17 @@ func TestDiff_DepthCappedNotIdentical_PlainText(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 14.3-INTG-001: a depth-capped comparison must exit 1 (not provably identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("a depth-capped comparison must exit 1 (not provably identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	low := strings.ToLower(stdout)
 	if strings.Contains(low, "structurally identical") {
-		t.Errorf("[P1] 14.3-INTG-001: a truncated comparison must NOT claim \"structurally identical\":\n%s", stdout)
+		t.Errorf("a truncated comparison must NOT claim \"structurally identical\":\n%s", stdout)
 	}
 	// The document-level depth-cap note (and/or the per-node [truncated: depth
 	// cap] tag) must be visible so no consumer mistakes the bounded walk for a
 	// complete one.
 	if !strings.Contains(low, "truncat") && !strings.Contains(low, "depth cap") {
-		t.Errorf("[P1] 14.3-INTG-001: plain-text output must state the walk was bounded by the depth cap (want \"truncat\"/\"depth cap\"):\n%s", stdout)
+		t.Errorf("plain-text output must state the walk was bounded by the depth cap (want \"truncat\"/\"depth cap\"):\n%s", stdout)
 	}
 }
 
@@ -73,26 +73,26 @@ func TestDiff_DepthCappedNotIdentical_JSON(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 14.3-INTG-001: `diff --json` on a depth-capped pair must exit 1, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("`diff --json` on a depth-capped pair must exit 1, got %d\nstderr: %s", ec, stderr)
 	}
 	res := parseObject(t, "14.3-INTG-001", stdout)
 
 	sum, ok := res["summary"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P1] 14.3-INTG-001: result has no \"summary\" object: %v", res)
+		t.Fatalf("result has no \"summary\" object: %v", res)
 	}
 	if _, present := sum["truncatedSubtrees"]; !present {
-		t.Fatalf("[P1] 14.3-INTG-001: summary is missing the additive \"truncatedSubtrees\" count (AC2): %v", sum)
+		t.Fatalf("summary is missing the additive \"truncatedSubtrees\" count: %v", sum)
 	}
 	if n := jsonInt(sum["truncatedSubtrees"]); n < 1 {
-		t.Errorf("[P1] 14.3-INTG-001: summary.truncatedSubtrees = %d, want >= 1 (the deep chain is cut once)", n)
+		t.Errorf("summary.truncatedSubtrees = %d, want >= 1 (the deep chain is cut once)", n)
 	}
 
 	root, ok := res["root"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P1] 14.3-INTG-001: result has no \"root\" DiffNode object")
+		t.Fatalf("result has no \"root\" DiffNode object")
 	}
 	if !anyNodeTruncated(root) {
-		t.Errorf("[P1] 14.3-INTG-001: no DiffNode carries \"truncated\": true; the depth-cap cut node must be marked (AC1)")
+		t.Errorf("no DiffNode carries \"truncated\": true; the depth-cap cut node must be marked")
 	}
 }

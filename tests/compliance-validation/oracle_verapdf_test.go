@@ -115,12 +115,12 @@ func TestOracle_NegativeFixtureNoFalseErrors(t *testing.T) {
 
 	compliant, vfailed := veraFailedClauses(t, veraBin, pdf)
 	if compliant {
-		t.Fatalf("[P0] 13.5-INTG-050: veraPDF unexpectedly PASSED the non-embedded-font fixture; the negative direction is meaningless")
+		t.Fatalf("veraPDF unexpectedly PASSED the non-embedded-font fixture; the negative direction is meaningless")
 	}
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--json", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-050: our validate must exit 1 on the negative fixture, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("our validate must exit 1 on the negative fixture, got %d (stderr: %s)", ec, stderr)
 	}
 	res := validateResult(t, "13.5-INTG-050", stdout)
 	for _, p := range problemsOf(t, "13.5-INTG-050", res) {
@@ -132,7 +132,7 @@ func TestOracle_NegativeFixtureNoFalseErrors(t *testing.T) {
 			continue
 		}
 		if !anyClauseFailed(vfailed, clauses) {
-			t.Errorf("[P0] 13.5-INTG-050: FALSE ERROR -- we flag rule %q (%q, clauses %v) but veraPDF failed none of them (failed: %v)",
+			t.Errorf("FALSE ERROR -- we flag rule %q (%q, clauses %v) but veraPDF failed none of them (failed: %v)",
 				getStr(p, "ruleId"), getStr(p, "message"), clauses, keys(vfailed))
 		}
 	}
@@ -166,11 +166,11 @@ func TestOracle_CleanFixtureZeroFailureAgreement(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--json", clean)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.5-INTG-051: our validate must exit 0 on the clean fixture, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("our validate must exit 0 on the clean fixture, got %d (stderr: %s)", ec, stderr)
 	}
 	res := validateResult(t, "13.5-INTG-051", stdout)
 	if errs, _ := summaryOf(t, "13.5-INTG-051", res); errs != 0 {
-		t.Errorf("[P0] 13.5-INTG-051: our rule set flags %d errors on a veraPDF-clean PDF/A-1b file; both must agree on zero:\n%s", errs, stdout)
+		t.Errorf("our rule set flags %d errors on a veraPDF-clean PDF/A-1b file; both must agree on zero:\n%s", errs, stdout)
 	}
 }
 

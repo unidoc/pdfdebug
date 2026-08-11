@@ -27,7 +27,7 @@ func TestValidate_FixturesParseThroughOpenPath(t *testing.T) {
 		pdf := writeTempPDF(t, name, content)
 		_, stderr, ec := runCLI(t, bin, "dump", "objects", pdf)
 		if ec != 0 {
-			t.Fatalf("[P0] 13.5-INTG-000: fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
+			t.Fatalf("fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
 		}
 	}
 }
@@ -43,15 +43,15 @@ func TestValidate_ErrorProblemExitsOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-001: expected exit 1 (error problems found), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("expected exit 1 (error problems found), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	// Guard against the current binary's unknown-command exit 1: a real run
 	// writes the problem list to stdout and never reports an unknown command.
 	if strings.TrimSpace(stdout) == "" {
-		t.Errorf("[P0] 13.5-INTG-001: exit 1 must be a validation run (non-empty stdout), got empty; stderr: %s", stderr)
+		t.Errorf("exit 1 must be a validation run (non-empty stdout), got empty; stderr: %s", stderr)
 	}
 	if strings.Contains(strings.ToLower(stderr), "unknown command") {
-		t.Errorf("[P0] 13.5-INTG-001: `validate` must be a real command, not an unknown-command error: %s", stderr)
+		t.Errorf("`validate` must be a real command, not an unknown-command error: %s", stderr)
 	}
 }
 
@@ -67,38 +67,38 @@ func TestValidate_JSONEnvelopeAndFontError(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--json", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-002: expected exit 1, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
 	res := validateResult(t, "13.5-INTG-002", stdout)
 	if got := getStr(res, "profile"); got != "pdfa-1b" {
-		t.Errorf("[P0] 13.5-INTG-002: profile = %q, want pdfa-1b (default)", got)
+		t.Errorf("profile = %q, want pdfa-1b (default)", got)
 	}
 	ps := problemsOf(t, "13.5-INTG-002", res)
 	errs, _ := summaryOf(t, "13.5-INTG-002", res)
 	if errs < 1 {
-		t.Fatalf("[P0] 13.5-INTG-002: summary.errors = %d, want >=1", errs)
+		t.Fatalf("summary.errors = %d, want >=1", errs)
 	}
 	if got := countBySeverity(ps, "error"); got != errs {
-		t.Errorf("[P0] 13.5-INTG-002: summary.errors=%d but %d problems are severity=error", errs, got)
+		t.Errorf("summary.errors=%d but %d problems are severity=error", errs, got)
 	}
 	font := findByMessageContains(ps, "embed")
 	if font == nil {
-		t.Fatalf("[P0] 13.5-INTG-002: no problem mentions font embedding:\n%s", stdout)
+		t.Fatalf("no problem mentions font embedding:\n%s", stdout)
 	}
 	if getStr(font, "severity") != "error" {
-		t.Errorf("[P0] 13.5-INTG-002: font-embedding severity = %q, want error", getStr(font, "severity"))
+		t.Errorf("font-embedding severity = %q, want error", getStr(font, "severity"))
 	}
 	if getStr(font, "objRef") != "4 0 R" {
-		t.Errorf("[P0] 13.5-INTG-002: font-embedding objRef = %q, want \"4 0 R\"", getStr(font, "objRef"))
+		t.Errorf("font-embedding objRef = %q, want \"4 0 R\"", getStr(font, "objRef"))
 	}
 	if getStr(font, "objNodeId") != "obj:0:4" {
-		t.Errorf("[P0] 13.5-INTG-002: font-embedding objNodeId = %q, want obj:0:4 (gen-then-num)", getStr(font, "objNodeId"))
+		t.Errorf("font-embedding objNodeId = %q, want obj:0:4 (gen-then-num)", getStr(font, "objNodeId"))
 	}
 	if getStr(font, "specRef") == "" {
-		t.Errorf("[P0] 13.5-INTG-002: font-embedding specRef is empty; a SpecRef clause is required")
+		t.Errorf("font-embedding specRef is empty; a SpecRef clause is required")
 	}
 	if getStr(font, "ruleId") == "" {
-		t.Errorf("[P0] 13.5-INTG-002: font-embedding ruleId is empty; a stable RuleID is required")
+		t.Errorf("font-embedding ruleId is empty; a stable RuleID is required")
 	}
 }
 
@@ -116,16 +116,16 @@ func TestValidate_ObjNodeIDAccompaniesObjRef(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--json", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-003: expected exit 1, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
 	res := validateResult(t, "13.5-INTG-003", stdout)
 	for _, p := range problemsOf(t, "13.5-INTG-003", res) {
 		ref, node := getStr(p, "objRef"), getStr(p, "objNodeId")
 		if ref != "" && node == "" {
-			t.Errorf("[P0] 13.5-INTG-003: problem has objRef=%q but empty objNodeId: %v", ref, p)
+			t.Errorf("problem has objRef=%q but empty objNodeId: %v", ref, p)
 		}
 		if node != "" && !objNodeRE.MatchString(node) {
-			t.Errorf("[P0] 13.5-INTG-003: objNodeId=%q is not obj:{gen}:{num}", node)
+			t.Errorf("objNodeId=%q is not obj:{gen}:{num}", node)
 		}
 	}
 }
@@ -141,22 +141,22 @@ func TestValidate_PlainGroupedListWithSummary(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-004: expected exit 1, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.5-INTG-004", stdout)
 	lower := strings.ToLower(stdout)
 	if !strings.Contains(lower, "error") {
-		t.Errorf("[P0] 13.5-INTG-004: plain list must state the severity (error):\n%s", stdout)
+		t.Errorf("plain list must state the severity (error):\n%s", stdout)
 	}
 	if !strings.Contains(lower, "embed") {
-		t.Errorf("[P0] 13.5-INTG-004: plain list must state the rule message (embedding):\n%s", stdout)
+		t.Errorf("plain list must state the rule message (embedding):\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "4 0 R") {
-		t.Errorf("[P0] 13.5-INTG-004: plain list must state the offending object ref (4 0 R):\n%s", stdout)
+		t.Errorf("plain list must state the offending object ref (4 0 R):\n%s", stdout)
 	}
 	// A summary count: at least one line pairing a number with error(s).
 	if !regexp.MustCompile(`\d+\s+error`).MatchString(lower) {
-		t.Errorf("[P0] 13.5-INTG-004: plain output must carry a summary count of errors:\n%s", stdout)
+		t.Errorf("plain output must carry a summary count of errors:\n%s", stdout)
 	}
 }
 
@@ -177,11 +177,11 @@ func TestValidate_HonestyGuardrail(t *testing.T) {
 	// The disclaimer must survive into the JSON surface too (a JSON consumer
 	// must not have to infer it). It may live in a dedicated field or note.
 	if !strings.Contains(strings.ToLower(jsonOut), "structural checks only") {
-		t.Errorf("[P0] 13.5-INTG-005: --json output must carry the not-authoritative disclaimer:\n%s", jsonOut)
+		t.Errorf("--json output must carry the not-authoritative disclaimer:\n%s", jsonOut)
 	}
 	for _, p := range forbiddenVerdictPhrases {
 		if strings.Contains(strings.ToLower(jsonOut), p) {
-			t.Errorf("[P0] 13.5-INTG-005: --json emits authoritative verdict %q:\n%s", p, jsonOut)
+			t.Errorf("--json emits authoritative verdict %q:\n%s", p, jsonOut)
 		}
 	}
 }
@@ -197,10 +197,10 @@ func TestValidate_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", pdf)
 	if ec != 1 {
-		t.Fatalf("[P1] 13.5-INTG-006: expected exit 1, got %d", ec)
+		t.Fatalf("expected exit 1, got %d", ec)
 	}
 	if strings.TrimSpace(stdout) == "" {
-		t.Fatalf("[P1] 13.5-INTG-006: a validation run must write plain-text output to stdout; stderr: %s", stderr)
+		t.Fatalf("a validation run must write plain-text output to stdout; stderr: %s", stderr)
 	}
 	assertASCII(t, "13.5-INTG-006", stdout)
 	assertTrailingNewline(t, "13.5-INTG-006", stdout)
@@ -218,23 +218,23 @@ func TestValidate_EncryptedIsErrorProblemExitsOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-010: encrypted doc must exit 1 (validation error), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("encrypted doc must exit 1 (validation error), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	if !strings.Contains(strings.ToLower(stdout), "encrypt") {
-		t.Errorf("[P0] 13.5-INTG-010: plain output must report the encryption problem:\n%s", stdout)
+		t.Errorf("plain output must report the encryption problem:\n%s", stdout)
 	}
 	// And in JSON it must be a real error-severity problem, not a bare error.
 	jsonOut, _, ec := runCLI(t, bin, "validate", "--json", pdf)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.5-INTG-010: --json encrypted doc must exit 1, got %d", ec)
+		t.Fatalf("--json encrypted doc must exit 1, got %d", ec)
 	}
 	res := validateResult(t, "13.5-INTG-010", jsonOut)
 	enc := findByMessageContains(problemsOf(t, "13.5-INTG-010", res), "encrypt")
 	if enc == nil {
-		t.Fatalf("[P0] 13.5-INTG-010: no encryption problem in --json output:\n%s", jsonOut)
+		t.Fatalf("no encryption problem in --json output:\n%s", jsonOut)
 	}
 	if getStr(enc, "severity") != "error" {
-		t.Errorf("[P0] 13.5-INTG-010: encryption problem severity = %q, want error", getStr(enc, "severity"))
+		t.Errorf("encryption problem severity = %q, want error", getStr(enc, "severity"))
 	}
 }
 
@@ -248,13 +248,13 @@ func TestValidate_MissingFileExitsTwo(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", testdataDir(t)+"/does-not-exist.pdf")
 	if ec != 2 {
-		t.Fatalf("[P0] 13.5-INTG-011: missing file must exit 2 (operational), got %d", ec)
+		t.Fatalf("missing file must exit 2 (operational), got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 13.5-INTG-011: stdout must stay empty on operational error, got:\n%s", stdout)
+		t.Errorf("stdout must stay empty on operational error, got:\n%s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Errorf("[P0] 13.5-INTG-011: operational error must be reported to stderr")
+		t.Errorf("operational error must be reported to stderr")
 	}
 }
 
@@ -269,14 +269,14 @@ func TestValidate_UnknownProfileExitsTwo(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--profile", "pdfa-9z", pdf)
 	if ec != 2 {
-		t.Fatalf("[P0] 13.5-INTG-012: unknown profile must exit 2 (operational), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("unknown profile must exit 2 (operational), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 13.5-INTG-012: no partial run -- stdout must stay empty, got:\n%s", stdout)
+		t.Errorf("no partial run -- stdout must stay empty, got:\n%s", stdout)
 	}
 	low := strings.ToLower(stderr)
 	if !strings.Contains(low, "pdfa-1b") || !strings.Contains(low, "pdfua-1-structural") {
-		t.Errorf("[P0] 13.5-INTG-012: stderr must list the valid profiles (pdfa-1b, pdfua-1-structural), got: %s", stderr)
+		t.Errorf("stderr must list the valid profiles (pdfa-1b, pdfua-1-structural), got: %s", stderr)
 	}
 }
 
@@ -293,36 +293,36 @@ func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--profile", "pdfua-1-structural", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.5-INTG-020: PDF/UA warnings must NOT gate; expected exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("PDF/UA warnings must NOT gate; expected exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	res := validateResult(t, "13.5-INTG-020", stdout)
 	if got := getStr(res, "profile"); got != "pdfua-1-structural" {
-		t.Errorf("[P0] 13.5-INTG-020: profile = %q, want pdfua-1-structural", got)
+		t.Errorf("profile = %q, want pdfua-1-structural", got)
 	}
 	ps := problemsOf(t, "13.5-INTG-020", res)
 	errs, warns := summaryOf(t, "13.5-INTG-020", res)
 	if errs != 0 {
-		t.Errorf("[P0] 13.5-INTG-020: PDF/UA structural profile must emit zero errors, got %d", errs)
+		t.Errorf("PDF/UA structural profile must emit zero errors, got %d", errs)
 	}
 	if warns < 1 {
-		t.Errorf("[P0] 13.5-INTG-020: untagged doc should raise >=1 PDF/UA warning, got %d", warns)
+		t.Errorf("untagged doc should raise >=1 PDF/UA warning, got %d", warns)
 	}
 	// Every emitted PDF/UA problem must be a warning and carry the profile tag.
 	for _, p := range ps {
 		if getStr(p, "severity") != "warning" {
-			t.Errorf("[P0] 13.5-INTG-020: PDF/UA problem severity = %q, want warning: %v", getStr(p, "severity"), p)
+			t.Errorf("PDF/UA problem severity = %q, want warning: %v", getStr(p, "severity"), p)
 		}
 		if getStr(p, "profile") != "pdfua-1-structural" {
-			t.Errorf("[P0] 13.5-INTG-020: problem.profile = %q, want pdfua-1-structural", getStr(p, "profile"))
+			t.Errorf("problem.profile = %q, want pdfua-1-structural", getStr(p, "profile"))
 		}
 	}
 	// The missing /Lang problem is document-level: no object ref.
 	lang := findByMessageContains(ps, "lang")
 	if lang == nil {
-		t.Fatalf("[P0] 13.5-INTG-020: untagged doc must raise a missing-/Lang warning:\n%s", stdout)
+		t.Fatalf("untagged doc must raise a missing-/Lang warning:\n%s", stdout)
 	}
 	if getStr(lang, "objRef") != "" {
-		t.Errorf("[P0] 13.5-INTG-020: missing-/Lang is document-level; objRef must be empty, got %q", getStr(lang, "objRef"))
+		t.Errorf("missing-/Lang is document-level; objRef must be empty, got %q", getStr(lang, "objRef"))
 	}
 }
 
@@ -339,21 +339,21 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--profile", "pdfua-1-structural", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.5-INTG-021: clean-for-profile doc must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("clean-for-profile doc must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	assertNotJSON(t, "13.5-INTG-021", stdout)
 	assertNoComplianceVerdict(t, "13.5-INTG-021", stdout)
 	if !strings.Contains(strings.ToLower(stdout), "no structural problems found") {
-		t.Errorf("[P1] 13.5-INTG-021: clean plain output must say \"no structural problems found\":\n%s", stdout)
+		t.Errorf("clean plain output must say \"no structural problems found\":\n%s", stdout)
 	}
 
 	jsonOut, _, ec := runCLI(t, bin, "validate", "--profile", "pdfua-1-structural", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.5-INTG-021: --json clean doc must exit 0, got %d", ec)
+		t.Fatalf("--json clean doc must exit 0, got %d", ec)
 	}
 	res := validateResult(t, "13.5-INTG-021", jsonOut)
 	if len(problemsOf(t, "13.5-INTG-021", res)) != 0 {
-		t.Errorf("[P1] 13.5-INTG-021: tagged doc must yield zero PDF/UA structural problems:\n%s", jsonOut)
+		t.Errorf("tagged doc must yield zero PDF/UA structural problems:\n%s", jsonOut)
 	}
 }
 
@@ -370,18 +370,18 @@ func TestValidate_HelpDocumentsCommandAndExitSemantics(t *testing.T) {
 	combined := stdout + stderr
 	low := strings.ToLower(combined)
 	if !strings.Contains(low, "validate") {
-		t.Errorf("[P1] 13.5-INTG-030: --help does not mention the `validate` command:\n%s", combined)
+		t.Errorf("--help does not mention the `validate` command:\n%s", combined)
 	}
 	if !strings.Contains(low, "pdfa-1b") || !strings.Contains(low, "pdfua-1-structural") {
-		t.Errorf("[P1] 13.5-INTG-030: --help must list the valid profiles:\n%s", combined)
+		t.Errorf("--help must list the valid profiles:\n%s", combined)
 	}
 	// Exit 0 must be described as "no structural errors," never a verdict.
 	if !strings.Contains(low, "no structural errors") {
-		t.Errorf("[P1] 13.5-INTG-030: --help must describe exit 0 as \"no structural errors\":\n%s", combined)
+		t.Errorf("--help must describe exit 0 as \"no structural errors\":\n%s", combined)
 	}
 	for _, p := range forbiddenVerdictPhrases {
 		if strings.Contains(low, p) {
-			t.Errorf("[P1] 13.5-INTG-030: --help emits authoritative verdict %q", p)
+			t.Errorf("--help emits authoritative verdict %q", p)
 		}
 	}
 }

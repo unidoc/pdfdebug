@@ -28,11 +28,11 @@ func TestForms_NotWalkedByDefault(t *testing.T) {
 	// Fm0 is still listed as a page XObject.
 	xobjs, _ := asArray(m, "xobjects")
 	if findByName(xobjs, "Fm0") == nil {
-		t.Errorf("[P1] 11.6-INTG-AC4-001: Fm0 should be listed under xobjects even without --forms-recursive")
+		t.Errorf("Fm0 should be listed under xobjects even without --forms-recursive")
 	}
 	// But the recursive forms tree must be absent or empty (not walked).
 	if forms, ok := asArray(m, "forms"); ok && len(forms) > 0 {
-		t.Errorf("[P1] 11.6-INTG-AC4-001: forms tree must not be walked without --forms-recursive, got %d entries", len(forms))
+		t.Errorf("forms tree must not be walked without --forms-recursive, got %d entries", len(forms))
 	}
 }
 
@@ -50,7 +50,7 @@ func TestForms_NestedResolvedAgainstOwnResources(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--forms-recursive", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC4-002: exit %d (--forms-recursive not implemented?)\nstderr: %s", ec, stderr)
+		t.Fatalf("exit %d (--forms-recursive not implemented?)\nstderr: %s", ec, stderr)
 	}
 
 	// /Inner (object 6 0 R) must appear SOMEWHERE in the recursive forms output.
@@ -78,10 +78,10 @@ func TestForms_SelfReferentialTerminates(t *testing.T) {
 		"--forms-recursive", "--forms-depth", "100", pdfPath)
 
 	if strings.Contains(stdout, "panic") || strings.Contains(stderr, "panic") {
-		t.Fatalf("[P0] 11.6-INTG-AC4-003: self-referential form caused a panic\nstderr: %s", stderr)
+		t.Fatalf("self-referential form caused a panic\nstderr: %s", stderr)
 	}
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC4-003: self-referential form should terminate with exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("self-referential form should terminate with exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 	// The output must still be a single valid JSON object (the walk terminated
 	// and produced a bounded result, not an endless stream).
@@ -103,20 +103,20 @@ func TestForms_FormsDepthBoundsRecursion(t *testing.T) {
 	depth1, _, ec1 := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "1", pdfPath)
 	if ec1 != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC4-004: --forms-depth 1 exit %d", ec1)
+		t.Fatalf("--forms-depth 1 exit %d", ec1)
 	}
 	depth2, _, ec2 := runCLI(t, bin, "dump", "page", "--json", "--info", "1",
 		"--forms-recursive", "--forms-depth", "2", pdfPath)
 	if ec2 != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC4-004: --forms-depth 2 exit %d", ec2)
+		t.Fatalf("--forms-depth 2 exit %d", ec2)
 	}
 
 	// /Inner (6 0 R) is two form levels deep: present at depth 2, absent at depth 1.
 	if strings.Contains(depth1, "6 0 R") {
-		t.Errorf("[P1] 11.6-INTG-AC4-004: --forms-depth 1 must NOT expand the 2nd-level /Inner form (6 0 R)")
+		t.Errorf("--forms-depth 1 must NOT expand the 2nd-level /Inner form (6 0 R)")
 	}
 	if !strings.Contains(depth2, "6 0 R") {
-		t.Errorf("[P1] 11.6-INTG-AC4-004: --forms-depth 2 must expand the 2nd-level /Inner form (6 0 R)")
+		t.Errorf("--forms-depth 2 must expand the 2nd-level /Inner form (6 0 R)")
 	}
 }
 
@@ -133,13 +133,13 @@ func TestForms_MalformedFormsDepthUsageError(t *testing.T) {
 		"--forms-recursive", "--forms-depth", "abc", pdfPath)
 	// Guard against a false green: the resource must be recognized first.
 	if strings.Contains(stderr, "Unknown resource") {
-		t.Fatalf("[P2] 11.6-INTG-AC4-005: `dump page` not implemented (got %q)", strings.TrimSpace(stderr))
+		t.Fatalf("`dump page` not implemented (got %q)", strings.TrimSpace(stderr))
 	}
 	if ec != 1 {
-		t.Errorf("[P2] 11.6-INTG-AC4-005: malformed --forms-depth expected usage exit 1, got %d", ec)
+		t.Errorf("malformed --forms-depth expected usage exit 1, got %d", ec)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Errorf("[P2] 11.6-INTG-AC4-005: stderr should carry a usage/error message")
+		t.Errorf("stderr should carry a usage/error message")
 	}
 }
 
@@ -161,12 +161,12 @@ func TestSection_GeometryOnly(t *testing.T) {
 
 	for _, want := range []string{"mediaBox", "cropBox", "rotate"} {
 		if _, ok := m[want]; !ok {
-			t.Errorf("[P0] 11.6-INTG-AC5-001: --section geometry missing geometry key %q", want)
+			t.Errorf("--section geometry missing geometry key %q", want)
 		}
 	}
 	for _, omit := range []string{"extGStates", "xobjects", "patterns", "shadings"} {
 		if _, present := m[omit]; present {
-			t.Errorf("[P0] 11.6-INTG-AC5-001: --section geometry must OMIT resource section %q", omit)
+			t.Errorf("--section geometry must OMIT resource section %q", omit)
 		}
 	}
 }
@@ -188,11 +188,11 @@ func TestSection_ExtGStatesOnly(t *testing.T) {
 	mustParseJSON(t, stdout, &m)
 
 	if _, ok := m["extGStates"]; !ok {
-		t.Errorf("[P0] 11.6-INTG-AC5-002: --section extgstates must emit the extGStates section")
+		t.Errorf("--section extgstates must emit the extGStates section")
 	}
 	for _, omit := range []string{"xobjects", "patterns", "shadings"} {
 		if _, present := m[omit]; present {
-			t.Errorf("[P0] 11.6-INTG-AC5-002: --section extgstates must OMIT %q", omit)
+			t.Errorf("--section extgstates must OMIT %q", omit)
 		}
 	}
 }
@@ -211,13 +211,13 @@ func TestSection_UnrecognizedIsUsageError(t *testing.T) {
 		_, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", bad, pdfPath)
 		// Guard against a false green: the resource must be recognized first.
 		if strings.Contains(stderr, "Unknown resource") {
-			t.Fatalf("[P0] 11.6-INTG-AC5-003: `dump page` not implemented (got %q)", strings.TrimSpace(stderr))
+			t.Fatalf("`dump page` not implemented (got %q)", strings.TrimSpace(stderr))
 		}
 		if ec != 1 {
-			t.Errorf("[P0] 11.6-INTG-AC5-003: --section %q expected usage exit 1, got %d", bad, ec)
+			t.Errorf("--section %q expected usage exit 1, got %d", bad, ec)
 		}
 		if strings.TrimSpace(stderr) == "" {
-			t.Errorf("[P0] 11.6-INTG-AC5-003: --section %q should carry a usage/error message on stderr", bad)
+			t.Errorf("--section %q should carry a usage/error message on stderr", bad)
 		}
 	}
 }
@@ -233,24 +233,24 @@ func TestSection_XObjectsAndForms(t *testing.T) {
 
 	xoOut, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "xobjects", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC5-004: --section xobjects exit %d", ec)
+		t.Fatalf("--section xobjects exit %d", ec)
 	}
 	var xm map[string]any
 	mustParseJSON(t, xoOut, &xm)
 	if _, ok := xm["xobjects"]; !ok {
-		t.Errorf("[P1] 11.6-INTG-AC5-004: --section xobjects must emit the xobjects section")
+		t.Errorf("--section xobjects must emit the xobjects section")
 	}
 	if _, present := xm["extGStates"]; present {
-		t.Errorf("[P1] 11.6-INTG-AC5-004: --section xobjects must OMIT extGStates")
+		t.Errorf("--section xobjects must OMIT extGStates")
 	}
 
 	fmOut, _, ef := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "forms", pdfPath)
 	if ef != 0 {
-		t.Fatalf("[P1] 11.6-INTG-AC5-004: --section forms exit %d", ef)
+		t.Fatalf("--section forms exit %d", ef)
 	}
 	var fm map[string]any
 	mustParseJSON(t, fmOut, &fm)
 	if _, ok := fm["forms"]; !ok {
-		t.Errorf("[P1] 11.6-INTG-AC5-004: --section forms must emit the forms section")
+		t.Errorf("--section forms must emit the forms section")
 	}
 }

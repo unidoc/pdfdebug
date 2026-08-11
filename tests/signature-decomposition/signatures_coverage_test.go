@@ -22,21 +22,21 @@ func TestSignatures_CoverageCoversWholeFile(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-006: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-006", stdout)
 	if !getBool(e, "coversWholeFile") {
-		t.Errorf("[P0] 13.4-INTG-006: coversWholeFile = false, want true:\n%s", stdout)
+		t.Errorf("coversWholeFile = false, want true:\n%s", stdout)
 	}
 	if !getBool(e, "holeMatchesContents") {
-		t.Errorf("[P0] 13.4-INTG-006: holeMatchesContents = false, want true (hole == /Contents extent)")
+		t.Errorf("holeMatchesContents = false, want true (hole == /Contents extent)")
 	}
 	if ce := getStr(e, "coverageError"); ce != "" {
-		t.Errorf("[P0] 13.4-INTG-006: coverageError = %q, want empty", ce)
+		t.Errorf("coverageError = %q, want empty", ce)
 	}
 	br, _ := e["byteRange"].([]any)
 	if len(br) != 4 {
-		t.Errorf("[P0] 13.4-INTG-006: byteRange has %d elements, want the raw 4", len(br))
+		t.Errorf("byteRange has %d elements, want the raw 4", len(br))
 	}
 }
 
@@ -53,25 +53,25 @@ func TestSignatures_CoverageTrailingGapFact(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-007: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-007", stdout)
 	if getBool(e, "coversWholeFile") {
-		t.Errorf("[P0] 13.4-INTG-007: coversWholeFile = true, want false (100-byte shortfall)")
+		t.Errorf("coversWholeFile = true, want false (100-byte shortfall)")
 	}
 	if gap, _ := e["trailingGap"].(float64); gap != 100 {
-		t.Errorf("[P0] 13.4-INTG-007: trailingGap = %v, want 100", e["trailingGap"])
+		t.Errorf("trailingGap = %v, want 100", e["trailingGap"])
 	}
 	if !getBool(e, "holeMatchesContents") {
-		t.Errorf("[P0] 13.4-INTG-007: holeMatchesContents = false, want true (only the tail is short)")
+		t.Errorf("holeMatchesContents = false, want true (only the tail is short)")
 	}
 
 	plain, _, ec := runCLI(t, bin, "dump", "signatures", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-007: plain expected exit 0, got %d", ec)
+		t.Fatalf("plain expected exit 0, got %d", ec)
 	}
 	if !strings.Contains(strings.ToLower(plain), "not cover") {
-		t.Errorf("[P0] 13.4-INTG-007: plain output must state the not-covered fact:\n%s", plain)
+		t.Errorf("plain output must state the not-covered fact:\n%s", plain)
 	}
 }
 
@@ -86,11 +86,11 @@ func TestSignatures_CoverageHoleMismatchFact(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.4-INTG-008: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-008", stdout)
 	if getBool(e, "holeMatchesContents") {
-		t.Errorf("[P1] 13.4-INTG-008: holeMatchesContents = true, want false (hole shifted +4 bytes)")
+		t.Errorf("holeMatchesContents = true, want false (hole shifted +4 bytes)")
 	}
 }
 
@@ -105,13 +105,13 @@ func TestSignatures_MalformedByteRangeDegrades(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "signatures", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.4-INTG-009: expected exit 0 (per-signature degradation), got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0 (per-signature degradation), got %d (stderr: %s)", ec, stderr)
 	}
 	e := oneSig(t, "13.4-INTG-009", stdout)
 	if getStr(e, "fieldName") != "BadBR" {
-		t.Errorf("[P0] 13.4-INTG-009: field must still be listed, fieldName = %q", getStr(e, "fieldName"))
+		t.Errorf("field must still be listed, fieldName = %q", getStr(e, "fieldName"))
 	}
 	if ce := getStr(e, "coverageError"); ce == "" {
-		t.Errorf("[P0] 13.4-INTG-009: coverageError empty, want the malformed-/ByteRange fact:\n%s", stdout)
+		t.Errorf("coverageError empty, want the malformed-/ByteRange fact:\n%s", stdout)
 	}
 }

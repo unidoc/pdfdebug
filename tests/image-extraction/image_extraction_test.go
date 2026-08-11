@@ -83,7 +83,7 @@ func TestGetImageDataExtractsImage(t *testing.T) {
 	// Verify fixture exists
 	imagePDF := filepath.Join(testdataDir(t), "image-xobject.pdf")
 	if _, err := os.Stat(imagePDF); os.IsNotExist(err) {
-		t.Fatalf("[P0] testdata/image-xobject.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/image-xobject.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/image_test.go::TestGetImageData_ExtractsJPEGImage
@@ -199,7 +199,7 @@ func TestImageFileExists(t *testing.T) {
 
 	imagePath := filepath.Join(root, "internal", "pdfcore", "image.go")
 	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
-		t.Fatal("[P1] 6.1-INTG-001: internal/pdfcore/image.go does not exist")
+		t.Fatal("internal/pdfcore/image.go does not exist")
 	}
 }
 
@@ -214,10 +214,10 @@ func TestGetImageDataMethodExists(t *testing.T) {
 	imagePath := filepath.Join(root, "internal", "pdfcore", "image.go")
 	content, err := os.ReadFile(imagePath)
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-002: cannot read image.go: %v", err)
+		t.Fatalf("cannot read image.go: %v", err)
 	}
 	if !strings.Contains(string(content), "func (ins *Inspector) GetImageData(") {
-		t.Error("[P1] 6.1-INTG-002: image.go missing GetImageData method on Inspector")
+		t.Error("image.go missing GetImageData method on Inspector")
 	}
 }
 
@@ -233,13 +233,13 @@ func TestImageDataModelExists(t *testing.T) {
 	modelPath := filepath.Join(root, "internal", "pdfcore", "model.go")
 	content, err := os.ReadFile(modelPath)
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-003: cannot read model.go: %v", err)
+		t.Fatalf("cannot read model.go: %v", err)
 	}
 
 	modelContent := string(content)
 
 	if !strings.Contains(modelContent, "type ImageData struct") {
-		t.Fatal("[P1] 6.1-INTG-003: model.go missing ImageData struct")
+		t.Fatal("model.go missing ImageData struct")
 	}
 
 	// Verify required JSON tags
@@ -259,7 +259,7 @@ func TestImageDataModelExists(t *testing.T) {
 
 	for _, tag := range requiredTags {
 		if !strings.Contains(modelContent, tag) {
-			t.Errorf("[P1] 6.1-INTG-003: ImageData missing JSON tag: %s", tag)
+			t.Errorf("ImageData missing JSON tag: %s", tag)
 		}
 	}
 }
@@ -275,10 +275,10 @@ func TestServiceGetImageDataMethodExists(t *testing.T) {
 	servicePath := filepath.Join(root, "internal", "pdfservice", "service.go")
 	content, err := os.ReadFile(servicePath)
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-004: cannot read service.go: %v", err)
+		t.Fatalf("cannot read service.go: %v", err)
 	}
 	if !strings.Contains(string(content), "func (s *PDFService) GetImageData(") {
-		t.Error("[P1] 6.1-INTG-004: service.go missing GetImageData method on PDFService")
+		t.Error("service.go missing GetImageData method on PDFService")
 	}
 }
 
@@ -301,7 +301,7 @@ func TestPDFServiceGetImageData(t *testing.T) {
 func TestImageTestDataExists(t *testing.T) {
 	imagePDF := filepath.Join(testdataDir(t), "image-xobject.pdf")
 	if _, err := os.Stat(imagePDF); os.IsNotExist(err) {
-		t.Fatal("[P1] 6.1-INTG-006: testdata/image-xobject.pdf does not exist -- must be created for image extraction tests")
+		t.Fatal("testdata/image-xobject.pdf does not exist -- must be created for image extraction tests")
 	}
 }
 
@@ -317,10 +317,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-007: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 6.1-INTG-007: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -335,10 +335,10 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-008: pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 6.1-INTG-008: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -353,7 +353,7 @@ func TestPdfcoreGoVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-009: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 }
 
@@ -368,10 +368,10 @@ func TestImageFileZeroWailsImports(t *testing.T) {
 	imagePath := filepath.Join(root, "internal", "pdfcore", "image.go")
 	content, err := os.ReadFile(imagePath)
 	if err != nil {
-		t.Fatalf("[P1] 6.1-INTG-010: cannot read image.go: %v", err)
+		t.Fatalf("cannot read image.go: %v", err)
 	}
 	if strings.Contains(string(content), "wailsapp") {
-		t.Error("[P1] 6.1-INTG-010: image.go imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies")
+		t.Error("image.go imports Wails (contains 'wailsapp') -- pdfcore must have zero Wails dependencies")
 	}
 }
 

@@ -27,7 +27,7 @@ func TestDiff_FixturesParseThroughOpenPath(t *testing.T) {
 		pdf := writeTempPDF(t, name, content)
 		_, stderr, ec := runCLI(t, bin, "dump", "objects", pdf)
 		if ec != 0 {
-			t.Fatalf("[P0] 13.6-INTG-000: fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
+			t.Fatalf("fixture %q rejected by the existing open path (exit %d): %s", name, ec, stderr)
 		}
 	}
 }
@@ -44,10 +44,10 @@ func TestDiff_IdenticalFilesExitZero(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.6-INTG-001: identical files must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("identical files must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	if strings.Contains(strings.ToLower(stderr), "unknown command") {
-		t.Errorf("[P0] 13.6-INTG-001: `diff` must be a real command, not an unknown-command error: %s", stderr)
+		t.Errorf("`diff` must be a real command, not an unknown-command error: %s", stderr)
 	}
 }
 
@@ -63,15 +63,15 @@ func TestDiff_DifferingFilesExitOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.6-INTG-002: differing files must exit 1, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("differing files must exit 1, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	// Guard against the current binary's unknown-command exit 1: a real run
 	// writes the delta to stdout and never reports an unknown command.
 	if strings.TrimSpace(stdout) == "" {
-		t.Errorf("[P0] 13.6-INTG-002: exit 1 must be a real diff run (non-empty stdout), got empty; stderr: %s", stderr)
+		t.Errorf("exit 1 must be a real diff run (non-empty stdout), got empty; stderr: %s", stderr)
 	}
 	if strings.Contains(strings.ToLower(stderr), "unknown command") {
-		t.Errorf("[P0] 13.6-INTG-002: `diff` must be a real command, not an unknown-command error: %s", stderr)
+		t.Errorf("`diff` must be a real command, not an unknown-command error: %s", stderr)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestDiff_BrokenFileExitsTwo(t *testing.T) {
 
 	_, _, ec := runCLI(t, bin, "diff", good, broken)
 	if ec != 2 {
-		t.Fatalf("[P0] 13.6-INTG-003: a broken input file must exit 2 (operational), got %d", ec)
+		t.Fatalf("a broken input file must exit 2 (operational), got %d", ec)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestDiff_MissingFileExitsTwo(t *testing.T) {
 
 	_, _, ec := runCLI(t, bin, "diff", good, "/no/such/file.pdf")
 	if ec != 2 {
-		t.Fatalf("[P0] 13.6-INTG-004: a nonexistent input file must exit 2 (operational), got %d", ec)
+		t.Fatalf("a nonexistent input file must exit 2 (operational), got %d", ec)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestDiff_SingleArgIsUsageError(t *testing.T) {
 
 	_, _, ec := runCLI(t, bin, "diff", only)
 	if ec != 2 {
-		t.Fatalf("[P0] 13.6-INTG-005: `diff` with one positional arg must exit 2 (usage), got %d", ec)
+		t.Fatalf("`diff` with one positional arg must exit 2 (usage), got %d", ec)
 	}
 }
 
@@ -132,7 +132,7 @@ func TestDiff_ThirdArgRejected(t *testing.T) {
 
 	_, _, ec := runCLI(t, bin, "diff", a, b, c)
 	if ec != 2 {
-		t.Fatalf("[P1] 13.6-INTG-006: a third positional arg must be rejected (exit 2), got %d", ec)
+		t.Fatalf("a third positional arg must be rejected (exit 2), got %d", ec)
 	}
 }
 
@@ -148,22 +148,22 @@ func TestDiff_JSONEnvelope(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", a, b)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.6-INTG-007: differing files --json must exit 1, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("differing files --json must exit 1, got %d (stderr: %s)", ec, stderr)
 	}
 	res := diffResult(t, "13.6-INTG-007", stdout)
 	added, removed, changed := summaryOf(t, "13.6-INTG-007", res)
 	if added+removed+changed == 0 {
-		t.Errorf("[P0] 13.6-INTG-007: differing files reported a zero-delta summary (+%d -%d ~%d)", added, removed, changed)
+		t.Errorf("differing files reported a zero-delta summary (+%d -%d ~%d)", added, removed, changed)
 	}
 	root, ok := res["root"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P0] 13.6-INTG-007: result has no \"root\" DiffNode object: %v", res)
+		t.Fatalf("result has no \"root\" DiffNode object: %v", res)
 	}
 	if getStr(root, "status") == "" {
-		t.Errorf("[P0] 13.6-INTG-007: root DiffNode has no \"status\"")
+		t.Errorf("root DiffNode has no \"status\"")
 	}
 	if _, hasPath := root["path"]; !hasPath {
-		t.Errorf("[P0] 13.6-INTG-007: root DiffNode has no \"path\"")
+		t.Errorf("root DiffNode has no \"path\"")
 	}
 }
 
@@ -179,7 +179,7 @@ func TestDiff_PlainTextContract(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.6-INTG-008: expected exit 1, got %d", ec)
+		t.Fatalf("expected exit 1, got %d", ec)
 	}
 	assertNotJSON(t, "13.6-INTG-008", stdout)
 	assertASCII(t, "13.6-INTG-008", stdout)
@@ -198,12 +198,12 @@ func TestDiff_PlainTextDeltaMarkers(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 13.6-INTG-009: expected exit 1, got %d", ec)
+		t.Fatalf("expected exit 1, got %d", ec)
 	}
 	// A change between one-page and two-page yields at least an added and/or a
 	// changed path line. Require at least one of the delta markers to appear.
 	if !strings.ContainsAny(stdout, "+-~") {
-		t.Errorf("[P1] 13.6-INTG-009: plain-text delta lacks any +/-/~ marker:\n%s", stdout)
+		t.Errorf("plain-text delta lacks any +/-/~ marker:\n%s", stdout)
 	}
 }
 
@@ -219,22 +219,22 @@ func TestDiff_PrettyIndentsJSON(t *testing.T) {
 
 	compact, _, ec := runCLI(t, bin, "diff", "--json", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 13.6-INTG-010: expected exit 1 for compact --json, got %d", ec)
+		t.Fatalf("expected exit 1 for compact --json, got %d", ec)
 	}
 	pretty, _, ec2 := runCLI(t, bin, "diff", "--json", "--pretty", a, b)
 	if ec2 != 1 {
-		t.Fatalf("[P1] 13.6-INTG-010: expected exit 1 for --pretty, got %d", ec2)
+		t.Fatalf("expected exit 1 for --pretty, got %d", ec2)
 	}
 	if !parsesAsJSON(compact) || !parsesAsJSON(pretty) {
-		t.Fatalf("[P1] 13.6-INTG-010: both outputs must be valid JSON")
+		t.Fatalf("both outputs must be valid JSON")
 	}
 	compactLines := strings.Count(strings.TrimSpace(compact), "\n")
 	prettyLines := strings.Count(strings.TrimSpace(pretty), "\n")
 	if compactLines != 0 {
-		t.Errorf("[P1] 13.6-INTG-010: default --json should be single-line, saw %d newlines", compactLines)
+		t.Errorf("default --json should be single-line, saw %d newlines", compactLines)
 	}
 	if prettyLines <= compactLines {
-		t.Errorf("[P1] 13.6-INTG-010: --pretty should be multi-line (more newlines than compact); compact=%d pretty=%d", compactLines, prettyLines)
+		t.Errorf("--pretty should be multi-line (more newlines than compact); compact=%d pretty=%d", compactLines, prettyLines)
 	}
 }
 
@@ -250,14 +250,14 @@ func TestDiff_FullIncludesUnchanged(t *testing.T) {
 
 	def, _, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 13.6-INTG-011: expected exit 1, got %d", ec)
+		t.Fatalf("expected exit 1, got %d", ec)
 	}
 	full, _, ec2 := runCLI(t, bin, "diff", "--full", a, b)
 	if ec2 != 1 {
-		t.Fatalf("[P1] 13.6-INTG-011: expected exit 1 with --full, got %d", ec2)
+		t.Fatalf("expected exit 1 with --full, got %d", ec2)
 	}
 	if len(full) <= len(def) {
-		t.Errorf("[P1] 13.6-INTG-011: --full (%d bytes) should include unchanged paths and exceed the default (%d bytes)", len(full), len(def))
+		t.Errorf("--full (%d bytes) should include unchanged paths and exceed the default (%d bytes)", len(full), len(def))
 	}
 }
 
@@ -275,12 +275,12 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", a, b)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.6-INTG-012: renumbered-but-identical pair must exit 0 (identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("renumbered-but-identical pair must exit 0 (identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	res := diffResult(t, "13.6-INTG-012", stdout)
 	added, removed, changed := summaryOf(t, "13.6-INTG-012", res)
 	if added != 0 || removed != 0 || changed != 0 {
-		t.Errorf("[P0] 13.6-INTG-012: path-alignment failed -- renumbered-but-identical shows delta +%d -%d ~%d (want 0/0/0)", added, removed, changed)
+		t.Errorf("path-alignment failed -- renumbered-but-identical shows delta +%d -%d ~%d (want 0/0/0)", added, removed, changed)
 	}
 }
 
@@ -296,18 +296,18 @@ func TestDiff_SummaryPageCount(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "diff", "--json", a, b)
 	if ec != 1 {
-		t.Fatalf("[P1] 13.6-INTG-013: expected exit 1, got %d", ec)
+		t.Fatalf("expected exit 1, got %d", ec)
 	}
 	res := diffResult(t, "13.6-INTG-013", stdout)
 	sum, ok := res["summary"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P1] 13.6-INTG-013: no summary object")
+		t.Fatalf("no summary object")
 	}
 	if jsonInt(sum["pageCountLeft"]) != 1 {
-		t.Errorf("[P1] 13.6-INTG-013: summary.pageCountLeft = %d, want 1", jsonInt(sum["pageCountLeft"]))
+		t.Errorf("summary.pageCountLeft = %d, want 1", jsonInt(sum["pageCountLeft"]))
 	}
 	if jsonInt(sum["pageCountRight"]) != 2 {
-		t.Errorf("[P1] 13.6-INTG-013: summary.pageCountRight = %d, want 2", jsonInt(sum["pageCountRight"]))
+		t.Errorf("summary.pageCountRight = %d, want 2", jsonInt(sum["pageCountRight"]))
 	}
 }
 
@@ -322,12 +322,12 @@ func TestDiff_HelpDocumentsCommandAndExitCodes(t *testing.T) {
 	help := stdout + stderr
 	lower := strings.ToLower(help)
 	if !strings.Contains(lower, "diff") {
-		t.Errorf("[P1] 13.6-INTG-014: --help does not mention the `diff` command:\n%s", help)
+		t.Errorf("--help does not mention the `diff` command:\n%s", help)
 	}
 	// The exit-code contract (0 identical / 1 differ / 2 operational) must be
 	// documented somewhere in the diff help block.
 	if !strings.Contains(lower, "identical") || !strings.Contains(lower, "differ") {
-		t.Errorf("[P1] 13.6-INTG-014: --help must document the diff 0/1/2 exit contract (identical/differ):\n%s", help)
+		t.Errorf("--help must document the diff 0/1/2 exit contract (identical/differ):\n%s", help)
 	}
 }
 
@@ -348,27 +348,27 @@ func TestDiff_InfoOnlyChangeExitsOne(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", a, b)
 	if ec != 1 {
-		t.Fatalf("[P0] 13.6-INTG-016: an /Info-only difference must exit 1 (differ), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("an /Info-only difference must exit 1 (differ), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	if !strings.Contains(strings.ToLower(stdout), "/info") {
-		t.Errorf("[P0] 13.6-INTG-016: plain text must name the /Info change:\n%s", stdout)
+		t.Errorf("plain text must name the /Info change:\n%s", stdout)
 	}
 
 	jout, jerr, jec := runCLI(t, bin, "diff", "--json", a, b)
 	if jec != 1 {
-		t.Fatalf("[P0] 13.6-INTG-016: --json /Info-only diff must exit 1, got %d\nstderr: %s", jec, jerr)
+		t.Fatalf("--json /Info-only diff must exit 1, got %d\nstderr: %s", jec, jerr)
 	}
 	res := diffResult(t, "13.6-INTG-016", jout)
 	added, removed, changed := summaryOf(t, "13.6-INTG-016", res)
 	if added != 0 || removed != 0 || changed != 0 {
-		t.Errorf("[P0] 13.6-INTG-016: /Info lives off the catalog walk, node counts must be 0/0/0, got +%d -%d ~%d", added, removed, changed)
+		t.Errorf("Info lives off the catalog walk, node counts must be 0/0/0, got +%d -%d ~%d", added, removed, changed)
 	}
 	sum, ok := res["summary"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P0] 13.6-INTG-016: no summary object")
+		t.Fatalf("no summary object")
 	}
 	if ic, _ := sum["infoChanged"].(bool); !ic {
-		t.Errorf("[P0] 13.6-INTG-016: summary.infoChanged = false, want true")
+		t.Errorf("summary.infoChanged = false, want true")
 	}
 }
 
@@ -383,11 +383,11 @@ func TestDiff_SelfPathIsIdentical(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "diff", "--json", p, p)
 	if ec != 0 {
-		t.Fatalf("[P2] 13.6-INTG-015: file-vs-itself must exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("file-vs-itself must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 	res := diffResult(t, "13.6-INTG-015", stdout)
 	added, removed, changed := summaryOf(t, "13.6-INTG-015", res)
 	if added != 0 || removed != 0 || changed != 0 {
-		t.Errorf("[P2] 13.6-INTG-015: self-diff summary not zero: +%d -%d ~%d", added, removed, changed)
+		t.Errorf("self-diff summary not zero: +%d -%d ~%d", added, removed, changed)
 	}
 }

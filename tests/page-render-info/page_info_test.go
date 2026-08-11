@@ -31,7 +31,7 @@ func TestPageInfo_FullObjectTopLevelShape(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC1-001: exit %d (resource not implemented?)\nstderr: %s", ec, stderr)
+		t.Fatalf("exit %d (resource not implemented?)\nstderr: %s", ec, stderr)
 	}
 
 	var m map[string]any
@@ -39,14 +39,14 @@ func TestPageInfo_FullObjectTopLevelShape(t *testing.T) {
 
 	for _, key := range []string{"page", "pageRef", "mediaBox", "cropBox", "rotate", "extGStates", "xobjects", "patterns", "shadings"} {
 		if _, ok := m[key]; !ok {
-			t.Errorf("[P0] 11.6-INTG-AC1-001: top-level object missing key %q", key)
+			t.Errorf("top-level object missing key %q", key)
 		}
 	}
 	if pg, _ := m["page"].(float64); int(pg) != 1 {
-		t.Errorf("[P0] 11.6-INTG-AC1-001: page = %v, want 1", m["page"])
+		t.Errorf("page = %v, want 1", m["page"])
 	}
 	if ref, _ := m["pageRef"].(string); !strings.Contains(ref, "3 0 R") {
-		t.Errorf("[P0] 11.6-INTG-AC1-001: pageRef = %q, want it to name the page object \"3 0 R\"", ref)
+		t.Errorf("pageRef = %q, want it to name the page object \"3 0 R\"", ref)
 	}
 }
 
@@ -69,23 +69,23 @@ func TestPageInfo_GeometryInheritsFromPagesAncestor(t *testing.T) {
 
 	mb, ok := m["mediaBox"].([]any)
 	if !ok || len(mb) != 4 {
-		t.Fatalf("[P0] 11.6-INTG-AC1-002: mediaBox not a 4-element array: %v", m["mediaBox"])
+		t.Fatalf("mediaBox not a 4-element array: %v", m["mediaBox"])
 	}
 	wantMB := []float64{0, 0, 612, 792}
 	for i, w := range wantMB {
 		if got, _ := mb[i].(float64); got != w {
-			t.Errorf("[P0] 11.6-INTG-AC1-002: inherited mediaBox[%d] = %v, want %v", i, mb[i], w)
+			t.Errorf("inherited mediaBox[%d] = %v, want %v", i, mb[i], w)
 		}
 	}
 	if rot, _ := m["rotate"].(float64); int(rot) != 90 {
-		t.Errorf("[P0] 11.6-INTG-AC1-002: inherited rotate = %v, want 90", m["rotate"])
+		t.Errorf("inherited rotate = %v, want 90", m["rotate"])
 	}
 	cb, ok := m["cropBox"].([]any)
 	if !ok || len(cb) != 4 {
-		t.Fatalf("[P0] 11.6-INTG-AC1-002: cropBox not a 4-element array: %v", m["cropBox"])
+		t.Fatalf("cropBox not a 4-element array: %v", m["cropBox"])
 	}
 	if got, _ := cb[0].(float64); got != 10 {
-		t.Errorf("[P0] 11.6-INTG-AC1-002: local cropBox[0] = %v, want 10", cb[0])
+		t.Errorf("local cropBox[0] = %v, want 10", cb[0])
 	}
 }
 
@@ -108,30 +108,30 @@ func TestPageInfo_ExtGStateResolvedWithSMaskDescriptor(t *testing.T) {
 
 	gss, ok := asArray(m, "extGStates")
 	if !ok {
-		t.Fatal("[P0] 11.6-INTG-AC2-001: extGStates is not an array")
+		t.Fatal("extGStates is not an array")
 	}
 	gs0 := findByName(gss, "GS0")
 	if gs0 == nil {
-		t.Fatalf("[P0] 11.6-INTG-AC2-001: no extGState named GS0\nstdout: %s", stdout)
+		t.Fatalf("no extGState named GS0\nstdout: %s", stdout)
 	}
 	if ref, _ := gs0["ref"].(string); !strings.Contains(ref, "5 0 R") {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 ref = %q, want it to name \"5 0 R\"", ref)
+		t.Errorf("GS0 ref = %q, want it to name \"5 0 R\"", ref)
 	}
 	if bm, _ := gs0["BM"].(string); bm != "Multiply" {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 BM = %q, want \"Multiply\"", bm)
+		t.Errorf("GS0 BM = %q, want \"Multiply\"", bm)
 	}
 	if ca, _ := gs0["ca"].(float64); ca != 0.5 {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 ca = %v, want 0.5", gs0["ca"])
+		t.Errorf("GS0 ca = %v, want 0.5", gs0["ca"])
 	}
 	if CA, _ := gs0["CA"].(float64); CA != 1.0 {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 CA = %v, want 1.0", gs0["CA"])
+		t.Errorf("GS0 CA = %v, want 1.0", gs0["CA"])
 	}
 	// SMask must be a RESOLVED descriptor (object), not the literal string "None".
 	if _, isStr := gs0["SMask"].(string); isStr {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 SMask resolved to the literal %q; want a resolved soft-mask descriptor object", gs0["SMask"])
+		t.Errorf("GS0 SMask resolved to the literal %q; want a resolved soft-mask descriptor object", gs0["SMask"])
 	}
 	if _, isObj := gs0["SMask"].(map[string]any); !isObj {
-		t.Errorf("[P0] 11.6-INTG-AC2-001: GS0 SMask = %v (%T), want a resolved soft-mask dict", gs0["SMask"], gs0["SMask"])
+		t.Errorf("GS0 SMask = %v (%T), want a resolved soft-mask dict", gs0["SMask"], gs0["SMask"])
 	}
 }
 
@@ -154,10 +154,10 @@ func TestPageInfo_ExtGStateSMaskNoneIsLiteral(t *testing.T) {
 	gss, _ := asArray(m, "extGStates")
 	gs1 := findByName(gss, "GS1")
 	if gs1 == nil {
-		t.Fatalf("[P1] 11.6-INTG-AC2-002: no extGState named GS1\nstdout: %s", stdout)
+		t.Fatalf("no extGState named GS1\nstdout: %s", stdout)
 	}
 	if s, _ := gs1["SMask"].(string); s != "None" {
-		t.Errorf("[P1] 11.6-INTG-AC2-002: GS1 SMask = %v, want the literal \"None\"", gs1["SMask"])
+		t.Errorf("GS1 SMask = %v, want the literal \"None\"", gs1["SMask"])
 	}
 }
 
@@ -180,32 +180,32 @@ func TestPageInfo_FormXObjectGroupResolved(t *testing.T) {
 	xobjs, _ := asArray(m, "xobjects")
 	fm0 := findByName(xobjs, "Fm0")
 	if fm0 == nil {
-		t.Fatalf("[P0] 11.6-INTG-AC3-001: no xobject named Fm0\nstdout: %s", stdout)
+		t.Fatalf("no xobject named Fm0\nstdout: %s", stdout)
 	}
 	if st, _ := fm0["subtype"].(string); st != "Form" {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 subtype = %q, want \"Form\"", st)
+		t.Errorf("Fm0 subtype = %q, want \"Form\"", st)
 	}
 	if bb, ok := fm0["bbox"].([]any); !ok || len(bb) != 4 {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 bbox = %v, want a 4-element array", fm0["bbox"])
+		t.Errorf("Fm0 bbox = %v, want a 4-element array", fm0["bbox"])
 	}
 	if mx, ok := fm0["matrix"].([]any); !ok || len(mx) != 6 {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 matrix = %v, want a 6-element array", fm0["matrix"])
+		t.Errorf("Fm0 matrix = %v, want a 6-element array", fm0["matrix"])
 	}
 	grp, ok := fm0["group"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P0] 11.6-INTG-AC3-001: Fm0 group is not an object: %v", fm0["group"])
+		t.Fatalf("Fm0 group is not an object: %v", fm0["group"])
 	}
 	if s, _ := grp["S"].(string); s != "Transparency" {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 group.S = %q, want \"Transparency\"", s)
+		t.Errorf("Fm0 group.S = %q, want \"Transparency\"", s)
 	}
 	if cs, _ := grp["CS"].(string); cs != "DeviceRGB" {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 group.CS = %q, want \"DeviceRGB\"", cs)
+		t.Errorf("Fm0 group.CS = %q, want \"DeviceRGB\"", cs)
 	}
 	if i, _ := grp["I"].(bool); !i {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 group.I = %v, want true", grp["I"])
+		t.Errorf("Fm0 group.I = %v, want true", grp["I"])
 	}
 	if k, ok := grp["K"].(bool); !ok || k {
-		t.Errorf("[P0] 11.6-INTG-AC3-001: Fm0 group.K = %v, want false", grp["K"])
+		t.Errorf("Fm0 group.K = %v, want false", grp["K"])
 	}
 }
 
@@ -229,30 +229,30 @@ func TestPageInfo_ImageXObjectColorSpaceClassified(t *testing.T) {
 	xobjs, _ := asArray(m, "xobjects")
 	im0 := findByName(xobjs, "Im0")
 	if im0 == nil {
-		t.Fatalf("[P0] 11.6-INTG-AC3-002: no xobject named Im0\nstdout: %s", stdout)
+		t.Fatalf("no xobject named Im0\nstdout: %s", stdout)
 	}
 	if st, _ := im0["subtype"].(string); st != "Image" {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 subtype = %q, want \"Image\"", st)
+		t.Errorf("Im0 subtype = %q, want \"Image\"", st)
 	}
 	if w, _ := im0["width"].(float64); int(w) != 2 {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 width = %v, want 2", im0["width"])
+		t.Errorf("Im0 width = %v, want 2", im0["width"])
 	}
 	if h, _ := im0["height"].(float64); int(h) != 2 {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 height = %v, want 2", im0["height"])
+		t.Errorf("Im0 height = %v, want 2", im0["height"])
 	}
 	cs, ok := im0["colorSpace"].(map[string]any)
 	if !ok {
-		t.Fatalf("[P0] 11.6-INTG-AC3-002: Im0 colorSpace is not an object: %v", im0["colorSpace"])
+		t.Fatalf("Im0 colorSpace is not an object: %v", im0["colorSpace"])
 	}
 	if fam, _ := cs["family"].(string); fam != "ICCBased" {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 colorSpace.family = %q, want \"ICCBased\"", fam)
+		t.Errorf("Im0 colorSpace.family = %q, want \"ICCBased\"", fam)
 	}
 	if n, _ := cs["n"].(float64); int(n) != 3 {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 colorSpace.n = %v, want 3 (ICC component count)", cs["n"])
+		t.Errorf("Im0 colorSpace.n = %v, want 3 (ICC component count)", cs["n"])
 	}
 	// Some profile-size field must be present and positive (e.g. iccProfileSize).
 	if sz, _ := cs["iccProfileSize"].(float64); sz <= 0 {
-		t.Errorf("[P0] 11.6-INTG-AC3-002: Im0 colorSpace.iccProfileSize = %v, want a positive profile-stream size", cs["iccProfileSize"])
+		t.Errorf("Im0 colorSpace.iccProfileSize = %v, want a positive profile-stream size", cs["iccProfileSize"])
 	}
 }
 
@@ -275,22 +275,22 @@ func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
 	pats, _ := asArray(m, "patterns")
 	p0 := findByName(pats, "P0")
 	if p0 == nil {
-		t.Fatalf("[P1] 11.6-INTG-AC1-003: no pattern named P0\nstdout: %s", stdout)
+		t.Fatalf("no pattern named P0\nstdout: %s", stdout)
 	}
 	if ref, _ := p0["ref"].(string); !strings.Contains(ref, "12 0 R") {
-		t.Errorf("[P1] 11.6-INTG-AC1-003: P0 ref = %q, want it to name \"12 0 R\"", ref)
+		t.Errorf("P0 ref = %q, want it to name \"12 0 R\"", ref)
 	}
 	if pt, _ := p0["patternType"].(float64); int(pt) != 1 {
-		t.Errorf("[P1] 11.6-INTG-AC1-003: P0 patternType = %v, want 1", p0["patternType"])
+		t.Errorf("P0 patternType = %v, want 1", p0["patternType"])
 	}
 
 	shs, _ := asArray(m, "shadings")
 	sh0 := findByName(shs, "Sh0")
 	if sh0 == nil {
-		t.Fatalf("[P1] 11.6-INTG-AC1-003: no shading named Sh0\nstdout: %s", stdout)
+		t.Fatalf("no shading named Sh0\nstdout: %s", stdout)
 	}
 	if st, _ := sh0["shadingType"].(float64); int(st) != 2 {
-		t.Errorf("[P1] 11.6-INTG-AC1-003: Sh0 shadingType = %v, want 2", sh0["shadingType"])
+		t.Errorf("Sh0 shadingType = %v, want 2", sh0["shadingType"])
 	}
 }
 
@@ -317,7 +317,7 @@ func TestPageInfo_StructuralOnlyNoComputedColor(t *testing.T) {
 	}
 	for _, key := range forbidden {
 		if strings.Contains(stdout, key) {
-			t.Errorf("[P0] 11.6-INTG-AC7-001: output contains forbidden computed-color key %s -- the view must be structural-only (AC7)", key)
+			t.Errorf("output contains forbidden computed-color key %s -- the view must be structural-only", key)
 		}
 	}
 }
@@ -333,7 +333,7 @@ func TestPageInfo_NoResourcesEmptyArraysExitZero(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.6-INTG-AC6-001: no-/Resources page expected exit 0, got %d\nstderr: %s", ec, stderr)
+		t.Fatalf("no-/Resources page expected exit 0, got %d\nstderr: %s", ec, stderr)
 	}
 	var m map[string]any
 	mustParseJSON(t, stdout, &m)
@@ -341,11 +341,11 @@ func TestPageInfo_NoResourcesEmptyArraysExitZero(t *testing.T) {
 	for _, key := range []string{"extGStates", "xobjects", "patterns", "shadings"} {
 		arr, ok := asArray(m, key)
 		if !ok {
-			t.Errorf("[P0] 11.6-INTG-AC6-001: %q must be present as an array (empty), got %v", key, m[key])
+			t.Errorf("%q must be present as an array (empty), got %v", key, m[key])
 			continue
 		}
 		if len(arr) != 0 {
-			t.Errorf("[P0] 11.6-INTG-AC6-001: %q must be empty [] for a no-/Resources page, got %v", key, arr)
+			t.Errorf("%q must be empty [] for a no-/Resources page, got %v", key, arr)
 		}
 	}
 }
@@ -362,20 +362,20 @@ func TestPageInfo_OutOfRangePageExitTwo(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "999", pdfPath)
 	if ec != 2 {
-		t.Errorf("[P0] 11.6-INTG-AC6-002: out-of-range page expected exit 2, got %d", ec)
+		t.Errorf("out-of-range page expected exit 2, got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 11.6-INTG-AC6-002: stdout should be empty on page-not-found, got: %s", stdout)
+		t.Errorf("stdout should be empty on page-not-found, got: %s", stdout)
 	}
 	// Error belongs on stderr as a JSON object (mirrors writeJSONError).
 	var em map[string]any
 	if err := jsonTrimParse(stderr, &em); err != nil {
-		t.Errorf("[P0] 11.6-INTG-AC6-002: stderr should carry a JSON error object, got: %q (%v)", stderr, err)
+		t.Errorf("stderr should carry a JSON error object, got: %q (%v)", stderr, err)
 	} else if _, ok := em["error"]; !ok {
-		t.Errorf("[P0] 11.6-INTG-AC6-002: stderr JSON missing \"error\" key: %v", em)
+		t.Errorf("stderr JSON missing \"error\" key: %v", em)
 	}
 	if strings.Contains(stderr, "panic") || strings.Contains(stdout, "panic") {
-		t.Errorf("[P0] 11.6-INTG-AC6-002: command panicked")
+		t.Errorf("command panicked")
 	}
 }
 
@@ -393,13 +393,13 @@ func TestPageInfo_NonPositiveInfoUsageError(t *testing.T) {
 	// pre-implementation binary rejects it with "Unknown resource: page" (also
 	// exit 1), which would otherwise satisfy a naive usage-error assertion.
 	if strings.Contains(stderr, "Unknown resource") {
-		t.Fatalf("[P1] 11.6-INTG-AC6-003: `dump page` not implemented (got %q); usage-error path is untestable until the resource exists", strings.TrimSpace(stderr))
+		t.Fatalf("`dump page` not implemented (got %q); usage-error path is untestable until the resource exists", strings.TrimSpace(stderr))
 	}
 	if ec != 1 {
-		t.Errorf("[P1] 11.6-INTG-AC6-003: --info 0 should be a usage error (exit 1), got %d", ec)
+		t.Errorf("--info 0 should be a usage error (exit 1), got %d", ec)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Errorf("[P1] 11.6-INTG-AC6-003: stderr should carry a usage/error message for --info 0")
+		t.Errorf("stderr should carry a usage/error message for --info 0")
 	}
 }
 
@@ -414,10 +414,10 @@ func TestPageInfo_HelpMarksExperimental(t *testing.T) {
 	stdout, stderr, _ := runCLI(t, bin, "--help")
 	help := stdout + stderr
 	if !strings.Contains(help, "dump page") {
-		t.Errorf("[P1] 11.6-INTG-AC8-001: --help should list the `dump page` command")
+		t.Errorf("--help should list the `dump page` command")
 	}
 	if !strings.Contains(strings.ToLower(help), "experimental") {
-		t.Errorf("[P1] 11.6-INTG-AC8-001: help text should mark `dump page --info` output as experimental (AC8)")
+		t.Errorf("help text should mark `dump page --info` output as experimental")
 	}
 }
 
@@ -433,17 +433,17 @@ func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
 
 	compact, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P2] 11.6-INTG-XCUT-001: compact exit %d", ec)
+		t.Fatalf("compact exit %d", ec)
 	}
 	pretty, _, ep := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--pretty", pdfPath)
 	if ep != 0 {
-		t.Fatalf("[P2] 11.6-INTG-XCUT-001: --pretty exit %d", ep)
+		t.Fatalf("--pretty exit %d", ep)
 	}
 	if strings.Count(strings.TrimRight(compact, "\n"), "\n") != 0 {
-		t.Errorf("[P2] 11.6-INTG-XCUT-001: default output is not single-line compact:\n%.200s", compact)
+		t.Errorf("default output is not single-line compact:\n%.200s", compact)
 	}
 	if !strings.Contains(pretty, "\n  ") {
-		t.Errorf("[P2] 11.6-INTG-XCUT-001: --pretty output is not indented multi-line:\n%.200s", pretty)
+		t.Errorf("--pretty output is not indented multi-line:\n%.200s", pretty)
 	}
 }
 
