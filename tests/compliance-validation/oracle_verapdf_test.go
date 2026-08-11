@@ -154,13 +154,13 @@ func TestOracle_CleanFixtureZeroFailureAgreement(t *testing.T) {
 	clean := testdataDir(t) + "/pdfa-1b-clean.pdf"
 	if _, err := os.Stat(clean); err != nil {
 		t.Skip("clean PDF/A-1b positive fixture testdata/pdfa-1b-clean.pdf not present; " +
-			"Dev must supply a genuinely veraPDF-passing fixture (AC6 fixture plan) to arm this assertion")
+			"Dev must supply a genuinely veraPDF-passing fixture to arm this assertion")
 	}
 	bin := buildCLI(t)
 
 	compliant, vfailed := veraFailedClauses(t, veraBin, clean)
 	if !compliant {
-		t.Fatalf("[P0] 13.5-INTG-051: the \"clean\" fixture does NOT pass veraPDF --flavour 1b (failed clauses: %v); "+
+		t.Fatalf("the \"clean\" fixture does NOT pass veraPDF --flavour 1b (failed clauses: %v); "+
 			"the oracle clean case is worthless until the fixture genuinely passes", keys(vfailed))
 	}
 

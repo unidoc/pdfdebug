@@ -282,7 +282,7 @@ func TestCIWorkflowReferencesVerifyScript(t *testing.T) {
 
 	if !strings.Contains(content, "scripts/verify-license.sh") {
 		t.Errorf(".github/workflows/ci.yml does not reference `scripts/verify-license.sh` -- " +
-			"the `Verify open-source docs` step from AC #9 / Task 5.3 is not wired in")
+			"the `Verify open-source docs` step is not wired in")
 	}
 	// The step should also be labelled per Task 5.3.
 	if !strings.Contains(content, "Verify open-source docs") {

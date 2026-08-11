@@ -57,7 +57,7 @@ func TestForms_NestedResolvedAgainstOwnResources(t *testing.T) {
 	// It is reachable only via Fm0's own /Resources, so its presence proves the
 	// walk used the form's own resource dict (feedback item 11 gotcha).
 	if !strings.Contains(stdout, "6 0 R") {
-		t.Errorf("[P0] 11.6-INTG-AC4-002: nested /Inner form (6 0 R) absent from --forms-recursive output; "+
+		t.Errorf("nested /Inner form (6 0 R) absent from --forms-recursive output; "+
 			"walk must resolve nested forms against the form's OWN /Resources\nstdout: %s", stdout)
 	}
 }

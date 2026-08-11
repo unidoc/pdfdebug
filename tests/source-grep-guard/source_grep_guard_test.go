@@ -269,7 +269,7 @@ func TestNoNewSourceGrepTests(t *testing.T) {
 	}
 
 	if len(newGreps) > 0 {
-		t.Errorf("AC#7 violation: %d NEW source-grep test(s) detected.\n"+
+		t.Errorf("%d NEW source-grep test(s) detected.\n"+
 			"These tests read main.go / MainLayout.tsx / EmptyState.tsx with a content-reading helper.\n"+
 			"Convert each to a behavioural test (Vitest, Playwright, or boot-smoke). See CONTRIBUTING.md.\n\n%s",
 			len(newGreps), strings.Join(newGreps, "\n"))

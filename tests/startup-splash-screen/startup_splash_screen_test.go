@@ -135,9 +135,9 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 		splashIdx = regexp.MustCompile(`(?i)(createSplash|newSplash|showSplash|splashWindow|splash\s*:=)`).FindStringIndex(src)
 	}
 	if splashIdx == nil {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): no splash window creation found in main.go. " +
+		t.Fatalf("no splash window creation found in main.go. " +
 			"Expected something like `splash := app.Window.NewWithOptions(...)` or " +
-			"`splash := createSplash(...)` per story Task 2.1.")
+			"`splash := createSplash(...)`.")
 	}
 
 	mainWinIdx := strings.Index(src, "app.Window.NewWithOptions(application.WebviewWindowOptions{")
@@ -181,7 +181,7 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 
 	for _, f := range requiredFields {
 		if !regexp.MustCompile(f.pattern).MatchString(src) {
-			t.Errorf("[P0] 9.13-INTG-002 (AC1/AC3): splash window option %q not found. %s. "+
+			t.Errorf("splash window option %q not found. %s. "+
 				"Searched: main.go and internal/splash/*.go.", f.pattern, f.why)
 		}
 	}
@@ -365,7 +365,7 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 	// or whatever alpha.85 spells it. Be permissive.
 	clearPattern := regexp.MustCompile(`(?i)(SetAlwaysOnTop\s*\(\s*false\s*\)|AlwaysOnTop\s*=\s*false)`)
 	if !clearPattern.MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-008 (AC5): splash dismissal must clear AlwaysOnTop before crossfade. " +
+		t.Errorf("splash dismissal must clear AlwaysOnTop before crossfade. " +
 			"Searched for SetAlwaysOnTop(false) and AlwaysOnTop = false; neither found.")
 	}
 
@@ -389,8 +389,8 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 		}
 	}
 	if !matched {
-		t.Errorf("[P0] 9.13-INTG-008 (AC5): splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
-			"If instantaneous swap is being shipped per the AC5 fallback, this test must be t.Skip'd with a Dev Notes reference.")
+		t.Errorf("splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
+			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a Dev Notes reference.")
 	}
 }
 
@@ -470,7 +470,7 @@ func TestSplashNotCreatedInsideSecondInstanceCallback(t *testing.T) {
 
 		forbidden := regexp.MustCompile(`(?i)(splash|createSplash|newSplash|showSplash|splashWindow)`)
 		if forbidden.MatchString(body) {
-			t.Errorf("[P0] 9.13-INTG-010 (AC8): callback at marker %q contains a splash reference. %s. "+
+			t.Errorf("callback at marker %q contains a splash reference. %s. "+
 				"Body excerpt: %s", region.startMarker, region.why, snippet(body, 200))
 		}
 	}
