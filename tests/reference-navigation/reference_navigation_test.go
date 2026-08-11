@@ -49,7 +49,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -57,13 +57,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestGetAncestorPathUnitTestPasses(t *testing.T) {
 		t.Fatalf("[P0] 2.8-INTG-003: testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
-	runPdfcoreTest(t, "2.8-INTG-003", "TestGetAncestorPath")
+	runPdfcoreTest(t, "TestGetAncestorPath")
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ func TestGetAncestorPathRootNode(t *testing.T) {
 		t.Fatalf("[P1] 2.8-INTG-004: testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
-	runPdfcoreTest(t, "2.8-INTG-004", "TestGetAncestorPathRoot$")
+	runPdfcoreTest(t, "TestGetAncestorPathRoot$")
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ func TestGetAncestorPathDanglingRef(t *testing.T) {
 		t.Fatalf("[P1] 2.8-INTG-005: testdata/minimal.pdf does not exist -- prerequisite missing")
 	}
 
-	runPdfcoreTest(t, "2.8-INTG-005", "TestGetAncestorPathDangling")
+	runPdfcoreTest(t, "TestGetAncestorPathDangling")
 }
 
 // ---------------------------------------------------------------------------

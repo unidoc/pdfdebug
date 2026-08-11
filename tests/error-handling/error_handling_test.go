@@ -49,7 +49,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -57,13 +57,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -84,7 +84,7 @@ func TestOpenPartialSuccessWithWarning(t *testing.T) {
 		t.Fatalf("[P0] 2.9-INTG-001: testdata/malformed.pdf does not exist -- prerequisite missing")
 	}
 
-	runPdfcoreTest(t, "2.9-INTG-001", "TestOpenPartialSuccess")
+	runPdfcoreTest(t, "TestOpenPartialSuccess")
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ func TestOpenPartialSuccessDocumentStored(t *testing.T) {
 		t.Fatalf("[P0] 2.9-INTG-002: testdata/malformed.pdf does not exist -- prerequisite missing")
 	}
 
-	runPdfcoreTest(t, "2.9-INTG-002", "TestOpenPartialSuccessDocStored")
+	runPdfcoreTest(t, "TestOpenPartialSuccessDocStored")
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ func TestOpenPartialSuccessDocumentStored(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailErrorNodePrefix(t *testing.T) {
-	runPdfcoreTest(t, "2.9-UNIT-001", "TestGetObjectDetailErrorNode")
+	runPdfcoreTest(t, "TestGetObjectDetailErrorNode")
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ func TestUsePDFServiceWarningField(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSafeCallPanicRecovery(t *testing.T) {
-	runPdfcoreTest(t, "2.9-UNIT-002", "TestSafeCallCatches")
+	runPdfcoreTest(t, "TestSafeCallCatches")
 }
 
 // ---------------------------------------------------------------------------
@@ -374,7 +374,7 @@ func TestSafeCallPanicRecovery(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeCreation(t *testing.T) {
-	runPdfcoreTest(t, "2.9-UNIT-003", "TestErrorNodeCreation")
+	runPdfcoreTest(t, "TestErrorNodeCreation")
 }
 
 // ---------------------------------------------------------------------------
@@ -383,5 +383,5 @@ func TestErrorNodeCreation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeSiblingSurvival(t *testing.T) {
-	runPdfcoreTest(t, "2.9-UNIT-004", "TestErrorNodeSiblingSurvival")
+	runPdfcoreTest(t, "TestErrorNodeSiblingSurvival")
 }

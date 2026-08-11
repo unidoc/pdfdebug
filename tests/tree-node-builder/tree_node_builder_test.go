@@ -48,7 +48,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -56,13 +56,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 	// - Assert TreeNode.IconHint == "catalog"
 	// - Assert TreeNode.ChildCount > 0 (catalog has entries)
 	// - Assert no error returned
-	runPdfcoreTest(t, "2.2-UNIT-001 P0", "TestGetTreeRoot$")
+	runPdfcoreTest(t, "TestGetTreeRoot$")
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ func TestGetChildrenRoot(t *testing.T) {
 	// - Assert at least one child has ID starting with "obj:" (indirect ref)
 	// - Assert children include entries for /Type and /Pages (from catalog)
 	// - Assert each child has a non-empty Label, NodeType, and IconHint
-	runPdfcoreTest(t, "2.2-UNIT-002 P0", "TestGetChildrenRoot$")
+	runPdfcoreTest(t, "TestGetChildrenRoot$")
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ func TestGetChildrenDictNode(t *testing.T) {
 	// - Assert at least one child has ID starting with "dict:"
 	// - Assert the dict key in the ID is bare (no leading slash)
 	// - Assert each child has RawKey prefixed with "/" for dict entries
-	runPdfcoreTest(t, "2.2-UNIT-003 P0", "TestGetChildrenDictNode$")
+	runPdfcoreTest(t, "TestGetChildrenDictNode$")
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ func TestGetChildrenArrayNode(t *testing.T) {
 	// - Call GetChildren on the array node
 	// - Assert children have IDs starting with "arr:" or "obj:" (if elements are IndirectRefs)
 	// - Assert array element children have RawKey like "[0]", "[1]", etc.
-	runPdfcoreTest(t, "2.2-UNIT-004 P0", "TestGetChildrenArrayNode$")
+	runPdfcoreTest(t, "TestGetChildrenArrayNode$")
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ func TestErrorNodeCreation(t *testing.T) {
 	// - Assert the error node Label starts with "Error:"
 	// - Assert the error node NodeType is "scalar" (error nodes are leaves)
 	// - Assert sibling nodes are still returned when one child errors
-	runPdfcoreTest(t, "2.2-UNIT-005 P0", "TestErrorNode")
+	runPdfcoreTest(t, "TestErrorNode")
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ func TestSemanticLabelPages(t *testing.T) {
 	// - Find the child for /Pages
 	// - Assert Label == "Pages"
 	// - Assert IconHint == "page"
-	runPdfcoreTest(t, "2.2-UNIT-006 P1", "TestSemanticLabelPages$")
+	runPdfcoreTest(t, "TestSemanticLabelPages$")
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ func TestSemanticLabelFont(t *testing.T) {
 	// - Navigate to a font dict entry
 	// - Assert Label matches "Font: {name}" or "Font" pattern
 	// - Assert IconHint == "font"
-	runPdfcoreTest(t, "2.2-UNIT-007 P1", "TestSemanticLabelFont$")
+	runPdfcoreTest(t, "TestSemanticLabelFont$")
 }
 
 // ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ func TestNodeTypeAssignment(t *testing.T) {
 	// - Assert scalar leaf nodes have NodeType "scalar"
 	// - Assert indirect ref children have NodeType reflecting the resolved type or "ref"
 	// - Assert all NodeType values are one of: "dict", "array", "stream", "ref", "scalar"
-	runPdfcoreTest(t, "2.2-UNIT-008 P1", "TestNodeTypeAssignment$")
+	runPdfcoreTest(t, "TestNodeTypeAssignment$")
 }
 
 // ---------------------------------------------------------------------------
@@ -260,7 +260,7 @@ func TestNodeIDRoundTrip(t *testing.T) {
 	// - Test parseNodeID("dict:root:Pages") returns kind="dict", parentID="root", key="Pages"
 	// - Test parseNodeID("dict:obj:0:5:Type") returns kind="dict", parentID="obj:0:5", key="Type"
 	// - Test parseNodeID("arr:obj:0:12:3") returns kind="arr", parentID="obj:0:12", index="3"
-	runPdfcoreTest(t, "2.2-UNIT-009 P1", "TestNodeIDRoundTrip$")
+	runPdfcoreTest(t, "TestNodeIDRoundTrip$")
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +273,7 @@ func TestIconHintXObjectImage(t *testing.T) {
 	// which must:
 	// - Test that an XObject with Subtype=Image gets iconHint "image"
 	// - Can use a real PDF with images or a unit test with mock pdfcpu objects
-	runPdfcoreTest(t, "2.2-UNIT-010 P2", "TestIconHintXObjectImage$")
+	runPdfcoreTest(t, "TestIconHintXObjectImage$")
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +287,7 @@ func TestGetChildrenEmptyDict(t *testing.T) {
 	// - Create or navigate to a dict with zero entries
 	// - Call GetChildren
 	// - Assert result is non-nil empty slice (not nil)
-	runPdfcoreTest(t, "2.2-UNIT-011 P2", "TestGetChildrenEmptyDict$")
+	runPdfcoreTest(t, "TestGetChildrenEmptyDict$")
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +301,7 @@ func TestGetChildrenEmptyArray(t *testing.T) {
 	// - Create or navigate to an array with zero elements
 	// - Call GetChildren
 	// - Assert result is non-nil empty slice (not nil)
-	runPdfcoreTest(t, "2.2-UNIT-012 P2", "TestGetChildrenEmptyArray$")
+	runPdfcoreTest(t, "TestGetChildrenEmptyArray$")
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +316,7 @@ func TestGetTreeRootUnknownTabID(t *testing.T) {
 	// - Call GetTreeRoot with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.2-UNIT-013 P0", "TestGetTreeRootUnknownTabID$")
+	runPdfcoreTest(t, "TestGetTreeRootUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
@@ -331,7 +331,7 @@ func TestGetChildrenUnknownTabID(t *testing.T) {
 	// - Call GetChildren with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.2-UNIT-014 P0", "TestGetChildrenUnknownTabID$")
+	runPdfcoreTest(t, "TestGetChildrenUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +352,7 @@ func TestGetChildrenInvalidNodeID(t *testing.T) {
 	// - Call GetChildren with an invalid nodeID (e.g., "bogus", "obj:", "obj:abc:def")
 	// - Assert error is returned
 	// - Assert no panic occurs
-	runPdfcoreTest(t, "2.2-UNIT-015 P1", "TestGetChildrenInvalidNodeID$")
+	runPdfcoreTest(t, "TestGetChildrenInvalidNodeID$")
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ func TestScalarLeafNodes(t *testing.T) {
 	// - Assert HasChildren == false
 	// - Assert ValueType is set (e.g., "name" for Name objects)
 	// - Assert NodeType == "scalar"
-	runPdfcoreTest(t, "2.2-UNIT-016 P1", "TestScalarLeafNodes$")
+	runPdfcoreTest(t, "TestScalarLeafNodes$")
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +390,7 @@ func TestIconHintCatalog(t *testing.T) {
 	// Delegates to internal/pdfcore/tree_test.go::TestGetTreeRoot
 	// The root node test already covers iconHint="catalog" but we verify
 	// explicitly via the tree_test.go root test.
-	runPdfcoreTest(t, "2.2-UNIT-017 P1", "TestGetTreeRoot$")
+	runPdfcoreTest(t, "TestGetTreeRoot$")
 }
 
 // ---------------------------------------------------------------------------

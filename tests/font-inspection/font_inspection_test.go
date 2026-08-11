@@ -65,7 +65,7 @@ func projectRoot(t *testing.T) string {
 // tests/object-source-and-reverse-refs/object_source_and_reverse_refs_test.go
 // so dev writes the actual assertion logic in internal/pdfcore/font_test.go
 // while this integration suite pins the test-name strings.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -73,13 +73,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -289,25 +289,25 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 // Font dict), GetFontDetail returns ErrNotAFont so the frontend renders the
 // generic DictView instead of attempting a font-shaped extraction.
 func TestGetFontDetailNotAFontSentinel(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-007", "TestGetFontDetail_NotAFontSentinel")
+	runPdfcoreTest(t, "TestGetFontDetail_NotAFontSentinel")
 }
 
 // 9.9-INTG-008 [P0]: GetFontDetail with unknown tabID returns
 // ErrDocumentNotFound (matches existing image/contentStream conventions).
 func TestGetFontDetailUnknownTab(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-008", "TestGetFontDetail_UnknownTab")
+	runPdfcoreTest(t, "TestGetFontDetail_UnknownTab")
 }
 
 // 9.9-INTG-009 [P0]: GetFontDetail with empty nodeID returns a Go error
 // (programmer error; matches GetImageData / GetContentStream conventions).
 func TestGetFontDetailEmptyNodeID(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-009", "TestGetFontDetail_EmptyNodeID")
+	runPdfcoreTest(t, "TestGetFontDetail_EmptyNodeID")
 }
 
 // 9.9-INTG-010 [P0]: GetFontDetail on a malformed font dict does not panic
 // (safeCall wrapping is asserted by behavior, not just by source grep).
 func TestGetFontDetailPanicRecovery(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-010", "TestGetFontDetail_PanicRecovery")
+	runPdfcoreTest(t, "TestGetFontDetail_PanicRecovery")
 }
 
 // ---------------------------------------------------------------------------
@@ -319,20 +319,20 @@ func TestGetFontDetailPanicRecovery(t *testing.T) {
 // Subtype, EncodingName populated; Differences empty; Embedded reflects
 // FontDescriptor.FontFile* presence (or absence).
 func TestFontDetailSimpleType1(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-011", "TestGetFontDetail_SimpleType1WithNamedEncoding")
+	runPdfcoreTest(t, "TestGetFontDetail_SimpleType1WithNamedEncoding")
 }
 
 // 9.9-INTG-012 [P0]: AC#2 embedded badge truth source -- Embedded reflects
 // FontDescriptor.FontFile / FontFile2 / FontFile3 presence for non-Type0
 // fonts; Embedded reflects Descendant.FontDescriptor for Type0 fonts.
 func TestFontDetailEmbeddedFlagWiring(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-012", "TestGetFontDetail_EmbeddedFlagReflectsFontFile")
+	runPdfcoreTest(t, "TestGetFontDetail_EmbeddedFlagReflectsFontFile")
 }
 
 // 9.9-INTG-013 [P0]: AC#2 -- unembedded font (e.g. Helvetica with no
 // FontFile) reports Embedded=false AND FontDescriptor.FontFileFormat=="".
 func TestFontDetailUnembeddedFont(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-013", "TestGetFontDetail_UnembeddedFontReportsNoFile")
+	runPdfcoreTest(t, "TestGetFontDetail_UnembeddedFontReportsNoFile")
 }
 
 // ---------------------------------------------------------------------------
@@ -344,7 +344,7 @@ func TestFontDetailUnembeddedFont(t *testing.T) {
 // is made about Encoding / FontDescriptor / DescendantFonts shape beyond
 // "render if present".
 func TestFontDetailUnknownSubtype(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-014", "TestGetFontDetail_UnknownOrMissingSubtype")
+	runPdfcoreTest(t, "TestGetFontDetail_UnknownOrMissingSubtype")
 }
 
 // ---------------------------------------------------------------------------
@@ -355,7 +355,7 @@ func TestFontDetailUnknownSubtype(t *testing.T) {
 // /MacRomanEncoding) populates EncodingName; Differences slice is empty;
 // BaseEncoding is empty.
 func TestFontDetailEncodingNamed(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-015", "TestGetFontDetail_EncodingNameOnly")
+	runPdfcoreTest(t, "TestGetFontDetail_EncodingNameOnly")
 }
 
 // 9.9-INTG-016 [P0]: AC#4 -- /Encoding dict with /Differences array parses
@@ -363,14 +363,14 @@ func TestFontDetailEncodingNamed(t *testing.T) {
 // names increment the code by 1. Two integers in the same array reset the
 // code base. BaseEncoding (if present) is captured verbatim.
 func TestFontDetailEncodingDifferences(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-016", "TestGetFontDetail_DifferencesArrayParsing")
+	runPdfcoreTest(t, "TestGetFontDetail_DifferencesArrayParsing")
 }
 
 // 9.9-INTG-017 [P0]: AC#3a -- a font with no /Encoding entry yields
 // EncodingName="" and BaseEncoding="" and an empty Differences slice. The
 // frontend renders the "Built-in encoding" sentinel based on that combination.
 func TestFontDetailEncodingMissing(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-017", "TestGetFontDetail_NoEncodingEntry")
+	runPdfcoreTest(t, "TestGetFontDetail_NoEncodingEntry")
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ func TestFontDetailEncodingMissing(t *testing.T) {
 // unicode-hex) into ToUnicodeMapping{Code, Unicode (U+XXXX form), Glyph
 // (literal)}.
 func TestToUnicodeBfcharParsing(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-018", "TestGetFontDetail_BfcharBlockParsing")
+	runPdfcoreTest(t, "TestGetFontDetail_BfcharBlockParsing")
 }
 
 // 9.9-INTG-019 [P0]: AC#5 -- bfrange block with triplet form
@@ -391,7 +391,7 @@ func TestToUnicodeBfcharParsing(t *testing.T) {
 // `<low> <high> [<u1> <u2> ...]` expands to one ToUnicodeMapping per code,
 // taking each ui in order.
 func TestToUnicodeBfrangeParsing(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-019", "TestGetFontDetail_BfrangeBlockParsing")
+	runPdfcoreTest(t, "TestGetFontDetail_BfrangeBlockParsing")
 }
 
 // 9.9-INTG-020 [P0]: AC#5 multi-codepoint -- a bfchar entry whose unicode
@@ -399,14 +399,14 @@ func TestToUnicodeBfrangeParsing(t *testing.T) {
 // joined literal in the glyph cell and emits the codepoints as
 // `U+0066 U+0066 U+006C` in the unicode field.
 func TestToUnicodeMultiCodepointMapping(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-020", "TestGetFontDetail_MultiCodepointLigature")
+	runPdfcoreTest(t, "TestGetFontDetail_MultiCodepointLigature")
 }
 
 // 9.9-INTG-021 [P0]: AC#5 -- unpaired UTF-16 surrogate halves (D800-DFFF) in
 // the unicode side decode to the codepoint without panic; the glyph cell is
 // blank (or U+25CC dotted circle) because no valid character is present.
 func TestToUnicodeSurrogateBlanksGlyph(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-021", "TestGetFontDetail_SurrogateGlyphBlanked")
+	runPdfcoreTest(t, "TestGetFontDetail_SurrogateGlyphBlanked")
 }
 
 // 9.9-INTG-022 [P0]: AC#5 -- Private Use Area codepoints (E000-F8FF,
@@ -414,14 +414,14 @@ func TestToUnicodeSurrogateBlanksGlyph(t *testing.T) {
 // blank rule, embedded PUA characters render as Apple/Microsoft system glyphs
 // that are misleading in a font-debug context.
 func TestToUnicodePUABlanksGlyph(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-022", "TestGetFontDetail_PrivateUseAreaGlyphBlanked")
+	runPdfcoreTest(t, "TestGetFontDetail_PrivateUseAreaGlyphBlanked")
 }
 
 // 9.9-INTG-023 [P0]: AC#5 -- C0/C1 control codepoints (<0x20, 0x7F-0xA0)
 // render with a blank glyph cell. Same reason as PUA: literal control chars
 // in a text cell are confusing.
 func TestToUnicodeControlBlanksGlyph(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-023", "TestGetFontDetail_ControlGlyphBlanked")
+	runPdfcoreTest(t, "TestGetFontDetail_ControlGlyphBlanked")
 }
 
 // 9.9-INTG-024 [P0]: AC#5 unparseable CMap -- when the ToUnicode stream
@@ -429,7 +429,7 @@ func TestToUnicodeControlBlanksGlyph(t *testing.T) {
 // (non-empty string) and ToUnicodeMappings is empty. GetFontDetail still
 // returns (*FontDetail, nil) -- partial-success semantics.
 func TestToUnicodeUnparseable(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-024", "TestGetFontDetail_UnparseableCMapPopulatesError")
+	runPdfcoreTest(t, "TestGetFontDetail_UnparseableCMapPopulatesError")
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +441,7 @@ func TestToUnicodeUnparseable(t *testing.T) {
 // FontDescriptorInfo populates FontName, ItalicAngle, Ascent, Descent,
 // CapHeight, StemV, FontBBox from the resolved dict.
 func TestFontDescriptorMetrics(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-025", "TestGetFontDetail_FontDescriptorMetricsPopulated")
+	runPdfcoreTest(t, "TestGetFontDetail_FontDescriptorMetricsPopulated")
 }
 
 // 9.9-INTG-026 [P0]: AC#6 -- /Flags integer decodes per PDF 1.7 spec section
@@ -450,7 +450,7 @@ func TestFontDescriptorMetrics(t *testing.T) {
 // FlagNames slice carries the human-readable names of every set bit; bits 5,
 // 8-16 are reserved and MUST NOT appear in FlagNames.
 func TestFontDescriptorFlagsDecoded(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-026", "TestGetFontDetail_FlagsBitDecoded")
+	runPdfcoreTest(t, "TestGetFontDetail_FlagsBitDecoded")
 }
 
 // 9.9-INTG-027 [P0]: AC#6 -- FontFile / FontFile2 / FontFile3 detection.
@@ -458,7 +458,7 @@ func TestFontDescriptorFlagsDecoded(t *testing.T) {
 // its /Subtype for the format string (e.g. OpenType, Type1C, CIDFontType0C).
 // FontFileSize is the byte length of the decoded stream content.
 func TestFontDescriptorFontFileDetection(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-027", "TestGetFontDetail_FontFileFormatAndSize")
+	runPdfcoreTest(t, "TestGetFontDetail_FontFileFormatAndSize")
 }
 
 // ---------------------------------------------------------------------------
@@ -470,7 +470,7 @@ func TestFontDescriptorFontFileDetection(t *testing.T) {
 // "CIDFontType2"; Descendant.BaseFont matches the descendant's /BaseFont;
 // Descendant.FontDescriptor is populated from the descendant's dict.
 func TestFontDetailType0Descendant(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-028", "TestGetFontDetail_Type0DescendantPopulated")
+	runPdfcoreTest(t, "TestGetFontDetail_Type0DescendantPopulated")
 }
 
 // 9.9-INTG-029 [P1]: AC#7 -- composite font Embedded badge wiring. For Type0
@@ -478,7 +478,7 @@ func TestFontDetailType0Descendant(t *testing.T) {
 // NOT the outer dict's own FontDescriptor (which is typically absent on Type0
 // parent fonts).
 func TestFontDetailType0EmbeddedFromDescendant(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-029", "TestGetFontDetail_Type0EmbeddedReflectsDescendant")
+	runPdfcoreTest(t, "TestGetFontDetail_Type0EmbeddedReflectsDescendant")
 }
 
 // 9.9-INTG-030 [P1]: AC#7 -- CIDSystemInfo fields (Registry, Ordering,
@@ -487,7 +487,7 @@ func TestFontDetailType0EmbeddedFromDescendant(t *testing.T) {
 // on the Descendant because the FontPreview's "Descendant Font" section
 // reads them straight off.
 func TestFontDetailType0CIDFields(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-030", "TestGetFontDetail_Type0CIDSystemInfoFields")
+	runPdfcoreTest(t, "TestGetFontDetail_Type0CIDSystemInfoFields")
 }
 
 // ---------------------------------------------------------------------------
@@ -516,14 +516,14 @@ func TestServiceExposesGetFontDetail(t *testing.T) {
 // whether the caller passes the direct dict's nodeID or an indirect-ref
 // node ID, because resolveNodeObject dereferences transparently.
 func TestFontDetailIndirectRefChain(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-032", "TestGetFontDetail_IndirectRefChainResolved")
+	runPdfcoreTest(t, "TestGetFontDetail_IndirectRefChainResolved")
 }
 
 // 9.9-INTG-033 [P1]: AC#10 -- a font dict packaged in /ObjStm extracts the
 // same FontDetail as the same dict outside ObjStm. resolveNodeObject's
 // ObjStm path is shared; this asserts the behavior continues to work.
 func TestFontDetailObjStmPackaging(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-033", "TestGetFontDetail_ObjStmPackagedFont")
+	runPdfcoreTest(t, "TestGetFontDetail_ObjStmPackagedFont")
 }
 
 // ---------------------------------------------------------------------------
@@ -535,7 +535,7 @@ func TestFontDetailObjStmPackaging(t *testing.T) {
 // metadata fields populate where present; ToUnicode / Encoding remain valid
 // for the cases that apply.
 func TestFontDetailType3DoesNotPanic(t *testing.T) {
-	runPdfcoreTest(t, "9.9-INTG-034", "TestGetFontDetail_Type3FontNoPanic")
+	runPdfcoreTest(t, "TestGetFontDetail_Type3FontNoPanic")
 }
 
 // ---------------------------------------------------------------------------

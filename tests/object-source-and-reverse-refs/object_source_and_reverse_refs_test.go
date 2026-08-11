@@ -67,7 +67,7 @@ func testdataDir(t *testing.T) string {
 // if the test does not pass or does not exist. Identical pattern to
 // tests/reference-navigation/reference_navigation_test.go so dev removes
 // t.Skip in the underlying pdfcore tests in lockstep with implementation.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -75,13 +75,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -119,25 +119,25 @@ func TestObjectSourceDictAndArrayForms(t *testing.T) {
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P0] 9.10-INTG-002: testdata/minimal.pdf missing")
 	}
-	runPdfcoreTest(t, "9.10-INTG-002", "TestObjectSourceSerializeForms")
+	runPdfcoreTest(t, "TestObjectSourceSerializeForms")
 }
 
 // 9.10-INTG-003 [P0]: indirect refs in serialized output are emitted as
 // `N G R` literals, NOT dereferenced (so cyclic refs cannot stack-overflow).
 func TestObjectSourceIndirectRefsNotDereferenced(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-003", "TestObjectSourceRefsEmittedNotDereferenced")
+	runPdfcoreTest(t, "TestObjectSourceRefsEmittedNotDereferenced")
 }
 
 // 9.10-INTG-004 [P0]: cycle protection -- a page tree with /Parent self-loop
 // must not stack-overflow during serialization.
 func TestObjectSourceCycleSafe(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-004", "TestObjectSourceCycleSafe")
+	runPdfcoreTest(t, "TestObjectSourceCycleSafe")
 }
 
 // 9.10-INTG-005 [P1]: deterministic dict key ordering (sorted ascending).
 // Without this, golden tests would be flaky on Go map iteration.
 func TestObjectSourceDeterministicKeyOrder(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-005", "TestObjectSourceDictKeysSorted")
+	runPdfcoreTest(t, "TestObjectSourceDictKeysSorted")
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +148,7 @@ func TestObjectSourceDeterministicKeyOrder(t *testing.T) {
 // returns the empty string with no error, so the frontend can render the AC3
 // empty-state copy.
 func TestObjectSourceInlineNodeReturnsEmpty(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-006", "TestObjectSourceInlineNodeIDReturnsEmptyString")
+	runPdfcoreTest(t, "TestObjectSourceInlineNodeIDReturnsEmptyString")
 }
 
 // ---------------------------------------------------------------------------
@@ -158,14 +158,14 @@ func TestObjectSourceInlineNodeReturnsEmpty(t *testing.T) {
 // 9.10-INTG-007 [P0]: stream serialization emits dict, then `stream` /
 // `endstream` markers with the byte-count placeholder, NOT the raw bytes.
 func TestObjectSourceStreamPlaceholder(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-007", "TestObjectSourceStreamPlaceholder")
+	runPdfcoreTest(t, "TestObjectSourceStreamPlaceholder")
 }
 
 // 9.10-INTG-008 [P1]: truncation rule -- output capped at the byte limit
 // (default 256KB) only between top-level entries, always emits the closing
 // bracket/brace and `endobj`, always emits the truncation marker.
 func TestObjectSourceTruncation(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-008", "TestObjectSourceTruncationRule")
+	runPdfcoreTest(t, "TestObjectSourceTruncationRule")
 }
 
 // ---------------------------------------------------------------------------
@@ -236,13 +236,13 @@ func TestReverseRefIndexBuildFromCatalog(t *testing.T) {
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P0] 9.10-INTG-013: testdata/multipage.pdf missing")
 	}
-	runPdfcoreTest(t, "9.10-INTG-013", "TestReverseRefIndexBuildPopulatesPagesAndKids")
+	runPdfcoreTest(t, "TestReverseRefIndexBuildPopulatesPagesAndKids")
 }
 
 // 9.10-INTG-014 [P0]: build panic sets revRefsBuildFailed=true and GetReverseRefs
 // returns ErrReverseRefIndexUnavailable -- verifies the AC6 failure mode.
 func TestReverseRefIndexFailureModeReturnsSentinel(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-014", "TestReverseRefIndexBuildPanicSurfacesSentinel")
+	runPdfcoreTest(t, "TestReverseRefIndexBuildPanicSurfacesSentinel")
 }
 
 // 9.10-INTG-015 [P1]: visited-set keyed by (num, gen) only, NO depth cap.
@@ -309,7 +309,7 @@ func TestReverseRefStructShape(t *testing.T) {
 // into different /Kids slots MUST have deterministic display order so the
 // section does not jitter between calls.
 func TestReverseRefEntriesDeterministicOrdering(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-017", "TestReverseRefEntriesSortedByParentThenPath")
+	runPdfcoreTest(t, "TestReverseRefEntriesSortedByParentThenPath")
 }
 
 // 9.10-INTG-018 [P1]: catalog has zero reverse-refs by construction. The
@@ -322,14 +322,14 @@ func TestReverseRefIndexCatalogHasZeroEntries(t *testing.T) {
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P1] 9.10-INTG-018: testdata/multipage.pdf missing")
 	}
-	runPdfcoreTest(t, "9.10-INTG-018", "TestReverseRefIndexCatalogIsEmpty")
+	runPdfcoreTest(t, "TestReverseRefIndexCatalogIsEmpty")
 }
 
 // 9.10-INTG-019 [P1]: an orphan-injected fixture returns an empty list (NOT
 // the sentinel error). This is the AC9 contract: empty list == no incoming
 // dict-graph refs (possible orphan).
 func TestReverseRefIndexOrphanReturnsEmptyList(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-019", "TestReverseRefIndexOrphanObjectHasEmptyList")
+	runPdfcoreTest(t, "TestReverseRefIndexOrphanObjectHasEmptyList")
 }
 
 // ---------------------------------------------------------------------------
@@ -339,7 +339,7 @@ func TestReverseRefIndexOrphanReturnsEmptyList(t *testing.T) {
 // 9.10-INTG-020 [P1]: opening two documents in two tabs yields two
 // independent indexes; queries against one are unaffected by the other.
 func TestReverseRefIndexPerDocument(t *testing.T) {
-	runPdfcoreTest(t, "9.10-INTG-020", "TestReverseRefIndexPerDocumentIsolation")
+	runPdfcoreTest(t, "TestReverseRefIndexPerDocumentIsolation")
 }
 
 // ---------------------------------------------------------------------------

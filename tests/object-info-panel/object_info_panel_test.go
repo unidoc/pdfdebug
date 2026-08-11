@@ -48,7 +48,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -56,13 +56,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestGetObjectDetailDict(t *testing.T) {
 	// - Assert Properties are sorted alphabetically by Key
 	// - Assert the /Type property has Value.Type == "name" and
 	//   Value.Display == "/Catalog"
-	runPdfcoreTest(t, "2.6-UNIT-001 P0", "TestGetObjectDetailDict$")
+	runPdfcoreTest(t, "TestGetObjectDetailDict$")
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ func TestGetObjectDetailArray(t *testing.T) {
 	// - Assert each ValueEntry has Type, Display, and Raw fields set
 	// - Assert IndirectRef elements have Type == "reference" and RefTarget
 	//   in "obj:{gen}:{num}" format
-	runPdfcoreTest(t, "2.6-UNIT-002 P0", "TestGetObjectDetailArray$")
+	runPdfcoreTest(t, "TestGetObjectDetailArray$")
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ func TestGetObjectDetailScalar(t *testing.T) {
 	// - Assert ObjectDetail.ScalarValue is non-nil
 	// - Assert ScalarValue.Type is set (e.g., "name")
 	// - Assert ScalarValue.Display is set (e.g., "/Catalog")
-	runPdfcoreTest(t, "2.6-UNIT-003 P0", "TestGetObjectDetailScalar$")
+	runPdfcoreTest(t, "TestGetObjectDetailScalar$")
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ func TestGetObjectDetailStream(t *testing.T) {
 	// - Assert ObjectDetail.StreamInfo is non-nil
 	// - Assert StreamInfo.Length >= 0
 	// - Assert StreamInfo.Filters is non-nil (possibly empty []string{})
-	runPdfcoreTest(t, "2.6-UNIT-004 P0", "TestGetObjectDetailStream$")
+	runPdfcoreTest(t, "TestGetObjectDetailStream$")
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ func TestGetObjectDetailObjectRef(t *testing.T) {
 	// - Assert ObjectDetail.ObjectRef matches "{num} {gen} R" format
 	// - Also test with "root" nodeID and assert ObjectRef is empty
 	//   (root is not an indirect object)
-	runPdfcoreTest(t, "2.6-UNIT-005 P0", "TestGetObjectDetailObjectRef$")
+	runPdfcoreTest(t, "TestGetObjectDetailObjectRef$")
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ func TestGetObjectDetailEmptyDict(t *testing.T) {
 	// - Call GetObjectDetail
 	// - Assert ObjectDetail.Type == "dict"
 	// - Assert ObjectDetail.Properties is non-nil and len == 0
-	runPdfcoreTest(t, "2.6-UNIT-006 P0", "TestGetObjectDetailEmptyDict$")
+	runPdfcoreTest(t, "TestGetObjectDetailEmptyDict$")
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ func TestGetObjectDetailEmptyArray(t *testing.T) {
 	// - Call GetObjectDetail
 	// - Assert ObjectDetail.Type == "array"
 	// - Assert ObjectDetail.Elements is non-nil and len == 0
-	runPdfcoreTest(t, "2.6-UNIT-007 P0", "TestGetObjectDetailEmptyArray$")
+	runPdfcoreTest(t, "TestGetObjectDetailEmptyArray$")
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +242,7 @@ func TestGetObjectDetailUnknownTabID(t *testing.T) {
 	// - Call GetObjectDetail with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.6-UNIT-008 P1", "TestGetObjectDetailUnknownTabID$")
+	runPdfcoreTest(t, "TestGetObjectDetailUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +263,7 @@ func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 	// - Call GetObjectDetail with an invalid nodeID (e.g., "bogus")
 	// - Assert error is returned
 	// - Assert no panic occurs
-	runPdfcoreTest(t, "2.6-UNIT-009 P1", "TestGetObjectDetailInvalidNodeID$")
+	runPdfcoreTest(t, "TestGetObjectDetailInvalidNodeID$")
 }
 
 // ---------------------------------------------------------------------------
@@ -284,7 +284,7 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 	// - Find a property whose Value.Type == "reference"
 	// - Assert Value.RefTarget is non-empty and matches "obj:{gen}:{num}" format
 	// - Assert Value.Display matches "{num} {gen} R" format
-	runPdfcoreTest(t, "2.6-UNIT-010 P1", "TestGetObjectDetailRefTarget$")
+	runPdfcoreTest(t, "TestGetObjectDetailRefTarget$")
 }
 
 // ---------------------------------------------------------------------------

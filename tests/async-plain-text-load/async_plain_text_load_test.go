@@ -68,7 +68,7 @@ func projectRoot(t *testing.T) string {
 // if the test does not pass or does not exist. Mirrors the pattern from
 // tests/detail-panel-tabs/ so dev is forced to provide the underlying unit
 // test in lockstep with the implementation.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -76,13 +76,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -105,7 +105,7 @@ func readSource(t *testing.T, relPath string) string {
 // content, with TotalBytes equal to the on-disk size and the Latin-1 decode rules
 // preserved.
 func TestHappyPath(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-001", "TestGetPlainTextAsyncHappyPath")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncHappyPath")
 }
 
 // TestCancelReturnsContextCanceled asserts that cancelling mid-load on a large
@@ -113,7 +113,7 @@ func TestHappyPath(t *testing.T) {
 // assertion is on the sentinel identity, not a substring: that identity is the
 // authoritative cancellation contract.
 func TestCancelReturnsContextCanceled(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-002", "TestGetPlainTextAsyncCancelReturnsContextCanceled")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncCancelReturnsContextCanceled")
 }
 
 // TestCloseReleasesGoroutine kicks a load on a large fixture, calls Close while the
@@ -121,26 +121,26 @@ func TestCancelReturnsContextCanceled(t *testing.T) {
 // The measurement is a delta on runtime.NumGoroutine with a bounded retry loop,
 // which avoids the absolute-count flakiness that plagues that counter.
 func TestCloseReleasesGoroutine(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-003", "TestGetPlainTextAsyncCloseReleasesGoroutine")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncCloseReleasesGoroutine")
 }
 
 // TestUnknownTabSentinels asserts the unknown-tab path returns
 // errors.Is(..., ErrDocumentNotFound) for GetPlainText, CancelPlainText and
 // GetPlainTextSize.
 func TestUnknownTabSentinels(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-004", "TestGetPlainTextAsyncUnknownTabSentinels")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncUnknownTabSentinels")
 }
 
 // TestGetPlainTextSize asserts the happy path returns a size matching os.Stat, and
 // that a moved file returns an error.
 func TestGetPlainTextSize(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-005", "TestGetPlainTextAsyncGetPlainTextSize")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncGetPlainTextSize")
 }
 
 // TestZeroByteFile asserts GetPlainText on a zero-byte file returns Content="" and
 // TotalBytes=0 with no error.
 func TestZeroByteFile(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-006", "TestGetPlainTextAsyncZeroByteFile")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncZeroByteFile")
 }
 
 // ---------------------------------------------------------------------------
@@ -151,18 +151,18 @@ func TestZeroByteFile(t *testing.T) {
 // on plainTextMu, the second observing the cached pointer by pointer equality, so
 // at most one disk read occurs.
 func TestConcurrentSharesIO(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-007", "TestGetPlainTextAsyncConcurrentSharesIO")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncConcurrentSharesIO")
 }
 
 // TestCacheHit asserts pointer equality across consecutive successful calls.
 func TestCacheHit(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-008", "TestGetPlainTextAsyncCacheHit")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncCacheHit")
 }
 
 // TestCancelDoesNotPopulateCache asserts a cancelled load leaves plainTextCache
 // empty, so the cache slot stays nil and a subsequent call performs a fresh read.
 func TestCancelDoesNotPopulateCache(t *testing.T) {
-	runPdfcoreTest(t, "10-1-INTG-009", "TestGetPlainTextAsyncCancelDoesNotPopulateCache")
+	runPdfcoreTest(t, "TestGetPlainTextAsyncCancelDoesNotPopulateCache")
 }
 
 // ---------------------------------------------------------------------------

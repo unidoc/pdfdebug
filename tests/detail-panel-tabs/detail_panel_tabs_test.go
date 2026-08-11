@@ -79,7 +79,7 @@ func testdataDir(t *testing.T) string {
 // tests/object-source-and-reverse-refs/object_source_and_reverse_refs_test.go
 // so the dev removes t.Skip in the underlying pdfcore tests in lockstep with
 // implementation.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -87,13 +87,13 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
@@ -134,27 +134,27 @@ func TestXRefTableBasicShape(t *testing.T) {
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P0] 9.11-INTG-002: testdata/minimal.pdf missing")
 	}
-	runPdfcoreTest(t, "9.11-INTG-002", "TestGetXRefTableBasicShape")
+	runPdfcoreTest(t, "TestGetXRefTableBasicShape")
 }
 
 // 9.11-INTG-003 [P0] AC#2: rows are sorted by (ObjNum asc, Gen asc) -- pdfcpu
 // map iteration order is non-deterministic; sort on egress is mandatory.
 // Same lesson as 9-9 / 9-10.
 func TestXRefTableSorted(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-003", "TestGetXRefTableSortedByObjNumThenGen")
+	runPdfcoreTest(t, "TestGetXRefTableSortedByObjNumThenGen")
 }
 
 // 9.11-INTG-004 [P0] AC#2: object 0 (the free-list head) is skipped. It is
 // NOT a real object and must never appear in the rendered table.
 func TestXRefTableSkipsObjectZero(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-004", "TestGetXRefTableSkipsObjectZero")
+	runPdfcoreTest(t, "TestGetXRefTableSkipsObjectZero")
 }
 
 // 9.11-INTG-005 [P0] AC#5: Status strings are the load-bearing IPC contract.
 // Must be exactly "in-use" / "free" / "in-objstm" -- the frontend renders
 // pills off these literals (Task 1.2 godoc warning).
 func TestXRefEntryStatusStrings(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-005", "TestGetXRefTableStatusLiterals")
+	runPdfcoreTest(t, "TestGetXRefTableStatusLiterals")
 }
 
 // 9.11-INTG-006 [P0] AC#2 + AC#12: NodeID encoding is "obj:<gen>:<num>" for
@@ -162,7 +162,7 @@ func TestXRefEntryStatusStrings(t *testing.T) {
 // free rows must NOT be a populated nodeID -- the frontend uses the empty
 // string to make the row non-clickable.
 func TestXRefEntryNodeIDEncoding(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-006", "TestGetXRefTableNodeIDEncoding")
+	runPdfcoreTest(t, "TestGetXRefTableNodeIDEncoding")
 }
 
 // 9.11-INTG-007 [P0] AC#12: in-objstm rows expose the underlying object
@@ -171,20 +171,20 @@ func TestXRefEntryNodeIDEncoding(t *testing.T) {
 // underlying object, not the host objstm. R4 of Story 9-11 risks list calls
 // this out explicitly.
 func TestXRefEntryCompressedNodeIDTargetsUnderlyingObject(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-007", "TestGetXRefTableCompressedNodeIDTargetsUnderlying")
+	runPdfcoreTest(t, "TestGetXRefTableCompressedNodeIDTargetsUnderlying")
 }
 
 // 9.11-INTG-008 [P0] AC#12: in-objstm rows set HostObjStm to the host /ObjStm
 // object number; in-use and free rows set HostObjStm = 0 (sentinel: "not
 // applicable"; the frontend renders "-").
 func TestXRefEntryHostObjStmSentinel(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-008", "TestGetXRefTableHostObjStmSentinel")
+	runPdfcoreTest(t, "TestGetXRefTableHostObjStmSentinel")
 }
 
 // 9.11-INTG-009 [P0] AC#2: Offset is -1 for non-in-use rows (free and
 // in-objstm). The frontend renders the literal -1 as the "-" glyph.
 func TestXRefEntryOffsetSentinel(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-009", "TestGetXRefTableOffsetSentinel")
+	runPdfcoreTest(t, "TestGetXRefTableOffsetSentinel")
 }
 
 // 9.11-INTG-010 [P0]: GetXRefTable wraps the build in safeCall. A pdfcpu
@@ -196,14 +196,14 @@ func TestXRefTableSafeCallOnMalformed(t *testing.T) {
 	if _, err := os.Stat(malformedPDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P0] 9.11-INTG-010: testdata/malformed.pdf missing")
 	}
-	runPdfcoreTest(t, "9.11-INTG-010", "TestGetXRefTableSafeCallOnMalformed")
+	runPdfcoreTest(t, "TestGetXRefTableSafeCallOnMalformed")
 }
 
 // 9.11-INTG-011 [P1]: per-document cache returns the same pointer on the
 // second call. After dropping doc.xrefTableCache, a fresh build returns a
 // different pointer with equal contents.
 func TestXRefTableCacheStable(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-011", "TestGetXRefTableCacheReturnsSamePointer")
+	runPdfcoreTest(t, "TestGetXRefTableCacheReturnsSamePointer")
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +232,7 @@ func TestPlainTextLatin1Header(t *testing.T) {
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("[P0] 9.11-INTG-021: testdata/minimal.pdf missing")
 	}
-	runPdfcoreTest(t, "9.11-INTG-021", "TestGetPlainTextLatin1HeaderAndSize")
+	runPdfcoreTest(t, "TestGetPlainTextLatin1HeaderAndSize")
 }
 
 // 9.11-INTG-022 [P0] AC#6: every byte 0x00..0xFF round-trips losslessly EXCEPT
@@ -241,7 +241,7 @@ func TestPlainTextLatin1Header(t *testing.T) {
 // in 0x00..0x1F except \t (0x09), \n (0x0A), \r (0x0D), plus 0x7F (DEL).
 // Form-feed 0x0C IS replaced. Output codepoint for replaced bytes: U+FFFD.
 func TestPlainTextLatin1FullByteRange(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-022", "TestGetPlainTextLatin1FullByteRange")
+	runPdfcoreTest(t, "TestGetPlainTextLatin1FullByteRange")
 }
 
 // 9.11-INTG-023 [P0] AC#6: form-feed (0x0C) is explicitly replaced, not
@@ -249,14 +249,14 @@ func TestPlainTextLatin1FullByteRange(t *testing.T) {
 // pagination artifacts. This test pins the FF-specific behavior so a future
 // "preserve FF" optimization can't slip past review.
 func TestPlainTextFormFeedReplaced(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-023", "TestGetPlainTextFormFeedReplaced")
+	runPdfcoreTest(t, "TestGetPlainTextFormFeedReplaced")
 }
 
 // 9.11-INTG-024 [P0] AC#6: \t (0x09), \n (0x0A), \r (0x0D) are PRESERVED.
 // CRLF survives as two characters (the frontend regex /\r\n?|\n/ collapses to
 // one logical line break -- backend contract is "verbatim").
 func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-024", "TestGetPlainTextWhitespaceBytesPreserved")
+	runPdfcoreTest(t, "TestGetPlainTextWhitespaceBytesPreserved")
 }
 
 // 9.11-INTG-025 / 9.11-INTG-026 retired by Story 10-1: the 25 MiB cap +
@@ -269,7 +269,7 @@ func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 // and asserting it survives the transform unchanged (modulo the AC#6 control-
 // byte normalization).
 func TestPlainTextNoDecryptOrDecode(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-027", "TestGetPlainTextNoDecryptOrDecode")
+	runPdfcoreTest(t, "TestGetPlainTextNoDecryptOrDecode")
 }
 
 // 9.11-INTG-028 [P0] AC#13: when the file is moved or deleted post-open, the
@@ -277,14 +277,14 @@ func TestPlainTextNoDecryptOrDecode(t *testing.T) {
 // wrapPDFError. The frontend's extractErrorMessage will unwrap it; the
 // ErrorBoundary safety net is unchanged.
 func TestPlainTextFileMovedError(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-028", "TestGetPlainTextFileMovedReturnsError")
+	runPdfcoreTest(t, "TestGetPlainTextFileMovedReturnsError")
 }
 
 // 9.11-INTG-029 [P1]: per-document cache returns the same pointer on the
 // second call. Mutex coverage includes the I/O so two concurrent calls share
 // one disk read.
 func TestPlainTextCacheStable(t *testing.T) {
-	runPdfcoreTest(t, "9.11-INTG-029", "TestGetPlainTextCacheReturnsSamePointer")
+	runPdfcoreTest(t, "TestGetPlainTextCacheReturnsSamePointer")
 }
 
 // 9.11-INTG-030 [P1]: GetPlainText wraps I/O + decode in safeCall. A panic
