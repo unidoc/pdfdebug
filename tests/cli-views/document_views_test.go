@@ -34,7 +34,7 @@ func TestXRefDump_ValidPDF_OutputsXRefTableJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 11.4-INTG-009: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var table struct {
@@ -44,11 +44,11 @@ func TestXRefDump_ValidPDF_OutputsXRefTableJSON(t *testing.T) {
 	mustParseJSON(t, stdout, &table)
 
 	if len(table.Entries) == 0 {
-		t.Fatalf("[P1] 11.4-INTG-009: expected at least one xref entry")
+		t.Fatalf("expected at least one xref entry")
 	}
 	for _, key := range []string{"objNum", "gen", "status", "offset", "nodeID"} {
 		if _, ok := table.Entries[0][key]; !ok {
-			t.Errorf("[P1] 11.4-INTG-009: XRefEntry missing key %q (note: nodeID is capital-D)", key)
+			t.Errorf("XRefEntry missing key %q (note: nodeID is capital-D)", key)
 		}
 	}
 }
@@ -67,18 +67,18 @@ func TestObjectsDump_ValidPDF_OutputsObjectIndexArray(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 11.4-INTG-010: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var index []map[string]json.RawMessage
 	mustParseJSON(t, stdout, &index)
 
 	if len(index) == 0 {
-		t.Fatalf("[P1] 11.4-INTG-010: expected at least one object index entry")
+		t.Fatalf("expected at least one object index entry")
 	}
 	for _, key := range []string{"objNum", "gen", "typeName", "free", "reachable", "nodeId"} {
 		if _, ok := index[0][key]; !ok {
-			t.Errorf("[P1] 11.4-INTG-010: ObjectIndexEntry missing key %q", key)
+			t.Errorf("ObjectIndexEntry missing key %q", key)
 		}
 	}
 }
@@ -97,7 +97,7 @@ func TestObjectsVsObject_DistinctCommands(t *testing.T) {
 	// Plural: succeeds without --ref, returns a JSON array (--json).
 	pluralOut, _, ecPlural := runCLI(t, bin, "dump", "objects", "--json", pdfPath)
 	if ecPlural != 0 {
-		t.Fatalf("[P0] 11.4-INTG-011: `dump objects` expected exit 0, got %d", ecPlural)
+		t.Fatalf("`dump objects` expected exit 0, got %d", ecPlural)
 	}
 	var arr []any
 	mustParseJSON(t, pluralOut, &arr)
@@ -105,7 +105,7 @@ func TestObjectsVsObject_DistinctCommands(t *testing.T) {
 	// Singular: without --ref is a usage error (exit 1).
 	_, _, ecSingular := runCLI(t, bin, "dump", "object", pdfPath)
 	if ecSingular != 1 {
-		t.Errorf("[P0] 11.4-INTG-011: `dump object` without --ref expected exit 1 (usage), got %d", ecSingular)
+		t.Errorf("`dump object` without --ref expected exit 1 (usage), got %d", ecSingular)
 	}
 }
 
@@ -125,16 +125,16 @@ func TestPlaintextDump_Default_ByteExactSource(t *testing.T) {
 
 	stdout, _, exitCode := runCLIRaw(t, bin, "dump", "plaintext", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P0] 11.4-INTG-012: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	want, err := os.ReadFile(pdfPath)
 	if err != nil {
-		t.Fatalf("[P0] 11.4-INTG-012: failed to read source fixture: %v", err)
+		t.Fatalf("failed to read source fixture: %v", err)
 	}
 
 	if !bytes.Equal(stdout, want) {
-		t.Errorf("[P0] 11.4-INTG-012: plaintext stdout does not equal source bytes byte-for-byte (Latin-1 re-encode trap?)\n got %d bytes, want %d bytes", len(stdout), len(want))
+		t.Errorf("plaintext stdout does not equal source bytes byte-for-byte (Latin-1 re-encode trap?)\n got %d bytes, want %d bytes", len(stdout), len(want))
 	}
 }
 
@@ -150,33 +150,33 @@ func TestPlaintextDump_JSON_WrapsWithoutTabID(t *testing.T) {
 
 	stdout, _, exitCode := runCLI(t, bin, "dump", "plaintext", "--json", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P1] 11.4-INTG-013: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var raw map[string]json.RawMessage
 	mustParseJSON(t, stdout, &raw)
 
 	if _, leaked := raw["tabId"]; leaked {
-		t.Errorf("[P1] 11.4-INTG-013: --json wrapper must NOT include the tabId field")
+		t.Errorf("--json wrapper must NOT include the tabId field")
 	}
 	for _, key := range []string{"totalBytes", "content"} {
 		if _, ok := raw[key]; !ok {
-			t.Errorf("[P1] 11.4-INTG-013: --json wrapper missing required key %q", key)
+			t.Errorf("--json wrapper missing required key %q", key)
 		}
 	}
 	if len(raw) != 2 {
-		t.Errorf("[P1] 11.4-INTG-013: --json wrapper should have exactly 2 keys {totalBytes, content}, got %d", len(raw))
+		t.Errorf("--json wrapper should have exactly 2 keys {totalBytes, content}, got %d", len(raw))
 	}
 
 	// totalBytes must equal the on-disk size.
 	info, err := os.Stat(pdfPath)
 	if err != nil {
-		t.Fatalf("[P1] 11.4-INTG-013: stat fixture: %v", err)
+		t.Fatalf("stat fixture: %v", err)
 	}
 	var totalBytes int64
 	_ = json.Unmarshal(raw["totalBytes"], &totalBytes)
 	if totalBytes != info.Size() {
-		t.Errorf("[P1] 11.4-INTG-013: totalBytes %d != file size %d", totalBytes, info.Size())
+		t.Errorf("totalBytes %d != file size %d", totalBytes, info.Size())
 	}
 }
 
@@ -192,17 +192,17 @@ func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, "/nonexistent/path/fake.pdf")
 			if ec != 2 {
-				t.Errorf("[P1] 11.4-INTG-014/%s: expected exit code 2, got %d", resource, ec)
+				t.Errorf("%s: expected exit code 2, got %d", resource, ec)
 			}
 			if len(stdout) != 0 {
-				t.Errorf("[P1] 11.4-INTG-014/%s: stdout should be empty on error, got: %s", resource, stdout)
+				t.Errorf("%s: stdout should be empty on error, got: %s", resource, stdout)
 			}
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(trimSpace(stderr)), &errObj); err != nil {
-				t.Fatalf("[P1] 11.4-INTG-014/%s: stderr is not valid JSON: %v\nraw: %s", resource, err, stderr)
+				t.Fatalf("%s: stderr is not valid JSON: %v\nraw: %s", resource, err, stderr)
 			}
 			if _, ok := errObj["error"]; !ok {
-				t.Errorf("[P1] 11.4-INTG-014/%s: stderr JSON missing 'error' key", resource)
+				t.Errorf("%s: stderr JSON missing 'error' key", resource)
 			}
 		})
 	}

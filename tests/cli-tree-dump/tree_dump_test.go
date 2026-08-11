@@ -34,13 +34,13 @@ func TestTreeDump_ValidPDF_OutputsJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 5.1-INTG-001: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// stdout must be valid JSON
 	var result map[string]any
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		t.Fatalf("[P0] 5.1-INTG-001: stdout is not valid JSON: %v\nraw: %s", err, stdout)
+		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestTreeDump_JSONContainsTreeNodeFields(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 5.1-INTG-002: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var root map[string]any
@@ -66,7 +66,7 @@ func TestTreeDump_JSONContainsTreeNodeFields(t *testing.T) {
 	requiredFields := []string{"id", "label", "nodeType", "hasChildren", "childCount"}
 	for _, field := range requiredFields {
 		if _, ok := root[field]; !ok {
-			t.Errorf("[P0] 5.1-INTG-002: root node missing required field %q", field)
+			t.Errorf("root node missing required field %q", field)
 		}
 	}
 }
@@ -84,7 +84,7 @@ func TestTreeDump_IncludesChildren(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 5.1-INTG-003: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var root map[string]any
@@ -92,12 +92,12 @@ func TestTreeDump_IncludesChildren(t *testing.T) {
 
 	children, ok := root["children"]
 	if !ok {
-		t.Fatal("[P0] 5.1-INTG-003: root node has no 'children' field")
+		t.Fatal("root node has no 'children' field")
 	}
 
 	childArr, ok := children.([]any)
 	if !ok || len(childArr) == 0 {
-		t.Fatal("[P0] 5.1-INTG-003: root 'children' is empty or not an array -- tree must include at least one level of children")
+		t.Fatal("root 'children' is empty or not an array -- tree must include at least one level of children")
 	}
 }
 
@@ -115,20 +115,20 @@ func TestTreeDump_InvalidFilePath_JSONErrorOnStderr(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "tree", "--json", "/nonexistent/path/fake.pdf")
 
 	if exitCode != 2 {
-		t.Errorf("[P0] 5.1-UNIT-001: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 5.1-UNIT-001: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P0] 5.1-UNIT-001: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P0] 5.1-UNIT-001: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -146,20 +146,20 @@ func TestTreeDump_MalformedPDF_JSONErrorOnStderr(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P0] 5.1-UNIT-002: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 5.1-UNIT-002: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P0] 5.1-UNIT-002: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P0] 5.1-UNIT-002: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -176,15 +176,15 @@ func TestHelp_PrintsUsage(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "--help")
 
 	if exitCode != 0 {
-		t.Errorf("[P0] 5.1-UNIT-003: expected exit code 0 for --help, got %d", exitCode)
+		t.Errorf("expected exit code 0 for --help, got %d", exitCode)
 	}
 
 	combined := stdout + stderr
 	if !strings.Contains(combined, "dump") {
-		t.Error("[P0] 5.1-UNIT-003: --help output does not mention 'dump' command")
+		t.Error("--help output does not mention 'dump' command")
 	}
 	if !strings.Contains(combined, "tree") {
-		t.Error("[P0] 5.1-UNIT-003: --help output does not mention 'tree' subcommand")
+		t.Error("--help output does not mention 'tree' subcommand")
 	}
 }
 
@@ -200,12 +200,12 @@ func TestVersion_PrintsVersionString(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "--version")
 
 	if exitCode != 0 {
-		t.Errorf("[P0] 5.1-UNIT-004: expected exit code 0 for --version, got %d", exitCode)
+		t.Errorf("expected exit code 0 for --version, got %d", exitCode)
 	}
 
 	combined := stdout + stderr
 	if !strings.Contains(strings.ToLower(combined), "version") {
-		t.Error("[P0] 5.1-UNIT-004: --version output does not contain 'version'")
+		t.Error("--version output does not contain 'version'")
 	}
 }
 
@@ -222,14 +222,14 @@ func TestTreeDump_StdoutContainsOnlyJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.1-UNIT-005: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// The entire stdout must be parseable as a single JSON value.
 	// If there are any log lines, fmt.Println noise, or pdfcpu diagnostics
 	// mixed in, this will fail.
 	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.1-UNIT-005: stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
+		t.Fatalf("stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
 	}
 }
 
@@ -256,17 +256,17 @@ func TestTreeDump_ErrorJSON_ConsistentStructure(t *testing.T) {
 			_, stderr, exitCode := runCLI(t, bin, tc.args...)
 
 			if exitCode == 0 {
-				t.Errorf("[P1] 5.1-UNIT-006/%s: expected non-zero exit code", tc.name)
+				t.Errorf("%s: expected non-zero exit code", tc.name)
 			}
 
 			trimmed := strings.TrimSpace(stderr)
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(trimmed), &errObj); err != nil {
-				t.Fatalf("[P1] 5.1-UNIT-006/%s: stderr not valid JSON: %v\nraw: %s", tc.name, err, stderr)
+				t.Fatalf("%s: stderr not valid JSON: %v\nraw: %s", tc.name, err, stderr)
 			}
 
 			if _, ok := errObj["error"]; !ok {
-				t.Errorf("[P1] 5.1-UNIT-006/%s: stderr JSON missing 'error' key", tc.name)
+				t.Errorf("%s: stderr JSON missing 'error' key", tc.name)
 			}
 		})
 	}
@@ -285,15 +285,15 @@ func TestTreeDump_MissingFilePath_UsageOnStderr_ExitCode1(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "tree")
 
 	if exitCode != 1 {
-		t.Errorf("[P1] 5.1-UNIT-007: expected exit code 1 (usage error), got %d", exitCode)
+		t.Errorf("expected exit code 1 (usage error), got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.1-UNIT-007: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 5.1-UNIT-007: stderr should contain usage information")
+		t.Error("stderr should contain usage information")
 	}
 }
 
@@ -311,15 +311,15 @@ func TestTreeDump_EncryptedPDF_MentionsEncryption(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P1] 5.1-UNIT-008: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.1-UNIT-008: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	if !strings.Contains(strings.ToLower(stderr), "encrypt") {
-		t.Errorf("[P1] 5.1-UNIT-008: error message should mention encryption\nstderr: %s", stderr)
+		t.Errorf("error message should mention encryption\nstderr: %s", stderr)
 	}
 }
 
@@ -336,14 +336,14 @@ func TestTreeDump_MultipagePDF_IncludesPageLabels(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P2] 5.1-INTG-004: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// The tree dump JSON should contain page-related labels somewhere
 	// in the recursive structure. Check for common page indicators.
 	lower := strings.ToLower(stdout)
 	if !strings.Contains(lower, "page") {
-		t.Error("[P2] 5.1-INTG-004: tree dump of multipage.pdf does not contain any 'page' label")
+		t.Error("tree dump of multipage.pdf does not contain any 'page' label")
 	}
 }
 
@@ -380,12 +380,12 @@ func TestCLI_NoWailsImports(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P2] 5.1-UNIT-009: go list -deps failed: %v\n%s", err, string(output))
+		t.Fatalf("go list -deps failed: %v\n%s", err, string(output))
 	}
 
 	for line := range strings.SplitSeq(string(output), "\n") {
 		if strings.Contains(line, "wails") {
-			t.Errorf("[P2] 5.1-UNIT-009: CLI binary depends on Wails package: %s", line)
+			t.Errorf("CLI binary depends on Wails package: %s", line)
 		}
 	}
 }
@@ -435,7 +435,7 @@ func BenchmarkTreeDump_MultipagePDF(b *testing.B) {
 	for b.Loop() {
 		cmd := exec.Command(binPath, "dump", "tree", "--json", pdfPath)
 		if output, err := cmd.CombinedOutput(); err != nil {
-			b.Fatalf("[P2] 5.1-BENCH-001: tree dump failed: %v\n%s", err, string(output))
+			b.Fatalf("tree dump failed: %v\n%s", err, string(output))
 		}
 	}
 }
@@ -451,12 +451,12 @@ func TestCLI_BinarySizeUnder25MB(t *testing.T) {
 
 	info, err := os.Stat(bin)
 	if err != nil {
-		t.Fatalf("[P3] 5.1-BUILD-001: cannot stat binary: %v", err)
+		t.Fatalf("cannot stat binary: %v", err)
 	}
 
 	const maxSize = 25 * 1024 * 1024 // 25MB -- pdfcpu pulls in ~19MB of Go code
 	if info.Size() > maxSize {
-		t.Errorf("[P3] 5.1-BUILD-001: binary size %d bytes exceeds 25MB limit", info.Size())
+		t.Errorf("binary size %d bytes exceeds 25MB limit", info.Size())
 	}
 }
 
@@ -472,16 +472,16 @@ func TestNoSubcommand_PrintsUsage_ExitCode1(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin)
 
 	if exitCode != 1 {
-		t.Errorf("[P3] 5.1-UNIT-010: expected exit code 1 for no subcommand, got %d", exitCode)
+		t.Errorf("expected exit code 1 for no subcommand, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P3] 5.1-UNIT-010: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	combined := stdout + stderr
 	if !strings.Contains(combined, "dump") {
-		t.Error("[P3] 5.1-UNIT-010: usage output does not mention 'dump' command")
+		t.Error("usage output does not mention 'dump' command")
 	}
 }
 
@@ -498,22 +498,22 @@ func TestTreeDump_NegativeDepth_Error(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "tree", "--depth", "-1", pdfPath)
 
 	if exitCode != 1 {
-		t.Errorf("[P2] 5.1-UNIT-011: expected exit code 1 for negative depth, got %d", exitCode)
+		t.Errorf("expected exit code 1 for negative depth, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-011: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	// stderr should contain a JSON error mentioning depth
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.1-UNIT-011: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	if msg, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.1-UNIT-011: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	} else if !strings.Contains(strings.ToLower(msg), "depth") {
-		t.Errorf("[P2] 5.1-UNIT-011: error message should mention depth, got: %s", msg)
+		t.Errorf("error message should mention depth, got: %s", msg)
 	}
 }
 
@@ -528,19 +528,19 @@ func TestObjectDump_NonexistentFile_JSONError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", "dummy.pdf")
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.1-UNIT-012: expected exit code 2 for file error, got %d", exitCode)
+		t.Errorf("expected exit code 2 for file error, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-012: stdout should be empty for error, got: %s", stdout)
+		t.Errorf("stdout should be empty for error, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.1-UNIT-012: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.1-UNIT-012: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -556,19 +556,19 @@ func TestStreamDump_NonexistentFile_JSONError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", "dummy.pdf")
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.1-UNIT-013: expected exit code 2 for file error, got %d", exitCode)
+		t.Errorf("expected exit code 2 for file error, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-013: stdout should be empty for error, got: %s", stdout)
+		t.Errorf("stdout should be empty for error, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.1-UNIT-013: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.1-UNIT-013: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -584,15 +584,15 @@ func TestDumpNoResource_PrintsUsage_ExitCode1(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump")
 
 	if exitCode != 1 {
-		t.Errorf("[P2] 5.1-UNIT-014: expected exit code 1 for missing resource, got %d", exitCode)
+		t.Errorf("expected exit code 1 for missing resource, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-014: stdout should be empty, got: %s", stdout)
+		t.Errorf("stdout should be empty, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P2] 5.1-UNIT-014: stderr should contain usage information")
+		t.Error("stderr should contain usage information")
 	}
 }
 
@@ -608,15 +608,15 @@ func TestDumpUnknownResource_ExitCode1(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "unknown")
 
 	if exitCode != 1 {
-		t.Errorf("[P2] 5.1-UNIT-015: expected exit code 1 for unknown resource, got %d", exitCode)
+		t.Errorf("expected exit code 1 for unknown resource, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.1-UNIT-015: stdout should be empty, got: %s", stdout)
+		t.Errorf("stdout should be empty, got: %s", stdout)
 	}
 
 	if !strings.Contains(stderr, "Unknown resource") {
-		t.Errorf("[P2] 5.1-UNIT-015: stderr should mention unknown resource\nstderr: %s", stderr)
+		t.Errorf("stderr should mention unknown resource\nstderr: %s", stderr)
 	}
 }
 
@@ -632,20 +632,20 @@ func TestUnknownCommand_ExitCode1(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "garbage")
 
 	if exitCode != 1 {
-		t.Errorf("[P3] 5.1-UNIT-016: expected exit code 1 for unknown command, got %d", exitCode)
+		t.Errorf("expected exit code 1 for unknown command, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P3] 5.1-UNIT-016: stdout should be empty, got: %s", stdout)
+		t.Errorf("stdout should be empty, got: %s", stdout)
 	}
 
 	if !strings.Contains(stderr, "Unknown command") {
-		t.Errorf("[P3] 5.1-UNIT-016: stderr should mention unknown command\nstderr: %s", stderr)
+		t.Errorf("stderr should mention unknown command\nstderr: %s", stderr)
 	}
 
 	// Should still show usage guidance
 	if !strings.Contains(stderr, "dump") {
-		t.Errorf("[P3] 5.1-UNIT-016: usage text should mention 'dump'\nstderr: %s", stderr)
+		t.Errorf("usage text should mention 'dump'\nstderr: %s", stderr)
 	}
 }
 
@@ -664,23 +664,23 @@ func TestTreeDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.1-INTG-005: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	trimmed := strings.TrimSpace(stdout)
 	// Plain text must NOT be a JSON object/array.
 	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
-		t.Fatalf("[P1] 5.1-INTG-005: default tree output must be plain text, not JSON\nraw: %s", stdout)
+		t.Fatalf("default tree output must be plain text, not JSON\nraw: %s", stdout)
 	}
 	// Structural shape: the catalog node is the spine root; indented children follow.
 	if !strings.Contains(stdout, "Catalog") {
-		t.Errorf("[P1] 5.1-INTG-005: plain tree output should name the Catalog root\nraw: %s", stdout)
+		t.Errorf("plain tree output should name the Catalog root\nraw: %s", stdout)
 	}
 	if !strings.Contains(stdout, "\n  ") {
-		t.Errorf("[P1] 5.1-INTG-005: plain tree output should be indented (two-space child indent)\nraw: %s", stdout)
+		t.Errorf("plain tree output should be indented (two-space child indent)\nraw: %s", stdout)
 	}
 	if !strings.HasSuffix(stdout, "\n") {
-		t.Errorf("[P1] 5.1-INTG-005: plain output must end with a trailing newline")
+		t.Errorf("plain output must end with a trailing newline")
 	}
 }
 
@@ -699,7 +699,7 @@ func TestTreeDump_DepthFlag_LimitsTraversal(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", "--depth", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.1-INTG-006: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var root map[string]any
@@ -708,12 +708,12 @@ func TestTreeDump_DepthFlag_LimitsTraversal(t *testing.T) {
 	// Root should have children (depth 1 = one level below root)
 	children, ok := root["children"]
 	if !ok {
-		t.Fatal("[P1] 5.1-INTG-006: root has no 'children' at depth 1")
+		t.Fatal("root has no 'children' at depth 1")
 	}
 
 	childArr, ok := children.([]any)
 	if !ok || len(childArr) == 0 {
-		t.Fatal("[P1] 5.1-INTG-006: root children empty at depth 1")
+		t.Fatal("root children empty at depth 1")
 	}
 
 	// At depth 1, children should NOT have their own children expanded
@@ -725,7 +725,7 @@ func TestTreeDump_DepthFlag_LimitsTraversal(t *testing.T) {
 		}
 		if grandchildren, exists := childMap["children"]; exists {
 			if gcArr, ok := grandchildren.([]any); ok && len(gcArr) > 0 {
-				t.Error("[P1] 5.1-INTG-006: --depth 1 should not expand grandchildren, but found nested children")
+				t.Error("--depth 1 should not expand grandchildren, but found nested children")
 				break
 			}
 		}
@@ -745,16 +745,16 @@ func TestTreeDump_DepthZero_UnlimitedTraversal(t *testing.T) {
 	// --depth 0 should behave same as no --depth flag (unlimited)
 	stdoutDepth0, _, exitCode0 := runCLI(t, bin, "dump", "tree", "--json", "--depth", "0", pdfPath)
 	if exitCode0 != 0 {
-		t.Fatalf("[P1] 5.1-INTG-007: expected exit code 0 with --depth 0, got %d", exitCode0)
+		t.Fatalf("expected exit code 0 with --depth 0, got %d", exitCode0)
 	}
 
 	stdoutNoDepth, _, exitCodeND := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCodeND != 0 {
-		t.Fatalf("[P1] 5.1-INTG-007: expected exit code 0 without --depth, got %d", exitCodeND)
+		t.Fatalf("expected exit code 0 without --depth, got %d", exitCodeND)
 	}
 
 	// Both should produce the same output
 	if stdoutDepth0 != stdoutNoDepth {
-		t.Error("[P1] 5.1-INTG-007: --depth 0 output differs from no-depth output (expected identical)")
+		t.Error("--depth 0 output differs from no-depth output (expected identical)")
 	}
 }

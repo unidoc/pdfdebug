@@ -25,7 +25,7 @@ func TestStream_DefaultPlainOperatorListing(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.1-INTG-030: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.1-INTG-030", stdout)
 	assertTrailingNewline(t, "13.1-INTG-030", stdout)
@@ -36,7 +36,7 @@ func TestStream_DefaultPlainOperatorListing(t *testing.T) {
 	// line (last token), not whole-dump equality.
 	lines := nonEmptyLines(stdout)
 	if len(lines) == 0 {
-		t.Fatalf("[P0] 13.1-INTG-030: empty operator listing:\n%s", stdout)
+		t.Fatalf("empty operator listing:\n%s", stdout)
 	}
 	sawOperatorLine := false
 	for _, ln := range lines {
@@ -54,7 +54,7 @@ func TestStream_DefaultPlainOperatorListing(t *testing.T) {
 		}
 	}
 	if !sawOperatorLine {
-		t.Errorf("[P0] 13.1-INTG-030: no recognizable PDF operator at end of any line (expected operands-then-operator order):\n%s", stdout)
+		t.Errorf("no recognizable PDF operator at end of any line (expected operands-then-operator order):\n%s", stdout)
 	}
 }
 
@@ -70,10 +70,10 @@ func TestStream_JSONFlag(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec != 0 {
-		t.Fatalf("[P0] 13.1-INTG-031: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	if !parsesAsJSON(stdout) {
-		t.Errorf("[P0] 13.1-INTG-031: --json did not emit a parseable JSON document:\n%s", stdout)
+		t.Errorf("--json did not emit a parseable JSON document:\n%s", stdout)
 	}
 }
 
@@ -89,12 +89,12 @@ func TestStream_RawUnchanged(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-032: --raw exit %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--raw exit %d (stderr: %s)", ec, stderr)
 	}
 	// Raw decoded bytes are the content stream itself; must not be the JSON
 	// ContentStreamData envelope.
 	if strings.Contains(stdout, `"formatted"`) || strings.Contains(stdout, `"tokenized"`) {
-		t.Errorf("[P1] 13.1-INTG-032: --raw must emit decoded bytes, not the JSON envelope:\n%s", stdout)
+		t.Errorf("--raw must emit decoded bytes, not the JSON envelope:\n%s", stdout)
 	}
 }
 
@@ -110,22 +110,22 @@ func TestStream_OpsNDJSONUnchanged(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-033: --ops exit %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--ops exit %d (stderr: %s)", ec, stderr)
 	}
 	lines := nonEmptyLines(stdout)
 	if len(lines) == 0 {
-		t.Fatalf("[P1] 13.1-INTG-033: --ops produced no NDJSON lines:\n%s", stdout)
+		t.Fatalf("--ops produced no NDJSON lines:\n%s", stdout)
 	}
 	// Each non-empty line must independently parse as one JSON object carrying
 	// the "op" key (the NDJSON per-operator contract).
 	for i, ln := range lines {
 		var obj map[string]any
 		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
-			t.Errorf("[P1] 13.1-INTG-033: NDJSON line %d is not valid JSON: %v\nline: %s", i, err, ln)
+			t.Errorf("NDJSON line %d is not valid JSON: %v\nline: %s", i, err, ln)
 			continue
 		}
 		if _, ok := obj["op"]; !ok {
-			t.Errorf("[P1] 13.1-INTG-033: NDJSON line %d missing \"op\" key: %s", i, ln)
+			t.Errorf("NDJSON line %d missing \"op\" key: %s", i, ln)
 		}
 	}
 }
@@ -143,13 +143,13 @@ func TestStream_RawAndJSONRejected(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.1-INTG-034: expected a non-zero usage exit for --raw --json, got 0\nstdout:\n%s", stdout)
+		t.Fatalf("expected a non-zero usage exit for --raw --json, got 0\nstdout:\n%s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Errorf("[P0] 13.1-INTG-034: expected a usage error on stderr for --raw --json")
+		t.Errorf("expected a usage error on stderr for --raw --json")
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 13.1-INTG-034: rejected combo must not write a payload to stdout:\n%s", stdout)
+		t.Errorf("rejected combo must not write a payload to stdout:\n%s", stdout)
 	}
 }
 
@@ -165,12 +165,12 @@ func TestStream_OpsAndJSONRejected(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, args...)
 	if ec == 0 {
-		t.Fatalf("[P0] 13.1-INTG-035: expected a non-zero usage exit for --ops --json, got 0\nstdout:\n%s", stdout)
+		t.Fatalf("expected a non-zero usage exit for --ops --json, got 0\nstdout:\n%s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Errorf("[P0] 13.1-INTG-035: expected a usage error on stderr for --ops --json")
+		t.Errorf("expected a usage error on stderr for --ops --json")
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 13.1-INTG-035: rejected combo must not write a payload to stdout:\n%s", stdout)
+		t.Errorf("rejected combo must not write a payload to stdout:\n%s", stdout)
 	}
 }

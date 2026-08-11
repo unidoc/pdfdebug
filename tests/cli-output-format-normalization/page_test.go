@@ -19,7 +19,7 @@ func TestPageInfo_DefaultPlainSections(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", fixture(t, pageInfoFixture))
 	if ec != 0 {
-		t.Fatalf("[P0] 13.1-INTG-040: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.1-INTG-040", stdout)
 	assertTrailingNewline(t, "13.1-INTG-040", stdout)
@@ -27,11 +27,11 @@ func TestPageInfo_DefaultPlainSections(t *testing.T) {
 	// A single-record presenter renders aligned "key: value" lines; the geometry
 	// section must surface the page's MediaBox (a geometry field always present).
 	if !containsLineWith(stdout, ":") {
-		t.Errorf("[P0] 13.1-INTG-040: expected aligned \"key: value\" lines in page render info:\n%s", stdout)
+		t.Errorf("expected aligned \"key: value\" lines in page render info:\n%s", stdout)
 	}
 	lower := strings.ToLower(stdout)
 	if !strings.Contains(lower, "mediabox") {
-		t.Errorf("[P0] 13.1-INTG-040: expected the MediaBox geometry field in plain output:\n%s", stdout)
+		t.Errorf("expected the MediaBox geometry field in plain output:\n%s", stdout)
 	}
 }
 
@@ -46,16 +46,16 @@ func TestPageInfo_JSONCarriesStabilityMarker(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--json", fixture(t, pageInfoFixture))
 	if ec != 0 {
-		t.Fatalf("[P0] 13.1-INTG-041: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var obj map[string]any
 	mustParseJSON(t, stdout, &obj)
 	v, ok := obj["_stability"]
 	if !ok {
-		t.Fatalf("[P0] 13.1-INTG-041: --json full object missing top-level \"_stability\" key:\n%s", stdout)
+		t.Fatalf("--json full object missing top-level \"_stability\" key:\n%s", stdout)
 	}
 	if s, _ := v.(string); s != "experimental" {
-		t.Errorf("[P0] 13.1-INTG-041: \"_stability\" = %v, want \"experimental\"", v)
+		t.Errorf("\"_stability\" = %v, want \"experimental\"", v)
 	}
 }
 
@@ -72,22 +72,22 @@ func TestPageInfo_SectionFilterHonoredInPlain(t *testing.T) {
 
 	geom, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "geometry", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-042: --section geometry exit %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--section geometry exit %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.1-INTG-042 geometry", geom)
 	if !strings.Contains(strings.ToLower(geom), "mediabox") {
-		t.Errorf("[P1] 13.1-INTG-042: --section geometry must include MediaBox:\n%s", geom)
+		t.Errorf("--section geometry must include MediaBox:\n%s", geom)
 	}
 
 	exg, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "extgstates", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-042: --section extgstates exit %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--section extgstates exit %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.1-INTG-042 extgstates", exg)
 	// The extgstates section must NOT carry the geometry MediaBox field; that is
 	// proof the --section filter scoped the plain output.
 	if strings.Contains(strings.ToLower(exg), "mediabox") {
-		t.Errorf("[P1] 13.1-INTG-042: --section extgstates leaked the geometry MediaBox field (filter not honored):\n%s", exg)
+		t.Errorf("--section extgstates leaked the geometry MediaBox field (filter not honored):\n%s", exg)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestPageInfo_FormsFlagsUnchanged(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--forms-recursive", "--forms-depth", "2", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-043: --forms-recursive --forms-depth 2 must be accepted, got exit %d (stderr: %s)", ec, stderr)
+		t.Fatalf("--forms-recursive --forms-depth 2 must be accepted, got exit %d (stderr: %s)", ec, stderr)
 	}
 	assertNotJSON(t, "13.1-INTG-043", stdout)
 
@@ -111,11 +111,11 @@ func TestPageInfo_FormsFlagsUnchanged(t *testing.T) {
 	// object (no behavior regression on the JSON path).
 	jsonOut, _, ecj := runCLI(t, bin, "dump", "page", "--info", "1", "--forms-recursive", "--forms-depth", "2", "--json", file)
 	if ecj != 0 {
-		t.Fatalf("[P1] 13.1-INTG-043: --json variant exit %d", ecj)
+		t.Fatalf("--json variant exit %d", ecj)
 	}
 	var obj map[string]any
 	mustParseJSON(t, jsonOut, &obj)
 	if _, ok := obj["forms"]; !ok {
-		t.Errorf("[P1] 13.1-INTG-043: --json render info missing \"forms\" key:\n%s", jsonOut)
+		t.Errorf("--json render info missing \"forms\" key:\n%s", jsonOut)
 	}
 }

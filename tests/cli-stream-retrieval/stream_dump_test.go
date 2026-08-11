@@ -36,27 +36,27 @@ func TestStreamDump_ValidPage_OutputsJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 5.3-INTG-001: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// stdout must be valid JSON
 	var result map[string]any
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		t.Fatalf("[P0] 5.3-INTG-001: stdout is not valid JSON: %v\nraw: %s", err, stdout)
+		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout)
 	}
 
 	// Must contain ContentStreamData fields
 	requiredFields := []string{"nodeId", "raw", "tokenized"}
 	for _, field := range requiredFields {
 		if _, ok := result[field]; !ok {
-			t.Errorf("[P0] 5.3-INTG-001: ContentStreamData JSON missing required field %q", field)
+			t.Errorf("ContentStreamData JSON missing required field %q", field)
 		}
 	}
 
 	// raw must be non-empty (content-stream.pdf has decompressed content)
 	raw, _ := result["raw"].(string)
 	if raw == "" {
-		t.Error("[P0] 5.3-INTG-001: 'raw' field is empty -- expected decompressed content stream text")
+		t.Error("'raw' field is empty -- expected decompressed content stream text")
 	}
 }
 
@@ -77,25 +77,25 @@ func TestStreamDump_OutOfRangePage_JSONErrorOnStderr(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "999", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P0] 5.3-UNIT-001: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 5.3-UNIT-001: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P0] 5.3-UNIT-001: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	errMsg, ok := errObj["error"]
 	if !ok {
-		t.Fatal("[P0] 5.3-UNIT-001: stderr JSON missing 'error' key")
+		t.Fatal("stderr JSON missing 'error' key")
 	}
 
 	if !strings.Contains(strings.ToLower(errMsg), "out of range") {
-		t.Errorf("[P0] 5.3-UNIT-001: error message should mention 'out of range', got: %s", errMsg)
+		t.Errorf("error message should mention 'out of range', got: %s", errMsg)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-INTG-002: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var result map[string]any
@@ -124,12 +124,12 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 
 	tokenized, ok := result["tokenized"]
 	if !ok || tokenized == nil {
-		t.Fatal("[P1] 5.3-INTG-002: ContentStreamData missing 'tokenized' field")
+		t.Fatal("ContentStreamData missing 'tokenized' field")
 	}
 
 	tokenArr, ok := tokenized.([]any)
 	if !ok || len(tokenArr) == 0 {
-		t.Fatal("[P1] 5.3-INTG-002: 'tokenized' is empty or not an array")
+		t.Fatal("'tokenized' is empty or not an array")
 	}
 
 	// Verify each token has required fields
@@ -137,11 +137,11 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 	for i, tok := range tokenArr {
 		tokMap, ok := tok.(map[string]any)
 		if !ok {
-			t.Fatalf("[P1] 5.3-INTG-002: token[%d] is not an object", i)
+			t.Fatalf("token[%d] is not an object", i)
 		}
 		for _, field := range tokenFields {
 			if _, exists := tokMap[field]; !exists {
-				t.Errorf("[P1] 5.3-INTG-002: token[%d] missing required field %q", i, field)
+				t.Errorf("token[%d] missing required field %q", i, field)
 			}
 		}
 	}
@@ -156,7 +156,7 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 		}
 	}
 	if !foundOperator {
-		t.Error("[P1] 5.3-INTG-002: expected at least one token with type 'operator'")
+		t.Error("expected at least one token with type 'operator'")
 	}
 }
 
@@ -178,7 +178,7 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-UNIT-002: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var result map[string]any
@@ -186,7 +186,7 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 
 	raw, _ := result["raw"].(string)
 	if raw != "" {
-		t.Errorf("[P1] 5.3-UNIT-002: expected empty 'raw' for empty-stream.pdf, got: %q", raw)
+		t.Errorf("expected empty 'raw' for empty-stream.pdf, got: %q", raw)
 	}
 }
 
@@ -210,7 +210,7 @@ func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-UNIT-002b: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var result map[string]any
@@ -222,13 +222,13 @@ func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
 		// If minimal.pdf page 1 DOES have a Contents entry, this test's
 		// assumption is wrong. Skip with a clear message so the developer
 		// knows to use a different fixture.
-		t.Skipf("[P1] 5.3-UNIT-002b: minimal.pdf page 1 has non-empty raw content (%d bytes) -- this test assumes no Contents entry; use a different fixture or create no-contents.pdf", len(raw))
+		t.Skipf("minimal.pdf page 1 has non-empty raw content (%d bytes) -- this test assumes no Contents entry; use a different fixture or create no-contents.pdf", len(raw))
 	}
 
 	// error field should explain there is no content stream
 	errField, _ := result["error"].(string)
 	if !strings.Contains(strings.ToLower(errField), "no content stream") {
-		t.Errorf("[P1] 5.3-UNIT-002b: expected error field mentioning 'no content stream', got: %q", errField)
+		t.Errorf("expected error field mentioning 'no content stream', got: %q", errField)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P2] 5.3-INTG-003: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var result map[string]any
@@ -255,7 +255,7 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 
 	raw, _ := result["raw"].(string)
 	if raw == "" {
-		t.Fatal("[P2] 5.3-INTG-003: 'raw' is empty -- expected decompressed content")
+		t.Fatal("'raw' is empty -- expected decompressed content")
 	}
 
 	// Decompressed content should contain recognizable PDF operators.
@@ -269,7 +269,7 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 		}
 	}
 	if !foundAny {
-		t.Errorf("[P2] 5.3-INTG-003: raw content does not contain any common PDF operators (BT, ET, Tf, Tj) -- may still be compressed\nraw (first 200 chars): %.200s", raw)
+		t.Errorf("raw content does not contain any common PDF operators (BT, ET, Tf, Tj) -- may still be compressed\nraw (first 200 chars): %.200s", raw)
 	}
 }
 
@@ -299,28 +299,28 @@ func TestStreamDump_InvalidPageNumber_UsageError(t *testing.T) {
 			stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", tc.page, pdfPath)
 
 			if exitCode != 1 {
-				t.Errorf("[P2] 5.3-UNIT-003/%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
+				t.Errorf("%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
 			}
 
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P2] 5.3-UNIT-003/%s: stdout should be empty for usage error, got: %s", tc.name, stdout)
+				t.Errorf("%s: stdout should be empty for usage error, got: %s", tc.name, stdout)
 			}
 
 			// stderr should be valid JSON with an error message
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-				t.Fatalf("[P2] 5.3-UNIT-003/%s: stderr is not valid JSON: %v\nraw: %s", tc.name, err, stderr)
+				t.Fatalf("%s: stderr is not valid JSON: %v\nraw: %s", tc.name, err, stderr)
 			}
 
 			errMsg, ok := errObj["error"]
 			if !ok {
-				t.Fatalf("[P2] 5.3-UNIT-003/%s: stderr JSON missing 'error' key", tc.name)
+				t.Fatalf("%s: stderr JSON missing 'error' key", tc.name)
 			}
 
 			// Error should mention 1-based or >= 1
 			lower := strings.ToLower(errMsg)
 			if !strings.Contains(lower, "1") && !strings.Contains(lower, "page") {
-				t.Errorf("[P2] 5.3-UNIT-003/%s: error should describe valid page format, got: %s", tc.name, errMsg)
+				t.Errorf("%s: error should describe valid page format, got: %s", tc.name, errMsg)
 			}
 		})
 	}
@@ -341,15 +341,15 @@ func TestStreamDump_MissingPageFlag_UsageError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", pdfPath)
 
 	if exitCode != 1 {
-		t.Errorf("[P1] 5.3-UNIT-004: expected exit code 1 (usage error), got %d", exitCode)
+		t.Errorf("expected exit code 1 (usage error), got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.3-UNIT-004: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 5.3-UNIT-004: stderr should contain usage/error information")
+		t.Error("stderr should contain usage/error information")
 	}
 }
 
@@ -365,15 +365,15 @@ func TestStreamDump_MissingFilePath_UsageError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1")
 
 	if exitCode != 1 {
-		t.Errorf("[P1] 5.3-UNIT-005: expected exit code 1 (usage error), got %d", exitCode)
+		t.Errorf("expected exit code 1 (usage error), got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.3-UNIT-005: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 5.3-UNIT-005: stderr should contain usage/error information")
+		t.Error("stderr should contain usage/error information")
 	}
 }
 
@@ -391,12 +391,12 @@ func TestStreamDump_WithoutJSONFlag_OutputsPlainOperators(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-UNIT-006: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	trimmed := strings.TrimSpace(stdout)
 	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
-		t.Fatalf("[P1] 5.3-UNIT-006: default stream output must be a plain operator listing, not JSON\nraw: %s", stdout)
+		t.Fatalf("default stream output must be a plain operator listing, not JSON\nraw: %s", stdout)
 	}
 	// Structural: a recognizable PDF operator appears on its own (BT opens text).
 	foundOp := false
@@ -408,7 +408,7 @@ func TestStreamDump_WithoutJSONFlag_OutputsPlainOperators(t *testing.T) {
 		}
 	}
 	if !foundOp {
-		t.Errorf("[P1] 5.3-UNIT-006: plain stream output should list operators one per line\nraw: %s", stdout)
+		t.Errorf("plain stream output should list operators one per line\nraw: %s", stdout)
 	}
 }
 
@@ -428,7 +428,7 @@ func TestStreamDump_PlainOperandsPrecedeOperator(t *testing.T) {
 
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P1] 13.1-INTG-024: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// Operators that, in content-stream.pdf, are always preceded by >=1 operand.
@@ -448,18 +448,18 @@ func TestStreamDump_PlainOperandsPrecedeOperator(t *testing.T) {
 		// Structural order assertion: operands occupy the leading positions and
 		// the operator is strictly the final token (PDF postfix order).
 		if len(fields) < 2 {
-			t.Errorf("[P1] 13.1-INTG-024: operator %q has no preceding operand on line %q", op, line)
+			t.Errorf("operator %q has no preceding operand on line %q", op, line)
 			continue
 		}
 		operands := fields[:len(fields)-1]
 		for _, operand := range operands {
 			if operandTaking[operand] {
-				t.Errorf("[P1] 13.1-INTG-024: operator-looking token %q appears in the operand region (operands must precede the operator) on line %q", operand, line)
+				t.Errorf("operator-looking token %q appears in the operand region (operands must precede the operator) on line %q", operand, line)
 			}
 		}
 	}
 	if checked == 0 {
-		t.Fatalf("[P1] 13.1-INTG-024: no operand-taking operator line (Tf/Td/Tj) found in plain output:\n%s", stdout)
+		t.Fatalf("no operand-taking operator line (Tf/Td/Tj) found in plain output:\n%s", stdout)
 	}
 }
 
@@ -475,11 +475,11 @@ func TestStreamDump_WithJSONFlag_OutputsJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-UNIT-007: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.3-UNIT-007: stdout with --json flag is not valid JSON\nraw: %s", stdout)
+		t.Fatalf("stdout with --json flag is not valid JSON\nraw: %s", stdout)
 	}
 }
 
@@ -496,11 +496,11 @@ func TestStreamDump_StdoutContainsOnlyJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-UNIT-008: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.3-UNIT-008: stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
+		t.Fatalf("stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
 	}
 }
 
@@ -516,20 +516,20 @@ func TestStreamDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", "/nonexistent/path/fake.pdf")
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.3-UNIT-009: expected exit code 2 for file error, got %d", exitCode)
+		t.Errorf("expected exit code 2 for file error, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.3-UNIT-009: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.3-UNIT-009: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.3-UNIT-009: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -546,20 +546,20 @@ func TestStreamDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.3-UNIT-010: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.3-UNIT-010: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.3-UNIT-010: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.3-UNIT-010: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -576,20 +576,20 @@ func TestStreamDump_MalformedPDF_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "stream", "--page", "1", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.3-UNIT-011: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.3-UNIT-011: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.3-UNIT-011: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.3-UNIT-011: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -607,7 +607,7 @@ func TestStreamDump_NodeID_Format(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.3-INTG-004: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var result map[string]any
@@ -615,16 +615,16 @@ func TestStreamDump_NodeID_Format(t *testing.T) {
 
 	nodeID, ok := result["nodeId"].(string)
 	if !ok || nodeID == "" {
-		t.Fatal("[P1] 5.3-INTG-004: ContentStreamData missing or empty 'nodeId'")
+		t.Fatal("ContentStreamData missing or empty 'nodeId'")
 	}
 
 	if !strings.HasPrefix(nodeID, "obj:") {
-		t.Errorf("[P1] 5.3-INTG-004: nodeId should start with 'obj:', got: %s", nodeID)
+		t.Errorf("nodeId should start with 'obj:', got: %s", nodeID)
 	}
 
 	parts := strings.SplitN(nodeID, ":", 3)
 	if len(parts) != 3 {
-		t.Errorf("[P1] 5.3-INTG-004: nodeId should have 3 colon-separated parts (obj:gen:num), got: %s", nodeID)
+		t.Errorf("nodeId should have 3 colon-separated parts (obj:gen:num), got: %s", nodeID)
 	}
 }
 
@@ -671,7 +671,7 @@ func BenchmarkStreamDump_ContentStreamPDF(b *testing.B) {
 	for b.Loop() {
 		cmd := exec.Command(binPath, "dump", "stream", "--page", "1", pdfPath)
 		if output, err := cmd.CombinedOutput(); err != nil {
-			b.Fatalf("[P3] 5.3-BENCH-001: stream dump failed: %v\n%s", err, string(output))
+			b.Fatalf("stream dump failed: %v\n%s", err, string(output))
 		}
 	}
 }

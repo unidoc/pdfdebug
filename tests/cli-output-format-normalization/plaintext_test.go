@@ -23,10 +23,10 @@ func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-050: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	if stdout != string(want) {
-		t.Errorf("[P1] 13.1-INTG-050: default plaintext must be the verbatim source bytes (got %d bytes, want %d)",
+		t.Errorf("default plaintext must be the verbatim source bytes (got %d bytes, want %d)",
 			len(stdout), len(want))
 	}
 }
@@ -40,7 +40,7 @@ func TestPlaintext_JSONWrapsDecodedText(t *testing.T) {
 	bin := buildCLI(t)
 	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", "--json", fixture(t, "minimal.pdf"))
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-051: expected exit 0, got %d (stderr: %s)", ec, stderr)
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	var wrapper struct {
 		TotalBytes int64  `json:"totalBytes"`
@@ -48,9 +48,9 @@ func TestPlaintext_JSONWrapsDecodedText(t *testing.T) {
 	}
 	mustParseJSON(t, stdout, &wrapper)
 	if wrapper.TotalBytes <= 0 {
-		t.Errorf("[P1] 13.1-INTG-051: --json wrapper totalBytes = %d, want > 0", wrapper.TotalBytes)
+		t.Errorf("--json wrapper totalBytes = %d, want > 0", wrapper.TotalBytes)
 	}
 	if wrapper.Content == "" {
-		t.Errorf("[P1] 13.1-INTG-051: --json wrapper content is empty:\n%s", stdout)
+		t.Errorf("--json wrapper content is empty:\n%s", stdout)
 	}
 }

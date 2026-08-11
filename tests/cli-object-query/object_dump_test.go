@@ -97,20 +97,20 @@ func TestObjectDump_ValidRef_OutputsJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 5.2-INTG-001: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// stdout must be valid JSON
 	var result map[string]any
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		t.Fatalf("[P0] 5.2-INTG-001: stdout is not valid JSON: %v\nraw: %s", err, stdout)
+		t.Fatalf("stdout is not valid JSON: %v\nraw: %s", err, stdout)
 	}
 
 	// Must contain ObjectDetail fields
 	requiredFields := []string{"nodeId", "objectRef", "type"}
 	for _, field := range requiredFields {
 		if _, ok := result[field]; !ok {
-			t.Errorf("[P0] 5.2-INTG-001: ObjectDetail JSON missing required field %q", field)
+			t.Errorf("ObjectDetail JSON missing required field %q", field)
 		}
 	}
 }
@@ -131,20 +131,20 @@ func TestObjectDump_InvalidRef_JSONErrorOnStderr(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "999 0 R", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P0] 5.2-UNIT-001: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 5.2-UNIT-001: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P0] 5.2-UNIT-001: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P0] 5.2-UNIT-001: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -166,7 +166,7 @@ func TestObjectDump_DictObject_HasProperties(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-INTG-002: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var detail map[string]any
@@ -174,30 +174,30 @@ func TestObjectDump_DictObject_HasProperties(t *testing.T) {
 
 	objType, _ := detail["type"].(string)
 	if objType != "dict" {
-		t.Skipf("[P1] 5.2-INTG-002: discovered object is type %q, not dict -- skipping (test needs a dict object)", objType)
+		t.Skipf("discovered object is type %q, not dict -- skipping (test needs a dict object)", objType)
 	}
 
 	props, ok := detail["properties"]
 	if !ok {
-		t.Fatal("[P1] 5.2-INTG-002: dict ObjectDetail missing 'properties' field")
+		t.Fatal("dict ObjectDetail missing 'properties' field")
 	}
 
 	propArr, ok := props.([]any)
 	if !ok || len(propArr) == 0 {
-		t.Fatal("[P1] 5.2-INTG-002: 'properties' is empty or not an array")
+		t.Fatal("'properties' is empty or not an array")
 	}
 
 	// Check first property has key and value
 	firstProp, ok := propArr[0].(map[string]any)
 	if !ok {
-		t.Fatal("[P1] 5.2-INTG-002: first property is not an object")
+		t.Fatal("first property is not an object")
 	}
 
 	if _, ok := firstProp["key"]; !ok {
-		t.Error("[P1] 5.2-INTG-002: property entry missing 'key' field")
+		t.Error("property entry missing 'key' field")
 	}
 	if _, ok := firstProp["value"]; !ok {
-		t.Error("[P1] 5.2-INTG-002: property entry missing 'value' field")
+		t.Error("property entry missing 'value' field")
 	}
 }
 
@@ -218,7 +218,7 @@ func TestObjectDump_ArrayObject_HasElements(t *testing.T) {
 
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", "4 0 R", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-INTG-003: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var detail map[string]any
@@ -226,17 +226,17 @@ func TestObjectDump_ArrayObject_HasElements(t *testing.T) {
 
 	objType, _ := detail["type"].(string)
 	if objType != "array" {
-		t.Fatalf("[P1] 5.2-INTG-003: expected type 'array', got %q", objType)
+		t.Fatalf("expected type 'array', got %q", objType)
 	}
 
 	elements, ok := detail["elements"]
 	if !ok {
-		t.Fatal("[P1] 5.2-INTG-003: array ObjectDetail missing 'elements' field")
+		t.Fatal("array ObjectDetail missing 'elements' field")
 	}
 
 	elemArr, ok := elements.([]any)
 	if !ok || len(elemArr) == 0 {
-		t.Fatal("[P1] 5.2-INTG-003: 'elements' is empty or not an array")
+		t.Fatal("'elements' is empty or not an array")
 	}
 }
 
@@ -255,7 +255,7 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 	// Dump tree and collect multiple obj: node IDs
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-UNIT-002: tree dump failed with exit code %d", exitCode)
+		t.Fatalf("tree dump failed with exit code %d", exitCode)
 	}
 
 	var root treeNode
@@ -274,7 +274,7 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 	collectObjNodes(root)
 
 	if len(objNodeIDs) == 0 {
-		t.Fatal("[P1] 5.2-UNIT-002: no obj: nodes found in tree dump")
+		t.Fatal("no obj: nodes found in tree dump")
 	}
 
 	// Test at least 2 different refs (or as many as available)
@@ -284,18 +284,18 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 		nodeID := objNodeIDs[i]
 		ref, err := nodeIDToRef(nodeID)
 		if err != nil {
-			t.Fatalf("[P1] 5.2-UNIT-002: failed to convert node ID %q: %v", nodeID, err)
+			t.Fatalf("failed to convert node ID %q: %v", nodeID, err)
 		}
 
 		t.Run(ref, func(t *testing.T) {
 			objStdout, _, objExitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 			if objExitCode != 0 {
-				t.Errorf("[P1] 5.2-UNIT-002: expected exit code 0 for ref %q, got %d", ref, objExitCode)
+				t.Errorf("expected exit code 0 for ref %q, got %d", ref, objExitCode)
 			}
 
 			if !json.Valid([]byte(objStdout)) {
-				t.Errorf("[P1] 5.2-UNIT-002: stdout is not valid JSON for ref %q\nraw: %s", ref, objStdout)
+				t.Errorf("stdout is not valid JSON for ref %q\nraw: %s", ref, objStdout)
 			}
 		})
 	}
@@ -330,17 +330,17 @@ func TestObjectDump_MalformedRef_ClearError(t *testing.T) {
 			stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", tc.ref, pdfPath)
 
 			if exitCode != 1 {
-				t.Errorf("[P1] 5.2-UNIT-003/%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
+				t.Errorf("%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
 			}
 
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P1] 5.2-UNIT-003/%s: stdout should be empty for malformed ref, got: %s", tc.name, stdout)
+				t.Errorf("%s: stdout should be empty for malformed ref, got: %s", tc.name, stdout)
 			}
 
 			// stderr should contain an error mentioning the expected format
 			stderrLower := strings.ToLower(stderr)
 			if !strings.Contains(stderrLower, "n g r") && !strings.Contains(stderrLower, "format") && !strings.Contains(stderrLower, "reference") {
-				t.Errorf("[P1] 5.2-UNIT-003/%s: error message should describe expected ref format\nstderr: %s", tc.name, stderr)
+				t.Errorf("%s: error message should describe expected ref format\nstderr: %s", tc.name, stderr)
 			}
 		})
 	}
@@ -360,7 +360,7 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 	// Dump tree and collect all obj: node IDs
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", "--json", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[P2] 5.2-INTG-004: tree dump failed with exit code %d", exitCode)
+		t.Fatalf("tree dump failed with exit code %d", exitCode)
 	}
 
 	var root treeNode
@@ -379,7 +379,7 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 	collectObjNodes(root)
 
 	if len(objNodeIDs) == 0 {
-		t.Fatal("[P2] 5.2-INTG-004: no obj: nodes found in tree dump")
+		t.Fatal("no obj: nodes found in tree dump")
 	}
 
 	// Try each obj: node until we find a stream
@@ -409,25 +409,25 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 
 		streamInfo, ok := detail["streamInfo"]
 		if !ok || streamInfo == nil {
-			t.Fatal("[P2] 5.2-INTG-004: stream ObjectDetail missing 'streamInfo' field")
+			t.Fatal("stream ObjectDetail missing 'streamInfo' field")
 		}
 
 		infoMap, ok := streamInfo.(map[string]any)
 		if !ok {
-			t.Fatal("[P2] 5.2-INTG-004: 'streamInfo' is not an object")
+			t.Fatal("'streamInfo' is not an object")
 		}
 
 		if _, ok := infoMap["length"]; !ok {
-			t.Error("[P2] 5.2-INTG-004: streamInfo missing 'length' field")
+			t.Error("streamInfo missing 'length' field")
 		}
 		if _, ok := infoMap["filters"]; !ok {
-			t.Error("[P2] 5.2-INTG-004: streamInfo missing 'filters' field")
+			t.Error("streamInfo missing 'filters' field")
 		}
 		break
 	}
 
 	if !foundStream {
-		t.Fatal("[P2] 5.2-INTG-004: no stream object found in content-stream.pdf tree -- expected at least one stream")
+		t.Fatal("no stream object found in content-stream.pdf tree -- expected at least one stream")
 	}
 }
 
@@ -448,7 +448,7 @@ func TestObjectDump_NullFieldsPresent(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-INTG-005: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	// Parse as raw JSON to check for presence of null fields
@@ -461,7 +461,7 @@ func TestObjectDump_NullFieldsPresent(t *testing.T) {
 	expectedFields := []string{"nodeId", "objectRef", "type", "properties", "elements", "scalarValue", "streamInfo"}
 	for _, field := range expectedFields {
 		if _, ok := raw[field]; !ok {
-			t.Errorf("[P1] 5.2-INTG-005: ObjectDetail JSON missing field %q (should be present, even if null)", field)
+			t.Errorf("ObjectDetail JSON missing field %q (should be present, even if null)", field)
 		}
 	}
 }
@@ -479,15 +479,15 @@ func TestObjectDump_MissingRefFlag_UsageError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", pdfPath)
 
 	if exitCode != 1 {
-		t.Errorf("[P1] 5.2-UNIT-004: expected exit code 1 (usage error), got %d", exitCode)
+		t.Errorf("expected exit code 1 (usage error), got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.2-UNIT-004: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 5.2-UNIT-004: stderr should contain usage/error information")
+		t.Error("stderr should contain usage/error information")
 	}
 }
 
@@ -503,15 +503,15 @@ func TestObjectDump_MissingFilePath_UsageError(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R")
 
 	if exitCode != 1 {
-		t.Errorf("[P1] 5.2-UNIT-005: expected exit code 1 (usage error), got %d", exitCode)
+		t.Errorf("expected exit code 1 (usage error), got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 5.2-UNIT-005: stdout should be empty for usage errors, got: %s", stdout)
+		t.Errorf("stdout should be empty for usage errors, got: %s", stdout)
 	}
 
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 5.2-UNIT-005: stderr should contain usage/error information")
+		t.Error("stderr should contain usage/error information")
 	}
 }
 
@@ -531,16 +531,16 @@ func TestObjectDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-UNIT-006: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	trimmed := strings.TrimSpace(stdout)
 	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
-		t.Fatalf("[P1] 5.2-UNIT-006: default object output must be plain text, not JSON\nraw: %s", stdout)
+		t.Fatalf("default object output must be plain text, not JSON\nraw: %s", stdout)
 	}
 	// Structural: the aligned record names the object and its type.
 	if !strings.Contains(stdout, "Object:") || !strings.Contains(stdout, "Type:") {
-		t.Errorf("[P1] 5.2-UNIT-006: plain object output should carry aligned Object:/Type: keys\nraw: %s", stdout)
+		t.Errorf("plain object output should carry aligned Object:/Type: keys\nraw: %s", stdout)
 	}
 }
 
@@ -558,11 +558,11 @@ func TestObjectDump_WithJSONFlag_OutputsJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-UNIT-007: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.2-UNIT-007: stdout with --json flag is not valid JSON\nraw: %s", stdout)
+		t.Fatalf("stdout with --json flag is not valid JSON\nraw: %s", stdout)
 	}
 }
 
@@ -580,20 +580,20 @@ func TestObjectDump_ZeroZeroRef_NotFound(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "0 0 R", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.2-UNIT-008: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.2-UNIT-008: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.2-UNIT-008: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.2-UNIT-008: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -609,20 +609,20 @@ func TestObjectDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", "/nonexistent/path/fake.pdf")
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.2-UNIT-009: expected exit code 2 for file error, got %d", exitCode)
+		t.Errorf("expected exit code 2 for file error, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.2-UNIT-009: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.2-UNIT-009: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.2-UNIT-009: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -648,11 +648,11 @@ func TestObjectDump_NegativeRefNumbers_Error(t *testing.T) {
 			stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--ref", tc.ref, pdfPath)
 
 			if exitCode != 1 {
-				t.Errorf("[P2] 5.2-UNIT-010/%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
+				t.Errorf("%s: expected exit code 1 (usage error), got %d", tc.name, exitCode)
 			}
 
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P2] 5.2-UNIT-010/%s: stdout should be empty, got: %s", tc.name, stdout)
+				t.Errorf("%s: stdout should be empty, got: %s", tc.name, stdout)
 			}
 		})
 	}
@@ -672,11 +672,11 @@ func TestObjectDump_StdoutContainsOnlyJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P1] 5.2-UNIT-011: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	if !json.Valid([]byte(stdout)) {
-		t.Fatalf("[P1] 5.2-UNIT-011: stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
+		t.Fatalf("stdout is not valid JSON (log noise present?)\nraw: %s", stdout)
 	}
 }
 
@@ -694,20 +694,20 @@ func TestObjectDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.2-UNIT-012: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.2-UNIT-012: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.2-UNIT-012: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.2-UNIT-012: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -725,19 +725,19 @@ func TestObjectDump_MalformedPDF_JSONErrorExitCode2(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "1 0 R", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P2] 5.2-UNIT-013: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P2] 5.2-UNIT-013: stdout should be empty for error cases, got: %s", stdout)
+		t.Errorf("stdout should be empty for error cases, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 5.2-UNIT-013: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P2] 5.2-UNIT-013: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }

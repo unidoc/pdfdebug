@@ -28,18 +28,18 @@ func TestStreamDump_PrettyVsCompact(t *testing.T) {
 
 	compact, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.3-INTG-001: compact run exit %d", ec)
+		t.Fatalf("compact run exit %d", ec)
 	}
 	pretty, _, ep := runCLI(t, bin, "dump", "stream", "--json", "--pretty", "--page", "1", pdfPath)
 	if ep != 0 {
-		t.Fatalf("[P1] 11.3-INTG-001: --pretty run exit %d", ep)
+		t.Fatalf("--pretty run exit %d", ep)
 	}
 
 	if strings.Count(strings.TrimRight(compact, "\n"), "\n") != 0 {
-		t.Errorf("[P1] 11.3-INTG-001: default stream output is not single-line compact:\n%.200s", compact)
+		t.Errorf("default stream output is not single-line compact:\n%.200s", compact)
 	}
 	if !strings.Contains(pretty, "\n  ") {
-		t.Errorf("[P1] 11.3-INTG-001: --pretty stream output is not indented multi-line:\n%.200s", pretty)
+		t.Errorf("--pretty stream output is not indented multi-line:\n%.200s", pretty)
 	}
 
 	var a, b any
@@ -48,7 +48,7 @@ func TestStreamDump_PrettyVsCompact(t *testing.T) {
 	ja, _ := json.Marshal(a)
 	jb, _ := json.Marshal(b)
 	if string(ja) != string(jb) {
-		t.Error("[P1] 11.3-INTG-001: --pretty and compact stream decode to different content")
+		t.Error("--pretty and compact stream decode to different content")
 	}
 }
 
@@ -64,14 +64,14 @@ func TestStreamDump_RawPretty_NoOp(t *testing.T) {
 
 	raw, _, er := runCLI(t, bin, "dump", "stream", "--raw", "--page", "1", pdfPath)
 	if er != 0 {
-		t.Fatalf("[P1] 11.3-INTG-002: --raw run exit %d", er)
+		t.Fatalf("--raw run exit %d", er)
 	}
 	rawPretty, _, erp := runCLI(t, bin, "dump", "stream", "--raw", "--pretty", "--page", "1", pdfPath)
 	if erp != 0 {
-		t.Fatalf("[P1] 11.3-INTG-002: --raw --pretty run exit %d", erp)
+		t.Fatalf("--raw --pretty run exit %d", erp)
 	}
 
 	if raw != rawPretty {
-		t.Errorf("[P1] 11.3-INTG-002: --pretty must be a no-op for --raw, but output differs\n--raw:        %.120q\n--raw --pretty:%.120q", raw, rawPretty)
+		t.Errorf("--pretty must be a no-op for --raw, but output differs\n--raw: %.120q\n--raw --pretty:%.120q", raw, rawPretty)
 	}
 }

@@ -29,17 +29,17 @@ func TestStreamXObject_FormByName_EmitsStreamContent(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--xobject", "Fm0", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC4-001: --xobject Fm0 --page 1 exit %d (flag not implemented?)", ec)
+		t.Fatalf("--xobject Fm0 --page 1 exit %d (flag not implemented?)", ec)
 	}
 	var result map[string]any
 	mustParseJSON(t, stdout, &result)
 	for _, key := range []string{"nodeId", "raw", "tokenized"} {
 		if _, ok := result[key]; !ok {
-			t.Errorf("[P0] 11.5-INTG-AC4-001: form stream output missing key %q", key)
+			t.Errorf("form stream output missing key %q", key)
 		}
 	}
 	if raw, _ := result["raw"].(string); !strings.Contains(raw, "re") {
-		t.Errorf("[P0] 11.5-INTG-AC4-001: form stream raw = %q, want it to contain the form's `re` operator", raw)
+		t.Errorf("form stream raw = %q, want it to contain the form's `re` operator", raw)
 	}
 }
 
@@ -54,11 +54,11 @@ func TestStreamXObject_FormByName_HonorsOps(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--xobject", "Fm0", "--page", "1", "--ops", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC4-002: --xobject --ops exit %d", ec)
+		t.Fatalf("--xobject --ops exit %d", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 	if len(objs) == 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC4-002: --xobject --ops produced no NDJSON operators\nstdout: %s", stdout)
+		t.Fatalf("--xobject --ops produced no NDJSON operators\nstdout: %s", stdout)
 	}
 	foundRe := false
 	for _, o := range objs {
@@ -67,7 +67,7 @@ func TestStreamXObject_FormByName_HonorsOps(t *testing.T) {
 		}
 	}
 	if !foundRe {
-		t.Errorf("[P0] 11.5-INTG-AC4-002: form stream --ops did not surface the `re` operator")
+		t.Errorf("form stream --ops did not surface the `re` operator")
 	}
 }
 
@@ -82,17 +82,17 @@ func TestStreamXObject_UnknownName_JSONErrorExit2(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--xobject", "NoSuch", "--page", "1", pdfPath)
 	if ec != 2 {
-		t.Errorf("[P1] 11.5-INTG-AC4-003: unknown --xobject expected exit 2, got %d", ec)
+		t.Errorf("unknown --xobject expected exit 2, got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 11.5-INTG-AC4-003: stdout should be empty on error, got: %s", stdout)
+		t.Errorf("stdout should be empty on error, got: %s", stdout)
 	}
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P1] 11.5-INTG-AC4-003: stderr not JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr not JSON: %v\nraw: %s", err, stderr)
 	}
 	if _, ok := errObj["error"]; !ok {
-		t.Error("[P1] 11.5-INTG-AC4-003: stderr JSON missing 'error' key")
+		t.Error("stderr JSON missing 'error' key")
 	}
 }
 
@@ -109,14 +109,14 @@ func TestStreamXObject_NoPageNoRef_UsageError(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--xobject", "Fm0", pdfPath)
 	if ec != 1 {
-		t.Errorf("[P0] 11.5-INTG-AC4-004: --xobject alone expected exit 1 (usage), got %d", ec)
+		t.Errorf("--xobject alone expected exit 1 (usage), got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 11.5-INTG-AC4-004: stdout should be empty on usage error, got: %s", stdout)
+		t.Errorf("stdout should be empty on usage error, got: %s", stdout)
 	}
 	low := strings.ToLower(stderr)
 	if !strings.Contains(low, "page") && !strings.Contains(low, "ref") {
-		t.Errorf("[P0] 11.5-INTG-AC4-004: usage error should name the missing --page/--ref flag, got: %s", stderr)
+		t.Errorf("usage error should name the missing --page/--ref flag, got: %s", stderr)
 	}
 }
 
@@ -132,12 +132,12 @@ func TestStreamXObject_ImageByName_EmitsWithoutCrash(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--xobject", "Im0", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P2] 11.5-INTG-AC4-005: --xobject Im0 exit %d, want 0 (image bytes still tokenize, no crash)", ec)
+		t.Fatalf("--xobject Im0 exit %d, want 0 (image bytes still tokenize, no crash)", ec)
 	}
 	var result map[string]any
 	mustParseJSON(t, stdout, &result)
 	if _, ok := result["tokenized"]; !ok {
-		t.Error("[P2] 11.5-INTG-AC4-005: image-stream output missing 'tokenized' key")
+		t.Error("image-stream output missing 'tokenized' key")
 	}
 }
 
@@ -154,12 +154,12 @@ func TestStreamRef_ContentStreamObject_EmitsContent(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--json", "--ref", "4 0 R", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC5-001: --ref \"4 0 R\" exit %d (flag not implemented?)", ec)
+		t.Fatalf("--ref \"4 0 R\" exit %d (flag not implemented?)", ec)
 	}
 	var result map[string]any
 	mustParseJSON(t, stdout, &result)
 	if raw, _ := result["raw"].(string); !strings.Contains(raw, "Do") {
-		t.Errorf("[P0] 11.5-INTG-AC5-001: --ref content stream raw = %q, want it to contain `Do`", raw)
+		t.Errorf("--ref content stream raw = %q, want it to contain `Do`", raw)
 	}
 }
 
@@ -177,17 +177,17 @@ func TestStreamRef_NonStream_TypeErrorExit2(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--ref", "1 0 R", pdfPath)
 	if ec != 2 {
-		t.Errorf("[P0] 11.5-INTG-AC5-002: --ref to non-stream expected exit 2, got %d", ec)
+		t.Errorf("--ref to non-stream expected exit 2, got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P0] 11.5-INTG-AC5-002: stdout should be empty on type error, got: %s", stdout)
+		t.Errorf("stdout should be empty on type error, got: %s", stdout)
 	}
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P0] 11.5-INTG-AC5-002: stderr not JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr not JSON: %v\nraw: %s", err, stderr)
 	}
 	if msg, ok := errObj["error"]; !ok || !strings.Contains(strings.ToLower(msg), "stream") {
-		t.Errorf("[P0] 11.5-INTG-AC5-002: error should mention the node is not a stream, got: %v", errObj)
+		t.Errorf("error should mention the node is not a stream, got: %v", errObj)
 	}
 }
 
@@ -202,12 +202,12 @@ func TestStreamRef_NotFound_Exit2(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--ref", "9999 0 R", pdfPath)
 	if ec != 2 {
-		t.Errorf("[P1] 11.5-INTG-AC5-003: --ref to missing object expected exit 2, got %d", ec)
+		t.Errorf("--ref to missing object expected exit 2, got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 11.5-INTG-AC5-003: stdout should be empty on error, got: %s", stdout)
+		t.Errorf("stdout should be empty on error, got: %s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 11.5-INTG-AC5-003: stderr should carry a not-found error")
+		t.Error("stderr should carry a not-found error")
 	}
 }

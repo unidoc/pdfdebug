@@ -56,7 +56,7 @@ func TestFormat_DefaultIsPlainTextNotJSON(t *testing.T) {
 			args := append(append([]string{}, c.args...), fixture(t, c.file))
 			stdout, stderr, exit := runCLI(t, bin, args...)
 			if exit != 0 {
-				t.Fatalf("[P0] 13.1-INTG-001 (%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
+				t.Fatalf("(%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
 			}
 			assertNotJSON(t, "13.1-INTG-001 "+c.id, stdout)
 		})
@@ -76,18 +76,18 @@ func TestFormat_JSONFlagEmitsJSON(t *testing.T) {
 			args := append(append([]string{}, c.args...), "--json", fixture(t, c.file))
 			stdout, stderr, exit := runCLI(t, bin, args...)
 			if exit != 0 {
-				t.Fatalf("[P0] 13.1-INTG-002 (%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
+				t.Fatalf("(%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
 			}
 			trimmed := strings.TrimSpace(stdout)
 			if trimmed == "" {
-				t.Fatalf("[P0] 13.1-INTG-002 (%s): --json produced empty stdout", c.id)
+				t.Fatalf("(%s): --json produced empty stdout", c.id)
 			}
 			if trimmed[0] != c.wantJSONTop {
-				t.Errorf("[P0] 13.1-INTG-002 (%s): --json output starts with %q, want %q\n%s",
+				t.Errorf("(%s): --json output starts with %q, want %q\n%s",
 					c.id, trimmed[0], c.wantJSONTop, stdout)
 			}
 			if !parsesAsJSON(trimmed) {
-				t.Errorf("[P0] 13.1-INTG-002 (%s): --json output did not parse as JSON:\n%s", c.id, stdout)
+				t.Errorf("(%s): --json output did not parse as JSON:\n%s", c.id, stdout)
 			}
 		})
 	}
@@ -107,7 +107,7 @@ func TestFormat_PlainTextIsASCIIWithTrailingNewline(t *testing.T) {
 			args := append(append([]string{}, c.args...), fixture(t, c.file))
 			stdout, stderr, exit := runCLI(t, bin, args...)
 			if exit != 0 {
-				t.Fatalf("[P0] 13.1-INTG-003 (%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
+				t.Fatalf("(%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
 			}
 			assertASCII(t, "13.1-INTG-003 "+c.id, stdout)
 			assertTrailingNewline(t, "13.1-INTG-003 "+c.id, stdout)
@@ -128,22 +128,22 @@ func TestFormat_PrettyIndentsJSON(t *testing.T) {
 
 	compact, _, ec := runCLI(t, bin, "dump", "tree", "--json", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-004: --json exit %d", ec)
+		t.Fatalf("--json exit %d", ec)
 	}
 	pretty, _, ec := runCLI(t, bin, "dump", "tree", "--json", "--pretty", file)
 	if ec != 0 {
-		t.Fatalf("[P1] 13.1-INTG-004: --json --pretty exit %d", ec)
+		t.Fatalf("--json --pretty exit %d", ec)
 	}
 
 	compactLines := strings.Count(strings.TrimRight(compact, "\n"), "\n") + 1
 	prettyLines := strings.Count(strings.TrimRight(pretty, "\n"), "\n") + 1
 	if prettyLines <= compactLines {
-		t.Errorf("[P1] 13.1-INTG-004: --pretty did not indent JSON (compact lines=%d, pretty lines=%d)",
+		t.Errorf("--pretty did not indent JSON (compact lines=%d, pretty lines=%d)",
 			compactLines, prettyLines)
 	}
 	// The indented form must contain an indented line (two-space JSON indent).
 	if !strings.Contains(pretty, "\n  ") {
-		t.Errorf("[P1] 13.1-INTG-004: --pretty JSON has no indented line:\n%s", pretty)
+		t.Errorf("--pretty JSON has no indented line:\n%s", pretty)
 	}
 }
 
@@ -161,15 +161,15 @@ func TestFormat_PrettyWithoutJSONNoEffectOnPlainText(t *testing.T) {
 			file := fixture(t, c.file)
 			plain, _, ec1 := runCLI(t, bin, append(append([]string{}, c.args...), file)...)
 			if ec1 != 0 {
-				t.Fatalf("[P1] 13.1-INTG-005 (%s): plain exit %d", c.id, ec1)
+				t.Fatalf("(%s): plain exit %d", c.id, ec1)
 			}
 			withPretty, stderr, ec2 := runCLI(t, bin, append(append([]string{}, c.args...), "--pretty", file)...)
 			if ec2 != 0 {
-				t.Fatalf("[P1] 13.1-INTG-005 (%s): --pretty (no --json) must be accepted, got exit %d (stderr: %s)",
+				t.Fatalf("(%s): --pretty (no --json) must be accepted, got exit %d (stderr: %s)",
 					c.id, ec2, stderr)
 			}
 			if withPretty != plain {
-				t.Errorf("[P1] 13.1-INTG-005 (%s): --pretty changed plain-text output (should be a no-op without --json)\nplain:\n%s\n--pretty:\n%s",
+				t.Errorf("(%s): --pretty changed plain-text output (should be a no-op without --json)\nplain:\n%s\n--pretty:\n%s",
 					c.id, plain, withPretty)
 			}
 		})

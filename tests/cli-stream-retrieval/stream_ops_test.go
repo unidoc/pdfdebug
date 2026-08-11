@@ -130,7 +130,7 @@ func TestStreamOps_NDJSONParityWithDefaultFormatted(t *testing.T) {
 	// JSON output -> the Formatted array is the source of truth (--json opt-in).
 	defStdout, _, defEC := runCLI(t, bin, "dump", "stream", "--json", "--page", "1", pdfPath)
 	if defEC != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC1-001: default run exit %d", defEC)
+		t.Fatalf("default run exit %d", defEC)
 	}
 	var def struct {
 		Formatted []struct {
@@ -141,36 +141,36 @@ func TestStreamOps_NDJSONParityWithDefaultFormatted(t *testing.T) {
 	}
 	mustParseJSON(t, defStdout, &def)
 	if len(def.Formatted) == 0 {
-		t.Fatal("[P0] 11.5-INTG-AC1-001: default Formatted is empty -- fixture broken")
+		t.Fatal("default Formatted is empty -- fixture broken")
 	}
 
 	// --ops output -> NDJSON.
 	opsStdout, _, opsEC := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if opsEC != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC1-001: --ops run exit %d (flag not implemented?)", opsEC)
+		t.Fatalf("--ops run exit %d (flag not implemented?)", opsEC)
 	}
 	objs := parseNDJSON(t, opsStdout)
 
 	if len(objs) != len(def.Formatted) {
-		t.Fatalf("[P0] 11.5-INTG-AC1-001: NDJSON line count = %d, want len(Formatted) = %d", len(objs), len(def.Formatted))
+		t.Fatalf("NDJSON line count = %d, want len(Formatted) = %d", len(objs), len(def.Formatted))
 	}
 
 	for i, o := range objs {
 		// Required keys.
 		for _, key := range []string{"op", "params", "srcLineStart", "srcLineEnd"} {
 			if _, ok := o[key]; !ok {
-				t.Errorf("[P0] 11.5-INTG-AC1-001: operator[%d] missing key %q", i, key)
+				t.Errorf("operator[%d] missing key %q", i, key)
 			}
 		}
 		// Parity with the default Formatted line.
 		if got, _ := o["op"].(string); got != def.Formatted[i].Operator {
-			t.Errorf("[P0] 11.5-INTG-AC1-001: operator[%d].op = %q, want %q", i, got, def.Formatted[i].Operator)
+			t.Errorf("operator[%d].op = %q, want %q", i, got, def.Formatted[i].Operator)
 		}
 		if got, _ := o["srcLineStart"].(float64); int(got) != def.Formatted[i].SrcLineStart {
-			t.Errorf("[P0] 11.5-INTG-AC1-001: operator[%d].srcLineStart = %v, want %d", i, got, def.Formatted[i].SrcLineStart)
+			t.Errorf("operator[%d].srcLineStart = %v, want %d", i, got, def.Formatted[i].SrcLineStart)
 		}
 		if got, _ := o["srcLineEnd"].(float64); int(got) != def.Formatted[i].SrcLineEnd {
-			t.Errorf("[P0] 11.5-INTG-AC1-001: operator[%d].srcLineEnd = %v, want %d", i, got, def.Formatted[i].SrcLineEnd)
+			t.Errorf("operator[%d].srcLineEnd = %v, want %d", i, got, def.Formatted[i].SrcLineEnd)
 		}
 	}
 }
@@ -187,16 +187,16 @@ func TestStreamOps_IsNDJSONNotArray(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.5-INTG-AC1-002: --ops run exit %d", ec)
+		t.Fatalf("--ops run exit %d", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 	if len(objs) < 2 {
-		t.Fatalf("[P1] 11.5-INTG-AC1-002: expected multiple operators, got %d", len(objs))
+		t.Fatalf("expected multiple operators, got %d", len(objs))
 	}
 	// Whole stdout must NOT be a single JSON array/object.
 	var whole any
 	if json.Unmarshal([]byte(strings.TrimSpace(stdout)), &whole) == nil {
-		t.Errorf("[P1] 11.5-INTG-AC1-002: stdout parsed as a single JSON value -- expected NDJSON (one object per line)")
+		t.Errorf("stdout parsed as a single JSON value -- expected NDJSON (one object per line)")
 	}
 }
 
@@ -211,13 +211,13 @@ func TestStreamOps_ConflictWithRaw_UsageError(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--ops", "--raw", "--page", "1", pdfPath)
 	if ec != 1 {
-		t.Errorf("[P1] 11.5-INTG-AC1-003: --ops + --raw expected exit 1 (usage), got %d", ec)
+		t.Errorf("--ops + --raw expected exit 1 (usage), got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 11.5-INTG-AC1-003: stdout should be empty on usage error, got: %s", stdout)
+		t.Errorf("stdout should be empty on usage error, got: %s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[P1] 11.5-INTG-AC1-003: stderr should carry a usage/error message")
+		t.Error("stderr should carry a usage/error message")
 	}
 }
 
@@ -246,11 +246,11 @@ func TestStreamOps_NoContents_ZeroLinesCleanStdout(t *testing.T) {
 		}
 		var m map[string]any
 		if err := json.Unmarshal([]byte(line), &m); err != nil {
-			t.Fatalf("[P2] 11.5-INTG-AC1-004: stdout line %d not valid NDJSON: %v\nline: %q", i+1, err, line)
+			t.Fatalf("stdout line %d not valid NDJSON: %v\nline: %q", i+1, err, line)
 		}
 		// A per-operator object is fine; an {"error": ...} object on stdout is not.
 		if _, isErr := m["error"]; isErr {
-			t.Errorf("[P2] 11.5-INTG-AC1-004: error object leaked to stdout under --ops -- belongs on stderr")
+			t.Errorf("error object leaked to stdout under --ops -- belongs on stderr")
 		}
 	}
 }
@@ -269,19 +269,19 @@ func TestStreamOps_DoImage_CarriesResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC2-001: --ops run exit %d", ec)
+		t.Fatalf("--ops run exit %d", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
 	im := findDoOp(objs, "/Im0")
 	if im == nil {
-		t.Fatalf("[P0] 11.5-INTG-AC2-001: no `Do /Im0` operator found in --ops output\nstdout: %s", stdout)
+		t.Fatalf("no `Do /Im0` operator found in --ops output\nstdout: %s", stdout)
 	}
 	if rt, _ := im["resourceType"].(string); rt != "Image" {
-		t.Errorf("[P0] 11.5-INTG-AC2-001: Do /Im0 resourceType = %q, want \"Image\"", rt)
+		t.Errorf("Do /Im0 resourceType = %q, want \"Image\"", rt)
 	}
 	if ref, _ := im["objectRef"].(string); !strings.Contains(ref, "6 0 R") {
-		t.Errorf("[P0] 11.5-INTG-AC2-001: Do /Im0 objectRef = %q, want it to name \"6 0 R\"", ref)
+		t.Errorf("Do /Im0 objectRef = %q, want it to name \"6 0 R\"", ref)
 	}
 }
 
@@ -296,19 +296,19 @@ func TestStreamOps_DoForm_CarriesResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC2-002: --ops run exit %d", ec)
+		t.Fatalf("--ops run exit %d", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
 	fm := findDoOp(objs, "/Fm0")
 	if fm == nil {
-		t.Fatalf("[P0] 11.5-INTG-AC2-002: no `Do /Fm0` operator found in --ops output\nstdout: %s", stdout)
+		t.Fatalf("no `Do /Fm0` operator found in --ops output\nstdout: %s", stdout)
 	}
 	if rt, _ := fm["resourceType"].(string); rt != "Form" {
-		t.Errorf("[P0] 11.5-INTG-AC2-002: Do /Fm0 resourceType = %q, want \"Form\"", rt)
+		t.Errorf("Do /Fm0 resourceType = %q, want \"Form\"", rt)
 	}
 	if ref, _ := fm["objectRef"].(string); !strings.Contains(ref, "5 0 R") {
-		t.Errorf("[P0] 11.5-INTG-AC2-002: Do /Fm0 objectRef = %q, want it to name \"5 0 R\"", ref)
+		t.Errorf("Do /Fm0 objectRef = %q, want it to name \"5 0 R\"", ref)
 	}
 }
 
@@ -345,19 +345,19 @@ func TestStreamOps_DoUnknownName_EmitsWithoutResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.5-INTG-AC2-003: --ops run exit %d (unresolved Do should not error)", ec)
+		t.Fatalf("--ops run exit %d (unresolved Do should not error)", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
 	ghost := findDoOp(objs, "/Ghost")
 	if ghost == nil {
-		t.Fatalf("[P1] 11.5-INTG-AC2-003: no `Do /Ghost` operator found in --ops output\nstdout: %s", stdout)
+		t.Fatalf("no `Do /Ghost` operator found in --ops output\nstdout: %s", stdout)
 	}
 	if _, has := ghost["resourceType"]; has {
-		t.Errorf("[P1] 11.5-INTG-AC2-003: Do /Ghost (unresolved) must omit resourceType, got %v", ghost["resourceType"])
+		t.Errorf("Do /Ghost (unresolved) must omit resourceType, got %v", ghost["resourceType"])
 	}
 	if _, has := ghost["objectRef"]; has {
-		t.Errorf("[P1] 11.5-INTG-AC2-003: Do /Ghost (unresolved) must omit objectRef, got %v", ghost["objectRef"])
+		t.Errorf("Do /Ghost (unresolved) must omit objectRef, got %v", ghost["objectRef"])
 	}
 }
 
@@ -398,16 +398,16 @@ func TestStreamOps_DoOtherSubtype_EmitsWithoutResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.5-INTG-AC2-004: --ops run exit %d (non-Image/Form subtype should not error)", ec)
+		t.Fatalf("--ops run exit %d (non-Image/Form subtype should not error)", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
 	no := findDoOp(objs, "/No0")
 	if no == nil {
-		t.Fatalf("[P1] 11.5-INTG-AC2-004: no `Do /No0` operator found in --ops output\nstdout: %s", stdout)
+		t.Fatalf("no `Do /No0` operator found in --ops output\nstdout: %s", stdout)
 	}
 	if _, has := no["resourceType"]; has {
-		t.Errorf("[P1] 11.5-INTG-AC2-004: Do /No0 (no classifiable /Subtype) must omit resourceType, got %v", no["resourceType"])
+		t.Errorf("Do /No0 (no classifiable /Subtype) must omit resourceType, got %v", no["resourceType"])
 	}
 }
 
@@ -447,7 +447,7 @@ func TestStreamOps_DoNonNameOperand_EmitsWithoutResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P2] 11.5-INTG-AC2-005: --ops run exit %d (non-name Do operand should not error)", ec)
+		t.Fatalf("--ops run exit %d (non-name Do operand should not error)", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
@@ -466,13 +466,13 @@ func TestStreamOps_DoNonNameOperand_EmitsWithoutResourceType(t *testing.T) {
 		}
 	}
 	if do == nil {
-		t.Fatalf("[P2] 11.5-INTG-AC2-005: no `Do` op with non-name operand \"12\" found\nstdout: %s", stdout)
+		t.Fatalf("no `Do` op with non-name operand \"12\" found\nstdout: %s", stdout)
 	}
 	if _, has := do["resourceType"]; has {
-		t.Errorf("[P2] 11.5-INTG-AC2-005: Do with non-name operand must omit resourceType, got %v", do["resourceType"])
+		t.Errorf("Do with non-name operand must omit resourceType, got %v", do["resourceType"])
 	}
 	if _, has := do["objectRef"]; has {
-		t.Errorf("[P2] 11.5-INTG-AC2-005: Do with non-name operand must omit objectRef, got %v", do["objectRef"])
+		t.Errorf("Do with non-name operand must omit objectRef, got %v", do["objectRef"])
 	}
 }
 
@@ -509,19 +509,19 @@ func TestStreamOps_DoNoXObjectResources_EmitsWithoutResourceType(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "stream", "--ops", "--page", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P2] 11.5-INTG-AC2-006: --ops run exit %d (page with no /Resources/XObject should not error)", ec)
+		t.Fatalf("--ops run exit %d (page with no /Resources/XObject should not error)", ec)
 	}
 	objs := parseNDJSON(t, stdout)
 
 	fm := findDoOp(objs, "/Fm0")
 	if fm == nil {
-		t.Fatalf("[P2] 11.5-INTG-AC2-006: no `Do /Fm0` operator found in --ops output\nstdout: %s", stdout)
+		t.Fatalf("no `Do /Fm0` operator found in --ops output\nstdout: %s", stdout)
 	}
 	if _, has := fm["resourceType"]; has {
-		t.Errorf("[P2] 11.5-INTG-AC2-006: Do /Fm0 on a page with no /Resources/XObject must omit resourceType, got %v", fm["resourceType"])
+		t.Errorf("Do /Fm0 on a page with no /Resources/XObject must omit resourceType, got %v", fm["resourceType"])
 	}
 	if _, has := fm["objectRef"]; has {
-		t.Errorf("[P2] 11.5-INTG-AC2-006: Do /Fm0 on a page with no /Resources/XObject must omit objectRef, got %v", fm["objectRef"])
+		t.Errorf("Do /Fm0 on a page with no /Resources/XObject must omit objectRef, got %v", fm["objectRef"])
 	}
 }
 

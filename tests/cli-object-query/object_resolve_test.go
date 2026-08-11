@@ -28,20 +28,20 @@ func TestObjectResolve_OffIsUnchanged(t *testing.T) {
 
 	a, _, ecA := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecA != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC6-101: baseline run exit %d", ecA)
+		t.Fatalf("baseline run exit %d", ecA)
 	}
 	b, _, ecB := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecB != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC6-101: second baseline run exit %d", ecB)
+		t.Fatalf("second baseline run exit %d", ecB)
 	}
 	if a != b {
-		t.Errorf("[P0] 11.5-INTG-AC6-101: dump object default output non-deterministic; cannot pin no-regression contract")
+		t.Errorf("dump object default output non-deterministic; cannot pin no-regression contract")
 	}
 	// AC6 is "byte-for-byte the current behavior": the --resolve field is
 	// strictly additive, so without the flag the 'resolved' key must be absent.
 	// Determinism alone would not catch an accidental always-on resolve.
 	if strings.Contains(a, `"resolved"`) {
-		t.Errorf("[P0] 11.5-INTG-AC6-101: default dump object output contains a 'resolved' key; --resolve is not additive")
+		t.Errorf("default dump object output contains a 'resolved' key; --resolve is not additive")
 	}
 }
 
@@ -58,17 +58,17 @@ func TestObjectResolve_OnInlinesRefValues(t *testing.T) {
 
 	def, _, ecDef := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", pdfPath)
 	if ecDef != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC6-102: default run exit %d", ecDef)
+		t.Fatalf("default run exit %d", ecDef)
 	}
 	res, _, ecRes := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", "--resolve", pdfPath)
 	if ecRes != 0 {
-		t.Fatalf("[P0] 11.5-INTG-AC6-102: --resolve run exit %d (flag not implemented?)", ecRes)
+		t.Fatalf("--resolve run exit %d (flag not implemented?)", ecRes)
 	}
 	if !json.Valid([]byte(strings.TrimSpace(res))) {
-		t.Fatalf("[P0] 11.5-INTG-AC6-102: --resolve output not valid JSON:\n%.300s", res)
+		t.Fatalf("--resolve output not valid JSON:\n%.300s", res)
 	}
 	if strings.TrimSpace(res) == strings.TrimSpace(def) {
-		t.Errorf("[P0] 11.5-INTG-AC6-102: --resolve output identical to default; ref values were not inlined")
+		t.Errorf("--resolve output identical to default; ref values were not inlined")
 	}
 }
 
@@ -85,9 +85,9 @@ func TestObjectResolve_CycleGuarded(t *testing.T) {
 
 	res, _, ec := runCLI(t, bin, "dump", "object", "--json", "--ref", "2 0 R", "--resolve", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.5-INTG-AC6-103: --resolve on cyclic page tree exit %d (hang/overflow?)", ec)
+		t.Fatalf("--resolve on cyclic page tree exit %d (hang/overflow?)", ec)
 	}
 	if !json.Valid([]byte(strings.TrimSpace(res))) {
-		t.Errorf("[P1] 11.5-INTG-AC6-103: --resolve output not valid JSON under cycle")
+		t.Errorf("--resolve output not valid JSON under cycle")
 	}
 }

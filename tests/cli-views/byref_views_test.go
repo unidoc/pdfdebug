@@ -44,7 +44,7 @@ func TestFontDump_FontDict_OutputsFontViewJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "font", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 11.4-INTG-001: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var view map[string]json.RawMessage
@@ -52,14 +52,14 @@ func TestFontDump_FontDict_OutputsFontViewJSON(t *testing.T) {
 
 	for _, key := range []string{"kind", "detail", "roster"} {
 		if _, ok := view[key]; !ok {
-			t.Errorf("[P0] 11.4-INTG-001: FontView JSON missing key %q", key)
+			t.Errorf("FontView JSON missing key %q", key)
 		}
 	}
 
 	var kind string
 	_ = json.Unmarshal(view["kind"], &kind)
 	if kind != "detail" {
-		t.Errorf("[P0] 11.4-INTG-001: expected kind=\"detail\" for a /Type /Font dict, got %q", kind)
+		t.Errorf("expected kind=\"detail\" for a /Type /Font dict, got %q", kind)
 	}
 }
 
@@ -76,22 +76,22 @@ func TestImageDump_ImageXObject_OutputsImageDataJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 11.4-INTG-002: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var img map[string]any
 	mustParseJSON(t, stdout, &img)
 
 	if errStr, _ := img["error"].(string); errStr != "" {
-		t.Errorf("[P0] 11.4-INTG-002: expected empty error for a real image XObject, got %q", errStr)
+		t.Errorf("expected empty error for a real image XObject, got %q", errStr)
 	}
 	for _, key := range []string{"nodeId", "objectRef", "width", "height", "colorSpace", "base64"} {
 		if _, ok := img[key]; !ok {
-			t.Errorf("[P0] 11.4-INTG-002: ImageData JSON missing key %q", key)
+			t.Errorf("ImageData JSON missing key %q", key)
 		}
 	}
 	if w, _ := img["width"].(float64); w <= 0 {
-		t.Errorf("[P0] 11.4-INTG-002: expected positive width, got %v", img["width"])
+		t.Errorf("expected positive width, got %v", img["width"])
 	}
 }
 
@@ -109,7 +109,7 @@ func TestSourceDump_Default_OutputsObjectRefAndSourceJSON(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "source", "--json", "--ref", "4 0 R", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 11.4-INTG-003: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var env struct {
@@ -119,10 +119,10 @@ func TestSourceDump_Default_OutputsObjectRefAndSourceJSON(t *testing.T) {
 	mustParseJSON(t, stdout, &env)
 
 	if env.ObjectRef != "4 0 R" {
-		t.Errorf("[P0] 11.4-INTG-003: expected objectRef \"4 0 R\", got %q", env.ObjectRef)
+		t.Errorf("expected objectRef \"4 0 R\", got %q", env.ObjectRef)
 	}
 	if !strings.Contains(env.Source, "4 0 obj") {
-		t.Errorf("[P0] 11.4-INTG-003: source should contain the \"4 0 obj\" envelope; got:\n%.300s", env.Source)
+		t.Errorf("source should contain the \"4 0 obj\" envelope; got:\n%.300s", env.Source)
 	}
 }
 
@@ -140,18 +140,18 @@ func TestReverseRefsDump_ReferencedObject_OutputsNonEmptyArray(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "reverserefs", "--json", "--ref", "3 0 R", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[P0] 11.4-INTG-004: expected exit code 0, got %d", exitCode)
+		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 
 	var refs []map[string]any
 	mustParseJSON(t, stdout, &refs)
 
 	if len(refs) == 0 {
-		t.Fatalf("[P0] 11.4-INTG-004: expected at least one reverse ref for the page dict (referenced by the Pages tree)")
+		t.Fatalf("expected at least one reverse ref for the page dict (referenced by the Pages tree)")
 	}
 	for _, key := range []string{"parentNodeId", "parentRef", "path"} {
 		if _, ok := refs[0][key]; !ok {
-			t.Errorf("[P0] 11.4-INTG-004: ReverseRef entry missing key %q", key)
+			t.Errorf("ReverseRef entry missing key %q", key)
 		}
 	}
 }
@@ -188,14 +188,14 @@ func TestByRef_BothRefForms_Equivalent(t *testing.T) {
 			ngrArgs = append(ngrArgs, "--json", "--ref", tc.refNGR, pdfPath)
 			outNGR, _, ecNGR := runCLI(t, bin, ngrArgs...)
 			if ecNGR != 0 {
-				t.Fatalf("[P1] 11.4-INTG-005/%s: \"N G R\" form exit %d", tc.name, ecNGR)
+				t.Fatalf("%s: \"N G R\" form exit %d", tc.name, ecNGR)
 			}
 
 			objArgs := append([]string{"dump"}, tc.args...)
 			objArgs = append(objArgs, "--json", "--ref", tc.refObj, pdfPath)
 			outObj, _, ecObj := runCLI(t, bin, objArgs...)
 			if ecObj != 0 {
-				t.Fatalf("[P1] 11.4-INTG-005/%s: obj:G:N form exit %d", tc.name, ecObj)
+				t.Fatalf("%s: obj:G:N form exit %d", tc.name, ecObj)
 			}
 
 			// Normalize both through generic JSON to ignore formatting.
@@ -205,7 +205,7 @@ func TestByRef_BothRefForms_Equivalent(t *testing.T) {
 			ja, _ := json.Marshal(a)
 			jb, _ := json.Marshal(b)
 			if string(ja) != string(jb) {
-				t.Errorf("[P1] 11.4-INTG-005/%s: the two ref forms produced different output\n N G R: %s\n obj:  %s", tc.name, ja, jb)
+				t.Errorf("%s: the two ref forms produced different output\n N G R: %s\n obj: %s", tc.name, ja, jb)
 			}
 		})
 	}
@@ -226,28 +226,28 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 	// With --metadata (JSON): base64 key absent, other metadata present.
 	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--json", "--metadata", "--ref", "4 0 R", pdfPath)
 	if ecMeta != 0 {
-		t.Fatalf("[P1] 11.4-INTG-006: --metadata run exit %d", ecMeta)
+		t.Fatalf("--metadata run exit %d", ecMeta)
 	}
 	var metaRaw map[string]json.RawMessage
 	mustParseJSON(t, metaOut, &metaRaw)
 	if _, present := metaRaw["base64"]; present {
-		t.Errorf("[P1] 11.4-INTG-006: --metadata output must OMIT the base64 key entirely, but it is present")
+		t.Errorf("--metadata output must OMIT the base64 key entirely, but it is present")
 	}
 	for _, key := range []string{"width", "height", "colorSpace"} {
 		if _, ok := metaRaw[key]; !ok {
-			t.Errorf("[P1] 11.4-INTG-006: --metadata output missing metadata key %q", key)
+			t.Errorf("--metadata output missing metadata key %q", key)
 		}
 	}
 
 	// Without --metadata (JSON): base64 present and non-empty.
 	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 	if ecFull != 0 {
-		t.Fatalf("[P1] 11.4-INTG-006: default run exit %d", ecFull)
+		t.Fatalf("default run exit %d", ecFull)
 	}
 	var full map[string]any
 	mustParseJSON(t, fullOut, &full)
 	if b, _ := full["base64"].(string); b == "" {
-		t.Errorf("[P1] 11.4-INTG-006: default output should include a non-empty base64 value")
+		t.Errorf("default output should include a non-empty base64 value")
 	}
 }
 
@@ -268,11 +268,11 @@ func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
 
 	fullOut, _, ecFull := runCLI(t, bin, "dump", "image", "--json", "--ref", "4 0 R", pdfPath)
 	if ecFull != 0 {
-		t.Fatalf("[P1] 11.4-INTG-019: default run exit %d", ecFull)
+		t.Fatalf("default run exit %d", ecFull)
 	}
 	metaOut, _, ecMeta := runCLI(t, bin, "dump", "image", "--json", "--metadata", "--ref", "4 0 R", pdfPath)
 	if ecMeta != 0 {
-		t.Fatalf("[P1] 11.4-INTG-019: --metadata run exit %d", ecMeta)
+		t.Fatalf("--metadata run exit %d", ecMeta)
 	}
 
 	// Decode both into raw-message maps so we compare the exact serialized value
@@ -285,12 +285,12 @@ func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
 	delete(full, "base64")
 
 	if len(full) != len(meta) {
-		t.Fatalf("[P1] 11.4-INTG-019: metadata view has %d keys, expected %d (full minus base64)", len(meta), len(full))
+		t.Fatalf("metadata view has %d keys, expected %d (full minus base64)", len(meta), len(full))
 	}
 	for key, want := range full {
 		got, ok := meta[key]
 		if !ok {
-			t.Errorf("[P1] 11.4-INTG-019: metadata view missing field %q present in full view", key)
+			t.Errorf("metadata view missing field %q present in full view", key)
 			continue
 		}
 		// Byte-for-byte equality of the serialized value. An int re-emitted as a
@@ -298,7 +298,7 @@ func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
 		// fractional artifact) would break this; more importantly it pins that no
 		// surviving field is re-typed by the projection.
 		if string(got) != string(want) {
-			t.Errorf("[P1] 11.4-INTG-019: field %q diverged between full and --metadata forms\n full: %s\n meta: %s", key, want, got)
+			t.Errorf("field %q diverged between full and --metadata forms\n full: %s\n meta: %s", key, want, got)
 		}
 	}
 }
@@ -315,27 +315,27 @@ func TestSourceDump_Raw_WritesVerbatimSource(t *testing.T) {
 
 	rawOut, _, ecRaw := runCLI(t, bin, "dump", "source", "--raw", "--ref", "4 0 R", pdfPath)
 	if ecRaw != 0 {
-		t.Fatalf("[P1] 11.4-INTG-007: --raw run exit %d", ecRaw)
+		t.Fatalf("--raw run exit %d", ecRaw)
 	}
 	// Raw output is not JSON-wrapped.
 	if json.Valid([]byte(strings.TrimSpace(rawOut))) && strings.HasPrefix(strings.TrimSpace(rawOut), "{") {
-		t.Errorf("[P1] 11.4-INTG-007: --raw output should be verbatim source, not a JSON object:\n%.200s", rawOut)
+		t.Errorf("--raw output should be verbatim source, not a JSON object:\n%.200s", rawOut)
 	}
 	if !strings.Contains(rawOut, "4 0 obj") {
-		t.Errorf("[P1] 11.4-INTG-007: --raw output should contain the \"4 0 obj\" envelope:\n%.200s", rawOut)
+		t.Errorf("--raw output should contain the \"4 0 obj\" envelope:\n%.200s", rawOut)
 	}
 
 	// The raw bytes must equal the --json form's `source` field.
 	jsonOut, _, ecJSON := runCLI(t, bin, "dump", "source", "--json", "--ref", "4 0 R", pdfPath)
 	if ecJSON != 0 {
-		t.Fatalf("[P1] 11.4-INTG-007: --json run exit %d", ecJSON)
+		t.Fatalf("--json run exit %d", ecJSON)
 	}
 	var env struct {
 		Source string `json:"source"`
 	}
 	mustParseJSON(t, jsonOut, &env)
 	if rawOut != env.Source {
-		t.Errorf("[P1] 11.4-INTG-007: --raw stdout should equal the default form's source field\n--raw:  %.200q\nsource: %.200q", rawOut, env.Source)
+		t.Errorf("--raw stdout should equal the default form's source field\n--raw: %.200q\nsource: %.200q", rawOut, env.Source)
 	}
 }
 
@@ -357,14 +357,14 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 		// obj 1 in fonts-mixed.pdf is the /Type /Catalog, not a font.
 		stdout, _, ec := runCLI(t, bin, "dump", "font", "--json", "--ref", "1 0 R", fontPDF)
 		if ec != 0 {
-			t.Fatalf("[P0] 11.4-INTG-008/font: expected exit 0 (non-error), got %d", ec)
+			t.Fatalf("font: expected exit 0 (non-error), got %d", ec)
 		}
 		var view struct {
 			Kind string `json:"kind"`
 		}
 		mustParseJSON(t, stdout, &view)
 		if view.Kind != "neither" {
-			t.Errorf("[P0] 11.4-INTG-008/font: expected kind=\"neither\" on a non-font, got %q", view.Kind)
+			t.Errorf("font: expected kind=\"neither\" on a non-font, got %q", view.Kind)
 		}
 	})
 
@@ -372,14 +372,14 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 		// obj 3 in image-xobject.pdf is the /Type /Page dict, not an image.
 		stdout, _, ec := runCLI(t, bin, "dump", "image", "--json", "--ref", "3 0 R", imgPDF)
 		if ec != 0 {
-			t.Fatalf("[P0] 11.4-INTG-008/image: expected exit 0 (non-error), got %d", ec)
+			t.Fatalf("image: expected exit 0 (non-error), got %d", ec)
 		}
 		var img struct {
 			Error string `json:"error"`
 		}
 		mustParseJSON(t, stdout, &img)
 		if img.Error == "" {
-			t.Errorf("[P0] 11.4-INTG-008/image: expected a populated error field on a non-image, got empty")
+			t.Errorf("image: expected a populated error field on a non-image, got empty")
 		}
 	})
 
@@ -387,14 +387,14 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 		// A high, nonexistent object number resolves to nil -> null envelope.
 		stdout, _, ec := runCLI(t, bin, "dump", "source", "--json", "--ref", "999 0 R", imgPDF)
 		if ec != 0 {
-			t.Fatalf("[P0] 11.4-INTG-008/source: expected exit 0 (non-error), got %d", ec)
+			t.Fatalf("source: expected exit 0 (non-error), got %d", ec)
 		}
 		var env struct {
 			Source string `json:"source"`
 		}
 		mustParseJSON(t, stdout, &env)
 		if !strings.Contains(env.Source, "null") || !strings.Contains(env.Source, "obj") {
-			t.Errorf("[P0] 11.4-INTG-008/source: expected the null-body envelope (\"N G obj\\nnull\\nendobj\"), got:\n%.200s", env.Source)
+			t.Errorf("source: expected the null-body envelope (\"N G obj\\nnull\\nendobj\"), got:\n%.200s", env.Source)
 		}
 	})
 
@@ -402,12 +402,12 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 		// A high, nonexistent object number has no inbound edges -> [].
 		stdout, _, ec := runCLI(t, bin, "dump", "reverserefs", "--json", "--ref", "999 0 R", imgPDF)
 		if ec != 0 {
-			t.Fatalf("[P0] 11.4-INTG-008/reverserefs: expected exit 0 (non-error), got %d", ec)
+			t.Fatalf("reverserefs: expected exit 0 (non-error), got %d", ec)
 		}
 		var refs []any
 		mustParseJSON(t, stdout, &refs)
 		if len(refs) != 0 {
-			t.Errorf("[P0] 11.4-INTG-008/reverserefs: expected [] for an unreferenced object, got %d entries", len(refs))
+			t.Errorf("reverserefs: expected [] for an unreferenced object, got %d entries", len(refs))
 		}
 	})
 }
@@ -431,18 +431,18 @@ func TestByRef_MissingRefFlag_UsageError(t *testing.T) {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, imgPDF)
 			if ec != 1 {
-				t.Errorf("[P1] 11.4-UNIT-001/%s: expected exit code 1 (usage), got %d", resource, ec)
+				t.Errorf("%s: expected exit code 1 (usage), got %d", resource, ec)
 			}
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P1] 11.4-UNIT-001/%s: stdout should be empty on usage error, got: %s", resource, stdout)
+				t.Errorf("%s: stdout should be empty on usage error, got: %s", resource, stdout)
 			}
 			// Worked example must name THIS command and the --ref form, not the
 			// generic menu. e.g. `Usage: pdfdebug dump font ... --ref "N G R" <file>`.
 			if !strings.Contains(stderr, "dump "+resource) {
-				t.Errorf("[P1] 11.4-UNIT-001/%s: stderr should name the specific command (`dump %s`), got:\n%s", resource, resource, stderr)
+				t.Errorf("%s: stderr should name the specific command (`dump %s`), got:\n%s", resource, resource, stderr)
 			}
 			if !strings.Contains(stderr, "--ref") {
-				t.Errorf("[P1] 11.4-UNIT-001/%s: stderr worked example should mention --ref, got:\n%s", resource, stderr)
+				t.Errorf("%s: stderr worked example should mention --ref, got:\n%s", resource, stderr)
 			}
 		})
 	}
@@ -461,17 +461,17 @@ func TestByRef_NonexistentFile_JSONErrorExit2(t *testing.T) {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, "--ref", "1 0 R", "/nonexistent/path/fake.pdf")
 			if ec != 2 {
-				t.Errorf("[P1] 11.4-UNIT-002/%s: expected exit code 2 for file error, got %d", resource, ec)
+				t.Errorf("%s: expected exit code 2 for file error, got %d", resource, ec)
 			}
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P1] 11.4-UNIT-002/%s: stdout should be empty on error, got: %s", resource, stdout)
+				t.Errorf("%s: stdout should be empty on error, got: %s", resource, stdout)
 			}
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-				t.Fatalf("[P1] 11.4-UNIT-002/%s: stderr is not valid JSON: %v\nraw: %s", resource, err, stderr)
+				t.Fatalf("%s: stderr is not valid JSON: %v\nraw: %s", resource, err, stderr)
 			}
 			if _, ok := errObj["error"]; !ok {
-				t.Errorf("[P1] 11.4-UNIT-002/%s: stderr JSON missing 'error' key", resource)
+				t.Errorf("%s: stderr JSON missing 'error' key", resource)
 			}
 		})
 	}
@@ -496,10 +496,10 @@ func TestByRef_MalformedRef_UsageError(t *testing.T) {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, "--ref", "not-a-ref", imgPDF)
 			if ec != 1 {
-				t.Errorf("[P2] 11.4-UNIT-003/%s: expected exit code 1 (usage) for malformed ref, got %d", resource, ec)
+				t.Errorf("%s: expected exit code 1 (usage) for malformed ref, got %d", resource, ec)
 			}
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P2] 11.4-UNIT-003/%s: stdout should be empty on malformed ref, got: %s", resource, stdout)
+				t.Errorf("%s: stdout should be empty on malformed ref, got: %s", resource, stdout)
 			}
 			// parseObjectRef rejects via writeJSONError with the shared
 			// refFormatHint. Its distinctive "obj:G:N id form" phrase is absent
@@ -507,10 +507,10 @@ func TestByRef_MalformedRef_UsageError(t *testing.T) {
 			// wired to parseObjectRef.
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(trimSpace(stderr)), &errObj); err != nil {
-				t.Fatalf("[P2] 11.4-UNIT-003/%s: stderr should be a JSON error object from parseObjectRef: %v\nraw: %s", resource, err, stderr)
+				t.Fatalf("%s: stderr should be a JSON error object from parseObjectRef: %v\nraw: %s", resource, err, stderr)
 			}
 			if !strings.Contains(errObj["error"], "obj:G:N") {
-				t.Errorf("[P2] 11.4-UNIT-003/%s: error message should carry the ref-format hint naming the obj:G:N form, got: %q", resource, errObj["error"])
+				t.Errorf("%s: error message should carry the ref-format hint naming the obj:G:N form, got: %q", resource, errObj["error"])
 			}
 		})
 	}

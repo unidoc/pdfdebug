@@ -35,17 +35,17 @@ func TestObjectDump_AcceptsObjGNForm(t *testing.T) {
 	// Canonical "N G R" form.
 	canonOut, _, canonExit := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 	if canonExit != 0 {
-		t.Fatalf("[P0] 11.3-INTG-002: canonical ref %q failed (exit %d)", ref, canonExit)
+		t.Fatalf("canonical ref %q failed (exit %d)", ref, canonExit)
 	}
 
 	// obj:G:N form (paste the tree node id straight in).
 	objOut, _, objExit := runCLI(t, bin, "dump", "object", "--json", "--ref", nodeID, pdfPath)
 	if objExit != 0 {
-		t.Fatalf("[P0] 11.3-INTG-002: obj: form %q failed (exit %d) -- should be accepted", nodeID, objExit)
+		t.Fatalf("obj: form %q failed (exit %d) -- should be accepted", nodeID, objExit)
 	}
 
 	if objOut != canonOut {
-		t.Errorf("[P0] 11.3-INTG-002: obj: form output differs from canonical form\nobj:  %s\ncanon:%s", objOut, canonOut)
+		t.Errorf("obj: form output differs from canonical form\nobj: %s\ncanon:%s", objOut, canonOut)
 	}
 }
 
@@ -75,24 +75,24 @@ func TestObjectDump_MalformedObjForm_Rejected(t *testing.T) {
 			stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", tc.ref, pdfPath)
 
 			if exitCode != 1 {
-				t.Errorf("[P1] 11.3-UNIT-001/%s: expected exit code 1, got %d", tc.name, exitCode)
+				t.Errorf("%s: expected exit code 1, got %d", tc.name, exitCode)
 			}
 			if strings.TrimSpace(stdout) != "" {
-				t.Errorf("[P1] 11.3-UNIT-001/%s: stdout should be empty, got: %s", tc.name, stdout)
+				t.Errorf("%s: stdout should be empty, got: %s", tc.name, stdout)
 			}
 
 			var errObj map[string]string
 			if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-				t.Fatalf("[P1] 11.3-UNIT-001/%s: stderr is not valid JSON: %v\nraw: %s", tc.name, err, stderr)
+				t.Fatalf("%s: stderr is not valid JSON: %v\nraw: %s", tc.name, err, stderr)
 			}
 			msg := strings.ToLower(errObj["error"])
 
 			// Error must reference the canonical "N G R" form AND the obj: form.
 			if !strings.Contains(msg, "n g r") {
-				t.Errorf("[P1] 11.3-UNIT-001/%s: error should name the \"N G R\" form\nerror: %s", tc.name, errObj["error"])
+				t.Errorf("%s: error should name the \"N G R\" form\nerror: %s", tc.name, errObj["error"])
 			}
 			if !strings.Contains(msg, "obj:") {
-				t.Errorf("[P1] 11.3-UNIT-001/%s: error should also name the obj:G:N form\nerror: %s", tc.name, errObj["error"])
+				t.Errorf("%s: error should also name the obj:G:N form\nerror: %s", tc.name, errObj["error"])
 			}
 		})
 	}
@@ -112,26 +112,26 @@ func TestObjectDump_ReversedRef_SuggestsSwap(t *testing.T) {
 	stdout, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "0 25 R", pdfPath)
 
 	if exitCode != 2 {
-		t.Errorf("[P1] 11.3-UNIT-002: expected exit code 2 (runtime not-found), got %d", exitCode)
+		t.Errorf("expected exit code 2 (runtime not-found), got %d", exitCode)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[P1] 11.3-UNIT-002: stdout should be empty, got: %s", stdout)
+		t.Errorf("stdout should be empty, got: %s", stdout)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P1] 11.3-UNIT-002: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	msg := errObj["error"]
 
 	// Base not-found text preserved.
 	if !strings.Contains(msg, "object not found: 0 25 R") {
-		t.Errorf("[P1] 11.3-UNIT-002: base not-found text not preserved\nerror: %s", msg)
+		t.Errorf("base not-found text not preserved\nerror: %s", msg)
 	}
 	// Heuristic suggestion with swapped operands present (matched on the
 	// decoded error VALUE, not raw escaped bytes).
 	if !strings.Contains(msg, `did you mean: dump object --ref "25 0 R"`) {
-		t.Errorf("[P1] 11.3-UNIT-002: missing swapped-operand suggestion\nerror: %s", msg)
+		t.Errorf("missing swapped-operand suggestion\nerror: %s", msg)
 	}
 }
 
@@ -146,15 +146,15 @@ func TestObjectDump_ZeroZeroRef_NoSuggestion(t *testing.T) {
 
 	_, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "0 0 R", pdfPath)
 	if exitCode != 2 {
-		t.Errorf("[P2] 11.3-UNIT-002b: expected exit code 2, got %d", exitCode)
+		t.Errorf("expected exit code 2, got %d", exitCode)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P2] 11.3-UNIT-002b: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	if strings.Contains(strings.ToLower(errObj["error"]), "did you mean") {
-		t.Errorf("[P2] 11.3-UNIT-002b: '0 0 R' must NOT trigger the reversal suggestion\nerror: %s", errObj["error"])
+		t.Errorf("'0 0 R' must NOT trigger the reversal suggestion\nerror: %s", errObj["error"])
 	}
 }
 
@@ -171,26 +171,26 @@ func TestObjectDump_MalformedRef_FormatTip(t *testing.T) {
 
 	_, stderr, exitCode := runCLI(t, bin, "dump", "object", "--ref", "abc", pdfPath)
 	if exitCode != 1 {
-		t.Errorf("[P1] 11.3-UNIT-003: expected exit code 1, got %d", exitCode)
+		t.Errorf("expected exit code 1, got %d", exitCode)
 	}
 
 	var errObj map[string]string
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("[P1] 11.3-UNIT-003: stderr is not valid JSON: %v\nraw: %s", err, stderr)
+		t.Fatalf("stderr is not valid JSON: %v\nraw: %s", err, stderr)
 	}
 	msg := strings.ToLower(errObj["error"])
 
 	// Mentions the obj: form is also accepted.
 	if !strings.Contains(msg, "obj:") {
-		t.Errorf("[P1] 11.3-UNIT-003: error should mention the obj:G:N form is accepted\nerror: %s", errObj["error"])
+		t.Errorf("error should mention the obj:G:N form is accepted\nerror: %s", errObj["error"])
 	}
 	// Tip pointing at the tree's pdfRef field.
 	if !strings.Contains(msg, "pdfref") {
-		t.Errorf("[P1] 11.3-UNIT-003: error should tip that dump tree emits a ready-to-paste pdfRef\nerror: %s", errObj["error"])
+		t.Errorf("error should tip that dump tree emits a ready-to-paste pdfRef\nerror: %s", errObj["error"])
 	}
 	// Legacy format/reference language preserved.
 	if !strings.Contains(msg, "n g r") && !strings.Contains(msg, "format") && !strings.Contains(msg, "reference") {
-		t.Errorf("[P1] 11.3-UNIT-003: error should still describe the expected ref format\nerror: %s", errObj["error"])
+		t.Errorf("error should still describe the expected ref format\nerror: %s", errObj["error"])
 	}
 }
 
@@ -207,18 +207,18 @@ func TestObjectDump_PrettyVsCompact(t *testing.T) {
 
 	compact, _, ec := runCLI(t, bin, "dump", "object", "--json", "--ref", ref, pdfPath)
 	if ec != 0 {
-		t.Fatalf("[P1] 11.3-INTG-003: compact run exit %d", ec)
+		t.Fatalf("compact run exit %d", ec)
 	}
 	pretty, _, ep := runCLI(t, bin, "dump", "object", "--json", "--pretty", "--ref", ref, pdfPath)
 	if ep != 0 {
-		t.Fatalf("[P1] 11.3-INTG-003: --pretty run exit %d", ep)
+		t.Fatalf("--pretty run exit %d", ep)
 	}
 
 	if strings.Count(strings.TrimRight(compact, "\n"), "\n") != 0 {
-		t.Errorf("[P1] 11.3-INTG-003: default object output is not single-line compact:\n%s", compact)
+		t.Errorf("default object output is not single-line compact:\n%s", compact)
 	}
 	if !strings.Contains(pretty, "\n  ") {
-		t.Errorf("[P1] 11.3-INTG-003: --pretty object output is not indented multi-line:\n%s", pretty)
+		t.Errorf("--pretty object output is not indented multi-line:\n%s", pretty)
 	}
 
 	var a, b any
@@ -227,6 +227,6 @@ func TestObjectDump_PrettyVsCompact(t *testing.T) {
 	ja, _ := json.Marshal(a)
 	jb, _ := json.Marshal(b)
 	if string(ja) != string(jb) {
-		t.Error("[P1] 11.3-INTG-003: --pretty and compact object decode to different content")
+		t.Error("--pretty and compact object decode to different content")
 	}
 }
