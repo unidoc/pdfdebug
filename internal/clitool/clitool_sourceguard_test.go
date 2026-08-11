@@ -45,7 +45,7 @@ func productionGoFiles(t *testing.T) []string {
 		files = append(files, name)
 	}
 	if len(files) == 0 {
-		t.Fatalf("no production .go files found in package clitool (AC #5b): the install package must exist with non-test source to scan")
+		t.Fatalf("no production .go files found in package clitool: the install package must exist with non-test source to scan")
 	}
 	return files
 }
@@ -64,7 +64,7 @@ func TestSourceGuardNoOsExecImport(t *testing.T) {
 		for _, imp := range file.Imports {
 			path := strings.Trim(imp.Path.Value, `"`)
 			if path == forbidden {
-				t.Errorf("%s imports %q -- the install path must not spawn processes (AC #5b: \"no shell exists\")", f, forbidden)
+				t.Errorf("%s imports %q -- the install path must not spawn processes (\"no shell exists\")", f, forbidden)
 			}
 		}
 	}
@@ -91,7 +91,7 @@ func TestSourceGuardNoShellEscalationTokens(t *testing.T) {
 		src := string(data)
 		for _, tok := range forbidden {
 			if strings.Contains(src, tok) {
-				t.Errorf("%s contains forbidden shell-escalation token %q (AC #5b: no root escalation, no shell)", f, tok)
+				t.Errorf("%s contains forbidden shell-escalation token %q (no root escalation, no shell)", f, tok)
 			}
 		}
 	}

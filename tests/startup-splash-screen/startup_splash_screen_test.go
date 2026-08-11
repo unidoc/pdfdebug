@@ -165,18 +165,18 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 		pattern string
 		why     string
 	}{
-		{`Width:\s*480`, "AC3: splash width must be 480"},
-		{`Height:\s*320`, "AC3: splash height must be 320"},
-		{`Frameless:\s*true`, "AC1/AC3: splash must be frameless (no title bar / chrome)"},
-		{`AlwaysOnTop:\s*true`, "AC3: splash must be AlwaysOnTop until dismissal (cleared per AC5)"},
-		{`Resizable:\s*false`, "AC3: splash must not be resizable"},
+		{`Width:\s*480`, "splash width must be 480"},
+		{`Height:\s*320`, "splash height must be 320"},
+		{`Frameless:\s*true`, "splash must be frameless (no title bar / chrome)"},
+		{`AlwaysOnTop:\s*true`, "splash must be AlwaysOnTop until dismissal, then cleared before the crossfade"},
+		{`Resizable:\s*false`, "splash must not be resizable"},
 		// alpha.85 may name these Minimisable / Closable; tolerate either spelling
-		{`(Minimisable|Minimizable):\s*false`, "AC3: splash must not be minimisable"},
-		{`Closable:\s*false`, "AC3: splash must have no close button"},
+		{`(Minimisable|Minimizable):\s*false`, "splash must not be minimisable"},
+		{`Closable:\s*false`, "splash must have no close button"},
 		// Pins Code Review #2 M-1 fix: WebView's default context menu must be
 		// disabled so right-click on the splash does not expose Reload / Inspect /
 		// Back / Forward entries that would violate AC3's "no context menu".
-		{`DefaultContextMenuDisabled:\s*true`, "AC3: splash must disable WebView default context menu"},
+		{`DefaultContextMenuDisabled:\s*true`, "splash must disable the WebView default context menu"},
 	}
 
 	for _, f := range requiredFields {
@@ -293,15 +293,15 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 		pattern string
 		why     string
 	}{
-		{`<link[^>]+href\s*=\s*["']https?://`, "external stylesheet URL forbidden (AC10)"},
-		{`<script[^>]+src\s*=\s*["']https?://`, "external script URL forbidden (AC10)"},
-		{`<img[^>]+src\s*=\s*["']/`, "absolute-path image src forbidden -- splash WebView cannot fetch /assets/* per AC10"},
-		{`@import\s+url\(\s*["']?https?://`, "CSS @import of external URL forbidden (AC10)"},
+		{`<link[^>]+href\s*=\s*["']https?://`, "external stylesheet URL forbidden"},
+		{`<script[^>]+src\s*=\s*["']https?://`, "external script URL forbidden"},
+		{`<img[^>]+src\s*=\s*["']/`, "absolute-path image src forbidden -- the splash WebView cannot fetch /assets/*"},
+		{`@import\s+url\(\s*["']?https?://`, "CSS @import of external URL forbidden"},
 		// /fonts/Inter-SemiBold.woff2 cannot be reached by the splash
 		// WebView (it lives in the main frontend bundle), so an attempt
 		// to load it would be a bug.
 		{`url\(\s*["']?/fonts/`, "/fonts/* URL forbidden in splash -- splash WebView cannot reach main frontend bundle (Task 3.2)"},
-		{`fetch\s*\(\s*["']https?://`, "fetch() of external URL forbidden (AC10)"},
+		{`fetch\s*\(\s*["']https?://`, "fetch() of external URL forbidden"},
 	}
 
 	for _, f := range forbidden {
@@ -436,8 +436,8 @@ func TestSplashNotCreatedInsideSecondInstanceCallback(t *testing.T) {
 		startMarker string
 		why         string
 	}{
-		{"OnSecondInstanceLaunch:", "AC8: single-instance second launches must NOT spawn a splash"},
-		{"ApplicationOpenedWithFile", "AC8: file-association open must NOT spawn a splash (file goes to existing window)"},
+		{"OnSecondInstanceLaunch:", "single-instance second launches must NOT spawn a splash"},
+		{"ApplicationOpenedWithFile", "file-association open must NOT spawn a splash (the file goes to the existing window)"},
 	}
 
 	for _, region := range checkRegions {

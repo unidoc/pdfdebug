@@ -92,10 +92,10 @@ func TestResolveBundleCLIReturnsResourcesPath(t *testing.T) {
 		t.Errorf("resolveBundleCLI = %q, want %q (sibling Contents/Resources/pdfdebug)", got, wantCLI)
 	}
 	if !filepath.IsAbs(got) {
-		t.Errorf("resolveBundleCLI returned non-absolute path %q (AC #4a)", got)
+		t.Errorf("resolveBundleCLI returned non-absolute path %q", got)
 	}
 	if !strings.HasSuffix(got, filepath.Join("Contents", "Resources", "pdfdebug")) {
-		t.Errorf("resolveBundleCLI %q must end in Contents/Resources/pdfdebug (AC #4a)", got)
+		t.Errorf("resolveBundleCLI %q must end in Contents/Resources/pdfdebug", got)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestResolveBundleCLIRejectsNonAppLayout(t *testing.T) {
 		t.Fatalf("write dev bin: %v", err)
 	}
 	if _, err := resolveBundleCLI(devBin); err == nil {
-		t.Errorf("resolveBundleCLI(%q) must error for a non-.app (dev/go run) layout (AC #4a: \"run from the installed app\")", devBin)
+		t.Errorf("resolveBundleCLI(%q) must error for a non-.app (dev/go run) layout (\"run from the installed app\")", devBin)
 	}
 }
 
@@ -175,10 +175,10 @@ func TestInstallCLINotInBundleWhenDevBinary(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: devBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI returned a hard error instead of a typed NotInBundle result: %v (AC #4a)", err)
+		t.Fatalf("InstallCLI returned a hard error instead of a typed NotInBundle result: %v", err)
 	}
 	if _, ok := res.(NotInBundle); !ok {
-		t.Errorf("InstallCLI result = %T, want NotInBundle for a dev (non-.app) binary (AC #4a)", res)
+		t.Errorf("InstallCLI result = %T, want NotInBundle for a dev (non-.app) binary", res)
 	}
 }
 
@@ -282,10 +282,10 @@ func TestInstallCLIIdempotentWhenOursAndCurrent(t *testing.T) {
 	}
 	res, err := InstallCLI(opts)
 	if err != nil {
-		t.Fatalf("second InstallCLI returned error (must be idempotent no-op): %v (AC #4b)", err)
+		t.Fatalf("second InstallCLI returned error (must be idempotent no-op): %v", err)
 	}
 	if _, ok := res.(Installed); !ok {
-		t.Errorf("second InstallCLI result = %T, want Installed (idempotent no-op) (AC #4b)", res)
+		t.Errorf("second InstallCLI result = %T, want Installed (idempotent no-op)", res)
 	}
 	link := filepath.Join(binDir, "pdfdebug")
 	target, err := os.Readlink(link)
@@ -293,7 +293,7 @@ func TestInstallCLIIdempotentWhenOursAndCurrent(t *testing.T) {
 		t.Fatalf("Readlink after second install: %v", err)
 	}
 	if target != wantCLI {
-		t.Errorf("link target after idempotent re-install = %q, want %q (AC #4b: unchanged)", target, wantCLI)
+		t.Errorf("link target after idempotent re-install = %q, want %q (unchanged)", target, wantCLI)
 	}
 }
 
@@ -325,17 +325,17 @@ func TestInstallCLIRepointsOursButStaleLink(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI over a stale-ours link returned error: %v (AC #4c: must silently re-point)", err)
+		t.Fatalf("InstallCLI over a stale-ours link returned error: %v (must silently re-point)", err)
 	}
 	if _, ok := res.(Installed); !ok {
-		t.Errorf("InstallCLI over a stale-ours link result = %T, want Installed (silently re-pointed) (AC #4c)", res)
+		t.Errorf("InstallCLI over a stale-ours link result = %T, want Installed (silently re-pointed)", res)
 	}
 	target, err := os.Readlink(link)
 	if err != nil {
 		t.Fatalf("Readlink after re-point: %v", err)
 	}
 	if target != currentCLI {
-		t.Errorf("link target after re-point = %q, want %q (AC #4c: re-pointed to current bundle)", target, currentCLI)
+		t.Errorf("link target after re-point = %q, want %q (re-pointed to current bundle)", target, currentCLI)
 	}
 }
 
@@ -362,18 +362,18 @@ func TestInstallCLIConfirmOverwriteForeignFile(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI over a foreign file returned error: %v (AC #4d: should return ConfirmOverwrite, not error)", err)
+		t.Fatalf("InstallCLI over a foreign file returned error: %v (should return ConfirmOverwrite, not error)", err)
 	}
 	if _, ok := res.(ConfirmOverwrite); !ok {
-		t.Errorf("InstallCLI over a foreign regular file result = %T, want ConfirmOverwrite (AC #4d)", res)
+		t.Errorf("InstallCLI over a foreign regular file result = %T, want ConfirmOverwrite", res)
 	}
 	// The foreign file must be untouched (no overwrite without the flag).
 	got, err := os.ReadFile(link)
 	if err != nil {
-		t.Fatalf("foreign file vanished: %v (AC #4d: must not overwrite)", err)
+		t.Fatalf("foreign file vanished: %v (must not overwrite)", err)
 	}
 	if string(got) != string(foreign) {
-		t.Errorf("foreign file was modified without confirmation (AC #4d)")
+		t.Errorf("foreign file was modified without confirmation")
 	}
 }
 
@@ -400,17 +400,17 @@ func TestInstallCLIConfirmOverwriteForeignShapedSymlink(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI over a foreign-shaped symlink returned error: %v (AC #4d)", err)
+		t.Fatalf("InstallCLI over a foreign-shaped symlink returned error: %v", err)
 	}
 	if _, ok := res.(ConfirmOverwrite); !ok {
-		t.Errorf("InstallCLI over a foreign-shaped symlink result = %T, want ConfirmOverwrite (AC #4d)", res)
+		t.Errorf("InstallCLI over a foreign-shaped symlink result = %T, want ConfirmOverwrite", res)
 	}
 	target, err := os.Readlink(link)
 	if err != nil {
 		t.Fatalf("Readlink: %v", err)
 	}
 	if target != foreignTarget {
-		t.Errorf("foreign-shaped symlink was re-pointed without confirmation: got %q, want original %q (AC #4d)", target, foreignTarget)
+		t.Errorf("foreign-shaped symlink was re-pointed without confirmation: got %q, want original %q", target, foreignTarget)
 	}
 }
 
@@ -436,17 +436,17 @@ func TestInstallCLIOverwriteFlagReplacesForeign(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir, Overwrite: true})
 	if err != nil {
-		t.Fatalf("InstallCLI with Overwrite returned error: %v (AC #4d)", err)
+		t.Fatalf("InstallCLI with Overwrite returned error: %v", err)
 	}
 	if _, ok := res.(Installed); !ok {
-		t.Fatalf("InstallCLI with Overwrite result = %T, want Installed (AC #4d: confirmed overwrite)", res)
+		t.Fatalf("InstallCLI with Overwrite result = %T, want Installed (confirmed overwrite)", res)
 	}
 	target, err := os.Readlink(link)
 	if err != nil {
 		t.Fatalf("Readlink after confirmed overwrite: %v -- entry must now be OUR symlink", err)
 	}
 	if target != wantCLI {
-		t.Errorf("link target after confirmed overwrite = %q, want %q (AC #4d)", target, wantCLI)
+		t.Errorf("link target after confirmed overwrite = %q, want %q", target, wantCLI)
 	}
 }
 
@@ -653,17 +653,17 @@ func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir, Overwrite: true})
 	if err != nil {
-		t.Fatalf("InstallCLI with Overwrite over a foreign-shaped symlink returned error: %v (AC #4d)", err)
+		t.Fatalf("InstallCLI with Overwrite over a foreign-shaped symlink returned error: %v", err)
 	}
 	if _, ok := res.(Installed); !ok {
-		t.Fatalf("InstallCLI with Overwrite result = %T, want Installed (AC #4d: confirmed overwrite of a foreign symlink)", res)
+		t.Fatalf("InstallCLI with Overwrite result = %T, want Installed (confirmed overwrite of a foreign symlink)", res)
 	}
 	target, err := os.Readlink(link)
 	if err != nil {
 		t.Fatalf("Readlink after confirmed overwrite: %v -- entry must now be OUR symlink", err)
 	}
 	if target != wantCLI {
-		t.Errorf("link target after confirmed overwrite = %q, want %q (AC #4d: foreign symlink re-pointed to bundle CLI)", target, wantCLI)
+		t.Errorf("link target after confirmed overwrite = %q, want %q (foreign symlink re-pointed to bundle CLI)", target, wantCLI)
 	}
 }
 
