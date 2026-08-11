@@ -69,7 +69,7 @@ func fakeBundle(t *testing.T, base, name string) (macOSBin, resourcesCLI string)
 func TestMenuItemLabelExactString(t *testing.T) {
 	want := "Install 'pdfdebug' Command in PATH..."
 	if MenuItemLabel != want {
-		t.Errorf("MenuItemLabel = %q, want %q (AC #1: trailing ellipsis, not \"Install Command Line Tools\")", MenuItemLabel, want)
+		t.Errorf("MenuItemLabel = %q, want %q (trailing ellipsis, not \"Install Command Line Tools\")", MenuItemLabel, want)
 	}
 }
 
@@ -86,10 +86,10 @@ func TestResolveBundleCLIReturnsResourcesPath(t *testing.T) {
 
 	got, err := resolveBundleCLI(macOSBin)
 	if err != nil {
-		t.Fatalf("resolveBundleCLI(%q) returned error: %v (AC #2)", macOSBin, err)
+		t.Fatalf("resolveBundleCLI(%q) returned error: %v", macOSBin, err)
 	}
 	if got != wantCLI {
-		t.Errorf("resolveBundleCLI = %q, want %q (AC #2: sibling Contents/Resources/pdfdebug)", got, wantCLI)
+		t.Errorf("resolveBundleCLI = %q, want %q (sibling Contents/Resources/pdfdebug)", got, wantCLI)
 	}
 	if !filepath.IsAbs(got) {
 		t.Errorf("resolveBundleCLI returned non-absolute path %q (AC #4a)", got)
@@ -136,22 +136,22 @@ func TestInstallCLILinksIntoWritableOnPathDir(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI returned error: %v (AC #2)", err)
+		t.Fatalf("InstallCLI returned error: %v", err)
 	}
 	inst, ok := res.(Installed)
 	if !ok {
-		t.Fatalf("InstallCLI result = %T, want Installed (AC #2: writable+on-PATH dir is the success path)", res)
+		t.Fatalf("InstallCLI result = %T, want Installed (writable+on-PATH dir is the success path)", res)
 	}
 	wantLink := filepath.Join(binDir, "pdfdebug")
 	if inst.Path != wantLink {
-		t.Errorf("Installed.Path = %q, want %q (AC #2)", inst.Path, wantLink)
+		t.Errorf("Installed.Path = %q, want %q", inst.Path, wantLink)
 	}
 	target, err := os.Readlink(wantLink)
 	if err != nil {
-		t.Fatalf("Readlink(%q): %v -- InstallCLI must create a symlink (AC #2)", wantLink, err)
+		t.Fatalf("Readlink(%q): %v -- InstallCLI must create a symlink", wantLink, err)
 	}
 	if target != wantCLI {
-		t.Errorf("symlink target = %q, want %q (AC #2: link points at bundle CLI)", target, wantCLI)
+		t.Errorf("symlink target = %q, want %q (link points at bundle CLI)", target, wantCLI)
 	}
 }
 
@@ -203,20 +203,20 @@ func TestInstallCLINeedsPathHelpSurfacesExportLine(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: writableOffPath})
 	if err != nil {
-		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v (AC #3)", err)
+		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v", err)
 	}
 	help, ok := res.(NeedsPathHelp)
 	if !ok {
-		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp (AC #3)", res)
+		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp", res)
 	}
 	if help.Dir == "" {
-		t.Errorf("NeedsPathHelp.Dir is empty; must name a writable directory to link into (AC #3)")
+		t.Errorf("NeedsPathHelp.Dir is empty; must name a writable directory to link into")
 	}
 	if !strings.Contains(help.ExportLine, "export PATH=") {
-		t.Errorf("NeedsPathHelp.ExportLine = %q, must contain an `export PATH=...` shell-profile line (AC #3)", help.ExportLine)
+		t.Errorf("NeedsPathHelp.ExportLine = %q, must contain an `export PATH=...` shell-profile line", help.ExportLine)
 	}
 	if !strings.Contains(help.ExportLine, help.Dir) {
-		t.Errorf("NeedsPathHelp.ExportLine = %q must reference the target dir %q (AC #3)", help.ExportLine, help.Dir)
+		t.Errorf("NeedsPathHelp.ExportLine = %q must reference the target dir %q", help.ExportLine, help.Dir)
 	}
 }
 
@@ -238,25 +238,25 @@ func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: missingDir})
 	if err != nil {
-		t.Fatalf("InstallCLI returned error: %v (AC #3)", err)
+		t.Fatalf("InstallCLI returned error: %v", err)
 	}
 	if _, ok := res.(NeedsPathHelp); !ok {
-		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp (AC #3: created dir + add-to-PATH guidance)", res)
+		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp (created dir + add-to-PATH guidance)", res)
 	}
 	info, err := os.Stat(missingDir)
 	if err != nil {
-		t.Fatalf("fallback dir %q was not created: %v (AC #3: MkdirAll 0o755)", missingDir, err)
+		t.Fatalf("fallback dir %q was not created: %v (MkdirAll 0o755)", missingDir, err)
 	}
 	if !info.IsDir() {
-		t.Fatalf("fallback path %q is not a directory (AC #3)", missingDir)
+		t.Fatalf("fallback path %q is not a directory", missingDir)
 	}
 	link := filepath.Join(missingDir, "pdfdebug")
 	target, err := os.Readlink(link)
 	if err != nil {
-		t.Fatalf("Readlink(%q): %v -- InstallCLI must link into the created fallback dir (AC #3)", link, err)
+		t.Fatalf("Readlink(%q): %v -- InstallCLI must link into the created fallback dir", link, err)
 	}
 	if target != wantCLI {
-		t.Errorf("symlink target = %q, want %q (AC #3)", target, wantCLI)
+		t.Errorf("symlink target = %q, want %q", target, wantCLI)
 	}
 }
 
@@ -474,18 +474,18 @@ func TestInstallCLISpecialCharPathReadlinkRoundTrip(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: binDir})
 	if err != nil {
-		t.Fatalf("InstallCLI on special-char path returned error: %v (AC #5)", err)
+		t.Fatalf("InstallCLI on special-char path returned error: %v", err)
 	}
 	if _, ok := res.(Installed); !ok {
-		t.Fatalf("InstallCLI on special-char path result = %T, want Installed (AC #5)", res)
+		t.Fatalf("InstallCLI on special-char path result = %T, want Installed", res)
 	}
 	link := filepath.Join(binDir, "pdfdebug")
 	target, err := os.Readlink(link)
 	if err != nil {
-		t.Fatalf("Readlink(%q): %v (AC #5)", link, err)
+		t.Fatalf("Readlink(%q): %v", link, err)
 	}
 	if target != wantCLI {
-		t.Errorf("os.Readlink did NOT byte-round-trip the special-char target.\n got: %q\nwant: %q\n(AC #5: paths pass directly to os.Symlink, no shell)", target, wantCLI)
+		t.Errorf("os.Readlink did NOT byte-round-trip the special-char target.\n got: %q\nwant: %q\n(paths pass directly to os.Symlink, no shell)", target, wantCLI)
 	}
 }
 
@@ -507,7 +507,7 @@ func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
 
 	// Missing -> false.
 	if IsInstalled(link) {
-		t.Errorf("IsInstalled(missing) = true, want false (AC #6)")
+		t.Errorf("IsInstalled(missing) = true, want false")
 	}
 
 	// OUR-shaped symlink (even dangling) -> true.
@@ -516,7 +516,7 @@ func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
 		t.Fatalf("symlink ours: %v", err)
 	}
 	if !IsInstalled(link) {
-		t.Errorf("IsInstalled(our dangling symlink) = false, want true (AC #6: shape match, dangling allowed)")
+		t.Errorf("IsInstalled(our dangling symlink) = false, want true (shape match, dangling allowed)")
 	}
 	_ = os.Remove(link)
 
@@ -525,7 +525,7 @@ func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
 		t.Fatalf("symlink foreign: %v", err)
 	}
 	if IsInstalled(link) {
-		t.Errorf("IsInstalled(foreign-shaped symlink) = true, want false (AC #6)")
+		t.Errorf("IsInstalled(foreign-shaped symlink) = true, want false")
 	}
 	_ = os.Remove(link)
 
@@ -534,7 +534,7 @@ func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
 		t.Fatalf("write foreign file: %v", err)
 	}
 	if IsInstalled(link) {
-		t.Errorf("IsInstalled(regular file) = true, want false (AC #6)")
+		t.Errorf("IsInstalled(regular file) = true, want false")
 	}
 }
 
@@ -557,10 +557,10 @@ func TestUninstallCLIRemovesOnlyOurSymlink(t *testing.T) {
 	}
 
 	if err := UninstallCLI(link); err != nil {
-		t.Fatalf("UninstallCLI(our symlink) returned error: %v (AC #6)", err)
+		t.Fatalf("UninstallCLI(our symlink) returned error: %v", err)
 	}
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
-		t.Errorf("UninstallCLI must remove our symlink; lstat err = %v (AC #6)", err)
+		t.Errorf("UninstallCLI must remove our symlink; lstat err = %v", err)
 	}
 }
 
@@ -589,17 +589,17 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 
 	res, err := InstallCLI(Options{ExecutablePath: macOSBin, InstallDir: writableOffPath})
 	if err != nil {
-		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v (AC #3)", err)
+		t.Fatalf("InstallCLI returned error instead of NeedsPathHelp: %v", err)
 	}
 	help, ok := res.(NeedsPathHelp)
 	if !ok {
-		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp (AC #3)", res)
+		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp", res)
 	}
 	// Exact shape: the dir MUST be double-quoted so spaces/$ survive a paste into
 	// the shell profile (AC5 special-char invariant carried into AC3 guidance).
 	want := `export PATH="` + writableOffPath + `:$PATH"`
 	if help.ExportLine != want {
-		t.Errorf("NeedsPathHelp.ExportLine = %q, want %q (AC #3/#5: dir must be double-quoted for space/$ safety)", help.ExportLine, want)
+		t.Errorf("NeedsPathHelp.ExportLine = %q, want %q (dir must be double-quoted for space/$ safety)", help.ExportLine, want)
 	}
 }
 
@@ -622,7 +622,7 @@ func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
 	link := filepath.Join(binDir, "pdfdebug") // never created
 
 	if err := UninstallCLI(link); err != nil {
-		t.Errorf("UninstallCLI(absent link) = %v, want nil (AC #6: idempotent no-op when nothing is installed)", err)
+		t.Errorf("UninstallCLI(absent link) = %v, want nil (idempotent no-op when nothing is installed)", err)
 	}
 }
 
@@ -683,10 +683,10 @@ func TestDefaultInstallDirIsLocalBin(t *testing.T) {
 	got := DefaultInstallDir()
 	want := filepath.Join(home, ".local", "bin")
 	if got != want {
-		t.Errorf("DefaultInstallDir() = %q, want %q (AC #1: install target is user-owned ~/.local/bin)", got, want)
+		t.Errorf("DefaultInstallDir = %q, want %q (install target is user-owned ~/.local/bin)", got, want)
 	}
 	if got == "/opt/homebrew/bin" || got == "/usr/local/bin" {
-		t.Errorf("DefaultInstallDir() = %q must NOT be a Homebrew-managed prefix (AC #1: avoid brew-link collision)", got)
+		t.Errorf("DefaultInstallDir = %q must NOT be a Homebrew-managed prefix (avoid brew-link collision)", got)
 	}
 }
 
@@ -709,10 +709,10 @@ func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
 		t.Fatalf("write foreign file: %v", err)
 	}
 	if err := UninstallCLI(fileLink); err == nil {
-		t.Errorf("UninstallCLI(foreign regular file) returned nil; must refuse and error (AC #6)")
+		t.Errorf("UninstallCLI(foreign regular file) returned nil; must refuse and error")
 	}
 	if _, err := os.Lstat(fileLink); err != nil {
-		t.Errorf("UninstallCLI removed a foreign regular file: %v (AC #6: must never remove a non-ours entry)", err)
+		t.Errorf("UninstallCLI removed a foreign regular file: %v (must never remove a non-ours entry)", err)
 	}
 	_ = os.Remove(fileLink)
 
@@ -721,10 +721,10 @@ func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
 		t.Fatalf("symlink foreign: %v", err)
 	}
 	if err := UninstallCLI(fileLink); err == nil {
-		t.Errorf("UninstallCLI(foreign-shaped symlink) returned nil; must refuse and error (AC #6)")
+		t.Errorf("UninstallCLI(foreign-shaped symlink) returned nil; must refuse and error")
 	}
 	if _, err := os.Lstat(fileLink); err != nil {
-		t.Errorf("UninstallCLI removed a foreign-shaped symlink: %v (AC #6)", err)
+		t.Errorf("UninstallCLI removed a foreign-shaped symlink: %v", err)
 	}
 }
 
@@ -749,30 +749,30 @@ func TestAddDirToShellProfileAppendsAndIsIdempotent(t *testing.T) {
 
 	profile, err := AddDirToShellProfile(dir)
 	if err != nil {
-		t.Fatalf("AddDirToShellProfile returned error: %v (AC #4)", err)
+		t.Fatalf("AddDirToShellProfile returned error: %v", err)
 	}
 	wantProfile := filepath.Join(home, ".zshrc")
 	if profile != wantProfile {
-		t.Errorf("profile = %q, want %q (AC #4: zsh -> ~/.zshrc)", profile, wantProfile)
+		t.Errorf("profile = %q, want %q (zsh -> ~/.zshrc)", profile, wantProfile)
 	}
 	data, err := os.ReadFile(profile)
 	if err != nil {
 		t.Fatalf("read profile: %v", err)
 	}
 	if !strings.Contains(string(data), shellProfileMarker) {
-		t.Errorf("profile missing marker %q (AC #4)", shellProfileMarker)
+		t.Errorf("profile missing marker %q", shellProfileMarker)
 	}
 	if !strings.Contains(string(data), exportLineFor(dir)) {
-		t.Errorf("profile missing export line %q (AC #4)", exportLineFor(dir))
+		t.Errorf("profile missing export line %q", exportLineFor(dir))
 	}
 
 	// Second call: must not append a duplicate block.
 	if _, err := AddDirToShellProfile(dir); err != nil {
-		t.Fatalf("second AddDirToShellProfile returned error: %v (AC #4)", err)
+		t.Fatalf("second AddDirToShellProfile returned error: %v", err)
 	}
 	data2, _ := os.ReadFile(profile)
 	if got := strings.Count(string(data2), shellProfileMarker); got != 1 {
-		t.Errorf("marker appears %d times after two calls, want 1 (AC #4: idempotent)", got)
+		t.Errorf("marker appears %d times after two calls, want 1 (idempotent)", got)
 	}
 }
 
@@ -788,10 +788,10 @@ func TestAddDirToShellProfileUnknownShell(t *testing.T) {
 	t.Setenv("SHELL", "/usr/bin/exoticsh")
 
 	if _, err := AddDirToShellProfile(filepath.Join(home, ".local", "bin")); err != ErrUnknownShell {
-		t.Errorf("AddDirToShellProfile with unknown shell = %v, want ErrUnknownShell (AC #5)", err)
+		t.Errorf("AddDirToShellProfile with unknown shell = %v, want ErrUnknownShell", err)
 	}
 	entries, _ := os.ReadDir(home)
 	if len(entries) != 0 {
-		t.Errorf("unknown shell must not create/edit any profile file; found %d entries (AC #5)", len(entries))
+		t.Errorf("unknown shell must not create/edit any profile file; found %d entries", len(entries))
 	}
 }

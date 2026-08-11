@@ -117,13 +117,13 @@ func TestBuildCLIStepRunsBeforeMacGUIBuild(t *testing.T) {
 		return strings.Contains(name, "Build macOS GUI")
 	})
 	if cliIdx == -1 {
-		t.Fatalf("release.yml build job: `Build CLI` step not found (AC #1)")
+		t.Fatalf("release.yml build job: `Build CLI` step not found")
 	}
 	if guiIdx == -1 {
-		t.Fatalf("release.yml build job: `Build macOS GUI` step not found (AC #1)")
+		t.Fatalf("release.yml build job: `Build macOS GUI` step not found")
 	}
 	if cliIdx >= guiIdx {
-		t.Errorf("release.yml build job: `Build CLI` step (idx %d) must run BEFORE `Build macOS GUI` step (idx %d) so bin/pdfdebug exists when darwin:package assembles the bundle (AC #1, Task 0.1)", cliIdx, guiIdx)
+		t.Errorf("release.yml build job: `Build CLI` step (idx %d) must run BEFORE `Build macOS GUI` step (idx %d) so bin/pdfdebug exists when darwin:package assembles the bundle", cliIdx, guiIdx)
 	}
 }
 
@@ -142,13 +142,13 @@ func TestBuildCLIStepRunsBeforeMacSignStep(t *testing.T) {
 		return strings.Contains(name, "Sign macOS app bundle")
 	})
 	if cliIdx == -1 {
-		t.Fatalf("release.yml build job: `Build CLI` step not found (AC #1)")
+		t.Fatalf("release.yml build job: `Build CLI` step not found")
 	}
 	if signIdx == -1 {
-		t.Fatalf("release.yml build job: `Sign macOS app bundle` step not found (AC #1)")
+		t.Fatalf("release.yml build job: `Sign macOS app bundle` step not found")
 	}
 	if cliIdx >= signIdx {
-		t.Errorf("release.yml build job: `Build CLI` step (idx %d) must run BEFORE `Sign macOS app bundle` step (idx %d) so a CLI added to Contents/Resources is covered by the signature when signing is enabled (AC #1, Task 0.1)", cliIdx, signIdx)
+		t.Errorf("release.yml build job: `Build CLI` step (idx %d) must run BEFORE `Sign macOS app bundle` step (idx %d) so a CLI added to Contents/Resources is covered by the signature when signing is enabled", cliIdx, signIdx)
 	}
 }
 
@@ -169,13 +169,13 @@ func TestCLISmokeTestStepRunsAfterBuildCLI(t *testing.T) {
 		return strings.Contains(strings.ToLower(name), "smoke")
 	})
 	if cliIdx == -1 {
-		t.Fatalf("release.yml build job: `Build CLI` step not found (AC #7, Task 0.1)")
+		t.Fatalf("release.yml build job: `Build CLI` step not found")
 	}
 	if smokeIdx == -1 {
-		t.Fatalf("release.yml build job: `CLI smoke test` step not found (AC #7, Task 0.1)")
+		t.Fatalf("release.yml build job: `CLI smoke test` step not found")
 	}
 	if smokeIdx <= cliIdx {
-		t.Errorf("release.yml build job: `CLI smoke test` step (idx %d) must run AFTER `Build CLI` step (idx %d) -- the smoke step invokes the produced bin/pdfdebug (AC #7, Task 0.1)", smokeIdx, cliIdx)
+		t.Errorf("release.yml build job: `CLI smoke test` step (idx %d) must run AFTER `Build CLI` step (idx %d) -- the smoke step invokes the produced bin/pdfdebug", smokeIdx, cliIdx)
 	}
 }
 
@@ -193,20 +193,20 @@ func TestDarwinBundleBuildsCLI(t *testing.T) {
 	// `go build ./cmd/cli` cmd, or a deps:-wired task that does so. Require the
 	// CGO-free CLI target to be referenced somewhere in the Taskfile.
 	if !strings.Contains(raw, "./cmd/cli") {
-		t.Errorf("build/darwin/Taskfile.yml: must build the CLI via `./cmd/cli` (AC #6, Task 1.1; create:app:bundle/package must produce pdfdebug, not assume a pre-built bin/pdfdebug)")
+		t.Errorf("build/darwin/Taskfile.yml: must build the CLI via `./cmd/cli` (create:app:bundle/package must produce pdfdebug, not assume a pre-built bin/pdfdebug)")
 	}
 	// CGO_ENABLED=0 for the CLI (it has zero Wails/CGo dependency).
 	if !regexp.MustCompile(`CGO_ENABLED:\s*['"]?0['"]?`).MatchString(raw) {
-		t.Errorf("build/darwin/Taskfile.yml: CLI build must set CGO_ENABLED=0 (AC #6; CLI consumes internal/pdfcore with no Wails dependency)")
+		t.Errorf("build/darwin/Taskfile.yml: CLI build must set CGO_ENABLED=0 (CLI consumes internal/pdfcore with no Wails dependency)")
 	}
 	// VERSION resolution must match the existing build tasks' idiom:
 	// `env "VERSION" | default "dev"`.
 	if !strings.Contains(raw, `env "VERSION"`) {
-		t.Errorf("build/darwin/Taskfile.yml: CLI build must resolve VERSION via `env \"VERSION\" | default \"dev\"` (AC #6, Task 1.1)")
+		t.Errorf("build/darwin/Taskfile.yml: CLI build must resolve VERSION via `env \"VERSION\" | default \"dev\"`")
 	}
 	// The version ldflag must embed main.version for the CLI.
 	if !strings.Contains(raw, "-X main.version=") {
-		t.Errorf("build/darwin/Taskfile.yml: CLI build must pass `-X main.version=...` ldflag (AC #6)")
+		t.Errorf("build/darwin/Taskfile.yml: CLI build must pass `-X main.version=...` ldflag")
 	}
 }
 
@@ -226,11 +226,11 @@ func TestDarwinBundleCopiesCLIIntoResources(t *testing.T) {
 	hasResourcesPdfdebug := regexp.MustCompile(`Contents/Resources/pdfdebug`).MatchString(raw)
 	hasCopyToResources := regexp.MustCompile(`pdfdebug.*Contents/Resources`).MatchString(raw)
 	if !hasResourcesPdfdebug && !hasCopyToResources {
-		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle must copy the CLI to {{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug (AC #1, AC #6, Task 1.1)")
+		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle must copy the CLI to {{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug")
 	}
 	// The copied CLI must be executable.
 	if !regexp.MustCompile(`chmod\s+\+x.*pdfdebug|chmod\s+\d*7\d*.*pdfdebug`).MatchString(raw) {
-		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle must `chmod +x` the bundled CLI so it is executable (AC #1)")
+		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle must `chmod +x` the bundled CLI so it is executable")
 	}
 }
 
@@ -265,14 +265,14 @@ func TestDarwinBundleCLICopyPrecedesCodesignDispatch(t *testing.T) {
 		dispatchIdx = strings.Index(body, "codesign:adhoc")
 	}
 	if copyIdx == nil {
-		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle body has no CLI (pdfdebug) copy cmd (AC #1, Task 1.1)")
+		t.Errorf("build/darwin/Taskfile.yml: create:app:bundle body has no CLI (pdfdebug) copy cmd")
 		return
 	}
 	if dispatchIdx == -1 {
 		t.Fatalf("build/darwin/Taskfile.yml: create:app:bundle body has no codesign dispatch to order against (Task 1.1)")
 	}
 	if copyIdx[0] >= dispatchIdx {
-		t.Errorf("build/darwin/Taskfile.yml: the CLI copy cmd must appear BEFORE the final `task: codesign:adhoc` dispatch in create:app:bundle (AC #1; a Mach-O added after signing is unsigned and breaks the signature)")
+		t.Errorf("build/darwin/Taskfile.yml: the CLI copy cmd must appear BEFORE the final `task: codesign:adhoc` dispatch in create:app:bundle (a Mach-O added after signing is unsigned and breaks the signature)")
 	}
 }
 
@@ -294,13 +294,13 @@ func TestDarwinGUIStageHasNoLooseCLI(t *testing.T) {
 	if cliStageIdx == -1 {
 		// Standalone CLI staging must still exist; if it is gone this assertion
 		// cannot scope correctly -- fail loudly (also caught by AC #2 retention test).
-		t.Fatalf("release.yml darwin stage: standalone CLI staging (darwin-cli-stage) not found; cannot scope the DMG-stage loose-CLI check (AC #2)")
+		t.Fatalf("release.yml darwin stage: standalone CLI staging (darwin-cli-stage) not found; cannot scope the DMG-stage loose-CLI check")
 	}
 	dmgStage := block[:cliStageIdx]
 
 	// The DMG staging section must not copy pdfdebug into the dmg stage dir.
 	if regexp.MustCompile(`cp\b[^\n]*pdfdebug[^\n]*dmg-stage|cp\b[^\n]*pdfdebug[^\n]*"\$STAGE"`).MatchString(dmgStage) {
-		t.Errorf("release.yml darwin stage: the DMG staging section must NOT copy a loose `pdfdebug` into the dmg stage -- the CLI ships inside the .app (AC #2, Task 2.1)")
+		t.Errorf("release.yml darwin stage: the DMG staging section must NOT copy a loose `pdfdebug` into the dmg stage -- the CLI ships inside the .app")
 	}
 }
 
@@ -313,7 +313,7 @@ func TestDarwinStandaloneCLIArchiveRetained(t *testing.T) {
 	block := stageCaseBlock(t, "darwin-arm64|darwin-amd64")
 
 	if !strings.Contains(block, "pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz") {
-		t.Errorf("release.yml darwin stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz` must still be produced for headless/CI users (AC #2, Task 2.2)")
+		t.Errorf("release.yml darwin stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz` must still be produced for headless/CI users")
 	}
 }
 
@@ -336,7 +336,7 @@ func TestWindowsGUIStageBundlesCLI(t *testing.T) {
 
 	// A cp of pdfdebug.exe into the GUI stage dir ($GUI_STAGE / win-gui-stage).
 	if !regexp.MustCompile(`cp\b[^\n]*pdfdebug\.exe[^\n]*(\$GUI_STAGE|win-gui-stage)`).MatchString(guiStage) {
-		t.Errorf("release.yml windows stage: the GUI zip staging must copy `bin/pdfdebug.exe` into the GUI stage dir before `7z a -tzip` (AC #3, Task 3.1)")
+		t.Errorf("release.yml windows stage: the GUI zip staging must copy `bin/pdfdebug.exe` into the GUI stage dir before `7z a -tzip`")
 	}
 }
 
@@ -349,7 +349,7 @@ func TestWindowsStandaloneCLIArchiveRetained(t *testing.T) {
 	block := stageCaseBlock(t, "windows-amd64")
 
 	if !strings.Contains(block, "pdfdebug-cli-${VERSION}-${PLATFORM}.zip") {
-		t.Errorf("release.yml windows stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.zip` must still be produced (AC #3, Task 3.2)")
+		t.Errorf("release.yml windows stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.zip` must still be produced")
 	}
 }
 
@@ -372,7 +372,7 @@ func TestLinuxGUIStageBundlesCLI(t *testing.T) {
 
 	// A cp of bin/pdfdebug into the GUI stage dir ($GUI_STAGE / linux-gui-stage).
 	if !regexp.MustCompile(`cp\b[^\n]*\bpdfdebug\b[^\n]*(\$GUI_STAGE|linux-gui-stage)`).MatchString(guiStage) {
-		t.Errorf("release.yml linux stage: the GUI tar.gz staging must copy `bin/pdfdebug` into the GUI stage dir before `tar -czf` (AC #4, Task 4.1)")
+		t.Errorf("release.yml linux stage: the GUI tar.gz staging must copy `bin/pdfdebug` into the GUI stage dir before `tar -czf`")
 	}
 }
 
@@ -385,7 +385,7 @@ func TestLinuxStandaloneCLIArchiveRetained(t *testing.T) {
 	block := stageCaseBlock(t, "linux-amd64")
 
 	if !strings.Contains(block, "pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz") {
-		t.Errorf("release.yml linux stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz` must still be produced (AC #4, Task 4.2)")
+		t.Errorf("release.yml linux stage: standalone `pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz` must still be produced")
 	}
 }
 
@@ -398,7 +398,7 @@ func TestLinuxStandaloneCLIArchiveRetained(t *testing.T) {
 func TestArtifactCountStaysSix(t *testing.T) {
 	run := jobRunBodies(t, "release")
 	if !strings.Contains(run, "EXPECTED_FILES=6") {
-		t.Errorf("release.yml release job: EXPECTED_FILES must remain 6 (3 GUI archives + 3 standalone CLI archives; the bundled-in CLI is not a separate file) (AC #5, Task 5.1)")
+		t.Errorf("release.yml release job: EXPECTED_FILES must remain 6 (3 GUI archives + 3 standalone CLI archives; the bundled-in CLI is not a separate file)")
 	}
 }
 
@@ -416,9 +416,9 @@ func TestSHA256SumsCommentHasNoStaleEightAssets(t *testing.T) {
 	// cells x 2 artifacts/cell)`. Both the literal "8 assets" token and the
 	// "4 matrix cells" rationale must be gone.
 	if strings.Contains(raw, `"8 assets"`) || strings.Contains(raw, "8 assets") {
-		t.Errorf("release.yml: stale `8 assets` reference must be corrected to the real 6-asset invariant (AC #5, Task 5.2)")
+		t.Errorf("release.yml: stale `8 assets` reference must be corrected to the real 6-asset invariant")
 	}
 	if strings.Contains(raw, "4 matrix cells") {
-		t.Errorf("release.yml: stale `4 matrix cells x 2 artifacts/cell` rationale must be corrected to `3 platforms x 2 archives each` (AC #5, Task 5.2)")
+		t.Errorf("release.yml: stale `4 matrix cells x 2 artifacts/cell` rationale must be corrected to `3 platforms x 2 archives each`")
 	}
 }

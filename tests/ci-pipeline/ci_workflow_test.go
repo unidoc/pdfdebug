@@ -175,11 +175,11 @@ func TestCIWorkflowTriggers(t *testing.T) {
 
 	pr, hasPR := onMap["pull_request"]
 	if !hasPR {
-		t.Errorf("ci.yml: `on.pull_request` trigger missing (AC #1 requires PR trigger)")
+		t.Errorf("ci.yml: `on.pull_request` trigger missing (requires PR trigger)")
 	}
 	pu, hasPush := onMap["push"]
 	if !hasPush {
-		t.Errorf("ci.yml: `on.push` trigger missing (AC #1 requires push trigger)")
+		t.Errorf("ci.yml: `on.push` trigger missing (requires push trigger)")
 	}
 
 	// Both pull_request and push must target master AND dev
@@ -250,7 +250,7 @@ func TestCIWorkflowMatrixOS(t *testing.T) {
 	}
 	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest"} {
 		if !found[required] {
-			t.Errorf("ci.yml: matrix.os missing %q (AC #2)", required)
+			t.Errorf("ci.yml: matrix.os missing %q", required)
 		}
 	}
 }
@@ -282,7 +282,7 @@ func TestCIWorkflowNoJobNameOverride(t *testing.T) {
 
 	job := buildAndTestJob(t)
 	if _, exists := job["name"]; exists {
-		t.Errorf("ci.yml: build-and-test MUST NOT have a `name:` field -- it would override the default `build-and-test (<os>)` check-run name and break branch protection per-platform (AC #7)")
+		t.Errorf("ci.yml: build-and-test MUST NOT have a `name:` field -- it would override the default `build-and-test (<os>)` check-run name and break branch protection per-platform")
 	}
 }
 
@@ -296,14 +296,14 @@ func TestCIWorkflowJobTimeout(t *testing.T) {
 	job := buildAndTestJob(t)
 	tRaw, ok := job["timeout-minutes"]
 	if !ok {
-		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (AC #8 requires 30-minute cap)")
+		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (requires 30-minute cap)")
 	}
 	tVal, ok := tRaw.(int)
 	if !ok {
 		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not an integer, got %T", tRaw)
 	}
 	if tVal != 30 {
-		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 30 (AC #8), got %d", tVal)
+		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 30, got %d", tVal)
 	}
 }
 
@@ -376,7 +376,7 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 		if u, ok := m["uses"].(string); ok && strings.HasPrefix(u, "actions/setup-go@") {
 			goStep = m
 			if !strings.HasPrefix(u, "actions/setup-go@v6") {
-				t.Errorf("ci.yml: setup-go must be @v6, got %q (AC #2)", u)
+				t.Errorf("ci.yml: setup-go must be @v6, got %q", u)
 			}
 			break
 		}
@@ -396,13 +396,13 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 	// Accept "1.26.x" or equivalent. Must start with 1.26. and NOT be 1.260, 1.26-rc, etc.
 	goVerRe := regexp.MustCompile(`^1\.26(\.|$)`)
 	if !goVerRe.MatchString(ver) {
-		t.Errorf("ci.yml: setup-go.go-version must pin 1.26.x, got %q (AC #2)", ver)
+		t.Errorf("ci.yml: setup-go.go-version must pin 1.26.x, got %q", ver)
 	}
 
 	// cache-dependency-path must include BOTH root go.sum AND tests/** go.sum (AC #6)
 	cdp, hasCDP := with["cache-dependency-path"]
 	if !hasCDP {
-		t.Fatalf("ci.yml: setup-go.with.cache-dependency-path missing (AC #6: per-suite modules must be cached)")
+		t.Fatalf("ci.yml: setup-go.with.cache-dependency-path missing (per-suite modules must be cached)")
 	}
 	cdpStr := ""
 	switch v := cdp.(type) {
@@ -421,7 +421,7 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 		t.Errorf("ci.yml: setup-go cache-dependency-path must include root go.sum")
 	}
 	if !strings.Contains(cdpStr, "tests/") || !strings.Contains(cdpStr, "go.sum") {
-		t.Errorf("ci.yml: setup-go cache-dependency-path must include tests/**/go.sum (AC #6)")
+		t.Errorf("ci.yml: setup-go cache-dependency-path must include tests/**/go.sum")
 	}
 }
 
@@ -441,7 +441,7 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 		if u, ok := m["uses"].(string); ok && strings.HasPrefix(u, "actions/setup-node@") {
 			nodeStep = m
 			if !strings.HasPrefix(u, "actions/setup-node@v5") {
-				t.Errorf("ci.yml: setup-node must be @v5, got %q (AC #2)", u)
+				t.Errorf("ci.yml: setup-node must be @v5, got %q", u)
 			}
 			break
 		}
@@ -463,7 +463,7 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 	switch v := nv.(type) {
 	case string:
 		if !strings.HasPrefix(v, "20") {
-			t.Errorf("ci.yml: setup-node.node-version must be 20 LTS, got %q (AC #2)", v)
+			t.Errorf("ci.yml: setup-node.node-version must be 20 LTS, got %q", v)
 		}
 	case int:
 		if v != 20 {
@@ -475,14 +475,14 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 
 	cache, ok := with["cache"].(string)
 	if !ok {
-		t.Errorf("ci.yml: setup-node.with.cache missing (AC #6)")
+		t.Errorf("ci.yml: setup-node.with.cache missing")
 	} else if cache != "npm" {
-		t.Errorf("ci.yml: setup-node.with.cache must be \"npm\", got %q (AC #6)", cache)
+		t.Errorf("ci.yml: setup-node.with.cache must be \"npm\", got %q", cache)
 	}
 
 	cdp, ok := with["cache-dependency-path"].(string)
 	if !ok {
-		t.Errorf("ci.yml: setup-node.with.cache-dependency-path missing (AC #6)")
+		t.Errorf("ci.yml: setup-node.with.cache-dependency-path missing")
 	} else if cdp != "frontend/package-lock.json" {
 		t.Errorf("ci.yml: setup-node.cache-dependency-path must be frontend/package-lock.json, got %q", cdp)
 	}
@@ -509,7 +509,7 @@ func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
 		}
 	}
 	if linuxStep == nil {
-		t.Fatalf("ci.yml: Linux-guarded apt-get step not found (AC #3)")
+		t.Fatalf("ci.yml: Linux-guarded apt-get step not found")
 	}
 
 	ifClause := linuxStep["if"].(string)
@@ -520,7 +520,7 @@ func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
 	run := linuxStep["run"].(string)
 	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev", "build-essential"} {
 		if !strings.Contains(run, pkg) {
-			t.Errorf("ci.yml: Linux apt-get step missing package %q (AC #3)", pkg)
+			t.Errorf("ci.yml: Linux apt-get step missing package %q", pkg)
 		}
 	}
 	if !strings.Contains(run, "apt-get update") {
@@ -551,7 +551,7 @@ func TestCIWorkflowWailsCLIPinMatchesGoMod(t *testing.T) {
 	run := stepRunBodies(t)
 	expected := "github.com/wailsapp/wails/v3/cmd/wails3@" + pin
 	if !strings.Contains(run, expected) {
-		t.Errorf("ci.yml: wails3 install must pin to %q (from go.mod); not found in any step `run:` body (AC #4)", expected)
+		t.Errorf("ci.yml: wails3 install must pin to %q (from go.mod); not found in any step `run:` body", expected)
 	}
 }
 
@@ -566,14 +566,14 @@ func TestCIWorkflowGolangciLintV2Pinned(t *testing.T) {
 	// v2 module path; the @v2.x.y pin (exact version, not @latest)
 	re := regexp.MustCompile(`github\.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2\.[0-9]+\.[0-9]+`)
 	if !re.MatchString(run) {
-		t.Errorf("ci.yml: golangci-lint install must use v2 module path with pinned @v2.x.y version (AC #1); @latest is forbidden")
+		t.Errorf("ci.yml: golangci-lint install must use v2 module path with pinned @v2.x.y version; @latest is forbidden")
 	}
 	if strings.Contains(run, "golangci-lint@latest") {
 		t.Errorf("ci.yml: golangci-lint@latest is forbidden (pin a concrete version)")
 	}
 	// Must be invoked as a lint step
 	if !strings.Contains(run, "golangci-lint run") {
-		t.Errorf("ci.yml: golangci-lint run step missing (AC #1)")
+		t.Errorf("ci.yml: golangci-lint run step missing")
 	}
 }
 
@@ -586,7 +586,7 @@ func TestCIWorkflowGoVetStep(t *testing.T) {
 
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "go vet ./...") {
-		t.Errorf("ci.yml: `go vet ./...` step missing (AC #1)")
+		t.Errorf("ci.yml: `go vet./...` step missing")
 	}
 }
 
@@ -599,7 +599,7 @@ func TestCIWorkflowGoTestRootStep(t *testing.T) {
 
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "go test ./...") {
-		t.Errorf("ci.yml: `go test ./...` step missing for repo root (AC #1)")
+		t.Errorf("ci.yml: `go test./...` step missing for repo root")
 	}
 }
 
@@ -623,7 +623,7 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 		}
 	}
 	if loopStep == nil {
-		t.Fatalf("ci.yml: per-suite module test loop not found (AC #5 requires iterating tests/*/go.mod)")
+		t.Fatalf("ci.yml: per-suite module test loop not found (requires iterating tests/*/go.mod)")
 	}
 
 	// Must use bash (Windows default is PowerShell)
@@ -702,25 +702,25 @@ func TestCIWorkflowFrontendSteps(t *testing.T) {
 
 	// npm ci --prefix frontend (frontend dep install)
 	if !strings.Contains(run, "npm ci") || !strings.Contains(run, "frontend") {
-		t.Errorf("ci.yml: frontend dep install (`npm ci --prefix frontend`) missing (AC #1)")
+		t.Errorf("ci.yml: frontend dep install (`npm ci --prefix frontend`) missing")
 	}
 
 	// TypeScript type-check (tsc --noEmit) OR `npm run typecheck`
 	typecheckRe := regexp.MustCompile(`tsc --noEmit|npm run typecheck`)
 	if !typecheckRe.MatchString(run) {
-		t.Errorf("ci.yml: frontend typecheck step (tsc --noEmit or npm run typecheck) missing (AC #1)")
+		t.Errorf("ci.yml: frontend typecheck step (tsc --noEmit or npm run typecheck) missing")
 	}
 
 	// ESLint via npm run lint
 	lintRe := regexp.MustCompile(`npm run lint|eslint `)
 	if !lintRe.MatchString(run) {
-		t.Errorf("ci.yml: frontend lint step (npm run lint or eslint) missing (AC #1)")
+		t.Errorf("ci.yml: frontend lint step (npm run lint or eslint) missing")
 	}
 
 	// Vitest via npm run test
 	testRe := regexp.MustCompile(`npm run test|vitest`)
 	if !testRe.MatchString(run) {
-		t.Errorf("ci.yml: frontend Vitest run (npm run test) missing (AC #1)")
+		t.Errorf("ci.yml: frontend Vitest run (npm run test) missing")
 	}
 }
 
@@ -733,7 +733,7 @@ func TestCIWorkflowWailsBuildStep(t *testing.T) {
 
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "wails3 build") {
-		t.Errorf("ci.yml: `wails3 build` step missing (AC #1)")
+		t.Errorf("ci.yml: `wails3 build` step missing")
 	}
 }
 

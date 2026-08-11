@@ -82,7 +82,7 @@ func TestDownloadArtifactMergeMultiple(t *testing.T) {
 		return strings.HasPrefix(u, "actions/download-artifact@v5")
 	})
 	if step == nil {
-		t.Fatalf("release.yml: actions/download-artifact@v5 step missing in release job (AC #9)")
+		t.Fatalf("release.yml: actions/download-artifact@v5 step missing in release job")
 	}
 	with, ok := step["with"].(map[string]interface{})
 	if !ok {
@@ -110,7 +110,7 @@ func TestUploadArtifactNamePattern(t *testing.T) {
 		return strings.HasPrefix(u, "actions/upload-artifact@v5")
 	})
 	if step == nil {
-		t.Fatalf("release.yml: actions/upload-artifact@v5 step missing in build job (AC #9)")
+		t.Fatalf("release.yml: actions/upload-artifact@v5 step missing in build job")
 	}
 	with, ok := step["with"].(map[string]interface{})
 	if !ok {
@@ -451,7 +451,7 @@ func TestReleasePublishFilesGlob(t *testing.T) {
 	files, _ := with["files"].(string)
 	// `files:` is a multi-line string; look for `dist/*` on any line.
 	if !regexp.MustCompile(`(?m)^\s*dist/\*\s*$`).MatchString(files) {
-		t.Errorf("release.yml: action-gh-release `with.files` must include `dist/*` so SHA256SUMS.txt is uploaded (AC #8)")
+		t.Errorf("release.yml: action-gh-release `with.files` must include `dist/*` so SHA256SUMS.txt is uploaded")
 	}
 	// Re-assert fail_on_unmatched_files: TestGenerateReleaseNotesEnabled already
 	// covers this, but we include it here for the gap-test's explicit traceability
@@ -620,7 +620,7 @@ func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
 	re := regexp.MustCompile(`=~\s*(-\(rc\|alpha\|beta\))`)
 	m := re.FindStringSubmatch(run)
 	if m == nil {
-		t.Fatalf("release.yml: prerelease bash test missing `=~ -(rc|alpha|beta)` (AC #7)")
+		t.Fatalf("release.yml: prerelease bash test missing `=~ -(rc|alpha|beta)`")
 	}
 
 	// Simulate the bash regex in Go (ERE): `-(rc|alpha|beta)`
@@ -635,7 +635,7 @@ func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
 		"v0.1.0-beta3",
 	} {
 		if !goRe.MatchString(tag) {
-			t.Errorf("release.yml prerelease regex should match %q as pre-release (AC #7)", tag)
+			t.Errorf("release.yml prerelease regex should match %q as pre-release", tag)
 		}
 	}
 	// Negative cases -- must NOT match (production tag).
@@ -645,7 +645,7 @@ func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
 		"v10.20.30",
 	} {
 		if goRe.MatchString(tag) {
-			t.Errorf("release.yml prerelease regex should NOT match %q as pre-release (AC #7)", tag)
+			t.Errorf("release.yml prerelease regex should NOT match %q as pre-release", tag)
 		}
 	}
 }
@@ -687,7 +687,7 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 		return id == "apple_secrets"
 	})
 	if step == nil {
-		t.Fatalf("release.yml build job: step with `id: apple_secrets` missing (Story 8-5 AC #1 pre-flight)")
+		t.Fatalf("release.yml build job: step with `id: apple_secrets` missing (pre-flight)")
 	}
 	run, _ := step["run"].(string)
 
@@ -695,7 +695,7 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 	// The annotation surfaces in the Actions UI so a partial state is not
 	// silently treated as "fully absent" (see Story 8-5 AC #1 + Task 1.1).
 	if !strings.Contains(run, "::warning::") {
-		t.Errorf("release.yml: apple_secrets probe must emit `::warning::` on partial-secret state (Story 8-5 AC #1; otherwise partial config silently degrades to unsigned)")
+		t.Errorf("release.yml: apple_secrets probe must emit `::warning::` on partial-secret state (otherwise partial config silently degrades to unsigned)")
 	}
 }
 
@@ -713,13 +713,13 @@ func TestLinuxRuntimeDepsInstalled(t *testing.T) {
 		return strings.Contains(strings.ToLower(name), "linux") && strings.Contains(strings.ToLower(name), "deps")
 	})
 	if step == nil {
-		t.Fatalf("release.yml build job: Linux native deps install step missing (Story 8-5 AC #5)")
+		t.Fatalf("release.yml build job: Linux native deps install step missing")
 	}
 	run, _ := step["run"].(string)
 
 	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev"} {
 		if !strings.Contains(run, pkg) {
-			t.Errorf("release.yml Linux deps step: missing apt package %q (Story 8-5 AC #5; runtime deps documented in README)", pkg)
+			t.Errorf("release.yml Linux deps step: missing apt package %q (runtime deps documented in README)", pkg)
 		}
 	}
 
