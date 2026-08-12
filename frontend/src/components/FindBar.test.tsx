@@ -73,7 +73,7 @@ function renderBar(opts: RenderOpts = {}) {
 // 10-2-COMP-001 [P0] AC#1: static structure -- role + aria-label root.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-001: root role + aria-label', () => {
+describe('root role + aria-label', () => {
   test('root element carries role="search" and aria-label="Find in plain text"', () => {
     renderBar();
     const bar = screen.getByTestId('plain-text-find-bar');
@@ -86,7 +86,7 @@ describe('10-2-COMP-001: root role + aria-label', () => {
 // 10-2-COMP-002 [P0] AC#1: input renders with aria-label="Find query".
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-002: input', () => {
+describe('input', () => {
   test('input testid is plain-text-find-input and aria-label="Find query"', () => {
     renderBar();
     const input = screen.getByTestId('plain-text-find-input');
@@ -106,7 +106,7 @@ describe('10-2-COMP-002: input', () => {
 // 10-2-COMP-003 [P0] AC#1, AC#4, AC#18: match count text.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-003: match count', () => {
+describe('match count', () => {
   test('empty query -> "0 of 0"', () => {
     renderBar({ query: '', matches: [] });
     expect(screen.getByTestId('plain-text-find-count').textContent).toBe('0 of 0');
@@ -132,7 +132,7 @@ describe('10-2-COMP-003: match count', () => {
 // 10-2-COMP-004 [P0] AC#1, AC#10: case-toggle button.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-004: case toggle', () => {
+describe('case toggle', () => {
   test('case-toggle button renders with aria-label="Match case"', () => {
     renderBar();
     const toggle = screen.getByTestId('plain-text-find-case-toggle');
@@ -185,7 +185,7 @@ describe('10-2-COMP-004: case toggle', () => {
 // 10-2-COMP-005 [P0] AC#1: prev / next / close buttons.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-005: navigation + close buttons', () => {
+describe('navigation + close buttons', () => {
   test('prev button: aria-label="Previous match", click fires onPrev', () => {
     const { onPrev } = renderBar({ matches: fakeMatches(2) });
     const prev = screen.getByTestId('plain-text-find-prev');
@@ -215,7 +215,7 @@ describe('10-2-COMP-005: navigation + close buttons', () => {
 // 10-2-COMP-006 [P0] AC#18: prev/next disabled when no matches.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-006: prev/next disabled when matches empty', () => {
+describe('prev/next disabled when matches empty', () => {
   test('matches.length === 0 -> prev disabled + aria-disabled="true"', () => {
     renderBar({ matches: [] });
     const prev = screen.getByTestId('plain-text-find-prev') as HTMLButtonElement;
@@ -243,7 +243,7 @@ describe('10-2-COMP-006: prev/next disabled when matches empty', () => {
 // 10-2-COMP-007 [P0] AC#7, AC#8: wrap-status mounts only when wrapped !== null.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-007: wrap-status rendering', () => {
+describe('wrap-status rendering', () => {
   test('wrapped=null -> wrap-status testid absent', () => {
     renderBar({ wrapped: null });
     expect(screen.queryByTestId('plain-text-find-wrap-status')).toBeNull();
@@ -272,7 +272,7 @@ describe('10-2-COMP-007: wrap-status rendering', () => {
 // 10-2-COMP-008 [P0] AC#12: non-Latin-1 hint mount + aria-describedby linkage.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-008: non-Latin-1 hint', () => {
+describe('non-Latin-1 hint', () => {
   test('nonLatin1=false -> hint absent + input has no aria-describedby', () => {
     renderBar({ nonLatin1: false });
     expect(screen.queryByTestId('plain-text-find-non-latin1-hint')).toBeNull();
@@ -298,7 +298,7 @@ describe('10-2-COMP-008: non-Latin-1 hint', () => {
 // 10-2-COMP-009 [P0] AC#16: keyboard wiring on the input.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-009: keyboard wiring on the input', () => {
+describe('keyboard wiring on the input', () => {
   test('Enter on input fires onNext', () => {
     const { onNext } = renderBar({ matches: fakeMatches(3) });
     const input = screen.getByTestId('plain-text-find-input');
@@ -313,14 +313,14 @@ describe('10-2-COMP-009: keyboard wiring on the input', () => {
     expect(onPrev).toHaveBeenCalledTimes(1);
   });
 
-  test('ArrowDown on input fires onNext (AC16)', () => {
+  test('ArrowDown on input fires onNext', () => {
     const { onNext } = renderBar({ matches: fakeMatches(3) });
     const input = screen.getByTestId('plain-text-find-input');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  test('ArrowUp on input fires onPrev (AC16)', () => {
+  test('ArrowUp on input fires onPrev', () => {
     const { onPrev } = renderBar({ matches: fakeMatches(3) });
     const input = screen.getByTestId('plain-text-find-input');
     fireEvent.keyDown(input, { key: 'ArrowUp' });
@@ -347,7 +347,7 @@ describe('10-2-COMP-009: keyboard wiring on the input', () => {
 // next -> close. We assert by reading the DOM order of focusable elements.
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-010: tab order', () => {
+describe('tab order', () => {
   test('focusable testids appear in input, case-toggle, prev, next, close order', () => {
     renderBar({ matches: fakeMatches(2) });
     const order = [
@@ -377,7 +377,7 @@ describe('10-2-COMP-010: tab order', () => {
 // 10-2-COMP-011 [P0] AC#1: input has focus on mount (autofocus contract).
 // ---------------------------------------------------------------------------
 
-describe('10-2-COMP-011: input autofocus on mount', () => {
+describe('input autofocus on mount', () => {
   test('input is the active element immediately after render', () => {
     renderBar();
     const input = screen.getByTestId('plain-text-find-input');

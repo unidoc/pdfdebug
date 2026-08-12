@@ -144,7 +144,7 @@ beforeEach(() => {
 // AC4 -- Cmd+K opens, Esc closes, click-outside closes, focus trap/restore
 // ---------------------------------------------------------------------------
 
-describe('AC4: open/close lifecycle', () => {
+describe('open/close lifecycle', () => {
   test('Cmd+K opens the palette overlay', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -183,7 +183,7 @@ describe('AC4: open/close lifecycle', () => {
 // AC5 / AC6 / AC9 -- numeric query, single-match Enter, navigation dispatch
 // ---------------------------------------------------------------------------
 
-describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
+describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
   test('single-match Enter dispatches NAVIGATE_TO_REF and closes palette', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -244,7 +244,7 @@ describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
 // AC6 -- multi-match: arrow keys + Enter
 // ---------------------------------------------------------------------------
 
-describe('AC6: multi-match arrow navigation', () => {
+describe('multi-match arrow navigation', () => {
   test('prefix "Font" yields multi-match list; ArrowDown + Enter commits second row', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -272,7 +272,7 @@ describe('AC6: multi-match arrow navigation', () => {
 // AC7 -- empty input shows per-tab recents (max 5)
 // ---------------------------------------------------------------------------
 
-describe('AC7: recent jumps', () => {
+describe('recent jumps', () => {
   test('first-time empty input shows grammar hint and no Recent header', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -311,7 +311,7 @@ describe('AC7: recent jumps', () => {
 // AC8 -- free/orphan rows render but are non-navigable
 // ---------------------------------------------------------------------------
 
-describe('AC8: free/orphan rows', () => {
+describe('free/orphan rows', () => {
   test('typing a free object number shows the row tagged (free) and Enter is a no-op', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -339,7 +339,7 @@ describe('AC8: free/orphan rows', () => {
 // AC10 -- tab switch closes the palette; recents are per-tab
 // ---------------------------------------------------------------------------
 
-describe('AC10: tab switching', () => {
+describe('tab switching', () => {
   test('switching tabs while palette is open closes it', async () => {
     const user = userEvent.setup();
     renderHarness({ initialTabs: 2 });

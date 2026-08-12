@@ -61,7 +61,7 @@ const latin1Doc: PlainTextDocumentFixture = {
 // 9.11-UNIT-101 [P0] AC#6: renders 1-based line-number gutter + content lines.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-101: line-number gutter + content lines', () => {
+describe('line-number gutter + content lines', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -87,7 +87,7 @@ describe('9.11-UNIT-101: line-number gutter + content lines', () => {
 // logical line break each (no empty intervening row).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-102: line-break regex collapses CRLF/CR/LF', () => {
+describe('line-break regex collapses CRLF/CR/LF', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(crlfDoc);
@@ -111,7 +111,7 @@ describe('9.11-UNIT-102: line-break regex collapses CRLF/CR/LF', () => {
 // 9.11-UNIT-103 [P0] AC#6: Latin-1 high bytes (0x80-0xFF) render verbatim.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-103: Latin-1 high bytes render verbatim', () => {
+describe('Latin-1 high bytes render verbatim', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(latin1Doc);
@@ -131,7 +131,7 @@ describe('9.11-UNIT-103: Latin-1 high bytes render verbatim', () => {
 // 9.11-UNIT-109 [P1] AC#10: lazy fetch gated by active prop.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-109: lazy fetch gated by active prop', () => {
+describe('lazy fetch gated by active prop', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -156,7 +156,7 @@ describe('9.11-UNIT-109: lazy fetch gated by active prop', () => {
 // 9.11-UNIT-110 [P0] Task 7.8: empty state when no tabId / no document.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-110: empty state when no document', () => {
+describe('empty state when no document', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -172,7 +172,7 @@ describe('9.11-UNIT-110: empty state when no document', () => {
 // 9.11-UNIT-111 [P1] Task 7.5: virtualization performance smoke test.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-111: virtualization keeps DOM small', () => {
+describe('virtualization keeps DOM small', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

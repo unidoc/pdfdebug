@@ -67,7 +67,7 @@ const xrefSingleInUse: XRefTableFixture = {
 // 9.11-UNIT-001 [P0] AC#2: renders all five always-present columns in order.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-001: column headers and order', () => {
+describe('column headers and order', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -87,7 +87,7 @@ describe('9.11-UNIT-001: column headers and order', () => {
 // 9.11-UNIT-002 [P0] AC#2: rows sorted ascending by object number.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-002: rows sorted by object number', () => {
+describe('rows sorted by object number', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -110,7 +110,7 @@ describe('9.11-UNIT-002: rows sorted by object number', () => {
 // "in-objstm" -- load-bearing signal, NOT just color.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-003: status pill text', () => {
+describe('status pill text', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -131,7 +131,7 @@ describe('9.11-UNIT-003: status pill text', () => {
 // "-" for free + in-objstm.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-004: Offset column sentinels', () => {
+describe('Offset column sentinels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -156,7 +156,7 @@ describe('9.11-UNIT-004: Offset column sentinels', () => {
 // for in-objstm rows, "-" for free + in-use.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-005: Host ObjStm column sentinels', () => {
+describe('Host ObjStm column sentinels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -179,7 +179,7 @@ describe('9.11-UNIT-005: Host ObjStm column sentinels', () => {
 // the nodeID (obj:<gen>:<num>).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-006: in-use row click dispatches onNavigate', () => {
+describe('in-use row click dispatches onNavigate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefSingleInUse);
@@ -203,7 +203,7 @@ describe('9.11-UNIT-006: in-use row click dispatches onNavigate', () => {
 // R4 of Story 9-11 risks list pins this distinction explicitly.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-007: in-objstm row click navigates to underlying object', () => {
+describe('in-objstm row click navigates to underlying object', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -227,7 +227,7 @@ describe('9.11-UNIT-007: in-objstm row click navigates to underlying object', ()
 // navigation target).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-008: free row click is no-op', () => {
+describe('free row click is no-op', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -250,7 +250,7 @@ describe('9.11-UNIT-008: free row click is no-op', () => {
 // navigation as a click.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-009: Enter on in-use row triggers onNavigate', () => {
+describe('Enter on in-use row triggers onNavigate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefSingleInUse);
@@ -273,7 +273,7 @@ describe('9.11-UNIT-009: Enter on in-use row triggers onNavigate', () => {
 // 9.11-UNIT-010 [P0] AC#4: Enter on a focused FREE row is a no-op.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-010: Enter on free row is no-op', () => {
+describe('Enter on free row is no-op', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -297,7 +297,7 @@ describe('9.11-UNIT-010: Enter on free row is no-op', () => {
 // ArrowUp moves focus to row N-1. Wrap-around NOT required.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-011: arrow keys move row focus', () => {
+describe('arrow keys move row focus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -332,7 +332,7 @@ describe('9.11-UNIT-011: arrow keys move row focus', () => {
 // aria-disabled="true" so screen readers announce the disabled state.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-012: free row a11y attributes', () => {
+describe('free row a11y attributes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -354,7 +354,7 @@ describe('9.11-UNIT-012: free row a11y attributes', () => {
 // indicator. Over 200ms -> indicator visible.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-013: 200ms loading debounce', () => {
+describe('200ms loading debounce', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -406,7 +406,7 @@ describe('9.11-UNIT-013: 200ms loading debounce', () => {
 // mapped error message in data-testid="xref-error".
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-014: error rendering', () => {
+describe('error rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -431,7 +431,7 @@ describe('9.11-UNIT-014: error rendering', () => {
 // mount regardless of active" behavior.)
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-015: fetch deferred until activation', () => {
+describe('fetch deferred until activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -512,7 +512,7 @@ describe('9.11-UNIT-015: fetch deferred until activation', () => {
 // rows, not one <tr> per entry, or the main thread freezes on render.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-017: row list is virtualized', () => {
+describe('row list is virtualized', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -551,7 +551,7 @@ describe('9.11-UNIT-017: row list is virtualized', () => {
 // here because off-window rows are unmounted; the handler walks the index.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-018: keyboard nav crosses the virtualization window', () => {
+describe('keyboard nav crosses the virtualization window', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const big: XRefTableFixture = {
@@ -595,7 +595,7 @@ describe('9.11-UNIT-018: keyboard nav crosses the virtualization window', () => 
 // after a successful fetch.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-016: onLoaded callback', () => {
+describe('onLoaded callback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -614,7 +614,7 @@ describe('9.11-UNIT-016: onLoaded callback', () => {
 // 9.11-UNIT-017 [P0] Task 6.8: empty state when no tabId / no document open.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-017: empty state when no document', () => {
+describe('empty state when no document', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

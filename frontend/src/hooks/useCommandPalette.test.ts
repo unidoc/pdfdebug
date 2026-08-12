@@ -66,7 +66,7 @@ beforeEach(() => {
 // The current `metaKey || ctrlKey` implementation OPENS on Ctrl+K, so this
 // FAILS until the platform-aware check lands.
 // ---------------------------------------------------------------------------
-describe('10-8-HOOK-001: macOS - Ctrl+K does not open the palette', () => {
+describe('macOS - Ctrl+K does not open the palette', () => {
   test('Ctrl+K is a no-op on macOS', () => {
     mockGetPlatformModifier.mockReturnValue('Cmd');
     const { result } = renderHook(() => useCommandPalette(), { wrapper });
@@ -82,7 +82,7 @@ describe('10-8-HOOK-001: macOS - Ctrl+K does not open the palette', () => {
 // ---------------------------------------------------------------------------
 // 10-8-HOOK-002 [P0] AC2: on macOS, Cmd+K opens the palette.
 // ---------------------------------------------------------------------------
-describe('10-8-HOOK-002: macOS - Cmd+K opens the palette', () => {
+describe('macOS - Cmd+K opens the palette', () => {
   test('Cmd+K opens on macOS', () => {
     mockGetPlatformModifier.mockReturnValue('Cmd');
     const { result } = renderHook(() => useCommandPalette(), { wrapper });
@@ -116,7 +116,7 @@ describe('10-8-HOOK-002: macOS - Cmd+K opens the palette', () => {
 // 10-8-HOOK-003 [P0] AC3: on Linux/Windows (modifier === 'Ctrl'), Ctrl+K
 // opens the palette.
 // ---------------------------------------------------------------------------
-describe('10-8-HOOK-003: Linux/Windows - Ctrl+K opens the palette', () => {
+describe('Linux/Windows - Ctrl+K opens the palette', () => {
   test('Ctrl+K opens on non-mac platforms', () => {
     mockGetPlatformModifier.mockReturnValue('Ctrl');
     const { result } = renderHook(() => useCommandPalette(), { wrapper });
@@ -134,7 +134,7 @@ describe('10-8-HOOK-003: Linux/Windows - Ctrl+K opens the palette', () => {
 // register in normal use). The current OR-based code would open on metaKey;
 // after the fix the non-mac branch reads e.ctrlKey only.
 // ---------------------------------------------------------------------------
-describe('10-8-HOOK-004: Linux/Windows - Cmd+K is a no-op', () => {
+describe('Linux/Windows - Cmd+K is a no-op', () => {
   test('Cmd+K does not open on non-mac platforms', () => {
     mockGetPlatformModifier.mockReturnValue('Ctrl');
     const { result } = renderHook(() => useCommandPalette(), { wrapper });

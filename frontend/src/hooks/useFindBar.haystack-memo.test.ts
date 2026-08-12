@@ -50,7 +50,7 @@ const CORPUS = ('the quick brown FOX jumps over needle padding bytes here\n').re
 );
 const CORPUS_LEN = CORPUS.length;
 
-describe('10-7-HOOK-004: useFindBar memoizes corpus toLowerCase (AC6)', () => {
+describe('useFindBar memoizes corpus toLowerCase', () => {
   let restore: () => void;
   let originalToLowerCase: typeof String.prototype.toLowerCase;
   // Lengths of the receiver string for every toLowerCase call during the test.

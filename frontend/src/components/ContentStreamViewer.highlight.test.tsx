@@ -51,7 +51,7 @@ const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 // AC#1: Operators visually distinct from operands.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-008: Token type CSS classes', () => {
+describe('Token type CSS classes', () => {
   test('operator tokens have text-token-operator class', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -111,7 +111,7 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 // AC#3: Font weight or style also differentiates operators from operands.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
+describe('Non-color differentiation (accessibility)', () => {
   test('operator tokens have font-semibold class', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -140,7 +140,7 @@ describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
 // AC#2: Hovering over operator keyword shows brief description.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-009: Operator tooltip', () => {
+describe('Operator tooltip', () => {
   test('operator token with description renders a tooltip trigger', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -189,7 +189,7 @@ describe('3.3-UNIT-009: Operator tooltip', () => {
 // AC#1: When tokenized is not provided, falls back to raw text rendering.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
+describe('Tokenized fallback to plain text', () => {
   test('renders plain text when tokenized is undefined', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
@@ -224,7 +224,7 @@ describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
 // tokenized data.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-LINENUMS: Line numbers with tokenized data', () => {
+describe('Line numbers with tokenized data', () => {
   // Story 9-6: gutter is keyed by formatted-row index in formatted mode.
   // Build a 5-row fixture (one per logical operation) so the gutter shows 1..5.
   test('renders one gutter row per formatted line', () => {

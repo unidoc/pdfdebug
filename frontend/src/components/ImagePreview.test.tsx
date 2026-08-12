@@ -36,7 +36,7 @@ const defaultProps = {
 //       the rendered image via a data:${mimeType};base64,${base64} URI.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-001: ImagePreview renders base64 image', () => {
+describe('ImagePreview renders base64 image', () => {
   test('renders img element with correct data URI src', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -63,7 +63,7 @@ describe('6.2-UNIT-001: ImagePreview renders base64 image', () => {
 //       encoding filter, bits per component).
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-002: ImagePreview metadata display', () => {
+describe('ImagePreview metadata display', () => {
   test('displays dimensions as "width x height px"', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -99,7 +99,7 @@ describe('6.2-UNIT-002: ImagePreview metadata display', () => {
 //       the error message with error styling, And no img element is present.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-003: ImagePreview error display', () => {
+describe('ImagePreview error display', () => {
   const errorProps = {
     ...defaultProps,
     base64: '',
@@ -148,7 +148,7 @@ describe('6.2-UNIT-003: ImagePreview error display', () => {
 //       object-fit: contain and max-width: 100% constraints.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-006: ImagePreview CSS constraints', () => {
+describe('ImagePreview CSS constraints', () => {
   test('img element has object-contain class', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -176,7 +176,7 @@ describe('6.2-UNIT-006: ImagePreview CSS constraints', () => {
 // AC#2: The original dimensions are shown in the metadata (e.g., "4000 x 6000 px").
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-007: ImagePreview large image dimensions', () => {
+describe('ImagePreview large image dimensions', () => {
   test('shows original dimensions for large images', () => {
     const largeProps = { ...defaultProps, width: 4000, height: 6000 };
     render(<ImagePreview {...largeProps} />);
@@ -191,7 +191,7 @@ describe('6.2-UNIT-007: ImagePreview large image dimensions', () => {
 // AC: No crash when metadata fields are zero/empty.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-010: ImagePreview missing metadata', () => {
+describe('ImagePreview missing metadata', () => {
   const partialProps = {
     ...defaultProps,
     width: 0,
@@ -218,7 +218,7 @@ describe('6.2-UNIT-010: ImagePreview missing metadata', () => {
 // AC#4: When ImageData.warning is non-empty, an amber-colored notice is shown.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-012: ImagePreview warning display', () => {
+describe('ImagePreview warning display', () => {
   const warningProps = {
     ...defaultProps,
     warning: 'Image uses CMYK color space (colors may be inaccurate)',

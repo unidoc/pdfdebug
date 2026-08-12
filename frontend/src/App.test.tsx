@@ -104,7 +104,7 @@ const catalogNode = {
   error: '',
 };
 
-describe('4.2-UNIT-008: Dedup cleanup calls CloseDocument', () => {
+describe('Dedup cleanup calls CloseDocument', () => {
   beforeEach(() => {
     // Clear event handlers between tests
     for (const key of Object.keys(eventHandlers)) {

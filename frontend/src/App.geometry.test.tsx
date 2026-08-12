@@ -165,7 +165,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('8.4 App.jsx geometry wiring', () => {
-  test('8.4-INT-001 [P1]: subscribes to common:WindowDidMove and common:WindowDidResize on mount', async () => {
+  test('subscribes to common:WindowDidMove and common:WindowDidResize on mount', async () => {
     const { default: App } = await import('./App');
 
     render(<App />);
@@ -182,7 +182,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    *
    * AC#1, AC#4
    */
-  test('8.4-INT-002 [P1]: WindowDidMove handler persists current geometry to localStorage (after debounce)', async () => {
+  test('WindowDidMove handler persists current geometry to localStorage (after debounce)', async () => {
     vi.useFakeTimers();
 
     mockPosition.mockResolvedValue({ x: 250, y: 175 });
@@ -225,7 +225,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    *
    * AC#1, AC#4
    */
-  test('8.4-INT-003 [P1]: WindowDidResize handler persists current geometry to localStorage', async () => {
+  test('WindowDidResize handler persists current geometry to localStorage', async () => {
     vi.useFakeTimers();
 
     mockPosition.mockResolvedValue({ x: 100, y: 50 });
@@ -261,7 +261,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * 8.4-INT-004 [P1]: Startup restore calls Window.SetSize THEN Window.SetPosition
    * with the persisted values, in that order (AC#1, Task 5.1 ordering).
    */
-  test('8.4-INT-004 [P1]: on mount, restore calls SetSize before SetPosition with persisted values', async () => {
+  test('on mount, restore calls SetSize before SetPosition with persisted values', async () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -298,7 +298,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * 8.4-INT-005 [P1]: When localStorage is empty, neither SetSize nor
    * SetPosition is called (AC#3).
    */
-  test('8.4-INT-005 [P1]: empty localStorage skips restore entirely', async () => {
+  test('empty localStorage skips restore entirely', async () => {
     const { default: App } = await import('./App');
     render(<App />);
 
@@ -317,7 +317,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * rectangle does not intersect any screen's WorkArea, skip the position
    * restore but STILL apply the size restore.
    */
-  test('8.4-INT-006 [P1]: off-screen position is skipped, size restore still applies', async () => {
+  test('off-screen position is skipped, size restore still applies', async () => {
     // Persisted geometry is far off-screen (e.g. external monitor at -3000,-2000)
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -363,7 +363,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * SetSize/SetPosition. Those echo events must NOT trigger a re-save of the
    * just-restored values.
    */
-  test('8.4-INT-007 [P1]: events fired immediately after restore do not re-save', async () => {
+  test('events fired immediately after restore do not re-save', async () => {
     vi.useFakeTimers();
 
     window.localStorage.setItem(
@@ -412,7 +412,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * Important for HMR + unit tests; the production root never unmounts but
    * cleanup must exist.
    */
-  test('8.4-INT-008 [P2]: WindowDidMove and WindowDidResize listeners are removed on unmount', async () => {
+  test('WindowDidMove and WindowDidResize listeners are removed on unmount', async () => {
     const { default: App } = await import('./App');
     const { unmount } = render(<App />);
 
@@ -431,7 +431,7 @@ describe('8.4 App.jsx geometry wiring', () => {
    * 8.4-INT-009 [P2]: Corrupt localStorage JSON does not crash startup and
    * skips restore entirely (AC#3).
    */
-  test('8.4-INT-009 [P2]: corrupt localStorage does not crash and skips restore', async () => {
+  test('corrupt localStorage does not crash and skips restore', async () => {
     window.localStorage.setItem(STORAGE_KEY, '{not valid json');
 
     const { default: App } = await import('./App');

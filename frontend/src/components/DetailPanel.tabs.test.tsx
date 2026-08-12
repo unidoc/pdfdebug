@@ -183,7 +183,7 @@ function renderDetailPanel(initialActions: AppAction[]) {
 // 9.11-UNIT-201 [P0] AC#1: tab bar renders with three triggers in order.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-201: tab bar renders three triggers', () => {
+describe('tab bar renders three triggers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -216,7 +216,7 @@ describe('9.11-UNIT-201: tab bar renders three triggers', () => {
 // 9.11-UNIT-202 [P0] AC#15: tablist has aria-label="Detail view".
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-202: tablist aria-label', () => {
+describe('tablist aria-label', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -236,7 +236,7 @@ describe('9.11-UNIT-202: tablist aria-label', () => {
 // pane is hidden via Radix data-state="inactive".
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-203: clicking XREF activates the XREF pane', () => {
+describe('clicking XREF activates the XREF pane', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -261,7 +261,7 @@ describe('9.11-UNIT-203: clicking XREF activates the XREF pane', () => {
 // 9.11-UNIT-204 [P0] AC#1: clicking Plain Text activates the Plain Text pane.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-204: clicking Plain Text activates the Plain Text pane', () => {
+describe('clicking Plain Text activates the Plain Text pane', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -286,7 +286,7 @@ describe('9.11-UNIT-204: clicking Plain Text activates the Plain Text pane', () 
 // (nav buttons) -- XREF and Plain Text panes do NOT render the same header.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-205: Object pane keeps the existing header; XREF/Plain Text panes do not', () => {
+describe('Object pane keeps the existing header; XREF/Plain Text panes do not', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -326,7 +326,7 @@ describe('9.11-UNIT-205: Object pane keeps the existing header; XREF/Plain Text 
 // render their document-level content.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-206: no-selection -- Object empty + XREF/Plain Text fetch', () => {
+describe('no-selection -- Object empty + XREF/Plain Text fetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefSmall);
@@ -368,7 +368,7 @@ describe('9.11-UNIT-206: no-selection -- Object empty + XREF/Plain Text fetch', 
 // 9.11-UNIT-207 [P0] AC#11: switching documents resets active tab to Object.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-207: switching documents resets active tab to Object', () => {
+describe('switching documents resets active tab to Object', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -427,7 +427,7 @@ describe('9.11-UNIT-207: switching documents resets active tab to Object', () =>
 // doc 1's xref rows in doc 2's pane.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-208: no stale cross-document content frame', () => {
+describe('no stale cross-document content frame', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -488,7 +488,7 @@ describe('9.11-UNIT-208: no stale cross-document content frame', () => {
 // and the new selection's content is what shows.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-209: AC#14 -- activeTab=object before SELECT_NODE', () => {
+describe('activeTab=object before SELECT_NODE', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -520,7 +520,7 @@ describe('9.11-UNIT-209: AC#14 -- activeTab=object before SELECT_NODE', () => {
 // WITHOUT activating. activationMode="manual" -- focus ≠ activation.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-210: manual activation -- focus does not activate', () => {
+describe('manual activation -- focus does not activate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -552,7 +552,7 @@ describe('9.11-UNIT-210: manual activation -- focus does not activate', () => {
 // label stays "XREF" (no count).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-211: tab label row count', () => {
+describe('tab label row count', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -600,7 +600,7 @@ describe('9.11-UNIT-211: tab label row count', () => {
 // the Object Tabs.Content is the cleanest surface for the AC#11 contract.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-212: AC#11 -- scrollTop survives tab toggle (Object pane)', () => {
+describe('scrollTop survives tab toggle (Object pane)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);

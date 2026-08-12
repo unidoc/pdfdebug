@@ -101,7 +101,7 @@ const noMatchCorpus = {
 // mounts the FindBar.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-001: Cmd+F mounts the FindBar', () => {
+describe('Cmd+F mounts the FindBar', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -132,7 +132,7 @@ describe('10-2-INTG-001: Cmd+F mounts the FindBar', () => {
 // others carry data-testid="plain-text-find-match".
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-002: per-row <mark> rendering', () => {
+describe('per-row <mark> rendering', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -170,7 +170,7 @@ describe('10-2-INTG-002: per-row <mark> rendering', () => {
 // stays byte-identical to the raw line.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-003: row textContent invariant', () => {
+describe('row textContent invariant', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -204,7 +204,7 @@ describe('10-2-INTG-003: row textContent invariant', () => {
 // 10-2-INTG-004 [P0] AC#6: gutter density markers on lines with matches.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-004: gutter density markers', () => {
+describe('gutter density markers', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -240,7 +240,7 @@ describe('10-2-INTG-004: gutter density markers', () => {
 // 10-2-INTG-005 [P0] AC#7: clicking Next advances the active match.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-005: Next button advances active match', () => {
+describe('Next button advances active match', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -276,7 +276,7 @@ describe('10-2-INTG-005: Next button advances active match', () => {
 // 10-2-INTG-006 [P0] AC#18: no-match query renders no marks and "0 of 0".
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-006: no-match query', () => {
+describe('no-match query', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -310,7 +310,7 @@ describe('10-2-INTG-006: no-match query', () => {
 // stays mounted; only the `active` prop toggles).
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-007: inner-tab persistence', () => {
+describe('inner-tab persistence', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -365,7 +365,7 @@ describe('10-2-INTG-007: inner-tab persistence', () => {
 // bar and clears the query.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-008: document-tab reset on tabId change', () => {
+describe('document-tab reset on tabId change', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -407,7 +407,7 @@ describe('10-2-INTG-008: document-tab reset on tabId change', () => {
 // (loadState !== 'ready') is consumed but does NOT mount the bar.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-009: Cmd+F gated on data!==null', () => {
+describe('Cmd+F gated on data!==null', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -443,7 +443,7 @@ describe('10-2-INTG-009: Cmd+F gated on data!==null', () => {
 // so it can accept programmatic focus.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-011: Esc restores focus to the scroll container (AC3)', () => {
+describe('Esc restores focus to the scroll container', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -482,7 +482,7 @@ describe('10-2-INTG-011: Esc restores focus to the scroll container (AC3)', () =
 // smaller than the corpus. ROW_HEIGHT is 20.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-012: auto-scroll on Next when match is below the viewport (AC7)', () => {
+describe('auto-scroll on Next when match is below the viewport', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -545,7 +545,7 @@ describe('10-2-INTG-012: auto-scroll on Next when match is below the viewport (A
 // short-circuit so the scroll container doesn't jitter mid-typing.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-013: auto-scroll skips when the match is already visible (AC7)', () => {
+describe('auto-scroll skips when the match is already visible', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();
@@ -593,7 +593,7 @@ describe('10-2-INTG-013: auto-scroll skips when the match is already visible (AC
 // NOT propagate to a sibling window-level keydown listener.
 // ---------------------------------------------------------------------------
 
-describe('10-2-INTG-010: Esc scope (does not collide with palette/window Esc)', () => {
+describe('Esc scope (does not collide with palette/window Esc)', () => {
   let restore: () => void;
   beforeEach(() => {
     vi.clearAllMocks();

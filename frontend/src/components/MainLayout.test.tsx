@@ -126,7 +126,7 @@ function DispatchThenLayout({ action }: { action: AppAction }) {
   );
 }
 
-describe('2.4-UNIT-003: MainLayout tree content', () => {
+describe('MainLayout tree content', () => {
   test('shows Document Structure header when no document is open', () => {
     render(
       <AppProvider>
@@ -206,7 +206,7 @@ describe('2.4-UNIT-003: MainLayout tree content', () => {
  * source-grep was attempting; the trade-off is that this test is immune to
  * whether `preferredSize` is literal, conditional, or removed entirely.
  */
-describe('4-5-UNIT-001: MainLayout pane structure', () => {
+describe('MainLayout pane structure', () => {
   test('renders both left and right panels by data-testid', () => {
     render(
       <AppProvider>

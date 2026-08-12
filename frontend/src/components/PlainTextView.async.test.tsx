@@ -78,7 +78,7 @@ function deferred<T>(): {
 // 10-1-UNIT-001 [P0] AC#1: first activation fires exactly one GetPlainText call.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-001: lazy fetch on first activation', () => {
+describe('lazy fetch on first activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -104,7 +104,7 @@ describe('10-1-UNIT-001: lazy fetch on first activation', () => {
 // heading, size disclosure, elapsed counter, and Cancel button.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-002: loading card structure (AC2)', () => {
+describe('loading card structure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -154,7 +154,7 @@ describe('10-1-UNIT-002: loading card structure (AC2)', () => {
 // GetPlainTextSize is unresolved; the card still mounts.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-004: size disclosure tolerates unresolved size', () => {
+describe('size disclosure tolerates unresolved size', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -190,7 +190,7 @@ describe('10-1-UNIT-004: size disclosure tolerates unresolved size', () => {
 // renders content.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-005: success path renders content', () => {
+describe('success path renders content', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -210,7 +210,7 @@ describe('10-1-UNIT-005: success path renders content', () => {
 // 10-1-UNIT-006 [P0] AC#4: Cancel click invokes CancelPlainText(tabID).
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-006: Cancel click invokes CancelPlainText', () => {
+describe('Cancel click invokes CancelPlainText', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -253,7 +253,7 @@ describe('10-1-UNIT-006: Cancel click invokes CancelPlainText', () => {
 // cancelled state with the documented body + CTA.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
+describe('cancelled state renders documented copy + CTA', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -288,7 +288,7 @@ describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
 // elapsed counter (0s).
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => {
+describe('cancelled CTA re-runs fetch with elapsed reset', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -340,7 +340,7 @@ describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => 
 // with the mapped error message and a Retry button using the shared CTA testid.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-009: error state shows Retry with shared CTA testid', () => {
+describe('error state shows Retry with shared CTA testid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -390,7 +390,7 @@ describe('10-1-UNIT-009: error state shows Retry with shared CTA testid', () => 
 // fetch guard; the previous load's resolve does not mutate state on the new doc.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-010: stale-fetch guard on document tab switch', () => {
+describe('stale-fetch guard on document tab switch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -446,7 +446,7 @@ describe('10-1-UNIT-010: stale-fetch guard on document tab switch', () => {
 // does NOT re-fetch after a successful load.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-011: inner-tab cache persists across active toggles', () => {
+describe('inner-tab cache persists across active toggles', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -475,7 +475,7 @@ describe('10-1-UNIT-011: inner-tab cache persists across active toggles', () => 
 // in-flight refs / elapsed counter.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-012: document tab change resets state', () => {
+describe('document tab change resets state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -512,7 +512,7 @@ describe('10-1-UNIT-012: document tab change resets state', () => {
 // 10-1-UNIT-013 [P0] AC#20: fast-path under 200ms never mounts the loading card.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-013: fast-path resolve < 200ms does not flash loading card', () => {
+describe('fast-path resolve < 200ms does not flash loading card', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -550,7 +550,7 @@ describe('10-1-UNIT-013: fast-path resolve < 200ms does not flash loading card',
 // 10-1-UNIT-014 [P0] AC#21: 0-byte payload renders the empty virtualized list.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-014: zero-byte payload renders without error', () => {
+describe('zero-byte payload renders without error', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(zeroByteDoc);
@@ -581,7 +581,7 @@ describe('10-1-UNIT-014: zero-byte payload renders without error', () => {
 // GetPlainTextSize are dispatched in parallel.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-015: parallel dispatch of GetPlainText + GetPlainTextSize', () => {
+describe('parallel dispatch of GetPlainText + GetPlainTextSize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -607,7 +607,7 @@ describe('10-1-UNIT-015: parallel dispatch of GetPlainText + GetPlainTextSize', 
 // the Go tests.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-016: cancellation rejection substring contract', () => {
+describe('cancellation rejection substring contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -641,7 +641,7 @@ describe('10-1-UNIT-016: cancellation rejection substring contract', () => {
 // explicit retry surface; a silent re-fetch on tab toggle defeats AC5 / AC7.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-017: terminal states do not auto-refetch on active toggle', () => {
+describe('terminal states do not auto-refetch on active toggle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(17);

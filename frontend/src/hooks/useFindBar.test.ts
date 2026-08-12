@@ -72,7 +72,7 @@ function dispatchKey(opts: {
 // open the bar. active=false short-circuits the listener.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-001: active=false suppresses Cmd+F', () => {
+describe('active=false suppresses Cmd+F', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -98,7 +98,7 @@ describe('10-2-HOOK-001: active=false suppresses Cmd+F', () => {
 // opens the bar.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-002: Cmd+F opens the bar when active + data ready', () => {
+describe('Cmd+F opens the bar when active + data ready', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -133,7 +133,7 @@ describe('10-2-HOOK-002: Cmd+F opens the bar when active + data ready', () => {
 // bar AND DOES call preventDefault on the keystroke.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-003: Cmd+F gated on content!==null', () => {
+describe('Cmd+F gated on content!==null', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -161,7 +161,7 @@ describe('10-2-HOOK-003: Cmd+F gated on content!==null', () => {
 // Cmd+K palette + ordinary search inputs are not stolen.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-004: focus-guard against unrelated text inputs', () => {
+describe('focus-guard against unrelated text inputs', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -211,7 +211,7 @@ describe('10-2-HOOK-004: focus-guard against unrelated text inputs', () => {
 // signal). We assert here only the state-level invariant: open stays true.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-005: Cmd+F is non-toggling', () => {
+describe('Cmd+F is non-toggling', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -238,7 +238,7 @@ describe('10-2-HOOK-005: Cmd+F is non-toggling', () => {
   // the FindBar component re-focuses + select-all on the input. The hook does
   // not own focus directly -- it signals via a monotonic counter that the
   // component watches in a useEffect.
-  test('Cmd+F while open bumps focusVersion (the AC2 re-focus signal)', () => {
+  test('Cmd+F while open bumps focusVersion (the re-focus signal)', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'hello world', caseSensitive: false, active: true }),
     );
@@ -259,7 +259,7 @@ describe('10-2-HOOK-005: Cmd+F is non-toggling', () => {
 // query, matches, and openedOnce flag on the same tab.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-006: closeBar preserves query + openedOnce', () => {
+describe('closeBar preserves query + openedOnce', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -268,7 +268,7 @@ describe('10-2-HOOK-006: closeBar preserves query + openedOnce', () => {
     restore();
   });
 
-  test('closeBar() preserves query, openedOnce stays true', () => {
+  test('closeBar preserves query, openedOnce stays true', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo bar foo', caseSensitive: false, active: true }),
     );
@@ -295,7 +295,7 @@ describe('10-2-HOOK-006: closeBar preserves query + openedOnce', () => {
 // commits before assertions.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-007: setQuery recomputes matches', () => {
+describe('setQuery recomputes matches', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -341,7 +341,7 @@ describe('10-2-HOOK-007: setQuery recomputes matches', () => {
 // sets the one-shot wrapped='top' flag.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-008: next() advances with wrap-status', () => {
+describe('next advances with wrap-status', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -350,7 +350,7 @@ describe('10-2-HOOK-008: next() advances with wrap-status', () => {
     restore();
   });
 
-  test('next() advances activeIndex by 1 within bounds', () => {
+  test('next advances activeIndex by 1 within bounds', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -368,7 +368,7 @@ describe('10-2-HOOK-008: next() advances with wrap-status', () => {
     expect(result.current.wrapped).toBeNull();
   });
 
-  test('next() at the last match wraps to 0 AND sets wrapped="top"', () => {
+  test('next at the last match wraps to 0 AND sets wrapped="top"', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -421,7 +421,7 @@ describe('10-2-HOOK-008: next() advances with wrap-status', () => {
 // one-shot wrapped='bottom' flag.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-009: prev() retreats with wrap-status', () => {
+describe('prev retreats with wrap-status', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -430,7 +430,7 @@ describe('10-2-HOOK-009: prev() retreats with wrap-status', () => {
     restore();
   });
 
-  test('prev() at activeIndex=0 wraps to last AND sets wrapped="bottom"', () => {
+  test('prev at activeIndex=0 wraps to last AND sets wrapped="bottom"', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -453,7 +453,7 @@ describe('10-2-HOOK-009: prev() retreats with wrap-status', () => {
 // 10-2-HOOK-010 [P0] AC#15: last-match-then-Enter wraps to first.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-010: AC15 wrap-to-top from last match', () => {
+describe('wrap-to-top from last match', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -492,7 +492,7 @@ describe('10-2-HOOK-010: AC15 wrap-to-top from last match', () => {
 // openedOnce && query !== ''. The bar does NOT auto-reopen.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-011: F3 navigates when bar is closed (after openedOnce)', () => {
+describe('F3 navigates when bar is closed (after openedOnce)', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -578,7 +578,7 @@ describe('10-2-HOOK-011: F3 navigates when bar is closed (after openedOnce)', ()
 // list OR resets activeIndex to 0.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-012: case-toggle preserves activeIndex when prevStart survives', () => {
+describe('case-toggle preserves activeIndex when prevStart survives', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -652,7 +652,7 @@ describe('10-2-HOOK-012: case-toggle preserves activeIndex when prevStart surviv
 // 10-2-HOOK-013 [P0] AC#4: setQuery resets activeIndex to 0 unconditionally.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-013: setQuery resets activeIndex', () => {
+describe('setQuery resets activeIndex', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -690,7 +690,7 @@ describe('10-2-HOOK-013: setQuery resets activeIndex', () => {
 // openedOnce. The hook closes the bar.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-014: tabId-change resets find state', () => {
+describe('tabId-change resets find state', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -729,7 +729,7 @@ describe('10-2-HOOK-014: tabId-change resets find state', () => {
 // 10-2-HOOK-015 [P0] AC#12: nonLatin1 flag derives from query codepoints.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-015: nonLatin1 derived flag', () => {
+describe('nonLatin1 derived flag', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -772,7 +772,7 @@ describe('10-2-HOOK-015: nonLatin1 derived flag', () => {
 // dialog does not surface.
 // ---------------------------------------------------------------------------
 
-describe('10-2-HOOK-016: Cmd+F preventDefault contract', () => {
+describe('Cmd+F preventDefault contract', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();

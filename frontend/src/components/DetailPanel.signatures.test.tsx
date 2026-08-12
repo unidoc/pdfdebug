@@ -125,10 +125,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('DetailPanel Signatures tab (Story 13.4)', () => {
+describe('DetailPanel Signatures tab', () => {
   // 13.4-UNIT-110 [P0] AC6: the tab is HIDDEN when the document has no
   // signature fields.
-  test('13.4-UNIT-110 tab hidden when no signatures', async () => {
+  test('tab hidden when no signatures', async () => {
     mockGetSignatures.mockResolvedValue([]);
     renderPanel([openAction]);
 
@@ -138,7 +138,7 @@ describe('DetailPanel Signatures tab (Story 13.4)', () => {
 
   // 13.4-UNIT-111 [P0] AC6: the tab is SHOWN when the document has at least
   // one signature field (signed or unsigned placeholder).
-  test('13.4-UNIT-111 tab shown when signatures present', async () => {
+  test('tab shown when signatures present', async () => {
     mockGetSignatures.mockResolvedValue(oneSignature);
     renderPanel([openAction]);
 
@@ -149,7 +149,7 @@ describe('DetailPanel Signatures tab (Story 13.4)', () => {
 
   // 13.4-UNIT-112 [P1] AC6: ONE GetSignatures fetch per document tab -- tab
   // switches re-display the cached result, never refetch.
-  test('13.4-UNIT-112 single fetch per document tab across tab switches', async () => {
+  test('single fetch per document tab across tab switches', async () => {
     mockGetSignatures.mockResolvedValue(oneSignature);
     renderPanel([openAction]);
 

@@ -157,7 +157,7 @@ afterEach(() => {
 // AC1 -- inline [N G R] on indirect objects
 // ---------------------------------------------------------------------------
 
-describe('AC1: inline object ref suffix', () => {
+describe('inline object ref suffix', () => {
   test('indirect object node renders [N G R] suffix after the semantic label', async () => {
     const user = userEvent.setup();
     render(
@@ -200,7 +200,7 @@ describe('AC1: inline object ref suffix', () => {
 // AC2 -- /T:<TypeName> suffix with dedup rule
 // ---------------------------------------------------------------------------
 
-describe('AC2: /T:<TypeName> suffix and dedup', () => {
+describe('/T:<TypeName> suffix and dedup', () => {
   test('/T:Pages is SUPPRESSED when semantic label already says "Pages"', async () => {
     const user = userEvent.setup();
     render(
@@ -257,7 +257,7 @@ describe('AC2: /T:<TypeName> suffix and dedup', () => {
 // AC3 -- inline label is read-only; click still selects, never NAVIGATE_TO_REF
 // ---------------------------------------------------------------------------
 
-describe('AC3: inline label is read-only display', () => {
+describe('inline label is read-only display', () => {
   test('clicking the row whose label contains [2 0 R] does NOT set pendingNavTarget', async () => {
     function NavProbe() {
       const state = useAppState();

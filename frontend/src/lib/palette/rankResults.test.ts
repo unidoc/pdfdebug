@@ -45,7 +45,7 @@ const fixture: ObjectIndexEntry[] = [
   entry({ objNum: 9, gen: 2, typeName: '', nodeId: 'obj:2:9' }),
 ];
 
-describe('rankResults (AC5 / AC6 / AC8)', () => {
+describe('rankResults', () => {
   test('numeric query returns the matching ObjNum first, gen-asc on ties', () => {
     const ranked = rankResults(parseQuery('9'), fixture);
     expect(ranked.length).toBeGreaterThanOrEqual(2);
@@ -95,7 +95,7 @@ describe('rankResults (AC5 / AC6 / AC8)', () => {
     expect(ranked[0].reachable).toBe(false);
   });
 
-  test('result list is capped at 8 entries (AC6)', () => {
+  test('result list is capped at 8 entries', () => {
     const many: ObjectIndexEntry[] = [];
     for (let i = 1; i <= 20; i++) {
       many.push(entry({ objNum: i, gen: 0, typeName: 'Page', nodeId: `obj:0:${i}` }));

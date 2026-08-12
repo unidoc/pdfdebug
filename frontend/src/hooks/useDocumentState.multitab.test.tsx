@@ -218,7 +218,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
    * RED PHASE: Currently OPEN_DOCUMENT replaces all tabs with `tabs: [newTab]`.
    * After implementation, it must append: `tabs: [...state.tabs, newTab]`.
    */
-  test('4.1-UNIT-001 [P0]: OPEN_DOCUMENT appends new tab to tabs array', () => {
+  test('OPEN_DOCUMENT appends new tab to tabs array', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -246,7 +246,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
    * RED PHASE: This already works for single-tab mode, but must continue
    * to work when appending (activeTabId = newly opened tab).
    */
-  test('4.1-UNIT-002 [P0]: OPEN_DOCUMENT sets activeTabId to the new tab', () => {
+  test('OPEN_DOCUMENT sets activeTabId to the new tab', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -269,7 +269,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
    * switch will throw or the cast will fail at compile time once strict
    * checking is enforced.
    */
-  test('4.1-UNIT-003 [P0]: ACTIVATE_TAB sets activeTabId without modifying tab state', () => {
+  test('ACTIVATE_TAB sets activeTabId without modifying tab state', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -303,7 +303,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   /**
    * 4.1-UNIT-003 supplemental: ACTIVATE_TAB with nonexistent tabId is a no-op.
    */
-  test('4.1-UNIT-003 supplemental: ACTIVATE_TAB with invalid tabId is a no-op', () => {
+  test('ACTIVATE_TAB with invalid tabId is a no-op', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -327,7 +327,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
    * a new tab. After implementation, filePath-based dedup must prevent
    * duplicate tabs and focus the existing one.
    */
-  test('4.1-UNIT-010 [P2]: duplicate filePath focuses existing tab instead of opening new', () => {
+  test('duplicate filePath focuses existing tab instead of opening new', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -357,7 +357,7 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
    *
    * RED PHASE: TabState does not have filePath field yet.
    */
-  test('4.1-UNIT-001 supplemental: OPEN_DOCUMENT stores filePath in TabState', () => {
+  test('OPEN_DOCUMENT stores filePath in TabState', () => {
     render(
       <AppProvider>
         <MultiTabInspector />

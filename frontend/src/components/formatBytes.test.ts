@@ -26,7 +26,7 @@ import { describe, test, expect } from 'vitest';
 // RED PHASE: fails until `formatBytes` is exported from PlainTextView.tsx.
 import { formatBytes } from './PlainTextView';
 
-describe('10-8-UNIT-005: formatBytes precision (1 decimal across KB/MB/GB)', () => {
+describe('formatBytes precision (1 decimal across KB/MB/GB)', () => {
   test.each([
     [0, '0 B'],
     [512, '512 B'],
@@ -41,7 +41,7 @@ describe('10-8-UNIT-005: formatBytes precision (1 decimal across KB/MB/GB)', () 
   });
 });
 
-describe('10-8-UNIT-006: formatBytes negative / non-finite inputs collapse to "0 B"', () => {
+describe('formatBytes negative / non-finite inputs collapse to "0 B"', () => {
   test.each([
     [-1, '0 B'],
     [NaN, '0 B'],

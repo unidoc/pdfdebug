@@ -163,7 +163,7 @@ function renderDetailPanelFor(
 // indirect-object selections; parsed view stays intact.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-201: section mounts after parsed view for indirect objects', () => {
+describe('section mounts after parsed view for indirect objects', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -197,7 +197,7 @@ describe('9.10-UNIT-201: section mounts after parsed view for indirect objects',
 // nodeID `dict:obj:0:3:Type` is inline; the section MUST NOT appear.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-202: section suppressed for inline-value nodes', () => {
+describe('section suppressed for inline-value nodes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(inlineScalarDetail);
@@ -229,7 +229,7 @@ describe('9.10-UNIT-202: section suppressed for inline-value nodes', () => {
 // Empty list + non-catalog selection -> orphan copy with "dict-graph" qualifier.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-203: orphan empty-state path', () => {
+describe('orphan empty-state path', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -250,7 +250,7 @@ describe('9.10-UNIT-203: orphan empty-state path', () => {
 // 9.10-UNIT-204 [P0] AC#10: catalog selection renders "Document root..."
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-204: catalog selection -- Document root copy', () => {
+describe('catalog selection -- Document root copy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(catalogDetail);
@@ -273,7 +273,7 @@ describe('9.10-UNIT-204: catalog selection -- Document root copy', () => {
 // unavailable sentinel surfaces the unavailable banner. Task 7.3 case (a).
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-205: index-unavailable sentinel surfaces the banner', () => {
+describe('index-unavailable sentinel surfaces the banner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -312,7 +312,7 @@ describe('9.10-UNIT-205: index-unavailable sentinel surfaces the banner', () => 
 // 9.10-UNIT-206 [P1] AC#11: tab switch re-fetches with the active tabId.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-206: tab switch refetches reverse refs', () => {
+describe('tab switch refetches reverse refs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -376,7 +376,7 @@ describe('9.10-UNIT-206: tab switch refetches reverse refs', () => {
 // (possible orphan)" momentarily because reverseRefs=[] + visible=true.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-207: no orphan flash before fetch resolves', () => {
+describe('no orphan flash before fetch resolves', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);

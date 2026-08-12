@@ -81,7 +81,7 @@ function driveSequence(reactStrictMode: boolean) {
   return { afterToggle, afterQueryChange };
 }
 
-describe('10-7-HOOK-002: useFindBar is StrictMode-idempotent (AC1)', () => {
+describe('useFindBar is StrictMode-idempotent', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -135,7 +135,7 @@ describe('10-7-HOOK-002: useFindBar is StrictMode-idempotent (AC1)', () => {
 
   // Supplemental ONLY (not the pass condition per AC1): the deprecated
   // cross-component warning must not regress.
-  test('supplemental: no React "Cannot update a component while rendering" warning regression', () => {
+  test('no React "Cannot update a component while rendering" warning regression', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       driveSequence(true);
@@ -149,7 +149,7 @@ describe('10-7-HOOK-002: useFindBar is StrictMode-idempotent (AC1)', () => {
   });
 });
 
-describe('10-7-HOOK-003: case-toggle activeIndex preservation survives the deps-comparison move (AC2)', () => {
+describe('case-toggle activeIndex preservation survives the deps-comparison move', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -158,7 +158,7 @@ describe('10-7-HOOK-003: case-toggle activeIndex preservation survives the deps-
     restore();
   });
 
-  test('toggling case preserves activeIndex on the match whose start survives (Story 10.2 AC10)', () => {
+  test('toggling case preserves activeIndex on the match whose start survives', () => {
     const corpus = 'foo X FOO Y foo Z FOO W foo V foo';
     const { result, rerender } = renderHook(
       ({ caseSensitive }: { caseSensitive: boolean }) =>

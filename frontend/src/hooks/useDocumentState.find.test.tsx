@@ -60,7 +60,7 @@ function Inspector({ actions }: { actions: AppAction[] }) {
 // on the new TabState.
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-001: OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
+describe('OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
   test('a freshly opened tab has findCaseSensitive=false', () => {
     const actions: AppAction[] = [
       {
@@ -92,7 +92,7 @@ describe('10-2-REDU-001: OPEN_DOCUMENT defaults findCaseSensitive to false', () 
 // flag without touching other tabs.
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-002: SET_FIND_CASE_SENSITIVE updates one tab', () => {
+describe('SET_FIND_CASE_SENSITIVE updates one tab', () => {
   test('dispatching flip on tab-1 updates only tab-1', () => {
     const actions: AppAction[] = [
       {
@@ -200,7 +200,7 @@ describe('10-2-REDU-002: SET_FIND_CASE_SENSITIVE updates one tab', () => {
 // with the rest of TabState (covered by tab-count dropping).
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-003: CLOSE_DOCUMENT drops the field with the tab', () => {
+describe('CLOSE_DOCUMENT drops the field with the tab', () => {
   test('closing the only tab leaves tabs[] empty (the field dies with the tab)', () => {
     const actions: AppAction[] = [
       {
@@ -237,7 +237,7 @@ describe('10-2-REDU-003: CLOSE_DOCUMENT drops the field with the tab', () => {
 // no-op (does not throw, does not corrupt other tabs).
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-004: SET_FIND_CASE_SENSITIVE on unknown tabId is a no-op', () => {
+describe('SET_FIND_CASE_SENSITIVE on unknown tabId is a no-op', () => {
   test('dispatching to non-existent tabId leaves existing tabs unchanged', () => {
     const actions: AppAction[] = [
       {

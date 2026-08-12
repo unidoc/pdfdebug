@@ -142,7 +142,7 @@ function renderPanel(selectedNodeId: string | null, extra?: React.ReactNode) {
 // 9.10-UNIT-101 [P0] AC#2: empty state when no node is selected
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-101: no-selection empty state', () => {
+describe('no-selection empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -176,7 +176,7 @@ describe('9.10-UNIT-101: no-selection empty state', () => {
 // 9.10-UNIT-102 [P0] AC#3: empty state for non-indirect (inline) selections
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-102: inline-node empty state', () => {
+describe('inline-node empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -206,7 +206,7 @@ describe('9.10-UNIT-102: inline-node empty state', () => {
 // 9.10-UNIT-103 [P0] AC#1: reserialized PDF syntax rendered in monospace
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-103: source rendering', () => {
+describe('source rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -245,7 +245,7 @@ describe('9.10-UNIT-103: source rendering', () => {
 // `5 0 R` -> `obj:0:5`, NOT `obj:5:0`.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-104: indirect-ref click mapping', () => {
+describe('indirect-ref click mapping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -356,7 +356,7 @@ describe('9.10-UNIT-104: indirect-ref click mapping', () => {
 // 9.10-UNIT-105 [P0] AC#5: stream object renders placeholder, NOT clickable
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-105: stream object placeholder', () => {
+describe('stream object placeholder', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -392,7 +392,7 @@ describe('9.10-UNIT-105: stream object placeholder', () => {
 // 9.10-UNIT-106 [P1] AC#1: header label stays "Object Source"
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-106: header label', () => {
+describe('header label', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -405,7 +405,7 @@ describe('9.10-UNIT-106: header label', () => {
     });
   });
 
-  test('"Object Source" header remains visible with no selection (per AC#2)', () => {
+  test('"Object Source" header remains visible with no selection', () => {
     renderPanel(null);
     expect(screen.getByText('Object Source')).toBeInTheDocument();
   });
@@ -415,7 +415,7 @@ describe('9.10-UNIT-106: header label', () => {
 // 9.10-UNIT-107 [P1] AC#1 / Task 5.7: error state on fetch failure
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-107: fetch error inline message', () => {
+describe('fetch error inline message', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

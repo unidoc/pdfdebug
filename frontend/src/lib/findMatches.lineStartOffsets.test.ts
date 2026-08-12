@@ -31,7 +31,7 @@ afterEach(() => {
 // the internal buildLineStartOffsets(content) call is SKIPPED.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-001: findMatches skips internal buildLineStartOffsets when offsets supplied', () => {
+describe('findMatches skips internal buildLineStartOffsets when offsets supplied', () => {
   test('buildLineStartOffsets is NOT called when an offset table is supplied', () => {
     const corpus = 'foo\nbar\nfoo';
     const offsets = findMatchesModule.buildLineStartOffsets(corpus);
@@ -56,7 +56,7 @@ describe('10-7-UNIT-001: findMatches skips internal buildLineStartOffsets when o
 // line boundaries than the natural split must change the reported lines.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-002: supplied offset table determines reported line numbers', () => {
+describe('supplied offset table determines reported line numbers', () => {
   test('line reflects the supplied partition, not the natural split', () => {
     // No newlines in the corpus, so the natural table is [0] (everything on
     // line 1). Supply a valid-but-distinct table that splits at offset 6 so
@@ -88,7 +88,7 @@ describe('10-7-UNIT-002: supplied offset table determines reported line numbers'
 // must equal content length (Latin-1 length-preserving invariant).
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-003: findMatches uses a supplied haystack (AC6)', () => {
+describe('findMatches uses a supplied haystack', () => {
   test('case-insensitive search uses the supplied lowercased haystack', () => {
     const content = 'FooBARfoo';
     const haystack = content.toLowerCase(); // 'foobarfoo'

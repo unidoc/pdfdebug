@@ -13,14 +13,14 @@
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 2.5: Tree Panel with Lazy-Loading Navigation (ATDD)', () => {
+test.describe('Tree Panel with Lazy-Loading Navigation', () => {
   // ---------------------------------------------------------------------------
   // 2.5-E2E-001 [P0]: User expands tree node, children appear, selects node,
   //                    detail panel shows properties
   // AC#1: Expand arrow loads children on demand from Go backend.
   // AC#4: Selection dispatches SELECT_NODE, selected node has highlight.
   // ---------------------------------------------------------------------------
-  test('[P0] should expand tree node, show children, and select node', async ({ appPage }) => {
+  test('should expand tree node, show children, and select node', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Given: application shows empty state

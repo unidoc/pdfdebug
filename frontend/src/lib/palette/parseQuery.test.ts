@@ -21,7 +21,7 @@ import { describe, test, expect } from 'vitest';
 // RED: this import fails until parseQuery.ts exists.
 import { parseQuery, type PaletteQuery } from './parseQuery';
 
-describe('parseQuery (AC5)', () => {
+describe('parseQuery', () => {
   describe('numeric form', () => {
     const cases: Array<[string, PaletteQuery]> = [
       ['847', { kind: 'numeric', objNum: 847, gen: null }],

@@ -125,9 +125,9 @@ beforeEach(() => {
   });
 });
 
-describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
+describe('DetailPanel Embedded + Metadata tabs', () => {
   // 13.2-UNIT-100 [P0] AC6: the Embedded tab trigger is present in the tab bar.
-  test('13.2-UNIT-100 Embedded tab trigger present', async () => {
+  test('Embedded tab trigger present', async () => {
     renderPanel([openAction]);
     expect(await screen.findByTestId('detail-tab-embedded')).toBeInTheDocument();
   });
@@ -135,7 +135,7 @@ describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
   // 13.2-UNIT-110 [P0] AC7: the Metadata tab trigger is present beside Embedded.
   // Base tab bar is now 7 triggers after Story 13.6 added the Diff tab:
   // object/xref/plaintext/embedded/metadata/validate/diff.
-  test('13.2-UNIT-110 Metadata tab trigger present (7 tabs total)', async () => {
+  test('Metadata tab trigger present (7 tabs total)', async () => {
     renderPanel([openAction]);
     await screen.findByTestId('detail-tab-embedded');
     expect(screen.getByTestId('detail-tab-metadata')).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
 
   // 13.2-UNIT-115 [P0] AC6: activating Embedded renders the embedded view fed by
   // GetEmbeddedFiles.
-  test('13.2-UNIT-115 activating Embedded renders the list', async () => {
+  test('activating Embedded renders the list', async () => {
     renderPanel([openAction]);
     fireEvent.click(await screen.findByTestId('detail-tab-embedded'));
 
@@ -156,7 +156,7 @@ describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
 
   // 13.2-UNIT-116 [P0] AC7: activating Metadata renders the metadata view fed by
   // GetDocumentMetadata.
-  test('13.2-UNIT-116 activating Metadata renders Info + XMP', async () => {
+  test('activating Metadata renders Info + XMP', async () => {
     renderPanel([openAction]);
     fireEvent.click(await screen.findByTestId('detail-tab-metadata'));
 
@@ -166,7 +166,7 @@ describe('DetailPanel Embedded + Metadata tabs (Story 13.2)', () => {
 
   // 13.2-UNIT-117 [P1] AC6: the Embedded tab label shows the optional "(N)"
   // count mirroring the XREF tab.
-  test('13.2-UNIT-117 Embedded tab shows the (N) count', async () => {
+  test('Embedded tab shows the (N) count', async () => {
     renderPanel([openAction]);
     const tab = await screen.findByTestId('detail-tab-embedded');
     await waitFor(() => expect(tab).toHaveTextContent('(1)'));

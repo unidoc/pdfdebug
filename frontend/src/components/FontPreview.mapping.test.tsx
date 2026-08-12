@@ -110,7 +110,7 @@ function renderFont(detail: FontDetail13_3) {
 // ---------------------------------------------------------------------------
 // 13.3-UNIT-101 (AC1): single joined mapping table -- one row per declared code
 // ---------------------------------------------------------------------------
-describe('13.3-UNIT-101: joined mapping table', () => {
+describe('joined mapping table', () => {
   test('renders one joined table (not two separate Differences/ToUnicode tables) keyed by code', () => {
     const detail: FontDetail13_3 = {
       ...base,
@@ -146,7 +146,7 @@ describe('13.3-UNIT-101: joined mapping table', () => {
 // ---------------------------------------------------------------------------
 // 13.3-UNIT-102 (AC2): health-signals banner
 // ---------------------------------------------------------------------------
-describe('13.3-UNIT-102: health banner', () => {
+describe('health banner', () => {
   test('flags a missing ToUnicode CMap', () => {
     const detail: FontDetail13_3 = {
       ...base,
@@ -203,7 +203,7 @@ describe('13.3-UNIT-102: health banner', () => {
 // table-body rows than the data length (windowed), keeping the panel
 // interactive.
 // ---------------------------------------------------------------------------
-describe('13.3-UNIT-103: virtualization', () => {
+describe('virtualization', () => {
   test('windows a large joined table instead of rendering every row', () => {
     const rows: FontMappingRowData[] = [];
     for (let i = 0; i < 5000; i++) {
@@ -248,7 +248,7 @@ describe('13.3-UNIT-103: virtualization', () => {
 // covered in DetailPanel.fontPreview.test.tsx (9.9-UNIT-202 / 9.9-UNIT-203),
 // so they are NOT duplicated here.
 // ---------------------------------------------------------------------------
-describe('13.3-UNIT-104: degradation renders without crashing', () => {
+describe('degradation renders without crashing', () => {
   test('malformed ToUnicode (toUnicodeError set) still renders the health banner and any parsed rows', () => {
     const detail: FontDetail13_3 = {
       ...base,

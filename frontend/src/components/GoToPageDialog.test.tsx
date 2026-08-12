@@ -51,7 +51,7 @@ beforeEach(() => {
   mockGoToPage.mockReset();
 });
 
-describe('9.4-UNIT-002: GoToPageDialog', () => {
+describe('GoToPageDialog', () => {
   test('renders dialog with the expected page-range label after open', () => {
     render(
       <AppProvider>

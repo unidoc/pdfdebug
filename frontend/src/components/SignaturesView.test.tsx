@@ -118,10 +118,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('SignaturesView (Story 13.4)', () => {
+describe('SignaturesView', () => {
   // 13.4-UNIT-101 [P0] AC6: renders a key/value card per signature with the
   // decomposed facts.
-  test('13.4-UNIT-101 renders signature card with decomposed facts', async () => {
+  test('renders signature card with decomposed facts', async () => {
     render(<SignaturesView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByTestId('signature-card')).toBeInTheDocument());
@@ -143,7 +143,7 @@ describe('SignaturesView (Story 13.4)', () => {
   // 13.4-UNIT-102 [P0] AC4/AC6: the explicit non-verdict note renders, and no
   // trust-claim language appears (valid/trusted/verified allowed only in
   // negated/factual forms).
-  test('13.4-UNIT-102 shows trust note and never claims validity', async () => {
+  test('shows trust note and never claims validity', async () => {
     render(<SignaturesView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByTestId('signature-trust-note')).toBeInTheDocument());
@@ -165,7 +165,7 @@ describe('SignaturesView (Story 13.4)', () => {
 
   // 13.4-UNIT-103 [P1] AC6: an expired signer cert shows a DATE-only visual
   // cue -- about the cert date, never a trust verdict.
-  test('13.4-UNIT-103 expired cert shows date-only cue', async () => {
+  test('expired cert shows date-only cue', async () => {
     mockGetSignatures.mockResolvedValue([expiredEntry]);
     render(<SignaturesView tabId="tab-1" active onNavigate={vi.fn()} />);
 
@@ -180,7 +180,7 @@ describe('SignaturesView (Story 13.4)', () => {
 
   // 13.4-UNIT-104 [P1] AC6: the certificate chain is expandable -- collapsed
   // by default, expanding reveals every embedded cert.
-  test('13.4-UNIT-104 certificate chain expands on demand', async () => {
+  test('certificate chain expands on demand', async () => {
     render(<SignaturesView tabId="tab-1" active onNavigate={vi.fn()} />);
     await waitFor(() => screen.getByTestId('signature-card'));
 
@@ -193,7 +193,7 @@ describe('SignaturesView (Story 13.4)', () => {
 
   // 13.4-UNIT-105 [P1] AC6: "Reveal in tree" navigates to the /V dict node
   // for an indirect ref and falls back to the field node for a direct /V.
-  test('13.4-UNIT-105 reveal-in-tree targets /V node with field fallback', async () => {
+  test('reveal-in-tree targets /V node with field fallback', async () => {
     const onNavigate = vi.fn();
     const { unmount } = render(<SignaturesView tabId="tab-1" active onNavigate={onNavigate} />);
     await waitFor(() => screen.getByTestId('signature-card'));
@@ -213,7 +213,7 @@ describe('SignaturesView (Story 13.4)', () => {
 
   // 13.4-UNIT-106 [P1] AC1/AC6: an unsigned placeholder field renders as a
   // card marked unsigned, with no signer facts and no error.
-  test('13.4-UNIT-106 unsigned placeholder renders without decomposition', async () => {
+  test('unsigned placeholder renders without decomposition', async () => {
     mockGetSignatures.mockResolvedValue([
       {
         fieldName: 'EmptySig',

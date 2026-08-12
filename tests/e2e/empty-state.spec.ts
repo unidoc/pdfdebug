@@ -14,7 +14,7 @@
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
+test.describe('Empty State with Drag-and-Drop Zone', () => {
   // ---------------------------------------------------------------------------
   // 1.3-E2E-001 (P0): Application launches and displays empty state
   // AC#1: Centered empty state with title and subtitle
@@ -22,7 +22,7 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
   // AC#3: "Open File..." button visible
   // AC#4: Platform-aware shortcut hint displayed
   // ---------------------------------------------------------------------------
-  test('[P0] should display empty state with all elements on launch', async ({ appPage }) => {
+  test('should display empty state with all elements on launch', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // AC#1: Title and subtitle visible
@@ -71,7 +71,7 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
   // AC#6: Dragging file over window highlights drop zone with blue border
   //       and background highlight
   // ---------------------------------------------------------------------------
-  test('[P1] should highlight drop zone when file is dragged over window', async ({ appPage }) => {
+  test('should highlight drop zone when file is dragged over window', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     const dropZone = appPage.getByTestId('drop-zone');
@@ -101,7 +101,7 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
   // 1.3-E2E-003 (P1): Non-PDF drop shows "PDF files only" error for 2 seconds
   // AC#7: Drop a non-PDF file -> "PDF files only" hint in red for 2s -> reset
   // ---------------------------------------------------------------------------
-  test('[P1] should show error hint for 2 seconds when non-PDF file is dropped', async ({ appPage }) => {
+  test('should show error hint for 2 seconds when non-PDF file is dropped', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     const dropZoneHint = appPage.getByTestId('drop-zone-hint');
@@ -146,7 +146,7 @@ test.describe('Story 1.3: Empty State with Drag-and-Drop Zone (ATDD)', () => {
   // 1.3-E2E-004 (P1): Open File button click logs to console
   // AC#8: Clicking button without onOpenFile prop logs to console
   // ---------------------------------------------------------------------------
-  test('[P1] should log to console when Open File button is clicked without handler', async ({ appPage }) => {
+  test('should log to console when Open File button is clicked without handler', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Capture console messages

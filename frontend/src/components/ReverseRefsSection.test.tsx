@@ -126,7 +126,7 @@ function renderSection(opts: RenderOpts = {}) {
 // 9.10-UNIT-001 [P0] AC#8: default-expanded when entries.length <= 5
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-001: default expansion by entry count', () => {
+describe('default expansion by entry count', () => {
   test('default expanded for 5 entries -- all rows visible', () => {
     renderSection({ entries: fiveEntries });
     expect(screen.getByText('10 0 R')).toBeInTheDocument();
@@ -164,7 +164,7 @@ describe('9.10-UNIT-001: default expansion by entry count', () => {
 // 9.10-UNIT-002 [P0] AC#7: row content (ParentRef, Path, ParentType)
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-002: row content', () => {
+describe('row content', () => {
   test('row shows parent ref, global path, and parent type', () => {
     renderSection({ entries: fiveEntries });
     // First row: ParentRef + global path (parentPath joined with within-parent path)
@@ -189,7 +189,7 @@ describe('9.10-UNIT-002: row content', () => {
 // with the parent's indirect-object node ID. Keyboard parity required.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-003: row click dispatches NAVIGATE_TO_REF', () => {
+describe('row click dispatches NAVIGATE_TO_REF', () => {
   test('mouse click dispatches NAVIGATE_TO_REF with parentNodeId', async () => {
     const user = userEvent.setup();
     renderSection({ entries: fiveEntries });
@@ -229,7 +229,7 @@ describe('9.10-UNIT-003: row click dispatches NAVIGATE_TO_REF', () => {
 // 9.10-UNIT-004 [P0] AC#10: catalog empty state -- "Document root..."
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-004: catalog empty state', () => {
+describe('catalog empty state', () => {
   test('catalog iconHint with empty entries renders "Document root..."', () => {
     renderSection({ entries: [], selectedIconHint: 'catalog' });
     expect(
@@ -249,7 +249,7 @@ describe('9.10-UNIT-004: catalog empty state', () => {
 // 9.10-UNIT-005 [P0] AC#9: orphan empty state -- "No incoming dict-graph..."
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-005: orphan empty state', () => {
+describe('orphan empty state', () => {
   test('non-catalog iconHint with empty entries renders orphan copy', () => {
     renderSection({ entries: [], selectedIconHint: 'page' });
     expect(
@@ -277,7 +277,7 @@ describe('9.10-UNIT-005: orphan empty state', () => {
 // other empty states. Task 6.5 case 1.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-006: index-unavailable banner', () => {
+describe('index-unavailable banner', () => {
   test('indexUnavailable=true renders the unavailable banner', () => {
     renderSection({ entries: [], selectedIconHint: 'page', indexUnavailable: true });
     expect(
@@ -311,7 +311,7 @@ describe('9.10-UNIT-006: index-unavailable banner', () => {
 // 9.10-UNIT-007 [P1] AC#7: count appears in header when there are entries
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-007: section header count', () => {
+describe('section header count', () => {
   test('header shows entry count when entries are present', () => {
     renderSection({ entries: fiveEntries });
     expect(screen.getByText(/Referenced by \(5\)/)).toBeInTheDocument();
@@ -330,7 +330,7 @@ describe('9.10-UNIT-007: section header count', () => {
 // toggle to the default for the new entry count.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-008: remount-on-key resets toggle', () => {
+describe('remount-on-key resets toggle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

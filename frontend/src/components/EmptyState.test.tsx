@@ -43,7 +43,7 @@ function makeDragEvent(type: string, mimeType?: string) {
   };
 }
 
-describe('2.4-UNIT-002: EmptyState drop zone', () => {
+describe('EmptyState drop zone', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -86,7 +86,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
   // hintText/hintColor still branch on it.
   // ---------------------------------------------------------------------------
 
-  test('10-8-UNIT-001 [P1] AC1: non-PDF drag does NOT show error flash', () => {
+  test('non-PDF drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -104,7 +104,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-002 [P1] AC1: mixed-file drag does NOT show error flash', () => {
+  test('mixed-file drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -125,7 +125,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-003 [P1] AC1: PDF-only drag keeps the standard hint (no error)', () => {
+  test('PDF-only drag keeps the standard hint (no error)', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -140,7 +140,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).not.toContain('text-error');
   });
 
-  test('10-8-UNIT-004 [P1] AC1: dropping a non-PDF file shows no error flash', () => {
+  test('dropping a non-PDF file shows no error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 

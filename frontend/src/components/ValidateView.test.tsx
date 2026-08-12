@@ -104,10 +104,10 @@ beforeEach(() => {
   mockValidate.mockResolvedValue(mixedResult);
 });
 
-describe('ValidateView (Story 13.5)', () => {
+describe('ValidateView', () => {
   // 13.5-UNIT-101 [P0] AC4: "Run checks" invokes Validate(tabId, profile) with
   // the default profile and renders problems grouped by severity.
-  test('13.5-UNIT-101 run checks fetches with default profile and groups by severity', async () => {
+  test('run checks fetches with default profile and groups by severity', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId('validate-run'));
@@ -121,7 +121,7 @@ describe('ValidateView (Story 13.5)', () => {
 
   // 13.5-UNIT-102 [P0] AC4: clicking an object-scoped problem jumps the tree via
   // onNavigate(objNodeId).
-  test('13.5-UNIT-102 clicking an object-scoped problem navigates to its node', async () => {
+  test('clicking an object-scoped problem navigates to its node', async () => {
     const onNavigate = vi.fn();
     render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
 
@@ -136,7 +136,7 @@ describe('ValidateView (Story 13.5)', () => {
 
   // 13.5-UNIT-103 [P0] AC4: a problem with an empty objNodeId is shown but NOT
   // clickable -- the no-jump fallback (never a broken navigation).
-  test('13.5-UNIT-103 document-level problem does not navigate on click', async () => {
+  test('document-level problem does not navigate on click', async () => {
     const onNavigate = vi.fn();
     render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
 
@@ -152,7 +152,7 @@ describe('ValidateView (Story 13.5)', () => {
   // 13.5-UNIT-104 [P1] AC4: object-ref-less problems are surfaced as the
   // "Document" group via a dedicated label (not merely because the message text
   // happens to contain "document").
-  test('13.5-UNIT-104 document-level problems carry a Document label', async () => {
+  test('document-level problems carry a Document label', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId('validate-run'));
@@ -168,7 +168,7 @@ describe('ValidateView (Story 13.5)', () => {
 
   // 13.5-UNIT-105 [P0] AC5: the not-authoritative disclaimer is always visible
   // (before and after a run) and no conformance verdict language appears.
-  test('13.5-UNIT-105 disclaimer always visible, never a conformance verdict', async () => {
+  test('disclaimer always visible, never a conformance verdict', async () => {
     const { container } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     // Visible before running.
@@ -187,7 +187,7 @@ describe('ValidateView (Story 13.5)', () => {
 
   // 13.5-UNIT-106 [P1] AC4: a clean (zero-problem) result shows the explicit
   // no-problems state -- not a "compliant/valid" verdict.
-  test('13.5-UNIT-106 clean result shows the no-problems state', async () => {
+  test('clean result shows the no-problems state', async () => {
     mockValidate.mockResolvedValue(cleanResult);
     const { container } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
@@ -201,7 +201,7 @@ describe('ValidateView (Story 13.5)', () => {
 
   // 13.5-UNIT-107 [P1] AC2/AC4: the profile selector offers both profiles and a
   // run uses the chosen one.
-  test('13.5-UNIT-107 profile selector drives the validated profile', async () => {
+  test('profile selector drives the validated profile', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     const select = screen.getByTestId('validate-profile') as HTMLSelectElement;

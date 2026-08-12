@@ -13,7 +13,7 @@
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 2.4: Open PDF via File Dialog and Drag-and-Drop (ATDD)', () => {
+test.describe('Open PDF via File Dialog and Drag-and-Drop', () => {
   // ---------------------------------------------------------------------------
   // 2.4-E2E-001 [P0]: User opens PDF via drag-and-drop, sees tree Catalog
   // AC#2: Given the empty state, When the user drags a PDF onto the window
@@ -22,7 +22,7 @@ test.describe('Story 2.4: Open PDF via File Dialog and Drag-and-Drop (ATDD)', ()
   //       auto-expanded to show its immediate children.
   // AC#3: The root Catalog node is visible and auto-expanded.
   // ---------------------------------------------------------------------------
-  test('[P0] should open PDF via drag-and-drop and show Catalog in tree', async ({ appPage }) => {
+  test('should open PDF via drag-and-drop and show Catalog in tree', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Given: application shows empty state
@@ -116,7 +116,7 @@ test.describe('Story 2.4: Open PDF via File Dialog and Drag-and-Drop (ATDD)', ()
   //       Then an ErrorBanner appears with a clear message, And the error
   //       banner is dismissible, And the user can open a different file.
   // ---------------------------------------------------------------------------
-  test('[P0] should show error banner for malformed PDF and allow dismiss', async ({ appPage }) => {
+  test('should show error banner for malformed PDF and allow dismiss', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Given: application shows empty state

@@ -40,7 +40,7 @@ function clearStorage() {
   }
 }
 
-describe('10-7-UNIT-008: useWindowPersistence flushes on last unmount (AC8)', () => {
+describe('useWindowPersistence flushes on last unmount', () => {
   beforeEach(() => {
     clearStorage();
     vi.useFakeTimers();

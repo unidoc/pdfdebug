@@ -50,7 +50,7 @@ describe('4.4 useWindowPersistence', () => {
    * AC#3: When the user resizes panels, the new sizes are persisted to
    *       window.localStorage so they survive app restart.
    */
-  test('4.4-UNIT-001 [P1]: panel sizes saved to window.localStorage on resize', () => {
+  test('panel sizes saved to window.localStorage on resize', () => {
     const { result } = renderHook(() => useWindowPersistence());
 
     act(() => {
@@ -76,7 +76,7 @@ describe('4.4 useWindowPersistence', () => {
    * AC#3: When the app starts with valid persisted state in window.localStorage,
    *       the hook returns the stored panel sizes.
    */
-  test('4.4-UNIT-002 [P1]: panel sizes restored from window.localStorage on mount', () => {
+  test('panel sizes restored from window.localStorage on mount', () => {
     // Pre-populate window.localStorage with valid state
     const persistedState = {
       panelSizes: {
@@ -99,7 +99,7 @@ describe('4.4 useWindowPersistence', () => {
    * AC#3: Save sizes, then create a new hook instance, verify loaded
    *       sizes match saved sizes.
    */
-  test('4.4-UNIT-003 [P1]: panel sizes saved and restored round-trip', () => {
+  test('panel sizes saved and restored round-trip', () => {
     // First instance: save sizes
     const { result: first, unmount } = renderHook(() => useWindowPersistence());
 
@@ -127,20 +127,20 @@ describe('4.4 useWindowPersistence', () => {
    * AC#3: If window.localStorage is empty or corrupt, the application falls back to
    *       default panel sizes with no error.
    */
-  test('4.4-UNIT-004 [P1]: fallback to null when window.localStorage is empty', () => {
+  test('fallback to null when window.localStorage is empty', () => {
     // window.localStorage is cleared in beforeEach -- nothing stored
     const { result } = renderHook(() => useWindowPersistence());
     expect(result.current.panelSizes).toBeNull();
   });
 
-  test('4.4-UNIT-004 [P1]: fallback to null when window.localStorage has invalid JSON', () => {
+  test('fallback to null when window.localStorage has invalid JSON', () => {
     window.localStorage.setItem(STORAGE_KEY, '{invalid json!!!');
 
     const { result } = renderHook(() => useWindowPersistence());
     expect(result.current.panelSizes).toBeNull();
   });
 
-  test('4.4-UNIT-004 [P1]: fallback to null when window.localStorage has invalid structure', () => {
+  test('fallback to null when window.localStorage has invalid structure', () => {
     // Valid JSON but wrong shape -- treeWidth is negative
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -151,7 +151,7 @@ describe('4.4 useWindowPersistence', () => {
     expect(result.current.panelSizes).toBeNull();
   });
 
-  test('4.4-UNIT-004 [P1]: fallback to null when window.localStorage has non-finite values', () => {
+  test('fallback to null when window.localStorage has non-finite values', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ panelSizes: { treeWidth: Infinity, subPanelHeight: 200 } })
@@ -161,7 +161,7 @@ describe('4.4 useWindowPersistence', () => {
     expect(result.current.panelSizes).toBeNull();
   });
 
-  test('4.4-UNIT-004 [P1]: fallback to null when panelSizes is missing', () => {
+  test('fallback to null when panelSizes is missing', () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
 
     const { result } = renderHook(() => useWindowPersistence());
@@ -315,7 +315,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * AC#1, AC#4: Geometry change triggers a debounced write at +500ms.
    */
-  test('8.4-UNIT-001 [P1]: geometry saved to window.localStorage on saveWindowGeometry (debounced 500ms)', () => {
+  test('geometry saved to window.localStorage on saveWindowGeometry (debounced 500ms)', () => {
     const { result } = renderHook(() => useWindowPersistence());
 
     act(() => {
@@ -340,7 +340,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * AC#1: Hook returns persisted geometry on mount when valid state exists.
    */
-  test('8.4-UNIT-002 [P1]: geometry restored from window.localStorage on mount', () => {
+  test('geometry restored from window.localStorage on mount', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -359,7 +359,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * AC#3: Empty localStorage produces null geometry (no error).
    */
-  test('8.4-UNIT-003 [P1]: returns null geometry when localStorage is empty', () => {
+  test('returns null geometry when localStorage is empty', () => {
     const { result } = renderHook(() => useWindowPersistence());
     expect(result.current.windowGeometry).toBeNull();
   });
@@ -370,7 +370,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * AC#3, AC#5: Independent validation per field.
    */
-  test('8.4-UNIT-004 [P1]: corrupt geometry returns null but valid panelSizes still load', () => {
+  test('corrupt geometry returns null but valid panelSizes still load', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -394,7 +394,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * Shared timer is reset on each call.
    */
-  test('8.4-UNIT-005 [P1]: shared 500ms debounce coalesces geometry and panel saves into one write with both fields', () => {
+  test('shared 500ms debounce coalesces geometry and panel saves into one write with both fields', () => {
     // Asserts via localStorage state at three checkpoints: before any flush,
     // 1ms before the timer fires, and 1ms after. This proves the timer resets
     // on each call (no premature flush) and the final write merges both fields.
@@ -436,7 +436,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *
    * AC#5: A geometry-only save preserves the existing panelSizes field.
    */
-  test('8.4-UNIT-006 [P1]: saving geometry preserves existing panelSizes in localStorage (read-merge-write)', () => {
+  test('saving geometry preserves existing panelSizes in localStorage (read-merge-write)', () => {
     // Pre-existing panelSizes in localStorage from an earlier session
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -471,7 +471,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *       rejects non-finite/NaN x/y/width/height;
    *       rejects zero or negative width/height.
    */
-  test('8.4-UNIT-007 [P2]: isValidGeometry allows negative x/y, rejects non-finite or non-positive width/height', () => {
+  test('isValidGeometry allows negative x/y, rejects non-finite or non-positive width/height', () => {
     // Allowed: positive width/height, any finite x/y (including negative for multi-monitor)
     expect(isValidGeometry({ x: 100, y: 200, width: 1024, height: 768 })).toBe(true);
     expect(isValidGeometry({ x: -800, y: -500, width: 1024, height: 768 })).toBe(true);
@@ -507,7 +507,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    *       valid panelSizes still loads panelSizes); this case validates
    *       that the panelSizes load path is unaffected by the geometry path.
    */
-  test('8.4-UNIT-008 [P2]: loader returns null geometry but valid panelSizes when geometry shape mismatches', () => {
+  test('loader returns null geometry but valid panelSizes when geometry shape mismatches', () => {
     // windowGeometry has only partial fields -- shape mismatch
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -530,7 +530,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    * Supplemental (AC#5 reverse direction): saving panel sizes does not erase
    * a previously-stored windowGeometry value.
    */
-  test('8.4-UNIT-009 [P1]: saving panel sizes preserves existing windowGeometry in localStorage (read-merge-write)', () => {
+  test('saving panel sizes preserves existing windowGeometry in localStorage (read-merge-write)', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -558,7 +558,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   /**
    * Supplemental: hook return shape includes windowGeometry and saveWindowGeometry.
    */
-  test('8.4-UNIT-010 [P2]: hook returns windowGeometry and saveWindowGeometry', () => {
+  test('hook returns windowGeometry and saveWindowGeometry', () => {
     const { result } = renderHook(() => useWindowPersistence());
 
     expect(result.current).toHaveProperty('windowGeometry');
@@ -574,7 +574,7 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
    * panel save from instance A and the geometry save from instance B
    * would each fire their own setTimeout and produce two writes.
    */
-  test('8.4-UNIT-011 [P1]: AC#4 - shared timer coalesces saves across multiple hook instances into one write', () => {
+  test('shared timer coalesces saves across multiple hook instances into one write', () => {
     // Asserts via localStorage state. Two checkpoints prove the timer is shared
     // across instances (not per-instance): if timers were per-instance, instance
     // A's geometry would have written its own state at +500ms and we'd see a

@@ -26,7 +26,7 @@ import { describe, test, expect } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, 'DetailPanel.tsx'), 'utf8');
 
-describe('10-8-UNIT-008: DetailPanel dead-slot removal', () => {
+describe('DetailPanel dead-slot removal', () => {
   test('setLoading is fully removed (declaration + call sites)', () => {
     expect(source).not.toMatch(/setLoading/);
   });

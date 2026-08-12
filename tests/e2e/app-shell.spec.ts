@@ -15,13 +15,13 @@
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 1.4: Native Menu Bar and Application Shell (ATDD)', () => {
+test.describe('Native Menu Bar and Application Shell', () => {
   // ---------------------------------------------------------------------------
   // 1.4-E2E-001 (P0): App launches with EmptyState (no document open)
   // AC#6: App renders AppProvider -> EmptyState when no active document
   // AC#2: MainLayout is NOT rendered when no document is open
   // ---------------------------------------------------------------------------
-  test('[P0] should display EmptyState when no document is open', async ({ appPage }) => {
+  test('should display EmptyState when no document is open', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // AC#6: EmptyState should be visible (initial state has no tabs)
@@ -49,7 +49,7 @@ test.describe('Story 1.4: Native Menu Bar and Application Shell (ATDD)', () => {
   // MainLayout), this test will be meaningful. We verify the structure by
   // checking what the initial state renders.
   // ---------------------------------------------------------------------------
-  test('[P0] should render two-column layout with semantic HTML when active', async ({ appPage }) => {
+  test('should render two-column layout with semantic HTML when active', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Since initial state has no tabs, EmptyState renders.
@@ -79,7 +79,7 @@ test.describe('Story 1.4: Native Menu Bar and Application Shell (ATDD)', () => {
   // that empty-state testids are present. It also verifies that the app
   // is wrapped in AppProvider (no context error thrown).
   // ---------------------------------------------------------------------------
-  test('[P1] should render without context errors and display empty state testids', async ({ appPage }) => {
+  test('should render without context errors and display empty state testids', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // If AppProvider is missing or broken, React will throw an error

@@ -38,7 +38,7 @@ function gutterLineNumbers(): string[] {
 // 10-7-UNIT-004 [P1] AC7: LF-only (baseline that already works).
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-004: LF-only line endings render N rows', () => {
+describe('LF-only line endings render N rows', () => {
   test('"line1\\nline2\\nline3" renders 3 rows and gutter 1,2,3', () => {
     render(<ContentStreamViewer raw={'line1\nline2\nline3'} />);
     expect(rowCount()).toBe(3);
@@ -50,7 +50,7 @@ describe('10-7-UNIT-004: LF-only line endings render N rows', () => {
 // 10-7-UNIT-005 [P1] AC7: CR-only line endings -- the core fix.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-005: CR-only line endings render N rows', () => {
+describe('CR-only line endings render N rows', () => {
   test('"line1\\rline2\\rline3" renders 3 rows and gutter 1,2,3', () => {
     render(<ContentStreamViewer raw={'line1\rline2\rline3'} />);
     expect(rowCount()).toBe(3);
@@ -70,7 +70,7 @@ describe('10-7-UNIT-005: CR-only line endings render N rows', () => {
 // 10-7-UNIT-006 [P1] AC7: CRLF line endings count once (not as two breaks).
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-006: CRLF line endings count once', () => {
+describe('CRLF line endings count once', () => {
   test('"line1\\r\\nline2" renders 2 rows (CRLF is a single break)', () => {
     render(<ContentStreamViewer raw={'line1\r\nline2'} />);
     expect(rowCount()).toBe(2);
@@ -82,7 +82,7 @@ describe('10-7-UNIT-006: CRLF line endings count once', () => {
 // 10-7-UNIT-007 [P1] AC7: mixed line endings in one corpus.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-007: mixed CR / LF / CRLF', () => {
+describe('mixed CR / LF / CRLF', () => {
   test('"a\\rb\\nc\\r\\nd" renders 4 rows', () => {
     // 3 breaks (CR, LF, CRLF) -> 4 logical lines: a, b, c, d.
     render(<ContentStreamViewer raw={'a\rb\nc\r\nd'} />);

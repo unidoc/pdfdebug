@@ -62,7 +62,7 @@ const childNodes = [
   },
 ];
 
-describe('2.4-UNIT-001: appReducer', () => {
+describe('appReducer', () => {
   test('initial state has no tabs, no activeTabId, no error', () => {
     render(
       <AppProvider>
@@ -302,7 +302,7 @@ const catalogNodeB = {
 // And tab-2's selectedNodeId is "obj:0:10".
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-001: SELECT_NODE isolation', () => {
+describe('SELECT_NODE isolation', () => {
   test('selecting a node in one tab does not affect another tab', () => {
     function MultiTabInspector() {
       const state = useAppState();
@@ -389,7 +389,7 @@ describe('4.2-UNIT-001: SELECT_NODE isolation', () => {
 // And tab-2's pendingNavTarget remains null.
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-002: NAVIGATE_TO_REF isolation', () => {
+describe('NAVIGATE_TO_REF isolation', () => {
   test('reference navigation only affects active tab', () => {
     function NavInspector() {
       const state = useAppState();
@@ -459,7 +459,7 @@ describe('4.2-UNIT-002: NAVIGATE_TO_REF isolation', () => {
 // And each tab's selectedNodeId is preserved.
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-003: SET_DOCUMENT_ERROR preserves tabs', () => {
+describe('SET_DOCUMENT_ERROR preserves tabs', () => {
   test('error does not clear existing tabs or their state', () => {
     function ErrorInspector() {
       const state = useAppState();
@@ -692,7 +692,7 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
 // And tab-2 is gone.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-001: CLOSE_DOCUMENT removes only the target tab', () => {
+describe('CLOSE_DOCUMENT removes only the target tab', () => {
   test('closing a tab leaves other tabs intact', () => {
     function Inspector() {
       const state = useAppState();
@@ -737,7 +737,7 @@ describe('4.3-UNIT-001: CLOSE_DOCUMENT removes only the target tab', () => {
 // (b) Close the first-in-array tab (tab-1): activeTabId -> tab-2 (next).
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
+describe('Closing active tab transfers focus correctly', () => {
   test('(a) closing last-in-array active tab falls back to previous', () => {
     function Inspector() {
       const state = useAppState();
@@ -815,7 +815,7 @@ describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
 // And state.activeTabId === null.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
+describe('Closing last tab returns to empty state', () => {
   test('closing the only tab sets activeTabId to null', () => {
     function Inspector() {
       const state = useAppState();
@@ -853,7 +853,7 @@ describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
 // And state.tabs.length === 2.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
+describe('Closing non-active tab preserves activeTabId', () => {
   test('closing a background tab does not change active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -895,7 +895,7 @@ describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
 // And activeTabId === 'tab-1'.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
+describe('Rapid sequential closes do not corrupt state', () => {
   test('closing 3 of 4 tabs in rapid succession leaves correct state', () => {
     function Inspector() {
       const state = useAppState();
@@ -950,7 +950,7 @@ describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
 // Reducer: closedIndex=1, filtered=[tab-1,tab-3], Math.min(1,1)=1 -> tab-3.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-002 supplemental: Closing middle active tab prefers next', () => {
+describe('Closing middle active tab prefers next', () => {
   test('closing middle active tab activates the next tab to the right', () => {
     function Inspector() {
       const state = useAppState();
@@ -1228,7 +1228,7 @@ function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openA
   );
 }
 
-describe('9.4-UNIT-001: Go to Page dialog state', () => {
+describe('Go to Page dialog state', () => {
   test('initial state has goToPageOpen = false', () => {
     render(
       <AppProvider>
@@ -1301,8 +1301,8 @@ function makeJump(objNum: number) {
   };
 }
 
-describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
-  test('AC7: pushing >5 entries evicts the oldest; newest is at index 0', () => {
+describe('PUSH_RECENT_JUMP LRU cap', () => {
+  test('pushing >5 entries evicts the oldest; newest is at index 0', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1333,7 +1333,7 @@ describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
     );
   });
 
-  test('AC7: re-jumping to an existing nodeId dedups and moves it to the front', () => {
+  test('re-jumping to an existing nodeId dedups and moves it to the front', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1364,8 +1364,8 @@ describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
   });
 });
 
-describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
-  test('AC10: pushing to tab-1 does not modify tab-2 recents', () => {
+describe('PUSH_RECENT_JUMP per-tab isolation', () => {
+  test('pushing to tab-1 does not modify tab-2 recents', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1398,7 +1398,7 @@ describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
     expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
   });
 
-  test('AC10: CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
+  test('CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1429,7 +1429,7 @@ describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
     expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
   });
 
-  test('AC7: PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
+  test('PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();

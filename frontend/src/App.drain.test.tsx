@@ -115,11 +115,11 @@ beforeEach(() => {
   mockGetChildren.mockResolvedValue([]);
 });
 
-describe('12.1 cold-start drain (AC6)', () => {
+describe('cold-start drain', () => {
   // 12.1-UNIT-101 [P0]: subscribe-before-drain ordering. The document:opened
   // listener MUST be registered before ConsumePendingOpenFiles is called, or
   // a path delivered between drain and subscribe would be lost.
-  test('12.1-UNIT-101 registers document:opened before draining', async () => {
+  test('registers document:opened before draining', async () => {
     mockConsume.mockResolvedValue([]);
     const { default: App } = await import('./App');
     render(<App />);
@@ -138,7 +138,7 @@ describe('12.1 cold-start drain (AC6)', () => {
   // 12.1-UNIT-102 [P0]: a drained path opens via the openPDFFile pipeline and
   // results in an OPEN_DOCUMENT (asserted via the rendered main layout) and a
   // backend OpenFile call for that path.
-  test('12.1-UNIT-102 drained path opens through openPDFFile', async () => {
+  test('drained path opens through openPDFFile', async () => {
     mockConsume.mockResolvedValue(['/cold/start.pdf']);
     mockOpenFile.mockResolvedValue(docInfo('tab-cold', '/cold/start.pdf'));
 
@@ -155,7 +155,7 @@ describe('12.1 cold-start drain (AC6)', () => {
 
   // 12.1-UNIT-103 [P1]: a null binding result (Go nil slice -> JSON null) must
   // be treated as an empty list -- no throw, empty state stays rendered.
-  test('12.1-UNIT-103 null drain result renders empty state without throwing', async () => {
+  test('null drain result renders empty state without throwing', async () => {
     mockConsume.mockResolvedValue(null);
 
     const { default: App } = await import('./App');
@@ -172,7 +172,7 @@ describe('12.1 cold-start drain (AC6)', () => {
   // binding mock returns paths on the first call and empty on the second
   // (mirroring drain-on-read), so even with two mounts only ONE OpenFile per
   // path fires.
-  test('12.1-UNIT-104 StrictMode double-mount does not double-open', async () => {
+  test('StrictMode double-mount does not double-open', async () => {
     mockConsume
       .mockResolvedValueOnce(['/once.pdf'])
       .mockResolvedValue([]);
@@ -197,7 +197,7 @@ describe('12.1 cold-start drain (AC6)', () => {
   // 12.1-UNIT-105 [P1]: a drained duplicate of an already-open file frees the
   // new backend tab via the drain loop's own pre-dispatch dedup. The
   // lastOpenedTabIdRef orphan-close fallback does NOT cover drain-path opens.
-  test('12.1-UNIT-105 drained duplicate frees the new backend tab', async () => {
+  test('drained duplicate frees the new backend tab', async () => {
     // First, open a file via document:opened so a tab with this filePath exists.
     mockConsume.mockResolvedValue([]);
     const { default: App } = await import('./App');
@@ -240,7 +240,7 @@ describe('12.1 cold-start drain (AC6)', () => {
   // UX). openPDFFile is held pending so the OPENING_START state persists and
   // EmptyState surfaces the basename; the multi-path drain pins the "first
   // path" rule and that the basename is stripped of its directory.
-  test('12.1-UNIT-107 drain dispatches OPENING_START with first path basename', async () => {
+  test('drain dispatches OPENING_START with first path basename', async () => {
     mockConsume.mockResolvedValue(['/cold/first.pdf', '/cold/second.pdf']);
     // Never resolves: keeps the app in the isOpening state so the indicator
     // (and its basename) stays rendered for the assertion.
@@ -256,7 +256,7 @@ describe('12.1 cold-start drain (AC6)', () => {
 
   // 12.1-UNIT-106 [P2]: a per-path open error dispatches SET_DOCUMENT_ERROR
   // (rendered via the error banner) and does NOT block remaining paths.
-  test('12.1-UNIT-106 per-path error does not block remaining paths', async () => {
+  test('per-path error does not block remaining paths', async () => {
     mockConsume.mockResolvedValue(['/bad.pdf', '/good.pdf']);
     mockOpenFile.mockImplementation((p: string) => {
       if (p === '/bad.pdf') return Promise.reject(new Error('malformed PDF'));

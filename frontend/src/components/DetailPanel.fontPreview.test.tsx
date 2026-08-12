@@ -171,7 +171,7 @@ function renderDetailPanelFor(
 // in place of DictView. GetFontView is fetched and returns Kind:'detail'.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
+describe('iconHint=font swaps DictView -> FontPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -206,7 +206,7 @@ describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
 // generic DictView. No error is involved in this path.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
+describe('Kind=neither silent DictView fallback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -246,7 +246,7 @@ describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
 // GetFontView returns Kind:'roster'.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202b: Kind=roster renders FontRosterPreview', () => {
+describe('Kind=roster renders FontRosterPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -296,7 +296,7 @@ describe('9.9-UNIT-202b: Kind=roster renders FontRosterPreview', () => {
 // unknown tab, pdfcpu panics).
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-203: real error renders inline (does not crash)', () => {
+describe('real error renders inline (does not crash)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -344,7 +344,7 @@ describe('9.9-UNIT-203: real error renders inline (does not crash)', () => {
 // "font-loading"
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
+describe('200ms-debounced loading indicator', () => {
   // Manually-resolvable promise so the never-resolved state doesn't leak past
   // test teardown (which can trigger unhandled-rejection worker crashes).
   let resolveFont: ((v: unknown) => void) | null = null;
@@ -392,7 +392,7 @@ describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
 // the dict-type guard fails.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
+describe('iconHint=font + non-dict detail does NOT fetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetReverseRefs.mockResolvedValue([]);
@@ -432,7 +432,7 @@ describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
 // dict selection, ballooning IPC traffic.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontView', () => {
+describe('iconHint != "font" does NOT trigger GetFontView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -461,7 +461,7 @@ describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontView', () => 
 // FontPreview is active. Falls back to "Font" when BaseFont missing.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
+describe('detail-panel header label', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -499,7 +499,7 @@ describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
 // test pins that no special handling exists for the indirect case.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-208: AC#10 indirect-ref-chain / ObjStm transparent', () => {
+describe('indirect-ref-chain / ObjStm transparent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);

@@ -238,7 +238,7 @@ afterEach(() => {
 //       clicks the expand arrow, child nodes load from the Go backend.
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-001: TreePanel renders root and expands on click', () => {
+describe('TreePanel renders root and expands on click', () => {
   test('renders tree-panel container with data-testid', async () => {
 
     render(
@@ -366,7 +366,7 @@ describe('2.5-UNIT-001: TreePanel renders root and expands on click', () => {
 // AC#2: Arrow keys move selection, Right expands, Left collapses.
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-002: TreePanel keyboard navigation', () => {
+describe('TreePanel keyboard navigation', () => {
   test('Down arrow moves focus/selection to next node', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();
@@ -469,7 +469,7 @@ describe('2.5-UNIT-002: TreePanel keyboard navigation', () => {
 //       aria-expanded, aria-level.
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-003: TreePanel ARIA accessibility', () => {
+describe('TreePanel ARIA accessibility', () => {
   test('tree container has role="tree"', async () => {
 
     render(
@@ -584,7 +584,7 @@ describe('2.5-UNIT-003: TreePanel ARIA accessibility', () => {
 //       loading takes more than 200ms.
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-004: Loading indicator with 200ms threshold', () => {
+describe('Loading indicator with 200ms threshold', () => {
   test('no loading indicator for fast responses (< 200ms)', async () => {
     vi.useFakeTimers();
 
@@ -695,7 +695,7 @@ describe('2.5-UNIT-004: Loading indicator with 200ms threshold', () => {
 // AC#4: SELECT_NODE dispatch on selection change
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-SEL: SELECT_NODE dispatch on selection', () => {
+describe('SELECT_NODE dispatch on selection', () => {
   test('clicking a node dispatches SELECT_NODE with the node ID', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();
@@ -751,7 +751,7 @@ describe('2.5-UNIT-SEL: SELECT_NODE dispatch on selection', () => {
 // AC#5: Error nodes display with muted text and warning icon
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-ERR: Error node rendering', () => {
+describe('Error node rendering', () => {
   test('error node displays with text-text-muted label', async () => {
 
     render(
@@ -824,7 +824,7 @@ describe('2.5-UNIT-ERR: Error node rendering', () => {
 // AC#3: Node labels show rawKey alongside label when different
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-LABEL: Node label display with rawKey', () => {
+describe('Node label display with rawKey', () => {
   test('shows rawKey in muted text when different from label', async () => {
 
     render(
@@ -849,7 +849,7 @@ describe('2.5-UNIT-LABEL: Node label display with rawKey', () => {
 // 9.5-UNIT-001: NodeRenderer renders lucide icons keyed by iconHint
 // ---------------------------------------------------------------------------
 
-describe('9.5-UNIT-001: Tree icons rendered from iconHint', () => {
+describe('Tree icons rendered from iconHint', () => {
   test('catalog/pages/page/stream rows each render an SVG icon; default hint omits the icon', async () => {
     render(
       <AppProvider>
@@ -882,7 +882,7 @@ describe('9.5-UNIT-001: Tree icons rendered from iconHint', () => {
 // useDocumentState: SELECT_NODE action type must exist
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-STATE: SELECT_NODE action in useDocumentState', () => {
+describe('SELECT_NODE action in useDocumentState', () => {
   test('TabState has selectedNodeId field initialized to null on OPEN_DOCUMENT', async () => {
     // This test validates that the state shape is correct after story 2-5 changes.
     // The reducer must initialize selectedNodeId: null on OPEN_DOCUMENT.
@@ -1026,7 +1026,7 @@ describe('2.5-UNIT-STATE: SELECT_NODE action in useDocumentState', () => {
 // AC#2: Space on leaf selects, Space on internal toggles, Home/End jumps.
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-KB-EXT: Extended keyboard navigation', () => {
+describe('Extended keyboard navigation', () => {
   test('Home key jumps to first visible node', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();
@@ -1094,7 +1094,7 @@ describe('2.5-UNIT-KB-EXT: Extended keyboard navigation', () => {
 // 2.5-UNIT-FETCH-ERR: GetChildren failure does not crash the tree
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-FETCH-ERR: GetChildren error handling', () => {
+describe('GetChildren error handling', () => {
   test('GetChildren rejection does not crash the tree', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();
@@ -1132,7 +1132,7 @@ describe('2.5-UNIT-FETCH-ERR: GetChildren error handling', () => {
 // 2.5-UNIT-REEXPAND: Collapsing and re-expanding does not re-fetch
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-REEXPAND: Re-expand does not re-fetch', () => {
+describe('Re-expand does not re-fetch', () => {
   test('collapsing and re-expanding a loaded node does not call GetChildren again', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();
@@ -1183,7 +1183,7 @@ describe('2.5-UNIT-REEXPAND: Re-expand does not re-fetch', () => {
 // 2.5-UNIT-EMPTY-ROOT: TreePanel handles null rootChildren gracefully
 // ---------------------------------------------------------------------------
 
-describe('2.5-UNIT-EMPTY-ROOT: TreePanel with null rootChildren', () => {
+describe('TreePanel with null rootChildren', () => {
   test('renders root node when rootChildren is null', async () => {
     const openWithNullChildren: AppAction = {
       type: 'OPEN_DOCUMENT',
@@ -1227,7 +1227,7 @@ describe('2.5-UNIT-EMPTY-ROOT: TreePanel with null rootChildren', () => {
 // Then tab-1's tree still shows the expanded Pages children.
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-004: Tree expansion state preserved across tab switches', () => {
+describe('Tree expansion state preserved across tab switches', () => {
   test('expanded children survive tab switch round-trip', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();

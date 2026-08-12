@@ -34,7 +34,7 @@ async function loadUseLatest() {
 // latest render's value across rerenders.
 // ---------------------------------------------------------------------------
 
-describe('10-7-HOOK-001: useLatest reflects the latest value', () => {
+describe('useLatest reflects the latest value', () => {
   test('ref.current equals the initial value on first render', async () => {
     const useLatest = await loadUseLatest();
     const { result } = renderHook(({ value }: { value: number }) => useLatest(value), {

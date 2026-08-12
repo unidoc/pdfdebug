@@ -74,11 +74,11 @@ beforeEach(() => {
   mockDiffDocuments.mockResolvedValue(depthCappedResult);
 });
 
-describe('DiffView depth-cap truncation (Story 14.3)', () => {
+describe('DiffView depth-cap truncation', () => {
   // 14.3-COMP-001 [P1] AC5: a result with truncatedSubtrees > 0 must NOT render
   // the "No structural differences / identical" banner -- the walk was bounded,
   // so identity cannot be claimed.
-  test('14.3-COMP-001 suppresses the identical banner when a subtree was depth-capped', async () => {
+  test('suppresses the identical banner when a subtree was depth-capped', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     const summary = await screen.findByTestId('diff-summary');
@@ -93,7 +93,7 @@ describe('DiffView depth-cap truncation (Story 14.3)', () => {
   // Asserts the bracketed row text (distinct from the summary note's "truncated
   // at the depth cap") AND the cut node's path, so it genuinely covers the
   // DiffView.tsx per-node marker branch rather than passing on the summary note.
-  test('14.3-COMP-001 auto-expands to the depth-cap node and renders its row marker', async () => {
+  test('auto-expands to the depth-cap node and renders its row marker', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await waitFor(() => expect(mockDiffDocuments).toHaveBeenCalled());

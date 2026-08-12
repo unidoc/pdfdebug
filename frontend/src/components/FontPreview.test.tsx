@@ -214,7 +214,7 @@ const fontWithToUnicodeError: FontDetailFixture = {
 // 9.9-UNIT-001 [P0] AC#2 -- metadata header surfaces the core identity fields
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-001: metadata header', () => {
+describe('metadata header', () => {
   test('shows Subtype, BaseFont, FirstChar, LastChar', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
     // BaseFont (load-bearing for header label too -- AC#11)
@@ -239,7 +239,7 @@ describe('9.9-UNIT-001: metadata header', () => {
 // 9.9-UNIT-002 [P0] AC#2 -- Embedded badge state + copy
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-002: embedded badge', () => {
+describe('embedded badge', () => {
   test('green "Embedded" badge with format and size when embedded=true', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
     // Loose: the badge text MUST include "Embedded" + the format string + a
@@ -266,7 +266,7 @@ describe('9.9-UNIT-002: embedded badge', () => {
 // 9.9-UNIT-003 [P0] AC#3 + AC#3a -- encoding name vs built-in encoding sentinel
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-003: encoding -- named or built-in', () => {
+describe('encoding -- named or built-in', () => {
   test('named encoding renders the name; no glyph table appears', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
     expect(screen.getByText('/WinAnsiEncoding')).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe('9.9-UNIT-003: encoding -- named or built-in', () => {
     expect(screen.queryByText(/Glyph name/i)).not.toBeInTheDocument();
   });
 
-  test('AC#3a built-in encoding sentinel when /Encoding is absent', () => {
+  test('built-in encoding sentinel when /Encoding is absent', () => {
     render(<FontPreview detail={builtInEncodingFont} onReferenceClick={() => {}} />);
     expect(
       screen.getByText(/Built-in encoding \(defined in font file\)/i)
@@ -288,7 +288,7 @@ describe('9.9-UNIT-003: encoding -- named or built-in', () => {
 // 9.9-UNIT-004 [P0] AC#4 -- /Differences table with decimal, hex, glyph name
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-004: /Differences encoding table', () => {
+describe('/Differences encoding table', () => {
   test('renders one row per Differences entry with decimal + hex + name', () => {
     render(<FontPreview detail={differencesFont} onReferenceClick={() => {}} />);
     // Decimal codes
@@ -311,7 +311,7 @@ describe('9.9-UNIT-004: /Differences encoding table', () => {
     expect(screen.getByText('/WinAnsiEncoding')).toBeInTheDocument();
   });
 
-  test('AC#12 -- Encoding/Differences table uses table semantics', () => {
+  test('Encoding/Differences table uses table semantics', () => {
     render(<FontPreview detail={differencesFont} onReferenceClick={() => {}} />);
     // AC#12 requires real <table> semantics OR role="table" + row/cell roles
     // so screen readers can read by column. We accept either.
@@ -325,7 +325,7 @@ describe('9.9-UNIT-004: /Differences encoding table', () => {
 // blanking for control / PUA / surrogate.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-005: /ToUnicode table', () => {
+describe('/ToUnicode table', () => {
   test('renders one row per mapping with U+XXXX codepoint and literal glyph', () => {
     render(<FontPreview detail={toUnicodeFont} onReferenceClick={() => {}} />);
     expect(screen.getByText('U+0041')).toBeInTheDocument();
@@ -341,7 +341,7 @@ describe('9.9-UNIT-005: /ToUnicode table', () => {
     expect(screen.getByText('ffi')).toBeInTheDocument();
   });
 
-  test('AC#5 control codepoint glyph cell is blank or U+25CC -- NEVER a literal control char', () => {
+  test('control codepoint glyph cell is blank or U+25CC -- NEVER a literal control char', () => {
     const { container } = render(
       <FontPreview detail={toUnicodeFont} onReferenceClick={() => {}} />
     );
@@ -353,7 +353,7 @@ describe('9.9-UNIT-005: /ToUnicode table', () => {
     expect(screen.getByText('U+0009')).toBeInTheDocument();
   });
 
-  test('AC#5 PUA codepoint glyph cell is blank or U+25CC -- NEVER a literal PUA char', () => {
+  test('PUA codepoint glyph cell is blank or U+25CC -- NEVER a literal PUA char', () => {
     const { container } = render(
       <FontPreview detail={toUnicodeFont} onReferenceClick={() => {}} />
     );
@@ -363,7 +363,7 @@ describe('9.9-UNIT-005: /ToUnicode table', () => {
     expect(screen.getByText('U+E000')).toBeInTheDocument();
   });
 
-  test('AC#5 unpaired surrogate glyph cell is blank or U+25CC', () => {
+  test('unpaired surrogate glyph cell is blank or U+25CC', () => {
     const { container } = render(
       <FontPreview detail={toUnicodeFont} onReferenceClick={() => {}} />
     );
@@ -372,7 +372,7 @@ describe('9.9-UNIT-005: /ToUnicode table', () => {
     expect(screen.getByText('U+D800')).toBeInTheDocument();
   });
 
-  test('AC#12 -- /ToUnicode table uses table semantics', () => {
+  test('/ToUnicode table uses table semantics', () => {
     render(<FontPreview detail={toUnicodeFont} onReferenceClick={() => {}} />);
     const tables = screen.getAllByRole('table');
     expect(tables.length).toBeGreaterThan(0);
@@ -383,7 +383,7 @@ describe('9.9-UNIT-005: /ToUnicode table', () => {
 // 9.9-UNIT-006 [P0] AC#9a -- partial-success: toUnicodeError populated
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-006: AC#9a partial-success ToUnicode warning', () => {
+describe('partial-success ToUnicode warning', () => {
   test('toUnicodeError renders inline warning; other sections still render', () => {
     render(
       <FontPreview detail={fontWithToUnicodeError} onReferenceClick={() => {}} />
@@ -409,7 +409,7 @@ describe('9.9-UNIT-006: AC#9a partial-success ToUnicode warning', () => {
 // FontFile format string.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-007: FontDescriptor card', () => {
+describe('FontDescriptor card', () => {
   test('renders FontName, ItalicAngle, Ascent, Descent, CapHeight, StemV', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
     expect(screen.getByText('Helvetica-Bold')).toBeInTheDocument();
@@ -469,7 +469,7 @@ describe('9.9-UNIT-007: FontDescriptor card', () => {
 // 9.9-UNIT-008 [P0] AC#7 -- composite (Type0) Descendant Font section
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-008: Type0 Descendant Font section', () => {
+describe('Type0 Descendant Font section', () => {
   test('renders descendant Subtype, BaseFont, FontDescriptor metrics', () => {
     render(<FontPreview detail={compositeFont} onReferenceClick={() => {}} />);
     // Parent BaseFont still renders in the top section.
@@ -480,7 +480,7 @@ describe('9.9-UNIT-008: Type0 Descendant Font section', () => {
     expect(screen.getByText(/Embedded/i).textContent).toMatch(/TrueType/);
   });
 
-  test('AC#2 Embedded badge for Type0 reflects DESCENDANT FontDescriptor', () => {
+  test('Embedded badge for Type0 reflects DESCENDANT FontDescriptor', () => {
     // Composite font whose parent FontDescriptor is nil; only the descendant
     // carries the FontFile. Embedded badge MUST read TrueType (from
     // descendant), NOT "Not embedded" (from absent parent FontDescriptor).
@@ -499,7 +499,7 @@ describe('9.9-UNIT-008: Type0 Descendant Font section', () => {
 // DetailPanel; we verify the handler receives the right target.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
+describe('ref-token click dispatches onReferenceClick', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -516,7 +516,7 @@ describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
     expect(handler).toHaveBeenCalledWith('obj:0:10');
   });
 
-  test('Enter on focused ref token dispatches onReferenceClick (AC#8 keyboard)', () => {
+  test('Enter on focused ref token dispatches onReferenceClick (keyboard)', () => {
     const handler = vi.fn();
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={handler} />);
     const refToken = screen.getByText(/10 0 R/);
@@ -524,7 +524,7 @@ describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
     expect(handler).toHaveBeenCalledWith('obj:0:10');
   });
 
-  test('Space on focused ref token dispatches onReferenceClick (AC#8 keyboard)', () => {
+  test('Space on focused ref token dispatches onReferenceClick (keyboard)', () => {
     const handler = vi.fn();
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={handler} />);
     const refToken = screen.getByText(/10 0 R/);
@@ -532,7 +532,7 @@ describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
     expect(handler).toHaveBeenCalledWith('obj:0:10');
   });
 
-  test('AC#12 a11y -- ref tokens are keyboard-focusable (tabIndex=0 or button role)', () => {
+  test('a11y -- ref tokens are keyboard-focusable (tabIndex=0 or button role)', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
     const refToken = screen.getByText(/10 0 R/);
     // Either tabIndex=0 OR role="button" (the existing ValueDisplay pattern).
@@ -544,7 +544,7 @@ describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
     expect(isFocusable).toBe(true);
   });
 
-  test('AC#7 Descendant BaseFont row navigates to the descendant font dict', () => {
+  test('Descendant BaseFont row navigates to the descendant font dict', () => {
     const handler = vi.fn();
     render(<FontPreview detail={compositeFont} onReferenceClick={handler} />);
     // Descendant's objectRef is "8 0 R" with nodeId "obj:0:8". Clicking the
@@ -560,7 +560,7 @@ describe('9.9-UNIT-009: ref-token click dispatches onReferenceClick', () => {
 // 9.9-UNIT-010 [P1] AC#2a -- unknown/missing subtype renders verbatim, no crash
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-010: AC#2a unknown subtype tolerated', () => {
+describe('unknown subtype tolerated', () => {
   test('unknown Subtype (e.g. MMType1) renders verbatim with no special handling', () => {
     const exotic: FontDetailFixture = {
       ...baseTrueTypeFont,
@@ -591,7 +591,7 @@ describe('9.9-UNIT-010: AC#2a unknown subtype tolerated', () => {
 // not crash. AC#2 / AC#7 nil-safety.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-011: nil-safety on optional fields', () => {
+describe('nil-safety on optional fields', () => {
   test('fontDescriptor=null renders without crash; embedded badge reads "Not embedded"', () => {
     const noDescriptor: FontDetailFixture = {
       ...baseTrueTypeFont,

@@ -256,7 +256,7 @@ function renderObjectInfoPanelWithState(selectedNodeId: string | null) {
 //       cursor-pointer, role="button").
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
+describe('Reference values rendered as clickable links', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -355,7 +355,7 @@ describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
 // Review finding: keyboard activation was patched in DetailShared.tsx.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-001b: Reference keyboard activation', () => {
+describe('Reference keyboard activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -433,7 +433,7 @@ describe('2.8-UNIT-001b: Reference keyboard activation', () => {
 //       Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
+describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -557,7 +557,7 @@ describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
 //       Then the target node briefly flashes (100ms highlight pulse).
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-003: Target node flash animation', () => {
+describe('Target node flash animation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
@@ -607,7 +607,7 @@ describe('2.8-UNIT-003: Target node flash animation', () => {
 //       navError when NAVIGATE_TO_REF is dispatched.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-004: NAVIGATE_TO_REF reducer', () => {
+describe('NAVIGATE_TO_REF reducer', () => {
   test('NAVIGATE_TO_REF sets pendingNavTarget on active tab', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -727,7 +727,7 @@ describe('2.8-UNIT-004: NAVIGATE_TO_REF reducer', () => {
 // AC#2: After navigation completes, CLEAR_NAV_TARGET resets pendingNavTarget.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-005: CLEAR_NAV_TARGET reducer', () => {
+describe('CLEAR_NAV_TARGET reducer', () => {
   test('CLEAR_NAV_TARGET sets pendingNavTarget to null', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -782,7 +782,7 @@ describe('2.8-UNIT-005: CLEAR_NAV_TARGET reducer', () => {
 //       NAV_ERROR sets navError and clears pendingNavTarget.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-006: NAV_ERROR reducer', () => {
+describe('NAV_ERROR reducer', () => {
   test('NAV_ERROR sets navError message on active tab', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -873,7 +873,7 @@ describe('2.8-UNIT-006: NAV_ERROR reducer', () => {
 // AC#5: The transient error toast is dismissable.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-007: DISMISS_NAV_ERROR reducer', () => {
+describe('DISMISS_NAV_ERROR reducer', () => {
   test('DISMISS_NAV_ERROR sets navError to null', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -927,7 +927,7 @@ describe('2.8-UNIT-007: DISMISS_NAV_ERROR reducer', () => {
 // AC#2, #5: New tabs must have pendingNavTarget and navError initialized to null.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-008: OPEN_DOCUMENT initializes nav state', () => {
+describe('OPEN_DOCUMENT initializes nav state', () => {
   test('pendingNavTarget is null after OPEN_DOCUMENT', () => {
     render(
       <AppProvider>
@@ -956,7 +956,7 @@ describe('2.8-UNIT-008: OPEN_DOCUMENT initializes nav state', () => {
 // AC#5: When navError is set, TreePanel renders a transient error toast.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-009: Nav error toast renders in TreePanel', () => {
+describe('Nav error toast renders in TreePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
