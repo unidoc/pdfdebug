@@ -301,7 +301,7 @@ func TestReadmeHasNoBmadOutputLinks(t *testing.T) {
 	pattern := regexp.MustCompile(`\[[^\]]*\]\([^)]*_bmad-output[^)]*\)`)
 	if m := pattern.FindString(content); m != "" {
 		t.Errorf("README.md contains link into `_bmad-output/` which is a symlink exiting the code repo "+
-			"and will 404 on GitHub: %q (story 7-3 Task 3.7)", m)
+			"and will 404 on GitHub: %q", m)
 	}
 }
 
@@ -326,8 +326,8 @@ func TestNoticeEntriesDeclareCompatibleLicense(t *testing.T) {
 	incompatible := []string{"GPL", "AGPL", "LGPL", "SSPL", "CC-BY-NC", "Commons Clause"}
 	for _, bad := range incompatible {
 		if strings.Contains(content, bad) {
-			t.Errorf("NOTICE references potentially Apache-incompatible license token %q -- "+
-				"project license policy (PRD line 56) forbids this", bad)
+			t.Errorf("NOTICE references potentially Apache-incompatible license token %q -- the project "+
+				"ships under Apache 2.0, so no attribution may carry copyleft or non-commercial terms", bad)
 		}
 	}
 }
