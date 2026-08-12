@@ -1,28 +1,60 @@
 package naming_and_comment_hygiene_test
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 )
 
-// The six residue shapes. Every one is written as a bracketed character class,
+// The residue shapes. Every one is written as a bracketed character class,
 // which is what keeps this file from matching its own gates: a class such as
 // the digit class contains no digit-then-dot-then-digit run, so the pattern
 // text is not an instance of the pattern.
 //
-// Two spellings are avoided throughout, because both hide residue rather than
-// exclude anything: a fixed-width run where the width varies in practice, and a
+// Three spellings are avoided throughout, because each hides residue rather than
+// excluding anything: a fixed-width run where the width varies in practice, a
 // trailing word-boundary anchor, which cannot fall between two word characters
-// and so is blind to every suffixed form of the shape it anchors.
+// and so is blind to every suffixed form of the shape it anchors, and a required
+// trailing segment on a shape whose tail is optional in the tree.
+//
+// A scenario ID takes four spellings, and they are four patterns rather than one
+// because no two of them can share a leading guard. The fully spelled dotted form
+// needs none, and still reports an ID buried inside a longer token. The other
+// three each need a different one: without it a date, a semver prerelease and a
+// release qualifier all read as scenario IDs. Adding any of those guards to the
+// dotted form would drop matches it makes today, and RE2 has no lookbehind, so
+// the guard character is part of the match text wherever one is used.
 var (
 	// scenario IDs in dot-dash form. Neither the kind token nor the segments
 	// after it are enumerated: kind tokens carry digits, an ID may carry a
 	// fourth segment, and the last segment is a sequence number in most
-	// spellings but a word or an uppercase placeholder in others. Requiring at
-	// least one letter in the kind token, and at least two hyphen-joined
-	// segments after the number, is what keeps release versions out.
+	// spellings but a word or an uppercase placeholder in others.
 	scenarioIDDotDash = regexp.MustCompile(`[0-9]+\.[0-9]+-[A-Z0-9]*[A-Z][A-Z0-9]*(-[A-Z0-9]+)+`)
+
+	// scenario IDs with the epic and story joined by a hyphen rather than a dot.
+	// This spelling has no dot to tell it apart from a date, a semver
+	// prerelease or a clause number, so it carries three guards the dotted form
+	// does not need: the number segments are at most two digits wide, the kind
+	// token is letter-led and at least three characters, and the leading
+	// character proves the number does not continue leftwards.
+	scenarioIDAllHyphen = regexp.MustCompile(`(^|[^-0-9A-Za-z])[0-9]{1,2}-[0-9]{1,2}-[A-Z][A-Z0-9]{2,}(-[A-Z0-9]+)*`)
+
+	// scenario IDs with a space, and sometimes a closing bracket, where the
+	// hyphen before the kind token should be. The sequence number must be
+	// numeric here: a space is the commonest character in a comment, and
+	// without that the shape also reads every phase label and licence name
+	// that happens to follow a story number.
+	scenarioIDSpacedKind = regexp.MustCompile(`(^|[^-0-9A-Za-z])[0-9]{1,2}[.-][0-9]{1,2}[\])]? [A-Z][A-Z0-9]{2,}-[0-9]{2,3}`)
+
+	// scenario IDs citing a kind token with no sequence number after it. This is
+	// the shape a release qualifier also has, so it is the most tightly guarded
+	// of the four: the kind token is letters only, which excludes a qualifier
+	// ending in a digit, the leading guard rejects a preceding dot, which
+	// excludes the tail of a three-part version, and the trailing guard rejects a
+	// following hyphen, which is what stops this pattern from also reporting
+	// every fully spelled ID the dotted pattern already counts.
+	scenarioIDBareKind = regexp.MustCompile(`(^|[^.0-9A-Za-z])[0-9]{1,2}\.[0-9]{1,2}-[A-Z]{3,}([^-A-Z0-9]|$)`)
 
 	// scenario IDs in underscore form, which is the shape the Go test
 	// function names use. None of the other five patterns can see these:
@@ -53,12 +85,59 @@ var (
 	numberedSuitePath = regexp.MustCompile(`(?i)tests[/\\][0-9]+-[0-9]+`)
 )
 
+// residuePatterns returns every residue shape, in one place so a shape added
+// here cannot be left out of the gates that iterate over all of them.
+func residuePatterns() []*regexp.Regexp {
+	return []*regexp.Regexp{
+		scenarioIDDotDash,
+		scenarioIDAllHyphen,
+		scenarioIDSpacedKind,
+		scenarioIDBareKind,
+		scenarioIDUnderscore,
+		acceptanceCriterionTag,
+		priorityTag,
+		riskID,
+		numberedSuitePath,
+	}
+}
+
 func TestNoDotDashScenarioIDsInTree(t *testing.T) {
 	root := projectRoot(t)
 	hits := scanTree(t, root, scenarioIDDotDash)
 	if len(hits) > 0 {
 		t.Errorf("dot-dash scenario IDs must not appear in tracked source, comments, test names or assertion messages.\n"+
 			"pattern %s matched %s", scenarioIDDotDash, reportHits(hits, 40, 25))
+	}
+}
+
+func TestNoAllHyphenScenarioIDsInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, scenarioIDAllHyphen)
+	if len(hits) > 0 {
+		t.Errorf("scenario IDs whose epic and story are joined by a hyphen must not appear in tracked source, comments,\n"+
+			"test names or assertion messages. The dotted pattern cannot see these; the leading character of each match\n"+
+			"below is the one the pattern had to capture to prove the number does not continue leftwards.\n"+
+			"pattern %s matched %s", scenarioIDAllHyphen, reportHits(hits, 40, 25))
+	}
+}
+
+func TestNoSpacedKindScenarioIDsInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, scenarioIDSpacedKind)
+	if len(hits) > 0 {
+		t.Errorf("scenario IDs whose kind token is separated from the number by a space must not appear in tracked source,\n"+
+			"comments, test names or assertion messages. Neither hyphen-joined pattern can see these.\n"+
+			"pattern %s matched %s", scenarioIDSpacedKind, reportHits(hits, 40, 25))
+	}
+}
+
+func TestNoBareKindScenarioIDsInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, scenarioIDBareKind)
+	if len(hits) > 0 {
+		t.Errorf("scenario IDs citing a kind token with no sequence number must not appear in tracked source, comments,\n"+
+			"test names or assertion messages. The three patterns that require a sequence number cannot see these.\n"+
+			"pattern %s matched %s", scenarioIDBareKind, reportHits(hits, 40, 25))
 	}
 }
 
@@ -125,23 +204,82 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 		what         string
 		re           *regexp.Regexp
 		mustMatch    [][]string
-		mustNotMatch []string
+		mustNotMatch [][]string
 	}{
 		{
 			what: "dot-dash scenario IDs",
 			re:   scenarioIDDotDash,
 			mustMatch: [][]string{
 				{"14.4-", "UNIT-002"},
-				{"2.4-", "E2E-001"},          // kind token carrying a digit
-				{"11.6-", "INTG-XCUT-001"},   // fourth segment
-				{"13.2-", "UNIT-NNN"},        // placeholder sequence number
-				{"2.5-", "UNIT-EMPTY-ROOT"},  // worded sequence segment
-				{"11.5-INTG-", "AC", "1-00"}, // citation used as the sequence segment
+				{"2.4-", "E2E-001"},           // kind token carrying a digit
+				{"11.6-", "INTG-XCUT-001"},    // fourth segment
+				{"13.2-", "UNIT-NNN"},         // placeholder sequence number
+				{"2.5-", "UNIT-EMPTY-ROOT"},   // worded sequence segment
+				{"11.5-", "INTG-", "AC", "1"}, // citation used as the kind suffix
 			},
-			mustNotMatch: []string{
-				"ISO 32000-1", "14.8.4", "7.3.4.2", "%PDF-1.7",
-				"v3.0.0-alpha2.117", "pdfcpu 0.12.1", "wails3 v3.0.0-alpha.79",
-				"/Type1", "D:20260807", "12 0 obj",
+			mustNotMatch: [][]string{
+				{"ISO 32000-1"}, {"14.8.4"}, {"7.3.4.2"}, {"%PDF-1.7"},
+				{"v3.0.0-alpha2.117"}, {"pdfcpu 0.12.1"}, {"wails3 v3.0.0-alpha.79"},
+				{"/Type1"}, {"D:20260807"}, {"12 0 obj"},
+				{"1.2-", "RC1"}, {"0.12.1-", "BETA"}, // release qualifiers
+			},
+		},
+		{
+			what: "all-hyphen scenario IDs",
+			re:   scenarioIDAllHyphen,
+			mustMatch: [][]string{
+				{"// 10-1-", "UNIT-001: renders the tree"},
+				{"* 10-7-", "HOOK-004 covers the guard"},
+				{"4-5-", "UNIT-001"},    // single-digit epic
+				{"10-8-", "HOOK-NNN"},   // placeholder sequence number
+				{"\"10-2-", "REDU-003"}, // opening quote as the leading character
+				{"(10-2-", "COMP-011)"},
+				{"10-1-", "UNIT"}, // kind token with no sequence number
+			},
+			mustNotMatch: [][]string{
+				{"2026-08-07"}, {"2026-08-13T10-30-00"}, {"at 10-30-AM"},
+				{"3-0-0-", "BETA-1"}, {"1.2-", "RC1"}, {"0.12.1-", "BETA"},
+				{"v3.0.0-alpha2.117"}, {"pdfcpu 0.12.1"},
+				{"ISO 32000-1"}, {"32000-1-2008"},
+				{"14.8.4"}, {"7.3.4.2"}, {"%PDF-1.7"}, {"/Type1"}, {"D:20260807"},
+				{"12 0 obj"}, {"2 0 R"}, {"1 12 T"},
+				{"tests/", "14-4-shared-text-string-decoder"},
+				{"10-5-ac2-soak"}, {"R-", "14-02"},
+			},
+		},
+		{
+			what: "spaced-kind scenario IDs",
+			re:   scenarioIDSpacedKind,
+			mustMatch: [][]string{
+				{"[13.1]", " STREAM-005"}, // closing bracket before the space
+				{"13.1", " STREAM-006"},
+				{"tests/", "12-3", " INTG-020"},
+			},
+			mustNotMatch: [][]string{
+				{"Story 13-6 RED-PHASE unit tests"},       // phase label, not a kind token
+				{"Story 11-5 RED-PHASE acceptance tests"}, //
+				{"enforces Apache 2.0 LICENSE + NOTICE"},  // licence version
+				{"reserved bits 5, 8-16 MUST NOT render"}, // font flag bit range
+				{"per the 13-4 JSON contract"},            //
+				{"Story 9-8 ", "AC", "4-", "AC", "10"},    // citation range
+				{"ISO 32000-1"}, {"2026-08-07"}, {"12 0 obj"}, {"%PDF-1.7"},
+			},
+		},
+		{
+			what: "bare-kind scenario IDs",
+			re:   scenarioIDBareKind,
+			mustMatch: [][]string{
+				{" * 2.9-", "UNIT: ErrorBanner severity"},
+				{"// 5.3-", "UNIT: GetPageContentStreamNode"},
+				{" * 2.4-", "UNIT-003 / 2.5-", "INTG: MainLayout renders"},
+			},
+			mustNotMatch: [][]string{
+				{"1.2-", "RC1"}, {"0.12.1-", "BETA"}, {"v3.0-", "BETA"}, // release qualifiers
+				{"v3.0.0-alpha2.117"}, {"3.0.0-alpha2"}, {"pdfcpu 0.12.1"},
+				{"ISO 32000-1"}, {"14.8.4"}, {"7.3.4.2"}, {"%PDF-1.7"},
+				{"/Type1"}, {"D:20260807"}, {"12 0 obj"},
+				// a fully spelled ID belongs to the dotted gate, not this one
+				{"14.4-", "UNIT-002"}, {"13.2-", "UNIT-NNN"}, {"2.5-", "UNIT-EMPTY-ROOT"},
 			},
 		},
 		{
@@ -152,7 +290,7 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"successors are Test", "_12_3", "_INTG_011 (go.sum)"},
 				{"Test", "_14_4", "_", "AC", "5"},
 			},
-			mustNotMatch: []string{"Test_1_2_3", "LEVEL_1_2_A", "buf_16_32_bytes"},
+			mustNotMatch: [][]string{{"Test_1_2_3"}, {"LEVEL_1_2_A"}, {"buf_16_32_bytes"}},
 		},
 		{
 			what: "acceptance-criterion citations",
@@ -168,10 +306,10 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"AC", " (1-7)"},
 				{"AC", " (#10)"},
 			},
-			mustNotMatch: []string{
-				"MAC 10", "HVAC 20", "U+20AC (CP1252)", "hmac256", "0xAC10",
-				"ISO 32000-1", "14.8.4", "7.3.4.2", "%PDF-1.7", "/Type1",
-				"v3.0.0-alpha2.117", "pdfcpu 0.12.1", "D:20260807", "12 0 obj",
+			mustNotMatch: [][]string{
+				{"MAC 10"}, {"HVAC 20"}, {"U+20AC (CP1252)"}, {"hmac256"}, {"0xAC10"},
+				{"ISO 32000-1"}, {"14.8.4"}, {"7.3.4.2"}, {"%PDF-1.7"}, {"/Type1"},
+				{"v3.0.0-alpha2.117"}, {"pdfcpu 0.12.1"}, {"D:20260807"}, {"12 0 obj"},
 			},
 		},
 		{
@@ -182,9 +320,9 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"(P", "1)"}, // parenthesised spelling
 				{"[P", "10]"},
 			},
-			mustNotMatch: []string{
-				"/Pattern << /P0 13 0 R >>", "want one P0 patternType 2",
-				"p := arr[0]", "(Page 1)",
+			mustNotMatch: [][]string{
+				{"/Pattern << /P0 13 0 R >>"}, {"want one P0 patternType 2"},
+				{"p := arr[0]"}, {"(Page 1)"},
 			},
 		},
 		{
@@ -196,7 +334,7 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"r-", "14-05"},
 				{"R-", "140-02"},
 			},
-			mustNotMatch: []string{"ISO 32000-1", "2026-08-07", "%PDF-1.7", "12 0 obj"},
+			mustNotMatch: [][]string{{"ISO 32000-1"}, {"2026-08-07"}, {"%PDF-1.7"}, {"12 0 obj"}},
 		},
 		{
 			what: "numbered acceptance-suite paths",
@@ -207,9 +345,9 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"tests", "\\14-4-shared-text-string-decoder"},
 				{"Tests/", "10-1-app-shell"},
 			},
-			mustNotMatch: []string{
-				"tests/e2e/app-shell.spec.ts", "tests/shared-text-string-decoder",
-				"attestations/1-2", "latest-1-2",
+			mustNotMatch: [][]string{
+				{"tests/e2e/app-shell.spec.ts"}, {"tests/shared-text-string-decoder"},
+				{"attestations/1-2"}, {"latest-1-2"},
 			},
 		},
 	}
@@ -222,12 +360,82 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 					"written that way as clean.\npattern %s", c.what, sample, c.re)
 			}
 		}
-		for _, sample := range c.mustNotMatch {
+		for _, parts := range c.mustNotMatch {
+			sample := strings.Join(parts, "")
 			if m := c.re.FindString(sample); m != "" {
-				t.Errorf("the %s pattern matched %q in %q, which is a clause, version, date or object reference rather\n"+
-					"than residue.\npattern %s", c.what, m, sample, c.re)
+				t.Errorf("the %s pattern matched %q in %q, which is a clause, version, date, phase label or object\n"+
+					"reference rather than residue.\npattern %s", c.what, m, sample, c.re)
 			}
 		}
+	}
+}
+
+// citationShapedToken is deliberately broader than any gate above. It matches the
+// whole family a scenario ID belongs to - a short number, a short number, and an
+// uppercase kind token, joined by any punctuation at all - so a spelling nobody
+// has met yet still lands in it. It is far too broad to gate on directly: the
+// family also holds line:column assertions, licence names and font bit ranges.
+var citationShapedToken = regexp.MustCompile(
+	`(^|[^-0-9A-Za-z])[0-9]{1,2}[^0-9A-Za-z]{1,2}[0-9]{1,2}[^0-9A-Za-z]{1,2}[A-Z][A-Z0-9]{2,}`)
+
+// unclaimedShapesFixture records the citation-shaped tokens no residue pattern
+// claims, as of the last time a human looked at them.
+const unclaimedShapesFixture = "unclaimed-citation-shapes.txt"
+
+// unclaimedCitationShapes returns the distinct citation-shaped tokens on lines
+// that no residue pattern matches. The leading character each pattern has to
+// capture is trimmed so the set is keyed on the token, not on its neighbour.
+func unclaimedCitationShapes(t *testing.T, root string) map[string]hit {
+	t.Helper()
+	claimed := map[string]bool{}
+	for _, re := range residuePatterns() {
+		for _, h := range scanTree(t, root, re) {
+			claimed[fmt.Sprintf("%s:%d", h.path, h.line)] = true
+		}
+	}
+	out := map[string]hit{}
+	for _, h := range scanTree(t, root, citationShapedToken) {
+		if claimed[fmt.Sprintf("%s:%d", h.path, h.line)] {
+			continue
+		}
+		token := strings.TrimLeft(h.text, " \t\"'`([{<*/,:;=&|+")
+		if _, seen := out[token]; !seen {
+			out[token] = h
+		}
+	}
+	return out
+}
+
+// TestNoNewUnclaimedCitationShapes is the answer to the question the table above
+// cannot answer. A table of spellings only ever holds the ones somebody has
+// already run into, so it grows one incident at a time and is green in between;
+// three separator spellings of one scenario ID reached this tree that way. This
+// check inverts it: it enumerates the whole shape family, subtracts everything
+// the gates already claim, and fails when the remainder gains a member. A
+// spelling nobody has thought of therefore fails on arrival, and the failure
+// names the token and where it is rather than waiting to be noticed.
+//
+// Shrinking the remainder needs no edit here. The fixture is a ceiling, not a
+// baseline: sweeping one of these, or widening a pattern to claim it, is a pass.
+func TestNoNewUnclaimedCitationShapes(t *testing.T) {
+	root := projectRoot(t)
+	recorded := map[string]bool{}
+	for _, line := range readFixtureLines(t, unclaimedShapesFixture) {
+		recorded[line] = true
+	}
+
+	var added []string
+	for token, where := range unclaimedCitationShapes(t, root) {
+		if !recorded[token] {
+			added = append(added, fmt.Sprintf("%q at %s:%d", token, where.path, where.line))
+		}
+	}
+	if len(added) > 0 {
+		t.Errorf("citation-shaped tokens that no residue pattern claims and testdata/%s does not record.\n"+
+			"Each is either a spelling of a scenario ID that the gates cannot see - widen the pattern, do not sweep the\n"+
+			"site and leave the gate blind - or text that only resembles one, in which case record it in the fixture with\n"+
+			"the reason.\nfamily pattern %s\nnew unclaimed shapes: %s",
+			unclaimedShapesFixture, citationShapedToken, reportPaths(added))
 	}
 }
 
@@ -238,15 +446,7 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 // elimination.
 func TestResidueGatesDoNotMatchThemselves(t *testing.T) {
 	root := projectRoot(t)
-	patterns := []*regexp.Regexp{
-		scenarioIDDotDash,
-		scenarioIDUnderscore,
-		acceptanceCriterionTag,
-		priorityTag,
-		riskID,
-		numberedSuitePath,
-	}
-	for _, re := range patterns {
+	for _, re := range residuePatterns() {
 		var own []hit
 		for _, h := range scanTree(t, root, re) {
 			if len(h.path) >= len(thisSuite) && h.path[:len(thisSuite)] == thisSuite {

@@ -178,9 +178,7 @@ func countCalls(t *testing.T, root string, pick, re *regexp.Regexp) (int, []stri
 // scenario ID, a priority tag, a risk ID or an acceptance-criterion citation.
 func residueInSpecTitles(t *testing.T, root string, pick *regexp.Regexp) []hit {
 	t.Helper()
-	patterns := []*regexp.Regexp{
-		scenarioIDDotDash, scenarioIDUnderscore, acceptanceCriterionTag, priorityTag, riskID,
-	}
+	patterns := residuePatterns()
 	var hits []hit
 	for _, rel := range trackedFiles(t, root) {
 		if !pick.MatchString(rel) {
