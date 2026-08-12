@@ -55,14 +55,14 @@ func TestConsumeDelegates(t *testing.T) {
 
 	got := svc.ConsumePendingOpenFiles()
 	if len(got) != 2 || got[0] != "/cold-1.pdf" || got[1] != "/cold-2.pdf" {
-		t.Fatalf("[P0] 12.1-INTG-001: ConsumePendingOpenFiles must return drained paths in order, got %#v", got)
+		t.Fatalf("ConsumePendingOpenFiles must return drained paths in order, got %#v", got)
 	}
 	// Drain-on-read: second call empty, queue stays ready.
 	if again := svc.ConsumePendingOpenFiles(); len(again) != 0 {
-		t.Fatalf("[P0] 12.1-INTG-001: second consume must be empty (idempotent across the boundary), got %#v", again)
+		t.Fatalf("second consume must be empty (idempotent across the boundary), got %#v", again)
 	}
 	if got := q.Add("/warm.pdf"); got != true {
-		t.Fatalf("[P0] 12.1-INTG-001: queue must be ready after a consume/drain, Add got %v", got)
+		t.Fatalf("queue must be ready after a consume/drain, Add got %v", got)
 	}
 }
 `,
@@ -83,7 +83,7 @@ func TestConsumeNilGuard(t *testing.T) {
 	svc := &pdfservice.PDFService{} // no SetPendingOpens call
 	got := svc.ConsumePendingOpenFiles()
 	if got != nil {
-		t.Fatalf("[P1] 12.1-INTG-002: unwired ConsumePendingOpenFiles must return nil, got %#v", got)
+		t.Fatalf("unwired ConsumePendingOpenFiles must return nil, got %#v", got)
 	}
 }
 `,

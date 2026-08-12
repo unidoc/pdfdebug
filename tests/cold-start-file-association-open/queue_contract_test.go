@@ -53,11 +53,11 @@ func TestColdAddQueuesReturnsFalse(t *testing.T) {
 func TestColdAddQueues(t *testing.T) {
 	var q pendingopen.Queue
 	if got := q.Add("/a.pdf"); got != false {
-		t.Fatalf("[P0] 12.1-UNIT-001: cold Add must return false (queued), got %v", got)
+		t.Fatalf("cold Add must return false (queued), got %v", got)
 	}
 	paths := q.Drain()
 	if len(paths) != 1 || paths[0] != "/a.pdf" {
-		t.Fatalf("[P0] 12.1-UNIT-001: Drain must deliver the queued path, got %#v", paths)
+		t.Fatalf("Drain must deliver the queued path, got %#v", paths)
 	}
 }
 `,
@@ -77,10 +77,10 @@ func TestWarmAddImmediate(t *testing.T) {
 	var q pendingopen.Queue
 	q.Drain() // flip to ready
 	if got := q.Add("/warm.pdf"); got != true {
-		t.Fatalf("[P0] 12.1-UNIT-002: warm Add must return true (open immediately), got %v", got)
+		t.Fatalf("warm Add must return true (open immediately), got %v", got)
 	}
 	if paths := q.Drain(); len(paths) != 0 {
-		t.Fatalf("[P0] 12.1-UNIT-002: ready-path Add must NOT queue, Drain got %#v", paths)
+		t.Fatalf("ready-path Add must NOT queue, Drain got %#v", paths)
 	}
 }
 `,
@@ -102,11 +102,11 @@ func TestInsertionOrder(t *testing.T) {
 	paths := q.Drain()
 	want := []string{"/1.pdf", "/2.pdf", "/3.pdf"}
 	if len(paths) != len(want) {
-		t.Fatalf("[P1] 12.1-UNIT-003: want %d paths, got %#v", len(want), paths)
+		t.Fatalf("want %d paths, got %#v", len(want), paths)
 	}
 	for i := range want {
 		if paths[i] != want[i] {
-			t.Fatalf("[P1] 12.1-UNIT-003: insertion order broken at %d: want %q got %q (%#v)", i, want[i], paths[i], paths)
+			t.Fatalf("insertion order broken at %d: want %q got %q (%#v)", i, want[i], paths[i], paths)
 		}
 	}
 }
@@ -128,14 +128,14 @@ func TestSecondDrainEmpty(t *testing.T) {
 	q.Add("/a.pdf")
 	first := q.Drain()
 	if len(first) != 1 {
-		t.Fatalf("[P0] 12.1-UNIT-004: first Drain should deliver 1 path, got %#v", first)
+		t.Fatalf("first Drain should deliver 1 path, got %#v", first)
 	}
 	second := q.Drain()
 	if len(second) != 0 {
-		t.Fatalf("[P0] 12.1-UNIT-004: second Drain must be empty (drain-on-read), got %#v", second)
+		t.Fatalf("second Drain must be empty (drain-on-read), got %#v", second)
 	}
 	if got := q.Add("/after.pdf"); got != true {
-		t.Fatalf("[P0] 12.1-UNIT-004: queue must STAY ready after drain, Add got %v", got)
+		t.Fatalf("queue must STAY ready after drain, Add got %v", got)
 	}
 }
 `,
@@ -160,11 +160,11 @@ func TestQueuedDedup(t *testing.T) {
 	paths := q.Drain()
 	want := []string{"/dup.pdf", "/Dup.pdf"}
 	if len(paths) != len(want) {
-		t.Fatalf("[P1] 12.1-UNIT-005: exact-string dedup expected %#v, got %#v", want, paths)
+		t.Fatalf("exact-string dedup expected %#v, got %#v", want, paths)
 	}
 	for i := range want {
 		if paths[i] != want[i] {
-			t.Fatalf("[P1] 12.1-UNIT-005: want %#v got %#v", want, paths)
+			t.Fatalf("want %#v got %#v", want, paths)
 		}
 	}
 }
@@ -187,14 +187,14 @@ func TestReadyNoDedup(t *testing.T) {
 	var q pendingopen.Queue
 	q.Drain() // ready
 	if got := q.Add("/same.pdf"); got != true {
-		t.Fatalf("[P0] 12.1-UNIT-006: ready Add #1 must return true, got %v", got)
+		t.Fatalf("ready Add #1 must return true, got %v", got)
 	}
 	if got := q.Add("/same.pdf"); got != true {
-		t.Fatalf("[P0] 12.1-UNIT-006: ready Add #2 (repeat) must ALSO return true (no ready-path dedup), got %v", got)
+		t.Fatalf("ready Add #2 (repeat) must ALSO return true (no ready-path dedup), got %v", got)
 	}
 	// Ready Adds must not accumulate in the queue.
 	if paths := q.Drain(); len(paths) != 0 {
-		t.Fatalf("[P0] 12.1-UNIT-006: ready Adds must not queue, Drain got %#v", paths)
+		t.Fatalf("ready Adds must not queue, Drain got %#v", paths)
 	}
 }
 `,
@@ -263,7 +263,7 @@ func TestExactlyOnceUnderRace(t *testing.T) {
 	// No path may appear twice in the drained set.
 	for p, c := range drained {
 		if c != 1 {
-			t.Fatalf("[P0] 12.1-UNIT-007: path %q drained %d times (want exactly once)", p, c)
+			t.Fatalf("path %q drained %d times (want exactly once)", p, c)
 		}
 	}
 	// Every input is accounted for exactly once: either drained OR opened
@@ -271,7 +271,7 @@ func TestExactlyOnceUnderRace(t *testing.T) {
 	for _, p := range inputs {
 		total := drained[p] + openedImmediately[p]
 		if total != 1 {
-			t.Fatalf("[P0] 12.1-UNIT-007: path %q delivered %d times across drain+immediate (want exactly once)", p, total)
+			t.Fatalf("path %q delivered %d times across drain+immediate (want exactly once)", p, total)
 		}
 	}
 }
