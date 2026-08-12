@@ -56,7 +56,7 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("`dump stream --page 1 --json` must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
-	res := parseObject(t, "14.3-INTG-002", stdout)
+	res := parseObject(t, stdout)
 
 	ops := formattedOperators(res)
 
@@ -111,7 +111,7 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 		if line == "" {
 			continue
 		}
-		rec := parseObject(t, "14.3-INTG-002", line)
+		rec := parseObject(t, line)
 		if op, ok := rec["op"].(string); ok && op != "" {
 			for _, s2 := range stream2Operators {
 				if op == s2 {

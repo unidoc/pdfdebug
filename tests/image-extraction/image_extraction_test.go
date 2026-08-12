@@ -19,7 +19,7 @@ import (
 // package path from the project root. It fails the calling test if the
 // delegated test exits non-zero, does not contain "PASS", or if no tests
 // matched the -run pattern (which means the unit test does not exist yet).
-func runGoTest(t *testing.T, testID, runPattern, pkgPath string) {
+func runGoTest(t *testing.T, runPattern, pkgPath string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", pkgPath)
@@ -27,13 +27,13 @@ func runGoTest(t *testing.T, testID, runPattern, pkgPath string) {
 	output, err := cmd.CombinedOutput()
 	out := string(output)
 	if err != nil {
-		t.Fatalf("[%s] delegated test failed:\n%s", testID, out)
+		t.Fatalf("delegated test failed:\n%s", out)
 	}
 	if strings.Contains(out, "no tests to run") {
-		t.Fatalf("[%s] no unit tests matched pattern %q -- unit test does not exist yet:\n%s", testID, runPattern, out)
+		t.Fatalf("no unit tests matched pattern %q -- unit test does not exist yet:\n%s", runPattern, out)
 	}
 	if !strings.Contains(out, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, out)
+		t.Fatalf("expected PASS in output but got:\n%s", out)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestGetImageDataExtractsImage(t *testing.T) {
 	// - call GetImageData, verify non-empty Base64
 	// - verify MimeType is "image/jpeg" or "image/png"
 	// - verify Error is empty
-	runGoTest(t, "P0 6.1-UNIT-001", "TestGetImageData_ExtractsJPEGImage", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_ExtractsJPEGImage", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ func TestGetImageDataReturnsMetadata(t *testing.T) {
 	// - ColorSpace non-empty (e.g., "DeviceRGB")
 	// - BitsPerComponent > 0
 	// - Filter non-empty (e.g., "DCTDecode" or "FlateDecode")
-	runGoTest(t, "P0 6.1-UNIT-002", "TestGetImageData_ReturnsMetadata", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_ReturnsMetadata", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ func TestGetImageDataPanicRecovery(t *testing.T) {
 	// - a malformed stream dict does not cause a panic
 	// - ImageData.Error is non-empty
 	// - function returns *ImageData, not a Go error
-	runGoTest(t, "P0 6.1-UNIT-003", "TestGetImageData_PanicRecovery", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_PanicRecovery", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +142,7 @@ func TestGetImageDataEmptyNodeID(t *testing.T) {
 	// Delegates to internal/pdfcore/image_test.go::TestGetImageData_InvalidNodeID
 	// which must test:
 	// - calling GetImageData with empty nodeID returns a Go error (not nil)
-	runGoTest(t, "P0 6.1-UNIT-004", "TestGetImageData_InvalidNodeID", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_InvalidNodeID", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ func TestGetImageDataNonImageNode(t *testing.T) {
 	// - call GetImageData with a dict node (e.g., the catalog "root")
 	// - verify ImageData.Error contains "not an image"
 	// - verify no panic
-	runGoTest(t, "P0 6.1-UNIT-005", "TestGetImageData_NonImageNode", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_NonImageNode", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +171,7 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 	// Delegates to internal/pdfcore/image_test.go::TestGetImageData_UnknownTab
 	// which must test:
 	// - calling GetImageData with a nonexistent tabID returns ErrDocumentNotFound
-	runGoTest(t, "P0 6.1-UNIT-006", "TestGetImageData_UnknownTab", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_UnknownTab", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ func TestGetImageDataErrorNode(t *testing.T) {
 	// - calling GetImageData with "error:something" nodeID
 	// - verify ImageData.Error is non-empty
 	// - verify no panic
-	runGoTest(t, "P0 6.1-UNIT-007", "TestGetImageData_ErrorNode", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_ErrorNode", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +290,7 @@ func TestServiceGetImageDataMethodExists(t *testing.T) {
 
 func TestPDFServiceGetImageData(t *testing.T) {
 	// Run pdfservice-level test that validates GetImageData binding
-	runGoTest(t, "P1 6.1-INTG-005", "TestGetImageData", "./internal/pdfservice/...")
+	runGoTest(t, "TestGetImageData", "./internal/pdfservice/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -383,7 +383,7 @@ func TestImageFileZeroWailsImports(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataDCTDecodeJPEG(t *testing.T) {
-	runGoTest(t, "P0 6.1-UNIT-008", "TestGetImageData_DCTDecodeJPEG", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_DCTDecodeJPEG", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ func TestGetImageDataDCTDecodeJPEG(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataStreamDictNonImage(t *testing.T) {
-	runGoTest(t, "P2 6.1-UNIT-009", "TestGetImageData_StreamDictNonImage", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_StreamDictNonImage", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
@@ -403,5 +403,5 @@ func TestGetImageDataStreamDictNonImage(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataIdempotency(t *testing.T) {
-	runGoTest(t, "P3 6.1-UNIT-010", "TestGetImageData_Idempotency", "./internal/pdfcore/...")
+	runGoTest(t, "TestGetImageData_Idempotency", "./internal/pdfcore/...")
 }

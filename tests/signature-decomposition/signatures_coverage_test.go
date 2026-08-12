@@ -24,7 +24,7 @@ func TestSignatures_CoverageCoversWholeFile(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-006", stdout)
+	e := oneSig(t, stdout)
 	if !getBool(e, "coversWholeFile") {
 		t.Errorf("coversWholeFile = false, want true:\n%s", stdout)
 	}
@@ -55,7 +55,7 @@ func TestSignatures_CoverageTrailingGapFact(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-007", stdout)
+	e := oneSig(t, stdout)
 	if getBool(e, "coversWholeFile") {
 		t.Errorf("coversWholeFile = true, want false (100-byte shortfall)")
 	}
@@ -88,7 +88,7 @@ func TestSignatures_CoverageHoleMismatchFact(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-008", stdout)
+	e := oneSig(t, stdout)
 	if getBool(e, "holeMatchesContents") {
 		t.Errorf("holeMatchesContents = true, want false (hole shifted +4 bytes)")
 	}
@@ -107,7 +107,7 @@ func TestSignatures_MalformedByteRangeDegrades(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0 (per-signature degradation), got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-009", stdout)
+	e := oneSig(t, stdout)
 	if getStr(e, "fieldName") != "BadBR" {
 		t.Errorf("field must still be listed, fieldName = %q", getStr(e, "fieldName"))
 	}

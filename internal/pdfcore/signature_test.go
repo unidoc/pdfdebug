@@ -225,13 +225,13 @@ func sigUnitCertHex(t *testing.T) string {
 }
 
 // oneSigField asserts the list holds exactly one signature and returns it.
-func oneSigField(t *testing.T, id string, list *SignatureList, err error) SignatureField {
+func oneSigField(t *testing.T, list *SignatureList, err error) SignatureField {
 	t.Helper()
 	if err != nil {
-		t.Fatalf("[%s] GetSignatures error: %v", id, err)
+		t.Fatalf("GetSignatures error: %v", err)
 	}
 	if list == nil || len(list.Signatures) != 1 {
-		t.Fatalf("[%s] expected exactly 1 signature field, got %+v", id, list)
+		t.Fatalf("expected exactly 1 signature field, got %+v", list)
 	}
 	return list.Signatures[0]
 }
@@ -245,7 +245,7 @@ func TestGetSignatures_EnumeratesSigField(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-001", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "Sig1" {
 		t.Errorf("FieldName = %q, want Sig1", f.FieldName)
 	}
@@ -270,7 +270,7 @@ func TestGetSignatures_InheritedFTAndFQName(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-kids.pdf", sigUnitPDF(t, sigUnitOpt{kids: true}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-002", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "Parent.Child1" {
 		t.Errorf("FieldName = %q, want Parent.Child1", f.FieldName)
 	}
@@ -288,7 +288,7 @@ func TestGetSignatures_UnsignedPlaceholder(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "unsigned.pdf", sigUnitUnsignedPDF())
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-003", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "EmptySig" {
 		t.Errorf("FieldName = %q, want EmptySig", f.FieldName)
 	}
@@ -312,7 +312,7 @@ func TestGetSignatures_DirectVEmptyRef(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-directv.pdf", sigUnitPDF(t, sigUnitOpt{directV: true}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-004", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "SigDirect" {
 		t.Errorf("FieldName = %q, want SigDirect", f.FieldName)
 	}
@@ -354,7 +354,7 @@ func TestGetSignatures_CoverageCoversWholeFile(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-006", list, err)
+	f := oneSigField(t, list, err)
 	if !f.CoversWholeFile {
 		t.Errorf("CoversWholeFile = false, want true")
 	}
@@ -379,7 +379,7 @@ func TestGetSignatures_CoverageTrailingGap(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-short.pdf", sigUnitPDF(t, sigUnitOpt{shortfall: 100}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-007", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoversWholeFile {
 		t.Errorf("CoversWholeFile = true, want false")
 	}
@@ -400,7 +400,7 @@ func TestGetSignatures_CoverageHoleMismatch(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-shift.pdf", sigUnitPDF(t, sigUnitOpt{holeShift: 4}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-008", list, err)
+	f := oneSigField(t, list, err)
 	if f.HoleMatchesContents {
 		t.Errorf("HoleMatchesContents = true, want false (hole shifted +4)")
 	}
@@ -415,7 +415,7 @@ func TestGetSignatures_MalformedByteRangeDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "bad-br.pdf", sigUnitMalformedBRPDF())
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-009", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "BadBR" {
 		t.Errorf("FieldName = %q, want BadBR", f.FieldName)
 	}
@@ -450,7 +450,7 @@ func TestGetSignatures_BadContentsPerSignatureError(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-011", list, err)
+	f := oneSigField(t, list, err)
 	if f.DecomposeError == "" {
 		t.Errorf("DecomposeError empty, want the CMS parse failure (fixture /Contents is fake hex)")
 	}
@@ -468,7 +468,7 @@ func TestGetSignatures_SigningTimeRawAndISO(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-012", list, err)
+	f := oneSigField(t, list, err)
 	if f.SigningTimeRaw != "D:20260101120000+00'00'" {
 		t.Errorf("SigningTimeRaw = %q, want the raw D: string", f.SigningTimeRaw)
 	}
@@ -487,7 +487,7 @@ func TestGetSignatures_X509RSASHA1CertFromCertEntry(t *testing.T) {
 		subFilter: "adbe.x509.rsa_sha1", certHex: sigUnitCertHex(t)}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-013", list, err)
+	f := oneSigField(t, list, err)
 	if len(f.Certificates) == 0 {
 		t.Fatalf("Certificates empty, want the /Cert chain")
 	}
@@ -506,7 +506,7 @@ func TestGetSignatures_UnknownSubFilterNote(t *testing.T) {
 		subFilter: "acme.custom.sig"}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-014", list, err)
+	f := oneSigField(t, list, err)
 	if f.SubFilter != "acme.custom.sig" {
 		t.Errorf("SubFilter = %q, want acme.custom.sig", f.SubFilter)
 	}
@@ -538,7 +538,7 @@ func TestGetSignatures_ByteRangeNonIntegerDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-noninteger.pdf", sigUnitBRVariantPDF("/ByteRange [0 100 200 3.5] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-015", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
 		t.Errorf("CoverageError empty, want the non-integer /ByteRange fact")
 	}
@@ -556,7 +556,7 @@ func TestGetSignatures_ByteRangeNegativeDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-negative.pdf", sigUnitBRVariantPDF("/ByteRange [0 100 -50 100] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-016", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
 		t.Errorf("CoverageError empty, want the negative-value /ByteRange fact")
 	}
@@ -574,7 +574,7 @@ func TestGetSignatures_ByteRangeOverlapDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-overlap.pdf", sigUnitBRVariantPDF("/ByteRange [0 50 20 10] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-017", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
 		t.Errorf("CoverageError empty, want the overlapping-range fact")
 	}
@@ -593,7 +593,7 @@ func TestGetSignatures_ByteRangeMissingDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-missing.pdf", sigUnitBRVariantPDF(""))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-018", list, err)
+	f := oneSigField(t, list, err)
 	if !f.Signed {
 		t.Errorf("Signed = false, want true (a /V exists)")
 	}
@@ -616,7 +616,7 @@ func TestGetSignatures_X509UnreadableCertDegrades(t *testing.T) {
 		subFilter: "adbe.x509.rsa_sha1", certHex: "00"}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-019", list, err)
+	f := oneSigField(t, list, err)
 	if len(f.Certificates) != 0 {
 		t.Errorf("Certificates = %v, want none (the /Cert blob is unreadable)", f.Certificates)
 	}

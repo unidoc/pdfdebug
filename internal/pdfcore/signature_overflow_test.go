@@ -28,7 +28,7 @@ func TestGetSignatures_ByteRangeOverflowDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "overflow-br.pdf", sigOverflowBRPDF())
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "signature-overflow", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "OverflowBR" {
 		t.Errorf("FieldName = %q, want OverflowBR", f.FieldName)
 	}

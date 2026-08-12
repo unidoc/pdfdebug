@@ -18,7 +18,7 @@ func TestEmbeddedList_PlainTableHasFields(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.2-INTG-001", stdout)
+	assertNotJSON(t, stdout)
 
 	lower := strings.ToLower(stdout)
 	// The display name must appear.
@@ -81,8 +81,8 @@ func TestEmbeddedList_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertASCII(t, "13.2-INTG-003", stdout)
-	assertTrailingNewline(t, "13.2-INTG-003", stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 }
 
 // ---------------------------------------------------------------------------

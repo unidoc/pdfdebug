@@ -164,66 +164,66 @@ func parsesAsJSON(s string) bool {
 
 // assertNotJSON fails when out is a top-level JSON object/array document. The
 // plain-text default must NOT parse as a JSON document (13-1 contract).
-func assertNotJSON(t *testing.T, id, out string) {
+func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
 	if trimmed == "" {
 		return
 	}
 	if (trimmed[0] == '{' || trimmed[0] == '[') && parsesAsJSON(trimmed) {
-		t.Fatalf("[%s] default output parsed as a JSON document; expected plain text:\n%s", id, out)
+		t.Fatalf("default output parsed as a JSON document; expected plain text:\n%s", out)
 	}
 }
 
 // assertASCII fails when out contains a non-ASCII byte (13-1 plain-text contract).
-func assertASCII(t *testing.T, id, out string) {
+func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
 		if out[i] > 0x7f {
-			t.Errorf("[%s] plain-text output contains non-ASCII byte 0x%02x at offset %d", id, out[i], i)
+			t.Errorf("plain-text output contains non-ASCII byte 0x%02x at offset %d", out[i], i)
 			return
 		}
 	}
 }
 
 // assertTrailingNewline fails when out does not end in a newline (13-1 contract).
-func assertTrailingNewline(t *testing.T, id, out string) {
+func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
 		return
 	}
 	if !strings.HasSuffix(out, "\n") {
-		t.Errorf("[%s] plain-text output does not end with a trailing newline", id)
+		t.Errorf("plain-text output does not end with a trailing newline")
 	}
 }
 
 // validateResult parses `validate --json` stdout as the contract's top-level
 // object and returns it.
-func validateResult(t *testing.T, id, stdout string) map[string]any {
+func validateResult(t *testing.T, stdout string) map[string]any {
 	t.Helper()
 	trimmed := strings.TrimSpace(stdout)
 	if trimmed == "" || trimmed[0] != '{' {
-		t.Fatalf("[%s] --json must emit a top-level object, got:\n%s", id, stdout)
+		t.Fatalf("--json must emit a top-level object, got:\n%s", stdout)
 	}
 	var res map[string]any
 	if err := json.Unmarshal([]byte(stdout), &res); err != nil {
-		t.Fatalf("[%s] failed to parse --json output: %v\nraw: %s", id, err, stdout)
+		t.Fatalf("failed to parse --json output: %v\nraw: %s", err, stdout)
 	}
 	return res
 }
 
 // problemsOf extracts res["problems"] as a slice of problem objects.
-func problemsOf(t *testing.T, id string, res map[string]any) []map[string]any {
+func problemsOf(t *testing.T, res map[string]any) []map[string]any {
 	t.Helper()
 	raw, ok := res["problems"].([]any)
 	if !ok {
-		t.Fatalf("[%s] result has no \"problems\" array: %v", id, res)
+		t.Fatalf("result has no \"problems\" array: %v", res)
 	}
 	out := make([]map[string]any, 0, len(raw))
 	for _, p := range raw {
 		m, ok := p.(map[string]any)
 		if !ok {
-			t.Fatalf("[%s] problems entry is not an object: %v", id, p)
+			t.Fatalf("problems entry is not an object: %v", p)
 		}
 		out = append(out, m)
 	}
@@ -231,11 +231,11 @@ func problemsOf(t *testing.T, id string, res map[string]any) []map[string]any {
 }
 
 // summaryOf extracts res["summary"] and returns (errors, warnings).
-func summaryOf(t *testing.T, id string, res map[string]any) (errs, warns int) {
+func summaryOf(t *testing.T, res map[string]any) (errs, warns int) {
 	t.Helper()
 	m, ok := res["summary"].(map[string]any)
 	if !ok {
-		t.Fatalf("[%s] result has no \"summary\" object: %v", id, res)
+		t.Fatalf("result has no \"summary\" object: %v", res)
 	}
 	return jsonInt(m["errors"]), jsonInt(m["warnings"])
 }

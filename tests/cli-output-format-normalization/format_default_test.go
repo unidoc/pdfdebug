@@ -58,7 +58,7 @@ func TestFormat_DefaultIsPlainTextNotJSON(t *testing.T) {
 			if exit != 0 {
 				t.Fatalf("(%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
 			}
-			assertNotJSON(t, "13.1-INTG-001 "+c.id, stdout)
+			assertNotJSON(t, stdout)
 		})
 	}
 }
@@ -109,8 +109,8 @@ func TestFormat_PlainTextIsASCIIWithTrailingNewline(t *testing.T) {
 			if exit != 0 {
 				t.Fatalf("(%s): expected exit 0, got %d (stderr: %s)", c.id, exit, stderr)
 			}
-			assertASCII(t, "13.1-INTG-003 "+c.id, stdout)
-			assertTrailingNewline(t, "13.1-INTG-003 "+c.id, stdout)
+			assertASCII(t, stdout)
+			assertTrailingNewline(t, stdout)
 		})
 	}
 }

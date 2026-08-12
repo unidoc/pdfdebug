@@ -140,36 +140,36 @@ func parsesAsJSON(s string) bool {
 
 // assertNotJSON fails when out is a top-level JSON object/array document. The
 // plain-text default must NOT parse as a JSON document (13-1 contract).
-func assertNotJSON(t *testing.T, id, out string) {
+func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
 	if trimmed == "" {
 		return
 	}
 	if (trimmed[0] == '{' || trimmed[0] == '[') && parsesAsJSON(trimmed) {
-		t.Fatalf("[%s] default output parsed as a JSON document; expected plain text:\n%s", id, out)
+		t.Fatalf("default output parsed as a JSON document; expected plain text:\n%s", out)
 	}
 }
 
 // assertASCII fails when out contains a non-ASCII byte (13-1 plain-text contract).
-func assertASCII(t *testing.T, id, out string) {
+func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
 		if out[i] > 0x7f {
-			t.Errorf("[%s] plain-text output contains non-ASCII byte 0x%02x at offset %d", id, out[i], i)
+			t.Errorf("plain-text output contains non-ASCII byte 0x%02x at offset %d", out[i], i)
 			return
 		}
 	}
 }
 
 // assertTrailingNewline fails when out does not end in a newline (13-1 contract).
-func assertTrailingNewline(t *testing.T, id, out string) {
+func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
 		return
 	}
 	if !strings.HasSuffix(out, "\n") {
-		t.Errorf("[%s] plain-text output does not end with a trailing newline", id)
+		t.Errorf("plain-text output does not end with a trailing newline")
 	}
 }
 

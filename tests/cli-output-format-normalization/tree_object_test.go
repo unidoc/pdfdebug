@@ -66,7 +66,7 @@ func TestObject_PlainShapeIsKeyValueBlock(t *testing.T) {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	// The single-record default must be plain text, not the JSON ObjectDetail.
-	assertNotJSON(t, "13.1-INTG-011", stdout)
+	assertNotJSON(t, stdout)
 	lines := nonEmptyLines(stdout)
 	if len(lines) == 0 {
 		t.Fatalf("empty object dump:\n%s", stdout)

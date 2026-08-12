@@ -24,7 +24,7 @@ func TestSignatures_SignerIdentifiedNotPositional(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-003", stdout)
+	e := oneSig(t, stdout)
 	if !getBool(e, "signerIdentified") {
 		t.Errorf("signerIdentified = false, want true (issuer+serial match exists)")
 	}
@@ -63,7 +63,7 @@ func TestSignatures_AlgorithmsFromSignerInfo(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-004", stdout)
+	e := oneSig(t, stdout)
 	dig := strings.ToLower(getStr(e, "digestAlgorithm"))
 	if !strings.Contains(dig, "sha") || !strings.Contains(dig, "256") {
 		t.Errorf("digestAlgorithm = %q, want a SHA-256 identification", getStr(e, "digestAlgorithm"))
@@ -87,7 +87,7 @@ func TestSignatures_FullCertificateSetSurfaced(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-005", stdout)
+	e := oneSig(t, stdout)
 	certsAny, _ := e["certificates"].([]any)
 	if len(certsAny) != 2 {
 		t.Fatalf("expected 2 embedded certificates, got %d:\n%s", len(certsAny), stdout)
@@ -114,7 +114,7 @@ func TestSignatures_CorruptContentsPerSignatureError(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0 (per-signature degradation), got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-010", stdout)
+	e := oneSig(t, stdout)
 	if getStr(e, "fieldName") != "Sig1" {
 		t.Errorf("field must still be listed, fieldName = %q", getStr(e, "fieldName"))
 	}
@@ -142,7 +142,7 @@ func TestSignatures_X509RSASHA1CertsFromCertEntry(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-015", stdout)
+	e := oneSig(t, stdout)
 	entryJSON, _ := json.Marshal(e)
 	if !strings.Contains(string(entryJSON), signerCN) {
 		t.Errorf("cert from /Cert (CN %q) not surfaced:\n%s", signerCN, entryJSON)
@@ -167,7 +167,7 @@ func TestSignatures_RFC3161LabeledDocumentTimestamp(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-016", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "type"); got != "document-timestamp" {
 		t.Errorf("type = %q, want document-timestamp", got)
 	}
@@ -191,7 +191,7 @@ func TestSignatures_UnknownSubFilterLabeledNotDecomposed(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-017", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "subFilter"); got != "acme.custom.sig" {
 		t.Errorf("subFilter = %q, want acme.custom.sig", got)
 	}

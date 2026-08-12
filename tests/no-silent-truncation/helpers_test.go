@@ -124,15 +124,15 @@ func runCLI(t *testing.T, binPath string, args ...string) (stdout, stderr string
 // --- JSON helpers ------------------------------------------------------------
 
 // parseObject parses stdout as a single top-level JSON object.
-func parseObject(t *testing.T, id, stdout string) map[string]any {
+func parseObject(t *testing.T, stdout string) map[string]any {
 	t.Helper()
 	trimmed := strings.TrimSpace(stdout)
 	if trimmed == "" || trimmed[0] != '{' {
-		t.Fatalf("[%s] expected a top-level JSON object, got:\n%s", id, stdout)
+		t.Fatalf("expected a top-level JSON object, got:\n%s", stdout)
 	}
 	var res map[string]any
 	if err := json.Unmarshal([]byte(stdout), &res); err != nil {
-		t.Fatalf("[%s] failed to parse JSON output: %v\nraw: %s", id, err, stdout)
+		t.Fatalf("failed to parse JSON output: %v\nraw: %s", err, stdout)
 	}
 	return res
 }

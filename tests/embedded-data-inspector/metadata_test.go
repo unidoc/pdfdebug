@@ -19,7 +19,7 @@ func TestMetadata_PlainShowsInfoAndXMP(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.2-INTG-020", stdout)
+	assertNotJSON(t, stdout)
 
 	// Aligned key: value Info block -- a "key: value" line must be present.
 	if !strings.Contains(stdout, ":") {
@@ -75,8 +75,8 @@ func TestMetadata_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertASCII(t, "13.2-INTG-022", stdout)
-	assertTrailingNewline(t, "13.2-INTG-022", stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 }
 
 // ---------------------------------------------------------------------------
@@ -152,9 +152,9 @@ func TestMetadata_PlainNoneWhenEmpty(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0 for empty metadata, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.2-INTG-025", stdout)
-	assertASCII(t, "13.2-INTG-025", stdout)
-	assertTrailingNewline(t, "13.2-INTG-025", stdout)
+	assertNotJSON(t, stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 	if !strings.Contains(stdout, "(none)") {
 		t.Errorf("expected a '(none)' placeholder for empty metadata:\n%s", stdout)
 	}

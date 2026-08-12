@@ -17,7 +17,7 @@ func TestFont_PlainShapeIsKeyValueBlock(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-020", stdout)
+	assertNotJSON(t, stdout)
 	if !containsLineWith(stdout, ":") {
 		t.Errorf("expected a \"key: value\" line in font plain output:\n%s", stdout)
 	}
@@ -43,7 +43,7 @@ func TestImage_PlainShapeShowsMetadata(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-021", stdout)
+	assertNotJSON(t, stdout)
 	lower := strings.ToLower(stdout)
 	for _, label := range []string{"width", "height"} {
 		if !strings.Contains(lower, label) {
@@ -66,7 +66,7 @@ func TestSource_DefaultPlain_JSONWraps(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("plain exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-022", plain)
+	assertNotJSON(t, plain)
 	// Reserialized PDF object syntax must contain the object envelope keyword.
 	if !strings.Contains(plain, "obj") {
 		t.Errorf("expected reserialized PDF source (containing \"obj\") in plain output:\n%s", plain)
@@ -98,7 +98,7 @@ func TestSource_RawPayloadUnchanged(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--raw exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-023", stdout)
+	assertNotJSON(t, stdout)
 	// Raw reserialized source is the verbatim object body, not the JSON envelope.
 	if strings.Contains(stdout, `"objectRef"`) || strings.Contains(stdout, `"source"`) {
 		t.Errorf("--raw must emit verbatim source bytes, not the JSON envelope:\n%s", stdout)
@@ -152,7 +152,7 @@ func TestReverseRefs_PlainShapeIsTableWithHeader(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("plain exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-024", plain)
+	assertNotJSON(t, plain)
 	lines := nonEmptyLines(plain)
 	if len(lines) < 2 {
 		t.Fatalf("expected a header row plus >=1 data row, got %d lines:\n%s", len(lines), plain)

@@ -27,8 +27,8 @@ func TestStream_DefaultPlainOperatorListing(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-030", stdout)
-	assertTrailingNewline(t, "13.1-INTG-030", stdout)
+	assertNotJSON(t, stdout)
+	assertTrailingNewline(t, stdout)
 
 	// The content-stream fixture begins with a BT text block. A plain operator
 	// listing must surface operator tokens (e.g. BT / ET / Tf / Tj) somewhere,

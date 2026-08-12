@@ -75,7 +75,7 @@ func TestDiff_DepthCappedNotIdentical_JSON(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("`diff --json` on a depth-capped pair must exit 1, got %d\nstderr: %s", ec, stderr)
 	}
-	res := parseObject(t, "14.3-INTG-001", stdout)
+	res := parseObject(t, stdout)
 
 	sum, ok := res["summary"].(map[string]any)
 	if !ok {

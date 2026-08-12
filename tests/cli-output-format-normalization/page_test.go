@@ -21,8 +21,8 @@ func TestPageInfo_DefaultPlainSections(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-040", stdout)
-	assertTrailingNewline(t, "13.1-INTG-040", stdout)
+	assertNotJSON(t, stdout)
+	assertTrailingNewline(t, stdout)
 
 	// A single-record presenter renders aligned "key: value" lines; the geometry
 	// section must surface the page's MediaBox (a geometry field always present).
@@ -74,7 +74,7 @@ func TestPageInfo_SectionFilterHonoredInPlain(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--section geometry exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-042 geometry", geom)
+	assertNotJSON(t, geom)
 	if !strings.Contains(strings.ToLower(geom), "mediabox") {
 		t.Errorf("--section geometry must include MediaBox:\n%s", geom)
 	}
@@ -83,7 +83,7 @@ func TestPageInfo_SectionFilterHonoredInPlain(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--section extgstates exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-042 extgstates", exg)
+	assertNotJSON(t, exg)
 	// The extgstates section must NOT carry the geometry MediaBox field; that is
 	// proof the --section filter scoped the plain output.
 	if strings.Contains(strings.ToLower(exg), "mediabox") {
@@ -105,7 +105,7 @@ func TestPageInfo_FormsFlagsUnchanged(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--forms-recursive --forms-depth 2 must be accepted, got exit %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.1-INTG-043", stdout)
+	assertNotJSON(t, stdout)
 
 	// The same flags under --json must still yield a parseable forms-bearing
 	// object (no behavior regression on the JSON path).

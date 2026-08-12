@@ -150,8 +150,8 @@ func TestDiff_JSONEnvelope(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("differing files --json must exit 1, got %d (stderr: %s)", ec, stderr)
 	}
-	res := diffResult(t, "13.6-INTG-007", stdout)
-	added, removed, changed := summaryOf(t, "13.6-INTG-007", res)
+	res := diffResult(t, stdout)
+	added, removed, changed := summaryOf(t, res)
 	if added+removed+changed == 0 {
 		t.Errorf("differing files reported a zero-delta summary (+%d -%d ~%d)", added, removed, changed)
 	}
@@ -181,9 +181,9 @@ func TestDiff_PlainTextContract(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("expected exit 1, got %d", ec)
 	}
-	assertNotJSON(t, "13.6-INTG-008", stdout)
-	assertASCII(t, "13.6-INTG-008", stdout)
-	assertTrailingNewline(t, "13.6-INTG-008", stdout)
+	assertNotJSON(t, stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 }
 
 // ---------------------------------------------------------------------------
@@ -277,8 +277,8 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("renumbered-but-identical pair must exit 0 (identical), got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
-	res := diffResult(t, "13.6-INTG-012", stdout)
-	added, removed, changed := summaryOf(t, "13.6-INTG-012", res)
+	res := diffResult(t, stdout)
+	added, removed, changed := summaryOf(t, res)
 	if added != 0 || removed != 0 || changed != 0 {
 		t.Errorf("path-alignment failed -- renumbered-but-identical shows delta +%d -%d ~%d (want 0/0/0)", added, removed, changed)
 	}
@@ -298,7 +298,7 @@ func TestDiff_SummaryPageCount(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("expected exit 1, got %d", ec)
 	}
-	res := diffResult(t, "13.6-INTG-013", stdout)
+	res := diffResult(t, stdout)
 	sum, ok := res["summary"].(map[string]any)
 	if !ok {
 		t.Fatalf("no summary object")
@@ -358,8 +358,8 @@ func TestDiff_InfoOnlyChangeExitsOne(t *testing.T) {
 	if jec != 1 {
 		t.Fatalf("--json /Info-only diff must exit 1, got %d\nstderr: %s", jec, jerr)
 	}
-	res := diffResult(t, "13.6-INTG-016", jout)
-	added, removed, changed := summaryOf(t, "13.6-INTG-016", res)
+	res := diffResult(t, jout)
+	added, removed, changed := summaryOf(t, res)
 	if added != 0 || removed != 0 || changed != 0 {
 		t.Errorf("Info lives off the catalog walk, node counts must be 0/0/0, got +%d -%d ~%d", added, removed, changed)
 	}
@@ -385,8 +385,8 @@ func TestDiff_SelfPathIsIdentical(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("file-vs-itself must exit 0, got %d\nstderr: %s", ec, stderr)
 	}
-	res := diffResult(t, "13.6-INTG-015", stdout)
-	added, removed, changed := summaryOf(t, "13.6-INTG-015", res)
+	res := diffResult(t, stdout)
+	added, removed, changed := summaryOf(t, res)
 	if added != 0 || removed != 0 || changed != 0 {
 		t.Errorf("self-diff summary not zero: +%d -%d ~%d", added, removed, changed)
 	}

@@ -38,7 +38,7 @@ func TestSignatures_PlainBlockHasCoreFacts(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.4-INTG-001", stdout)
+	assertNotJSON(t, stdout)
 	for _, want := range []string{"Sig1", "adbe.pkcs7.detached", signerCN, issuerCN} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("plain block missing %q:\n%s", want, stdout)
@@ -59,7 +59,7 @@ func TestSignatures_JSONEntryCoreShape(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-002", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "fieldName"); got != "Sig1" {
 		t.Errorf("fieldName = %q, want Sig1", got)
 	}
@@ -93,7 +93,7 @@ func TestSignatures_UnsignedPlaceholderListed(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-011", stdout)
+	e := oneSig(t, stdout)
 	if getStr(e, "fieldName") != "EmptySig" {
 		t.Errorf("fieldName = %q, want EmptySig", getStr(e, "fieldName"))
 	}
@@ -121,7 +121,7 @@ func TestSignatures_ZeroSignaturesEmptyState(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("plain expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.4-INTG-012", stdout)
+	assertNotJSON(t, stdout)
 	if !strings.Contains(strings.ToLower(stdout), "no signature fields") {
 		t.Errorf("plain empty state must say \"no signature fields\":\n%s", stdout)
 	}
@@ -130,7 +130,7 @@ func TestSignatures_ZeroSignaturesEmptyState(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--json expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	arr := sigArray(t, "13.4-INTG-012", stdout)
+	arr := sigArray(t, stdout)
 	if len(arr) != 0 {
 		t.Errorf("expected empty array for zero signatures, got %d entries:\n%s", len(arr), stdout)
 	}
@@ -150,7 +150,7 @@ func TestSignatures_KidsInheritedFTFullyQualifiedName(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-013", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "fieldName"); got != "Parent.Child1" {
 		t.Errorf("fieldName = %q, want Parent.Child1 (inherited /FT, FQ name)", got)
 	}
@@ -172,7 +172,7 @@ func TestSignatures_DirectVDecomposesWithEmptyRef(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-014", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "signatureRef"); got != "" {
 		t.Errorf("signatureRef = %q for a direct /V, want empty", got)
 	}
@@ -195,8 +195,8 @@ func TestSignatures_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	assertASCII(t, "13.4-INTG-019", stdout)
-	assertTrailingNewline(t, "13.4-INTG-019", stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 }
 
 // ---------------------------------------------------------------------------
@@ -248,7 +248,7 @@ func TestSignatures_SigningTimeRawAndISO(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
-	e := oneSig(t, "13.4-INTG-022", stdout)
+	e := oneSig(t, stdout)
 	if got := getStr(e, "signingTimeRaw"); got != "D:20260101120000+00'00'" {
 		t.Errorf("signingTimeRaw = %q, want the raw D: string", got)
 	}

@@ -122,8 +122,8 @@ func TestOracle_NegativeFixtureNoFalseErrors(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("our validate must exit 1 on the negative fixture, got %d (stderr: %s)", ec, stderr)
 	}
-	res := validateResult(t, "13.5-INTG-050", stdout)
-	for _, p := range problemsOf(t, "13.5-INTG-050", res) {
+	res := validateResult(t, stdout)
+	for _, p := range problemsOf(t, res) {
 		if getStr(p, "severity") != "error" {
 			continue
 		}
@@ -168,8 +168,8 @@ func TestOracle_CleanFixtureZeroFailureAgreement(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("our validate must exit 0 on the clean fixture, got %d (stderr: %s)", ec, stderr)
 	}
-	res := validateResult(t, "13.5-INTG-051", stdout)
-	if errs, _ := summaryOf(t, "13.5-INTG-051", res); errs != 0 {
+	res := validateResult(t, stdout)
+	if errs, _ := summaryOf(t, res); errs != 0 {
 		t.Errorf("our rule set flags %d errors on a veraPDF-clean PDF/A-1b file; both must agree on zero:\n%s", errs, stdout)
 	}
 }

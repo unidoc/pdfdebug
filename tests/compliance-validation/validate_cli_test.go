@@ -69,12 +69,12 @@ func TestValidate_JSONEnvelopeAndFontError(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
-	res := validateResult(t, "13.5-INTG-002", stdout)
+	res := validateResult(t, stdout)
 	if got := getStr(res, "profile"); got != "pdfa-1b" {
 		t.Errorf("profile = %q, want pdfa-1b (default)", got)
 	}
-	ps := problemsOf(t, "13.5-INTG-002", res)
-	errs, _ := summaryOf(t, "13.5-INTG-002", res)
+	ps := problemsOf(t, res)
+	errs, _ := summaryOf(t, res)
 	if errs < 1 {
 		t.Fatalf("summary.errors = %d, want >=1", errs)
 	}
@@ -118,8 +118,8 @@ func TestValidate_ObjNodeIDAccompaniesObjRef(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
-	res := validateResult(t, "13.5-INTG-003", stdout)
-	for _, p := range problemsOf(t, "13.5-INTG-003", res) {
+	res := validateResult(t, stdout)
+	for _, p := range problemsOf(t, res) {
 		ref, node := getStr(p, "objRef"), getStr(p, "objNodeId")
 		if ref != "" && node == "" {
 			t.Errorf("problem has objRef=%q but empty objNodeId: %v", ref, p)
@@ -143,7 +143,7 @@ func TestValidate_PlainGroupedListWithSummary(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("expected exit 1, got %d (stderr: %s)", ec, stderr)
 	}
-	assertNotJSON(t, "13.5-INTG-004", stdout)
+	assertNotJSON(t, stdout)
 	lower := strings.ToLower(stdout)
 	if !strings.Contains(lower, "error") {
 		t.Errorf("plain list must state the severity (error):\n%s", stdout)
@@ -202,8 +202,8 @@ func TestValidate_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 	if strings.TrimSpace(stdout) == "" {
 		t.Fatalf("a validation run must write plain-text output to stdout; stderr: %s", stderr)
 	}
-	assertASCII(t, "13.5-INTG-006", stdout)
-	assertTrailingNewline(t, "13.5-INTG-006", stdout)
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
 }
 
 // ---------------------------------------------------------------------------
@@ -228,8 +228,8 @@ func TestValidate_EncryptedIsErrorProblemExitsOne(t *testing.T) {
 	if ec != 1 {
 		t.Fatalf("--json encrypted doc must exit 1, got %d", ec)
 	}
-	res := validateResult(t, "13.5-INTG-010", jsonOut)
-	enc := findByMessageContains(problemsOf(t, "13.5-INTG-010", res), "encrypt")
+	res := validateResult(t, jsonOut)
+	enc := findByMessageContains(problemsOf(t, res), "encrypt")
 	if enc == nil {
 		t.Fatalf("no encryption problem in --json output:\n%s", jsonOut)
 	}
@@ -295,12 +295,12 @@ func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("PDF/UA warnings must NOT gate; expected exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
-	res := validateResult(t, "13.5-INTG-020", stdout)
+	res := validateResult(t, stdout)
 	if got := getStr(res, "profile"); got != "pdfua-1-structural" {
 		t.Errorf("profile = %q, want pdfua-1-structural", got)
 	}
-	ps := problemsOf(t, "13.5-INTG-020", res)
-	errs, warns := summaryOf(t, "13.5-INTG-020", res)
+	ps := problemsOf(t, res)
+	errs, warns := summaryOf(t, res)
 	if errs != 0 {
 		t.Errorf("PDF/UA structural profile must emit zero errors, got %d", errs)
 	}
@@ -341,7 +341,7 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("clean-for-profile doc must exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
-	assertNotJSON(t, "13.5-INTG-021", stdout)
+	assertNotJSON(t, stdout)
 	assertNoComplianceVerdict(t, "plain", stdout)
 	if !strings.Contains(strings.ToLower(stdout), "no structural problems found") {
 		t.Errorf("clean plain output must say \"no structural problems found\":\n%s", stdout)
@@ -351,8 +351,8 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 	if ec != 0 {
 		t.Fatalf("--json clean doc must exit 0, got %d", ec)
 	}
-	res := validateResult(t, "13.5-INTG-021", jsonOut)
-	if len(problemsOf(t, "13.5-INTG-021", res)) != 0 {
+	res := validateResult(t, jsonOut)
+	if len(problemsOf(t, res)) != 0 {
 		t.Errorf("tagged doc must yield zero PDF/UA structural problems:\n%s", jsonOut)
 	}
 }

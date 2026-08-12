@@ -149,35 +149,35 @@ func parsesAsJSON(s string) bool {
 // shape: a plain dump must NOT parse as a top-level JSON object/array. This is
 // the structural "default is not JSON" guard (FORMAT-001), deliberately NOT a
 // whole-dump string-equality assertion (brittle-struct-grep history).
-func assertNotJSON(t *testing.T, id, out string) {
+func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
 	if trimmed == "" {
 		return // empty output is trivially not a JSON document
 	}
 	if (trimmed[0] == '{' || trimmed[0] == '[') && parsesAsJSON(trimmed) {
-		t.Fatalf("[%s] default output parsed as a JSON document; expected plain text:\n%s", id, out)
+		t.Fatalf("default output parsed as a JSON document; expected plain text:\n%s", out)
 	}
 }
 
 // assertTrailingNewline fails when out does not end in a newline (AC2: plain
 // text output ends with a trailing newline). Empty output is exempt.
-func assertTrailingNewline(t *testing.T, id, out string) {
+func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
 		return
 	}
 	if !strings.HasSuffix(out, "\n") {
-		t.Errorf("[%s] plain-text output does not end with a trailing newline", id)
+		t.Errorf("plain-text output does not end with a trailing newline")
 	}
 }
 
 // assertASCII fails when out contains a non-ASCII byte (AC2: ASCII-only).
-func assertASCII(t *testing.T, id, out string) {
+func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
 		if out[i] > 0x7f {
-			t.Errorf("[%s] plain-text output contains non-ASCII byte 0x%02x at offset %d", id, out[i], i)
+			t.Errorf("plain-text output contains non-ASCII byte 0x%02x at offset %d", out[i], i)
 			return
 		}
 	}
