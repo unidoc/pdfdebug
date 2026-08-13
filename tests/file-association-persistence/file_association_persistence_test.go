@@ -45,9 +45,9 @@ func projectRoot(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-UNIT-005 [P2]: extractPDFPaths extracts .pdf paths from args.
+// extractPDFPaths extracts .pdf paths from args.
 //
-// AC#2: Given a second instance is launched with args containing PDF paths,
+// Given a second instance is launched with args containing PDF paths,
 //       When extractPDFPaths parses the args,
 //       Then it returns only the .pdf arguments (case-insensitive extension).
 //
@@ -78,45 +78,45 @@ func TestExtractPDFPaths(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-001: extractPDFPaths function exists in main.go.
+// extractPDFPaths function exists in main.go.
 //
-// AC#2: The helper must be defined so OnSecondInstanceLaunch can use it.
+// The helper must be defined so OnSecondInstanceLaunch can use it.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-002: SingleInstance option configured in main.go.
+// SingleInstance option configured in main.go.
 //
-// AC#2: Wails v3 SingleInstance option must be set in application.Options
+// Wails v3 SingleInstance option must be set in application.Options
 //       with the correct UniqueID.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-003: FileAssociations configured in main.go.
+// FileAssociations configured in main.go.
 //
-// AC#1: The application must register .pdf file association.
+// The application must register .pdf file association.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-004: ApplicationOpenedWithFile event handler in main.go.
+// ApplicationOpenedWithFile event handler in main.go.
 //
-// AC#1: The handler must exist to process files opened via OS association.
+// The handler must exist to process files opened via OS association.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-005: useWindowPersistence hook file exists.
+// useWindowPersistence hook file exists.
 //
-// AC#3: Panel persistence hook must be created.
+// Panel persistence hook must be created.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-006: Linux .desktop file has MimeType and %f.
+// Linux .desktop file has MimeType and %f.
 //
-// AC#1: Linux file association requires MimeType and %f in Exec.
+// Linux file association requires MimeType and %f in Exec.
 // ---------------------------------------------------------------------------
 
 func TestLinuxDesktopFileAssociation(t *testing.T) {
@@ -137,9 +137,9 @@ func TestLinuxDesktopFileAssociation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-007: Vitest tests for useWindowPersistence exist and pass.
+// Vitest tests for useWindowPersistence exist and pass.
 //
-// AC#3: Frontend panel persistence tests (4.4-UNIT-001 through 4.4-UNIT-004).
+// Frontend panel persistence tests (through).
 // ---------------------------------------------------------------------------
 
 func TestVitestWindowPersistenceTests(t *testing.T) {
@@ -161,9 +161,9 @@ func TestVitestWindowPersistenceTests(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-STRUCT-008: Vitest tests for MainLayout persistence exist and pass.
+// Vitest tests for MainLayout persistence exist and pass.
 //
-// AC#3: MainLayout integration with persistence hook.
+// MainLayout integration with persistence hook.
 // ---------------------------------------------------------------------------
 
 func TestVitestMainLayoutPersistenceTests(t *testing.T) {
@@ -185,7 +185,7 @@ func TestVitestMainLayoutPersistenceTests(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-REGR-001: All pdfcore tests still pass (no regression).
+// All pdfcore tests still pass (no regression).
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreNoRegression(t *testing.T) {
@@ -203,7 +203,7 @@ func TestPdfcoreNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-REGR-002: All pdfservice tests still pass (no regression).
+// All pdfservice tests still pass (no regression).
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceNoRegression(t *testing.T) {
@@ -221,7 +221,7 @@ func TestPdfserviceNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.4-REGR-003: go vet passes on the project.
+// go vet passes on the project.
 // ---------------------------------------------------------------------------
 
 func TestGoVet(t *testing.T) {

@@ -5,22 +5,22 @@
 //
 // Test pyramid for this story:
 //
-//   - Backend AC2, AC5, AC12 (XRefTable extraction + status strings +
+//   - Backend (XRefTable extraction + status strings +
 //     compressed-row handling) -> pdfcore Go unit tests delegated via
 //     runPdfcoreTest. Iterating pdfcpu's XRefTable.Table and producing the
 //     stable IPC shape is best verified in-process where we can assert the
 //     exact slice contents.
-//   - Backend AC6, AC7, AC8 (Plain Text Latin-1 decode, control-byte
+//   - Backend (Plain Text Latin-1 decode, control-byte
 //     replacement, 5MB truncation cap, encrypted-stream passthrough) ->
 //     pdfcore Go unit tests delegated via runPdfcoreTest. Byte-level
 //     transformations need byte-level assertions.
-//   - Backend AC13 failure mode (file moved post-open, pdfcpu panic) ->
+//   - Backend failure mode (file moved post-open, pdfcpu panic) ->
 //     pdfcore Go unit tests delegated via runPdfcoreTest.
 //   - Wails plumbing (Task 3: GetXRefTable / GetPlainText exposed) ->
 //     structural assertions on service.go.
 //   - IPC shape (Task 1.2 / 2.2: XRefTable, XRefEntry, PlainTextDocument
 //     model types with exact JSON tags) -> structural assertions on model.go.
-//   - Frontend AC1, AC3, AC4, AC9, AC10, AC11, AC14, AC15, AC16, AC17
+//   - Frontend
 //     -> Vitest. Delegated here only via structural checks that the right
 //     files / exports / data-testids exist; full behavior contracts are
 //     asserted in the component test files.
@@ -109,10 +109,10 @@ func readSource(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 / AC#5 / AC#12 -- XRefTable extraction (backend)
+// XRefTable extraction (backend)
 // ---------------------------------------------------------------------------
 
-// 9.11-INTG-001 [P0]: internal/pdfcore/xreftable.go exists and declares
+// internal/pdfcore/xreftable.go exists and declares
 // Inspector.GetXRefTable.
 func TestXRefTableFileExists(t *testing.T) {
 	root := projectRoot(t)
@@ -126,9 +126,9 @@ func TestXRefTableFileExists(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-002 [P0] AC#2: GetXRefTable returns rows for every expected
-// object number, sorted by ObjNum asc, object 0 skipped, in-use entries have
-// non-negative Offset, free + in-objstm carry the -1 / 0 sentinels.
+// GetXRefTable returns rows for every expected object number, sorted by
+// ObjNum asc, object 0 skipped, in-use entries have non-negative Offset,
+// free + in-objstm carry the -1 / 0 sentinels.
 func TestXRefTableBasicShape(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
@@ -137,60 +137,58 @@ func TestXRefTableBasicShape(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableBasicShape")
 }
 
-// 9.11-INTG-003 [P0] AC#2: rows are sorted by (ObjNum asc, Gen asc) -- pdfcpu
-// map iteration order is non-deterministic; sort on egress is mandatory.
-// Same lesson as 9-9 / 9-10.
+// Rows are sorted by (ObjNum asc, Gen asc) -- pdfcpu map iteration order is
+// non-deterministic; sort on egress is mandatory. Same lesson as 9-9 / 9-10.
 func TestXRefTableSorted(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableSortedByObjNumThenGen")
 }
 
-// 9.11-INTG-004 [P0] AC#2: object 0 (the free-list head) is skipped. It is
-// NOT a real object and must never appear in the rendered table.
+// Object 0 (the free-list head) is skipped. It is NOT a real object and
+// must never appear in the rendered table.
 func TestXRefTableSkipsObjectZero(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableSkipsObjectZero")
 }
 
-// 9.11-INTG-005 [P0] AC#5: Status strings are the load-bearing IPC contract.
-// Must be exactly "in-use" / "free" / "in-objstm" -- the frontend renders
-// pills off these literals (Task 1.2 godoc warning).
+// Status strings are the load-bearing IPC contract. Must be exactly "in-use"
+// / "free" / "in-objstm" -- the frontend renders pills off these literals
+// (Task 1.2 godoc warning).
 func TestXRefEntryStatusStrings(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableStatusLiterals")
 }
 
-// 9.11-INTG-006 [P0] AC#2 + AC#12: NodeID encoding is "obj:<gen>:<num>" for
-// in-use and in-objstm rows; empty string for free rows. The IPC sentinel for
-// free rows must NOT be a populated nodeID -- the frontend uses the empty
-// string to make the row non-clickable.
+// NodeID encoding is "obj:<gen>:<num>" for in-use and in-objstm rows; empty
+// string for free rows. The IPC sentinel for free rows must NOT be a
+// populated nodeID -- the frontend uses the empty string to make the row
+// non-clickable.
 func TestXRefEntryNodeIDEncoding(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableNodeIDEncoding")
 }
 
-// 9.11-INTG-007 [P0] AC#12: in-objstm rows expose the underlying object
-// number in NodeID (NOT the host objstm). Compressed objects use gen=0 per
-// ISO 32000-1 §7.5.8.1, so the nodeID is "obj:0:<num>" where <num> is the
-// underlying object, not the host objstm. R4 of Story 9-11 risks list calls
-// this out explicitly.
+// in-objstm rows expose the underlying object number in NodeID (NOT the
+// host objstm). Compressed objects use gen=0 per ISO 32000-1 §7.5.8.1, so
+// the nodeID is "obj:0:<num>" where <num> is the underlying object, not the
+// host objstm. R4 of Story 9-11 risks list calls this out explicitly.
 func TestXRefEntryCompressedNodeIDTargetsUnderlyingObject(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableCompressedNodeIDTargetsUnderlying")
 }
 
-// 9.11-INTG-008 [P0] AC#12: in-objstm rows set HostObjStm to the host /ObjStm
-// object number; in-use and free rows set HostObjStm = 0 (sentinel: "not
-// applicable"; the frontend renders "-").
+// in-objstm rows set HostObjStm to the host /ObjStm object number; in-use and
+// free rows set HostObjStm = 0 (sentinel: "not applicable"; the frontend
+// renders "-").
 func TestXRefEntryHostObjStmSentinel(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableHostObjStmSentinel")
 }
 
-// 9.11-INTG-009 [P0] AC#2: Offset is -1 for non-in-use rows (free and
-// in-objstm). The frontend renders the literal -1 as the "-" glyph.
+// Offset is -1 for non-in-use rows (free and in-objstm). The frontend
+// renders the literal -1 as the "-" glyph.
 func TestXRefEntryOffsetSentinel(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableOffsetSentinel")
 }
 
-// 9.11-INTG-010 [P0]: GetXRefTable wraps the build in safeCall. A pdfcpu
-// panic on a malformed xref must NOT propagate. Verified by calling against
-// the malformed fixture and asserting we get either a result or a wrapPDFError-
-// wrapped error -- never a panic.
+// GetXRefTable wraps the build in safeCall. A pdfcpu panic on a malformed xref
+// must NOT propagate. Verified by calling against the malformed fixture and
+// asserting we get either a result or a wrapPDFError- wrapped error -- never a
+// panic.
 func TestXRefTableSafeCallOnMalformed(t *testing.T) {
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); errors.Is(err, os.ErrNotExist) {
@@ -199,18 +197,18 @@ func TestXRefTableSafeCallOnMalformed(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableSafeCallOnMalformed")
 }
 
-// 9.11-INTG-011 [P1]: per-document cache returns the same pointer on the
-// second call. After dropping doc.xrefTableCache, a fresh build returns a
-// different pointer with equal contents.
+// per-document cache returns the same pointer on the second call. After
+// dropping doc.xrefTableCache, a fresh build returns a different pointer
+// with equal contents.
 func TestXRefTableCacheStable(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableCacheReturnsSamePointer")
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 / AC#7 / AC#8 -- PlainText extraction (backend)
+// PlainText extraction (backend)
 // ---------------------------------------------------------------------------
 
-// 9.11-INTG-020 [P0]: internal/pdfcore/plaintext.go exists and declares
+// internal/pdfcore/plaintext.go exists and declares
 // Inspector.GetPlainText.
 func TestPlainTextFileExists(t *testing.T) {
 	root := projectRoot(t)
@@ -224,9 +222,9 @@ func TestPlainTextFileExists(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-021 [P0] AC#6: Plain Text returns the file bytes Latin-1-decoded.
-// The %PDF- header signature must appear at the start of Content for a
-// well-formed PDF, and TotalBytes must match the on-disk file size.
+// Plain Text returns the file bytes Latin-1-decoded. The %PDF- header
+// signature must appear at the start of Content for a well-formed PDF, and
+// TotalBytes must match the on-disk file size.
 func TestPlainTextLatin1Header(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
@@ -235,60 +233,58 @@ func TestPlainTextLatin1Header(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextLatin1HeaderAndSize")
 }
 
-// 9.11-INTG-022 [P0] AC#6: every byte 0x00..0xFF round-trips losslessly EXCEPT
-// the replaced control bytes. The decoder must use rune(b), NOT string(b)
-// (which produces UTF-8 and mojibakes 0x80-0xFF). Replaced bytes: every byte
-// in 0x00..0x1F except \t (0x09), \n (0x0A), \r (0x0D), plus 0x7F (DEL).
-// Form-feed 0x0C IS replaced. Output codepoint for replaced bytes: U+FFFD.
+// Every byte 0x00..0xFF round-trips losslessly EXCEPT the replaced control
+// bytes. The decoder must use rune(b), NOT string(b) (which produces UTF-8 and
+// mojibakes 0x80-0xFF). Replaced bytes: every byte in 0x00..0x1F except \t
+// (0x09), \n (0x0A), \r (0x0D), plus 0x7F (DEL). Form-feed 0x0C IS replaced.
+// Output codepoint for replaced bytes: U+FFFD.
 func TestPlainTextLatin1FullByteRange(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextLatin1FullByteRange")
 }
 
-// 9.11-INTG-023 [P0] AC#6: form-feed (0x0C) is explicitly replaced, not
-// preserved. The story mandates this so the gutter cannot acquire surprise
-// pagination artifacts. This test pins the FF-specific behavior so a future
-// "preserve FF" optimization can't slip past review.
+// form-feed (0x0C) is explicitly replaced, not preserved. The story
+// mandates this so the gutter cannot acquire surprise pagination artifacts.
+// This test pins the FF-specific behavior so a future "preserve FF"
+// optimization can't slip past review.
 func TestPlainTextFormFeedReplaced(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextFormFeedReplaced")
 }
 
-// 9.11-INTG-024 [P0] AC#6: \t (0x09), \n (0x0A), \r (0x0D) are PRESERVED.
-// CRLF survives as two characters (the frontend regex /\r\n?|\n/ collapses to
-// one logical line break -- backend contract is "verbatim").
+// \t (0x09), \n (0x0A), \r (0x0D) are PRESERVED. CRLF survives as two
+// characters (the frontend regex /\r\n?|\n/ collapses to one logical line
+// break -- backend contract is "verbatim").
 func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextWhitespaceBytesPreserved")
 }
 
-// 9.11-INTG-025 / 9.11-INTG-026 retired by Story 10-1: the 25 MiB cap +
-// truncation banner are removed in favour of a single uncapped lazy-load.
-// See tests/async-plain-text-load/ for the replacement coverage.
+// Retired by Story 10-1: the 25 MiB cap + truncation banner are removed
+// in favour of a single uncapped lazy-load. See
+// tests/async-plain-text-load/ for the replacement coverage.
 
-// 9.11-INTG-027 [P0] AC#8: encrypted streams (file with /Filter /Crypt) pass
-// through as raw on-disk bytes. The backend MUST NOT attempt to decode or
-// decrypt. Verified by feeding a controlled byte pattern through the decoder
-// and asserting it survives the transform unchanged (modulo the AC#6 control-
-// byte normalization).
+// Encrypted streams (file with /Filter /Crypt) pass through as raw on-disk
+// bytes. The backend MUST NOT attempt to decode or decrypt. Verified by
+// feeding a controlled byte pattern through the decoder and asserting it
+// survives the transform unchanged (modulo the control- byte normalization).
 func TestPlainTextNoDecryptOrDecode(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextNoDecryptOrDecode")
 }
 
-// 9.11-INTG-028 [P0] AC#13: when the file is moved or deleted post-open, the
-// GetPlainText call surfaces an os.IsNotExist-class error wrapped via
-// wrapPDFError. The frontend's extractErrorMessage will unwrap it; the
-// ErrorBoundary safety net is unchanged.
+// When the file is moved or deleted post-open, the GetPlainText call
+// surfaces an os.IsNotExist-class error wrapped via wrapPDFError. The
+// frontend's extractErrorMessage will unwrap it; the ErrorBoundary safety
+// net is unchanged.
 func TestPlainTextFileMovedError(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextFileMovedReturnsError")
 }
 
-// 9.11-INTG-029 [P1]: per-document cache returns the same pointer on the
-// second call. Mutex coverage includes the I/O so two concurrent calls share
-// one disk read.
+// per-document cache returns the same pointer on the second call. Mutex
+// coverage includes the I/O so two concurrent calls share one disk read.
 func TestPlainTextCacheStable(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextCacheReturnsSamePointer")
 }
 
-// 9.11-INTG-030 [P1]: GetPlainText wraps I/O + decode in safeCall. A panic
-// during decode must NOT crash the process.
+// GetPlainText wraps I/O + decode in safeCall. A panic during decode must
+// NOT crash the process.
 func TestPlainTextSafeCallWraps(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if !strings.Contains(src, "safeCall") {
@@ -297,11 +293,11 @@ func TestPlainTextSafeCallWraps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 + AC#6 IPC shape -- model.go must declare the new types with the
-// exact JSON tags the frontend will receive over Wails bindings.
+// IPC shape -- model.go must declare the new types with the exact JSON
+// tags the frontend will receive over Wails bindings.
 // ---------------------------------------------------------------------------
 
-// 9.11-INTG-040 [P0]: model.go declares XRefTable struct with TabID + Entries.
+// model.go declares XRefTable struct with TabID + Entries.
 func TestModelXRefTableStruct(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type XRefTable struct") {
@@ -321,10 +317,10 @@ func TestModelXRefTableStruct(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-041 [P0]: model.go declares XRefEntry struct with the load-bearing
-// fields and JSON tags. Status / Offset / HostObjStm / NodeID are the IPC
-// contract -- the frontend renders pills, byte offsets, and navigation
-// targets off these exact names.
+// model.go declares XRefEntry struct with the load-bearing fields and JSON
+// tags. Status / Offset / HostObjStm / NodeID are the IPC contract -- the
+// frontend renders pills, byte offsets, and navigation targets off these exact
+// names.
 func TestModelXRefEntryStruct(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type XRefEntry struct") {
@@ -351,8 +347,8 @@ func TestModelXRefEntryStruct(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-042 [P0]: model.go declares PlainTextDocument struct with the
-// fields the truncation banner needs (TotalBytes + CapBytes + Truncated).
+// model.go declares PlainTextDocument struct with the fields the
+// truncation banner needs (TotalBytes + CapBytes + Truncated).
 func TestModelPlainTextDocumentStruct(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "type PlainTextDocument struct") {
@@ -378,10 +374,9 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-043 [P0]: DocumentState carries the xrefTableCache + plainTextCache
-// fields (Task 1.6 + 2.9). Per-document caching is part of the IPC contract --
-// without it, two GetXRefTable / GetPlainText calls on the same document would
-// duplicate work.
+// DocumentState carries the xrefTableCache + plainTextCache fields (Task 1.6 +
+// 2.9). Per-document caching is part of the IPC contract -- without it, two
+// GetXRefTable / GetPlainText calls on the same document would duplicate work.
 func TestDocumentStateCarriesNewCaches(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "xrefTableCache") {
@@ -396,9 +391,9 @@ func TestDocumentStateCarriesNewCaches(t *testing.T) {
 // Wails service plumbing (Task 3)
 // ---------------------------------------------------------------------------
 
-// 9.11-INTG-050 [P0]: PDFService.GetXRefTable is exposed with the correct
-// return type. The frontend bindings depend on the exact slice element type
-// across the IPC boundary.
+// PDFService.GetXRefTable is exposed with the correct return type. The
+// frontend bindings depend on the exact slice element type across the IPC
+// boundary.
 func TestServiceExposesGetXRefTable(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetXRefTable") {
@@ -409,8 +404,7 @@ func TestServiceExposesGetXRefTable(t *testing.T) {
 	}
 }
 
-// 9.11-INTG-051 [P0]: PDFService.GetPlainText is exposed with the correct
-// return type.
+// PDFService.GetPlainText is exposed with the correct return type.
 func TestServiceExposesGetPlainText(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetPlainText") {
@@ -422,16 +416,16 @@ func TestServiceExposesGetPlainText(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1, AC#15, AC#16, AC#17 -- DetailPanel tab bar (structural)
+// DetailPanel tab bar (structural)
 // ---------------------------------------------------------------------------
 //
 // Behavior contracts (Radix activationMode="manual", arrow-key focus
 // movement, scroll preservation, no stale-content frame) are asserted in
 // DetailPanel.tabs.test.tsx. We assert here only that the wiring points
-// referenced by AC1/AC15/AC16/AC17 exist in the source.
+// referenced by exist in the source.
 
-// 9.11-STRUCT-001 [P0] AC#1 + AC#15: DetailPanel.tsx imports Radix Tabs and
-// uses activationMode="manual" (mandated to prevent focus-driven fetches).
+// DetailPanel.tsx imports Radix Tabs and uses activationMode="manual"
+// (mandated to prevent focus-driven fetches).
 func TestDetailPanelImportsRadixTabsManual(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "@radix-ui/react-tabs") {
@@ -442,8 +436,8 @@ func TestDetailPanelImportsRadixTabsManual(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-002 [P0] AC#15: tab triggers and panes carry the documented
-// data-testids the Vitest assertions and downstream tooling target.
+// Tab triggers and panes carry the documented data-testids the Vitest
+// assertions and downstream tooling target.
 func TestDetailPanelTabTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	requiredTestIds := []string{
@@ -461,8 +455,8 @@ func TestDetailPanelTabTestIds(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-003 [P0] AC#15: tablist has aria-label="Detail view" so screen
-// readers announce the tab group.
+// Tablist has aria-label="Detail view" so screen readers announce the tab
+// group.
 func TestDetailPanelTablistAriaLabel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, `aria-label="Detail view"`) {
@@ -470,10 +464,9 @@ func TestDetailPanelTablistAriaLabel(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-004 [P0] AC#1 + AC#11: detailView state exists and resets to
-// 'object' on activeTabId change. The reset effect is the contract surface
-// for AC#11 (switching documents resets to Object) and AC#17 (no stale
-// cross-document frame).
+// detailView state exists and resets to 'object' on activeTabId change.
+// The reset effect is the contract surface for (switching documents resets
+// to Object) and (no stale cross-document frame).
 func TestDetailPanelDetailViewReset(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "detailView") {
@@ -482,7 +475,7 @@ func TestDetailPanelDetailViewReset(t *testing.T) {
 	if !strings.Contains(src, "setDetailView") {
 		t.Fatalf("DetailPanel.tsx must declare setDetailView setter (Task 5.2)")
 	}
-	// Reset effect on activeTabId change -- AC#11 / AC#17 contract.
+	// Reset effect on activeTabId change -- contract.
 	// We do not pin the exact effect spelling; we require both `setDetailView('object')`
 	// and `[activeTabId]` to appear in the source. A loose match is the right
 	// granularity because dev may write the effect inline or hoist it.
@@ -491,10 +484,10 @@ func TestDetailPanelDetailViewReset(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-005 [P0] AC#16: the Object pane keeps its existing header
-// (nav buttons, label, objectRef, Referenced by section) nested inside the
-// Object Tabs.Content -- so XREF and Plain Text panes do NOT inherit the
-// "Properties - <stale-key>" header.
+// The Object pane keeps its existing header (nav buttons, label,
+// objectRef, Referenced by section) nested inside the Object Tabs.Content
+// -- so XREF and Plain Text panes do NOT inherit the "Properties -
+// <stale-key>" header.
 func TestDetailPanelObjectPaneHeaderNested(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	// The simplest structural guard: the existing nav button testids must
@@ -512,10 +505,9 @@ func TestDetailPanelObjectPaneHeaderNested(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-006 [P0] AC#1 + AC#11: all three Tabs.Content panes mount
-// simultaneously via forceMount (Radix). This preserves scroll position
-// across tab switches. Confirming forceMount is in the source is the
-// structural surface for AC#11.
+// All three Tabs.Content panes mount simultaneously via forceMount
+// (Radix). This preserves scroll position across tab switches.
+// Confirming forceMount is in the source is the structural surface for.
 func TestDetailPanelForceMountForScrollPreservation(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "forceMount") {
@@ -524,10 +516,10 @@ func TestDetailPanelForceMountForScrollPreservation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2..AC#5, AC#10, AC#12, AC#13 -- XRefTableView component (structural)
+// . -- XRefTableView component (structural)
 // ---------------------------------------------------------------------------
 
-// 9.11-STRUCT-010 [P0]: XRefTableView.tsx exists and exports XRefTableView.
+// XRefTableView.tsx exists and exports XRefTableView.
 func TestXRefTableViewFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "XRefTableView.tsx")
@@ -540,14 +532,14 @@ func TestXRefTableViewFileExists(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-011 [P0] AC#2, AC#10, AC#13: XRefTableView carries the
-// load-bearing data-testids the Vitest assertions target.
+// XRefTableView carries the load-bearing data-testids the Vitest
+// assertions target.
 func TestXRefTableViewTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/XRefTableView.tsx")
 	requiredTestIds := []string{
-		"xref-loading", // AC#10
-		"xref-error",   // AC#13
-		"xref-empty",   // Task 6.8 no-document state
+		"xref-loading",
+		"xref-error",
+		"xref-empty", // Task 6.8 no-document state
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -556,9 +548,9 @@ func TestXRefTableViewTestIds(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-012 [P0] AC#4: the table uses semantic HTML (<table>, <thead>,
-// <tbody>, <tr>, <th>, <td>) WITHOUT explicit role="..." attributes (the
-// native elements carry implicit ARIA roles). Every row carries tabIndex.
+// The table uses semantic HTML (<table>, <thead>, <tbody>, <tr>, <th>, <td>)
+// WITHOUT explicit role="..." attributes (the native elements carry implicit
+// ARIA roles). Every row carries tabIndex.
 func TestXRefTableViewSemanticHTML(t *testing.T) {
 	src := readSource(t, "frontend/src/components/XRefTableView.tsx")
 	if !strings.Contains(src, "<table") {
@@ -582,8 +574,8 @@ func TestXRefTableViewSemanticHTML(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-013 [P1] AC#4: free rows carry aria-disabled="true" so screen
-// readers announce the disabled state.
+// Free rows carry aria-disabled="true" so screen readers announce the
+// disabled state.
 func TestXRefTableViewFreeRowAriaDisabled(t *testing.T) {
 	src := readSource(t, "frontend/src/components/XRefTableView.tsx")
 	if !strings.Contains(src, "aria-disabled") {
@@ -591,10 +583,10 @@ func TestXRefTableViewFreeRowAriaDisabled(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-014 [P0]: XRefTableView Vitest suite exists. Behavior contracts
-// (status pill text, click navigation, in-objstm targets the underlying obj,
-// arrow-key row navigation, 200ms debounce, error rendering) are asserted in
-// the Vitest file.
+// XRefTableView Vitest suite exists. Behavior contracts (status pill text,
+// click navigation, in-objstm targets the underlying obj, arrow-key row
+// navigation, 200ms debounce, error rendering) are asserted in the Vitest
+// file.
 func TestXRefTableViewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "XRefTableView.test.tsx")
@@ -604,10 +596,10 @@ func TestXRefTableViewTestFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#6, AC#7, AC#8, AC#10, AC#13 -- PlainTextView component (structural)
+// PlainTextView component (structural)
 // ---------------------------------------------------------------------------
 
-// 9.11-STRUCT-020 [P0]: PlainTextView.tsx exists and exports PlainTextView.
+// PlainTextView.tsx exists and exports PlainTextView.
 func TestPlainTextViewFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.tsx")
@@ -620,14 +612,14 @@ func TestPlainTextViewFileExists(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-021 [P0] AC#10, AC#13: PlainTextView carries the load-bearing
+// PlainTextView carries the load-bearing
 // data-testids. The 9-11 truncation-banner testid was retired by Story 10-1;
 // the new async loading-card testids are pinned in
 // tests/async-plain-text-load/.
 func TestPlainTextViewTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{
-		"plain-text-error", // AC#13
+		"plain-text-error",
 		"plain-text-empty", // Task 7.8 no-document state
 	}
 	for _, tid := range requiredTestIds {
@@ -637,12 +629,12 @@ func TestPlainTextViewTestIds(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-022 retired by Story 10-1: the truncation banner that read
-// capBytes + totalBytes from the payload no longer exists. The 10-1 loading
-// card surfaces totalBytes via GetPlainTextSize instead.
+// Retired by Story 10-1: the truncation banner that read capBytes +
+// totalBytes from the payload no longer exists. The 10-1 loading card
+// surfaces totalBytes via GetPlainTextSize instead.
 
-// 9.11-STRUCT-023 [P0] AC#6: the line-break regex collapses CRLF / lone CR /
-// lone LF to one logical line break each. The literal /\r\n?|\n/ MUST appear
+// The line-break regex collapses CRLF / lone CR / lone LF to one logical
+// line break each. The literal /\r\n?|\n/ MUST appear
 // in the source -- a naive split('\n') would leave stray \r and break the
 // gutter line count.
 func TestPlainTextViewLineBreakRegex(t *testing.T) {
@@ -655,7 +647,7 @@ func TestPlainTextViewLineBreakRegex(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-024 [P0]: PlainTextView Vitest suite exists.
+// PlainTextView Vitest suite exists.
 func TestPlainTextViewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.test.tsx")
@@ -668,9 +660,8 @@ func TestPlainTextViewTestFileExists(t *testing.T) {
 // DetailPanel.tabs.test.tsx -- integration test for the tab bar
 // ---------------------------------------------------------------------------
 
-// 9.11-STRUCT-030 [P0]: DetailPanel.tabs.test.tsx exists. The Vitest suite
-// covers AC#1, AC#9, AC#11, AC#14, AC#15, AC#16, AC#17 -- the behavior is
-// best asserted at the component layer.
+// DetailPanel.tabs.test.tsx exists. The Vitest suite covers -- the
+// behavior is best asserted at the component layer.
 func TestDetailPanelTabsTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tabs.test.tsx")
@@ -683,7 +674,7 @@ func TestDetailPanelTabsTestFileExists(t *testing.T) {
 // Task 0 -- extractErrorMessage extraction (shared helper)
 // ---------------------------------------------------------------------------
 
-// 9.11-STRUCT-040 [P1]: extractErrorMessage is extracted to
+// extractErrorMessage is extracted to
 // frontend/src/lib/extractErrorMessage.ts as a shared helper. XRefTableView
 // and PlainTextView import it from the new location (Task 0.1).
 func TestExtractErrorMessageExtracted(t *testing.T) {
@@ -701,8 +692,8 @@ func TestExtractErrorMessageExtracted(t *testing.T) {
 	}
 }
 
-// 9.11-STRUCT-041 [P1]: DetailPanel.tsx imports extractErrorMessage from
-// the new lib path (Task 0.1).
+// DetailPanel.tsx imports extractErrorMessage from the new lib path
+// (Task 0.1).
 func TestDetailPanelImportsExtractedHelper(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "extractErrorMessage") {

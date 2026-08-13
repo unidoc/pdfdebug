@@ -68,8 +68,8 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-001 [P1]: GetAncestorPath exists in inspector.go
-// AC#2, #6: The backend must provide GetAncestorPath to return the path from
+// GetAncestorPath exists in inspector.go: The backend must provide
+// GetAncestorPath to return the path from
 //           root to a target node.
 // ---------------------------------------------------------------------------
 
@@ -87,8 +87,8 @@ func TestGetAncestorPathMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-002 [P1]: findPathToObject helper exists in inspector.go
-// AC#2: BFS helper to find the path through the PDF object graph.
+// findPathToObject helper exists in inspector.go: BFS helper to
+// find the path through the PDF object graph.
 // ---------------------------------------------------------------------------
 
 func TestFindPathToObjectExists(t *testing.T) {
@@ -105,8 +105,8 @@ func TestFindPathToObjectExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-003 [P0]: GetAncestorPath unit test exists and passes
-// AC#2: The pdfcore unit test for GetAncestorPath must exist and pass using
+// GetAncestorPath unit test exists and passes: The pdfcore unit test for
+// GetAncestorPath must exist and pass using
 //       testdata/minimal.pdf.
 // ---------------------------------------------------------------------------
 
@@ -121,8 +121,8 @@ func TestGetAncestorPathUnitTestPasses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-004 [P1]: GetAncestorPath returns root path for "root" nodeID
-// AC#2: GetAncestorPath("root") must return ["root"].
+// GetAncestorPath returns root path for "root" nodeID
+// GetAncestorPath("root") must return ["root"].
 // Delegates to pdfcore unit test.
 // ---------------------------------------------------------------------------
 
@@ -136,8 +136,8 @@ func TestGetAncestorPathRootNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-005 [P1]: GetAncestorPath returns error for dangling reference
-// AC#5: Dangling reference must return an error, not crash.
+// GetAncestorPath returns error for dangling reference: Dangling
+// reference must return an error, not crash.
 // ---------------------------------------------------------------------------
 
 func TestGetAncestorPathDanglingRef(t *testing.T) {
@@ -150,8 +150,8 @@ func TestGetAncestorPathDanglingRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-INTG-006 [P1]: PDFService.GetAncestorPath delegation exists
-// AC#2: pdfservice must expose GetAncestorPath, delegating to pdfcore.
+// PDFService.GetAncestorPath delegation exists: pdfservice must expose
+// GetAncestorPath, delegating to pdfcore.
 // ---------------------------------------------------------------------------
 
 func TestServiceGetAncestorPathExists(t *testing.T) {
@@ -168,8 +168,8 @@ func TestServiceGetAncestorPathExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-001 [P1]: useDocumentState has pendingNavTarget field
-// AC#2, #3: State must track pending navigation target per tab.
+// useDocumentState has pendingNavTarget field: State must track
+// pending navigation target per tab.
 // ---------------------------------------------------------------------------
 
 func TestStateHasPendingNavTarget(t *testing.T) {
@@ -186,8 +186,8 @@ func TestStateHasPendingNavTarget(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-002 [P1]: useDocumentState has navError field
-// AC#5: State must track navigation errors per tab.
+// useDocumentState has navError field: State must track
+// navigation errors per tab.
 // ---------------------------------------------------------------------------
 
 func TestStateHasNavError(t *testing.T) {
@@ -204,8 +204,8 @@ func TestStateHasNavError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-003 [P1]: useDocumentState has NAVIGATE_TO_REF action
-// AC#2: Reducer must handle NAVIGATE_TO_REF action.
+// useDocumentState has NAVIGATE_TO_REF action: Reducer must handle
+// NAVIGATE_TO_REF action.
 // ---------------------------------------------------------------------------
 
 func TestStateHasNavigateToRefAction(t *testing.T) {
@@ -222,8 +222,8 @@ func TestStateHasNavigateToRefAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-004 [P1]: useDocumentState has CLEAR_NAV_TARGET action
-// AC#2: Reducer must handle CLEAR_NAV_TARGET action.
+// useDocumentState has CLEAR_NAV_TARGET action: Reducer must handle
+// CLEAR_NAV_TARGET action.
 // ---------------------------------------------------------------------------
 
 func TestStateHasClearNavTargetAction(t *testing.T) {
@@ -240,8 +240,8 @@ func TestStateHasClearNavTargetAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-005 [P1]: useDocumentState has NAV_ERROR action
-// AC#5: Reducer must handle NAV_ERROR action for dangling references.
+// useDocumentState has NAV_ERROR action: Reducer must handle
+// NAV_ERROR action for dangling references.
 // ---------------------------------------------------------------------------
 
 func TestStateHasNavErrorAction(t *testing.T) {
@@ -258,8 +258,8 @@ func TestStateHasNavErrorAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-006 [P1]: useDocumentState has DISMISS_NAV_ERROR action
-// AC#5: Reducer must handle DISMISS_NAV_ERROR action.
+// useDocumentState has DISMISS_NAV_ERROR action: Reducer must handle
+// DISMISS_NAV_ERROR action.
 // ---------------------------------------------------------------------------
 
 func TestStateHasDismissNavErrorAction(t *testing.T) {
@@ -276,8 +276,8 @@ func TestStateHasDismissNavErrorAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-007 [P1]: DetailShared.tsx ValueDisplay has onReferenceClick prop
-// AC#1, #2: ValueDisplay must accept onReferenceClick callback prop.
+// DetailShared.tsx ValueDisplay has onReferenceClick prop: ValueDisplay must
+// accept onReferenceClick callback prop.
 // ---------------------------------------------------------------------------
 
 func TestValueDisplayHasOnReferenceClick(t *testing.T) {
@@ -294,8 +294,8 @@ func TestValueDisplayHasOnReferenceClick(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-008 [P1]: DetailPanel.tsx has handleReferenceClick
-// AC#2: DetailPanel must define handleReferenceClick and pass to view components.
+// DetailPanel.tsx has handleReferenceClick: DetailPanel must define
+// handleReferenceClick and pass to view components.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelHasHandleReferenceClick(t *testing.T) {
@@ -312,14 +312,13 @@ func TestDetailPanelHasHandleReferenceClick(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-009 [P1]: ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF via
-// useAppDispatch on reference click.
-// Re-pinned 2026-05-22 (Epic 9 retro): the original handleReferenceClick
-// identifier pin was stale -- the local handler was renamed to handleRefClick
-// and routes through useAppDispatch. The behavioral contract (click ->
-// NAVIGATE_TO_REF dispatch) is preserved; only the identifier name drifted.
-// Behavioral coverage held by frontend/src/components/ReferenceNavigation.test.tsx
-// (1,032 lines) + ObjectInfoPanel.test.tsx.
+// ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF via useAppDispatch on reference
+// click. Re-pinned 2026-05-22 (Epic 9 retro): the original handleReferenceClick
+// identifier pin was stale -- the local handler was renamed to handleRefClick and
+// routes through useAppDispatch. The behavioral contract (click -> NAVIGATE_TO_REF
+// dispatch) is preserved; only the identifier name drifted. Behavioral coverage
+// held by frontend/src/components/ReferenceNavigation.test.tsx (1,032 lines) +
+// ObjectInfoPanel.test.tsx.
 // ---------------------------------------------------------------------------
 
 func TestObjectInfoPanelDispatchesNavigateToRefOnClick(t *testing.T) {
@@ -339,8 +338,8 @@ func TestObjectInfoPanelDispatchesNavigateToRefOnClick(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-010 [P1]: TreePanel.tsx has treeRef for react-arborist TreeApi
-// AC#2, #4, #6: TreePanel must use a ref to control react-arborist
+// TreePanel.tsx has treeRef for react-arborist TreeApi: TreePanel must use
+// a ref to control react-arborist
 //               programmatic open/scroll/select.
 // ---------------------------------------------------------------------------
 
@@ -358,8 +357,8 @@ func TestTreePanelHasTreeRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-011 [P1]: TreePanel.tsx watches pendingNavTarget
-// AC#2, #6: TreePanel must have a useEffect that watches pendingNavTarget
+// TreePanel.tsx watches pendingNavTarget: TreePanel must have a useEffect
+// that watches pendingNavTarget
 //           and calls GetAncestorPath.
 // ---------------------------------------------------------------------------
 
@@ -380,8 +379,8 @@ func TestTreePanelWatchesPendingNavTarget(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-012 [P2]: TreePanel.tsx has flashNodeId for flash effect
-// AC#3: TreePanel must have flashNodeId state for the 100ms highlight pulse.
+// TreePanel.tsx has flashNodeId for flash effect: TreePanel must have
+// flashNodeId state for the 100ms highlight pulse.
 // ---------------------------------------------------------------------------
 
 func TestTreePanelHasFlashNodeId(t *testing.T) {
@@ -398,8 +397,8 @@ func TestTreePanelHasFlashNodeId(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-013 [P2]: TreePanel.tsx has navError display
-// AC#5: TreePanel must render navError as a transient toast message.
+// TreePanel.tsx has navError display: TreePanel must render navError
+// as a transient toast message.
 // ---------------------------------------------------------------------------
 
 func TestTreePanelHasNavErrorDisplay(t *testing.T) {
@@ -419,8 +418,8 @@ func TestTreePanelHasNavErrorDisplay(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-STRUCT-014 [P1]: GetAncestorPath uses safeCall for panic recovery
-// AC#2: All pdfcpu calls in GetAncestorPath must be wrapped in safeCall.
+// GetAncestorPath uses safeCall for panic recovery: All pdfcpu calls in
+// GetAncestorPath must be wrapped in safeCall.
 // ---------------------------------------------------------------------------
 
 func TestGetAncestorPathUsesSafeCall(t *testing.T) {

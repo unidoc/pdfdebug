@@ -67,9 +67,9 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-001 [P0]: GetObjectDetail() returns correct key-value pairs for
-// dictionary node with type-preserved values
-// AC#2: Given a dictionary node is selected in the tree, When the
+// GetObjectDetail() returns correct key-value pairs for dictionary node
+// with type-preserved values: Given a dictionary node is selected in the
+// tree, When the
 //       ObjectInfoPanel updates, Then it displays a key-value table with
 //       each PDF dictionary key and its value, And values are typed.
 // ---------------------------------------------------------------------------
@@ -98,8 +98,8 @@ func TestGetObjectDetailDict(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-002 [P0]: GetObjectDetail() returns correct elements for array node
-// AC#3: Given an array node is selected, When the ObjectInfoPanel updates,
+// GetObjectDetail() returns correct elements for array node: Given an array
+// node is selected, When the ObjectInfoPanel updates,
 //       Then it displays an indexed list of array elements with type-colored
 //       values.
 // ---------------------------------------------------------------------------
@@ -124,8 +124,8 @@ func TestGetObjectDetailArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-003 [P0]: GetObjectDetail() returns correct value for scalar node
-// AC#4: Given a scalar node is selected, When the ObjectInfoPanel updates,
+// GetObjectDetail() returns correct value for scalar node: Given a scalar
+// node is selected, When the ObjectInfoPanel updates,
 //       Then it displays the single value with its type label.
 // ---------------------------------------------------------------------------
 
@@ -148,8 +148,8 @@ func TestGetObjectDetailScalar(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-004 [P0]: GetObjectDetail() returns stream properties and metadata
-// AC#6: Given a stream node is selected, When the ObjectInfoPanel updates,
+// GetObjectDetail() returns stream properties and metadata: Given a stream
+// node is selected, When the ObjectInfoPanel updates,
 //       Then it displays the stream's dictionary properties as a key-value
 //       table, And it displays stream metadata (length and filter names)
 //       below the properties.
@@ -176,8 +176,8 @@ func TestGetObjectDetailStream(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-005 [P0]: GetObjectDetail() populates ObjectRef for indirect objects
-// AC#2: The object reference (e.g., "4 0 R") is displayed in the panel header.
+// GetObjectDetail() populates ObjectRef for indirect objects: The object
+// reference (e.g., "4 0 R") is displayed in the panel header.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailObjectRef(t *testing.T) {
@@ -197,8 +197,8 @@ func TestGetObjectDetailObjectRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-006 [P0]: GetObjectDetail() returns empty properties for empty dict
-// AC#5: Given an empty dictionary is selected, When the ObjectInfoPanel
+// GetObjectDetail() returns empty properties for empty dict: Given an empty
+// dictionary is selected, When the ObjectInfoPanel
 //       updates, Then it shows "Empty dictionary" in muted text.
 // (Backend: returns ObjectDetail.Type == "dict" with Properties == [])
 // ---------------------------------------------------------------------------
@@ -214,8 +214,8 @@ func TestGetObjectDetailEmptyDict(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-007 [P0]: GetObjectDetail() returns empty elements for empty array
-// AC#5: Given an empty array is selected, When the ObjectInfoPanel updates,
+// GetObjectDetail() returns empty elements for empty array: Given an empty
+// array is selected, When the ObjectInfoPanel updates,
 //       Then it shows "Empty array" in muted text.
 // (Backend: returns ObjectDetail.Type == "array" with Elements == [])
 // ---------------------------------------------------------------------------
@@ -231,8 +231,8 @@ func TestGetObjectDetailEmptyArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-008 [P1]: GetObjectDetail() with unknown tabID returns error
-// AC#2 (negative): Given an unknown tabID, When GetObjectDetail is called,
+// GetObjectDetail() with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetObjectDetail is called,
 //                  Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
@@ -246,8 +246,8 @@ func TestGetObjectDetailUnknownTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-009 [P1]: GetObjectDetail() with invalid nodeID returns error
-// AC#2 (negative): Given an invalid nodeID, When GetObjectDetail is called,
+// GetObjectDetail() with invalid nodeID returns error (negative): Given an
+// invalid nodeID, When GetObjectDetail is called,
 //                  Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
@@ -267,9 +267,9 @@ func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-010 [P1]: GetObjectDetail() reference values have RefTarget set
-// AC#2: References in purple (text-type-reference, underlined and clickable).
-// Backend must set RefTarget on IndirectRef ValueEntry so frontend can render.
+// GetObjectDetail() reference values have RefTarget set: References in purple
+// (text-type-reference, underlined and clickable). Backend must set RefTarget
+// on IndirectRef ValueEntry so frontend can render.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailRefTarget(t *testing.T) {
@@ -288,8 +288,8 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-011 [P1]: GetObjectDetail method exists on Inspector
-// AC#2: inspector.go has GetObjectDetail method signature.
+// GetObjectDetail method exists on Inspector: inspector.go has
+// GetObjectDetail method signature.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailMethodExists(t *testing.T) {
@@ -309,8 +309,8 @@ func TestGetObjectDetailMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-012 [P1]: valueEntryFromObject helper exists
-// AC#2: Centralized pdfcpu-type-to-ValueEntry mapping helper.
+// valueEntryFromObject helper exists: Centralized
+// pdfcpu-type-to-ValueEntry mapping helper.
 // ---------------------------------------------------------------------------
 
 func TestValueEntryHelperExists(t *testing.T) {
@@ -330,8 +330,8 @@ func TestValueEntryHelperExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-013 [P1]: extractStreamInfo helper exists
-// AC#6: Stream metadata extraction helper.
+// extractStreamInfo helper exists: Stream metadata
+// extraction helper.
 // ---------------------------------------------------------------------------
 
 func TestExtractStreamInfoHelperExists(t *testing.T) {
@@ -351,8 +351,8 @@ func TestExtractStreamInfoHelperExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-014 [P1]: GetObjectDetail wrapped in safeCall for panic recovery
-// AC#2: All pdfcpu calls must be wrapped in safeCall.
+// GetObjectDetail wrapped in safeCall for panic recovery: All pdfcpu calls
+// must be wrapped in safeCall.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailPanicRecovery(t *testing.T) {
@@ -373,8 +373,8 @@ func TestGetObjectDetailPanicRecovery(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-015 [P1]: inspector.go has no Wails imports
-// AC#2: pdfcore must have zero Wails dependencies.
+// inspector.go has no Wails imports: pdfcore must have
+// zero Wails dependencies.
 // ---------------------------------------------------------------------------
 
 func TestInspectorNoWailsImports(t *testing.T) {
@@ -394,8 +394,8 @@ func TestInspectorNoWailsImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-016 [P1]: All pdfcore tests pass after GetObjectDetail addition
-// AC#2-#6: Unit tests cover all object detail scenarios.
+// All pdfcore tests pass after GetObjectDetail addition -#6: Unit tests
+// cover all object detail scenarios.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfcoreTestsPass(t *testing.T) {
@@ -414,8 +414,8 @@ func TestAllPdfcoreTestsPass(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-017 [P1]: go vet passes on pdfcore with GetObjectDetail
-// AC#2: No vet warnings after adding GetObjectDetail.
+// go vet passes on pdfcore with GetObjectDetail: No vet warnings
+// after adding GetObjectDetail.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVetWithObjectDetail(t *testing.T) {
@@ -431,8 +431,8 @@ func TestPdfcoreGoVetWithObjectDetail(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-018 [P1]: pdfcore compiles with GetObjectDetail added
-// AC#2: go build ./... succeeds.
+// Pdfcore compiles with GetObjectDetail added: go build ./...
+// succeeds.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreCompilesWithObjectDetail(t *testing.T) {

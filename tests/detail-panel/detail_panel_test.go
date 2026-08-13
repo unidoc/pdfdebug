@@ -40,8 +40,8 @@ func projectRoot(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-001 [P1]: DetailPanel.tsx exists
-// AC#1-#7: The DetailPanel component file must exist.
+// DetailPanel.tsx exists -#7: The DetailPanel
+// component file must exist.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelFileExists(t *testing.T) {
@@ -53,8 +53,8 @@ func TestDetailPanelFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-002 [P1]: DetailShared.tsx exists
-// AC#2-#5: Shared rendering components extracted to DetailShared.tsx.
+// DetailShared.tsx exists -#5: Shared rendering components extracted
+// to DetailShared.tsx.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedFileExists(t *testing.T) {
@@ -66,8 +66,8 @@ func TestDetailSharedFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-003 [P1]: DetailPanel.tsx exports DetailPanel
-// AC#1-#7: The component must be a named export.
+// DetailPanel.tsx exports DetailPanel -#7: The component
+// must be a named export.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelExport(t *testing.T) {
@@ -84,8 +84,8 @@ func TestDetailPanelExport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-004 [P1]: DetailPanel.tsx uses React.memo
-// AC: Architecture requirement -- wrapped in React.memo.
+// DetailPanel.tsx uses React.memo AC: Architecture
+// requirement -- wrapped in React.memo.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelUsesMemo(t *testing.T) {
@@ -102,8 +102,8 @@ func TestDetailPanelUsesMemo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-005 [P1]: DetailPanel.tsx has data-testid attributes
-// AC#1-#6: Required data-testid attributes for testing.
+// DetailPanel.tsx has data-testid attributes -#6: Required
+// data-testid attributes for testing.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelTestIds(t *testing.T) {
@@ -131,8 +131,8 @@ func TestDetailPanelTestIds(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-006 [P1]: DetailPanel.tsx has aria-live="polite"
-// AC#7: Screen reader support via aria-live.
+// DetailPanel.tsx has aria-live="polite": Screen reader
+// support via aria-live.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelAriaLive(t *testing.T) {
@@ -149,18 +149,18 @@ func TestDetailPanelAriaLive(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-007 [P1]: MainLayout.tsx imports DetailPanel
-// AC#1: DetailPanel wired into the right panel.
+// MainLayout.tsx imports DetailPanel: DetailPanel wired
+// into the right panel.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-008 [P1]: ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through
-// useAppDispatch when a reference value is clicked.
-// Re-pinned 2026-05-22 (Epic 9 retro) -- the original DetailShared import
-// assertion was stale (the component was refactored to consume context via
-// useAppState/useAppDispatch directly and to fetch source via GetObjectSource).
-// Behavioral coverage for the click-to-navigate contract is held by
+// ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through useAppDispatch when a
+// reference value is clicked. Re-pinned 2026-05-22 (Epic 9 retro) -- the
+// original DetailShared import assertion was stale (the component was
+// refactored to consume context via useAppState/useAppDispatch directly and to
+// fetch source via GetObjectSource). Behavioral coverage for the
+// click-to-navigate contract is held by
 // frontend/src/components/ObjectInfoPanel.test.tsx (430 lines, 20 cases).
 // ---------------------------------------------------------------------------
 
@@ -181,8 +181,8 @@ func TestObjectInfoPanelDispatchesNavigateToRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-009 [P1]: useDocumentState.tsx has selectedNodeLabel in TabState
-// AC#2: Tab state must track selected node label for header context.
+// useDocumentState.tsx has selectedNodeLabel in TabState: Tab state must
+// track selected node label for header context.
 // ---------------------------------------------------------------------------
 
 func TestTabStateHasSelectedNodeLabel(t *testing.T) {
@@ -199,8 +199,8 @@ func TestTabStateHasSelectedNodeLabel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-010 [P1]: useDocumentState.tsx has selectedNodeRawKey in TabState
-// AC#2: Tab state must track selected node rawKey for header context.
+// useDocumentState.tsx has selectedNodeRawKey in TabState: Tab state must
+// track selected node rawKey for header context.
 // ---------------------------------------------------------------------------
 
 func TestTabStateHasSelectedNodeRawKey(t *testing.T) {
@@ -217,8 +217,8 @@ func TestTabStateHasSelectedNodeRawKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-011 [P1]: DetailShared.tsx exports shared types and components
-// AC#2-#5: Shared rendering logic available for both panels.
+// DetailShared.tsx exports shared types and components -#5: Shared
+// rendering logic available for both panels.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedExports(t *testing.T) {

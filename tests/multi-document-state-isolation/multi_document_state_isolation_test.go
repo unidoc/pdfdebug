@@ -68,9 +68,9 @@ func runColocatedTest(t *testing.T, root, testName, pkg string) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-001 [P0]: Inspector.Open() with two different tabIDs creates two
-// independent DocumentState entries.
-// AC#2: Each document has its own entry in the documents map keyed by tabID.
+// Inspector.Open() with two different tabIDs creates two independent
+// DocumentState entries.
+// Each document has its own entry in the documents map keyed by tabID.
 //
 // Given two different PDF files,
 // When Inspector.Open() is called with distinct tabIDs for each,
@@ -94,8 +94,8 @@ func TestTwoIndependentDocumentStates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-002 [P0]: Inspector.Close() removes only the specified tabID.
-// AC#2: Closing a tab calls CloseDocument() which frees resources for that
+// Inspector.Close() removes only the specified tabID.
+// Closing a tab calls CloseDocument() which frees resources for that
 // document only.
 //
 // Given two documents are open with different tabIDs,
@@ -110,8 +110,8 @@ func TestCloseRemovesOnlyTargetTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-003 [P1]: Malformed PDF in one tab does not affect queries to another.
-// AC#1, AC#2: Error isolation between documents.
+// Malformed PDF in one tab does not affect queries to another.
+// Error isolation between documents.
 //
 // Given testdata/multipage.pdf is open as tab-1,
 // And testdata/malformed.pdf is opened as tab-2 (may open with warning or fail),
@@ -131,8 +131,8 @@ func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-004 [P1]: Failed PDF open (encrypted) does not affect other tabs.
-// AC#1, AC#2: Error path isolation.
+// Failed PDF open (encrypted) does not affect other tabs.
+// Error path isolation.
 //
 // Given testdata/multipage.pdf is open as tab-1,
 // When testdata/encrypted.pdf is opened as tab-2 (should fail with ErrEncryptedPDF),
@@ -151,9 +151,9 @@ func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-006 [P2]: Content stream cache is per-document -- closing one tab
-// does not clear another tab's cache.
-// AC#1, AC#2: Stream cache isolation.
+// Content stream cache is per-document -- closing one tab does not clear
+// another tab's cache.
+// Stream cache isolation.
 //
 // Given two documents are open,
 // When GetContentStream is called on tab-1 for a stream node,

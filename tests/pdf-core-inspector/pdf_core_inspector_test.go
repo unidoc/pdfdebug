@@ -49,8 +49,8 @@ func testdataDir(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-001 [P0]: Inspector.Open() opens valid PDF, returns DocumentInfo
-// AC#1: Given a valid PDF file path, When Inspector.Open() is called,
+// Inspector.Open() opens valid PDF, returns DocumentInfo: Given a valid PDF
+// file path, When Inspector.Open() is called,
 //       Then pdfcpu parses the file and returns DocumentInfo with tabId,
 //       fileName, filePath, pageCount, and fileSize.
 // ---------------------------------------------------------------------------
@@ -88,8 +88,8 @@ func TestInspectorOpenValidPDF(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-002 [P0]: Inspector.Open() on malformed PDF returns error, no panic
-// AC#2: Given a malformed PDF, When Inspector.Open() is called,
+// Inspector.Open() on malformed PDF returns error, no panic: Given a malformed
+// PDF, When Inspector.Open() is called,
 //       Then the function does not crash or panic, And returns an error
 //       with a human-readable message.
 // ---------------------------------------------------------------------------
@@ -122,8 +122,8 @@ func TestInspectorOpenMalformedPDF(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-003 [P0]: safeCall() catches panic and returns wrapped error
-// AC#3: Given the safeCall() utility, When a function panics,
+// safeCall() catches panic and returns wrapped error: Given the
+// safeCall() utility, When a function panics,
 //       Then the panic is caught and returned as a Go error with format
 //       "pdf parsing panic: {recovered value}".
 // ---------------------------------------------------------------------------
@@ -151,8 +151,8 @@ func TestSafeCallCatchesPanic(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-004 [P0]: Inspector.Open() on non-existent path returns ErrDocumentNotFound
-// AC#1 (negative): Given a file path that does not exist,
+// Inspector.Open() on non-existent path returns ErrDocumentNotFound (negative): Given
+// a file path that does not exist,
 //                  When Inspector.Open() is called,
 //                  Then it returns an error wrapping ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
@@ -178,8 +178,8 @@ func TestInspectorOpenNonExistentFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-005 [P1]: Inspector.Open() on encrypted PDF returns ErrEncryptedPDF
-// AC#2: Given an encrypted PDF, When Inspector.Open() is called,
+// Inspector.Open() on encrypted PDF returns ErrEncryptedPDF: Given an
+// encrypted PDF, When Inspector.Open() is called,
 //       Then the error wraps ErrEncryptedPDF with a message about encryption.
 // ---------------------------------------------------------------------------
 
@@ -210,8 +210,8 @@ func TestInspectorOpenEncryptedPDF(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-006 [P1]: pdfcore package has zero Wails imports
-// AC#4: Given the pdfcore package, When reviewed for architecture compliance,
+// Pdfcore package has zero Wails imports: Given the pdfcore package, When
+// reviewed for architecture compliance,
 //       Then it has zero dependency on Wails or any desktop framework.
 // ---------------------------------------------------------------------------
 
@@ -260,8 +260,8 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-INTG-001 [P1]: Inspector.Open() on multipage.pdf returns correct page count
-// AC#1: Given a multi-page PDF, When Inspector.Open() is called,
+// Inspector.Open() on multipage.pdf returns correct page count: Given a
+// multi-page PDF, When Inspector.Open() is called,
 //       Then DocumentInfo.PageCount reflects the actual number of pages.
 // ---------------------------------------------------------------------------
 
@@ -293,8 +293,8 @@ func TestInspectorOpenMultipagePDF(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-007 [P1]: Model types exist in model.go with correct JSON tags
-// AC#4: pdfcore exports model types (TreeNode, ObjectDetail, ContentStreamData,
+// Model types exist in model.go with correct JSON tags: pdfcore exports model
+// types (TreeNode, ObjectDetail, ContentStreamData,
 //       DocumentInfo, ValueEntry, PropertyEntry, StreamInfo, Token) in model.go.
 // ---------------------------------------------------------------------------
 
@@ -355,8 +355,8 @@ func TestModelTypesExist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-008 [P1]: Error types use Err prefix convention
-// AC#4: Error types use Err prefix convention (ErrDocumentNotFound, ErrMalformedPDF).
+// Error types use Err prefix convention: Error types use Err prefix convention
+// (ErrDocumentNotFound, ErrMalformedPDF).
 // ---------------------------------------------------------------------------
 
 func TestErrorTypesExist(t *testing.T) {
@@ -396,8 +396,8 @@ func TestErrorTypesExist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-009 [P1]: Inspector struct and API surface exist
-// AC#4: Inspector with Open, Close, GetDocument methods.
+// Inspector struct and API surface exist: Inspector with
+// Open, Close, GetDocument methods.
 // ---------------------------------------------------------------------------
 
 func TestInspectorAPIExists(t *testing.T) {
@@ -441,8 +441,8 @@ func TestInspectorAPIExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-010 [P1]: Close removes document, GetDocument retrieves it
-// AC#4: Unit tests exist for Close and GetDocument scenarios.
+// Close removes document, GetDocument retrieves it: Unit tests exist
+// for Close and GetDocument scenarios.
 // ---------------------------------------------------------------------------
 
 func TestInspectorCloseAndGetDocument(t *testing.T) {
@@ -466,8 +466,8 @@ func TestInspectorCloseAndGetDocument(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-011 [P1]: All pdfcore unit tests pass together
-// AC#4: Unit tests exist for Open with valid PDF, malformed PDF, and encrypted
+// All pdfcore unit tests pass together: Unit tests exist for Open with valid
+// PDF, malformed PDF, and encrypted
 //       PDF scenarios using test fixtures in testdata/.
 // ---------------------------------------------------------------------------
 
@@ -488,8 +488,8 @@ func TestAllPdfcoreTestsPass(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.1-UNIT-012 [P1]: go vet passes on pdfcore package
-// AC#4: Code quality -- no vet warnings.
+// go vet passes on pdfcore package: Code quality --
+// no vet warnings.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVet(t *testing.T) {

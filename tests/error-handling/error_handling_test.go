@@ -68,14 +68,13 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Partial open with warning -- Open() resilient to EnsurePageCount failure
+// Partial open with warning -- Open() resilient to EnsurePageCount failure
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-INTG-001 [P0]: Open() with malformed PDF stores document and populates
-// DocumentInfo.Error with a warning (not a fatal error) when ReadContextFile
-// succeeds but EnsurePageCount fails.
-// Delegates to pdfcore unit test.
+// Open() with malformed PDF stores document and populates DocumentInfo.Error
+// with a warning (not a fatal error) when ReadContextFile succeeds but
+// EnsurePageCount fails. Delegates to pdfcore unit test.
 // ---------------------------------------------------------------------------
 
 func TestOpenPartialSuccessWithWarning(t *testing.T) {
@@ -88,9 +87,9 @@ func TestOpenPartialSuccessWithWarning(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-INTG-002 [P0]: Open() partial success still stores document so
-// GetTreeRoot/GetChildren can access it afterward.
-// Delegates to pdfcore unit test.
+// Open() partial success still stores document so
+// GetTreeRoot/GetChildren can access it afterward. Delegates to
+// pdfcore unit test.
 // ---------------------------------------------------------------------------
 
 func TestOpenPartialSuccessDocumentStored(t *testing.T) {
@@ -103,14 +102,13 @@ func TestOpenPartialSuccessDocumentStored(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2: Error node detail resolution -- GetObjectDetail handles "error:" prefix
+// Error node detail resolution -- GetObjectDetail handles "error:" prefix
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-UNIT-001 [P0]: GetObjectDetail returns ObjectDetail for error-prefixed
-// node IDs (from buildChildrenDepth error nodes) instead of returning
-// "unknown node ID kind" error.
-// Delegates to pdfcore unit test.
+// GetObjectDetail returns ObjectDetail for error-prefixed node IDs (from
+// buildChildrenDepth error nodes) instead of returning "unknown node ID
+// kind" error. Delegates to pdfcore unit test.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailErrorNodePrefix(t *testing.T) {
@@ -118,9 +116,9 @@ func TestGetObjectDetailErrorNodePrefix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-001 [P0]: inspector.go has strings.HasPrefix(nodeID, "error:")
-// check in GetObjectDetail.
-// AC#2: Error-prefixed nodes must be handled before resolveNodeObject.
+// inspector.go has strings.HasPrefix(nodeID, "error:") check in
+// GetObjectDetail.
+// Error-prefixed nodes must be handled before resolveNodeObject.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailErrorPrefixCheck(t *testing.T) {
@@ -137,21 +135,21 @@ func TestGetObjectDetailErrorPrefixCheck(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Warning propagation in main.go openFileAndEmit
+// Warning propagation in main.go openFileAndEmit
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-002 [P1]: main.go propagates docInfo.Error as "warning" field
-// in the document:opened event payload.
+// main.go propagates docInfo.Error as "warning" field in the
+// document:opened event payload.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#1: Frontend warning state in useDocumentState
+// Frontend warning state in useDocumentState
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-003 [P0]: useDocumentState.tsx has documentWarning in AppState.
+// useDocumentState.tsx has documentWarning in AppState.
 // ---------------------------------------------------------------------------
 
 func TestStateHasDocumentWarning(t *testing.T) {
@@ -168,7 +166,7 @@ func TestStateHasDocumentWarning(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-004 [P0]: useDocumentState.tsx has SET_DOCUMENT_WARNING action.
+// useDocumentState.tsx has SET_DOCUMENT_WARNING action.
 // ---------------------------------------------------------------------------
 
 func TestStateHasSetDocumentWarningAction(t *testing.T) {
@@ -185,7 +183,7 @@ func TestStateHasSetDocumentWarningAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-005 [P0]: useDocumentState.tsx has DISMISS_WARNING action.
+// useDocumentState.tsx has DISMISS_WARNING action.
 // ---------------------------------------------------------------------------
 
 func TestStateHasDismissWarningAction(t *testing.T) {
@@ -202,12 +200,12 @@ func TestStateHasDismissWarningAction(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: ErrorBanner severity-specific enhancements
+// ErrorBanner severity-specific enhancements
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-006 [P1]: ErrorBanner.tsx uses severity-aware data-testid:
-// "warning-banner" for warning, "error-banner" for error.
+// ErrorBanner.tsx uses severity-aware data-testid: "warning-banner" for
+// warning, "error-banner" for error.
 // ---------------------------------------------------------------------------
 
 func TestErrorBannerSeverityTestId(t *testing.T) {
@@ -224,8 +222,7 @@ func TestErrorBannerSeverityTestId(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-007 [P1]: ErrorBanner.tsx has severity icon -- (!) for warning
-// and (x) for error.
+// ErrorBanner.tsx has severity icon -- (!) for warning and (x) for error.
 // ---------------------------------------------------------------------------
 
 func TestErrorBannerSeverityIcon(t *testing.T) {
@@ -245,7 +242,7 @@ func TestErrorBannerSeverityIcon(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-008 [P1]: ErrorBanner.tsx has severity-aware aria-label on
+// ErrorBanner.tsx has severity-aware aria-label on
 // dismiss button ("Dismiss warning" / "Dismiss error").
 // ---------------------------------------------------------------------------
 
@@ -263,8 +260,8 @@ func TestErrorBannerDismissAriaLabel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-009 [P2]: ErrorBanner.tsx uses tinted-light backgrounds (no
-// dark: variants by design). See in-file rationale below.
+// ErrorBanner.tsx uses tinted-light backgrounds (no dark: variants by
+// design). See in-file rationale below.
 // ---------------------------------------------------------------------------
 
 func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
@@ -292,12 +289,12 @@ func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: App.jsx warning banner rendering
+// App.jsx warning banner rendering
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-010 [P1]: App.jsx reads documentWarning from state and renders
-// a warning ErrorBanner with severity="warning".
+// App.jsx reads documentWarning from state and renders a warning
+// ErrorBanner with severity="warning".
 // ---------------------------------------------------------------------------
 
 func TestAppJsxWarningBanner(t *testing.T) {
@@ -317,8 +314,8 @@ func TestAppJsxWarningBanner(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-011 [P1]: App.jsx document:opened event listener reads
-// data.warning and dispatches SET_DOCUMENT_WARNING.
+// App.jsx document:opened event listener reads data.warning and
+// dispatches SET_DOCUMENT_WARNING.
 // ---------------------------------------------------------------------------
 
 func TestAppJsxEventWarningPropagation(t *testing.T) {
@@ -335,11 +332,11 @@ func TestAppJsxEventWarningPropagation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Warning propagation via usePDFService.ts (EmptyState code path)
+// Warning propagation via usePDFService.ts (EmptyState code path)
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-STRUCT-012 [P1]: usePDFService.ts OpenPDFResult has warning field.
+// usePDFService.ts OpenPDFResult has warning field.
 // ---------------------------------------------------------------------------
 
 func TestUsePDFServiceWarningField(t *testing.T) {
@@ -356,12 +353,12 @@ func TestUsePDFServiceWarningField(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#3: Panic recovery coverage -- all pdfcpu calls wrapped in safeCall
+// Panic recovery coverage -- all pdfcpu calls wrapped in safeCall
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.9-UNIT-002 [P0]: safeCall catches panic during tree traversal and returns
-// error node. Delegates to existing pdfcore test.
+// safeCall catches panic during tree traversal and returns error node.
+// Delegates to existing pdfcore test.
 // ---------------------------------------------------------------------------
 
 func TestSafeCallPanicRecovery(t *testing.T) {
@@ -369,8 +366,8 @@ func TestSafeCallPanicRecovery(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-UNIT-003 [P0]: Error nodes from buildChildrenDepth have correct
-// "error:"-prefixed IDs. Delegates to existing pdfcore test.
+// Error nodes from buildChildrenDepth have correct "error:"-prefixed
+// IDs. Delegates to existing pdfcore test.
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeCreation(t *testing.T) {
@@ -378,8 +375,8 @@ func TestErrorNodeCreation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.9-UNIT-004 [P0]: Error node siblings remain navigable when one child
-// fails. Delegates to existing pdfcore test.
+// Error node siblings remain navigable when one child fails. Delegates
+// to existing pdfcore test.
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeSiblingSurvival(t *testing.T) {

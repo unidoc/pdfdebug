@@ -56,8 +56,8 @@ func readStyleCSS(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-001 (P1): CSS custom properties for design tokens defined on :root
-// AC#1: --color-bg, --color-surface, --color-surface-hover,
+// CSS custom properties for design tokens defined on :root: --color-bg,
+// --color-surface, --color-surface-hover,
 //       --color-surface-selected, --color-text, --color-text-secondary,
 //       --color-text-muted, --color-border, --color-border-focus,
 //       --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
@@ -83,9 +83,9 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 	themeBlocks := themeBlockRe.FindAllString(css, -1)
 	rootOrThemeContent := rootContent + "\n" + strings.Join(themeBlocks, "\n")
 
-	// All design tokens that must be defined on :root (AC#1)
-	// Tokens with checkTheme=true may be defined in @theme instead of :root
-	// (Tailwind v4 @theme generates :root-level CSS vars at build time)
+	// All design tokens that must be defined on :root Tokens with
+	// checkTheme=true may be defined in @theme instead of :root (Tailwind
+	// v4 @theme generates :root-level CSS vars at build time)
 	type tokenCheck struct {
 		property   string
 		value      string // expected hex or value (empty = just check existence)
@@ -138,8 +138,8 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-002 (P1): PDF value type color custom properties defined
-// AC#2: --color-type-name (teal), --color-type-string (amber),
+// PDF value type color custom properties defined: --color-type-name
+// (teal), --color-type-string (amber),
 //       --color-type-number (blue), --color-type-reference (violet),
 //       --color-type-boolean (pink), --color-type-null (gray),
 //       --color-type-stream (emerald)
@@ -158,7 +158,7 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 
 	rootContent := strings.Join(rootBlocks, "\n")
 
-	// PDF value type colors (AC#2 first part)
+	// PDF value type colors (first part)
 	pdfTypeTokens := []struct {
 		property string
 		value    string
@@ -181,7 +181,7 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 		}
 	}
 
-	// Semantic colors (AC#2 second part)
+	// Semantic colors (second part)
 	semanticTokens := []struct {
 		property string
 		value    string
@@ -203,22 +203,22 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-003 (P1): Inter font configured as UI font with system-ui fallback
-// AC#3: Light theme defaults applied (body uses --color-bg and --color-text)
-// AC#4: Inter font configured with system-ui fallback
+// Inter font configured as UI font with system-ui fallback: Light theme
+// defaults applied (body uses --color-bg and --color-text): Inter font
+// configured with system-ui fallback
 // ---------------------------------------------------------------------------
 
 func TestInterFontAndBodyDefaults(t *testing.T) {
 	css := readStyleCSS(t)
 
-	// AC#4: Verify font-ui token includes Inter with system-ui fallback
-	// Check :root or @theme for --font-ui definition
+	// Verify font-ui token includes Inter with system-ui fallback Check
+	// :root or @theme for --font-ui definition
 	interFontRe := regexp.MustCompile(`--font-ui\s*:\s*['"]?Inter['"]?\s*,\s*system-ui`)
 	if !interFontRe.MatchString(css) {
 		t.Error("--font-ui not configured with Inter and system-ui fallback")
 	}
 
-	// AC#3: Verify body uses design token variables for light theme defaults
+	// Verify body uses design token variables for light theme defaults
 	bodyBlockRe := regexp.MustCompile(`(?s)body\s*\{[^}]+\}`)
 	bodyBlocks := bodyBlockRe.FindAllString(css, -1)
 	if len(bodyBlocks) == 0 {
@@ -251,8 +251,8 @@ func TestInterFontAndBodyDefaults(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-004 (P1): JetBrains Mono configured as mono font
-// AC#5: JetBrains Mono with ui-monospace fallback
+// JetBrains Mono configured as mono font: JetBrains Mono
+// with ui-monospace fallback
 // ---------------------------------------------------------------------------
 
 func TestJetBrainsMonoFontConfigured(t *testing.T) {
@@ -266,8 +266,8 @@ func TestJetBrainsMonoFontConfigured(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-005 (P2): prefers-reduced-motion disables CSS transitions
-// AC#7: All CSS transitions and animations disabled when OS-level
+// prefers-reduced-motion disables CSS transitions: All CSS
+// transitions and animations disabled when OS-level
 //       prefers-reduced-motion is enabled
 // ---------------------------------------------------------------------------
 
@@ -307,8 +307,8 @@ func TestReducedMotionSupport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-001 (P1): Tailwind v4 @theme directive extends theme
-// AC#6: Tailwind config extends default theme with custom spacing and fonts
+// Tailwind v4 @theme directive extends theme: Tailwind config extends
+// default theme with custom spacing and fonts
 // ---------------------------------------------------------------------------
 
 func TestTailwindV4ThemeDirective(t *testing.T) {
@@ -402,8 +402,8 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-002 (P1): @theme inline registers color tokens for Tailwind utilities
-// AC#6 (part): Colors registered via @theme inline so var() references work
+// @theme inline registers color tokens for Tailwind utilities (part): Colors
+// registered via @theme inline so var() references work
 // ---------------------------------------------------------------------------
 
 func TestTailwindThemeInlineColors(t *testing.T) {
@@ -457,8 +457,8 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-004 (P2): Wails template Inter-Medium.ttf deleted
-// Story task 2.5: Delete frontend/public/Inter-Medium.ttf
+// Wails template Inter-Medium.ttf deleted Story task 2.5:
+// Delete frontend/public/Inter-Medium.ttf
 // ---------------------------------------------------------------------------
 
 func TestWailsTemplateFontDeleted(t *testing.T) {
@@ -474,8 +474,8 @@ func TestWailsTemplateFontDeleted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-005 (P0): style.css retains Tailwind import
-// Verify the file still imports Tailwind (from Story 1.1) -- regression guard
+// style.css retains Tailwind import Verify the file still imports Tailwind
+// (from Story 1.1) -- regression guard
 // ---------------------------------------------------------------------------
 
 func TestTailwindImportRetained(t *testing.T) {

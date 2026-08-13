@@ -52,12 +52,12 @@ func readFile(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: PDFService struct exists with correct methods
+// PDFService struct exists with correct methods
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-001 [P1]: PDFService.OpenFile() delegates to Inspector.Open()
-// AC#1: Given a valid PDF, When PDFService.OpenFile(path) is called,
+// PDFService.OpenFile() delegates to Inspector.Open(): Given a valid
+// PDF, When PDFService.OpenFile(path) is called,
 //       Then it delegates to Inspector.Open() and returns DocumentInfo
 //       with non-empty TabID, correct FileName, PageCount > 0.
 // ---------------------------------------------------------------------------
@@ -86,8 +86,8 @@ func TestPDFServiceOpenFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-002 [P1]: PDFService.CloseDocument() delegates to Inspector.Close()
-// AC#1: Given a previously opened document, When CloseDocument(tabID) is called,
+// PDFService.CloseDocument() delegates to Inspector.Close(): Given a previously
+// opened document, When CloseDocument(tabID) is called,
 //       Then it delegates to Inspector.Close() and returns nil error.
 //       And calling again with the same tabID returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
@@ -113,8 +113,8 @@ func TestPDFServiceCloseDocument(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-003 [P1]: PDFService.GetTreeRoot() delegates to pdfcore
-// AC#1: Given an opened document, When GetTreeRoot(tabID) is called,
+// PDFService.GetTreeRoot() delegates to pdfcore: Given an opened
+// document, When GetTreeRoot(tabID) is called,
 //       Then it delegates to Inspector.GetTreeRoot() and returns TreeNode
 //       with ID "root".
 // ---------------------------------------------------------------------------
@@ -142,8 +142,8 @@ func TestPDFServiceGetTreeRoot(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-004 [P1]: PDFService.GetChildren() delegates to pdfcore
-// AC#1: Given an opened document, When GetChildren(tabID, "root") is called,
+// PDFService.GetChildren() delegates to pdfcore: Given an opened document,
+// When GetChildren(tabID, "root") is called,
 //       Then it delegates to Inspector.GetChildren() and returns non-empty
 //       []*TreeNode slice.
 // ---------------------------------------------------------------------------
@@ -170,8 +170,8 @@ func TestPDFServiceGetChildren(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-005 [P1]: PDFService.GetObjectDetail() returns stub error
-// AC#1: Given any input, When GetObjectDetail(tabID, nodeID) is called,
+// PDFService.GetObjectDetail() returns stub error: Given any input,
+// When GetObjectDetail(tabID, nodeID) is called,
 //       Then it returns a "not implemented" error (stub until Story 2-6).
 // ---------------------------------------------------------------------------
 
@@ -196,8 +196,8 @@ func TestPDFServiceGetObjectDetail(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-006 [P1]: PDFService methods with invalid tabID return error
-// AC#2: Given a PDFService method, When called with an unknown tabID,
+// PDFService methods with invalid tabID return error: Given a
+// PDFService method, When called with an unknown tabID,
 //       Then it returns an error (propagated from pdfcore).
 // ---------------------------------------------------------------------------
 
@@ -223,30 +223,30 @@ func TestPDFServiceInvalidTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Wails service registration in main.go
+// Wails service registration in main.go
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-001 [P1]: PDFService is registered in main.go via app.RegisterService()
-// AC#1: Given main.go, When reviewed, Then PDFService is created and registered
+// PDFService is registered in main.go via app.RegisterService(): Given main.go,
+// When reviewed, Then PDFService is created and registered
 //       using app.RegisterService() (NOT the Services: field in Options).
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-002 [P1]: main.go does NOT use Services: field in application.Options
-// AC#1: The app-shell test TestServicesFieldRemoved must still pass.
+// main.go does NOT use Services: field in application.Options: The app-shell
+// test TestServicesFieldRemoved must still pass.
 //       Services: field and application.NewService must not co-occur in Options.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#3: Architecture compliance -- pdfservice is thin adapter
+// Architecture compliance -- pdfservice is thin adapter
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-003 [P1]: service.go exists in internal/pdfservice/
-// AC#3: PDFService struct and methods live in internal/pdfservice/service.go.
+// service.go exists in internal/pdfservice: PDFService struct and methods
+// live in internal/pdfservice/service.go.
 // ---------------------------------------------------------------------------
 
 func TestServiceFileExists(t *testing.T) {
@@ -259,8 +259,8 @@ func TestServiceFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-004 [P1]: PDFService struct holds *pdfcore.Inspector
-// AC#3: PDFService holds a *pdfcore.Inspector instance, not a documents map.
+// PDFService struct holds *pdfcore.Inspector: PDFService holds a
+// *pdfcore.Inspector instance, not a documents map.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceStructHoldsInspector(t *testing.T) {
@@ -281,8 +281,8 @@ func TestPDFServiceStructHoldsInspector(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-005 [P1]: PDFService has correct method signatures
-// AC#1: All five service methods are exported with correct signatures.
+// PDFService has correct method signatures: All five service methods
+// are exported with correct signatures.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceMethodSignatures(t *testing.T) {
@@ -312,8 +312,8 @@ func TestPDFServiceMethodSignatures(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-006 [P1]: pdfservice has zero pdfcpu imports (thin adapter)
-// AC#3: pdfservice delegates to pdfcore -- it never imports pdfcpu directly.
+// Pdfservice has zero pdfcpu imports (thin adapter): pdfservice delegates to
+// pdfcore -- it never imports pdfcpu directly.
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
@@ -345,8 +345,8 @@ func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-007 [P1]: pdfservice is the Wails adapter layer
-// AC#3: pdfservice delegates to pdfcore. As the Wails adapter layer it may
+// Pdfservice is the Wails adapter layer: pdfservice delegates to pdfcore.
+// As the Wails adapter layer it may
 //       import Wails packages (e.g. application for dialog access). Only
 //       pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
 // ---------------------------------------------------------------------------
@@ -381,8 +381,8 @@ func TestPdfserviceIsWailsAdapter(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-008 [P1]: Round-trip test: OpenFile -> GetTreeRoot -> GetChildren -> CloseDocument
-// AC#1: Full service lifecycle with no errors.
+// Round-trip test: OpenFile -> GetTreeRoot -> GetChildren -> CloseDocument: Full service
+// lifecycle with no errors.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceRoundTrip(t *testing.T) {
@@ -409,8 +409,8 @@ func TestPDFServiceRoundTrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-009 [P1]: OpenFile with nonexistent path returns error
-// AC#2: Error propagation from pdfcore through pdfservice.
+// OpenFile with nonexistent path returns error: Error propagation
+// from pdfcore through pdfservice.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileNonExistent(t *testing.T) {
@@ -429,8 +429,8 @@ func TestPDFServiceOpenFileNonExistent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-010 [P1]: OpenFile with malformed PDF returns error
-// AC#2: Error propagation for malformed PDF.
+// OpenFile with malformed PDF returns error: Error propagation
+// for malformed PDF.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileMalformed(t *testing.T) {
@@ -449,8 +449,8 @@ func TestPDFServiceOpenFileMalformed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-011 [P1]: OpenFile with encrypted PDF returns error
-// AC#2: Error propagation for encrypted PDF.
+// OpenFile with encrypted PDF returns error: Error propagation
+// for encrypted PDF.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileEncrypted(t *testing.T) {
@@ -469,12 +469,12 @@ func TestPDFServiceOpenFileEncrypted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4 (Task 4): Verification -- project compiles, vet passes
+// Task 4: Verification -- project compiles, vet passes
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-012 [P1]: go build ./... compiles the full project
-// AC#4.4: Full project compiles with pdfservice integrated.
+// go build ./... compiles the full project: Full project
+// compiles with pdfservice integrated.
 // ---------------------------------------------------------------------------
 
 func TestProjectCompiles(t *testing.T) {
@@ -498,8 +498,7 @@ func TestProjectCompiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-013 [P1]: go vet ./... passes on the full project
-// AC#4.3: No vet warnings.
+// go vet ./... passes on the full project: No vet warnings.
 // ---------------------------------------------------------------------------
 
 func TestProjectVet(t *testing.T) {
@@ -514,8 +513,8 @@ func TestProjectVet(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-014 [P1]: All pdfservice unit tests pass
-// AC#4.1: go test ./internal/pdfservice/... passes.
+// All pdfservice unit tests pass
+// go test ./internal/pdfservice/... passes.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfserviceTestsPass(t *testing.T) {
@@ -534,8 +533,8 @@ func TestAllPdfserviceTestsPass(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-015 [P1]: All pdfcore tests still pass (no regression)
-// AC#4.2: Existing pdfcore tests are not broken by pdfservice addition.
+// All pdfcore tests still pass (no regression): Existing pdfcore tests
+// are not broken by pdfservice addition.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreNoRegression(t *testing.T) {
@@ -554,8 +553,8 @@ func TestPdfcoreNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-016 [P1]: App-shell TestServicesFieldRemoved still passes
-// AC#4.2b: The existing app-shell acceptance test must not regress.
+// App-shell TestServicesFieldRemoved still passes b: The existing
+// app-shell acceptance test must not regress.
 // ---------------------------------------------------------------------------
 
 func TestAppShellNoRegression(t *testing.T) {
@@ -577,8 +576,8 @@ func TestAppShellNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-017 [P1]: service_test.go exists in internal/pdfservice/
-// AC#3: Unit tests co-located with production code.
+// service_test.go exists in internal/pdfservice: Unit tests
+// co-located with production code.
 // ---------------------------------------------------------------------------
 
 func TestServiceTestFileExists(t *testing.T) {

@@ -69,32 +69,31 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-001 (P0): EmptyState component renders title, subtitle, drop zone,
+// EmptyState component renders title, subtitle, drop zone,
 //                     and Open File button
-// AC#1: Centered empty state with "UniDoc PDF Debugger" title and
+// Centered empty state with "UniDoc PDF Debugger" title and
 //       "Inspect PDF internal structure" subtitle
-// AC#2: Dashed-border drop zone with "Drop a PDF file here" text
-// AC#3: "or" divider + "Open File..." primary button (blue bg, white text)
-// AC#5: Design system fonts and colors used
+// Dashed-border drop zone with "Drop a PDF file here" text: "or" divider +
+// "Open File..." primary button (blue bg, white text): Design system fonts
+// and colors used
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-001b (P0): EmptyState data-testid attributes present
-// AC#1-5: All required data-testid attributes for test automation
+// EmptyState data-testid attributes present -5: All required
+// data-testid attributes for test automation
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-002 (P1): Drop zone accessibility attributes
-// AC#2: Drop zone has role="region" and aria-label="File drop zone"
-// AC#6: Drag hint has aria-live="polite"
+// Drop zone accessibility attributes: Drop zone has role="region"
+// and aria-label="File drop zone": Drag hint has aria-live="polite"
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-003 (P1): Platform detection utility
-// AC#4: Platform-aware keyboard shortcut hint
+// Platform detection utility: Platform-aware
+// keyboard shortcut hint
 // ---------------------------------------------------------------------------
 
 func TestPlatformDetectionUtilityExists(t *testing.T) {
@@ -137,26 +136,26 @@ func TestPlatformDetectionUtilityExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-003b (P1): Shortcut hint rendered in EmptyState
-// AC#4: Keyboard shortcut hint shows "Cmd+O" or "Ctrl+O"
+// Shortcut hint rendered in EmptyState: Keyboard shortcut
+// hint shows "Cmd+O" or "Ctrl+O"
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-004 (P2): hasDocument=true hides empty state
-// AC#9: Component not rendered when hasDocument is true
+// hasDocument=true hides empty state: Component not
+// rendered when hasDocument is true
 // ---------------------------------------------------------------------------
 
 
-// 1.3-INTG-001 (Story 4-5): TestOpenFileButtonOnClickBehavior was a source-grep
-// asserting EmptyState.tsx still calls `console.log` as a fallback when no
+// Story 4-5: TestOpenFileButtonOnClickBehavior was a source-grep asserting
+// EmptyState.tsx still calls `console.log` as a fallback when no
 // onOpenFile prop is supplied. The console.log was placeholder scaffolding;
 // real file-open behaviour is covered by tests/e2e/open-pdf-dialog-dnd.spec.ts.
 // Delete-only, no replacement.
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-002 (P1): App.jsx integrates EmptyState component
-// AC#1, AC#5, AC#9: App renders EmptyState, Wails template removed
+// App.jsx integrates EmptyState component: App renders EmptyState,
+// Wails template removed
 // ---------------------------------------------------------------------------
 
 func TestAppJsxIntegratesEmptyState(t *testing.T) {
@@ -198,8 +197,8 @@ func TestAppJsxIntegratesEmptyState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-003 (P0): App.jsx keeps .jsx extension (not renamed to .tsx)
-// Per project convention: Wails-generated files keep .jsx extension
+// App.jsx keeps .jsx extension (not renamed to .tsx) Per project
+// convention: Wails-generated files keep .jsx extension
 // ---------------------------------------------------------------------------
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
@@ -214,33 +213,33 @@ func TestAppJsxExtensionPreserved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-004 (P1): Drag-and-drop event handlers on outermost container
-// AC#6: Drag handlers on entire empty state wrapper, not just drop zone
+// Drag-and-drop event handlers on outermost container: Drag handlers on
+// entire empty state wrapper, not just drop zone
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-005 (P1): Drop zone visual feedback classes
-// AC#6: Blue border and highlight background on valid drag
-// AC#7: "PDF files only" error text for invalid files
+// Drop zone visual feedback classes: Blue border and
+// highlight background on valid drag: "PDF files only"
+// error text for invalid files
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-006 (P1): Non-PDF drop rejection with 2-second timeout
-// AC#7: After non-PDF drop, show error for 2 seconds then reset
+// Non-PDF drop rejection with 2-second timeout: After non-PDF
+// drop, show error for 2 seconds then reset
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-007 (P1): EmptyState centering layout
-// AC#5: Layout vertically and horizontally centered using design system
+// EmptyState centering layout: Layout vertically and horizontally
+// centered using design system
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-008 (P1): CSS height rule for full-height centering
-// AC#5: html, body, #root must have height: 100% for h-full to work
+// CSS height rule for full-height centering: html, body, #root must
+// have height: 100% for h-full to work
 // ---------------------------------------------------------------------------
 
 func TestCSSHeightRuleForCentering(t *testing.T) {
@@ -265,8 +264,8 @@ func TestCSSHeightRuleForCentering(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-009 (P0): No barrel files created
-// Project rule: barrel files (index.ts) are forbidden
+// No barrel files created Project rule: barrel files
+// (index.ts) are forbidden
 // ---------------------------------------------------------------------------
 
 func TestNoBarrelFilesCreated(t *testing.T) {
@@ -291,20 +290,20 @@ func TestNoBarrelFilesCreated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-010 (P1): EmptyState uses flex-col for vertical stacking
-// AC#5: Elements stacked vertically (title, subtitle, drop zone, divider, button, hint)
+// EmptyState uses flex-col for vertical stacking: Elements stacked vertically (title,
+// subtitle, drop zone, divider, button, hint)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-011 (P1): drop-zone-hint data-testid
-// AC#6: data-testid on hint text inside drop zone
+// drop-zone-hint data-testid: data-testid on hint
+// text inside drop zone
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-005 (P2): Platform detection SSR/non-browser guard
-// Edge case: navigator undefined returns "Ctrl" default
+// Platform detection SSR/non-browser guard Edge case:
+// navigator undefined returns "Ctrl" default
 // ---------------------------------------------------------------------------
 
 func TestPlatformDetectionSSRGuard(t *testing.T) {
@@ -323,8 +322,8 @@ func TestPlatformDetectionSSRGuard(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-UNIT-006 (P2): Platform detection secondary userAgentData check
-// Edge case: userAgentData used as fallback when navigator.platform misses
+// Platform detection secondary userAgentData check Edge case:
+// userAgentData used as fallback when navigator.platform misses
 // ---------------------------------------------------------------------------
 
 func TestPlatformDetectionUserAgentDataFallback(t *testing.T) {
@@ -342,33 +341,33 @@ func TestPlatformDetectionUserAgentDataFallback(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-012 (P2): Timeout cleanup on unmount
-// Edge case: clearTimeout in useEffect cleanup prevents state update after unmount
+// Timeout cleanup on unmount Edge case: clearTimeout in useEffect cleanup prevents
+// state update after unmount
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-013 (P2): Drag counter negative guard
-// Edge case: dragCounter must not go below 0 from unpaired dragleave events
+// Drag counter negative guard Edge case: dragCounter must not go below 0
+// from unpaired dragleave events
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-014 (P2): Case-insensitive PDF extension validation on drop
-// Edge case: dropped file with .PDF or .Pdf extension should be accepted
+// Case-insensitive PDF extension validation on drop Edge case: dropped
+// file with .PDF or .Pdf extension should be accepted
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-015 (P1): dragover handler must NOT update state or counter
-// Edge case: dragover fires continuously; incrementing counter on it would
-// break the dragleave counter-to-zero pattern
+// Dragover handler must NOT update state or counter Edge case: dragover
+// fires continuously; incrementing counter on it would break the dragleave
+// counter-to-zero pattern
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.3-INTG-016 (P1): New drag resets stale invalid state from prior drop
-// Edge case: dragging a new file within 2s of a rejected drop should not
-// show error state from the previous rejection
+// New drag resets stale invalid state from prior drop Edge case:
+// dragging a new file within 2s of a rejected drop should not show error
+// state from the previous rejection
 // ---------------------------------------------------------------------------
 

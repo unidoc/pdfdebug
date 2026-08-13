@@ -61,10 +61,10 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: TreePanel component exists
+// TreePanel component exists
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-001 [P0]: TreePanel.tsx component file exists
+// TreePanel.tsx component file exists
 func TestTreePanelComponentExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Fatal("frontend/src/components/TreePanel.tsx does not exist")
@@ -72,10 +72,10 @@ func TestTreePanelComponentExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: TreePanel has required data-testid attributes
+// TreePanel has required data-testid attributes
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-002 [P0]: TreePanel has data-testid="tree-panel"
+// TreePanel has data-testid="tree-panel"
 func TestTreePanelHasTestID(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -88,7 +88,7 @@ func TestTreePanelHasTestID(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-003 [P0]: TreePanel has data-testid="tree-node" on node rows
+// TreePanel has data-testid="tree-node" on node rows
 func TestTreePanelHasNodeTestID(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -106,10 +106,10 @@ func TestTreePanelHasNodeTestID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: TreePanel uses react-arborist for virtualized tree
+// TreePanel uses react-arborist for virtualized tree
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-004 [P0]: TreePanel imports react-arborist
+// TreePanel imports react-arborist
 func TestTreePanelUsesReactArborist(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -123,10 +123,10 @@ func TestTreePanelUsesReactArborist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: TreePanel calls GetChildren for lazy loading
+// TreePanel calls GetChildren for lazy loading
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-005 [P0]: TreePanel imports GetChildren from Wails bindings
+// TreePanel imports GetChildren from Wails bindings
 func TestTreePanelImportsGetChildren(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -140,10 +140,10 @@ func TestTreePanelImportsGetChildren(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4: useDocumentState has SELECT_NODE action
+// useDocumentState has SELECT_NODE action
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-006 [P0]: useDocumentState.tsx handles SELECT_NODE action
+// useDocumentState.tsx handles SELECT_NODE action
 func TestReducerHasSelectNodeAction(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
@@ -152,7 +152,7 @@ func TestReducerHasSelectNodeAction(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-007 [P0]: TabState has selectedNodeId field
+// TabState has selectedNodeId field
 func TestTabStateHasSelectedNodeId(t *testing.T) {
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
@@ -162,18 +162,18 @@ func TestTabStateHasSelectedNodeId(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: MainLayout uses TreePanel instead of inline static list
+// MainLayout uses TreePanel instead of inline static list
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-008 [P1]: MainLayout imports TreePanel
+// MainLayout imports TreePanel
 
-// 2.5-INTG-009 [P1]: MainLayout no longer has inline TreeNodeItem
+// MainLayout no longer has inline TreeNodeItem
 
 // ---------------------------------------------------------------------------
-// AC#5: Error node rendering support
+// Error node rendering support
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-010 [P1]: TreePanel handles error nodes with text-error styling
+// TreePanel handles error nodes with text-error styling
 func TestTreePanelErrorNodeStyling(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -193,10 +193,10 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4: Selected node highlight styling
+// Selected node highlight styling
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-011 [P1]: TreePanel has bg-surface-selected for selected node
+// TreePanel has bg-surface-selected for selected node
 func TestTreePanelSelectedStyling(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -214,10 +214,10 @@ func TestTreePanelSelectedStyling(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4: Hover state
+// Hover state
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-012 [P1]: TreePanel has bg-surface-hover for hover state
+// TreePanel has bg-surface-hover for hover state
 func TestTreePanelHoverStyling(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -231,10 +231,10 @@ func TestTreePanelHoverStyling(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#3: Document Structure header
+// Document Structure header
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-013 [P1]: TreePanel has "Document Structure" header
+// TreePanel has "Document Structure" header
 func TestTreePanelHeader(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
 		t.Skip("TreePanel.tsx does not exist yet")
@@ -251,7 +251,7 @@ func TestTreePanelHeader(t *testing.T) {
 // No-regression: Go backend compiles and vets
 // ---------------------------------------------------------------------------
 
-// 2.5-INTG-014 [P0]: go build compiles (no backend changes, but verify)
+// go build compiles (no backend changes, but verify)
 func TestProjectCompiles(t *testing.T) {
 	root := projectRoot(t)
 
@@ -269,7 +269,7 @@ func TestProjectCompiles(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-015 [P0]: go vet passes
+// go vet passes
 func TestProjectVet(t *testing.T) {
 	root := projectRoot(t)
 
@@ -281,7 +281,7 @@ func TestProjectVet(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-016 [P1]: pdfcore tests still pass (no regression)
+// Pdfcore tests still pass (no regression)
 func TestPdfcoreNoRegression(t *testing.T) {
 	root := projectRoot(t)
 
@@ -297,7 +297,7 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-017 [P1]: pdfservice tests still pass (no regression)
+// Pdfservice tests still pass (no regression)
 func TestPdfserviceNoRegression(t *testing.T) {
 	root := projectRoot(t)
 
@@ -313,7 +313,7 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	}
 }
 
-// 2.5-INTG-018 [P1]: pdfcore has zero Wails imports (architecture compliance)
+// Pdfcore has zero Wails imports (architecture compliance)
 func TestPdfcoreZeroWailsImports(t *testing.T) {
 	root := projectRoot(t)
 

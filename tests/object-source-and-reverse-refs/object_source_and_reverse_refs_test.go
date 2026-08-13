@@ -4,15 +4,15 @@
 // TDD RED PHASE: these tests MUST fail until Story 9-10 is implemented.
 //
 // Test pyramid for this story:
-//   - Backend AC1, AC3, AC5 (Object Source serialization) -> pdfcore Go unit
+//   - Backend (Object Source serialization) -> pdfcore Go unit
 //     tests delegated via runPdfcoreTest. Source-format determinism is best
 //     verified in-process where we can hand-craft fixtures and assert exact
 //     output bytes.
-//   - Backend AC6, AC9, AC11 (Reverse-ref index lifecycle and failure mode)
+//   - Backend (Reverse-ref index lifecycle and failure mode)
 //     -> pdfcore Go unit + integration tests delegated via runPdfcoreTest.
-//   - Backend AC7 (ReverseRef shape) -> structural assertions on model.go.
+//   - Backend (ReverseRef shape) -> structural assertions on model.go.
 //   - Wails plumbing -> structural assertions on service.go.
-//   - Frontend AC2, AC4, AC7, AC8, AC10, AC12 -> Vitest. Delegated here only
+//   - Frontend -> Vitest. Delegated here only
 //     via structural checks that the right files/exports/data-testids exist,
 //     because behavior is best asserted in the component tests themselves.
 //
@@ -97,10 +97,10 @@ func readSource(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1 -- Object Source reserializes indirect objects as PDF syntax
+// Object Source reserializes indirect objects as PDF syntax
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-001 [P0]: objectsource.go exists and defines GetObjectSource on Inspector.
+// objectsource.go exists and defines GetObjectSource on Inspector.
 func TestObjectSourceFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "internal", "pdfcore", "objectsource.go")
@@ -113,7 +113,7 @@ func TestObjectSourceFileExists(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-002 [P0]: pdfcore unit test covers dict/array short/long forms (AC1).
+// Pdfcore unit test covers dict/array short/long forms.
 func TestObjectSourceDictAndArrayForms(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
@@ -122,58 +122,56 @@ func TestObjectSourceDictAndArrayForms(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceSerializeForms")
 }
 
-// 9.10-INTG-003 [P0]: indirect refs in serialized output are emitted as
-// `N G R` literals, NOT dereferenced (so cyclic refs cannot stack-overflow).
+// Indirect refs in serialized output are emitted as `N G R` literals, NOT
+// dereferenced (so cyclic refs cannot stack-overflow).
 func TestObjectSourceIndirectRefsNotDereferenced(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceRefsEmittedNotDereferenced")
 }
 
-// 9.10-INTG-004 [P0]: cycle protection -- a page tree with /Parent self-loop
-// must not stack-overflow during serialization.
+// Cycle protection -- a page tree with /Parent self-loop must not
+// stack-overflow during serialization.
 func TestObjectSourceCycleSafe(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceCycleSafe")
 }
 
-// 9.10-INTG-005 [P1]: deterministic dict key ordering (sorted ascending).
-// Without this, golden tests would be flaky on Go map iteration.
+// Deterministic dict key ordering (sorted ascending). Without this,
+// golden tests would be flaky on Go map iteration.
 func TestObjectSourceDeterministicKeyOrder(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceDictKeysSorted")
 }
 
 // ---------------------------------------------------------------------------
-// AC#3 -- inline-node selection returns ("", nil)
+// inline-node selection returns ("", nil)
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-006 [P0]: GetObjectSource on a dict-entry / array-element node ID
-// returns the empty string with no error, so the frontend can render the AC3
-// empty-state copy.
+// GetObjectSource on a dict-entry / array-element node ID returns the empty
+// string with no error, so the frontend can render the empty-state copy.
 func TestObjectSourceInlineNodeReturnsEmpty(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceInlineNodeIDReturnsEmptyString")
 }
 
 // ---------------------------------------------------------------------------
-// AC#5 -- stream objects render dict + placeholder + envelope
+// Stream objects render dict + placeholder + envelope
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-007 [P0]: stream serialization emits dict, then `stream` /
-// `endstream` markers with the byte-count placeholder, NOT the raw bytes.
+// Stream serialization emits dict, then `stream` / `endstream` markers
+// with the byte-count placeholder, NOT the raw bytes.
 func TestObjectSourceStreamPlaceholder(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceStreamPlaceholder")
 }
 
-// 9.10-INTG-008 [P1]: truncation rule -- output capped at the byte limit
-// (default 256KB) only between top-level entries, always emits the closing
-// bracket/brace and `endobj`, always emits the truncation marker.
+// Truncation rule -- output capped at the byte limit (default 256KB) only
+// between top-level entries, always emits the closing bracket/brace and
+// `endobj`, always emits the truncation marker.
 func TestObjectSourceTruncation(t *testing.T) {
 	runPdfcoreTest(t, "TestObjectSourceTruncationRule")
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 -- reverse-ref index built at document open, with failure mode
+// reverse-ref index built at document open, with failure mode
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-009 [P0]: reverserefs.go exists and declares GetReverseRefs on
-// the Inspector.
+// reverserefs.go exists and declares GetReverseRefs on the Inspector.
 func TestReverseRefsFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "internal", "pdfcore", "reverserefs.go")
@@ -186,9 +184,9 @@ func TestReverseRefsFileExists(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-010 [P0]: DocumentState carries the reverse-ref map AND the
-// revRefsBuildFailed flag (distinct from "empty"). Without the flag, an
-// index-build panic would silently mislabel every object as orphaned.
+// DocumentState carries the reverse-ref map AND the revRefsBuildFailed
+// flag (distinct from "empty"). Without the flag, an index-build panic
+// would silently mislabel every object as orphaned.
 func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	// The reverse-ref map and the failure flag both live on DocumentState
@@ -202,10 +200,10 @@ func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-011 [P0]: ErrReverseRefIndexUnavailable sentinel error is declared.
-// The frontend uses it (per AC6 / Task 6.5 case 1) to render the unavailable
-// banner. Empty list MUST mean "no incoming refs"; failure mode is signalled
-// by this sentinel, not by an empty slice.
+// ErrReverseRefIndexUnavailable sentinel error is declared. The frontend uses
+// it (/ Task 6.5 case 1) to render the unavailable banner. Empty list MUST mean
+// "no incoming refs"; failure mode is signalled by this sentinel, not by an
+// empty slice.
 func TestReverseRefSentinelErrorDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	if !strings.Contains(src, "ErrReverseRefIndexUnavailable") {
@@ -213,10 +211,10 @@ func TestReverseRefSentinelErrorDeclared(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-012 [P0]: index build happens at Open() inside safeCall. We can
-// only verify this structurally from the integration layer: the source file
-// must call into the build entry point inside Open, and the build must be
-// wrapped by safeCall.
+// Index build happens at Open() inside safeCall. We can only verify this
+// structurally from the integration layer: the source file must call into
+// the build entry point inside Open, and the build must be wrapped by
+// safeCall.
 func TestReverseRefIndexBuiltAtOpen(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "buildReverseRefs") && !strings.Contains(src, "BuildReverseRefs") {
@@ -227,10 +225,10 @@ func TestReverseRefIndexBuiltAtOpen(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-013 [P0]: pdfcore unit test verifies the build walks the full
-// graph from /Root using a visited set keyed by (num, gen) and emits a
-// ReverseRef per outbound indirect ref encountered in dict/array/stream-dict
-// containers (matching findPathToObject's container set).
+// Pdfcore unit test verifies the build walks the full graph from /Root using
+// a visited set keyed by (num, gen) and emits a ReverseRef per outbound
+// indirect ref encountered in dict/array/stream-dict containers (matching
+// findPathToObject's container set).
 func TestReverseRefIndexBuildFromCatalog(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
@@ -239,16 +237,16 @@ func TestReverseRefIndexBuildFromCatalog(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefIndexBuildPopulatesPagesAndKids")
 }
 
-// 9.10-INTG-014 [P0]: build panic sets revRefsBuildFailed=true and GetReverseRefs
-// returns ErrReverseRefIndexUnavailable -- verifies the AC6 failure mode.
+// Build panic sets revRefsBuildFailed=true and GetReverseRefs returns
+// ErrReverseRefIndexUnavailable -- verifies the failure mode.
 func TestReverseRefIndexFailureModeReturnsSentinel(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefIndexBuildPanicSurfacesSentinel")
 }
 
-// 9.10-INTG-015 [P1]: visited-set keyed by (num, gen) only, NO depth cap.
-// maxRefDepth would silently exclude deeply nested objects and falsely mark
-// them orphan. This test verifies the source does NOT reuse maxRefDepth in
-// the new index build.
+// visited-set keyed by (num, gen) only, NO depth cap. maxRefDepth would
+// silently exclude deeply nested objects and falsely mark them orphan. This
+// test verifies the source does NOT reuse maxRefDepth in the new index
+// build.
 func TestReverseRefIndexUsesVisitedSetNotDepthCap(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/reverserefs.go")
 	// The new file must NOT use maxRefDepth; cycles are caught by the
@@ -264,12 +262,12 @@ func TestReverseRefIndexUsesVisitedSetNotDepthCap(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#7 -- ReverseRef shape (ParentNodeID, ParentRef, ParentType, Path)
+// ReverseRef shape (ParentNodeID, ParentRef, ParentType, Path)
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-016 [P0]: model.go declares the ReverseRef struct with the exact
-// JSON shape the frontend expects. ParentType MUST be *string so the
-// frontend can distinguish "absent" from "empty value" -- this is load-bearing.
+// model.go declares the ReverseRef struct with the exact JSON shape the
+// frontend expects. ParentType MUST be *string so the frontend can distinguish
+// "absent" from "empty value" -- this is load-bearing.
 func TestReverseRefStructShape(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 	if !strings.Contains(src, "ReverseRef") {
@@ -304,17 +302,17 @@ func TestReverseRefStructShape(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-017 [P1]: returned entries are ordered by ParentRef ascending,
-// with Path ascending as the secondary key. Two refs from the same parent
-// into different /Kids slots MUST have deterministic display order so the
-// section does not jitter between calls.
+// Returned entries are ordered by ParentRef ascending, with Path ascending
+// as the secondary key. Two refs from the same parent into different /Kids
+// slots MUST have deterministic display order so the section does not
+// jitter between calls.
 func TestReverseRefEntriesDeterministicOrdering(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefEntriesSortedByParentThenPath")
 }
 
-// 9.10-INTG-018 [P1]: catalog has zero reverse-refs by construction. The
-// trailer's /Root pointer is NOT recorded; the catalog is the BFS source.
-// AC10's "Document root" copy distinguishes catalog from orphan via tree
+// Catalog has zero reverse-refs by construction. The trailer's /Root
+// pointer is NOT recorded; the catalog is the BFS source.
+// The "Document root" copy distinguishes catalog from orphan via tree
 // iconHint, not via the index, so the index-level emptiness must be
 // observable here.
 func TestReverseRefIndexCatalogHasZeroEntries(t *testing.T) {
@@ -325,19 +323,19 @@ func TestReverseRefIndexCatalogHasZeroEntries(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefIndexCatalogIsEmpty")
 }
 
-// 9.10-INTG-019 [P1]: an orphan-injected fixture returns an empty list (NOT
-// the sentinel error). This is the AC9 contract: empty list == no incoming
-// dict-graph refs (possible orphan).
+// An orphan-injected fixture returns an empty list (NOT the sentinel
+// error). This is the contract: empty list == no incoming dict-graph refs
+// (possible orphan).
 func TestReverseRefIndexOrphanReturnsEmptyList(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefIndexOrphanObjectHasEmptyList")
 }
 
 // ---------------------------------------------------------------------------
-// AC#11 -- per-document index across tab switches
+// per-document index across tab switches
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-020 [P1]: opening two documents in two tabs yields two
-// independent indexes; queries against one are unaffected by the other.
+// Opening two documents in two tabs yields two independent indexes;
+// queries against one are unaffected by the other.
 func TestReverseRefIndexPerDocument(t *testing.T) {
 	runPdfcoreTest(t, "TestReverseRefIndexPerDocumentIsolation")
 }
@@ -346,7 +344,7 @@ func TestReverseRefIndexPerDocument(t *testing.T) {
 // Wails service plumbing (Task 3)
 // ---------------------------------------------------------------------------
 
-// 9.10-INTG-021 [P0]: PDFService.GetObjectSource is exposed.
+// PDFService.GetObjectSource is exposed.
 func TestServiceExposesGetObjectSource(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetObjectSource") {
@@ -354,8 +352,8 @@ func TestServiceExposesGetObjectSource(t *testing.T) {
 	}
 }
 
-// 9.10-INTG-022 [P0]: PDFService.GetReverseRefs is exposed and returns a slice
-// of *pdfcore.ReverseRef (matching Task 3.1).
+// PDFService.GetReverseRefs is exposed and returns a slice of
+// *pdfcore.ReverseRef (matching Task 3.1).
 func TestServiceExposesGetReverseRefs(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetReverseRefs") {
@@ -370,7 +368,7 @@ func TestServiceExposesGetReverseRefs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2, AC#3, AC#4, AC#7, AC#8, AC#10, AC#12 -- frontend wiring (structural)
+// Frontend wiring (structural)
 // ---------------------------------------------------------------------------
 //
 // Behavior assertions for these criteria live in the Vitest files
@@ -378,8 +376,8 @@ func TestServiceExposesGetReverseRefs(t *testing.T) {
 // We assert only that the required files/exports/testids exist so the Vitest
 // suites can target them. The full behavior contract is asserted in Vitest.
 
-// 9.10-STRUCT-001 [P0]: ObjectInfoPanel.tsx still exists (file is NOT renamed
-// per Task 5.1) and now exports ObjectSourcePanel.
+// ObjectInfoPanel.tsx still exists (file is NOT renamed per Task 5.1) and now
+// exports ObjectSourcePanel.
 func TestObjectInfoPanelRenamedExport(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
@@ -399,8 +397,8 @@ func TestObjectInfoPanelRenamedExport(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-002 [P0]: MainLayout.tsx imports ObjectSourcePanel (not the old
-// ObjectInfoPanel symbol).
+// MainLayout.tsx imports ObjectSourcePanel (not the old ObjectInfoPanel
+// symbol).
 func TestMainLayoutImportsObjectSourcePanel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/MainLayout.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
@@ -408,7 +406,7 @@ func TestMainLayoutImportsObjectSourcePanel(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-003 [P0]: the new ReverseRefsSection component exists.
+// The new ReverseRefsSection component exists.
 func TestReverseRefsSectionExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ReverseRefsSection.tsx")
@@ -421,8 +419,8 @@ func TestReverseRefsSectionExists(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-004 [P0]: DetailPanel.tsx mounts ReverseRefsSection AFTER the
-// existing parsed view, with a per-selection key (Task 6.3/7.1).
+// DetailPanel.tsx mounts ReverseRefsSection AFTER the existing parsed view,
+// with a per-selection key (Task 6.3/7.1).
 func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "ReverseRefsSection") {
@@ -442,7 +440,7 @@ func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-005 [P0]: Vitest suite for ReverseRefsSection exists.
+// Vitest suite for ReverseRefsSection exists.
 func TestReverseRefsSectionTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ReverseRefsSection.test.tsx")
@@ -451,9 +449,9 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-006 [P0]: ObjectInfoPanel.test.tsx has been rewritten in place
-// to cover Story 9-10 (Task 8.1). We assert that the new test file references
-// the renamed component, the new testid, and the AC4 obj:gen:num mapping.
+// ObjectInfoPanel.test.tsx has been rewritten in place to cover Story 9-10
+// (Task 8.1). We assert that the new test file references the renamed
+// component, the new testid, and the obj:gen:num mapping.
 func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.test.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
@@ -470,8 +468,8 @@ func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	}
 }
 
-// 9.10-STRUCT-007 [P1]: ReferenceNavigation.test.tsx has been updated to
-// reflect the panel rewrite (rename references, new clickable-span detection).
+// ReferenceNavigation.test.tsx has been updated to reflect the panel rewrite
+// (rename references, new clickable-span detection).
 func TestReferenceNavigationTestUpdated(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ReferenceNavigation.test.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {

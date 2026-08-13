@@ -6,19 +6,19 @@
 // Test pyramid for this story (per the story Decision section + user directive
 // to favour API/integration over E2E):
 //
-//   - Backend AC9, AC10, AC11, AC12, AC13, AC14, AC19, AC21 (cancellable read
+//   - Backend (cancellable read
 //     loop, cancel on close, ErrDocumentNotFound sentinels, GetPlainTextSize,
 //     zero-byte file edge) -> pdfcore Go unit tests delegated via
 //     runPdfcoreTest. Byte-level transformations + context.Canceled identity
 //     + goroutine-leak deltas need in-process Go assertions.
-//   - Backend AC18 (model.go field removal, binding removal, ZERO repo-wide
+//   - Backend (model.go field removal, binding removal, ZERO repo-wide
 //     hits for GetPlainTextFull) -> structural assertions on model.go,
 //     service.go, and a recursive grep guard.
 //   - Wails plumbing (Task 2: CancelPlainText + GetPlainTextSize exposed,
 //     GetPlainTextFull removed) -> structural assertions on service.go.
 //   - IPC shape (Task 1.3: PlainTextDocument retains TabID/Content/TotalBytes
 //     only) -> structural assertions on model.go.
-//   - Frontend AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC16, AC17, AC20 ->
+//   - Frontend ->
 //     Vitest. Delegated here only via structural checks that the right files /
 //     exports / data-testids exist; full behavior contracts are asserted in
 //     PlainTextView.async.test.tsx.
@@ -98,7 +98,7 @@ func readSource(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#10, AC#11, AC#14, AC#15, AC#21 -- core GetPlainText contract
+// Core GetPlainText contract
 // ---------------------------------------------------------------------------
 
 // TestHappyPath opens a small fixture and asserts GetPlainText returns the full
@@ -144,7 +144,7 @@ func TestZeroByteFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#10 -- concurrent callers + cancel-with-waiter interleaving
+// Concurrent callers + cancel-with-waiter interleaving
 // ---------------------------------------------------------------------------
 
 // TestConcurrentSharesIO asserts two concurrent callers for the same tab serialize
@@ -166,7 +166,7 @@ func TestCancelDoesNotPopulateCache(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#18 -- removal of GetPlainTextFull surface (model + service + bindings + grep)
+// Removal of GetPlainTextFull surface (model + service + bindings + grep)
 // ---------------------------------------------------------------------------
 
 // TestModelPlainTextDocumentSlim asserts model.go's PlainTextDocument struct
@@ -391,26 +391,26 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1..AC#8, AC#16, AC#17, AC#20 -- PlainTextView component (structural)
+// . -- PlainTextView component (structural)
 // ---------------------------------------------------------------------------
 //
 // Behavior contracts (loading card mount + 200ms debounce, elapsed-counter
 // ticking, Cancel click -> CancelPlainText invocation, cancelled state CTA,
 // stale-fetch guard on document tab switch, fast-path under-debounce) are
 // asserted in PlainTextView.async.test.tsx. We assert here only that the
-// wiring points referenced by AC1..AC8 / AC16 / AC17 / AC20 exist in source.
+// wiring points referenced by.. exist in source.
 
 // TestPlainTextViewLoadingCardTestIds asserts PlainTextView carries the
 // load-bearing data-testids for the async loading card flow.
 func TestPlainTextViewLoadingCardTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{
-		"plain-text-loading-card",    // AC1
-		"plain-text-loading-size",    // AC2
-		"plain-text-loading-spinner", // AC2 (replaced elapsed counter, commit 92343ab)
-		"plain-text-cancel-button",   // AC2 / AC4
-		"plain-text-load-cta",        // AC5 / AC7 (shared retry/cancelled CTA)
-		"plain-text-error",           // AC7
+		"plain-text-loading-card",
+		"plain-text-loading-size",
+		"plain-text-loading-spinner", // (replaced elapsed counter, commit 92343ab)
+		"plain-text-cancel-button",
+		"plain-text-load-cta",        // (shared retry/cancelled CTA)
+		"plain-text-error",
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -440,7 +440,7 @@ func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 			t.Errorf("PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (/ Task 3)", sym)
 		}
 	}
-	// The PlainTextDocumentData interface drops truncated + capBytes (AC18).
+	// The PlainTextDocumentData interface drops truncated + capBytes.
 	for _, deletedField := range []string{"truncated: boolean", "capBytes: number"} {
 		if strings.Contains(src, deletedField) {
 			t.Errorf("PlainTextDocumentData must NOT declare %q -- deleted by 10-1", deletedField)

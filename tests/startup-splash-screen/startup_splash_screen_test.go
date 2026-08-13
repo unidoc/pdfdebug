@@ -8,16 +8,16 @@
 //   - authoring the inline splash HTML (Option B) or platform-native
 //     primitives (Option A)
 //   - creating the internal/splash package with an injectable-clock scheduler
-//     so AC4 (min-display floor), AC7 (timeout), and AC12 (version render)
+//     so (min-display floor), (timeout), and (version render)
 //     are unit-testable from pure Go (no Wails dependency)
 //
 // Test Pyramid placement per story spec:
-//   - Unit (Go, internal/splash): AC4 min-display floor, AC7 timeout race,
-//     AC12 version-string passthrough -- delegated via subprocess to
+//   - Unit (Go, internal/splash): min-display floor, timeout race,
+//     version-string passthrough -- delegated via subprocess to
 //     internal/splash/splash_test.go to keep pdfcore-style delegation
 //     consistent with tests/object-source-and-reverse-refs
-//   - Integration (Go, source-content scans): AC1, AC2, AC3, AC5, AC6,
-//     AC8 (structural single-instance gating guard), AC9, AC10, AC11
+//   - Integration (Go, source-content scans):
+//     (structural single-instance gating guard)
 //   - NO E2E. Wails alpha.85 splash windows are not Playwright-drivable:
 //     Playwright drives browsers, not native frameless OS windows. Task 7
 //     of the story spec calls out the visual rendering / crossfade /
@@ -115,12 +115,12 @@ func splashSource(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-001 [P0]: Splash window is created before the main WebviewWindow.
+// Splash window is created before the main WebviewWindow.
 //
-// AC#1: a frameless splash window appears within 500ms of main() entry.
-// The actual wall-clock measurement is manual (Task 7.1/7.3); this test
-// only verifies the call to create a splash window exists in main.go and
-// is positioned before app.Window.NewWithOptions for the main window.
+// A frameless splash window appears within 500ms of main() entry. The
+// actual wall-clock measurement is manual (Task 7.1/7.3); this test only
+// verifies the call to create a splash window exists in main.go and is
+// positioned before app.Window.NewWithOptions for the main window.
 // ---------------------------------------------------------------------------
 
 func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
@@ -151,11 +151,10 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-002 [P0]: Splash window options match AC3 (size, framing,
-// non-interactivity).
+// Splash window options match (size, framing, non-interactivity).
 //
-// AC#3: 480x320 logical pixels, frameless, no close/resize/minimise.
-// AC#1 (partial): frameless.
+// 480x320 logical pixels, frameless, no close/resize/minimise.
+// Partial: frameless.
 // ---------------------------------------------------------------------------
 
 func TestSplashWindowOptionsMatchSpec(t *testing.T) {
@@ -175,7 +174,7 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 		{`Closable:\s*false`, "splash must have no close button"},
 		// Pins Code Review #2 M-1 fix: WebView's default context menu must be
 		// disabled so right-click on the splash does not expose Reload / Inspect /
-		// Back / Forward entries that would violate AC3's "no context menu".
+		// Back / Forward entries that would violate the "no context menu".
 		{`DefaultContextMenuDisabled:\s*true`, "splash must disable the WebView default context menu"},
 	}
 
@@ -188,12 +187,12 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-003 [P0]: Splash HTML content matches AC2 (icon, wordmark,
-// activity indicator, version string).
+// Splash HTML content matches (icon, wordmark, activity indicator,
+// version string).
 //
-// AC#2: shows icon + wordmark + three pulsing dots + literal version
+// Shows icon + wordmark + three pulsing dots + literal version
 // string. NO progress bar, NO percentage, NO "Loading..." text.
-// AC#10: HTML is bundled inline -- no external assets, no fetch over IPC.
+// HTML is bundled inline -- no external assets, no fetch over IPC.
 // ---------------------------------------------------------------------------
 
 func TestSplashHTMLContent(t *testing.T) {
@@ -229,7 +228,7 @@ func TestSplashHTMLContent(t *testing.T) {
 		t.Errorf(": splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
 	}
 
-	// Forbidden content per AC2: no progress bar / percent / "Loading..." text
+	// Forbidden content: no progress bar / percent / "Loading..." text
 	forbidden := []string{
 		"Loading...",
 		"<progress",
@@ -245,10 +244,10 @@ func TestSplashHTMLContent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-004 [P0]: Splash background matches the main window's RGB.
+// Splash background matches the main window's RGB.
 //
-// AC#9: background MUST match #f8fafc (the literal RGB(248, 250, 252) set
-// on the main window at main.go:348). No dark-mode handling in this story.
+// Background MUST match #f8fafc (the literal RGB(248, 250, 252) set on the
+// main window at main.go:348). No dark-mode handling in this story.
 // ---------------------------------------------------------------------------
 
 func TestSplashBackgroundColorLiteral(t *testing.T) {
@@ -271,11 +270,11 @@ func TestSplashBackgroundColorLiteral(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-005 [P0]: Splash HTML is bundled inline -- no external fetches.
+// Splash HTML is bundled inline -- no external fetches.
 //
-// AC#10: no external assets, no fetch over IPC. The inline HTML may
-// reference data:image, system fonts, or base64 woff2, but must NOT load
-// any http(s):// URL, /fonts/*, /assets/*, or anything else the splash
+// No external assets, no fetch over IPC. The inline HTML may reference
+// data:image, system fonts, or base64 woff2, but must NOT load any
+// http(s):// URL, /fonts/*, /assets/*, or anything else the splash
 // WebView cannot reach without a server roundtrip.
 // ---------------------------------------------------------------------------
 
@@ -312,11 +311,11 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-006 [P0]: Min-display floor constant exists and equals 400ms.
+// Min-display floor constant exists and equals 400ms.
 //
-// AC#4: splashMinDisplayMs = 400. Constant must be declared as a named
+// splashMinDisplayMs = 400. Constant must be declared as a named
 // constant (not a magic number buried in a literal) so the unit-test
-// delegation in 9.13-UNIT-004 can pin it.
+// delegation in can pin it.
 // ---------------------------------------------------------------------------
 
 func TestSplashMinDisplayMsConstant(t *testing.T) {
@@ -333,9 +332,9 @@ func TestSplashMinDisplayMsConstant(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-007 [P0]: Timeout constant exists and equals 30000ms.
+// Timeout constant exists and equals 30000ms.
 //
-// AC#7: splashTimeoutMs = 30000.
+// splashTimeoutMs = 30000.
 // ---------------------------------------------------------------------------
 
 func TestSplashTimeoutMsConstant(t *testing.T) {
@@ -348,12 +347,11 @@ func TestSplashTimeoutMsConstant(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-008 [P0]: Dismissal path clears AlwaysOnTop and triggers
-// crossfade.
+// Dismissal path clears AlwaysOnTop and triggers crossfade.
 //
-// AC#5: Before dismissal begins, the splash's AlwaysOnTop flag MUST be
-// cleared so the main window can render above it. Crossfade is preferred
-// but instantaneous swap is acceptable per AC5; we therefore require the
+// Before dismissal begins, the splash's AlwaysOnTop flag MUST be cleared
+// so the main window can render above it. Crossfade is preferred but
+// instantaneous swap is acceptable; we therefore require the
 // AlwaysOnTop-clear assertion AND require some opacity/transition hook
 // in the splash HTML or a SetAlpha call on the splash window.
 // ---------------------------------------------------------------------------
@@ -369,13 +367,13 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 			"Searched for SetAlwaysOnTop(false) and AlwaysOnTop = false; neither found.")
 	}
 
-	// Crossfade hook: transition: opacity Xms in the splash HTML, OR
-	// a SetAlpha call on the splash window, OR an EvaluateJS that toggles
-	// an opacity-transition class. AC5 explicitly allows the instantaneous-swap
-	// fallback BUT requires a Dev Notes entry explaining why. We assert the
-	// crossfade-hook here; if dev falls back to instantaneous swap, dev
-	// must edit this test to a `t.Skip` with a Dev Notes link per the AC5
-	// fallback clause.
+	// Crossfade hook: transition: opacity Xms in the splash HTML, OR a SetAlpha
+	// call on the splash window, OR an EvaluateJS that toggles an
+	// opacity-transition class. The instantaneous-swap fallback is allowed BUT
+	// requires a Dev Notes entry explaining why. We assert the
+	// crossfade-hook here; if dev falls back to instantaneous swap, dev must
+	// edit this test to a `t.Skip` with a Dev Notes link per the fallback
+	// clause.
 	fadePatterns := []string{
 		`transition\s*:\s*opacity\b`,
 		`SetAlpha\s*\(`,
@@ -395,9 +393,9 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-009 [P0]: Splash is fully unmounted after dismissal.
+// Splash is fully unmounted after dismissal.
 //
-// AC#6: splash MUST be fully unmounted (not just hidden behind the main
+// Splash MUST be fully unmounted (not just hidden behind the main
 // window). Verify the dismissal path calls Close() / Destroy() on the
 // splash window, not just SetVisible(false) or similar.
 // ---------------------------------------------------------------------------
@@ -418,10 +416,10 @@ func TestSplashIsClosedAfterDismissal(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-010 [P0]: Splash creation does NOT appear inside
-// OnSecondInstanceLaunch or ApplicationOpenedWithFile callbacks.
+// Splash creation does NOT appear inside OnSecondInstanceLaunch
+// or ApplicationOpenedWithFile callbacks.
 //
-// AC#8: structural regression guard. Splash MUST live in the
+// Structural regression guard. Splash MUST live in the
 // first-instance bootstrap path (top of main()), never inside the
 // reentrant single-instance / file-association handlers.
 // ---------------------------------------------------------------------------
@@ -487,11 +485,10 @@ func snippet(s string, n int) string {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-011 [P1]: No first-ever-launch persistence branch around
-// splash creation.
+// No first-ever-launch persistence branch around splash creation.
 //
-// AC#11: the splash is shown on every launch by design -- consistency
-// is the brand signal. No "first-ever-launch only" gating.
+// The splash is shown on every launch by design -- consistency is the
+// brand signal. No "first-ever-launch only" gating.
 // ---------------------------------------------------------------------------
 
 func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
@@ -517,10 +514,10 @@ func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-012 [P1]: Splash timeout error pane content per AC7.
+// Splash timeout error pane content.
 //
-// AC#7: pre-bundled error pane reads "Could not start. Please reinstall."
-// with a Close button. The platform-specific install URL is OUT of scope.
+// pre-bundled error pane reads "Could not start. Please reinstall." with
+// a Close button. The platform-specific install URL is OUT of scope.
 // ---------------------------------------------------------------------------
 
 func TestSplashTimeoutErrorPaneContent(t *testing.T) {
@@ -538,19 +535,19 @@ func TestSplashTimeoutErrorPaneContent(t *testing.T) {
 	}
 
 	// Wails event channel that the inline JS listens on for timeout
-	// transition (per AC7 revised mechanism).
+	// transition (revised mechanism).
 	if !regexp.MustCompile(`splash:timeout`).MatchString(src) {
 		t.Errorf("backend must emit a `splash:timeout` Wails event for the error-pane handoff (Task 5.2). Event name not found.")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-UNIT-001 [P0]: Min-display floor + timeout race + version-string
-// passthrough -- delegated to internal/splash/splash_test.go.
+// Min-display floor + timeout race + version-string passthrough --
+// delegated to internal/splash/splash_test.go.
 //
-// AC#4, AC#7, AC#12. Story Task 6.1 requires extracting a small
-// internal/splash package with an injectable clock interface so the
-// scheduling logic is unit-testable without spinning up Wails.
+// Story Task 6.1 requires extracting a small internal/splash
+// package with an injectable clock interface so the scheduling
+// logic is unit-testable without spinning up Wails.
 //
 // This delegation pattern mirrors tests/object-source-and-reverse-refs.
 // The integration test runs `go test -run TestSplashScheduler -v ./...`
@@ -597,15 +594,15 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-013 [P1]: Version string is rendered verbatim, not stripped.
+// Version string is rendered verbatim, not stripped.
 //
-// AC#12: full semver appears (`v0.2.0-rc1`), NOT the stripped `0.2.0`.
+// Full semver appears (`v0.2.0-rc1`), NOT the stripped `0.2.0`.
 // Static-analysis check: the splash content path must NOT call any
 // version-stripping helper (e.g. SemVer.Major(), strings.Split on '-').
-// The pure-logic assertion is delegated to internal/splash (see
-// 9.13-UNIT-001 patterns TestSplashRenderVersion*); this integration
-// test guards against a regression where someone wires the stripped
-// form into the splash by accident.
+// The pure-logic assertion is delegated to internal/splash (patterns
+// TestSplashRenderVersion*); this integration test guards against a
+// regression where someone wires the stripped form into the splash by
+// accident.
 // ---------------------------------------------------------------------------
 
 func TestSplashVersionRenderIsNotStripped(t *testing.T) {
@@ -617,8 +614,8 @@ func TestSplashVersionRenderIsNotStripped(t *testing.T) {
 	// that reference.
 	if !regexp.MustCompile(`(?i)version`).MatchString(src) {
 		// The version string injection must exist somewhere; if it
-		// doesn't, AC12 has not been wired and the dedicated content
-		// test (9.13-INTG-003) already fails. No need to double-fail.
+		// doesn't, has not been wired and the dedicated content test
+		// already fails. No need to double-fail.
 		return
 	}
 
@@ -635,10 +632,10 @@ func TestSplashVersionRenderIsNotStripped(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-014 [P0]: Main window is created with body opacity 0 so it
-// crossfades up cleanly.
+// Main window is created with body opacity 0 so it crossfades up
+// cleanly.
 //
-// AC#5: "The main window MUST be created with its body at opacity 0 (or
+// "The main window MUST be created with its body at opacity 0 (or
 // hidden) and fade up only at dismissal -- otherwise the first paint
 // shows a fully opaque main window for a frame before its transition
 // starts, defeating the crossfade."
@@ -690,10 +687,9 @@ func TestMainWindowFirstPaintIsTransparent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-015 [P1]: Build-time -ldflags wiring preserves the full
-// semver for AC12.
+// Build-time -ldflags wiring preserves the full semver for.
 //
-// AC#12: contingent on `VERSION` being set to the full semver by the
+// Contingent on `VERSION` being set to the full semver by the
 // upstream CI / release pipeline. The story explicitly says: "If
 // VERSION itself is stripped upstream, that fix is a prerequisite and
 // not scope-creep for this story."

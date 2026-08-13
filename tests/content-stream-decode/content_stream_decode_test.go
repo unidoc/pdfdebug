@@ -46,9 +46,9 @@ func testdataDir(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-001 [P0]: GetContentStream returns decoded plain text for a
-// page's Contents node using testdata/content-stream.pdf.
-// AC#1: Given a tree node ID corresponding to a page's Contents entry,
+// GetContentStream returns decoded plain text for a page's Contents
+// node using testdata/content-stream.pdf.
+// Given a tree node ID corresponding to a page's Contents entry,
 //       When GetContentStream(tabID, nodeID) is called,
 //       Then it returns ContentStreamData with decoded plain text in Raw,
 //       And NodeID is populated correctly.
@@ -75,9 +75,9 @@ func TestGetContentStreamValid(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-002 [P0]: GetContentStream on corrupted/non-decodable stream
-// returns error in ContentStreamData.Error, does not panic.
-// AC#2: Given a content stream that cannot be decoded,
+// GetContentStream on corrupted/non-decodable stream returns error in
+// ContentStreamData.Error, does not panic.
+// Given a content stream that cannot be decoded,
 //       When GetContentStream is called,
 //       Then the Error field is populated with a clear message,
 //       And the function does not crash or panic.
@@ -100,7 +100,7 @@ func TestGetContentStreamNonStream(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-004 [P0]: GetContentStream with invalid tabID returns
+// GetContentStream with invalid tabID returns
 // ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ func TestGetContentStreamUnknownTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-005 [P0]: GetContentStream with empty nodeID returns Go error.
+// GetContentStream with empty nodeID returns Go error.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamEmptyNodeID(t *testing.T) {
@@ -137,8 +137,8 @@ func TestGetContentStreamEmptyNodeID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-006 [P0]: Decoded content stream is cached per-document.
-// AC#3: Second call returns same result from cache.
+// Decoded content stream is cached per-document.
+// Second call returns same result from cache.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamCached(t *testing.T) {
@@ -156,9 +156,9 @@ func TestGetContentStreamCached(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-006b [P0]: GetContentStream with error-prefixed nodeID returns
+// GetContentStream with error-prefixed nodeID returns
 // ContentStreamData.Error, no panic.
-// AC#2: Graceful degradation for error nodes.
+// Graceful degradation for error nodes.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamErrorNode(t *testing.T) {
@@ -176,7 +176,7 @@ func TestGetContentStreamErrorNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-009 [P1]: ContentStreamData.NodeID field is populated correctly.
+// ContentStreamData.NodeID field is populated correctly.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamNodeIDPopulated(t *testing.T) {
@@ -194,9 +194,9 @@ func TestGetContentStreamNodeIDPopulated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-010 [P1]: PDFService.GetContentStream() delegates to
+// PDFService.GetContentStream() delegates to
 // Inspector.GetContentStream() and returns ContentStreamData.
-// AC#1: Thin adapter pattern for service layer.
+// Thin adapter pattern for service layer.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetContentStreamValid(t *testing.T) {
@@ -228,7 +228,7 @@ func TestPDFServiceGetContentStreamUnknown(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-001 [P1]: Full decode pipeline: Open() + GetContentStream() on
+// Full decode pipeline: Open() + GetContentStream() on
 // testdata/content-stream.pdf returns readable text with PDF operators.
 // ---------------------------------------------------------------------------
 
@@ -248,8 +248,8 @@ func TestGetContentStreamIntegration(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-002 [P1]: stream.go exists in internal/pdfcore/
-// AC#1: Content stream decoding logic lives in pdfcore/stream.go.
+// stream.go exists in internal/pdfcore: Content stream decoding
+// logic lives in pdfcore/stream.go.
 // ---------------------------------------------------------------------------
 
 func TestStreamFileExists(t *testing.T) {
@@ -262,8 +262,8 @@ func TestStreamFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-003 [P1]: Inspector.GetContentStream method exists
-// AC#1: Method signature present in pdfcore.
+// Inspector.GetContentStream method exists: Method signature
+// present in pdfcore.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamMethodExists(t *testing.T) {
@@ -281,8 +281,8 @@ func TestGetContentStreamMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-004 [P1]: PDFService.GetContentStream method exists in service.go
-// AC#1: Thin adapter pass-through.
+// PDFService.GetContentStream method exists in service.go: Thin adapter
+// pass-through.
 // ---------------------------------------------------------------------------
 
 func TestServiceGetContentStreamMethodExists(t *testing.T) {
@@ -299,8 +299,8 @@ func TestServiceGetContentStreamMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-005 [P1]: DocumentState has streamCache field
-// AC#3: Caching infrastructure exists.
+// DocumentState has streamCache field: Caching
+// infrastructure exists.
 // ---------------------------------------------------------------------------
 
 func TestDocumentStateHasStreamCache(t *testing.T) {
@@ -317,7 +317,7 @@ func TestDocumentStateHasStreamCache(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-006 [P1]: All pdfcore tests still pass (no regression)
+// All pdfcore tests still pass (no regression)
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreNoRegression(t *testing.T) {
@@ -335,7 +335,7 @@ func TestPdfcoreNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-007 [P1]: All pdfservice tests still pass (no regression)
+// All pdfservice tests still pass (no regression)
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceNoRegression(t *testing.T) {
@@ -353,7 +353,7 @@ func TestPdfserviceNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-INTG-008 [P1]: go vet passes on pdfcore package
+// go vet passes on pdfcore package
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVet(t *testing.T) {

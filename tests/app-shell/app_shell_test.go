@@ -77,16 +77,16 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Native menu bar with File menu (Open, Close, Quit)
-// Test IDs: 1.4-INTG-001 through 1.4-INTG-005
+// Native menu bar with File menu (Open, Close, Quit) Test
+// IDs: through
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-001 (P0): main.go template boilerplate removed
-// AC#1 prerequisite: GreetService, time ticker, init() removed
+// main.go template boilerplate removed prerequisite:
+// GreetService, time ticker, init() removed
 
 
-// 1.4-INTG-002 (P0): greetservice.go deleted
-// AC#1 prerequisite: Template leftover file removed
+// greetservice.go deleted prerequisite: Template
+// leftover file removed
 
 func TestGreetServiceFileDeleted(t *testing.T) {
 	if fileExists(t, "greetservice.go") {
@@ -94,23 +94,22 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-003, 1.4-INTG-004, 1.4-INTG-005 (Story 4-5):
-// TestNativeMenuBarCreated, TestPlatformConditionalQuit, and TestMainGoSetupOrdering
-// were source-grep assertions on main.go. TestNativeMenuBarCreated and
-// TestMainGoSetupOrdering are replaced by tests/boot-smoke (boot path runs to
+// Story 4-5: TestNativeMenuBarCreated, TestPlatformConditionalQuit, and
+// TestMainGoSetupOrdering were source-grep assertions on main.go.
+// TestNativeMenuBarCreated and TestMainGoSetupOrdering are replaced by
+// tests/boot-smoke (boot path runs to
 // the event loop without panic). TestPlatformConditionalQuit is delete-only;
 // macOS Quit-in-AppMenu duplicate-prevention is not separately covered after
 // deletion (regression risk accepted; structural breakage would surface in the
 // build matrix and at first manual smoke).
 
 // ---------------------------------------------------------------------------
-// AC#3: Window minimum size 800x600
-// Test ID: 1.4-UNIT-005 (P2)
+// Window minimum size 800x600 Test ID:
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#3 + Task 1.5: Window configuration (Title, Width, Height, URL)
+// + Task 1.5: Window configuration (Title, Width, Height, URL)
 // ---------------------------------------------------------------------------
 
 
@@ -125,11 +124,11 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// AC#6: AppProvider with React Context + useReducer
-// Test IDs: 1.4-INTG-006 through 1.4-INTG-010
+// AppProvider with React Context + useReducer Test
+// IDs: through
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-006 (P0): useDocumentState.tsx exists with required exports
+// useDocumentState.tsx exists with required exports
 
 func TestUseDocumentStateFileExists(t *testing.T) {
 	// File uses .tsx extension because it contains JSX (AppProvider component)
@@ -138,7 +137,7 @@ func TestUseDocumentStateFileExists(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-007 (P0): AppProvider, useAppState, useAppDispatch exported
+// AppProvider, useAppState, useAppDispatch exported
 
 func TestUseDocumentStateExports(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
@@ -166,7 +165,7 @@ func TestUseDocumentStateExports(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-008 (P1): AppState shape with tabs and activeTabId
+// AppState shape with tabs and activeTabId
 
 func TestAppStateShape(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
@@ -204,7 +203,7 @@ func TestAppStateShape(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-009 (P1): AppAction types defined
+// AppAction types defined
 
 func TestAppActionTypes(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
@@ -229,7 +228,7 @@ func TestAppActionTypes(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-010 (P1): Two separate contexts for state and dispatch
+// Two separate contexts for state and dispatch
 
 func TestTwoSeparateContexts(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
@@ -256,11 +255,10 @@ func TestTwoSeparateContexts(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2, AC#5: MainLayout component with allotment two-column layout
-// Test IDs: 1.4-UNIT-001, 1.4-UNIT-003, 1.4-INTG-011 through 1.4-INTG-015
+// MainLayout component with allotment two-column layout Test IDs: through
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-011 (P0): MainLayout.tsx exists
+// MainLayout.tsx exists
 
 func TestMainLayoutFileExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/MainLayout.tsx") {
@@ -268,34 +266,34 @@ func TestMainLayoutFileExists(t *testing.T) {
 	}
 }
 
-// 1.4-UNIT-001 (Story 4-5): TestMainLayoutTwoColumnStructure was a source-grep
-// on MainLayout.tsx asserting the literal `preferredSize={300}`. Story 4-4
-// made `preferredSize` conditional on persisted state, breaking the grep while
+// Story 4-5: TestMainLayoutTwoColumnStructure was a source-grep on
+// MainLayout.tsx asserting the literal `preferredSize={300}`. Story 4-4 made
+// `preferredSize` conditional on persisted state, breaking the grep while
 // behaviour was preserved. Replaced by an extension of
-// frontend/src/components/MainLayout.test.tsx (4-5-UNIT-001) that asserts both
-// `left-panel` and `right-panel` testids render.
+// frontend/src/components/MainLayout.test.tsx that asserts both `left-panel`
+// and `right-panel` testids render.
 
-// 1.4-UNIT-003 (P2): Semantic HTML elements used
-
-
-// 1.4-INTG-012 (P0): MainLayout data-testid attributes
+// Semantic HTML elements used
 
 
-// 1.4-INTG-013 (P1): MainLayout placeholder content
+// MainLayout data-testid attributes
 
 
-// 1.4-INTG-014 (P1): MainLayout uses h-full for full height
+// MainLayout placeholder content
 
 
-// 1.4-INTG-015 (P1): MainLayout exported as named export (not default)
+// MainLayout uses h-full for full height
+
+
+// MainLayout exported as named export (not default)
 
 
 // ---------------------------------------------------------------------------
-// AC#6: App.jsx integrates AppProvider, MainLayout, and EmptyState
-// Test IDs: 1.4-INTG-016 through 1.4-INTG-020
+// App.jsx integrates AppProvider, MainLayout, and EmptyState Test
+// IDs: through
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-016 (P0): App.jsx wraps content in AppProvider
+// App.jsx wraps content in AppProvider
 
 func TestAppJsxWrapsInAppProvider(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -317,7 +315,7 @@ func TestAppJsxWrapsInAppProvider(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-017 (P0): App.jsx imports and conditionally renders MainLayout
+// App.jsx imports and conditionally renders MainLayout
 
 func TestAppJsxRendersMainLayout(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -334,7 +332,7 @@ func TestAppJsxRendersMainLayout(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-018 (P0): App.jsx still renders EmptyState
+// App.jsx still renders EmptyState
 
 func TestAppJsxStillRendersEmptyState(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -351,7 +349,7 @@ func TestAppJsxStillRendersEmptyState(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-019 (P1): App.jsx uses useAppState hook for conditional rendering
+// App.jsx uses useAppState hook for conditional rendering
 
 func TestAppJsxUsesAppStateHook(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -373,8 +371,8 @@ func TestAppJsxUsesAppStateHook(t *testing.T) {
 	}
 }
 
-// 1.4-INTG-020 (P1): AppContent wrapper component exists inside App.jsx
-// Hooks must be called inside AppProvider, so a wrapper component is needed
+// AppContent wrapper component exists inside App.jsx Hooks must be called
+// inside AppProvider, so a wrapper component is needed
 
 func TestAppContentWrapperComponent(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -415,26 +413,26 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.4-UNIT-002 (P1): Platform-aware shortcut hint renders correctly
-// AC#1 (related): EmptyState uses getShortcutHint from platform.ts
+// Platform-aware shortcut hint renders correctly (related):
+// EmptyState uses getShortcutHint from platform.ts
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-UNIT-004 (P2): Focus indicator applied to interactive elements
-// AC#5 (related): Accessibility focus-visible ring on buttons
+// Focus indicator applied to interactive elements (related):
+// Accessibility focus-visible ring on buttons
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-021 (P1): ErrorBoundary wraps Allotment in MainLayout
-// Defensive: ErrorBoundary catches render errors in split panels
+// ErrorBoundary wraps Allotment in MainLayout Defensive:
+// ErrorBoundary catches render errors in split panels
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-022 (P1): useDocumentState initial state is correct
-// Verify initialState has empty tabs and null activeTabId
+// useDocumentState initial state is correct Verify
+// initialState has empty tabs and null activeTabId
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateInitialState(t *testing.T) {
@@ -463,8 +461,8 @@ func TestUseDocumentStateInitialState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-023 (P2): useDocumentState context null guards
-// Hooks throw meaningful errors when used outside AppProvider
+// useDocumentState context null guards Hooks throw meaningful
+// errors when used outside AppProvider
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateContextNullGuards(t *testing.T) {

@@ -48,8 +48,8 @@ func projectRoot(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-UNIT-001 (P0): Wails v3 project builds successfully
-// AC#1: wails3 build produces a native binary
+// Wails v3 project builds successfully: wails3 build
+// produces a native binary
 // ---------------------------------------------------------------------------
 
 func TestWailsBuildProducesBinary(t *testing.T) {
@@ -92,8 +92,8 @@ func TestWailsBuildProducesBinary(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-UNIT-002 (P0): Go module resolves all dependencies
-// AC#3: pdfcpu is present; go mod tidy + go vet succeed
+// Go module resolves all dependencies: pdfcpu is
+// present; go mod tidy + go vet succeed
 // ---------------------------------------------------------------------------
 
 func TestGoModuleDependencies(t *testing.T) {
@@ -129,8 +129,8 @@ func TestGoModuleDependencies(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-UNIT-003 (P0): Frontend dependencies install and TypeScript compiles
-// AC#5: Required frontend deps installed; AC#6: strict mode enabled
+// Frontend dependencies install and TypeScript compiles: Required frontend
+// deps installed; strict mode enabled
 // ---------------------------------------------------------------------------
 
 func TestFrontendDependenciesAndTypeScript(t *testing.T) {
@@ -202,8 +202,8 @@ func TestFrontendDependenciesAndTypeScript(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-UNIT-004 (P2): Directory structure matches architecture
-// AC#4: internal/pdfcore/, internal/pdfservice/, cmd/cli/, testdata/ exist
+// Directory structure matches architecture: internal/pdfcore/,
+// internal/pdfservice/, cmd/cli/, testdata/ exist
 // ---------------------------------------------------------------------------
 
 func TestDirectoryStructure(t *testing.T) {
@@ -263,8 +263,8 @@ func TestDirectoryStructure(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-UNIT-005 (P3): LICENSE and NOTICE files present
-// AC#7: Apache 2.0 LICENSE and UniDoc NOTICE files at project root
+// LICENSE and NOTICE files present: Apache 2.0 LICENSE and UniDoc
+// NOTICE files at project root
 // ---------------------------------------------------------------------------
 
 func TestLegalFiles(t *testing.T) {
@@ -298,8 +298,8 @@ func TestLegalFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-INTG-001 (P1): .gitignore covers required patterns
-// AC#8: .gitignore covers Go, Node.js, and Wails build artifacts
+// .gitignore covers required patterns: .gitignore covers Go,
+// Node.js, and Wails build artifacts
 // ---------------------------------------------------------------------------
 
 func TestGitignoreCoverage(t *testing.T) {
@@ -353,8 +353,8 @@ func TestGitignoreCoverage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-INTG-002 (P1): Wails project configuration files exist
-// Derived from AC#1: verifies essential config files produced by scaffold
+// Wails project configuration files exist: verifies the essential config
+// files produced by scaffold
 // ---------------------------------------------------------------------------
 
 func TestWailsProjectConfigFiles(t *testing.T) {
@@ -382,8 +382,8 @@ func TestWailsProjectConfigFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-INTG-003 (P1): Vite config includes Tailwind CSS plugin
-// AC#5 (partial): Tailwind CSS v4 configured with @tailwindcss/vite plugin
+// Vite config includes Tailwind CSS plugin (partial): Tailwind CSS v4
+// configured with @tailwindcss/vite plugin
 // ---------------------------------------------------------------------------
 
 func TestViteConfigIncludesTailwind(t *testing.T) {
@@ -407,8 +407,8 @@ func TestViteConfigIncludesTailwind(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1-INTG-004 (P2): pdfcpu blank import pins dependency
-// AC#3 (detail): pdfcpu is pinned via blank import so go mod tidy won't remove it
+// Pdfcpu blank import pins dependency (detail): pdfcpu is pinned via blank import
+// so go mod tidy won't remove it
 // ---------------------------------------------------------------------------
 
 func TestPdfcpuBlankImport(t *testing.T) {

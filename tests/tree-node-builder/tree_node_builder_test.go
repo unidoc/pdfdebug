@@ -67,8 +67,8 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-001 [P0]: GetTreeRoot() returns TreeNode with correct fields
-// AC#1: Given a parsed PDF document, When GetTreeRoot(tabID) is called,
+// GetTreeRoot() returns TreeNode with correct fields: Given a parsed
+// PDF document, When GetTreeRoot(tabID) is called,
 //       Then it returns a TreeNode with id="root", label="Catalog",
 //       hasChildren=true, iconHint="catalog", nodeType="dict",
 //       And childCount reflects the number of top-level catalog entries.
@@ -96,8 +96,8 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-002 [P0]: GetChildren("root") returns children with obj: IDs
-// AC#2: Given the root node, When GetChildren(tabID, "root") is called,
+// GetChildren("root") returns children with obj: IDs
+// Given the root node, When GetChildren(tabID, "root") is called,
 //       Then it returns a slice of TreeNode for immediate catalog entries,
 //       And indirect ref values produce child IDs in "obj:{gen}:{num}" format.
 // ---------------------------------------------------------------------------
@@ -119,8 +119,8 @@ func TestGetChildrenRoot(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-003 [P0]: GetChildren() for dict node returns dict:{parent}:{key} IDs
-// AC#2: Given a tree node ID for a dictionary, When GetChildren is called,
+// GetChildren() for dict node returns dict:{parent}:{key} IDs: Given a tree node
+// ID for a dictionary, When GetChildren is called,
 //       Then children that are direct dict entries (non-IndirectRef values)
 //       have IDs in "dict:{parent_id}:{key}" format with bare keys (no slash).
 // ---------------------------------------------------------------------------
@@ -142,8 +142,8 @@ func TestGetChildrenDictNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-004 [P0]: GetChildren() for array node returns arr:{parent}:{index} IDs
-// AC#2: Given a tree node ID for an array, When GetChildren is called,
+// GetChildren() for array node returns arr:{parent}:{index} IDs: Given a tree node
+// ID for an array, When GetChildren is called,
 //       Then children have IDs in "arr:{parent_id}:{index}" format.
 // ---------------------------------------------------------------------------
 
@@ -164,8 +164,8 @@ func TestGetChildrenArrayNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-005 [P0]: Malformed object produces error node, siblings unaffected
-// AC#3: Given a tree node for a malformed object, When GetChildren()
+// Malformed object produces error node, siblings unaffected: Given a tree node
+// for a malformed object, When GetChildren()
 //       encounters a parsing error, Then it returns an error node with Error
 //       field populated and Label="Error: {message}", And other sibling
 //       nodes are still returned.
@@ -183,8 +183,8 @@ func TestErrorNodeCreation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-006 [P1]: /Pages shows "Pages" with iconHint "page"
-// AC#4: Given tree builder, When building nodes for /Pages,
+// /Pages shows "Pages" with iconHint "page": Given tree
+// builder, When building nodes for /Pages,
 //       Then Label is "Pages" and iconHint is "page".
 // ---------------------------------------------------------------------------
 
@@ -204,8 +204,8 @@ func TestSemanticLabelPages(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-007 [P1]: /Font entries show "Font: {name}" with iconHint "font"
-// AC#4: Given tree builder, When building nodes for /Font entries,
+// /Font entries show "Font: {name}" with iconHint "font": Given tree
+// builder, When building nodes for /Font entries,
 //       Then Label follows "Font: {BaseFont}" pattern and iconHint is "font".
 // ---------------------------------------------------------------------------
 
@@ -226,8 +226,8 @@ func TestSemanticLabelFont(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-008 [P1]: Node types correctly assigned
-// AC#2: Each child has correct nodeType (dict, array, stream, ref, scalar).
+// Node types correctly assigned: Each child has correct nodeType (dict,
+// array, stream, ref, scalar).
 // ---------------------------------------------------------------------------
 
 func TestNodeTypeAssignment(t *testing.T) {
@@ -247,9 +247,9 @@ func TestNodeTypeAssignment(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-009 [P1]: Node ID round-trip: encode then decode produces
+// Node ID round-trip: encode then decode produces
 //                     original components
-// AC#2: Node IDs follow the scheme and can be parsed back to their components.
+// Node IDs follow the scheme and can be parsed back to their components.
 // ---------------------------------------------------------------------------
 
 func TestNodeIDRoundTrip(t *testing.T) {
@@ -264,8 +264,8 @@ func TestNodeIDRoundTrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-010 [P2]: XObject image entries get iconHint "image"
-// AC#4: /XObject image entries show with iconHint "image".
+// XObject image entries get iconHint "image": /XObject image
+// entries show with iconHint "image".
 // ---------------------------------------------------------------------------
 
 func TestIconHintXObjectImage(t *testing.T) {
@@ -277,8 +277,8 @@ func TestIconHintXObjectImage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-011 [P2]: Empty dictionary returns empty slice, not nil
-// AC#2 (edge case): GetChildren on a dict with no entries returns []*TreeNode{}.
+// Empty dictionary returns empty slice, not nil (edge case): GetChildren on a
+// dict with no entries returns []*TreeNode{}.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenEmptyDict(t *testing.T) {
@@ -291,8 +291,8 @@ func TestGetChildrenEmptyDict(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-012 [P2]: Empty array returns empty slice, not nil
-// AC#2 (edge case): GetChildren on an array with no elements returns []*TreeNode{}.
+// Empty array returns empty slice, not nil (edge case): GetChildren on an array
+// with no elements returns []*TreeNode{}.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenEmptyArray(t *testing.T) {
@@ -305,8 +305,8 @@ func TestGetChildrenEmptyArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-013 [P0]: GetTreeRoot with unknown tabID returns error
-// AC#1 (negative): Given an unknown tabID, When GetTreeRoot is called,
+// GetTreeRoot with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetTreeRoot is called,
 //                  Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
@@ -320,8 +320,8 @@ func TestGetTreeRootUnknownTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-014 [P0]: GetChildren with unknown tabID returns error
-// AC#2 (negative): Given an unknown tabID, When GetChildren is called,
+// GetChildren with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetChildren is called,
 //                  Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
@@ -335,8 +335,8 @@ func TestGetChildrenUnknownTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-015 [P1]: GetChildren with invalid nodeID format returns error
-// AC#2 (negative): Given a malformed nodeID, When GetChildren is called,
+// GetChildren with invalid nodeID format returns error (negative): Given
+// a malformed nodeID, When GetChildren is called,
 //                  Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
@@ -356,8 +356,8 @@ func TestGetChildrenInvalidNodeID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-016 [P1]: Scalar leaf nodes have HasChildren=false and valueType set
-// AC#2: Scalar values (Name, String, Integer, etc.) are leaf nodes.
+// Scalar leaf nodes have HasChildren=false and valueType set: Scalar values
+// (Name, String, Integer, etc.) are leaf nodes.
 // ---------------------------------------------------------------------------
 
 func TestScalarLeafNodes(t *testing.T) {
@@ -377,8 +377,8 @@ func TestScalarLeafNodes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-017 [P1]: Root iconHint is "catalog"
-// AC#4: Root catalog node has iconHint "catalog".
+// Root iconHint is "catalog": Root catalog node has
+// iconHint "catalog".
 // ---------------------------------------------------------------------------
 
 func TestIconHintCatalog(t *testing.T) {
@@ -394,8 +394,8 @@ func TestIconHintCatalog(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-018 [P1]: tree.go file exists with required method signatures
-// AC#1, #2: GetTreeRoot and GetChildren methods exist on Inspector.
+// tree.go file exists with required method signatures: GetTreeRoot and
+// GetChildren methods exist on Inspector.
 // ---------------------------------------------------------------------------
 
 func TestTreeFileAndMethodsExist(t *testing.T) {
@@ -440,8 +440,8 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-019 [P1]: All tree-related pdfcore tests pass
-// AC#4: Unit tests cover tree root building, child enumeration for
+// All tree-related pdfcore tests pass: Unit tests cover tree root
+// building, child enumeration for
 //       dicts/arrays/scalars/refs, error node creation, and semantic labeling.
 // ---------------------------------------------------------------------------
 
@@ -462,8 +462,8 @@ func TestAllTreeTestsPass(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-020 [P1]: go vet passes on pdfcore with tree.go
-// AC#4: No vet warnings after adding tree.go.
+// go vet passes on pdfcore with tree.go: No vet warnings
+// after adding tree.go.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVetWithTree(t *testing.T) {
@@ -479,8 +479,8 @@ func TestPdfcoreGoVetWithTree(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-021 [P1]: Project compiles with tree.go added
-// AC#4: go build ./... succeeds.
+// Project compiles with tree.go added: go build ./...
+// succeeds.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreCompiles(t *testing.T) {

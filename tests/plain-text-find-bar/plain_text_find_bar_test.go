@@ -7,19 +7,19 @@
 // E2E" directive + Task 7.3 of the story spec: no Playwright in v1):
 //
 //   - Frontend pure-function logic (findMatches.ts): unit tested in
-//     findMatches.test.ts. AC4, AC12, AC19 -- match algorithm, non-Latin-1
+//     findMatches.test.ts. -- match algorithm, non-Latin-1
 //     codepoint detection, perf budget.
 //   - Frontend hook logic (useFindBar.ts): hook tested in useFindBar.test.ts.
-//     AC1, AC2, AC3, AC7, AC8, AC9, AC10, AC11, AC13, AC15, AC22 -- keystroke
+//     keystroke
 //     handlers, navigation, wrap-status, openedOnce flag, focus-guard.
 //   - Frontend component contract (FindBar.tsx): component tested in
-//     FindBar.test.tsx. AC1 testids, AC10 aria, AC12 hint, AC16 keyboard
-//     wiring, AC18 disabled state, AC20 tab order, AC21 aria-live.
+//     FindBar.test.tsx. testids, aria, hint, keyboard
+//     wiring, disabled state, tab order, aria-live.
 //   - Frontend integration (PlainTextView.find.test.tsx): full FindBar mounted
-//     over PlainTextView. AC5, AC6, AC7 auto-scroll, AC11 inner-tab vs
-//     document-tab persistence, AC13 cmd+F gate on data===null, AC17 viewport
+//     over PlainTextView. auto-scroll, inner-tab vs
+//     document-tab persistence, cmd+F gate on data===null, viewport
 //     re-render on scroll.
-//   - Frontend reducer (useDocumentState extension): AC10/AC11/AC14 per-tab
+//   - Frontend reducer (useDocumentState extension): per-tab
 //     findCaseSensitive.
 //   - Project docs: project-context.md gains the Plain Text Find Bar Rules
 //     section; deferred-work.md marks the 9-12 "Search within Plain Text
@@ -92,8 +92,8 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4, AC#12, AC#19 -- findMatches pure-function module exists with the
-// documented exports. Behavioral tests live in findMatches.test.ts.
+// findMatches pure-function module exists with the documented exports.
+// Behavioral tests live in findMatches.test.ts.
 // ---------------------------------------------------------------------------
 
 // TestFindMatchesModuleExists asserts frontend/src/lib/findMatches.ts exists.
@@ -118,7 +118,7 @@ func TestFindMatchesExports(t *testing.T) {
 			t.Errorf("findMatches.ts must contain %q (Task 2.1)", sym)
 		}
 	}
-	// Match shape from AC4: { start, end, line }.
+	// Match shape: { start, end, line }.
 	for _, field := range []string{"start", "end", "line"} {
 		if !strings.Contains(src, field) {
 			t.Errorf("findMatches.ts Match interface must declare %q field", field)
@@ -134,7 +134,7 @@ func TestFindMatchesTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1..AC#3, AC#7..AC#11, AC#13, AC#15, AC#22 -- useFindBar hook surface.
+// .. -- useFindBar hook surface.
 // ---------------------------------------------------------------------------
 
 // TestUseFindBarHookExists asserts frontend/src/hooks/useFindBar.ts exists.
@@ -161,8 +161,7 @@ func TestUseFindBarTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1, AC#5, AC#6, AC#10, AC#12, AC#16, AC#18, AC#20, AC#21 -- FindBar
-// component surface.
+// FindBar component surface.
 // ---------------------------------------------------------------------------
 
 // TestFindBarComponentExists asserts frontend/src/components/FindBar.tsx exists.
@@ -195,14 +194,14 @@ func TestFindBarTestExists(t *testing.T) {
 func TestFindBarTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredTestIds := []string{
-		"plain-text-find-bar",          // AC1 root
-		"plain-text-find-input",        // AC1 input
-		"plain-text-find-count",        // AC1 count
-		"plain-text-find-case-toggle",  // AC1 case toggle
-		"plain-text-find-prev",         // AC1 prev
-		"plain-text-find-next",         // AC1 next
-		"plain-text-find-close",        // AC1 close
-		"plain-text-find-wrap-status",  // AC7 / AC8 wrap status
+		"plain-text-find-bar",          // root
+		"plain-text-find-input",        // input
+		"plain-text-find-count",        // count
+		"plain-text-find-case-toggle",  // case toggle
+		"plain-text-find-prev",         // prev
+		"plain-text-find-next",         // next
+		"plain-text-find-close",        // close
+		"plain-text-find-wrap-status",  // wrap status
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -217,15 +216,15 @@ func TestFindBarTestIds(t *testing.T) {
 func TestFindBarAriaContract(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredAria := []string{
-		`role="search"`,                  // AC1 root role
-		`Find in plain text`,             // AC1 aria-label root
-		`Find query`,                     // AC1 aria-label input
-		`Match case`,                     // AC1 aria-label case toggle
-		`Previous match`,                 // AC1 aria-label prev
-		`Next match`,                     // AC1 aria-label next
-		`Close find`,                     // AC1 aria-label close
-		`aria-live="polite"`,             // AC21 count + wrap-status live region
-		`aria-pressed`,                   // AC1 / AC10 case toggle pressed state
+		`role="search"`,                  // root role
+		`Find in plain text`,             // aria-label root
+		`Find query`,                     // aria-label input
+		`Match case`,                     // aria-label case toggle
+		`Previous match`,                 // aria-label prev
+		`Next match`,                     // aria-label next
+		`Close find`,                     // aria-label close
+		`aria-live="polite"`,             // count + wrap-status live region
+		`aria-pressed`,                   // case toggle pressed state
 	}
 	for _, frag := range requiredAria {
 		if !strings.Contains(src, frag) {
@@ -240,9 +239,9 @@ func TestFindBarAriaContract(t *testing.T) {
 func TestFindBarNonLatin1Hint(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredFragments := []string{
-		"plain-text-find-non-latin1-hint",            // AC12 testid + id
+		"plain-text-find-non-latin1-hint",            // testid + id
 		`Non-Latin-1 characters won't match`,         // AC12 exact copy
-		`aria-describedby`,                           // AC12 linkage
+		`aria-describedby`,                           // linkage
 	}
 	for _, frag := range requiredFragments {
 		if !strings.Contains(src, frag) {
@@ -252,7 +251,7 @@ func TestFindBarNonLatin1Hint(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#5, AC#6, AC#7, AC#11, AC#13, AC#17 -- PlainTextView integration.
+// PlainTextView integration.
 // ---------------------------------------------------------------------------
 
 // TestPlainTextViewImportsFindBar asserts PlainTextView.tsx imports useFindBar and
@@ -275,8 +274,8 @@ func TestPlainTextViewImportsFindBar(t *testing.T) {
 func TestPlainTextViewMarkTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	required := []string{
-		"plain-text-find-active-match",  // AC5 active match
-		"plain-text-find-match",         // AC5 inactive match
+		"plain-text-find-active-match",  // active match
+		"plain-text-find-match",         // inactive match
 	}
 	for _, tid := range required {
 		if !strings.Contains(src, tid) {
@@ -304,7 +303,7 @@ func TestPlainTextFindTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#10, AC#11, AC#14 -- TabState.findCaseSensitive + SET_FIND_CASE_SENSITIVE.
+// TabState.findCaseSensitive + SET_FIND_CASE_SENSITIVE.
 // ---------------------------------------------------------------------------
 
 // TestTabStateCarriesFindCaseSensitive asserts TabState declares
@@ -343,7 +342,7 @@ func TestReducerFindTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#5, AC#6 -- Tailwind tokens registered in style.css.
+// Tailwind tokens registered in style.css.
 // ---------------------------------------------------------------------------
 
 // TestFindColorTokens asserts style.css registers the five find-color CSS custom
@@ -369,7 +368,7 @@ func TestFindColorTokens(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Out-of-scope guards: no Cmd+G rebinding (AC#9 -- F3 only).
+// Out-of-scope guards: no Cmd+G rebinding (F3 only).
 // ---------------------------------------------------------------------------
 
 // TestNoCmdGRebinding asserts useFindBar.ts does not bind Cmd+G / Ctrl+G for
