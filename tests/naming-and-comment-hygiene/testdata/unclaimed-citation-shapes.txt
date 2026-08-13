@@ -1,39 +1,27 @@
-# Citation-shaped tokens that no residue pattern claims, one per line.
+# Citation-shaped spellings that no residue pattern claims, one per line, with
+# every number written as N. The spelling is the point: a new one means a shape
+# the gates cannot see, and that is what TestNoNewUnclaimedCitationShapes fails
+# on. A new story number in a spelling already listed here is not news.
 #
-# TestNoNewUnclaimedCitationShapes fails when the tree gains a token of this
-# shape that is not listed here. This file is a ceiling, not a baseline: an entry
-# that stops occurring needs no edit, and neither does one that a widened pattern
-# starts claiming. Adding an entry is the decision that needs a reason, and the
-# only two reasons are below.
+# This file is a ceiling, not a baseline. An entry whose sites are all swept, or
+# that a widened pattern starts claiming, stops appearing and needs no edit here.
+# Adding an entry is the decision that needs a reason, and the only two reasons
+# are below.
 
-# Story and epic number references. Real residue under the naming rule, but a
-# class of its own: none of these is a scenario ID, and no gate claims the class.
-# The window this file gives onto it is narrow - the class runs to several hundred
-# occurrences tree-wide - so clearing them is not driven from here.
-11-5 RED
-11-6 RED
-13-1 RED
-13-2 RED
-13-4 RED
-13-5 RED
-13-6 RED
-14-1 RED
-14-3 RED
-10.6: PDF
-11.3: CLI
-13.3 CLI
-13-4 JSON
-9-11: XREF
-9.11: XREF
-9.8: PUSH
+# A story number written into prose without the word "story" next to it, so the
+# story-reference pattern cannot reach it. Claiming this shape would mean matching
+# a bare number followed by any capitalised word, which reads dates, versions and
+# ordinary sentences as residue. It is cleared by hand, not from here.
+N-N JSON
 
 # Text that only resembles a citation: a licence version, a font bit range, a
-# tool version, a count in prose, and line:column positions in assertions.
-2.0 LICENSE
-8-16 MUST
-3.4 (ESL
-6 (3 GUI
-0/0, XMPC
-0:4 NOT
-0:5 (NOT
-2:7, NOT
+# tool version, a count in prose, a coordinate, and line:column positions in
+# assertions.
+N.N LICENSE
+N-N MUST
+N.N (ESL
+N (N GUI
+N/N, XMPC
+N:N NOT
+N:N (NOT
+N:N, NOT

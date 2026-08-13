@@ -78,6 +78,18 @@ var (
 	// risk IDs, either segment one to three digits wide, either case.
 	riskID = regexp.MustCompile(`(?i)R-[0-9]{1,3}-[0-9]{1,3}`)
 
+	// story and epic number references. The number has to sit directly against
+	// the word, with only separator characters between: that adjacency is the
+	// whole guard, and it is what tells a reference apart from the word used in
+	// prose next to an unrelated number. The separator class carries the hyphen
+	// and the underscore as well as the space and the hash, because the shape
+	// also occurs in a Go package name and in a hyphenated comment reference.
+	//
+	// The plural is not in the alternation. Neither plural takes a number
+	// anywhere in this tree, and the singular cannot match inside the plural,
+	// so adding it would only widen the surface with nothing behind it.
+	storyOrEpicReference = regexp.MustCompile(`(?i)\b(story|epic)[ #_-]*[0-9]+([._-][0-9]+)?`)
+
 	// numbered acceptance-suite directory paths appearing in file contents.
 	// Anchored to the tests/ prefix, in both path separators, so version-bearing
 	// names are not caught; it stops at the number, because a reference that
@@ -97,6 +109,7 @@ func residuePatterns() []*regexp.Regexp {
 		acceptanceCriterionTag,
 		priorityTag,
 		riskID,
+		storyOrEpicReference,
 		numberedSuitePath,
 	}
 }
@@ -180,6 +193,17 @@ func TestNoRiskIDsInTree(t *testing.T) {
 	}
 }
 
+func TestNoStoryOrEpicNumberReferencesInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, storyOrEpicReference)
+	if len(hits) > 0 {
+		t.Errorf("story and epic number references must not appear in tracked source, comments, test names, assertion\n"+
+			"messages or Go package names. Rewrite the sentence to state what the code or the case does; where the\n"+
+			"reference is a package name, rename the package after what the suite covers.\n"+
+			"pattern %s matched %s", storyOrEpicReference, reportHits(hits, 40, 25))
+	}
+}
+
 func TestNoNumberedSuitePathsInFileContents(t *testing.T) {
 	root := projectRoot(t)
 	hits := scanTree(t, root, numberedSuitePath)
@@ -256,12 +280,12 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"tests/", "12-3", " INTG-020"},
 			},
 			mustNotMatch: [][]string{
-				{"Story 13-6 RED-PHASE unit tests"},       // phase label, not a kind token
-				{"Story 11-5 RED-PHASE acceptance tests"}, //
-				{"enforces Apache 2.0 LICENSE + NOTICE"},  // licence version
-				{"reserved bits 5, 8-16 MUST NOT render"}, // font flag bit range
-				{"per the 13-4 JSON contract"},            //
-				{"Story 9-8 ", "AC", "4-", "AC", "10"},    // citation range
+				{"Story ", "13-6 ", "RED-PHASE unit tests"},       // phase label, not a kind token
+				{"Story ", "11-5 ", "RED-PHASE acceptance tests"}, //
+				{"enforces Apache 2.0 LICENSE + NOTICE"},          // licence version
+				{"reserved bits 5, 8-16 MUST NOT render"},         // font flag bit range
+				{"per the 13-4 JSON contract"},                    //
+				{"Story ", "9-8 ", "AC", "4-", "AC", "10"},        // citation range
 				{"ISO 32000-1"}, {"2026-08-07"}, {"12 0 obj"}, {"%PDF-1.7"},
 			},
 		},
@@ -337,6 +361,34 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 			mustNotMatch: [][]string{{"ISO 32000-1"}, {"2026-08-07"}, {"%PDF-1.7"}, {"12 0 obj"}},
 		},
 		{
+			what: "story and epic number references",
+			re:   storyOrEpicReference,
+			mustMatch: [][]string{
+				{"// Story ", "10-1: async plain-text load"},
+				{"* Story ", "13.3: Font CMap"},
+				{"Story ", "#12 covers this"}, // hash separator
+				{"Epic ", "9 retro"},          // epic with no story part
+				{"epic", "-7-test-design.md"}, // hyphen against the word
+				{"existing Story", "-10-1 tests survive"},
+				{"package story", "_12_3_wails_alpha2_103_upgrade_test"}, // Go package name
+				{"STORY ", "10-1"},
+			},
+			mustNotMatch: [][]string{
+				{"the story file"}, {"this story"}, {"user stories"}, {"per the story spec"},
+				{"2 stories and 3 epics"}, {"epics 3 and 4"}, {"epic test design"},
+				{"a story is fully covered"}, {"story Testing Requirements"},
+				// the word next to a number that is not a reference
+				{"Story says 20 today; the count is a moving target"},
+				{"history 2 entries deep"}, {"the directory 12 levels down"},
+				{"epicenter of the change"}, {"storyPrefixedModuleLine = regexp"},
+				// the rules this suite states, which name the words but no number
+				{"no story or epic numbers in directory names"},
+				{"an epic-story number embedded in a file name"},
+				// a task reference is a class of its own, and is not claimed here
+				{"Story Task 6.1 requires"},
+			},
+		},
+		{
 			what: "numbered acceptance-suite paths",
 			re:   numberedSuitePath,
 			mustMatch: [][]string{
@@ -378,13 +430,22 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 var citationShapedToken = regexp.MustCompile(
 	`(^|[^-0-9A-Za-z])[0-9]{1,2}[^0-9A-Za-z]{1,2}[0-9]{1,2}[^0-9A-Za-z]{1,2}[A-Z][A-Z0-9]{2,}`)
 
-// unclaimedShapesFixture records the citation-shaped tokens no residue pattern
-// claims, as of the last time a human looked at them.
+// unclaimedShapesFixture records the citation-shaped spellings no residue
+// pattern claims, as of the last time a human looked at them.
 const unclaimedShapesFixture = "unclaimed-citation-shapes.txt"
 
-// unclaimedCitationShapes returns the distinct citation-shaped tokens on lines
-// that no residue pattern matches. The leading character each pattern has to
-// capture is trimmed so the set is keyed on the token, not on its neighbour.
+// digitRun reduces a token to its spelling. The numbers are what vary between
+// sites; the separators are what this gate is about, and they are what a new
+// spelling changes. Recording the spelling also keeps the fixture out of its own
+// scan: a line carrying no digits cannot be citation-shaped, so a recorded entry
+// stops appearing once the sites behind it are swept or claimed, instead of
+// holding itself in the set forever.
+var digitRun = regexp.MustCompile(`[0-9]+`)
+
+// unclaimedCitationShapes returns the citation-shaped spellings found on lines
+// that no residue pattern matches, each with one site to look at. The leading
+// character a pattern has to capture is trimmed so the key is the token, not its
+// neighbour.
 func unclaimedCitationShapes(t *testing.T, root string) map[string]hit {
 	t.Helper()
 	claimed := map[string]bool{}
@@ -398,9 +459,9 @@ func unclaimedCitationShapes(t *testing.T, root string) map[string]hit {
 		if claimed[fmt.Sprintf("%s:%d", h.path, h.line)] {
 			continue
 		}
-		token := strings.TrimLeft(h.text, " \t\"'`([{<*/,:;=&|+")
-		if _, seen := out[token]; !seen {
-			out[token] = h
+		spelling := digitRun.ReplaceAllString(strings.TrimLeft(h.text, " \t\"'`([{<*/,:;=&|+"), "N")
+		if _, seen := out[spelling]; !seen {
+			out[spelling] = h
 		}
 	}
 	return out
@@ -425,16 +486,17 @@ func TestNoNewUnclaimedCitationShapes(t *testing.T) {
 	}
 
 	var added []string
-	for token, where := range unclaimedCitationShapes(t, root) {
-		if !recorded[token] {
-			added = append(added, fmt.Sprintf("%q at %s:%d", token, where.path, where.line))
+	for spelling, where := range unclaimedCitationShapes(t, root) {
+		if !recorded[spelling] {
+			added = append(added, fmt.Sprintf("%s (as %q at %s:%d)", spelling, where.text, where.path, where.line))
 		}
 	}
 	if len(added) > 0 {
-		t.Errorf("citation-shaped tokens that no residue pattern claims and testdata/%s does not record.\n"+
+		t.Errorf("citation-shaped spellings that no residue pattern claims and testdata/%s does not record.\n"+
 			"Each is either a spelling of a scenario ID that the gates cannot see - widen the pattern, do not sweep the\n"+
 			"site and leave the gate blind - or text that only resembles one, in which case record it in the fixture with\n"+
-			"the reason.\nfamily pattern %s\nnew unclaimed shapes: %s",
+			"the reason. Numbers are shown as N: the spelling is what this gate is about.\n"+
+			"family pattern %s\nnew unclaimed spellings: %s",
 			unclaimedShapesFixture, citationShapedToken, reportPaths(added))
 	}
 }
