@@ -29,7 +29,7 @@ import (
 const MenuItemLabel = "Install 'pdfdebug' Command in PATH..."
 
 // UninstallMenuItemLabel is the label the menu item flips to once the CLI is
-// installed (optional uninstall affordance, AC #6).
+// installed (optional uninstall affordance).
 const UninstallMenuItemLabel = "Uninstall 'pdfdebug' Command"
 
 // cliName is the basename of both the bundled CLI and the installed symlink.

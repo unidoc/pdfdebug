@@ -16,7 +16,7 @@ import (
 
 // inspectorAPI is the method set PDFService uses from the inspector backend.
 // Declaring it as an unexported interface (rather than holding a concrete
-// pointer) is the AC5 seam: tests inject a stub that panics with a synthetic
+// pointer) is the test seam: tests inject a stub that panics with a synthetic
 // runtime.Error to drive the recoverRuntimePanic path without needing a real
 // malformed PDF.
 //
@@ -55,8 +55,8 @@ type inspectorAPI interface {
 // PDFService is the Wails-bound service that exposes PDF inspection to the
 // frontend. It delegates to the inspector backend for all PDF operations.
 //
-// The inspector field is typed as the inspectorAPI interface (Story 10-5
-// AC5 seam) rather than the concrete *pdfcore.Inspector; the production
+// The inspector field is typed as the inspectorAPI interface (the Story 10-5
+// test seam) rather than the concrete *pdfcore.Inspector; the production
 // constructor injects a *pdfcore.Inspector via pdfcore.NewInspector() and
 // tests inject a stub that panics with a runtime.Error to drive the
 // recoverRuntimePanic path.
@@ -85,13 +85,13 @@ func NewPDFService(app *application.App) PDFService {
 // test-binary-crash diagnostic for genuine bugs not in the inspector's
 // documented panic surface).
 //
-// Story 10-5 AC5: each wrapper invokes the inspector call inside an
-// anonymous closure that owns the deferred recover; the closure writes its
-// result and error into outer locals (via shadow) and the recover overwrites
-// the error local via pointer if a runtime.Error fires. This pattern keeps
-// the method signatures stable (no named returns; the existing Story 10-3
-// signature-preservation contract continues to hold) while still letting
-// the recover replace the returned error.
+// Story 10-5: each wrapper invokes the inspector call inside an anonymous
+// closure that owns the deferred recover; the closure writes its result and
+// error into outer locals (via shadow) and the recover overwrites the error
+// local via pointer if a runtime.Error fires. This pattern keeps the method
+// signatures stable (no named returns; the existing Story 10-3
+// signature-preservation contract continues to hold) while still letting the
+// recover replace the returned error.
 func recoverRuntimePanic(methodName string, errOut *error) {
 	if r := recover(); r != nil {
 		if _, ok := r.(runtime.Error); !ok {
@@ -219,7 +219,7 @@ func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageDa
 // /Type /Font dict node. Returns pdfcore.ErrNotAFont when the resolved dict
 // is not a Font dict (e.g. the iconHint='font' false positive on the
 // /Resources /Font resource map); the frontend treats this sentinel as a
-// signal to silently render the generic DictView (Story 9-9 AC1).
+// signal to silently render the generic DictView (Story 9-9).
 func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error) {
 	var result *pdfcore.FontDetail
 	var err error
@@ -232,7 +232,7 @@ func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDe
 
 // GetObjectSource returns the reserialized PDF-syntax representation of an
 // indirect object. Inline-node selections return ("", nil) so the frontend
-// can render the AC3 empty state.
+// can render the empty state.
 func (s *PDFService) GetObjectSource(tabID string, nodeID string) (string, error) {
 	var result string
 	var err error
@@ -276,7 +276,7 @@ func (s *PDFService) GetFontView(tabID string, nodeID string) (*pdfcore.FontView
 
 // GetReverseRefs returns the inbound dict-graph references for the indirect
 // object identified by nodeID, sourced from the per-document reverse-ref
-// index built lazily on first call (Story 10-5 AC7). Returns
+// index built lazily on first call (Story 10-5). Returns
 // pdfcore.ErrReverseRefIndexUnavailable when the index could not be built.
 //
 // Returns []*pdfcore.ReverseRef so the Wails-generated TS binding produces a
@@ -347,7 +347,7 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 // read is cancellable via CancelPlainText; cancellation surfaces an error
 // satisfying errors.Is(err, context.Canceled).
 //
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
+// Story 10-5: NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
 // disk bytes and never calls into the PDF backend; a runtime.Error here is a
 // Go bug in our non-backend code and SHOULD crash loudly rather than be
 // laundered as "malformed PDF" (which would mislead the user).
@@ -358,7 +358,7 @@ func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, err
 // CancelPlainText cancels an in-flight GetPlainText for tabID. No-op when no
 // load is in flight. Returns ErrDocumentNotFound for unknown tabs. Story 10-1.
 //
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic (non-backend code path).
+// Story 10-5: NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) CancelPlainText(tabID string) error {
 	return s.inspector.CancelPlainText(tabID)
 }
@@ -366,7 +366,7 @@ func (s *PDFService) CancelPlainText(tabID string) error {
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
 // Powers the loading-card size disclosure on PlainTextView. Story 10-1.
 //
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic (non-backend code path).
+// Story 10-5: NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) GetPlainTextSize(tabID string) (int64, error) {
 	return s.inspector.GetPlainTextSize(tabID)
 }
@@ -379,8 +379,8 @@ func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 }
 
 // ConsumePendingOpenFiles drains and returns any file-association paths that
-// were buffered before the frontend was ready (cold start). Story 12.1 AC5:
-// thin delegation to Queue.Drain -- the frontend calls this immediately after
+// were buffered before the frontend was ready (cold start). Story 12.1: thin
+// delegation to Queue.Drain -- the frontend calls this immediately after
 // registering its document:opened listener. Returns nil when no queue is wired
 // (the unwired-or-empty case marshals to JSON null, which the frontend treats
 // as an empty list).
