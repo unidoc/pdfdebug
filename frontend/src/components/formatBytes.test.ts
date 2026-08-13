@@ -1,13 +1,6 @@
 /**
  * Story 10.8: formatBytes unifies on 1 decimal place across KB / MB / GB.
  *
- * TDD RED PHASE: this test fails against the current PlainTextView.tsx for two
- * reasons:
- *   1. `formatBytes` is module-private (no `export`) -- the import below fails
- *      to resolve until it is changed to `export function formatBytes`.
- *   2. The MB branch uses `Math.round(n / (1024*1024))` (integer, no decimal)
- *      and the GB branch uses `.toFixed(2)`; both must become `.toFixed(1)`.
- *
  * Expected outputs:
  *   0            -> "0 B"
  *   512          -> "512 B"
@@ -23,7 +16,6 @@
  * Run: cd frontend && npx vitest run src/components/formatBytes.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED PHASE: fails until `formatBytes` is exported from PlainTextView.tsx.
 import { formatBytes } from './PlainTextView';
 
 describe('formatBytes precision (1 decimal across KB/MB/GB)', () => {

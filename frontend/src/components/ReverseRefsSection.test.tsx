@@ -1,8 +1,6 @@
 /**
  * Story 9.10: Object Source View + Reverse References
  *
- * TDD RED PHASE: Tests MUST fail until ReverseRefsSection.tsx is created.
- *
  * Covers, and the frontend failure-mode banner (Task 6.5 case 1) for the
  * "Referenced by" section. keyboard parity for the row click target is also
  * asserted here, mirroring DetailShared's Enter/Space contract.
@@ -23,7 +21,6 @@ import {
   useAppState,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: this import will fail until Task 6.1 creates the component.
 import { ReverseRefsSection } from './ReverseRefsSection';
 
 // Mock allotment so jsdom (no layout API) does not blow up.

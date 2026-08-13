@@ -1,8 +1,6 @@
 /**
  * Story 4.4: OS File Association, Single Instance, and Window Persistence
  *
- * TDD RED PHASE: Tests MUST fail until story 4-4 is implemented.
- *
  * Unit tests for the useWindowPersistence hook:
  *   Panel sizes saved to window.localStorage on resize
  *   Panel sizes restored from window.localStorage on mount
@@ -290,8 +288,6 @@ describe('4.4 useWindowPersistence', () => {
 
 /**
  * Story 8.4: Window Geometry Persistence
- *
- * TDD RED PHASE: Tests MUST fail until story 8-4 is implemented.
  *
  *   .006
  *   .008

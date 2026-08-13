@@ -2,12 +2,9 @@
  * Story 10.7: Frontend Hook and Render-Path Correctness (finding #5) --
  * raw-mode line splitting handles CR / CRLF / mixed.
  *
- * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX split at
- * ContentStreamViewer.tsx:222 -- `raw.split(/\r\n?|\n/)` instead of
- * `raw.split('\n')`. Against the current code, CR-only input
- * ("line1\rline2\rline3") splits into a SINGLE element, so the gutter shows 1
- * line number and the content column shows 1 row -- these assertions fail. A
- * developer activates them by removing `.skip` after Task 5.
+ * The split at ContentStreamViewer.tsx:222 is `raw.split(/\r\n?|\n/)`, so
+ * CR-only input ("line1\rline2\rline3") yields one row per line rather than a
+ * single element.
  *
  * Raw mode is forced by passing no `formatted` prop (the component falls back
  * to raw rendering when formatted is empty). Each raw line renders as a

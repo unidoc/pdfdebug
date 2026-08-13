@@ -1,8 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- pure-function red-phase suite.
- *
- * TDD RED PHASE: every test below fails until frontend/src/lib/findMatches.ts
- * is implemented per Task 2.
+ * Story 10.2: Find Bar in Plain Text View -- pure-function suite.
  *
  * Scope:
  * - findMatches(content, query, caseSensitive): Match[] -- algorithm,
@@ -14,7 +11,6 @@
  * Run: cd frontend && npx vitest run src/lib/findMatches.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED PHASE: this import fails until Task 2.1 lands.
 import { findMatches, buildLineStartOffsets, type Match } from './findMatches';
 
 // ---------------------------------------------------------------------------

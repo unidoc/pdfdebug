@@ -1,19 +1,11 @@
 /**
  * Story 9.9: Font Inspection View -- FontPreview Component Tests
  *
- * TDD RED PHASE: Tests MUST fail until FontPreview.tsx is created.
- *
- * The import below will fail until Task 4.1 lands. Once Task 4.1 lands, the
- * individual tests fail/pass depending on which sections of the component
- * have been wired in -- giving dev a granular green/red signal per AC.
- *
  * Test IDs follow the convention where NNN groups by AC.
  * Run: cd frontend && npx vitest run src/components/FontPreview.test.tsx
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-// RED PHASE: this import fails until FontPreview.tsx exists with the
-// expected named export. Every test below short-circuits on the failed import.
 import { FontPreview } from './FontPreview';
 
 // ---------------------------------------------------------------------------

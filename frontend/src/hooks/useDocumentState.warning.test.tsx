@@ -1,6 +1,5 @@
 /**
- * useDocumentState warning reducer tests. TDD RED PHASE -- these tests
- * MUST fail until Story 2-9 is implemented.
+ * useDocumentState warning reducer tests.
  *
  * Tests SET_DOCUMENT_WARNING, DISMISS_WARNING actions and documentWarning state.
  */

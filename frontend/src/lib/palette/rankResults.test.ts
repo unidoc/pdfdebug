@@ -1,9 +1,6 @@
 /**
  * Story 9-8: Command palette result ranker.
  *
- * TDD RED PHASE: This test imports `./rankResults` which does not exist yet.
- * The module must fail to resolve until Task 4.3 lands.
- *
  * Ordering contract:
  *   - Numeric: exact ObjNum match first, then gen-asc disambiguation
  *   - Type-filter: exact /Type match before prefix match (case-insensitive)
@@ -13,10 +10,7 @@
  * Run: cd frontend && npx vitest run src/lib/palette/rankResults.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED: this import fails until rankResults.ts exists.
 import { rankResults } from './rankResults';
-// RED: type-only import from the same place as palette types -- both files
-// need to land before this test compiles.
 import type { ObjectIndexEntry } from '../../types/palette';
 import { parseQuery } from './parseQuery';
 

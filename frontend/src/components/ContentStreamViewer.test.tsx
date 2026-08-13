@@ -1,15 +1,12 @@
 /**
  * Story 3.2: Content Stream Viewer -- Raw Text Display (Prototype)
  *
- * TDD RED PHASE: Tests MUST fail until ContentStreamViewer.tsx is implemented.
- *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.test.tsx
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi } from 'vitest';
-// RED PHASE: This import will fail until ContentStreamViewer.tsx is created.
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
 // 9-6: tests previously passed flat token arrays via the old `tokenized` prop;

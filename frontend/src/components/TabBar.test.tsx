@@ -1,8 +1,6 @@
 /**
  * Story 4.1: Tab Bar Component for Multi-Document Management
  *
- * TDD RED PHASE: Tests MUST fail until TabBar.tsx is implemented.
- *
  * Component-level acceptance tests for TabBar:
  *   TabBar renders one tab per open document with correct file names
  *   TabBar highlights the active tab (aria-selected)
@@ -24,7 +22,6 @@ import {
   useAppDispatch,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: This import will fail until TabBar.tsx is created.
 import { TabBar } from './TabBar';
 
 // Mock Wails runtime -- TabBar listens for native menu events
@@ -127,8 +124,6 @@ function openTabs(count: number) {
 describe('4.1 TabBar Component Tests', () => {
   /**
    * TabBar renders one tab per open document with correct file names.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('renders one tab per open document with correct file names', () => {
     render(
@@ -159,8 +154,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * TabBar highlights the active tab with visual distinction (aria-selected).
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('highlights the active tab with aria-selected', () => {
     render(
@@ -181,10 +174,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * TabBar tab has close button visible on hover.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
-   * Note: Hover visibility is CSS-only (opacity-0 -> opacity-100 on group-hover).
-   * We verify the button exists in the DOM with correct test ID and aria-label.
    */
   test('tab has close button with correct aria-label', () => {
     render(
@@ -267,8 +256,6 @@ describe('4.1 TabBar Component Tests', () => {
    * Note: Per story, do NOT assert role="tabpanel" -- we don't use
    * Tabs.Content. The test design doc lists "tabpanel" for this test ID
    * but that is a spec error for our architecture.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('uses Radix UI Tabs with proper ARIA roles', () => {
     render(
@@ -307,8 +294,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * Tab switch is instant -- no loading state shown, no backend calls.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('tab switch triggers no backend calls and shows no loading state', async () => {
     const user = userEvent.setup();
@@ -339,8 +324,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * Tab label shows truncated file name with tooltip showing full path.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('tab trigger has title attribute with full file path', () => {
     render(
@@ -357,10 +340,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * Tab bar scrolls horizontally when too many tabs to fit.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
-   * Note: This is a CSS behavior test -- we verify the overflow class is present
-   * on the tab list element.
    */
   test('tab list has horizontal scroll overflow class', () => {
     render(
@@ -379,8 +358,6 @@ describe('4.1 TabBar Component Tests', () => {
    * Supplemental: clicking close button dispatches CLOSE_DOCUMENT and calls
    * backend CloseDocument.
    * // Also covers
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('close button dispatches CLOSE_DOCUMENT and calls backend', () => {
     render(
@@ -412,8 +389,6 @@ describe('4.1 TabBar Component Tests', () => {
   /**
    * Supplemental: Ctrl+W closes the active tab.
    * // Also covers
-   *
-   * RED PHASE: TabBar.tsx does not exist yet. Keyboard handler not registered.
    */
   test('Ctrl+W closes the active tab', () => {
     render(
@@ -477,8 +452,6 @@ describe('4.1 TabBar Component Tests', () => {
   /**
    * Supplemental: clicking a tab triggers ACTIVATE_TAB, not
    * OPEN_DOCUMENT or any data-fetching action.
-   *
-   * RED PHASE: TabBar.tsx does not exist yet.
    */
   test('clicking tab switches active tab immediately', async () => {
     const user = userEvent.setup();

@@ -1,12 +1,6 @@
 /**
  * Story 13.2: EmbeddedDataView component tests.
  *
- * TDD RED PHASE: this whole suite is `describe.skip` so the Vitest run stays
- * green in CI until Task 5 lands `EmbeddedDataView.tsx`. Each test body asserts
- * the REAL expected behavior; unskip during the green phase. The import of
- * `./EmbeddedDataView` is intentionally the failing seam -- the module does not
- * exist yet, so an un-skipped run would fail to resolve it.
- *
  * Component contract (from the story):
  *  - Document-level view fed by GetEmbeddedFiles(tabId) -> EmbeddedFileList.
  *  - Table of rows (name, relationship, MIME, size).

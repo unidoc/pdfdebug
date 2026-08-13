@@ -1,8 +1,6 @@
 /**
  * Story 2.5: Tree Panel with Lazy-Loading Navigation
  *
- * TDD RED PHASE: Tests MUST fail until TreePanel.tsx is implemented.
- *
  * Test IDs: through
  * Run: cd frontend && npx vitest run src/components/TreePanel.test.tsx
  */
@@ -15,8 +13,6 @@ import {
   useAppState,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: This import will fail until TreePanel.tsx is created.
-// That is the expected behavior -- all tests fail because the module does not exist.
 import { TreePanel } from './TreePanel';
 
 // Helper for tests that use dynamic import pattern (returns the already-imported component)

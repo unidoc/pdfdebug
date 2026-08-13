@@ -1,10 +1,6 @@
 /**
  * Story 13.4: DetailPanel Signatures tab visibility tests.
  *
- * Authored red-phase (`describe.skip`); unskipped in the Story 13.4 green
- * phase once the `DetailView` union gained 'signatures' and the CONDITIONAL
- * Tabs.Trigger/Tabs.Content pair landed.
- *
  * Contract:
  *  - The "Signatures" document-level tab is shown ONLY when the document has
  *    >= 1 signature field; hidden otherwise (a deliberate departure from the

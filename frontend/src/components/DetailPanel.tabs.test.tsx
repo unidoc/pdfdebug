@@ -1,9 +1,6 @@
 /**
  * Story 9.11: DetailPanel Tabs Integration Tests
  *
- * TDD RED PHASE: Tests MUST fail until Task 5/8 wires the Radix Tabs primitive
- * into DetailPanel and integrates XRefTableView + PlainTextView.
- *
  * Covers:
  *   - the tab bar with three triggers and Object as the default;
  *   - no-selection behavior: Object shows an empty state while XREF and

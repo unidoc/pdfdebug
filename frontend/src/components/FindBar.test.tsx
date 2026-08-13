@@ -1,8 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- FindBar component red-phase suite.
- *
- * TDD RED PHASE: every test below fails until frontend/src/components/FindBar.tsx
- * is implemented per Task 4.
+ * Story 10.2: Find Bar in Plain Text View -- FindBar component suite.
  *
  * Scope:
  * - Static structure (role, aria-labels, data-testids)
@@ -21,7 +18,6 @@
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi } from 'vitest';
-// RED PHASE: this import fails until Task 4.1 lands.
 import { FindBar } from './FindBar';
 import type { Match } from '../lib/findMatches';
 

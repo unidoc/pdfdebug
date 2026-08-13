@@ -1,11 +1,5 @@
 /**
- * Story 10.1: Async Plain Text Load with Cancel -- Vitest red-phase suite.
- *
- * TDD RED PHASE: every test below fails until PlainTextView is refactored
- * per Story 10-1 (collapse state machine to LoadState, loading card with
- * size disclosure + elapsed counter + Cancel, cancelled-state CTA,
- * GetPlainText/GetPlainTextSize/CancelPlainText wiring, stale-fetch guard,
- * fast-path under-debounce, zero-byte payload).
+ * Story 10.1: Async Plain Text Load with Cancel -- Vitest suite.
  *
  * Test IDs follow the convention. Each test maps to one or more ACs in
  * the story spec.
@@ -15,7 +9,6 @@
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-// RED PHASE: import resolves; the production code is the unimplemented half.
 import { PlainTextView } from './PlainTextView';
 import { AppProvider } from '../hooks/useDocumentState';
 

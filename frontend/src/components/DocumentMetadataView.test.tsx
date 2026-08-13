@@ -1,11 +1,6 @@
 /**
  * Story 13.2: DocumentMetadataView component tests.
  *
- * TDD RED PHASE: `describe.skip` keeps CI green until Task 5 lands
- * `DocumentMetadataView.tsx`. The component is lazy-imported inside beforeAll so
- * a missing module never breaks test collection. Unskip + convert to a
- * top-level import for the green phase.
- *
  * Component contract (from the story):
  *  - Fed by GetDocumentMetadata(tabId) -> { info: {...}, xmp: "...", warning }.
  *  - /Info fields rendered as a key/value block.

@@ -3,13 +3,6 @@
  * findMatches accepts a pre-built lineStartOffsets table.
  * (finding #20) -- findMatches accepts a pre-built haystack string.
  *
- * TDD RED PHASE: every test below is emitted as `test()`. They assert the
- * POST-FIX signature `findMatches(content, query, caseSensitive,
- * lineStartOffsets?, haystack?)`. The current signature
- * (findMatches.ts:86) takes only three params and unconditionally calls
- * buildLineStartOffsets(content) at line 93 and content.toLowerCase() at line
- * 91, so these will fail / not exercise the skip path until Task 4 lands.
- *
  * These tests import buildLineStartOffsets to wrap it with a spy; that name is
  * already exported. A developer activates them by removing `.skip` after the
  * params are added.

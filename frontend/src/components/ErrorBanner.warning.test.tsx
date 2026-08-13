@@ -1,6 +1,5 @@
 /**
- * ErrorBanner severity-specific enhancements. TDD RED PHASE -- these
- * tests MUST fail until Story 2-9 is implemented.
+ * ErrorBanner severity-specific enhancements.
  *
  * Tests severity-aware data-testid, severity icons, and severity-aware
  * dismiss aria-label. Existing ErrorBanner.test.tsx covers baseline behavior.

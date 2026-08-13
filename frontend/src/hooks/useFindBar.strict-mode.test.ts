@@ -2,15 +2,6 @@
  * Story 10.7: Frontend Hook and Render-Path Correctness (finding #7) --
  * useFindBar render-phase side-effect removal.
  *
- * TDD RED PHASE: every test below is emitted as `test()`. They assert the
- * POST-FIX contract: the deps-comparison block + every-render snapshot move
- * into a single `useLayoutEffect` keyed on [deferredQuery, caseSensitive,
- * matches], with NO `prevDepsRef.current = {...}` write during render. Under
- * StrictMode's double-invoke the resulting activeIndex/matches must equal the
- * single-invoke (non-strict) result. Against the CURRENT implementation
- * (useFindBar.ts:132-169 mutates prevDepsRef during render) these assertions
- * are not guaranteed; a developer activates them after Task 1.
- *
  * The absence-of-warning check is NOT the pass condition -- the
  * idempotency assertion is. A console.error spy is included only as a
  * supplemental regression guard.

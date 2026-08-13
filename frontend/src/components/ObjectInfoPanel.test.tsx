@@ -1,9 +1,6 @@
 /**
  * Story 9.10: Object Source View + Reverse References
  *
- * TDD RED PHASE: Tests MUST fail until Task 5 rewrites ObjectInfoPanel.tsx in
- * place to export ObjectSourcePanel and fetch GetObjectSource.
- *
  * Covers Object Source view contract and the mapping that is the
  * highest-leverage place to catch a regression: `5 0 R` -> nodeID `obj:0:5`
  * (capture-1 = num, capture-2 = gen). Swapping them dispatches silently
@@ -23,8 +20,6 @@ import {
   useAppState,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: this named export does not exist yet. Task 5.1 renames the
-// component from ObjectInfoPanel to ObjectSourcePanel inside the same file.
 import { ObjectSourcePanel } from './ObjectInfoPanel';
 
 // Mock allotment -- jsdom has no layout APIs.

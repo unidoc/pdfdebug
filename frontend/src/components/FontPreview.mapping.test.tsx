@@ -1,12 +1,6 @@
 /**
  * Story 13.3: Font CMap and Glyph-Mapping Inspection -- FontPreview tests.
  *
- * TDD RED PHASE: these tests MUST fail until Task 4 extends FontPreview.tsx
- * with (a) a single JOINED code->glyphName->Unicode->text mapping table,
- * (b) a health-signals banner, and (c) virtualization of the joined table so
- * a CID font with thousands of rows does not render every row to the DOM
- * (NFR5, reusing the PlainTextView windowing approach).
- *
  * Contract under test (the shape Dev must implement; kept in lockstep with the
  * pdfcore FontMappingRow / FontHealth types and the CLI acceptance JSON):
  *
@@ -21,8 +15,7 @@
  *
  * The new component must expose the joined table under
  * data-testid="font-mapping-table" and the banner under
- * data-testid="font-health-banner". These testids are asserted below and do
- * not exist yet -- the intended red signal.
+ * data-testid="font-health-banner".
  *
  * Run: cd frontend && npx vitest run src/components/FontPreview.mapping.test.tsx
  */

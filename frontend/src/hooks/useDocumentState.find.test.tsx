@@ -1,11 +1,6 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- reducer red-phase suite for
+ * Story 10.2: Find Bar in Plain Text View -- reducer suite for
  * per-tab `findCaseSensitive` field + SET_FIND_CASE_SENSITIVE action.
- *
- * TDD RED PHASE: every test below fails until Task 1 of Story 10-2 is
- * implemented (TabState gains findCaseSensitive: boolean, AppAction gains
- * SET_FIND_CASE_SENSITIVE, OPEN_DOCUMENT defaults the field to false,
- * CLOSE_DOCUMENT drops it with the tab).
  *
  * Test IDs follow the convention.
  *

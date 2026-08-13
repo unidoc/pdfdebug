@@ -7,9 +7,6 @@
  * AFTER that registration, call ConsumePendingOpenFiles() and open each
  * returned path through the existing openPDFFile() + OPEN_DOCUMENT pipeline.
  *
- * Red phase: today's App.jsx never calls ConsumePendingOpenFiles, so every
- * case here fails (no drain call, no OPEN_DOCUMENT from a drained path).
- *
  * Run: cd frontend && npx vitest run src/App.drain.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';

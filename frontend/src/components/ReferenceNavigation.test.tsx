@@ -1,8 +1,6 @@
 /**
  * Story 2.8: Clickable Reference Navigation
  *
- * TDD RED PHASE: Tests MUST fail until Story 2-8 is implemented.
- *
  * Test IDs: (Vitest)
  * Run: cd frontend && npx vitest run src/components/ReferenceNavigation.test.tsx
  */

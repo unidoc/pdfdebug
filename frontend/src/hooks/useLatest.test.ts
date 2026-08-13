@@ -2,14 +2,6 @@
  * Story 10.7: Frontend Hook and Render-Path Correctness
  * (finding #28) -- useLatest ref-mirror consolidation hook.
  *
- * TDD RED PHASE: every test below is emitted as `test()`. The hook does
- * not exist yet (Task 2 creates frontend/src/hooks/useLatest.ts). To keep the
- * suite loadable in CI while skipped, the module is imported LAZILY inside each
- * test via a dynamic import rather than a top-level static import (a static
- * import of a non-existent module fails at suite-load and would break DoD gate
- * G1 before Dev starts). A developer activates these by removing `.skip` after
- * the file lands.
- *
  * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useLatest.test.ts
@@ -17,8 +9,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 
-// RED PHASE: resolved lazily so the suite loads while skipped. Fails until
-// frontend/src/hooks/useLatest.ts exists.
 async function loadUseLatest() {
   // The @vite-ignore comment + non-literal specifier stops Vite's
   // import-analysis from resolving (and failing on) the not-yet-created module

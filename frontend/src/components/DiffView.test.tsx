@@ -1,13 +1,6 @@
 /**
  * Story 13.6: DiffView side-by-side comparison component tests.
  *
- * RED PHASE: the `./DiffView` import below is the failing seam -- the component
- * does not exist yet, so this file fails to collect until Task 4.1 lands it
- * (mirrors the 13.4 SignaturesView / 13.5 ValidateView red-phase precedent).
- * Test files are excluded from the app build/typecheck via the tsconfig
- * `exclude` test glob, so this red file never breaks `npm run build` or
- * `npm run typecheck`; only `vitest run` shows it red.
- *
  * Component contract (from the story):
  *  - On mount (active), DiffView fetches DiffDocuments(leftTabId, rightTabId)
  *    and renders a summary header (data-testid="diff-summary") with the

@@ -1,13 +1,6 @@
 /**
  * Story 10.8: platform-aware Cmd+K / Ctrl+K modifier for the command palette.
  *
- * TDD RED PHASE: these tests fail against the current useCommandPalette.ts,
- * which uses `const mod = e.metaKey || e.ctrlKey` (accepts EITHER modifier on
- * EVERY platform). After the fix the handler must select the modifier via
- * getPlatformModifier():
- *   const wantsMeta = getPlatformModifier() === 'Cmd';
- *   const mod = wantsMeta ? e.metaKey : e.ctrlKey;
- *
  * So on macOS, Ctrl+K must be a no-op (palette stays closed) and only Cmd+K
  * opens it; on Linux/Windows, Ctrl+K opens it.
  *

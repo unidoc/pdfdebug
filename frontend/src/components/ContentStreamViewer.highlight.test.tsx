@@ -1,9 +1,6 @@
 /**
  * Story 3.3: Content Stream Tokenizer with Syntax Highlighting (V1)
  *
- * TDD RED PHASE: Tests MUST fail until syntax highlighting is implemented
- * in ContentStreamViewer.tsx.
- *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.highlight.test.tsx
  */

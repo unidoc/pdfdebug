@@ -1,8 +1,6 @@
 /**
  * Story 8.4: Window Geometry Persistence
  *
- * TDD RED PHASE: Tests MUST fail until story 8-4 is implemented.
- *
  * Integration tests for the App.jsx wiring of window-geometry events and
  * startup restore. These cover Tasks 4 and 5 of the story:
  *
@@ -179,7 +177,6 @@ describe('8.4 App.jsx geometry wiring', () => {
   /**
    * WindowDidMove handler reads Window.Position() / Window.Size() and persists the
    * result via the geometry save path.
-   *
    */
   test('WindowDidMove handler persists current geometry to localStorage (after debounce)', async () => {
     vi.useFakeTimers();
@@ -221,7 +218,6 @@ describe('8.4 App.jsx geometry wiring', () => {
 
   /**
    * WindowDidResize handler persists current geometry too.
-   *
    */
   test('WindowDidResize handler persists current geometry to localStorage', async () => {
     vi.useFakeTimers();

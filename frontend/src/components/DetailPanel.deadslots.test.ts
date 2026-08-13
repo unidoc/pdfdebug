@@ -12,10 +12,6 @@
  * than the bundled module so the source identifiers are checked, not runtime
  * behavior.
  *
- * RED PHASE: fails against the current DetailPanel.tsx, which still declares
- * `const [, setLoading] = useState(false)` and `const [, setFontLoading] =
- * useState(false)` plus their call sites.
- *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.deadslots.test.ts
  */
 import { readFileSync } from 'node:fs';

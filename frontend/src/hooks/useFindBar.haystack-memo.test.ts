@@ -2,18 +2,10 @@
  * Story 10.7: Frontend Hook and Render-Path Correctness (finding #20) --
  * useFindBar memoizes the corpus-wide toLowerCase().
  *
- * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX contract:
  * useFindBar memoizes `haystack = useMemo(() => caseSensitive ? content :
  * content.toLowerCase(), [content, caseSensitive])` and passes it to
  * findMatches, so the corpus-length toLowerCase fires at most once per
  * (content, caseSensitive) pair across the find session.
- *
- * The CURRENT implementation calls findMatches(content, deferredQuery,
- * caseSensitive) inside a useMemo keyed on [content, deferredQuery,
- * caseSensitive] (useFindBar.ts:101-104). findMatches.ts:91 runs
- * content.toLowerCase() on EVERY recompute -- i.e. once per keystroke -- so the
- * corpus-length toLowerCase count after 10 keystrokes is ~10, not 1. This test
- * fails against current code; a developer activates it after Task 4.
  *
  * Counting strategy: wrap String.prototype.toLowerCase with a counter that
  * records the LENGTH of each `this`. The short-query needle is lowercased once

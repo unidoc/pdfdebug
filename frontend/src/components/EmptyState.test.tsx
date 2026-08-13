@@ -75,15 +75,11 @@ describe('EmptyState drop zone', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Story 10.8 (RED PHASE): the per-file invalid flash is REMOVED. The drop
-  // zone must NEVER claim pre-drop knowledge it does not have. For ANY drag
-  // combination (PDF-only, mixed, non-PDF-only) the hint stays the constant
-  // "Drop a PDF file here" in text-text-muted, and the error styling
-  // ("PDF files only" / text-error) is never applied.
-  //
-  // These assertions FAIL against the current EmptyState.tsx because the
-  // dragenter/drop handlers still call setIsInvalidFile and the derived
-  // hintText/hintColor still branch on it.
+  // The drop zone carries no per-file invalid flash: it must never claim
+  // pre-drop knowledge it does not have. For ANY drag combination (PDF-only,
+  // mixed, non-PDF-only) the hint stays the constant "Drop a PDF file here"
+  // in text-text-muted, and the error styling ("PDF files only" /
+  // text-error) is never applied.
   // ---------------------------------------------------------------------------
 
   test('non-PDF drag does NOT show error flash', () => {

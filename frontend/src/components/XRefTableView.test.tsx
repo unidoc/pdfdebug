@@ -1,9 +1,6 @@
 /**
  * Story 9.11: XREF Table View Tests
  *
- * TDD RED PHASE: Tests MUST fail until XRefTableView.tsx is created and
- * GetXRefTable is wired through the Wails bindings.
- *
  * Covers:
  *   - table shape, columns, status pill text and the row count label;
  *   - in-use / in-objstm click navigation, free rows non-clickable;
@@ -18,7 +15,6 @@
  */
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-// RED PHASE: this import fails until XRefTableView.tsx exists.
 import { XRefTableView } from './XRefTableView';
 
 // --- Mocks ---

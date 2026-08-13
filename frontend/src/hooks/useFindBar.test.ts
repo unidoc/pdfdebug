@@ -1,8 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- useFindBar hook red-phase suite.
- *
- * TDD RED PHASE: every test below fails until frontend/src/hooks/useFindBar.ts
- * is implemented per Task 3.
+ * Story 10.2: Find Bar in Plain Text View -- useFindBar hook suite.
  *
  * Scope:
  * - openBar / closeBar / setQuery / next / prev surface
@@ -23,7 +20,6 @@
  */
 import { renderHook, act } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-// RED PHASE: this import fails until Task 3.1 lands.
 import { useFindBar } from './useFindBar';
 
 // Force the platform modifier to "Cmd" so keystroke assertions are platform

@@ -1,10 +1,6 @@
 /**
  * Story 9-8: Command Palette (Cmd+K) -- inline labels + jump-to-object.
  *
- * TDD RED PHASE: This file imports the not-yet-implemented CommandPalette
- * component and the useCommandPalette hook. The imports themselves fail
- * until Task 4 / Task 5 land.
- *
  * Covers palette-side wiring.
  *
  * Approach: mock the Wails binding so GetObjectIndex returns a deterministic
@@ -24,8 +20,6 @@ import {
   type AppAction,
 } from '../../hooks/useDocumentState';
 
-// --- RED imports: the modules below do not exist yet. Each one fails the
-// test file until the corresponding task lands. ---
 import { CommandPalette } from './CommandPalette';
 import { useCommandPalette } from '../../hooks/useCommandPalette';
 

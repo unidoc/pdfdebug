@@ -1,8 +1,6 @@
 /**
  * Story 4.4: OS File Association, Single Instance, and Window Persistence
  *
- * TDD RED PHASE: Tests MUST fail until story 4-4 is implemented.
- *
  * Integration tests for panel size persistence in MainLayout:
  *   - MainLayout reads persisted panel sizes from useWindowPersistence
  *   - MainLayout passes defaultSizes to Allotment when persisted values exist

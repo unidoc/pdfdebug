@@ -1,9 +1,6 @@
 /**
  * Story 13.4: SignaturesView component tests.
  *
- * Authored red-phase (the `./SignaturesView` import was the failing seam);
- * unskipped in the Story 13.4 green phase once Task 4 landed the component.
- *
  * Component contract (from the story):
  *  - Document-level view fed by GetSignatures(tabId) -> signature list.
  *  - One key/value card per signature (data-testid="signature-card"): signer,

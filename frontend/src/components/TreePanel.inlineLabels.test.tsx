@@ -1,10 +1,6 @@
 /**
  * Story 9-8: TreePanel inline object-ref + /T:Type suffix rendering.
  *
- * TDD RED PHASE: These tests pin the label-suffix contract. They will
- * fail until TreePanel.tsx is updated to render `objectRef` (and the
- * dedup-aware `/T:typeName` suffix) on each tree row.
- *
  * Source contract (backend, see internal/pdfcore/objectindex_test.go):
  *   - TreeNode.objectRef: "<num> <gen> R" for indirect objects, "" otherwise
  *   - TreeNode.typeName:  literal /Type value (e.g. "Pages", "Page", "Font"),
@@ -79,7 +75,6 @@ class MockResizeObserver {
 // --- Fixtures: TreeNodes the backend will emit once 9-8 lands. The
 // `objectRef` / `typeName` fields are the new additions. We assume the
 // existing TreeNode TS type will be extended; cast through unknown so the
-// RED-phase compile passes whichever way the type is widened. ---
 
 type AnyNode = Record<string, unknown>;
 
@@ -186,8 +181,7 @@ describe('inline object ref suffix', () => {
     await user.click(screen.getByTestId('dispatch'));
 
     // Collect text of every tree-node row, then assert each indirect-object
-    // row contains its ref. In RED phase, none of the rows contain the
-    // bracketed ref form, so this fails.
+    // row contains its ref in the bracketed form.
     const rows = await screen.findAllByTestId('tree-node');
     const textAll = rows.map((r) => r.textContent ?? '').join('|');
     expect(textAll).toMatch(/\[2 0 R\]/);
@@ -283,9 +277,8 @@ describe('inline label is read-only display', () => {
     act(() => { screen.getByTestId('dispatch').click(); });
 
     const rows = await screen.findAllByTestId('tree-node');
-    // Locate the Pages indirect row. Use the [2 0 R] suffix as the locator
-    // -- in RED this assertion fails because the suffix isn't rendered;
-    // in GREEN the row is uniquely identified by it.
+    // Locate the Pages indirect row. The [2 0 R] suffix identifies it
+    // uniquely.
     const pagesRow = rows.find((el) => el.textContent?.includes('[2 0 R]'));
     expect(pagesRow).toBeDefined();
     await user.click(pagesRow!);

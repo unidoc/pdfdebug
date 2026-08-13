@@ -1,9 +1,6 @@
 /**
  * Story 9.10: Object Source View + Reverse References
  *
- * TDD RED PHASE: Tests MUST fail until Task 7 wires ReverseRefsSection into
- * DetailPanel and adds the GetReverseRefs fetch with stale-fetch guard.
- *
  * Covers frontend banner trigger, section mount-after-parsed-view, orphan
  * empty state propagation, catalog copy, per-document isolation, and
  * redundancy fix (DetailPanel keeps DictView/ArrayView/ ScalarView intact --

@@ -1,11 +1,6 @@
 /**
  * Story 13.2: DetailPanel Embedded + Metadata tab integration tests.
  *
- * TDD RED PHASE: `describe.skip` keeps CI green until Task 5 extends the
- * `DetailView` union with 'embedded' | 'metadata', adds the reset-on-activeTabId
- * effect entries, and renders the two new Tabs.Trigger/Tabs.Content pairs
- * (taking the tab bar from 3 to 5 tabs). Unskip during the green phase.
- *
  * An "Embedded" document-level tab beside Object/XREF/Plain Text, with an
  *      optional "(N)" count mirroring the XREF tab.
  * A dedicated "Metadata" tab beside Embedded (NOT crammed into Embedded).

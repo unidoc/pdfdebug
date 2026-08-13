@@ -1,15 +1,12 @@
 /**
  * Story 6.2: Image Preview in Detail Panel -- ImagePreview Component Tests
  *
- * TDD RED PHASE: Tests MUST fail until ImagePreview.tsx is created.
- *
  * Test IDs:
  *           (Vitest)
  * Run: cd frontend && npx vitest run src/components/ImagePreview.test.tsx
  */
 import { render, screen } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
-// RED PHASE: This import will fail until ImagePreview.tsx is created.
 import { ImagePreview } from './ImagePreview';
 
 // --- Test data fixtures ---

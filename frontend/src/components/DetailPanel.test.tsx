@@ -1,8 +1,6 @@
 /**
  * Story 2.7: Detail Panel -- Context-Sensitive Content Display
  *
- * TDD RED PHASE: Tests MUST fail until DetailPanel.tsx is implemented.
- *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/DetailPanel.test.tsx
  */
@@ -13,7 +11,6 @@ import {
   useAppDispatch,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: This import will fail until DetailPanel.tsx is created.
 import { DetailPanel } from './DetailPanel';
 
 // Mock allotment -- jsdom has no layout APIs

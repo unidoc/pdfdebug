@@ -1,9 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- integration red-phase suite.
- *
- * TDD RED PHASE: every test below fails until Story 10-2 is implemented
- * (PlainTextView wires useFindBar + FindBar, per-row <mark> overlay,
- * gutter density markers, auto-scroll on active match change).
+ * Story 10.2: Find Bar in Plain Text View -- integration suite.
  *
  * Scope:
  * - mount: Cmd+F + active=true + data ready -> FindBar appears.
