@@ -3,8 +3,8 @@ package font_cmap_glyph_test
 // Story 13.3: Font CMap and Glyph-Mapping Inspection -- CLI acceptance suite.
 //
 // TDD RED PHASE: these tests MUST fail until Task 2 lands the fuller `dump
-// font` mapping output (AC3) and Task 1/3 surface the mapping array + health
-// signals on the FontView JSON (AC1/AC2 riding through the bindings).
+// font` mapping output and Task 1/3 surface the mapping array + health
+// signals on the FontView JSON (riding through the bindings).
 //
 // Contract under test (13-1: plain text is the DEFAULT; --json is the stable
 // surface):
@@ -51,9 +51,9 @@ type fontViewJSON struct {
 	} `json:"detail"`
 }
 
-// 13.3-INTG-001 (AC1, AC3): --json carries the complete mapping array on the
-// detail payload. The ToUnicode codes 0x41/0x42 surface as joined rows with
-// U+XXXX unicode and the literal glyph text.
+// --json carries the complete mapping array on the detail payload. The
+// ToUnicode codes 0x41/0x42 surface as joined rows with U+XXXX unicode and
+// the literal glyph text.
 func TestFontDump_JSON_CarriesMappingArray(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
@@ -94,9 +94,9 @@ func TestFontDump_JSON_CarriesMappingArray(t *testing.T) {
 	}
 }
 
-// 13.3-INTG-002 (AC2): --json carries the health signals on the detail payload.
-// obj 5 has /Differences but no /ToUnicode -> toUnicodeMissing true and the
-// Differences codes appear in encodingWithoutToUnicodeCodes.
+// --json carries the health signals on the detail payload. obj 5 has
+// /Differences but no /ToUnicode -> toUnicodeMissing true and the Differences
+// codes appear in encodingWithoutToUnicodeCodes.
 func TestFontDump_JSON_CarriesHealthSignals(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
@@ -124,9 +124,9 @@ func TestFontDump_JSON_CarriesHealthSignals(t *testing.T) {
 	}
 }
 
-// 13.3-INTG-003 (AC3): the plain-text default (no --glyphs, no --json) is a
-// BOUNDED summary -- a declared-code count plus the health signals -- NOT the
-// full per-code table and NOT JSON.
+// The plain-text default (no --glyphs, no --json) is a BOUNDED summary -- a
+// declared-code count plus the health signals -- NOT the full per-code table
+// and NOT JSON.
 func TestFontDump_PlainSummary_BoundedNotFullTable(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
@@ -170,9 +170,9 @@ func perCodeTableHeaderPresent(stdout string) bool {
 	return false
 }
 
-// 13.3-INTG-004 (AC3): with --glyphs the plain output is the FULL per-code
-// table with aligned columns CODE GLYPH UNICODE TEXT. obj 6's ToUnicode codes
-// surface their U+XXXX and literal text in the table body.
+// With --glyphs the plain output is the FULL per-code table with aligned
+// columns CODE GLYPH UNICODE TEXT. obj 6's ToUnicode codes surface their
+// U+XXXX and literal text in the table body.
 func TestFontDump_Glyphs_FullPerCodeTable(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
@@ -194,9 +194,9 @@ func TestFontDump_Glyphs_FullPerCodeTable(t *testing.T) {
 	}
 }
 
-// 13.3-INTG-005 (AC3): --json includes the complete mapping array EVEN WITHOUT
-// --glyphs. The --glyphs flag affects only the plain-text verbosity; the JSON
-// surface is complete unconditionally.
+// --json includes the complete mapping array EVEN WITHOUT --glyphs. The
+// --glyphs flag affects only the plain-text verbosity; the JSON surface is
+// complete unconditionally.
 func TestFontDump_JSON_CompleteRegardlessOfGlyphs(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := filepath.Join(testdataDir(t), "fonts-mixed.pdf")
@@ -212,8 +212,8 @@ func TestFontDump_JSON_CompleteRegardlessOfGlyphs(t *testing.T) {
 	}
 }
 
-// 13.3-INTG-006 (AC3 usage): the `dump font` usage/help text documents the new
-// --glyphs flag so it is discoverable.
+// Usage: the `dump font` usage/help text documents the new --glyphs flag so it
+// is discoverable.
 func TestFontDump_UsageDocumentsGlyphsFlag(t *testing.T) {
 	bin := buildCLI(t)
 	// Invoke `dump font` with no file to trigger the resource-specific usage.

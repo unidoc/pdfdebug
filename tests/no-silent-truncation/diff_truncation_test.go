@@ -1,6 +1,6 @@
 package no_silent_truncation_test
 
-// Story 14.3 #2 -- the diff depth-cap quiet lie (AC1, AC2).
+// Story 14.3 #2 -- the diff depth-cap quiet lie.
 //
 // RED PHASE: the depth-32 diff cap compares any subtree below it by SHALLOW
 // SUMMARY only. deep-change-{a,b}.pdf differ by one scalar (/V 111 vs /V 222)
@@ -17,9 +17,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-000 [P0] fixture sanity: both deep-change fixtures parse through
-// the EXISTING open path (dump objects, exit 0). Passes TODAY; guards the suite
-// against an eternally-red fixture.
+// Fixture sanity: both deep-change fixtures parse through the EXISTING open
+// path (dump objects, exit 0). Passes TODAY; guards the suite against an
+// eternally-red fixture.
 // ---------------------------------------------------------------------------
 
 func TestDeepChange_FixturesParseThroughOpenPath(t *testing.T) {
@@ -33,10 +33,10 @@ func TestDeepChange_FixturesParseThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-001 [P1] AC2: a depth-cap-bounded comparison must NOT claim
-// "identical". The plain-text run must withhold the identical banner and exit 1
-// (not a false 0), and must state that a subtree was compared only to the depth
-// cap. RED today: prints "Documents are structurally identical.", exit 0.
+// A depth-cap-bounded comparison must NOT claim "identical". The plain-text run
+// must withhold the identical banner and exit 1 (not a false 0), and must state
+// that a subtree was compared only to the depth cap. RED today: prints
+// "Documents are structurally identical.", exit 0.
 // ---------------------------------------------------------------------------
 
 func TestDiff_DepthCappedNotIdentical_PlainText(t *testing.T) {
@@ -61,9 +61,9 @@ func TestDiff_DepthCappedNotIdentical_PlainText(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-001 [P1] AC1/AC2: `diff --json` on the same pair must exit 1, count
-// the depth-capped subtree in summary.truncatedSubtrees (> 0), and mark the cut
-// node with "truncated": true. RED today: exit 0, no such field.
+// `diff --json` on the same pair must exit 1, count the depth-capped subtree in
+// summary.truncatedSubtrees (> 0), and mark the cut node with "truncated":
+// true. RED today: exit 0, no such field.
 // ---------------------------------------------------------------------------
 
 func TestDiff_DepthCappedNotIdentical_JSON(t *testing.T) {

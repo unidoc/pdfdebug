@@ -37,7 +37,7 @@ type opsRecord struct {
 }
 
 // ---------------------------------------------------------------------------
-// 14.1-INTG-000 [P0] fixture sanity: the hand-authored corpus fixtures must
+// Fixture sanity: the hand-authored corpus fixtures must
 // parse through the EXISTING open path (dump objects, exit 0). Passes TODAY;
 // guards the suite against an eternally-red broken fixture (13-4/13-5/13-6
 // precedent).
@@ -54,8 +54,8 @@ func TestStream_FixturesParseThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.1-INTG-001 [P1] (F1, risk R-14-02): `dump stream --json` on
-// leading-plus.pdf (content stream "+5 0 0 +5 0 0 cm").
+// Fixture F1: `dump stream --json` on leading-plus.pdf (content
+// stream "+5 0 0 +5 0 0 cm").
 //
 // RED today: the tokenizer emits "+5" as an OPERATOR token, so Format groups
 // it as a standalone operation and --json reports a bogus operator "+5".
@@ -107,9 +107,8 @@ func TestStream_LeadingPlusJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.1-INTG-002 [P1] (F2, risk R-14-03): `dump stream --ops` on
-// comment-and-dangling.pdf (a "% comment" line plus a trailing dangling
-// operand run with no operator).
+// Fixture F2: `dump stream --ops` on comment-and-dangling.pdf (a "%
+// comment" line plus a trailing dangling operand run with no operator).
 //
 // RED today: emitOps iterates Formatted with no guard on Operator, so the
 // comment line and the dangling operands each yield a phantom {"op":""} NDJSON
@@ -154,10 +153,10 @@ func TestStream_CommentAndDanglingOps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.1-INTG-003 [P2] (F1 cascade on the --ops surface, risk R-14-02): closes
-// traceability gap G1. AC2 names an --ops-observable signal for leading-plus.pdf
-// ("a single cm record whose params are the signed numbers, and NO +5 record"),
-// but that signal was only covered transitively. This drives
+// The F1 cascade on the --ops surface: closes traceability gap G1. The
+// --ops-observable signal for leading-plus.pdf
+// ("a single cm record whose params are the signed numbers, and NO +5 record")
+// was only covered transitively. This drives
 // `dump stream --ops --page 1 leading-plus.pdf` directly (content stream
 // "+5 0 0 +5 0 0 cm") and asserts the operator-centric NDJSON contract: exactly
 // one record, op == "cm", its params are the six signed operands (two "+5"s as

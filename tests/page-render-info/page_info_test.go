@@ -6,9 +6,9 @@
 // build green per the Story 11-5 black-box convention.
 //
 // Level: Integration (CLI black-box). The assembled view is a pdfcore struct,
-// but every testable AC (1-7) is fully observable through the command's JSON
-// output, so no in-package unit test (which would force a compile dependency on
-// the not-yet-existing PageRenderInfo type) is needed for red phase.
+// but every testable -7) is fully observable through the command's JSON output,
+// so no in-package unit test (which would force a compile dependency on the
+// not-yet-existing PageRenderInfo type) is needed for red phase.
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test
@@ -20,9 +20,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC1-001 [P0]: `dump page --info 1` emits ONE JSON object with the
-// top-level keys: page, pageRef, mediaBox, cropBox, rotate, extGStates,
-// xobjects, patterns, shadings. (forms appears only under --forms-recursive.)
+// `dump page --info 1` emits ONE JSON object with the top-level keys: page,
+// pageRef, mediaBox, cropBox, rotate, extGStates, xobjects, patterns,
+// shadings. (forms appears only under --forms-recursive.)
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_FullObjectTopLevelShape(t *testing.T) {
@@ -51,9 +51,9 @@ func TestPageInfo_FullObjectTopLevelShape(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC1-002 [P0]: geometry inheritance. MediaBox and Rotate are set on
-// /Pages (NOT the page), CropBox is local. The resolved view must report the
-// INHERITED MediaBox [0 0 612 792] + Rotate 90 and the LOCAL CropBox.
+// Geometry inheritance. MediaBox and Rotate are set on /Pages (NOT the page),
+// CropBox is local. The resolved view must report the INHERITED MediaBox [0 0
+// 612 792] + Rotate 90 and the LOCAL CropBox.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_GeometryInheritsFromPagesAncestor(t *testing.T) {
@@ -90,9 +90,9 @@ func TestPageInfo_GeometryInheritsFromPagesAncestor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC2-001 [P0]: ExtGState GS0 carries name, ref, BM "Multiply",
-// ca 0.5, CA 1.0, and a RESOLVED SMask descriptor (an object, not the literal
-// "None"). No blend math is performed -- values are read from the file.
+// ExtGState GS0 carries name, ref, BM "Multiply", ca 0.5, CA 1.0, and a
+// RESOLVED SMask descriptor (an object, not the literal "None"). No blend
+// math is performed -- values are read from the file.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_ExtGStateResolvedWithSMaskDescriptor(t *testing.T) {
@@ -136,8 +136,8 @@ func TestPageInfo_ExtGStateResolvedWithSMaskDescriptor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC2-002 [P1]: ExtGState GS1 has /SMask /None -> the view reports the
-// literal None (string "None"), distinct from the resolved-descriptor case.
+// ExtGState GS1 has /SMask /None -> the view reports the literal None (string
+// "None"), distinct from the resolved-descriptor case.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_ExtGStateSMaskNoneIsLiteral(t *testing.T) {
@@ -162,8 +162,8 @@ func TestPageInfo_ExtGStateSMaskNoneIsLiteral(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC3-001 [P0]: Form XObject Fm0 carries subtype "Form", bbox, matrix,
-// and a resolved group (S "Transparency", CS "DeviceRGB", I true, K false).
+// Form XObject Fm0 carries subtype "Form", bbox, matrix, and a resolved group (S
+// "Transparency", CS "DeviceRGB", I true, K false).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_FormXObjectGroupResolved(t *testing.T) {
@@ -210,9 +210,9 @@ func TestPageInfo_FormXObjectGroupResolved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC3-002 [P0]: Image XObject Im0 carries subtype "Image", width 2,
-// height 2, and a colorSpace classification: family "ICCBased" with n 3 and a
-// profile size. Colorspace is CLASSIFIED, not evaluated.
+// Image XObject Im0 carries subtype "Image", width 2, height 2, and a
+// colorSpace classification: family "ICCBased" with n 3 and a profile size.
+// Colorspace is CLASSIFIED, not evaluated.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_ImageXObjectColorSpaceClassified(t *testing.T) {
@@ -257,8 +257,8 @@ func TestPageInfo_ImageXObjectColorSpaceClassified(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC1-003 [P1]: patterns/shadings are STRUCTURAL only: each carries
-// name + ref + the integer patternType / shadingType, and no evaluated content.
+// patterns/shadings are STRUCTURAL only: each carries name + ref + the integer
+// patternType / shadingType, and no evaluated content.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
@@ -295,9 +295,9 @@ func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC7-001 [P0]: STRUCTURAL-ONLY guard. The entire output must contain
-// NO computed-color output field. Assert that none of the forbidden rendered-
-// color keys appear anywhere in the JSON (no rgb/cmyk/composited results).
+// STRUCTURAL-ONLY guard. The entire output must contain NO computed-color
+// output field. Assert that none of the forbidden rendered- color keys appear
+// anywhere in the JSON (no rgb/cmyk/composited results).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_StructuralOnlyNoComputedColor(t *testing.T) {
@@ -323,8 +323,8 @@ func TestPageInfo_StructuralOnlyNoComputedColor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC6-001 [P0]: a valid page with NO /Resources emits empty [] for
-// every resource array and exits 0 (absent resource is a valid empty result).
+// A valid page with NO /Resources emits empty [] for every resource array and
+// exits 0 (absent resource is a valid empty result).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_NoResourcesEmptyArraysExitZero(t *testing.T) {
@@ -351,9 +351,8 @@ func TestPageInfo_NoResourcesEmptyArraysExitZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC6-002 [P0]: an out-of-range page number emits a JSON error on
-// stderr and exits 2 (page-not-found code), with clean (empty) stdout and no
-// panic.
+// An out-of-range page number emits a JSON error on stderr and exits 2
+// (page-not-found code), with clean (empty) stdout and no panic.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_OutOfRangePageExitTwo(t *testing.T) {
@@ -380,8 +379,8 @@ func TestPageInfo_OutOfRangePageExitTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC6-003 [P1]: a non-positive --info value is a USAGE error (exit 1),
-// distinct from the out-of-range page-not-found (exit 2) path.
+// A non-positive --info value is a USAGE error (exit 1), distinct from the
+// out-of-range page-not-found (exit 2) path.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_NonPositiveInfoUsageError(t *testing.T) {
@@ -404,8 +403,8 @@ func TestPageInfo_NonPositiveInfoUsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC8-001 [P1]: the command output is documented as EXPERIMENTAL in
-// the help/usage text (the experimental-contract gate, AC8 part a).
+// The command output is documented as EXPERIMENTAL in the help/usage text
+// (the experimental-contract gate, part a).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_HelpMarksExperimental(t *testing.T) {
@@ -422,9 +421,9 @@ func TestPageInfo_HelpMarksExperimental(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-XCUT-001 [P2]: compact-by-default + --pretty parity (the shared
-// emit helper). Default output is single-line; --pretty is indented; both
-// decode to identical content.
+// compact-by-default + --pretty parity (the shared emit helper). Default
+// output is single-line; --pretty is indented; both decode to identical
+// content.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
@@ -448,7 +447,7 @@ func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 (AC8): the full-object --json output carries a top-level
+// 13.1: the full-object --json output carries a top-level
 // "_stability":"experimental" marker (machine-visible instability). A
 // section-scoped --json view omits it (documented decision: full object only).
 // ---------------------------------------------------------------------------
@@ -479,8 +478,8 @@ func TestPageInfo_JSONStabilityMarker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 (AC6/AC2): the default (no --json) output is human-readable PLAIN TEXT
-// with aligned key/value sections, NOT JSON. STRUCTURAL assertions only.
+// 13.1: the default (no --json) output is human-readable PLAIN TEXT with
+// aligned key/value sections, NOT JSON. STRUCTURAL assertions only.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_PlainTextDefault(t *testing.T) {

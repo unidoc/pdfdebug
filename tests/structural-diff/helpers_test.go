@@ -34,13 +34,13 @@
 //	    rightSummary string
 //	    children     []DiffNode (optional)
 //
-// Exit codes (AC4, a hard three-way contract -- distinct so scripts can tell
+// Exit codes (a hard three-way contract -- distinct so scripts can tell
 // "differ" from "broken file"; `dump` only uses 0/2):
 //	0  ran successfully, the two documents are structurally IDENTICAL
 //	1  ran successfully AND the documents DIFFER (the scriptable signal)
 //	2  operational error (missing/unreadable file, bad args, parse failure)
 //
-// Naming: 13.6-INTG-NNN [Px] per the story Testing Requirements (AC7).
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/structural-diff && go test -v -count=1 ./...
 package structural_diff_test
@@ -231,9 +231,9 @@ func getStr(m map[string]any, key string) string {
 // --- fixture builders (self-contained; assembled to parse via Inspector.Open) -
 //
 // Every fixture is a minimal hand-assembled PDF built to parse through the
-// existing open path (guarded by 13.6-INTG-000) while exercising a specific
-// structural relationship. None exist in testdata/ today; the red-phase suite
-// is self-contained (13-4 / 13-5 precedent).
+// existing open path while exercising a specific structural
+// relationship. None exist in testdata/ today; the red-phase suite is
+// self-contained (13-4 / 13-5 precedent).
 
 func itoa(n int) string {
 	if n == 0 {

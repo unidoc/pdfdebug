@@ -4,8 +4,8 @@
 // against the current binary until Story 11-3 is implemented. They are
 // black-box: build the CLI, run it as a subprocess, parse stdout/stderr.
 //
-// Covers (in this suite): AC1 (pdfRef + typeName on tree nodes), AC5 (--help
-// worked examples), AC6 (--pretty for dump tree), AC7 (dump tree --page N).
+// Covers in this suite: (pdfRef + typeName on tree nodes), (--help worked
+// examples), (--pretty for dump tree), (dump tree --page N).
 //
 // Run: cd tests/cli-tree-dump && go test -v -count=1 ./...
 package cli_tree_dump_test
@@ -37,10 +37,10 @@ func collectIndirect(n treeNodeView, out *[]treeNodeView) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-001 [P0] (AC1): Every indirect (obj:G:N) tree node carries a
-// `pdfRef` equal to its canonical "N G R" string; nodes with a /Type carry a
-// `typeName`. The root catalog (id "root", non-indirect) omits `pdfRef`. The
-// `pdfRef` value, pasted into `dump object --ref`, resolves the same object.
+// Every indirect (obj:G:N) tree node carries a `pdfRef` equal to its
+// canonical "N G R" string; nodes with a /Type carry a `typeName`. The root
+// catalog (id "root", non-indirect) omits `pdfRef`. The `pdfRef` value,
+// pasted into `dump object --ref`, resolves the same object.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
@@ -106,9 +106,8 @@ func TestTreeDump_NodesCarryPdfRefAndTypeName(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-002 [P1] (AC6): `dump tree --pretty` emits indented multi-line
-// JSON; default (no flag) stays compact single-line. Both parse to the same
-// logical tree.
+// `dump tree --pretty` emits indented multi-line JSON; default (no flag)
+// stays compact single-line. Both parse to the same logical tree.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_PrettyVsCompact(t *testing.T) {
@@ -146,10 +145,9 @@ func TestTreeDump_PrettyVsCompact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-003 [P0] (AC7): `dump tree --page N` roots the tree at page N's
-// page dict (/Type /Page), not the catalog, and the root node carries the
-// page object's pdfRef and typeName (populated from the real TreeNode, not a
-// bare stub).
+// `dump tree --page N` roots the tree at page N's page dict (/Type /Page),
+// not the catalog, and the root node carries the page object's pdfRef and
+// typeName (populated from the real TreeNode, not a bare stub).
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_PageFlag_RootsAtPageDict(t *testing.T) {
@@ -179,7 +177,7 @@ func TestTreeDump_PageFlag_RootsAtPageDict(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-004 [P0] (AC7): --page boundary exit codes.
+// --page boundary exit codes.
 //   --page 0 (and < 1)         -> JSON usage error, exit 1.
 //   --page 99999 (out of range) -> JSON runtime error, exit 2.
 // ---------------------------------------------------------------------------
@@ -220,10 +218,10 @@ func TestTreeDump_PageFlag_InvalidExitCodes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-UNIT-004 [P1] (AC5): `--help` includes one copy-pasteable example
-// invocation for each of dump tree, dump object, and dump stream. The object
-// example must show the --ref flag shape; the stream example must show
-// --page. The existing "dump"/"tree" substring assertions are unaffected.
+// `--help` includes one copy-pasteable example invocation for each of dump
+// tree, dump object, and dump stream. The object example must show the --ref
+// flag shape; the stream example must show --page. The existing
+// "dump"/"tree" substring assertions are unaffected.
 // ---------------------------------------------------------------------------
 
 func TestHelp_PerSubcommandExamples(t *testing.T) {
@@ -236,11 +234,11 @@ func TestHelp_PerSubcommandExamples(t *testing.T) {
 
 	combined := stdout + stderr
 
-	// AC5 requires an explicit "Examples:" block: one copy-pasteable,
+	// Requires an explicit "Examples:" block: one copy-pasteable,
 	// syntactically-valid invocation per subcommand using a placeholder
-	// filename. The pre-existing terse usage grammar (e.g.
-	// `dump object [--json] --ref "N G R" <file>`) does NOT satisfy this -- it
-	// has no example block and no concrete placeholder filename.
+	// filename. The pre-existing terse usage grammar (e.g. `dump object
+	// [--json] --ref "N G R" <file>`) does NOT satisfy this -- it has no
+	// example block and no concrete placeholder filename.
 	lower := strings.ToLower(combined)
 	if !strings.Contains(lower, "example") {
 		t.Errorf("--help missing an Examples block\noutput:\n%s", combined)

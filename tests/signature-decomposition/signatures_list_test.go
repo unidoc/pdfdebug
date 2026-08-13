@@ -1,8 +1,8 @@
 package signature_decomposition_test
 
-// Story 13.4 -- signature enumeration + CLI surface (AC 1, 5, 7).
-// RED PHASE: `dump signatures` does not exist yet; every test below (except
-// the fixture sanity check) fails at runtime against the current binary.
+// Story 13.4 -- signature enumeration + CLI surface. RED PHASE: `dump
+// signatures` does not exist yet; every test below (except the fixture
+// sanity check) fails at runtime against the current binary.
 
 import (
 	"strings"
@@ -10,9 +10,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-000 [P0] fixture sanity: the programmatically signed fixture must
-// parse through the EXISTING open path (dump objects). This test passes today
-// and guards the suite against an eternally-red fixture.
+// Fixture sanity: the programmatically signed fixture must parse through the
+// EXISTING open path (dump objects). This test passes today and guards the
+// suite against an eternally-red fixture.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_FixtureParsesThroughOpenPath(t *testing.T) {
@@ -26,8 +26,8 @@ func TestSignatures_FixtureParsesThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-001 [P0] AC1/AC5: plain-text default emits a per-signature block
-// carrying the field name, SubFilter, and signer CN -- and is NOT JSON.
+// plain-text default emits a per-signature block carrying the field name,
+// SubFilter, and signer CN -- and is NOT JSON.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_PlainBlockHasCoreFacts(t *testing.T) {
@@ -47,8 +47,8 @@ func TestSignatures_PlainBlockHasCoreFacts(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-002 [P0] AC1/AC5: --json emits a top-level array with one entry
-// carrying fieldName, signed, signatureRef, node ids, and subFilter.
+// --json emits a top-level array with one entry carrying fieldName, signed,
+// signatureRef, node ids, and subFilter.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_JSONEntryCoreShape(t *testing.T) {
@@ -81,8 +81,8 @@ func TestSignatures_JSONEntryCoreShape(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-011 [P0] AC1/AC7: an /FT /Sig field with NO /V is listed as
-// signed:false with no decomposition and no error -- exit 0.
+// An /FT /Sig field with NO /V is listed as signed:false with no
+// decomposition and no error -- exit 0.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_UnsignedPlaceholderListed(t *testing.T) {
@@ -109,8 +109,8 @@ func TestSignatures_UnsignedPlaceholderListed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-012 [P0] AC5/AC7: zero signature fields -> plain "no signature
-// fields" line and --json empty array, both exit 0.
+// Zero signature fields -> plain "no signature fields" line and --json
+// empty array, both exit 0.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_ZeroSignaturesEmptyState(t *testing.T) {
@@ -137,9 +137,9 @@ func TestSignatures_ZeroSignaturesEmptyState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-013 [P1] AC1: /Kids hierarchy with INHERITED /FT -- the terminal
-// widget has no own /FT but inherits /Sig via /Parent; the fully qualified
-// name joins the parent /T chain with ".".
+// /Kids hierarchy with INHERITED /FT -- the terminal widget has no own /FT
+// but inherits /Sig via /Parent; the fully qualified name joins the parent
+// /T chain with ".".
 // ---------------------------------------------------------------------------
 
 func TestSignatures_KidsInheritedFTFullyQualifiedName(t *testing.T) {
@@ -160,8 +160,8 @@ func TestSignatures_KidsInheritedFTFullyQualifiedName(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-014 [P1] AC1/AC2: a DIRECT (inline dict) /V is legal and must
-// still decompose -- signatureRef empty, signer CN still surfaced.
+// A DIRECT (inline dict) /V is legal and must still decompose --
+// signatureRef empty, signer CN still surfaced.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_DirectVDecomposesWithEmptyRef(t *testing.T) {
@@ -183,8 +183,8 @@ func TestSignatures_DirectVDecomposesWithEmptyRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-019 [P1] 13-1 contract: the plain-text default is ASCII-only and
-// ends with a trailing newline.
+// 13-1 contract: the plain-text default is ASCII-only and ends with a
+// trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_PlainIsASCIIWithTrailingNewline(t *testing.T) {
@@ -200,8 +200,8 @@ func TestSignatures_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-020 [P1] AC5: the top-level usage/help text documents the new
-// `dump signatures` resource so it is discoverable.
+// The top-level usage/help text documents the new `dump signatures`
+// resource so it is discoverable.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_UsageDocumentsResource(t *testing.T) {
@@ -215,8 +215,8 @@ func TestSignatures_UsageDocumentsResource(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-021 [P1] AC7: an encrypted document degrades exactly like every
-// other dump resource -- stderr + exit 2, empty stdout, no crash.
+// An encrypted document degrades exactly like every other dump resource --
+// stderr + exit 2, empty stdout, no crash.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_EncryptedDocExitTwo(t *testing.T) {
@@ -236,8 +236,7 @@ func TestSignatures_EncryptedDocExitTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-022 [P1] AC1: /M surfaces BOTH the raw PDF date string and the
-// parsed ISO 8601 form.
+// /M surfaces BOTH the raw PDF date string and the parsed ISO 8601 form.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_SigningTimeRawAndISO(t *testing.T) {

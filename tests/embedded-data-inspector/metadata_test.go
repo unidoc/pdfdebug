@@ -6,9 +6,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-020 [P0] AC5: `dump metadata` plain-text default = an aligned
-// "key: value" Info block plus the XMP packet. The Info field values and the
-// verbatim XMP marker must both appear.
+// `dump metadata` plain-text default = an aligned "key: value" Info block
+// plus the XMP packet. The Info field values and the verbatim XMP marker
+// must both appear.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PlainShowsInfoAndXMP(t *testing.T) {
@@ -37,7 +37,7 @@ func TestMetadata_PlainShowsInfoAndXMP(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-021 [P0] AC5: `dump metadata --json` = {info:{...}, xmp:"..."}.
+// `dump metadata --json` = {info:{...}, xmp:"..."}.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_JSONShape(t *testing.T) {
@@ -63,8 +63,7 @@ func TestMetadata_JSONShape(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-022 [P1] AC5 + 13-1 contract: plain default is ASCII-only with a
-// trailing newline.
+// + 13-1 contract: plain default is ASCII-only with a trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PlainIsASCIIWithTrailingNewline(t *testing.T) {
@@ -80,8 +79,8 @@ func TestMetadata_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-023 [P1] AC3/AC5: a document with no /Metadata and no /Info still
-// succeeds (exit 0) with an empty metadata view (not an error).
+// A document with no /Metadata and no /Info still succeeds (exit 0) with an
+// empty metadata view (not an error).
 // ---------------------------------------------------------------------------
 
 func TestMetadata_MissingIsEmptyExitZero(t *testing.T) {
@@ -107,9 +106,9 @@ func TestMetadata_MissingIsEmptyExitZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-024 [P2] AC5 + 13-1 contract: `dump metadata --json --pretty`
-// indents the JSON (the pretty branch, cmd_metadata.go). The output still
-// parses to the same {info, xmp} shape and is multi-line.
+// + 13-1 contract: `dump metadata --json --pretty` indents the JSON (the
+// pretty branch, cmd_metadata.go). The output still parses to the same
+// {info, xmp} shape and is multi-line.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PrettyJSONIsIndented(t *testing.T) {
@@ -138,9 +137,9 @@ func TestMetadata_PrettyJSONIsIndented(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-025 [P1] AC5: the PLAIN-text metadata view for a document with no
-// /Info and no /Metadata renders a "(none)" placeholder (not a blank/error),
-// exit 0, ASCII + trailing newline (cmd_metadata.go printMetadataPlain).
+// The PLAIN-text metadata view for a document with no /Info and no /Metadata
+// renders a "(none)" placeholder (not a blank/error), exit 0, ASCII +
+// trailing newline (cmd_metadata.go printMetadataPlain).
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PlainNoneWhenEmpty(t *testing.T) {

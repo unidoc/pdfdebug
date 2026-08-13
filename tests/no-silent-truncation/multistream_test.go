@@ -1,6 +1,6 @@
 package no_silent_truncation_test
 
-// Story 14.3 #5 -- multi-stream /Contents shows only the first stream (AC3, AC4).
+// Story 14.3 #5 -- multi-stream /Contents shows only the first stream.
 //
 // RED PHASE: multi-content-stream.pdf has one page whose /Contents is an array
 // of two stream refs. Stream 1 is `q ... cm` (opens a graphics state, NO
@@ -29,8 +29,8 @@ import (
 var stream2Operators = []string{"Q", "BT", "Tf", "Td", "Tj", "ET"}
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-002 [P0] fixture sanity: the multi-stream fixture parses through
-// the existing open path (dump objects, exit 0). Passes TODAY.
+// Fixture sanity: the multi-stream fixture parses through the existing open
+// path (dump objects, exit 0). Passes TODAY.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_FixtureParsesThroughOpenPath(t *testing.T) {
@@ -42,10 +42,10 @@ func TestMultiStream_FixtureParsesThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-002 [P1] AC3/AC4: `dump stream --page 1 --json` must NOT present a
-// silent stream-1-only view. GREEN is either (preferred) operators from BOTH
-// streams, or (floor) a truncation marker with the array length. RED today:
-// only stream 1's operators (q, cm), no marker.
+// `dump stream --page 1 --json` must NOT present a silent stream-1-only view.
+// GREEN is either (preferred) operators from BOTH streams, or (floor) a
+// truncation marker with the array length. RED today: only stream 1's
+// operators (q, cm), no marker.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
@@ -87,12 +87,12 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-002 [P1] AC4: `dump stream --page 1 --ops` must NOT silently emit
-// only stream 1's operators. GREEN is either (preferred) NDJSON operator
-// records from BOTH streams, or (floor) a DISTINCT trailing meta record
-// carrying the truncation state (streamCount, no "op" key) that rides the
-// NDJSON without breaching Story 14-1's one-object-per-operator contract. RED
-// today: only q + cm records, no stream-2 op, no meta record.
+// `dump stream --page 1 --ops` must NOT silently emit only stream 1's
+// operators. GREEN is either (preferred) NDJSON operator records from BOTH
+// streams, or (floor) a DISTINCT trailing meta record carrying the truncation
+// state (streamCount, no "op" key) that rides the NDJSON without breaching
+// Story 14-1's one-object-per-operator contract. RED today: only q + cm
+// records, no stream-2 op, no meta record.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
@@ -136,11 +136,11 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-INTG-002 [P1] AC3/AC4 (--raw surface): `dump stream --page 1 --raw` on a
-// multi-stream page must dump the CONCATENATION of all streams' decoded bytes
-// (ISO 32000-1 7.8.2), not just stream 1. GREEN: stdout carries content from
-// BOTH stream 1 (`cm`) and stream 2 (`Hello`), exit 0, and no truncation note
-// (nothing was dropped). Guards that --raw is not a silent partial.
+// --raw surface: `dump stream --page 1 --raw` on a multi-stream page must dump
+// the CONCATENATION of all streams' decoded bytes (ISO 32000-1 7.8.2), not just
+// stream 1. GREEN: stdout carries content from BOTH stream 1 (`cm`) and stream
+// 2 (`Hello`), exit 0, and no truncation note (nothing was dropped). Guards
+// that --raw is not a silent partial.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_RawConcatenatesAllStreams(t *testing.T) {

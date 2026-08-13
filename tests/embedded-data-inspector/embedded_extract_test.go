@@ -6,8 +6,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-010 [P0] AC4: `dump embedded --ref "N G R"` writes the RAW decoded
-// bytes of the /EmbeddedFile to stdout so it can be redirected to a file.
+// `dump embedded --ref "N G R"` writes the RAW decoded bytes of the
+// /EmbeddedFile to stdout so it can be redirected to a file.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_ByRefWritesRawBytes(t *testing.T) {
@@ -26,7 +26,7 @@ func TestEmbeddedExtract_ByRefWritesRawBytes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-011 [P1] AC4 (Postel): `--ref obj:G:N` is also accepted.
+// Postel: `--ref obj:G:N` is also accepted.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_AcceptsNodeIDRefForm(t *testing.T) {
@@ -44,8 +44,7 @@ func TestEmbeddedExtract_AcceptsNodeIDRefForm(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-012 [P0] AC4: `--name <display>` resolves a single match and
-// extracts its bytes.
+// `--name <display>` resolves a single match and extracts its bytes.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_ByNameSingleMatch(t *testing.T) {
@@ -63,8 +62,8 @@ func TestEmbeddedExtract_ByNameSingleMatch(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-013 [P1] AC4: extraction emits bytes regardless of --json (it is a
-// payload selector, like `dump stream --raw`, not a format).
+// Extraction emits bytes regardless of --json (it is a payload selector, like
+// `dump stream --raw`, not a format).
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_JSONDoesNotWrapPayload(t *testing.T) {
@@ -82,9 +81,9 @@ func TestEmbeddedExtract_JSONDoesNotWrapPayload(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-014 [P0] AC4: extraction of an unknown ref fails -- stdout stays
-// EMPTY, the error goes to stderr, and the exit code is non-zero (so a redirect
-// never captures an error blob as the payload).
+// Extraction of an unknown ref fails -- stdout stays EMPTY, the error goes to
+// stderr, and the exit code is non-zero (so a redirect never captures an error
+// blob as the payload).
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_UnknownRefEmptyStdoutNonZero(t *testing.T) {
@@ -104,9 +103,9 @@ func TestEmbeddedExtract_UnknownRefEmptyStdoutNonZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-015 [P0] AC4/AC8: a /Filespec ref whose target has no /EmbeddedFile
-// (or points at a non-stream) fails with empty stdout + stderr + non-zero exit.
-// Here --ref points at the /Pages dict (object 2), which is not an EmbeddedFile.
+// A /Filespec ref whose target has no /EmbeddedFile (or points at a non-stream)
+// fails with empty stdout + stderr + non-zero exit. Here --ref points at the
+// /Pages dict (object 2), which is not an EmbeddedFile.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_NonEmbeddedFileRefFails(t *testing.T) {
@@ -126,8 +125,7 @@ func TestEmbeddedExtract_NonEmbeddedFileRefFails(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-016 [P0] AC4: `--name` with ZERO matches = stderr error + non-zero
-// exit + empty stdout.
+// `--name` with ZERO matches = stderr error + non-zero exit + empty stdout.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_NameZeroMatch(t *testing.T) {
@@ -147,9 +145,9 @@ func TestEmbeddedExtract_NameZeroMatch(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-017 [P0] AC4: `--name` with MULTIPLE matches must NOT silently
-// extract one -- it errors to stderr, lists the matching refs, and exits
-// non-zero with empty stdout. "dup.xml" matches two attachments.
+// `--name` with MULTIPLE matches must NOT silently extract one -- it
+// errors to stderr, lists the matching refs, and exits non-zero with empty
+// stdout. "dup.xml" matches two attachments.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_NameMultiMatchListsRefs(t *testing.T) {
@@ -175,8 +173,8 @@ func TestEmbeddedExtract_NameMultiMatchListsRefs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-018 [P0] AC4: `--ref` and `--name` together are mutually exclusive
-// -- usage error on stderr, non-zero exit, empty stdout.
+// `--ref` and `--name` together are mutually exclusive -- usage error on
+// stderr, non-zero exit, empty stdout.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_RefAndNameMutuallyExclusive(t *testing.T) {
@@ -196,10 +194,10 @@ func TestEmbeddedExtract_RefAndNameMutuallyExclusive(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-019 [P1] AC4/AC8: `--name` resolving to a SINGLE match whose
-// filespec has no /EmbeddedFile stream fails -- stdout stays empty, the error
-// goes to stderr, and the exit is non-zero (cmd_embedded.go:172-175). The
-// single-match path must not blindly extract a stream-less entry.
+// `--name` resolving to a SINGLE match whose filespec has no /EmbeddedFile
+// stream fails -- stdout stays empty, the error goes to stderr, and the exit
+// is non-zero (cmd_embedded.go:172-175). The single-match path must not
+// blindly extract a stream-less entry.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedExtract_NameSingleMatchNoStreamFails(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-050 [P1] PLAINTEXT-001: default is RAW source bytes, UNCHANGED.
-// AC#5: dump plaintext already conforms; its default stays raw document bytes.
-// This is a regression lock -- it must keep passing after the normalization.
-// The raw dump is byte-for-byte the source file.
+// Default is RAW source bytes, UNCHANGED.
+// Dump plaintext already conforms; its default stays raw document bytes. This
+// is a regression lock -- it must keep passing after the normalization. The
+// raw dump is byte-for-byte the source file.
 // ---------------------------------------------------------------------------
 
 func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
@@ -32,8 +32,8 @@ func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-051 [P1] PLAINTEXT-002: --json wraps the decoded text, UNCHANGED.
-// AC#5: --json wraps the decoded text in {"totalBytes","content"}.
+// --json wraps the decoded text, UNCHANGED.
+// --json wraps the decoded text in {"totalBytes","content"}.
 // ---------------------------------------------------------------------------
 
 func TestPlaintext_JSONWrapsDecodedText(t *testing.T) {

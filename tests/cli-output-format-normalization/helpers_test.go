@@ -17,7 +17,7 @@
 // acceptance. No browser/E2E layer is warranted; Story 13-1 touches only
 // cmd/cli output presentation and has zero UI surface.
 //
-// Naming: 13.1-INTG-NNN [Px] per the story Testing Requirements.
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/cli-output-format-normalization && go test -v -count=1 ./...
 package cli_output_format_normalization_test
@@ -160,8 +160,8 @@ func assertNotJSON(t *testing.T, out string) {
 	}
 }
 
-// assertTrailingNewline fails when out does not end in a newline (AC2: plain
-// text output ends with a trailing newline). Empty output is exempt.
+// assertTrailingNewline fails when out does not end in a newline (plain text
+// output ends with a trailing newline). Empty output is exempt.
 func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
@@ -172,7 +172,7 @@ func assertTrailingNewline(t *testing.T, out string) {
 	}
 }
 
-// assertASCII fails when out contains a non-ASCII byte (AC2: ASCII-only).
+// assertASCII fails when out contains a non-ASCII byte (ASCII-only).
 func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {

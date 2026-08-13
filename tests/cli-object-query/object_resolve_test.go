@@ -1,5 +1,5 @@
 // Story 11-5 RED-PHASE acceptance tests for `dump object --resolve` (item 4;
-// AC6). Black-box: build the CLI and run it as a subprocess.
+// ). Black-box: build the CLI and run it as a subprocess.
 //
 // These assert the EXPECTED post-implementation behavior and MUST FAIL against
 // the current binary (no --resolve flag on dump object) until Story 11-5 is
@@ -16,9 +16,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-101 [P0]: WITHOUT --resolve, `dump object --ref REF` output is
-// byte-for-byte today's behavior (no regression). Pinned via determinism: two
-// identical invocations must produce identical bytes.
+// WITHOUT --resolve, `dump object --ref REF` output is byte-for-byte today's
+// behavior (no regression). Pinned via determinism: two identical invocations
+// must produce identical bytes.
 // ---------------------------------------------------------------------------
 
 func TestObjectResolve_OffIsUnchanged(t *testing.T) {
@@ -37,8 +37,8 @@ func TestObjectResolve_OffIsUnchanged(t *testing.T) {
 	if a != b {
 		t.Errorf("dump object default output non-deterministic; cannot pin no-regression contract")
 	}
-	// AC6 is "byte-for-byte the current behavior": the --resolve field is
-	// strictly additive, so without the flag the 'resolved' key must be absent.
+	// Is "byte-for-byte the current behavior": the --resolve field is strictly
+	// additive, so without the flag the 'resolved' key must be absent.
 	// Determinism alone would not catch an accidental always-on resolve.
 	if strings.Contains(a, `"resolved"`) {
 		t.Errorf("default dump object output contains a 'resolved' key; --resolve is not additive")
@@ -46,10 +46,10 @@ func TestObjectResolve_OffIsUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-102 [P0]: WITH --resolve, `dump object --ref REF` follows
-// indirect-ref property values inline. The resolved output must DIFFER from
-// the default (sub-objects expanded) and remain valid JSON, exit 0. Object
-// 2 (/Pages) has a /Kids array of indirect refs to expand.
+// WITH --resolve, `dump object --ref REF` follows indirect-ref property
+// values inline. The resolved output must DIFFER from the default
+// (sub-objects expanded) and remain valid JSON, exit 0. Object 2 (/Pages)
+// has a /Kids array of indirect refs to expand.
 // ---------------------------------------------------------------------------
 
 func TestObjectResolve_OnInlinesRefValues(t *testing.T) {
@@ -73,10 +73,10 @@ func TestObjectResolve_OnInlinesRefValues(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-103 [P1]: --resolve on dump object is cycle-guarded: resolving
-// an object whose ref graph contains a cycle terminates (does not hang) and
-// exits 0 with valid JSON. The /Pages <-> /Page parent backref (Kids -> child
-// -> /Parent -> Pages) is the natural cycle in the page tree.
+// --resolve on dump object is cycle-guarded: resolving an object whose ref
+// graph contains a cycle terminates (does not hang) and exits 0 with valid
+// JSON. The /Pages <-> /Page parent backref (Kids -> child -> /Parent ->
+// Pages) is the natural cycle in the page tree.
 // ---------------------------------------------------------------------------
 
 func TestObjectResolve_CycleGuarded(t *testing.T) {

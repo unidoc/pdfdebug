@@ -1,8 +1,8 @@
 // Story 11.4: Expose existing pdfcore views as CLI commands -- RED PHASE.
 //
-// Usage/help discoverability (AC7) + compact/pretty parity (cross-cutting).
-// These MUST FAIL until Story 11-4 extends printUsage with the new subcommands
-// and examples. Black-box: build the CLI, run as a subprocess.
+// Usage/help discoverability + compact/pretty parity (cross-cutting). These
+// MUST FAIL until Story 11-4 extends printUsage with the new subcommands and
+// examples. Black-box: build the CLI, run as a subprocess.
 //
 // Test level: Integration (Go) for help text; Unit-ish for the pretty/compact
 // JSON contract. No browser.
@@ -18,9 +18,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-015 [P1] (AC7): `pdfdebug --help` lists every new subcommand in
-// the Commands block with a one-line description; ref-taking commands show the
-// --ref "N G R" form.
+// `pdfdebug --help` lists every new subcommand in the Commands block with a
+// one-line description; ref-taking commands show the --ref "N G R" form.
 // ---------------------------------------------------------------------------
 
 func TestHelp_ListsNewSubcommands(t *testing.T) {
@@ -56,10 +55,10 @@ func TestHelp_ListsNewSubcommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-016 [P1] (AC7): the Examples block shows working invocations for
-// at least `dump reverserefs`, `dump xref`, and one flag-bearing case
-// (`dump image --metadata` OR `dump plaintext --json`) so the non-default
-// flags are discoverable.
+// The Examples block shows working invocations for at least `dump
+// reverserefs`, `dump xref`, and one flag-bearing case (`dump image
+// --metadata` OR `dump plaintext --json`) so the non-default flags are
+// discoverable.
 // ---------------------------------------------------------------------------
 
 func TestHelp_ExamplesCoverNewCommands(t *testing.T) {
@@ -91,8 +90,8 @@ func TestHelp_ExamplesCoverNewCommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-017 [P2] (AC7): an unknown dump resource still exits 1 and the
-// new commands appear in the printed usage, so a typo surfaces the full menu.
+// An unknown dump resource still exits 1 and the new commands appear in the
+// printed usage, so a typo surfaces the full menu.
 // ---------------------------------------------------------------------------
 
 func TestUnknownResource_ShowsUsageWithNewCommands(t *testing.T) {
@@ -109,9 +108,9 @@ func TestUnknownResource_ShowsUsageWithNewCommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-018 [P2] (cross-cutting): JSON commands default to compact
-// single-line and honor --pretty (the 11-3 emit helper). Verified on a
-// document-level command (dump objects) to keep the parity contract uniform.
+// cross-cutting: JSON commands default to compact single-line and honor
+// --pretty (the 11-3 emit helper). Verified on a document-level command
+// (dump objects) to keep the parity contract uniform.
 // ---------------------------------------------------------------------------
 
 func TestNewCommands_PrettyVsCompact(t *testing.T) {

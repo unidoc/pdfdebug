@@ -6,8 +6,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-020 [P1] FONT single-record plain shape: aligned key: value block.
-// AC#2/#3 (Single record). Structural: a "key: value" line is present and the
+// FONT single-record plain shape: aligned key: value block.
+// (Single record). Structural: a "key: value" line is present and the
 // font-view kind is surfaced in plain text.
 // ---------------------------------------------------------------------------
 
@@ -31,10 +31,10 @@ func TestFont_PlainShapeIsKeyValueBlock(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-021 [P1] IMAGE single-record plain shape: aligned key: value block
-// with the metadata fields (width/height). AC#3 (Single record). --metadata is
-// an orthogonal payload selector and is unchanged; here it just keeps output
-// small while still exercising the plain presenter.
+// IMAGE single-record plain shape: aligned key: value block with the metadata
+// fields (width/height). (Single record). --metadata is an orthogonal payload
+// selector and is unchanged; here it just keeps output small while still
+// exercising the plain presenter.
 // ---------------------------------------------------------------------------
 
 func TestImage_PlainShapeShowsMetadata(t *testing.T) {
@@ -53,9 +53,9 @@ func TestImage_PlainShapeShowsMetadata(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-022 [P1] SOURCE default is plain text; --json wraps. AC#1/#7.
-// The non-raw default flips from JSON-envelope to plain text; --json restores
-// the {"objectRef","source"} JSON envelope.
+// SOURCE default is plain text; --json wraps. The non-raw default flips from
+// JSON-envelope to plain text; --json restores the {"objectRef","source"}
+// JSON envelope.
 // ---------------------------------------------------------------------------
 
 func TestSource_DefaultPlain_JSONWraps(t *testing.T) {
@@ -87,9 +87,9 @@ func TestSource_DefaultPlain_JSONWraps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-023 [P1] SOURCE --raw payload axis is UNCHANGED (verbatim bytes,
-// not JSON, no trailing-newline contract imposed). AC#7: --raw is a payload
-// selector orthogonal to --json, exempt from the format rule.
+// SOURCE --raw payload axis is UNCHANGED (verbatim bytes, not JSON, no
+// trailing-newline contract imposed). --raw is a payload selector orthogonal
+// to --json, exempt from the format rule.
 // ---------------------------------------------------------------------------
 
 func TestSource_RawPayloadUnchanged(t *testing.T) {
@@ -109,8 +109,8 @@ func TestSource_RawPayloadUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-023b [P1] SOURCE rejects --raw --json (mutually-exclusive payload
-// vs format), mirroring dump stream. AC#7: --json no longer combines silently.
+// SOURCE rejects --raw --json (mutually-exclusive payload vs format),
+// mirroring dump stream. --json no longer combines silently.
 // ---------------------------------------------------------------------------
 
 func TestSource_RawAndJSONRejected(t *testing.T) {
@@ -128,8 +128,8 @@ func TestSource_RawAndJSONRejected(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-024 [P1] REVERSEREFS tabular plain shape: header row + one row per
-// inbound ref. AC#3 (Uniform repeated records). Row count cross-checked vs JSON.
+// REVERSEREFS tabular plain shape: header row + one row per inbound ref.
+// (Uniform repeated records). Row count cross-checked vs JSON.
 // ---------------------------------------------------------------------------
 
 func TestReverseRefs_PlainShapeIsTableWithHeader(t *testing.T) {

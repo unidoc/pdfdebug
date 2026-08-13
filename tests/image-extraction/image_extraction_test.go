@@ -66,16 +66,16 @@ func testdataDir(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-001 [P0]: GetImageData extracts image from XObject Image stream
-// and returns base64-encoded PNG/JPEG with correct MIME type.
-// AC#1: Given a tree node corresponding to an XObject image (Subtype=Image),
+// GetImageData extracts image from XObject Image stream and returns
+// base64-encoded PNG/JPEG with correct MIME type.
+// Given a tree node corresponding to an XObject image (Subtype=Image),
 //       When GetImageData(tabID, nodeID) is called,
 //       Then the image is extracted and encoded as base64,
 //       And mimeType is "image/png" or "image/jpeg",
 //       And the exit is non-error.
-// AC#5: Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
+// Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
 //       directly and mimeType is "image/jpeg".
-// AC#6: Given a FlateDecode image, the stream is decompressed and assembled
+// Given a FlateDecode image, the stream is decompressed and assembled
 //       into a PNG with mimeType "image/png".
 // ---------------------------------------------------------------------------
 
@@ -96,9 +96,9 @@ func TestGetImageDataExtractsImage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-002 [P0]: GetImageData returns image metadata: width, height,
-// colorSpace, bitsPerComponent, filter.
-// AC#2: Given an XObject image node, When GetImageData is called,
+// GetImageData returns image metadata: width, height, colorSpace,
+// bitsPerComponent, filter.
+// Given an XObject image node, When GetImageData is called,
 //       Then image metadata is returned with all numeric dimensions > 0.
 // ---------------------------------------------------------------------------
 
@@ -113,9 +113,9 @@ func TestGetImageDataReturnsMetadata(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-003 [P0]: GetImageData on corrupted/invalid image stream returns
-// error without panic. safeCall wraps all pdfcpu calls.
-// AC#3: Given an image that cannot be extracted (corrupted data),
+// GetImageData on corrupted/invalid image stream returns error without
+// panic. safeCall wraps all pdfcpu calls.
+// Given an image that cannot be extracted (corrupted data),
 //       When extraction is attempted,
 //       Then ImageData.Error is populated with a descriptive message,
 //       And no panic occurs,
@@ -133,8 +133,8 @@ func TestGetImageDataPanicRecovery(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-004 [P0]: GetImageData with empty nodeID returns Go error.
-// AC#1 (guard): Empty nodeID is a programmer error, returns Go error
+// GetImageData with empty nodeID returns Go error.
+// Guard: Empty nodeID is a programmer error, returns Go error
 //               wrapping ErrDocumentNotFound (matches existing pattern).
 // ---------------------------------------------------------------------------
 
@@ -146,8 +146,8 @@ func TestGetImageDataEmptyNodeID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-005 [P0]: GetImageData on non-image node returns descriptive error.
-// AC#4: Given a node that is NOT an XObject image (e.g., a dict, a Form
+// GetImageData on non-image node returns descriptive error.
+// Given a node that is NOT an XObject image (e.g., a dict, a Form
 //       XObject, a content stream),
 //       When GetImageData(tabID, nodeID) is called,
 //       Then ImageData.Error is populated with "not an image XObject",
@@ -164,7 +164,7 @@ func TestGetImageDataNonImageNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-006 [P0]: GetImageData with unknown tabID returns ErrDocumentNotFound.
+// GetImageData with unknown tabID returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataUnknownTab(t *testing.T) {
@@ -175,9 +175,9 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-007 [P0]: GetImageData with error-prefixed nodeID returns
-// ImageData.Error, no panic.
-// AC#3: Graceful degradation for error nodes.
+// GetImageData with error-prefixed nodeID returns ImageData.Error,
+// no panic.
+// Graceful degradation for error nodes.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataErrorNode(t *testing.T) {
@@ -190,8 +190,8 @@ func TestGetImageDataErrorNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-001 [P1]: image.go exists in internal/pdfcore/
-// AC#1: Image extraction logic lives in pdfcore/image.go (mirrors stream.go).
+// image.go exists in internal/pdfcore: Image extraction logic lives in
+// pdfcore/image.go (mirrors stream.go).
 // ---------------------------------------------------------------------------
 
 func TestImageFileExists(t *testing.T) {
@@ -204,8 +204,8 @@ func TestImageFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-002 [P1]: Inspector.GetImageData method exists in image.go
-// AC#1: Method signature present in pdfcore.
+// Inspector.GetImageData method exists in image.go: Method signature
+// present in pdfcore.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataMethodExists(t *testing.T) {
@@ -222,9 +222,8 @@ func TestGetImageDataMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-003 [P1]: ImageData model type exists in model.go with correct
-// JSON tags.
-// AC#1, AC#2: ImageData struct with all required fields for frontend display.
+// ImageData model type exists in model.go with correct JSON tags.
+// ImageData struct with all required fields for frontend display.
 // ---------------------------------------------------------------------------
 
 func TestImageDataModelExists(t *testing.T) {
@@ -265,8 +264,8 @@ func TestImageDataModelExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-004 [P1]: PDFService.GetImageData binding exists in service.go
-// AC#1: Thin adapter pass-through from pdfservice to pdfcore.
+// PDFService.GetImageData binding exists in service.go: Thin adapter
+// pass-through from pdfservice to pdfcore.
 // ---------------------------------------------------------------------------
 
 func TestServiceGetImageDataMethodExists(t *testing.T) {
@@ -283,9 +282,9 @@ func TestServiceGetImageDataMethodExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-005 [P1]: PDFService.GetImageData delegates to Inspector and
-// returns data to frontend caller.
-// AC#1: Service layer integration -- call through pdfservice with real PDF.
+// PDFService.GetImageData delegates to Inspector and returns data to
+// frontend caller.
+// Service layer integration -- call through pdfservice with real PDF.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetImageData(t *testing.T) {
@@ -294,8 +293,8 @@ func TestPDFServiceGetImageData(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-006 [P1]: testdata/image-xobject.pdf exists with embedded images.
-// Prerequisite for all image extraction tests.
+// testdata/image-xobject.pdf exists with embedded images. Prerequisite for
+// all image extraction tests.
 // ---------------------------------------------------------------------------
 
 func TestImageTestDataExists(t *testing.T) {
@@ -306,7 +305,7 @@ func TestImageTestDataExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-007 [P1]: All pdfcore tests still pass (no regression).
+// All pdfcore tests still pass (no regression).
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreNoRegression(t *testing.T) {
@@ -325,7 +324,7 @@ func TestPdfcoreNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-008 [P1]: All pdfservice tests still pass (no regression).
+// All pdfservice tests still pass (no regression).
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceNoRegression(t *testing.T) {
@@ -343,7 +342,7 @@ func TestPdfserviceNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-009 [P1]: go vet passes on pdfcore package.
+// go vet passes on pdfcore package.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVet(t *testing.T) {
@@ -358,8 +357,8 @@ func TestPdfcoreGoVet(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-INTG-010 [P1]: pdfcore/image.go has zero Wails imports.
-// Architecture compliance: pdfcore must not depend on desktop framework.
+// pdfcore/image.go has zero Wails imports. Architecture compliance:
+// pdfcore must not depend on desktop framework.
 // ---------------------------------------------------------------------------
 
 func TestImageFileZeroWailsImports(t *testing.T) {
@@ -376,9 +375,9 @@ func TestImageFileZeroWailsImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-008 [P0]: DCTDecode image returns "image/jpeg" MIME type and
-// filter metadata contains "DCTDecode".
-// AC#5: Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
+// DCTDecode image returns "image/jpeg" MIME type and filter metadata
+// contains "DCTDecode".
+// Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
 //       directly and mimeType is "image/jpeg".
 // ---------------------------------------------------------------------------
 
@@ -387,9 +386,9 @@ func TestGetImageDataDCTDecodeJPEG(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-009 [P2]: GetImageData on a StreamDict with wrong Subtype (e.g.,
-// page content stream) returns "not an image" error.
-// AC#4: Form XObject / non-image stream distinction.
+// GetImageData on a StreamDict with wrong Subtype (e.g., page content
+// stream) returns "not an image" error.
+// Form XObject / non-image stream distinction.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataStreamDictNonImage(t *testing.T) {
@@ -397,9 +396,9 @@ func TestGetImageDataStreamDictNonImage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6.1-UNIT-010 [P3]: GetImageData returns consistent results across multiple
-// calls -- no stale state between extractions.
-// AC#1: Idempotency / no caching side effects.
+// GetImageData returns consistent results across multiple calls -- no stale
+// state between extractions.
+// Idempotency / no caching side effects.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataIdempotency(t *testing.T) {

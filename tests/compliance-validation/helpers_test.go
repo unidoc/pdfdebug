@@ -21,7 +21,7 @@
 // JSON wire contract pinned by this suite (camelCase per the IPC rules,
 // matching the 13-2/13-3/13-4 precedent):
 //
-//	validate --json  =>  top-level OBJECT (AC3):
+//	validate --json => top-level OBJECT:
 //	  profile   string                selected profile ("pdfa-1b" | "pdfua-1-structural")
 //	  summary   { errors:int, warnings:int }
 //	  problems  array of Problem, each:
@@ -33,12 +33,12 @@
 //	    objNodeId string   "obj:{gen}:{num}" (present whenever objRef is; "" otherwise)
 //	    specRef   string   ISO 32000 / PDF/A / PDF/UA clause (never empty)
 //
-// Exit codes (AC3, a hard three-way contract -- `dump` only uses 0/2):
+// Exit codes (a hard three-way contract -- `dump` only uses 0/2):
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate signal)
 //	2  operational error (missing/unreadable file, unknown profile, view failure)
 //
-// Naming: 13.5-INTG-NNN [Px] per the story Testing Requirements.
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/compliance-validation && go test -v -count=1 ./...
 package compliance_validation_test
@@ -275,12 +275,12 @@ func findByMessageContains(ps []map[string]any, sub string) map[string]any {
 	return nil
 }
 
-// --- honesty guardrail (AC5) -------------------------------------------------
+// --- honesty guardrail -------------------------------------------------
 
 // forbiddenVerdictPhrases are authoritative conformance verdicts the tool must
-// NEVER emit (AC5). The command name "validate"/"validation" and the negated
-// forms "not compliant"/"invalid"/"not valid" are deliberately NOT in this
-// list; only standalone authoritative claims are.
+// NEVER emit. The command name "validate"/"validation" and the negated forms
+// "not compliant"/"invalid"/"not valid" are deliberately NOT in this list;
+// only standalone authoritative claims are.
 var forbiddenVerdictPhrases = []string{
 	"pdf/a compliant",
 	"pdf/a-compliant",
@@ -297,7 +297,7 @@ var forbiddenVerdictPhrases = []string{
 }
 
 // assertNoComplianceVerdict fails when out makes an authoritative conformance
-// claim (AC5). The not-authoritative disclaimer must also be present.
+// claim. The not-authoritative disclaimer must also be present.
 func assertNoComplianceVerdict(t *testing.T, id, out string) {
 	t.Helper()
 	lower := strings.ToLower(out)
@@ -314,9 +314,9 @@ func assertNoComplianceVerdict(t *testing.T, id, out string) {
 // --- fixture builders (validated during ATDD authoring) ----------------------
 //
 // Every fixture is a minimal hand-assembled PDF built to PARSE through the
-// existing Inspector.Open path (guarded by 13.5-INTG-000) while deliberately
-// tripping (or satisfying) specific structural rules. None of these exist in
-// testdata/ today; the story's Task 2.0 later migrates equivalents into
+// existing Inspector.Open path while deliberately tripping (or
+// satisfying) specific structural rules. None of these exist in testdata/
+// today; the story's Task 2.0 later migrates equivalents into
 // testdata/generate_test.go, but the red-phase suite is self-contained.
 
 func pad10(n int) string {

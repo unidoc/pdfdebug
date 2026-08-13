@@ -1,8 +1,8 @@
 package structural_diff_test
 
-// Story 13.6 -- the top-level `diff` command (AC 3, 4, 6, 7).
-// RED PHASE: `diff` does not exist yet; every test below (except the fixture
-// sanity check) fails at runtime against the current binary.
+// Story 13.6 -- the top-level `diff` command. RED PHASE: `diff` does not
+// exist yet; every test below (except the fixture sanity check) fails at
+// runtime against the current binary.
 
 import (
 	"strings"
@@ -10,9 +10,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-000 [P0] fixture sanity: every hand-assembled fixture must parse
-// through the EXISTING open path (dump objects, exit 0). This test passes
-// TODAY and guards the suite against an eternally-red fixture (13-4/13-5).
+// Fixture sanity: every hand-assembled fixture must parse through the
+// EXISTING open path (dump objects, exit 0). This test passes TODAY and
+// guards the suite against an eternally-red fixture (13-4/13-5).
 // ---------------------------------------------------------------------------
 
 func TestDiff_FixturesParseThroughOpenPath(t *testing.T) {
@@ -33,7 +33,7 @@ func TestDiff_FixturesParseThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-001 [P0] AC4: two IDENTICAL files exit 0 (structurally identical).
+// Two IDENTICAL files exit 0 (structurally identical).
 // ---------------------------------------------------------------------------
 
 func TestDiff_IdenticalFilesExitZero(t *testing.T) {
@@ -52,8 +52,8 @@ func TestDiff_IdenticalFilesExitZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-002 [P0] AC4: two DIFFERING files exit 1 (the scriptable signal),
-// distinct from the operational error code 2.
+// Two DIFFERING files exit 1 (the scriptable signal), distinct from the
+// operational error code 2.
 // ---------------------------------------------------------------------------
 
 func TestDiff_DifferingFilesExitOne(t *testing.T) {
@@ -76,8 +76,8 @@ func TestDiff_DifferingFilesExitOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-003 [P0] AC4/AC6: an unparseable (broken) second file is an
-// OPERATIONAL error -> exit 2, distinct from the "differ" signal (exit 1).
+// An unparseable (broken) second file is an OPERATIONAL error -> exit 2,
+// distinct from the "differ" signal (exit 1).
 // ---------------------------------------------------------------------------
 
 func TestDiff_BrokenFileExitsTwo(t *testing.T) {
@@ -92,7 +92,7 @@ func TestDiff_BrokenFileExitsTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-004 [P0] AC4/AC6: a nonexistent second file is operational -> 2.
+// A nonexistent second file is operational -> 2.
 // ---------------------------------------------------------------------------
 
 func TestDiff_MissingFileExitsTwo(t *testing.T) {
@@ -106,8 +106,8 @@ func TestDiff_MissingFileExitsTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-005 [P0] AC4: `diff` takes TWO positional args. A single arg is a
-// usage error -> exit 2 (NOT a partial run, NOT a diff-vs-nothing).
+// `diff` takes TWO positional args. A single arg is a usage error -> exit 2
+// (NOT a partial run, NOT a diff-vs-nothing).
 // ---------------------------------------------------------------------------
 
 func TestDiff_SingleArgIsUsageError(t *testing.T) {
@@ -121,7 +121,7 @@ func TestDiff_SingleArgIsUsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-006 [P1] AC4: a THIRD positional arg is rejected -> exit 2.
+// A THIRD positional arg is rejected -> exit 2.
 // ---------------------------------------------------------------------------
 
 func TestDiff_ThirdArgRejected(t *testing.T) {
@@ -137,8 +137,8 @@ func TestDiff_ThirdArgRejected(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-007 [P0] AC3/AC4: --json emits the {summary, root} envelope; the
-// summary counts are numeric and the root is a DiffNode with a status.
+// --json emits the {summary, root} envelope; the summary counts are numeric
+// and the root is a DiffNode with a status.
 // ---------------------------------------------------------------------------
 
 func TestDiff_JSONEnvelope(t *testing.T) {
@@ -168,8 +168,8 @@ func TestDiff_JSONEnvelope(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-008 [P0] AC4 + 13-1 contract: the plain-text default is NOT JSON,
-// is ASCII-only, and ends with a trailing newline.
+// + 13-1 contract: the plain-text default is NOT JSON, is ASCII-only, and
+// ends with a trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestDiff_PlainTextContract(t *testing.T) {
@@ -187,8 +187,8 @@ func TestDiff_PlainTextContract(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-009 [P1] AC4: the plain-text delta uses +/-/~ markers for
-// added/removed/changed paths.
+// The plain-text delta uses +/-/~ markers for added/removed/changed
+// paths.
 // ---------------------------------------------------------------------------
 
 func TestDiff_PlainTextDeltaMarkers(t *testing.T) {
@@ -208,8 +208,8 @@ func TestDiff_PlainTextDeltaMarkers(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-010 [P1] AC4: --pretty indents the JSON (multi-line); the default
-// --json is compact (single line).
+// --pretty indents the JSON (multi-line); the default --json is compact
+// (single line).
 // ---------------------------------------------------------------------------
 
 func TestDiff_PrettyIndentsJSON(t *testing.T) {
@@ -239,8 +239,8 @@ func TestDiff_PrettyIndentsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-011 [P1] AC2/AC4: --full includes unchanged paths; the default
-// omits them (so --full output is strictly larger).
+// --full includes unchanged paths; the default omits them (so --full
+// output is strictly larger).
 // ---------------------------------------------------------------------------
 
 func TestDiff_FullIncludesUnchanged(t *testing.T) {
@@ -262,10 +262,9 @@ func TestDiff_FullIncludesUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-012 [P0] AC1: the CLI-level ALIGNMENT GUARDRAIL. A renumbered-but-
-// structurally-identical pair is reported as identical -> exit 0 and a
-// zero-delta --json summary. Proves path-alignment beats object-number
-// alignment end-to-end.
+// The CLI-level ALIGNMENT GUARDRAIL. A renumbered-but- structurally-identical
+// pair is reported as identical -> exit 0 and a zero-delta --json summary.
+// Proves path-alignment beats object-number alignment end-to-end.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
@@ -285,8 +284,8 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-013 [P1] AC3: the summary surfaces the page-count change in the
-// --json envelope (pageCountLeft/pageCountRight).
+// The summary surfaces the page-count change in the --json envelope
+// (pageCountLeft/pageCountRight).
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryPageCount(t *testing.T) {
@@ -312,8 +311,8 @@ func TestDiff_SummaryPageCount(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-014 [P1] AC4: `pdfdebug --help` documents the `diff` command and
-// its three-way 0/1/2 exit contract.
+// `pdfdebug --help` documents the `diff` command and its three-way 0/1/2
+// exit contract.
 // ---------------------------------------------------------------------------
 
 func TestDiff_HelpDocumentsCommandAndExitCodes(t *testing.T) {
@@ -332,13 +331,13 @@ func TestDiff_HelpDocumentsCommandAndExitCodes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-016 [P0] AC3/AC4: a difference that lives OFF the catalog walk
-// (trailer /Info only) still exits 1 (differ), NOT 0. The node counts are
-// 0/0/0 because /Info is not catalog-reachable, so exit 0 here would be a
-// silent false "identical" for scripts. Regression guard for diffIsIdentical
-// folding the document-level flags into the exit decision (the review-fixed
-// bug). Plain text must name the /Info change; --json summary must set
-// infoChanged with zero node counts.
+// A difference that lives OFF the catalog walk (trailer /Info only) still
+// exits 1 (differ), NOT 0. The node counts are 0/0/0 because /Info is not
+// catalog-reachable, so exit 0 here would be a silent false "identical" for
+// scripts. Regression guard for diffIsIdentical folding the document-level
+// flags into the exit decision (the review-fixed bug). Plain text must name
+// the /Info change; --json summary must set infoChanged with zero node
+// counts.
 // ---------------------------------------------------------------------------
 
 func TestDiff_InfoOnlyChangeExitsOne(t *testing.T) {
@@ -373,8 +372,8 @@ func TestDiff_InfoOnlyChangeExitsOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-INTG-015 [P2] AC6: diffing a file against ITSELF (same path twice) is a
-// valid all-unchanged run -> exit 0, zero-delta summary.
+// Diffing a file against ITSELF (same path twice) is a valid all-unchanged run
+// -> exit 0, zero-delta summary.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SelfPathIsIdentical(t *testing.T) {

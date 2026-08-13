@@ -1,7 +1,7 @@
 package signature_decomposition_test
 
-// Story 13.4 -- PKCS#7/CMS decomposition (AC 2, 4, 7).
-// RED PHASE: fails at runtime until `dump signatures` lands.
+// Story 13.4 -- PKCS#7/CMS decomposition. RED PHASE: fails
+// at runtime until `dump signatures` lands.
 
 import (
 	"encoding/json"
@@ -10,10 +10,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-003 [P0] AC2: the signer cert is IDENTIFIED from
-// SignerInfo.IssuerAndSerialNumber -- the fixture places the CA cert FIRST in
-// the (unordered) certificate set, so positional certificates[0] picking
-// would surface the wrong subject.
+// The signer cert is IDENTIFIED from SignerInfo.IssuerAndSerialNumber -- the
+// fixture places the CA cert FIRST in the (unordered) certificate set, so
+// positional certificates[0] picking would surface the wrong subject.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_SignerIdentifiedNotPositional(t *testing.T) {
@@ -51,8 +50,8 @@ func TestSignatures_SignerIdentifiedNotPositional(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-004 [P0] AC2: digest + signature algorithms are read from
-// SignerInfo (sha256 / rsaEncryption in the fixture), not guessed.
+// Digest + signature algorithms are read from SignerInfo (sha256 /
+// rsaEncryption in the fixture), not guessed.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_AlgorithmsFromSignerInfo(t *testing.T) {
@@ -75,8 +74,8 @@ func TestSignatures_AlgorithmsFromSignerInfo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-005 [P1] AC2: the FULL embedded certificate set is surfaced
-// (2 certs in the fixture: CA + leaf), subject/issuer per cert.
+// The FULL embedded certificate set is surfaced (2 certs in the
+// fixture: CA + leaf), subject/issuer per cert.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_FullCertificateSetSurfaced(t *testing.T) {
@@ -101,9 +100,9 @@ func TestSignatures_FullCertificateSetSurfaced(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-010 [P0] AC2/AC7: a corrupted (non-DER) /Contents yields a
-// per-signature decomposeError -- the field is still listed, the whole
-// document never fails, exit stays 0.
+// A corrupted (non-DER) /Contents yields a per-signature
+// decomposeError -- the field is still listed, the whole document
+// never fails, exit stays 0.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_CorruptContentsPerSignatureError(t *testing.T) {
@@ -127,9 +126,9 @@ func TestSignatures_CorruptContentsPerSignatureError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-015 [P1] AC2: adbe.x509.rsa_sha1 (/Contents is PKCS#1, NOT CMS)
-// decomposes the cert chain from the field's /Cert entry instead and labels
-// the entry accordingly.
+// adbe.x509.rsa_sha1 (/Contents is PKCS#1, NOT CMS) decomposes the cert
+// chain from the field's /Cert entry instead and labels the entry
+// accordingly.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_X509RSASHA1CertsFromCertEntry(t *testing.T) {
@@ -153,9 +152,8 @@ func TestSignatures_X509RSASHA1CertsFromCertEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-016 [P2] AC2: ETSI.RFC3161 doc timestamps parse the token as CMS
-// for certs/algorithms and are labeled type: document-timestamp (/M absent is
-// normal).
+// ETSI.RFC3161 doc timestamps parse the token as CMS for certs/algorithms and
+// are labeled type: document-timestamp (/M absent is normal).
 // ---------------------------------------------------------------------------
 
 func TestSignatures_RFC3161LabeledDocumentTimestamp(t *testing.T) {
@@ -178,8 +176,8 @@ func TestSignatures_RFC3161LabeledDocumentTimestamp(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-017 [P2] AC2/AC7: an unknown SubFilter degrades to a labeled
-// "not decomposed" note -- listed, no crash, exit 0.
+// An unknown SubFilter degrades to a labeled "not decomposed" note --
+// listed, no crash, exit 0.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_UnknownSubFilterLabeledNotDecomposed(t *testing.T) {
@@ -202,9 +200,9 @@ func TestSignatures_UnknownSubFilterLabeledNotDecomposed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-018 [P0] AC4: NO trust claims anywhere -- plain and JSON. The
-// words valid/trusted/verified may appear only in negated/factual forms, and
-// the "trust not verified" note must be present.
+// NO trust claims anywhere -- plain and JSON. The words
+// valid/trusted/verified may appear only in negated/factual forms, and the
+// "trust not verified" note must be present.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_NoTrustClaimsAndTrustNote(t *testing.T) {

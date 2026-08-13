@@ -16,9 +16,9 @@
 //   - fonts-mixed.pdf   : obj "4 0 R" is a /Type /Font dict;
 //                         obj "1 0 R" is the /Type /Catalog (non-font).
 //
-// Covers: AC1 (ref-taking payloads + both ref forms), AC2 (image --metadata),
-// AC3 (source default JSON vs --raw), AC6 (non-error payloads at exit 0 +
-// missing --ref usage error).
+// Covers: (ref-taking payloads + both ref forms), (image --metadata), (source
+// default JSON vs --raw), (non-error payloads at exit 0 + missing --ref usage
+// error).
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
 package cli_views_test
@@ -31,10 +31,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-001 [P0] (AC1): `dump font --ref "4 0 R" fonts-mixed.pdf` emits a
-// FontView payload as JSON on stdout with exit 0. FontView always carries the
-// `kind`, `detail`, and `roster` keys (detail/roster are non-omitempty
-// pointers); for a real /Type /Font dict kind is "detail".
+// `dump font --ref "4 0 R" fonts-mixed.pdf` emits a FontView payload as JSON
+// on stdout with exit 0. FontView always carries the `kind`, `detail`, and
+// `roster` keys (detail/roster are non-omitempty pointers); for a real /Type
+// /Font dict kind is "detail".
 // ---------------------------------------------------------------------------
 
 func TestFontDump_FontDict_OutputsFontViewJSON(t *testing.T) {
@@ -64,9 +64,9 @@ func TestFontDump_FontDict_OutputsFontViewJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-002 [P0] (AC1): `dump image --ref "4 0 R" image-xobject.pdf`
-// emits an ImageData payload as JSON with exit 0. For a real image XObject the
-// `error` field is empty and width/height/colorSpace are populated.
+// `dump image --ref "4 0 R" image-xobject.pdf` emits an ImageData payload as
+// JSON with exit 0. For a real image XObject the `error` field is empty and
+// width/height/colorSpace are populated.
 // ---------------------------------------------------------------------------
 
 func TestImageDump_ImageXObject_OutputsImageDataJSON(t *testing.T) {
@@ -96,10 +96,10 @@ func TestImageDump_ImageXObject_OutputsImageDataJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-003 [P0] (AC1, AC3): `dump source --ref "4 0 R" image-xobject.pdf`
-// (default) emits JSON {"objectRef","source"} with exit 0. objectRef is the
-// canonical "N G R" form built by the CLI; source is the reserialized PDF
-// syntax (contains the "N G obj" envelope).
+// `dump source --ref "4 0 R" image-xobject.pdf` (default) emits JSON
+// {"objectRef","source"} with exit 0. objectRef is the canonical "N G R" form
+// built by the CLI; source is the reserialized PDF syntax (contains the "N G
+// obj" envelope).
 // ---------------------------------------------------------------------------
 
 func TestSourceDump_Default_OutputsObjectRefAndSourceJSON(t *testing.T) {
@@ -127,10 +127,10 @@ func TestSourceDump_Default_OutputsObjectRefAndSourceJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-004 [P0] (AC1): `dump reverserefs --ref REF` emits a JSON array
-// of ReverseRef. The Page dict (obj 3) in image-xobject.pdf is referenced by
-// the Pages tree, so it has at least one inbound edge; each edge carries
-// parentNodeId / parentRef / path.
+// `dump reverserefs --ref REF` emits a JSON array of ReverseRef. The Page
+// dict (obj 3) in image-xobject.pdf is referenced by the Pages tree, so it
+// has at least one inbound edge; each edge carries parentNodeId / parentRef
+// / path.
 // ---------------------------------------------------------------------------
 
 func TestReverseRefsDump_ReferencedObject_OutputsNonEmptyArray(t *testing.T) {
@@ -157,10 +157,10 @@ func TestReverseRefsDump_ReferencedObject_OutputsNonEmptyArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-005 [P1] (AC1): ref-taking commands accept BOTH the "N G R" and
-// obj:G:N forms (reusing 11-3's liberal parseObjectRef). For obj 4 0, the
-// obj:G:N id is "obj:0:4" (gen first, num second). Output must be equivalent
-// JSON regardless of the input form.
+// ref-taking commands accept BOTH the "N G R" and obj:G:N forms (reusing
+// 11-3's liberal parseObjectRef). For obj 4 0, the obj:G:N id is "obj:0:4"
+// (gen first, num second). Output must be equivalent JSON regardless of the
+// input form.
 // ---------------------------------------------------------------------------
 
 func TestByRef_BothRefForms_Equivalent(t *testing.T) {
@@ -212,10 +212,10 @@ func TestByRef_BothRefForms_Equivalent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-006 [P1] (AC2): `dump image --ref REF --metadata` OMITS the
+// `dump image --ref REF --metadata` OMITS the
 // `base64` key entirely (NOT "base64":"") while keeping width/height/etc;
-// without --metadata the full base64 value is present and non-empty.
-// (If the team relaxes AC2 to "blank the value", flip the omission assertion
+// Without --metadata the full base64 value is present and non-empty. (If the
+// team relaxes to "blank the value", flip the omission assertion
 //  to require base64 == "" -- see the Decision note in the story.)
 // ---------------------------------------------------------------------------
 
@@ -252,14 +252,14 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-019 [P1] (AC2 / Review #1 regression guard): the `--metadata`
-// projection must preserve every surviving (non-base64) field byte-for-byte
-// against the full form. The metadata output must equal the full output with
-// only the `base64` key deleted. This locks the Review #1 fix (the projection
-// uses map[string]json.RawMessage, NOT map[string]any -- the latter would
-// relabel every integer field, e.g. width/height/bitsPerComponent, as a
-// float64 and silently diverge from the full form). Key-presence alone
-// (INTG-006) does not catch that numeric-laundering regression.
+// / Review #1 regression guard: the `--metadata` projection must preserve
+// every surviving (non-base64) field byte-for-byte against the full form. The
+// metadata output must equal the full output with only the `base64` key
+// deleted. This locks the Review #1 fix (the projection uses
+// map[string]json.RawMessage, NOT map[string]any -- the latter would relabel
+// every integer field, e.g. width/height/bitsPerComponent, as a float64 and
+// silently diverge from the full form). Key-presence alone (INTG-006) does
+// not catch that numeric-laundering regression.
 // ---------------------------------------------------------------------------
 
 func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
@@ -304,9 +304,9 @@ func TestImageDump_MetadataFlag_PreservesSurvivingFieldsVerbatim(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-007 [P1] (AC3): `dump source --ref REF --raw` writes the verbatim
-// reserialized source bytes to stdout (NOT JSON), mirroring `dump stream
-// --raw`. The raw bytes equal the `source` field of the default JSON form.
+// `dump source --ref REF --raw` writes the verbatim reserialized source bytes
+// to stdout (NOT JSON), mirroring `dump stream --raw`. The raw bytes equal
+// the `source` field of the default JSON form.
 // ---------------------------------------------------------------------------
 
 func TestSourceDump_Raw_WritesVerbatimSource(t *testing.T) {
@@ -340,8 +340,8 @@ func TestSourceDump_Raw_WritesVerbatimSource(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-INTG-008 [P0] (AC6): type-mismatch / nonexistent refs surface the
-// underlying method's payload FAITHFULLY with exit 0 (NOT a synthetic error):
+// type-mismatch / nonexistent refs surface the underlying method's payload
+// FAITHFULLY with exit 0 (NOT a synthetic error):
 //   - dump font on a non-font (the catalog, obj 1) -> {"kind":"neither",...}
 //   - dump image on a non-image (the page dict, obj 3) -> populated `error`
 //   - dump source on an unresolved ref -> "N G obj\nnull\nendobj" envelope
@@ -413,9 +413,9 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-UNIT-001 [P1] (AC6): a missing --ref on a ref-taking command exits 1
-// (usage error) with a RESOURCE-SPECIFIC worked-example message naming the
-// command and its --ref form; stdout is empty.
+// A missing --ref on a ref-taking command exits 1 (usage error) with a
+// RESOURCE-SPECIFIC worked-example message naming the command and its --ref
+// form; stdout is empty.
 //
 // Red-phase discriminator: the current binary rejects unknown resources with
 // the GENERIC usage menu (which does not name `dump font`/`dump image`/etc.),
@@ -449,9 +449,9 @@ func TestByRef_MissingRefFlag_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-UNIT-002 [P1] (AC6): exit 2 is reserved for genuine Go errors. A
-// nonexistent file path on a ref-taking command produces a JSON error on
-// stderr and exit 2 (like dump object / dump stream), with empty stdout.
+// Exit 2 is reserved for genuine Go errors. A nonexistent file path on a
+// ref-taking command produces a JSON error on stderr and exit 2 (like
+// dump object / dump stream), with empty stdout.
 // ---------------------------------------------------------------------------
 
 func TestByRef_NonexistentFile_JSONErrorExit2(t *testing.T) {
@@ -478,9 +478,9 @@ func TestByRef_NonexistentFile_JSONErrorExit2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.4-UNIT-003 [P2] (AC6): a malformed --ref on a ref-taking command exits 1
-// (usage) -- parseObjectRef rejects it before any PDF work, surfacing the
-// shared refFormatHint (which names the "N G R" / obj:G:N forms).
+// A malformed --ref on a ref-taking command exits 1 (usage) -- parseObjectRef
+// rejects it before any PDF work, surfacing the shared refFormatHint (which
+// names the "N G R" / obj:G:N forms).
 //
 // Red-phase discriminator: the current binary doesn't recognize the resource,
 // so it never reaches parseObjectRef and never emits the format hint; the

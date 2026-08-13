@@ -12,17 +12,17 @@
 // This module has its own go.mod and is not part of the main build (mirrors
 // tests/trustworthy-stream-op-output and tests/structural-diff).
 //
-// Test pyramid: every case here is a Go integration-level black-box test
-// against the built CLI binary -- the project's established acceptance level for
-// the CLI machine contract (10-x, 13-1..13-6, 14-1). The diff depth-cap count
-// (14.3-UNIT-001's intent) is asserted through the `diff --json`
-// summary.truncatedSubtrees field rather than a co-located internal/pdfcore unit
-// test: that field/`DiffNode.Truncated` do not exist yet, so a co-located test
-// would break the main module's compile (and `go vet`/gate), violating the
-// runtime-red convention. The thin GUI display branch is covered at the
-// component (Vitest) level in frontend/src/components/DiffView.truncation.test.tsx.
+// Test pyramid: every case here is a Go integration-level black-box test against
+// the built CLI binary -- the project's established acceptance level for the CLI
+// machine contract (10-x, 13-1..13-6, 14-1). The diff depth-cap count (the intent)
+// is asserted through the `diff --json` summary.truncatedSubtrees field rather than
+// a co-located internal/pdfcore unit test: that field/`DiffNode.Truncated` do not
+// exist yet, so a co-located test would break the main module's compile (and `go
+// vet`/gate), violating the runtime-red convention. The thin GUI display branch is
+// covered at the component (Vitest) level in
+// frontend/src/components/DiffView.truncation.test.tsx.
 //
-// Naming: 14.3-INTG-NNN [Px] per the story Testing Requirements (AC5/AC6).
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/no-silent-truncation && go test -v -count=1 ./...
 package no_silent_truncation_test
@@ -144,7 +144,7 @@ func jsonInt(v any) int {
 }
 
 // anyNodeTruncated reports whether the DiffNode tree rooted at node carries a
-// node with "truncated": true anywhere. This is the depth-cap marker (AC1) the
+// node with "truncated": true anywhere. This is the depth-cap marker the
 // implementation adds to DiffNode; today the field is absent, so this is false.
 func anyNodeTruncated(node map[string]any) bool {
 	if node == nil {

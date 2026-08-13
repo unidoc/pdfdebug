@@ -1,5 +1,5 @@
 // Story 11-5 RED-PHASE acceptance tests for `dump stream --ops` (item 2) and
-// the Do -> resourceType lookup (AC1, AC2).
+// the Do -> resourceType lookup.
 //
 // Black-box: build the CLI binary and run it as a subprocess. These tests
 // assert the EXPECTED post-implementation behavior and MUST FAIL against the
@@ -40,7 +40,7 @@ func parseNDJSON(t *testing.T, stdout string) []map[string]any {
 // formXObjectPDF builds a single-page PDF whose page content stream draws a
 // Form XObject (Do Fm0) and an Image XObject (Do Im0). The page's
 // /Resources/XObject maps Fm0 -> a /Subtype /Form stream and Im0 -> a
-// /Subtype /Image stream. Used for AC2 Form + Image resourceType resolution.
+// /Subtype /Image stream. Used for Form + Image resourceType resolution.
 func formXObjectPDF() []byte {
 	pdf := "%PDF-1.4\n"
 
@@ -116,9 +116,9 @@ func writeTempPDF(t *testing.T, name string, content []byte) string {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC1-001 [P0]: `dump stream --page N --ops` emits NDJSON: one JSON
-// object per operator, each {op, params, srcLineStart, srcLineEnd}. The number
-// of NDJSON lines equals len(default output's Formatted) and each line's
+// `dump stream --page N --ops` emits NDJSON: one JSON object per operator,
+// each {op, params, srcLineStart, srcLineEnd}. The number of NDJSON lines
+// equals len(default output's Formatted) and each line's
 // op/srcLineStart/srcLineEnd matches the corresponding FormattedLine from the
 // DEFAULT `dump stream --page N` output (parity, not re-derivation).
 // ---------------------------------------------------------------------------
@@ -176,9 +176,9 @@ func TestStreamOps_NDJSONParityWithDefaultFormatted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC1-002 [P1]: --ops output is NDJSON (one object per line), NOT a
-// JSON array. The whole stdout must NOT parse as a single JSON value when there
-// is more than one operator.
+// --ops output is NDJSON (one object per line), NOT a JSON array. The whole
+// stdout must NOT parse as a single JSON value when there is more than one
+// operator.
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_IsNDJSONNotArray(t *testing.T) {
@@ -201,8 +201,8 @@ func TestStreamOps_IsNDJSONNotArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC1-003 [P1]: --ops is mutually exclusive with --raw; passing both
-// is a usage error (exit 1).
+// --ops is mutually exclusive with --raw; passing both is a usage error (exit
+// 1).
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_ConflictWithRaw_UsageError(t *testing.T) {
@@ -222,10 +222,10 @@ func TestStreamOps_ConflictWithRaw_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC1-004 [P2]: empty/no-Contents page under --ops emits ZERO NDJSON
-// lines on stdout (not a lone non-NDJSON error object), surfaces the condition
-// on stderr, with a defined exit code. stdout must stay jq -c -safe (empty or
-// only valid NDJSON lines).
+// empty/no-Contents page under --ops emits ZERO NDJSON lines on stdout (not a
+// lone non-NDJSON error object), surfaces the condition on stderr, with a
+// defined exit code. stdout must stay jq -c -safe (empty or only valid NDJSON
+// lines).
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_NoContents_ZeroLinesCleanStdout(t *testing.T) {
@@ -256,11 +256,11 @@ func TestStreamOps_NoContents_ZeroLinesCleanStdout(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-001 [P0]: A `Do` op on a PAGE content stream naming an Image
-// XObject carries resourceType "Image" and objectRef "N G R". Uses the
-// existing image-xobject.pdf fixture: its page 1 /Resources/XObject has /Im0
-// (Subtype /Image). NOTE: that fixture's page may have no /Contents stream with
-// a Do op; this test additionally builds a fixture with an explicit `Do Im0`.
+// A `Do` op on a PAGE content stream naming an Image XObject carries
+// resourceType "Image" and objectRef "N G R". Uses the existing
+// image-xobject.pdf fixture: its page 1 /Resources/XObject has /Im0 (Subtype
+// /Image). NOTE: that fixture's page may have no /Contents stream with a Do op;
+// this test additionally builds a fixture with an explicit `Do Im0`.
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoImage_CarriesResourceType(t *testing.T) {
@@ -286,8 +286,8 @@ func TestStreamOps_DoImage_CarriesResourceType(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-002 [P0]: A `Do` op on a PAGE content stream naming a Form
-// XObject carries resourceType "Form" and objectRef "N G R".
+// A `Do` op on a PAGE content stream naming a Form XObject carries
+// resourceType "Form" and objectRef "N G R".
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoForm_CarriesResourceType(t *testing.T) {
@@ -314,7 +314,7 @@ func TestStreamOps_DoForm_CarriesResourceType(t *testing.T) {
 
 // unknownDoPDF builds a single-page PDF whose content stream draws a Do naming
 // "/Ghost", which is absent from the page's /Resources/XObject (only /Fm0 is
-// present). Used for the AC2 negative path: a Do whose operand does not resolve
+// present). Used for the negative path: a Do whose operand does not resolve
 // must emit the op WITHOUT resourceType and must not crash.
 func unknownDoPDF() []byte {
 	pdf := "%PDF-1.4\n"
@@ -333,10 +333,10 @@ func unknownDoPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-003 [P1]: A `Do` op whose operand name is NOT in the page's
-// /Resources/XObject is emitted WITHOUT a resourceType key and does not crash
-// (exit 0, valid NDJSON). Guards classifyDo's "leave unannotated" branch (the
-// AC2 negative path: do not crash, do not mislabel).
+// A `Do` op whose operand name is NOT in the page's /Resources/XObject is
+// emitted WITHOUT a resourceType key and does not crash (exit 0, valid
+// NDJSON). Guards classifyDo's "leave unannotated" branch (the negative path:
+// do not crash, do not mislabel).
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoUnknownName_EmitsWithoutResourceType(t *testing.T) {
@@ -385,11 +385,11 @@ func otherSubtypeDoPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-004 [P1]: A `Do` op whose operand resolves to an XObject whose
-// /Subtype is neither /Image nor /Form (here: absent) is emitted WITHOUT a
-// resourceType key and does not crash. Guards classifyDo's switch-default
-// branch -- distinct from the unresolved-name (`!ok`) branch covered by
-// AC2-003. The spec requires this case be decided AND tested.
+// A `Do` op whose operand resolves to an XObject whose /Subtype is neither
+// /Image nor /Form (here: absent) is emitted WITHOUT a resourceType key and
+// does not crash. Guards classifyDo's switch-default branch -- distinct from
+// the unresolved-name (`!ok`) branch covered by. The spec requires this case
+// be decided AND tested.
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoOtherSubtype_EmitsWithoutResourceType(t *testing.T) {
@@ -433,12 +433,11 @@ func nonNameDoPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-005 [P2]: A `Do` op with a NON-NAME operand (a number, not a
-// /Name) is emitted WITHOUT a resourceType key and does not crash (exit 0,
-// valid NDJSON). Guards classifyDo's "operand is not a /-prefixed name" skip
-// branch -- distinct from the unresolved-name (AC2-003) and unclassified-subtype
-// (AC2-004) branches. (AC2: "A Do with a non-name operand ... emits the op
-// without resourceType".)
+// A `Do` op with a NON-NAME operand (a number, not a /Name) is emitted WITHOUT a
+// resourceType key and does not crash (exit 0, valid NDJSON). Guards
+// classifyDo's "operand is not a /-prefixed name" skip branch -- distinct from
+// the unresolved-name and unclassified-subtype branches. ("A Do with a non-name
+// operand ... emits the op without resourceType".)
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoNonNameOperand_EmitsWithoutResourceType(t *testing.T) {
@@ -495,12 +494,11 @@ func noXObjectResourcesPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC2-006 [P2]: A `Do` op on a page whose /Resources has NO /XObject
-// sub-dictionary is emitted WITHOUT a resourceType key and does not crash
-// (exit 0, valid NDJSON). Guards the "page has no /Resources/XObject" path:
-// GetXObjectResources yields an empty map and classifyDo finds no entry.
-// (AC2: "A Do ... appearing where the page has no /Resources/XObject also emits
-// the op without resourceType".)
+// A `Do` op on a page whose /Resources has NO /XObject sub-dictionary is
+// emitted WITHOUT a resourceType key and does not crash (exit 0, valid NDJSON).
+// Guards the "page has no /Resources/XObject" path: GetXObjectResources yields
+// an empty map and classifyDo finds no entry. ("A Do ... appearing where the
+// page has no /Resources/XObject also emits the op without resourceType".)
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoNoXObjectResources_EmitsWithoutResourceType(t *testing.T) {
@@ -543,10 +541,10 @@ func findDoOp(objs []map[string]any, name string) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 STREAM-005/006 (AC7): --json is mutually exclusive with the payload
-// selectors --raw and --ops. Passing them together is a usage error (exit 1)
-// with empty stdout -- NET-NEW validation: before the flip --json was a no-op
-// that combined silently. Do NOT retrofit --ops under --json.
+// 006: --json is mutually exclusive with the payload selectors --raw and
+// --ops. Passing them together is a usage error (exit 1) with empty stdout --
+// NET-NEW validation: before the flip --json was a no-op that combined
+// silently. Do NOT retrofit --ops under --json.
 // ---------------------------------------------------------------------------
 
 func TestStream_RawJSON_Rejected(t *testing.T) {

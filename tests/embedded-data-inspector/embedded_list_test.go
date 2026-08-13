@@ -6,8 +6,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-001 [P0] AC4: `dump embedded` plain-text default lists the embedded
-// files as a human-readable table carrying name, relationship, MIME, and size.
+// `dump embedded` plain-text default lists the embedded files as a
+// human-readable table carrying name, relationship, MIME, and size.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedList_PlainTableHasFields(t *testing.T) {
@@ -36,8 +36,8 @@ func TestEmbeddedList_PlainTableHasFields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-002 [P0] AC4: `dump embedded --json` emits a structured array, one
-// element per embedded file, carrying the discriminating fields.
+// `dump embedded --json` emits a structured array, one element per embedded
+// file, carrying the discriminating fields.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedList_JSONIsStructuredArray(t *testing.T) {
@@ -69,8 +69,8 @@ func TestEmbeddedList_JSONIsStructuredArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-003 [P1] AC4 + 13-1 contract: the plain-text list is ASCII-only and
-// ends with a trailing newline.
+// + 13-1 contract: the plain-text list is ASCII-only and ends with a trailing
+// newline.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedList_PlainIsASCIIWithTrailingNewline(t *testing.T) {
@@ -86,8 +86,8 @@ func TestEmbeddedList_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-INTG-004 [P1] AC1/AC4: a document with no embedded files lists an empty
-// result (exit 0), not an error.
+// A document with no embedded files lists an empty result (exit 0), not an
+// error.
 // ---------------------------------------------------------------------------
 
 func TestEmbeddedList_NoneIsEmptyExitZero(t *testing.T) {

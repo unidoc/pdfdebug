@@ -1,5 +1,5 @@
 // Story 11-5 RED-PHASE acceptance tests for `dump stream --xobject NAME` and
-// `dump stream --ref REF` (item 3; AC4, AC5).
+// `dump stream --ref REF` (item 3;).
 //
 // Black-box: build the CLI binary and run it as a subprocess. These assert the
 // EXPECTED post-implementation behavior and MUST FAIL against the current
@@ -16,11 +16,11 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC4-001 [P0]: `dump stream --xobject Fm0 --page 1` resolves the
-// Form XObject named Fm0 in page 1's /Resources/XObject to its stream object
-// and emits that stream's content as the same JSON shape as a page content
-// stream (nodeId, raw, tokenized), exit 0. Fm0's stream draws "0 0 100 100 re
-// f" so raw must contain "re".
+// `dump stream --xobject Fm0 --page 1` resolves the Form XObject named Fm0 in
+// page 1's /Resources/XObject to its stream object and emits that stream's
+// content as the same JSON shape as a page content stream (nodeId, raw,
+// tokenized), exit 0. Fm0's stream draws "0 0 100 100 re f" so raw must
+// contain "re".
 // ---------------------------------------------------------------------------
 
 func TestStreamXObject_FormByName_EmitsStreamContent(t *testing.T) {
@@ -44,8 +44,8 @@ func TestStreamXObject_FormByName_EmitsStreamContent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC4-002 [P0]: `--xobject Fm0` honors --ops (same output path as a
-// page stream): emits NDJSON operator objects for the form's content.
+// `--xobject Fm0` honors --ops (same output path as a page stream): emits
+// NDJSON operator objects for the form's content.
 // ---------------------------------------------------------------------------
 
 func TestStreamXObject_FormByName_HonorsOps(t *testing.T) {
@@ -72,8 +72,8 @@ func TestStreamXObject_FormByName_HonorsOps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC4-003 [P1]: `--xobject NoSuch --page 1` (unknown name) yields a
-// clear JSON error on stderr + exit 2.
+// `--xobject NoSuch --page 1` (unknown name) yields a clear JSON error on
+// stderr + exit 2.
 // ---------------------------------------------------------------------------
 
 func TestStreamXObject_UnknownName_JSONErrorExit2(t *testing.T) {
@@ -97,10 +97,10 @@ func TestStreamXObject_UnknownName_JSONErrorExit2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC4-004 [P0]: `--xobject Fm0` with NEITHER --page NOR --ref is a
-// usage error (exit 1) whose message names the missing flag. This is the
-// reworked guard: the old unconditional `--page < 1 -> exit 1` must no longer
-// apply to --xobject paths, but --xobject ALONE is still a usage error.
+// `--xobject Fm0` with NEITHER --page NOR --ref is a usage error (exit 1)
+// whose message names the missing flag. This is the reworked guard: the old
+// unconditional `--page < 1 -> exit 1` must no longer apply to --xobject
+// paths, but --xobject ALONE is still a usage error.
 // ---------------------------------------------------------------------------
 
 func TestStreamXObject_NoPageNoRef_UsageError(t *testing.T) {
@@ -121,9 +121,9 @@ func TestStreamXObject_NoPageNoRef_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC4-005 [P2]: An Image-XObject NAME still emits via the stream
-// path (the image bytes tokenize to a near-empty/garbage operator list, NOT a
-// crash). Exit 0 and valid JSON with a (possibly empty) tokenized array.
+// An Image-XObject NAME still emits via the stream path (the image bytes
+// tokenize to a near-empty/garbage operator list, NOT a crash). Exit 0 and
+// valid JSON with a (possibly empty) tokenized array.
 // ---------------------------------------------------------------------------
 
 func TestStreamXObject_ImageByName_EmitsWithoutCrash(t *testing.T) {
@@ -142,9 +142,9 @@ func TestStreamXObject_ImageByName_EmitsWithoutCrash(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC5-001 [P0]: `dump stream --ref "4 0 R"` where object 4 is the
-// page content stream emits that object's decoded content stream (exit 0,
-// nodeId/raw/tokenized). Object 4 in formXObjectPDF is the page content stream
+// `dump stream --ref "4 0 R"` where object 4 is the page content stream emits
+// that object's decoded content stream (exit 0, nodeId/raw/tokenized). Object
+// 4 in formXObjectPDF is the page content stream
 // ("q /Fm0 Do Q ...").
 // ---------------------------------------------------------------------------
 
@@ -164,11 +164,10 @@ func TestStreamRef_ContentStreamObject_EmitsContent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC5-002 [P0]: `--ref REF` where REF is NOT a stream object yields a
-// clear type error + exit 2. GetContentStream returns a non-error
-// ContentStreamData{Error:"node is not a stream object"}; the command MUST
-// detect that Error field and map it to exit 2 (NOT exit 0). Object 1 is the
-// catalog dict (not a stream).
+// `--ref REF` where REF is NOT a stream object yields a clear type error + exit
+// 2. GetContentStream returns a non-error ContentStreamData{Error:"node is not
+// a stream object"}; the command MUST detect that Error field and map it to
+// exit 2 (NOT exit 0). Object 1 is the catalog dict (not a stream).
 // ---------------------------------------------------------------------------
 
 func TestStreamRef_NonStream_TypeErrorExit2(t *testing.T) {
@@ -192,8 +191,8 @@ func TestStreamRef_NonStream_TypeErrorExit2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC5-003 [P1]: `--ref REF` to a non-existent object yields a
-// not-found error + exit 2.
+// `--ref REF` to a non-existent object yields a not-found error + exit
+// 2.
 // ---------------------------------------------------------------------------
 
 func TestStreamRef_NotFound_Exit2(t *testing.T) {

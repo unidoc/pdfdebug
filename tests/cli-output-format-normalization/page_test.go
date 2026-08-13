@@ -10,9 +10,9 @@ import (
 const pageInfoFixture = "page-render/render-info.pdf"
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-040 [P0] PAGEINFO-001: default (no --json) flips from always-JSON
-// to plain-text sections. AC#6. Structural: aligned "key: value" sections with
-// section labels (geometry / extgstates / xobjects / forms).
+// Default (no --json) flips from always-JSON to plain-text sections.
+// Structural: aligned "key: value" sections with section labels (geometry /
+// extgstates / xobjects / forms).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_DefaultPlainSections(t *testing.T) {
@@ -36,10 +36,10 @@ func TestPageInfo_DefaultPlainSections(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-041 [P0] PAGEINFO-002: --json includes the top-level in-band
-// stability marker "_stability":"experimental" on the FULL object. AC#8.
-// (The story leaves section-view placement to the implementer; this asserts the
-// unambiguous full-object case only.)
+// --json includes the top-level in-band stability marker
+// "_stability":"experimental" on the FULL object. (The story leaves
+// section-view placement to the implementer; this asserts the unambiguous
+// full-object case only.)
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_JSONCarriesStabilityMarker(t *testing.T) {
@@ -60,10 +60,10 @@ func TestPageInfo_JSONCarriesStabilityMarker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-042 [P1] PAGEINFO-003: the --section filter is honored in the plain
-// presenter. AC#6. Structural: a sectioned plain dump renders ONLY that section
-// and omits a sibling section's distinctive content. We compare the geometry
-// section (carries MediaBox) against the extgstates section (does not).
+// The --section filter is honored in the plain presenter. Structural: a
+// sectioned plain dump renders ONLY that section and omits a sibling section's
+// distinctive content. We compare the geometry section (carries MediaBox)
+// against the extgstates section (does not).
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_SectionFilterHonoredInPlain(t *testing.T) {
@@ -92,9 +92,9 @@ func TestPageInfo_SectionFilterHonoredInPlain(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-043 [P1] PAGEINFO-004: --forms-recursive / --forms-depth behavior
-// is unchanged under the new default. AC#6. The flags are accepted (exit 0) on
-// the plain default path and produce a forms-bearing render picture.
+// --forms-recursive / --forms-depth behavior is unchanged under the new
+// default. The flags are accepted (exit 0) on the plain default path and
+// produce a forms-bearing render picture.
 // ---------------------------------------------------------------------------
 
 func TestPageInfo_FormsFlagsUnchanged(t *testing.T) {

@@ -1,8 +1,8 @@
 package compliance_validation_test
 
-// Story 13.5 -- the top-level `validate` command (AC 1, 2, 3, 5).
-// RED PHASE: `validate` does not exist yet; every test below (except the
-// fixture sanity check) fails at runtime against the current binary.
+// Story 13.5 -- the top-level `validate` command. RED PHASE: `validate`
+// does not exist yet; every test below (except the fixture sanity check)
+// fails at runtime against the current binary.
 
 import (
 	"regexp"
@@ -11,9 +11,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-000 [P0] fixture sanity: every hand-assembled fixture must parse
-// through the EXISTING open path (dump objects, exit 0). This test passes
-// TODAY and guards the suite against an eternally-red fixture (13-4 precedent).
+// Fixture sanity: every hand-assembled fixture must parse through the EXISTING
+// open path (dump objects, exit 0). This test passes TODAY and guards the suite
+// against an eternally-red fixture (13-4 precedent).
 // ---------------------------------------------------------------------------
 
 func TestValidate_FixturesParseThroughOpenPath(t *testing.T) {
@@ -33,8 +33,8 @@ func TestValidate_FixturesParseThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-001 [P0] AC3: a document with a PDF/A-1b structural ERROR exits 1
-// (the CI compliance-gate signal) -- distinct from operational exit 2.
+// A document with a PDF/A-1b structural ERROR exits 1 (the CI compliance-gate
+// signal) -- distinct from operational exit 2.
 // ---------------------------------------------------------------------------
 
 func TestValidate_ErrorProblemExitsOne(t *testing.T) {
@@ -56,7 +56,7 @@ func TestValidate_ErrorProblemExitsOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-002 [P0] AC1/AC3: --json emits the {profile, summary, problems}
+// --json emits the {profile, summary, problems}
 // envelope; the non-embedded-font error carries objRef "4 0 R", node id
 // obj:0:4, a non-empty specRef, and severity "error".
 // ---------------------------------------------------------------------------
@@ -103,9 +103,9 @@ func TestValidate_JSONEnvelopeAndFontError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-003 [P0] AC1: ObjNodeID is present whenever ObjRef is (a bare
-// ObjRef cannot drive the GUI selection wiring). Every object-scoped problem
-// carries a well-formed obj:{gen}:{num} node id.
+// ObjNodeID is present whenever ObjRef is (a bare ObjRef cannot drive the
+// GUI selection wiring). Every object-scoped problem carries a well-formed
+// obj:{gen}:{num} node id.
 // ---------------------------------------------------------------------------
 
 var objNodeRE = regexp.MustCompile(`^obj:\d+:\d+$`)
@@ -131,8 +131,8 @@ func TestValidate_ObjNodeIDAccompaniesObjRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-004 [P0] AC3: the plain-text default is a grouped list (severity,
-// message, object ref, spec clause) plus a summary count, and is NOT JSON.
+// The plain-text default is a grouped list (severity, message, object ref,
+// spec clause) plus a summary count, and is NOT JSON.
 // ---------------------------------------------------------------------------
 
 func TestValidate_PlainGroupedListWithSummary(t *testing.T) {
@@ -161,9 +161,9 @@ func TestValidate_PlainGroupedListWithSummary(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-005 [P0] AC5: neither the plain default nor --json ever emits an
-// authoritative conformance verdict; the "structural checks only" disclaimer
-// is always present.
+// Neither the plain default nor --json ever emits an authoritative
+// conformance verdict; the "structural checks only" disclaimer is always
+// present.
 // ---------------------------------------------------------------------------
 
 func TestValidate_HonestyGuardrail(t *testing.T) {
@@ -187,8 +187,8 @@ func TestValidate_HonestyGuardrail(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-006 [P1] 13-1 contract: the plain-text default is ASCII-only and
-// ends with a trailing newline.
+// 13-1 contract: the plain-text default is ASCII-only and ends with a
+// trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestValidate_PlainIsASCIIWithTrailingNewline(t *testing.T) {
@@ -207,9 +207,9 @@ func TestValidate_PlainIsASCIIWithTrailingNewline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-010 [P0] AC1/AC3: an encrypted document is surfaced as an ERROR
-// problem (PDF/A forbids encryption) and exits 1 -- NOT the operational exit 2
-// (the ErrEncryptedPDF reconciliation). Uses the existing encrypted.pdf.
+// An encrypted document is surfaced as an ERROR problem (PDF/A forbids
+// encryption) and exits 1 -- NOT the operational exit 2 (the ErrEncryptedPDF
+// reconciliation). Uses the existing encrypted.pdf.
 // ---------------------------------------------------------------------------
 
 func TestValidate_EncryptedIsErrorProblemExitsOne(t *testing.T) {
@@ -239,8 +239,8 @@ func TestValidate_EncryptedIsErrorProblemExitsOne(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-011 [P0] AC3: a missing/unreadable file is an OPERATIONAL error
-// (exit 2, message to stderr, empty stdout) -- NOT the compliance exit 1.
+// A missing/unreadable file is an OPERATIONAL error (exit 2, message to
+// stderr, empty stdout) -- NOT the compliance exit 1.
 // ---------------------------------------------------------------------------
 
 func TestValidate_MissingFileExitsTwo(t *testing.T) {
@@ -259,8 +259,8 @@ func TestValidate_MissingFileExitsTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-012 [P0] AC2/AC3: an unknown --profile is a usage error (exit 2,
-// stderr lists the valid profiles, no partial run on stdout).
+// An unknown --profile is a usage error (exit 2, stderr lists the valid
+// profiles, no partial run on stdout).
 // ---------------------------------------------------------------------------
 
 func TestValidate_UnknownProfileExitsTwo(t *testing.T) {
@@ -281,10 +281,10 @@ func TestValidate_UnknownProfileExitsTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-020 [P0] AC2/AC3: the PDF/UA-1 structural rules are WARNINGS
-// (non-gating). An untagged doc under pdfua-1-structural yields warnings but
-// ZERO errors -> exit 0. The missing /Lang is a document-level problem
-// (empty objRef) -- the story's canonical "Document" group member.
+// The PDF/UA-1 structural rules are WARNINGS (non-gating). An untagged doc
+// under pdfua-1-structural yields warnings but ZERO errors -> exit 0. The
+// missing /Lang is a document-level problem (empty objRef) -- the story's
+// canonical "Document" group member.
 // ---------------------------------------------------------------------------
 
 func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
@@ -327,10 +327,10 @@ func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-021 [P1] AC3: a doc that satisfies every rule of the selected
-// profile yields zero problems and exits 0 with a clean plain-text state.
-// A tagged doc under pdfua-1-structural is the clean case. Exit 0 means "no
-// structural errors found," NOT "compliant."
+// A doc that satisfies every rule of the selected profile yields zero
+// problems and exits 0 with a clean plain-text state. A tagged doc under
+// pdfua-1-structural is the clean case. Exit 0 means "no structural errors
+// found," NOT "compliant."
 // ---------------------------------------------------------------------------
 
 func TestValidate_CleanForProfileExitsZero(t *testing.T) {
@@ -358,9 +358,9 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-030 [P1] AC5: --help documents the `validate` command, lists the
-// valid profiles, describes exit 0 as "no structural errors" (never
-// "compliant"/"valid"/"passed"), and carries the not-authoritative disclaimer.
+// --help documents the `validate` command, lists the valid profiles, describes
+// exit 0 as "no structural errors" (never "compliant"/"valid"/"passed"), and
+// carries the not-authoritative disclaimer.
 // ---------------------------------------------------------------------------
 
 func TestValidate_HelpDocumentsCommandAndExitSemantics(t *testing.T) {

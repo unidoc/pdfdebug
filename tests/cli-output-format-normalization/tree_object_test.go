@@ -6,9 +6,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-010 [P0] TREE plain shape: hierarchical, two-space indents, key as
-// the spine. AC#3 (Hierarchical). Structural: assert at least one indented
-// child line under a less-indented parent, and node labels present.
+// TREE plain shape: hierarchical, two-space indents, key as the spine.
+// (Hierarchical). Structural: assert at least one indented child line under a
+// less-indented parent, and node labels present.
 // ---------------------------------------------------------------------------
 
 func TestTree_PlainShapeIsIndentedHierarchy(t *testing.T) {
@@ -53,9 +53,9 @@ func TestTree_PlainShapeIsIndentedHierarchy(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-011 [P1] OBJECT single-record plain shape: aligned key: value
-// block. AC#3 (Single record). Structural: expected keys present with a colon
-// separator. The bare (non-resolved) object dump is a single record.
+// OBJECT single-record plain shape: aligned key: value block. (Single
+// record). Structural: expected keys present with a colon separator. The bare
+// (non-resolved) object dump is a single record.
 // ---------------------------------------------------------------------------
 
 func TestObject_PlainShapeIsKeyValueBlock(t *testing.T) {
@@ -90,9 +90,9 @@ func TestObject_PlainShapeIsKeyValueBlock(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-012 [P0] XREF tabular plain shape: header row + N aligned data rows.
-// AC#3 (Uniform repeated records). Structural: a header line naming the columns,
-// then one data row per xref entry. Row count cross-checked against --json.
+// XREF tabular plain shape: header row + N aligned data rows.
+// (Uniform repeated records). Structural: a header line naming the columns, then
+// one data row per xref entry. Row count cross-checked against --json.
 // ---------------------------------------------------------------------------
 
 func TestXRef_PlainShapeIsTableWithHeader(t *testing.T) {
@@ -137,8 +137,8 @@ func TestXRef_PlainShapeIsTableWithHeader(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-013 [P1] OBJECTS (plural) tabular plain shape: header row + one row
-// per object-index entry. AC#3 (Uniform repeated records).
+// OBJECTS (plural) tabular plain shape: header row + one row per object-index
+// entry. (Uniform repeated records).
 // ---------------------------------------------------------------------------
 
 func TestObjects_PlainShapeIsTableWithHeader(t *testing.T) {

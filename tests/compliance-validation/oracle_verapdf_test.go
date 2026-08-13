@@ -1,6 +1,6 @@
 package compliance_validation_test
 
-// Story 13.5 -- veraPDF oracle cross-check (AC 6).
+// Story 13.5 -- veraPDF oracle cross-check.
 //
 // veraPDF is the TEST ORACLE, never a runtime dependency (NFR7 forbids
 // bundling Java). This test shells veraPDF on the SAME fixtures our `validate`
@@ -16,7 +16,7 @@ package compliance_validation_test
 //	report.jobs[0].validationResult[0].compliant           bool
 //	report.jobs[0].validationResult[0].details.ruleSummaries[].clause  string (FAILED rules)
 //
-// Correspondence (AC6): a static keyword -> {veraPDF PDF/A-1 clause set}
+// Correspondence: a static keyword -> {veraPDF PDF/A-1 clause set}
 // mapping. A negative fixture passes the oracle when (a) veraPDF reports
 // non-compliant AND (b) every mapped error we emit lands on a clause veraPDF
 // also failed (no false errors). The clean fixture passes when both agree on
@@ -88,8 +88,8 @@ func veraFailedClauses(t *testing.T, veraBin, path string) (compliant bool, fail
 }
 
 // clauseSetsForRule maps our stable RuleID to the veraPDF PDF/A-1 clauses that
-// cover the same defect (AC6: a static RuleID -> veraPDF rule-clause table).
-// The oracle requires an intersection, not exact equality, because veraPDF may
+// cover the same defect (a static RuleID -> veraPDF rule-clause table). The
+// oracle requires an intersection, not exact equality, because veraPDF may
 // split one structural defect across several clause/testNumber rows. Keyed on
 // RuleID (not message text) so rewording a message never silently drops a rule
 // from the cross-check.
@@ -100,9 +100,9 @@ var clauseSetsForRule = map[string][]string{
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-050 [P0] AC6: on a negative fixture, veraPDF reports non-compliant
-// AND every mapped PDF/A-1b error we emit lands on a clause veraPDF also
-// failed (no false errors). Skips cleanly without veraPDF.
+// On a negative fixture, veraPDF reports non-compliant AND every mapped
+// PDF/A-1b error we emit lands on a clause veraPDF also failed (no false
+// errors). Skips cleanly without veraPDF.
 // ---------------------------------------------------------------------------
 
 func TestOracle_NegativeFixtureNoFalseErrors(t *testing.T) {
@@ -139,11 +139,11 @@ func TestOracle_NegativeFixtureNoFalseErrors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.5-INTG-051 [P0] AC6: the clean-case agreement. A genuinely veraPDF-passing
-// PDF/A-1b fixture must exist for the oracle to be meaningful; when present,
-// veraPDF passes it AND our rule set flags ZERO errors. Skips (with a directive
-// to Dev) when the fixture is absent -- per AC6 the clean fixture may need to
-// be a committed static file with recorded provenance.
+// The clean-case agreement. A genuinely veraPDF-passing PDF/A-1b fixture must
+// exist for the oracle to be meaningful; when present, veraPDF passes it AND
+// our rule set flags ZERO errors. Skips (with a directive to Dev) when the
+// fixture is absent -- the clean fixture may need to be a committed static file
+// with recorded provenance.
 // ---------------------------------------------------------------------------
 
 func TestOracle_CleanFixtureZeroFailureAgreement(t *testing.T) {

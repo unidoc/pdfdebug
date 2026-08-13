@@ -4,8 +4,8 @@
 // against the current binary until Story 11-3 is implemented. Black-box:
 // build the CLI, run as a subprocess.
 //
-// Covers (in this suite): AC6 (--pretty for dump stream; --raw --pretty is a
-// no-op that still emits verbatim bytes, not JSON).
+// Covers in this suite: (--pretty for dump stream; --raw --pretty is a no-op
+// that still emits verbatim bytes, not JSON).
 //
 // Run: cd tests/cli-stream-retrieval && go test -v -count=1 ./...
 package cli_stream_retrieval_test
@@ -18,8 +18,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-001 [P1] (AC6): `dump stream --pretty` emits indented multi-line
-// JSON; default stays compact single-line. Both decode to the same payload.
+// `dump stream --pretty` emits indented multi-line JSON; default stays
+// compact single-line. Both decode to the same payload.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_PrettyVsCompact(t *testing.T) {
@@ -53,9 +53,9 @@ func TestStreamDump_PrettyVsCompact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-002 [P1] (AC6): `--pretty` is a no-op for `dump stream --raw`.
-// --raw emits verbatim decoded bytes (not JSON), so --raw --pretty must
-// produce byte-identical output to --raw alone.
+// `--pretty` is a no-op for `dump stream --raw`. --raw emits verbatim
+// decoded bytes (not JSON), so --raw --pretty must produce byte-identical
+// output to --raw alone.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_RawPretty_NoOp(t *testing.T) {

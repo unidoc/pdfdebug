@@ -2,9 +2,9 @@
 // rendering picture (geometry + extgstates + xobjects + patterns + shadings +
 // recursive forms). Black-box: build the CLI binary and run it as a subprocess.
 //
-// Covers: AC1 (full object), AC4 (recursive forms + self-ref termination),
-// AC5 (--section enum incl. usage error), AC6 (exit codes + empty-arrays),
-// AC7 (structural-only guard), AC8 (experimental note in help).
+// Covers: (full object), (recursive forms + self-ref termination),
+// (--section enum incl. usage error), (exit codes + empty-arrays),
+// (structural-only guard), (experimental note in help).
 //
 // Run: cd tests/cli-page-render && go test -v -count=1 ./...
 package cli_page_render_test
@@ -18,8 +18,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-001 [P0] (AC1): `dump page --info 1` emits a single JSON object
-// with page, pageRef, resolved geometry, and the resource arrays.
+// `dump page --info 1` emits a single JSON object with page, pageRef,
+// resolved geometry, and the resource arrays.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_FullObject(t *testing.T) {
@@ -51,9 +51,8 @@ func TestPageDump_FullObject(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-002 [P0] (AC4): `--forms-recursive` walks nested forms against
-// their OWN resources and terminates a self-referential Do chain (cyclic),
-// never looping.
+// `--forms-recursive` walks nested forms against their OWN resources and
+// terminates a self-referential Do chain (cyclic), never looping.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_RecursiveForms_SelfRefTerminates(t *testing.T) {
@@ -89,8 +88,8 @@ func TestPageDump_RecursiveForms_SelfRefTerminates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-003 [P1] (AC4): without --forms-recursive, the forms tree is not
-// emitted (forms are listed in xobjects but not walked).
+// Without --forms-recursive, the forms tree is not emitted (forms are listed
+// in xobjects but not walked).
 // ---------------------------------------------------------------------------
 
 func TestPageDump_NoRecursionByDefault(t *testing.T) {
@@ -109,7 +108,7 @@ func TestPageDump_NoRecursionByDefault(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-004 [P0] (AC5): each --section value emits ONLY that section.
+// Each --section value emits ONLY that section.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_SectionScoping(t *testing.T) {
@@ -153,7 +152,7 @@ func TestPageDump_SectionScoping(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-UNIT-005 [P0] (AC5): an unrecognized --section is a usage error (exit 1).
+// An unrecognized --section is a usage error (exit 1).
 // ---------------------------------------------------------------------------
 
 func TestPageDump_UnknownSection_UsageError(t *testing.T) {
@@ -173,7 +172,7 @@ func TestPageDump_UnknownSection_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-UNIT-006 [P0] (AC6): out-of-range page -> JSON error on stderr, exit 2.
+// out-of-range page -> JSON error on stderr, exit 2.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_OutOfRange_Exit2(t *testing.T) {
@@ -193,8 +192,7 @@ func TestPageDump_OutOfRange_Exit2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-UNIT-007 [P0] (AC6): non-positive / missing --info is a usage error
-// (exit 1).
+// non-positive / missing --info is a usage error (exit 1).
 // ---------------------------------------------------------------------------
 
 func TestPageDump_BadInfo_UsageError(t *testing.T) {
@@ -217,8 +215,8 @@ func TestPageDump_BadInfo_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-UNIT-008 [P1] (AC6): a valid page with no /Resources emits empty arrays
-// at exit 0 - an absent resource is a valid empty result, not an error.
+// A valid page with no /Resources emits empty arrays at exit 0 - an absent
+// resource is a valid empty result, not an error.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_NoResources_EmptyArraysExit0(t *testing.T) {
@@ -244,8 +242,8 @@ func TestPageDump_NoResources_EmptyArraysExit0(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-UNIT-009 [P0] (AC7): structural-only guard. The emitted JSON must NOT
-// contain any computed-color / composited output field (rgb/cmyk/composited/
+// structural-only guard. The emitted JSON must NOT contain any
+// computed-color / composited output field (rgb/cmyk/composited/
 // renderedColor). Colorspace/blend/SMask carry only file-resident structure.
 // ---------------------------------------------------------------------------
 
@@ -269,8 +267,8 @@ func TestPageDump_StructuralOnly_NoComputedColor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-010 [P1] (AC1/AC3): --pretty produces indented multi-line JSON
-// that decodes to the same content as the compact default.
+// --pretty produces indented multi-line JSON that decodes to the same
+// content as the compact default.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_PrettyVsCompact(t *testing.T) {
@@ -292,7 +290,7 @@ func TestPageDump_PrettyVsCompact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-DOC-011 [P1] (AC8): the help text documents the command as EXPERIMENTAL.
+// The help text documents the command as EXPERIMENTAL.
 // ---------------------------------------------------------------------------
 
 func TestPageDump_HelpDocumentsExperimental(t *testing.T) {
@@ -308,7 +306,7 @@ func TestPageDump_HelpDocumentsExperimental(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 (AC8): the full-object --json output carries a top-level
+// 13.1: the full-object --json output carries a top-level
 // "_stability":"experimental" marker so a machine reader sees the instability
 // in the payload. The DECISION (documented): the marker attaches to the full
 // object only; a section-scoped --json view OMITS it.
@@ -340,8 +338,8 @@ func TestPageDump_JSON_FullObjectCarriesStabilityMarker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 (AC6/AC2): the default (no --json) page --info output is human-readable
-// PLAIN TEXT with aligned key/value sections (Geometry/ExtGStates/XObjects),
+// 13.1: the default (no --json) page --info output is human-readable PLAIN
+// TEXT with aligned key/value sections (Geometry/ExtGStates/XObjects),
 // honoring --section, and is NOT JSON. STRUCTURAL assertions only.
 // ---------------------------------------------------------------------------
 
@@ -386,9 +384,9 @@ func TestPageDump_PlainSectionHonored(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1 (AC3): the plain-text ExtGState summary labels the transparency alphas
-// `ca` (non-stroking, PDF /ca) and `CA` (stroking, PDF /CA) with the SAME
-// values the --json output carries under its `ca`/`CA` keys. This pins the
+// 13.1: the plain-text ExtGState summary labels the transparency alphas `ca`
+// (non-stroking, PDF /ca) and `CA` (stroking, PDF /CA) with the SAME values
+// the --json output carries under its `ca`/`CA` keys. This pins the
 // label->semantics mapping to the JSON-tag contract, NOT to the (deliberately
 // inverted) Go field names in internal/pdfcore/model.go - a field/label
 // inversion regression would surface here. STRUCTURAL: token-level label+value

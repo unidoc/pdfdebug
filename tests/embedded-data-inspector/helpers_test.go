@@ -1,5 +1,5 @@
 // Story 13-2 RED-PHASE acceptance test harness for the new CLI resources
-// `dump embedded` and `dump metadata` (AC 4, 5).
+// `dump embedded` and `dump metadata`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
 // tests assert the EXPECTED post-implementation behavior of the NEW resources.
@@ -18,7 +18,7 @@
 // /EmbeddedFile /Subtype is a Name with #2F escapes (/text#2Fxml), not a
 // string literal.
 //
-// Naming: 13.2-INTG-NNN [Px] per the story Testing Requirements.
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/embedded-data-inspector && go test -v -count=1 ./...
 package embedded_data_inspector_test

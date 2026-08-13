@@ -1,7 +1,7 @@
 package signature_decomposition_test
 
-// Story 13.4 -- ByteRange coverage facts (AC 3, 7).
-// RED PHASE: fails at runtime until `dump signatures` lands.
+// Story 13.4 -- ByteRange coverage facts. RED PHASE: fails
+// at runtime until `dump signatures` lands.
 //
 // Coverage is a MEASUREMENT, never a validity verdict: the JSON carries
 // coversWholeFile / trailingGap / holeMatchesContents / coverageError.
@@ -12,8 +12,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-006 [P0] AC3: the well-formed fixture's /ByteRange covers the
-// whole file except the /Contents hole -> coversWholeFile true, hole matches.
+// The well-formed fixture's /ByteRange covers the whole file except the
+// /Contents hole -> coversWholeFile true, hole matches.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_CoverageCoversWholeFile(t *testing.T) {
@@ -41,10 +41,10 @@ func TestSignatures_CoverageCoversWholeFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-007 [P0] AC3: a signature whose range stops 100 bytes short of
-// EOF (the earlier-revision case) reports coversWholeFile false plus the
-// trailing gap -- and the plain text states the coverage fact without
-// implying breakage.
+// A signature whose range stops 100 bytes short of EOF (the
+// earlier-revision case) reports coversWholeFile false plus the trailing
+// gap -- and the plain text states the coverage fact without implying
+// breakage.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_CoverageTrailingGapFact(t *testing.T) {
@@ -76,8 +76,8 @@ func TestSignatures_CoverageTrailingGapFact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-008 [P1] AC3: a /ByteRange hole that does NOT exactly equal the
-// /Contents hex-string extent is a distinct structural fact.
+// A /ByteRange hole that does NOT exactly equal the /Contents hex-string
+// extent is a distinct structural fact.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_CoverageHoleMismatchFact(t *testing.T) {
@@ -95,8 +95,8 @@ func TestSignatures_CoverageHoleMismatchFact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-INTG-009 [P0] AC3/AC7: a malformed /ByteRange (odd-length array)
-// degrades to a per-signature coverageError -- listed, exit 0, never a crash.
+// A malformed /ByteRange (odd-length array) degrades to a per-signature
+// coverageError -- listed, exit 0, never a crash.
 // ---------------------------------------------------------------------------
 
 func TestSignatures_MalformedByteRangeDegrades(t *testing.T) {

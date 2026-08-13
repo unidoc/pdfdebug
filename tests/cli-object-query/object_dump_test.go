@@ -78,11 +78,11 @@ func discoverValidRef(t *testing.T, bin, pdfPath string) (ref, nodeID string) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-INTG-001 [P0]: Build binary, discover a valid object reference from
-// minimal.pdf via tree dump, run `pdfdebug dump object --ref "N G R"
+// Build binary, discover a valid object reference from minimal.pdf via
+// tree dump, run `pdfdebug dump object --ref "N G R"
 // testdata/minimal.pdf`, verify stdout parses as valid JSON with
 // ObjectDetail fields (nodeId, objectRef, type), exit code 0.
-// AC#1: Given a valid PDF file and an object reference, When
+// Given a valid PDF file and an object reference, When
 //       `pdfdebug dump object --ref "5 0 R" <file>` is executed, Then the
 //       CLI outputs the ObjectDetail for that object as structured JSON to
 //       stdout, And the exit code is 0.
@@ -116,9 +116,9 @@ func TestObjectDump_ValidRef_OutputsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-001 [P0]: Run with `--ref "999 0 R"` against minimal.pdf,
-// verify stderr contains JSON error, stdout is empty, exit code 2.
-// AC#2: Given an invalid or non-existent reference, When the CLI is
+// Run with `--ref "999 0 R"` against minimal.pdf, verify stderr
+// contains JSON error, stdout is empty, exit code 2.
+// Given an invalid or non-existent reference, When the CLI is
 //       executed with `--ref "999 0 R"`, Then an error message in JSON
 //       format is written to stderr indicating the object was not found,
 //       And the exit code is 2.
@@ -149,10 +149,10 @@ func TestObjectDump_InvalidRef_JSONErrorOnStderr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-INTG-002 [P1]: Query a known dict object (the catalog root object
-// from minimal.pdf), verify the JSON has `properties` array with at least
-// one entry containing `key` and `value` fields.
-// AC#1: The JSON includes the object's properties (for dicts).
+// Query a known dict object (the catalog root object from minimal.pdf),
+// verify the JSON has `properties` array with at least one entry
+// containing `key` and `value` fields.
+// The JSON includes the object's properties (for dicts).
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_DictObject_HasProperties(t *testing.T) {
@@ -202,9 +202,9 @@ func TestObjectDump_DictObject_HasProperties(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-INTG-003 [P1]: Query a known array object from multipage.pdf
-// (Pages/Kids array), verify `elements` array is populated.
-// AC#1: The JSON includes elements (for arrays).
+// Query a known array object from multipage.pdf (Pages/Kids
+// array), verify `elements` array is populated.
+// The JSON includes elements (for arrays).
 //
 // Discovery strategy: dump tree of multipage.pdf, walk to find an obj:
 // node, query it, check if type is "array". If not, walk deeper to find
@@ -241,11 +241,11 @@ func TestObjectDump_ArrayObject_HasElements(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-002 [P1]: Test valid ref format handling by running the binary
-// with refs discovered from the tree dump. Since parseObjectRef is
-// unexported, validate indirectly: run `pdfdebug dump object --ref "N 0 R"
-// <file>` for each, verify exit code 0 and valid JSON output.
-// AC#1: Valid references are accepted and produce correct output.
+// Test valid ref format handling by running the binary with refs
+// discovered from the tree dump. Since parseObjectRef is unexported,
+// validate indirectly: run `pdfdebug dump object --ref "N 0 R" <file>` for
+// each, verify exit code 0 and valid JSON output.
+// Valid references are accepted and produce correct output.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_ValidRefFormats(t *testing.T) {
@@ -302,10 +302,10 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-003 [P1]: Test with malformed refs: "abc", "5 0", "5 0 r"
-// (lowercase), "5", "". Verify each produces a clear error message
-// mentioning the expected format, exit code 1.
-// AC#3: Given a malformed reference string, When the CLI is executed,
+// Test with malformed refs: "abc", "5 0", "5 0 r" (lowercase), "5",
+// "". Verify each produces a clear error message mentioning the
+// expected format, exit code 1.
+// Given a malformed reference string, When the CLI is executed,
 //       Then the error message on stderr clearly describes the expected
 //       reference format, And the exit code is 1 (usage error).
 // ---------------------------------------------------------------------------
@@ -347,9 +347,9 @@ func TestObjectDump_MalformedRef_ClearError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-INTG-004 [P2]: Query a known stream object from content-stream.pdf,
-// verify `streamInfo` field is present with `length` and `filters`.
-// AC#4: Given a stream object reference, When the CLI is executed, Then
+// Query a known stream object from content-stream.pdf, verify
+// `streamInfo` field is present with `length` and `filters`.
+// Given a stream object reference, When the CLI is executed, Then
 //       the ObjectDetail JSON includes `streamInfo` with length and filters.
 // ---------------------------------------------------------------------------
 
@@ -432,10 +432,10 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-INTG-005 [P1]: Verify ObjectDetail includes null-valued fields for
-// inapplicable sections. A dict object should have elements: null, a
-// scalar should have properties: null, etc.
-// AC#1: The output matches the ObjectDetail model structure (including
+// Verify ObjectDetail includes null-valued fields for inapplicable
+// sections. A dict object should have elements: null, a scalar should
+// have properties: null, etc.
+// The output matches the ObjectDetail model structure (including
 //       null-valued fields for inapplicable sections).
 // ---------------------------------------------------------------------------
 
@@ -467,9 +467,8 @@ func TestObjectDump_NullFieldsPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-004 [P1]: Run without --ref flag, verify usage error on stderr,
-// exit code 1.
-// AC#3 (implied): Missing required --ref flag is a usage error.
+// Run without --ref flag, verify usage error on stderr, exit code 1.
+// Implied: Missing required --ref flag is a usage error.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_MissingRefFlag_UsageError(t *testing.T) {
@@ -492,9 +491,8 @@ func TestObjectDump_MissingRefFlag_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-005 [P1]: Run without file path, verify usage error on stderr,
-// exit code 1.
-// AC#3 (implied): Missing file path is a usage error.
+// Run without file path, verify usage error on stderr, exit code 1.
+// Implied: Missing file path is a usage error.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_MissingFilePath_UsageError(t *testing.T) {
@@ -516,9 +514,9 @@ func TestObjectDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-006 [P1] (REVISED by Story 13-1): Object dump WITHOUT --json emits
-// human-readable PLAIN TEXT (the flipped default), NOT JSON. The plain output
-// is an aligned single record (Object/Type header + Properties block).
+// REVISED by Story 13-1: Object dump WITHOUT --json emits human-readable
+// PLAIN TEXT (the flipped default), NOT JSON. The plain output is an aligned
+// single record (Object/Type header + Properties block).
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
@@ -545,8 +543,8 @@ func TestObjectDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-007 [P1]: Object dump with --json flag explicitly also works.
-// AC#1: --json flag is accepted.
+// Object dump with --json flag explicitly also works.
+// --json flag is accepted.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_WithJSONFlag_OutputsJSON(t *testing.T) {
@@ -567,10 +565,10 @@ func TestObjectDump_WithJSONFlag_OutputsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-008 [P2]: "0 0 R" is syntactically valid but refers to the
-// free-list head entry; it should return null and be caught as "object
-// not found" with exit code 2.
-// AC#2: Non-existent references produce an error.
+// "0 0 R" is syntactically valid but refers to the free-list head
+// entry; it should return null and be caught as "object not found"
+// with exit code 2.
+// Non-existent references produce an error.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_ZeroZeroRef_NotFound(t *testing.T) {
@@ -598,9 +596,9 @@ func TestObjectDump_ZeroZeroRef_NotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-009 [P2]: Non-existent file path returns JSON error on stderr
-// and exit code 2 (file error, not usage error).
-// AC#2 (boundary): File errors use exit code 2.
+// Non-existent file path returns JSON error on stderr and exit code 2
+// (file error, not usage error).
+// Boundary: File errors use exit code 2.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
@@ -627,8 +625,8 @@ func TestObjectDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-010 [P2]: Negative object number in ref is rejected.
-// AC#3: Negative object/generation numbers are invalid.
+// Negative object number in ref is rejected.
+// Negative object/generation numbers are invalid.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_NegativeRefNumbers_Error(t *testing.T) {
@@ -659,8 +657,8 @@ func TestObjectDump_NegativeRefNumbers_Error(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-011 [P1]: Stdout contains ONLY JSON (no log noise from pdfcpu).
-// AC#1: Output is well-formed JSON suitable for piping to jq.
+// Stdout contains ONLY JSON (no log noise from pdfcpu).
+// Output is well-formed JSON suitable for piping to jq.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_StdoutContainsOnlyJSON(t *testing.T) {
@@ -681,10 +679,10 @@ func TestObjectDump_StdoutContainsOnlyJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-012 [P2]: Encrypted PDF with --ref produces JSON error on stderr
-// and exit code 2. Verifies that the object dump command handles encrypted
-// PDFs the same way as tree dump -- JSON error, not a crash.
-// AC#2 (boundary): Encrypted PDF is a file-level error.
+// Encrypted PDF with --ref produces JSON error on stderr and exit code 2.
+// Verifies that the object dump command handles encrypted PDFs the same way
+// as tree dump -- JSON error, not a crash.
+// Boundary: Encrypted PDF is a file-level error.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
@@ -712,10 +710,10 @@ func TestObjectDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.2-UNIT-013 [P2]: Malformed PDF with --ref produces JSON error on stderr
-// and exit code 2. Verifies the object dump command handles corrupt PDFs
-// gracefully with structured error output.
-// AC#2 (boundary): Malformed PDF is a file-level error.
+// Malformed PDF with --ref produces JSON error on stderr and exit code 2.
+// Verifies the object dump command handles corrupt PDFs gracefully with
+// structured error output.
+// Boundary: Malformed PDF is a file-level error.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_MalformedPDF_JSONErrorExitCode2(t *testing.T) {

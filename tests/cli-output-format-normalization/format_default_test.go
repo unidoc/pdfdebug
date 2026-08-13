@@ -24,8 +24,8 @@ type cmdInvocation struct {
 //   - parseDocViewFlags: objects, xref
 //   - parseByRefFlags:   font, image, source, reverserefs
 //
-// plaintext is excluded here (AC5: its default is RAW bytes by design, covered
-// in plaintext_test.go). stream --ops/--raw payload axis is covered in
+// Plaintext is excluded here (its default is RAW bytes by design, covered in
+// plaintext_test.go). stream --ops/--raw payload axis is covered in
 // stream_test.go.
 func formatCommands(t *testing.T) []cmdInvocation {
 	return []cmdInvocation{
@@ -43,9 +43,9 @@ func formatCommands(t *testing.T) []cmdInvocation {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-001 [P0] FORMAT-001: Default (no --json) emits PLAIN TEXT, not JSON.
-// AC#1: Absence of --json -> human-readable plain text on stdout. No command
-// emits JSON by default.
+// Default (no --json) emits PLAIN TEXT, not JSON.
+// Absence of --json -> human-readable plain text on stdout. No command emits
+// JSON by default.
 // ---------------------------------------------------------------------------
 
 func TestFormat_DefaultIsPlainTextNotJSON(t *testing.T) {
@@ -64,8 +64,8 @@ func TestFormat_DefaultIsPlainTextNotJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-002 [P0] FORMAT-002: --json emits a parseable JSON document.
-// AC#1: Presence of --json -> structured JSON via the existing emit path.
+// --json emits a parseable JSON document.
+// Presence of --json -> structured JSON via the existing emit path.
 // ---------------------------------------------------------------------------
 
 func TestFormat_JSONFlagEmitsJSON(t *testing.T) {
@@ -94,9 +94,8 @@ func TestFormat_JSONFlagEmitsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-003 [P0] FORMAT-001b: Plain-text default is ASCII-only and ends
-// with a trailing newline.
-// AC#2: Output is ASCII-only and ends with a trailing newline.
+// Plain-text default is ASCII-only and ends with a trailing newline.
+// Output is ASCII-only and ends with a trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestFormat_PlainTextIsASCIIWithTrailingNewline(t *testing.T) {
@@ -116,8 +115,8 @@ func TestFormat_PlainTextIsASCIIWithTrailingNewline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-004 [P1] FORMAT-003a: --pretty indents the --json output (multi-line).
-// AC#4: --pretty continues to apply to --json (emit unchanged).
+// --pretty indents the --json output (multi-line).
+// --pretty continues to apply to --json (emit unchanged).
 // ---------------------------------------------------------------------------
 
 func TestFormat_PrettyIndentsJSON(t *testing.T) {
@@ -148,9 +147,9 @@ func TestFormat_PrettyIndentsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-005 [P1] FORMAT-003b: --pretty WITHOUT --json is accepted (exit 0)
-// and has NO effect on plain text.
-// AC#4: --pretty without --json is accepted and has no effect on plain text.
+// --pretty WITHOUT --json is accepted (exit 0) and has NO effect on plain
+// text.
+// --pretty without --json is accepted and has no effect on plain text.
 // ---------------------------------------------------------------------------
 
 func TestFormat_PrettyWithoutJSONNoEffectOnPlainText(t *testing.T) {

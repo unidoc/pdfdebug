@@ -1,5 +1,5 @@
 // Story 13-4 RED-PHASE acceptance test harness for the new CLI resource
-// `dump signatures` (AC 1, 2, 3, 4, 5, 7).
+// `dump signatures`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
 // tests assert the EXPECTED post-implementation behavior of the NEW resource.
@@ -13,17 +13,17 @@
 // against the built CLI binary -- the project's established level for CLI
 // acceptance. No browser/E2E layer is warranted; the CLI surface has no UI.
 //
-// Fixtures are generated programmatically per the story's AC8 fixture plan:
-// a REAL `adbe.pkcs7.detached` signature -- self-signed CA + leaf cert via
+// Fixtures are generated programmatically per the story's fixture plan: a REAL
+// `adbe.pkcs7.detached` signature -- self-signed CA + leaf cert via
 // crypto/x509.CreateCertificate, CMS SignedData assembled over the actual
 // ByteRange digest with encoding/asn1, RSA-signed for real -- spliced into a
 // hand-rolled PDF whose ByteRange is computed against the true /Contents hole.
 // Malformed / not-covers / hole-mismatch variants derive from the same
 // builder. Every fixture was VALIDATED during ATDD authoring to parse through
 // the current CLI's open path (pdfcpu default validation, the exact
-// Inspector.Open route) and the CMS blob round-trips through strict stdlib
-// DER parsing with non-positional signer identification (the CA cert is FIRST
-// in the certificate set on purpose).
+// Inspector.Open route) and the CMS blob round-trips through strict stdlib DER
+// parsing with non-positional signer identification (the CA cert is FIRST in
+// the certificate set on purpose).
 //
 // JSON wire contract pinned by this suite (camelCase per the IPC rules):
 //
@@ -47,13 +47,13 @@
 //	  notes                array   labeled facts incl. the trust note
 //	  decomposeError       string  per-signature CMS parse failure
 //	  byteRange            array   raw /ByteRange integers
-//	  coversWholeFile      bool    AC3 coverage fact
+//	  coversWholeFile bool coverage fact
 //	  trailingGap          number  bytes past the signed range when not covered
 //	  holeMatchesContents  bool    excluded span == /Contents extent
 //	  coverageError        string  malformed-/ByteRange degradation
 //	CertInfo: { subject, issuer, serial, notBefore, notAfter } all strings.
 //
-// Naming: 13.4-INTG-NNN [Px] per the story Testing Requirements.
+// Naming: [Px] per the story Testing Requirements.
 //
 // Run: cd tests/signature-decomposition && go test -v -count=1 ./...
 package signature_decomposition_test
@@ -218,10 +218,10 @@ func assertTrailingNewline(t *testing.T, out string) {
 	}
 }
 
-// assertNoTrustClaims enforces AC4: the output never makes a trust claim. The
+// assertNoTrustClaims enforces: the output never makes a trust claim. The
 // words valid/trusted/verified may appear ONLY in negated or factual forms:
-// "not valid"/"invalid"/"validity", "not trusted"/"untrusted",
-// "not verified"/"unverified". Anything else is a trust verdict and fails.
+// "not valid"/"invalid"/"validity", "not trusted"/"untrusted", "not
+// verified"/"unverified". Anything else is a trust verdict and fails.
 func assertNoTrustClaims(t *testing.T, id, out string) {
 	t.Helper()
 	lower := strings.ToLower(out)
@@ -333,7 +333,7 @@ const (
 	certOrg   = "UniDoc ATDD"
 	sigSerial = 2026
 	// contentsHexCap is the reserved /Contents hex capacity. The real DER is
-	// ~2.5 KB; the remainder stays zero-padded -- exercising AC2's
+	// ~2.5 KB; the remainder stays zero-padded -- exercising the
 	// trailing-zero-trim requirement on every decomposition.
 	contentsHexCap = 6144
 )
@@ -455,7 +455,7 @@ func newPKI() (*testPKI, error) {
 
 // cmsDER assembles a DER ContentInfo(SignedData) over digest, RSA-signed for
 // real. The CA cert is FIRST in the certificate set so signer identification
-// cannot be positional (AC2: never take certificates[0]).
+// cannot be positional (never take certificates[0]).
 func (p *testPKI) cmsDER(t *testing.T, digest []byte) []byte {
 	t.Helper()
 	sig, err := rsa.SignPKCS1v15(rand.Reader, p.leafKey, crypto.SHA256, digest)
@@ -636,7 +636,7 @@ func signedPDF(t *testing.T, p *testPKI, o sigOpt) []byte {
 	return file
 }
 
-// unsignedPlaceholderPDF builds a /FT /Sig field with NO /V (AC1: listed as
+// unsignedPlaceholderPDF builds a /FT /Sig field with NO /V (listed as
 // signed:false, no decomposition, no error).
 func unsignedPlaceholderPDF() []byte {
 	return assemblePDF([]string{
@@ -648,7 +648,7 @@ func unsignedPlaceholderPDF() []byte {
 }
 
 // malformedByteRangePDF builds a signed field whose /ByteRange is odd-length
-// (AC3: degrades to a per-signature coverage error, never a crash).
+// (degrades to a per-signature coverage error, never a crash).
 func malformedByteRangePDF() []byte {
 	return assemblePDF([]string{
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",

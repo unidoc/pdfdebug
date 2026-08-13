@@ -1,5 +1,5 @@
-// Story 11-6 RED-PHASE acceptance tests: recursive Form walk (AC4) and
-// --section scoping (AC5). Black-box; MUST FAIL until 11-6 is implemented.
+// Story 11-6 RED-PHASE acceptance tests: recursive Form walk and --section
+// scoping. Black-box; MUST FAIL until 11-6 is implemented.
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test
@@ -10,8 +10,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC4-001 [P1]: WITHOUT --forms-recursive, forms are LISTED (Fm0
-// appears under xobjects) but NOT walked: there is no nested `forms` tree.
+// WITHOUT --forms-recursive, forms are LISTED (Fm0 appears under xobjects)
+// but NOT walked: there is no nested `forms` tree.
 // ---------------------------------------------------------------------------
 
 func TestForms_NotWalkedByDefault(t *testing.T) {
@@ -37,11 +37,11 @@ func TestForms_NotWalkedByDefault(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC4-002 [P0]: WITH --forms-recursive, a page that does `Do /Fm0`
-// where Fm0 does `Do /Inner` (and /Inner lives in Fm0's OWN /Resources, not the
-// page's) yields a forms tree where the nested /Inner form is resolved against
-// the OUTER FORM's resources. The page resources do NOT contain /Inner, so a
-// walk that resolved against the page would miss it.
+// WITH --forms-recursive, a page that does `Do /Fm0` where Fm0 does `Do /Inner`
+// (and /Inner lives in Fm0's OWN /Resources, not the page's) yields a forms
+// tree where the nested /Inner form is resolved against the OUTER FORM's
+// resources. The page resources do NOT contain /Inner, so a walk that resolved
+// against the page would miss it.
 // ---------------------------------------------------------------------------
 
 func TestForms_NestedResolvedAgainstOwnResources(t *testing.T) {
@@ -63,10 +63,10 @@ func TestForms_NestedResolvedAgainstOwnResources(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC4-003 [P0]: a self-referential form (Fm0 whose content does
-// `Do /Fm0` against its own /Resources) terminates under --forms-recursive: the
-// command exits cleanly (0 or a bounded non-panic), never hangs, never panics.
-// Guards the form-object-ref visited set required by AC4.
+// A self-referential form (Fm0 whose content does `Do /Fm0` against its own
+// /Resources) terminates under --forms-recursive: the command exits cleanly (0
+// or a bounded non-panic), never hangs, never panics. Guards the
+// form-object-ref visited set.
 // ---------------------------------------------------------------------------
 
 func TestForms_SelfReferentialTerminates(t *testing.T) {
@@ -90,10 +90,10 @@ func TestForms_SelfReferentialTerminates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC4-004 [P1]: --forms-depth bounds the recursion. With
-// --forms-depth 1 the nested /Inner form (a SECOND level below the page) must
-// NOT be expanded into the tree, while the first-level Fm0 still is.
-// (--forms-depth is a distinct axis from --depth and --resolve-depth.)
+// --forms-depth bounds the recursion. With --forms-depth 1 the nested /Inner
+// form (a SECOND level below the page) must NOT be expanded into the tree,
+// while the first-level Fm0 still is. (--forms-depth is a distinct axis from
+// --depth and --resolve-depth.)
 // ---------------------------------------------------------------------------
 
 func TestForms_FormsDepthBoundsRecursion(t *testing.T) {
@@ -121,8 +121,7 @@ func TestForms_FormsDepthBoundsRecursion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC4-005 [P2]: --forms-depth with a malformed (non-integer) value is
-// a USAGE error (exit 1).
+// --forms-depth with a malformed (non-integer) value is a USAGE error (exit 1).
 // ---------------------------------------------------------------------------
 
 func TestForms_MalformedFormsDepthUsageError(t *testing.T) {
@@ -144,7 +143,7 @@ func TestForms_MalformedFormsDepthUsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC5-001 [P0]: --section geometry emits ONLY the geometry slice
+// --section geometry emits ONLY the geometry slice
 // (page/pageRef/mediaBox/cropBox/rotate) and OMITS the resource arrays.
 // ---------------------------------------------------------------------------
 
@@ -172,8 +171,8 @@ func TestSection_GeometryOnly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC5-002 [P0]: --section extgstates emits ONLY the extGStates
-// section (and omits xobjects/patterns/shadings).
+// --section extgstates emits ONLY the extGStates section (and omits
+// xobjects/patterns/shadings).
 // ---------------------------------------------------------------------------
 
 func TestSection_ExtGStatesOnly(t *testing.T) {
@@ -198,9 +197,9 @@ func TestSection_ExtGStatesOnly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC5-003 [P0]: an UNRECOGNIZED --section value is a usage error
-// (exit 1). The enum is exactly geometry|extgstates|xobjects|forms; patterns
-// and shadings are explicitly NOT selectable sections.
+// An UNRECOGNIZED --section value is a usage error (exit 1). The enum is
+// exactly geometry|extgstates|xobjects|forms; patterns and shadings are
+// explicitly NOT selectable sections.
 // ---------------------------------------------------------------------------
 
 func TestSection_UnrecognizedIsUsageError(t *testing.T) {
@@ -223,8 +222,8 @@ func TestSection_UnrecognizedIsUsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.6-INTG-AC5-004 [P1]: --section xobjects emits the xobjects section and
-// omits the others; --section forms emits the forms section.
+// --section xobjects emits the xobjects section and omits the others;
+// --section forms emits the forms section.
 // ---------------------------------------------------------------------------
 
 func TestSection_XObjectsAndForms(t *testing.T) {

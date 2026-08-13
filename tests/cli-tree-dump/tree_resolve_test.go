@@ -1,11 +1,11 @@
 // Story 11-5 RED-PHASE acceptance tests for `dump tree --resolve` (item 4;
-// AC6). Black-box: build the CLI and run it as a subprocess.
+// ). Black-box: build the CLI and run it as a subprocess.
 //
 // These assert the EXPECTED post-implementation behavior and MUST FAIL against
 // the current binary (no --resolve flag) until Story 11-5 is implemented, with
 // one exception: the regression test (TestTreeResolve_OffIsUnchanged) PINS
 // today's no-flag behavior and should already pass -- it turns red only if a
-// future change regresses the default output. That is the intended AC6
+// future change regresses the default output. That is the intended
 // no-regression guard.
 //
 // Run: cd tests/cli-tree-dump && go test -v -count=1 ./...
@@ -18,11 +18,11 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-001 [P0]: WITHOUT --resolve, `dump tree` output is byte-for-
-// byte today's behavior (no regression). Captured twice (with/without the flag
-// absent) to pin determinism; the real assertion is that adding NOTHING leaves
-// the bytes identical to a second identical invocation, and that --resolve is
-// strictly additive (covered by the "on" test below).
+// WITHOUT --resolve, `dump tree` output is byte-for- byte today's behavior (no
+// regression). Captured twice (with/without the flag absent) to pin
+// determinism; the real assertion is that adding NOTHING leaves the bytes
+// identical to a second identical invocation, and that --resolve is strictly
+// additive (covered by the "on" test below).
 // ---------------------------------------------------------------------------
 
 func TestTreeResolve_OffIsUnchanged(t *testing.T) {
@@ -40,8 +40,8 @@ func TestTreeResolve_OffIsUnchanged(t *testing.T) {
 	if a != b {
 		t.Errorf("dump tree default output is non-deterministic; cannot pin no-regression contract")
 	}
-	// AC6 "byte-for-byte the current behavior": --resolve is strictly additive,
-	// so without the flag no 'resolved' key may appear. Determinism alone would
+	// "byte-for-byte the current behavior": --resolve is strictly additive, so
+	// without the flag no 'resolved' key may appear. Determinism alone would
 	// not catch an accidental always-on resolve.
 	if strings.Contains(a, `"resolved"`) {
 		t.Errorf("default dump tree output contains a 'resolved' key; --resolve is not additive")
@@ -49,10 +49,10 @@ func TestTreeResolve_OffIsUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-002 [P0]: WITH --resolve, `dump tree` follows indirect refs
-// inline. The resolved output must DIFFER from the default (refs expanded) and
-// remain valid JSON, exit 0. Uses content-stream.pdf (page-rooted) which has a
-// /Contents indirect ref to expand.
+// WITH --resolve, `dump tree` follows indirect refs inline. The resolved
+// output must DIFFER from the default (refs expanded) and remain valid JSON,
+// exit 0. Uses content-stream.pdf (page-rooted) which has a /Contents indirect
+// ref to expand.
 // ---------------------------------------------------------------------------
 
 func TestTreeResolve_OnExpandsRefs(t *testing.T) {
@@ -76,11 +76,10 @@ func TestTreeResolve_OnExpandsRefs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-INTG-AC6-003 [P1]: The resolve-depth flag is NOT --depth on dump tree.
-// --depth must retain its existing tree-walk meaning (0 = unlimited): passing
-// --depth alone (no --resolve) must NOT trigger ref-following and must still
-// exit 0 with the existing tree-walk semantics. This guards the documented
-// flag collision.
+// The resolve-depth flag is NOT --depth on dump tree. --depth must retain its
+// existing tree-walk meaning (0 = unlimited): passing --depth alone (no
+// --resolve) must NOT trigger ref-following and must still exit 0 with the
+// existing tree-walk semantics. This guards the documented flag collision.
 // ---------------------------------------------------------------------------
 
 func TestTreeResolve_DepthFlagStillTreeWalk(t *testing.T) {

@@ -18,11 +18,11 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 5.3-INTG-001 [P0]: Build binary, run `pdfdebug dump stream --page 1
+// Build binary, run `pdfdebug dump stream --page 1
 // testdata/content-stream.pdf`, verify stdout parses as valid JSON with
 // ContentStreamData fields (nodeId, raw, tokenized), verify `raw` is
 // non-empty (decompressed text), verify exit code 0.
-// AC#1: Given a valid PDF file with content streams, When
+// Given a valid PDF file with content streams, When
 //       `pdfdebug dump stream --page 1 [--json] <file>` is executed, Then
 //       the CLI outputs the decoded content stream for page 1 as structured
 //       JSON to stdout, And the JSON matches the ContentStreamData model
@@ -61,10 +61,10 @@ func TestStreamDump_ValidPage_OutputsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-001 [P0]: Run with `--page 999` against content-stream.pdf,
-// verify stderr contains JSON error mentioning "out of range", stdout is
-// empty, exit code 2.
-// AC#2: Given a page number that does not exist, When the CLI is executed
+// Run with `--page 999` against content-stream.pdf, verify stderr
+// contains JSON error mentioning "out of range", stdout is empty, exit
+// code 2.
+// Given a page number that does not exist, When the CLI is executed
 //       with `--page 999`, Then an error message in JSON format is written
 //       to stderr indicating the page is out of range, And the exit code
 //       is 2.
@@ -100,12 +100,12 @@ func TestStreamDump_OutOfRangePage_JSONErrorOnStderr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-INTG-002 [P1]: Parse stdout JSON from content-stream.pdf page 1,
-// verify `tokenized` array is non-empty, each Token has `type`, `value`,
-// `line`, `col` fields. Verify at least one token has type "operator".
-// AC#1: `tokenized` contains an array of Token objects with type, value,
+// Parse stdout JSON from content-stream.pdf page 1, verify `tokenized`
+// array is non-empty, each Token has `type`, `value`, `line`, `col`
+// fields. Verify at least one token has type "operator".
+// `tokenized` contains an array of Token objects with type, value,
 //       line, col fields.
-// AC#3: The JSON schema is self-documenting with clear field names matching
+// The JSON schema is self-documenting with clear field names matching
 //       the ContentStreamData model.
 // ---------------------------------------------------------------------------
 
@@ -161,12 +161,11 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-002 [P1]: Run against `testdata/empty-stream.pdf` with
-// `--page 1`, verify exit code 0 (not a failure), verify JSON output has
-// empty `raw` string.
-// Note: empty-stream.pdf has a Contents entry pointing to a zero-length
-// stream -- the page dict has a Contents ref, but the stream body is empty.
-// AC#4: Given a page with no content stream (empty page), When the CLI is
+// Run against `testdata/empty-stream.pdf` with `--page 1`, verify exit code
+// 0 (not a failure), verify JSON output has empty `raw` string. Note:
+// empty-stream.pdf has a Contents entry pointing to a zero-length stream --
+// the page dict has a Contents ref, but the stream body is empty.
+// Given a page with no content stream (empty page), When the CLI is
 //       executed, Then the JSON output includes an empty `raw` string,
 //       And the exit code is 0 (not a failure).
 // ---------------------------------------------------------------------------
@@ -191,13 +190,13 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-002b [P1]: Run against `testdata/minimal.pdf` with `--page 1`.
-// minimal.pdf's page has no Contents entry -- it is a bare page with no
-// drawing commands. Verify exit code 0, verify JSON output has `error`
-// field containing "page has no content stream", verify `raw` is empty.
-// This tests the "no Contents entry at all" case (the CLI's empty-page
-// branch from Task 3.4).
-// AC#4: Given a page with no content stream (empty page), When the CLI is
+// Run against `testdata/minimal.pdf` with `--page 1`. minimal.pdf's page
+// has no Contents entry -- it is a bare page with no drawing commands.
+// Verify exit code 0, verify JSON output has `error` field containing
+// "page has no content stream", verify `raw` is empty. This tests the "no
+// Contents entry at all" case (the CLI's empty-page branch from Task
+// 3.4).
+// Given a page with no content stream (empty page), When the CLI is
 //       executed, Then the JSON output includes an empty `raw` string
 //       and/or a non-fatal `error` field explaining the page has no stream
 //       content, And the exit code is 0.
@@ -233,10 +232,10 @@ func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-INTG-003 [P2]: Run against content-stream.pdf, verify `raw` field
-// contains readable text content (not compressed binary gibberish). Check
-// for presence of common PDF operators like "BT", "ET", "Tf", "Tj".
-// AC#1: `raw` contains the decompressed plain text (FlateDecode streams
+// Run against content-stream.pdf, verify `raw` field contains readable
+// text content (not compressed binary gibberish). Check for presence of
+// common PDF operators like "BT", "ET", "Tf", "Tj".
+// `raw` contains the decompressed plain text (FlateDecode streams
 //       are decoded).
 // ---------------------------------------------------------------------------
 
@@ -274,9 +273,9 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-003 [P2]: Test with `--page 0` and `--page -1`, verify each
-// produces JSON error on stderr, exit code 1 (usage error, not file error).
-// AC#5: Given an invalid page number (`--page 0`, `--page -1`), When the
+// Test with `--page 0` and `--page -1`, verify each produces JSON error on
+// stderr, exit code 1 (usage error, not file error).
+// Given an invalid page number (`--page 0`, `--page -1`), When the
 //       CLI is executed, Then an error message on stderr clearly describes
 //       the expected page format (1-based positive integer), And the exit
 //       code is 1 (usage error).
@@ -327,9 +326,8 @@ func TestStreamDump_InvalidPageNumber_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-004 [P1]: Run without --page flag, verify usage error on stderr,
-// exit code 1.
-// AC#5: Given a missing `--page`, When the CLI is executed, Then an error
+// Run without --page flag, verify usage error on stderr, exit code 1.
+// Given a missing `--page`, When the CLI is executed, Then an error
 //       message on stderr describes the expected page format, And the exit
 //       code is 1 (usage error).
 // ---------------------------------------------------------------------------
@@ -354,9 +352,8 @@ func TestStreamDump_MissingPageFlag_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-005 [P1]: Run without file path, verify usage error on stderr,
-// exit code 1.
-// AC#5 (implied): Missing file path is a usage error.
+// Run without file path, verify usage error on stderr, exit code 1.
+// Implied: Missing file path is a usage error.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_MissingFilePath_UsageError(t *testing.T) {
@@ -378,9 +375,9 @@ func TestStreamDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-006 [P1] (REVISED by Story 13-1): Stream dump WITHOUT --json emits a
-// human-readable operator listing (the flipped default), NOT JSON. One operator
-// per line; the content-stream.pdf fixture draws a BT ... ET text block.
+// REVISED by Story 13-1: Stream dump WITHOUT --json emits a human-readable
+// operator listing (the flipped default), NOT JSON. One operator per line; the
+// content-stream.pdf fixture draws a BT ... ET text block.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_WithoutJSONFlag_OutputsPlainOperators(t *testing.T) {
@@ -413,13 +410,13 @@ func TestStreamDump_WithoutJSONFlag_OutputsPlainOperators(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-024 [P1] (AC3): the plain operator listing renders operands BEFORE
-// the trailing operator in PDF content-stream order (not just "operator is the
-// last token"). content-stream.pdf draws `/F1 12 Tf`, `100 700 Td`,
-// `(Hello World) Tj` - each a multi-operand line. STRUCTURAL: on a line whose
-// last token is a known operand-taking operator, assert at least one operand
-// token precedes it and that the operator is genuinely last. NON-CONTRACTUAL
-// plain text; no whole-dump equality.
+// The plain operator listing renders operands BEFORE the trailing operator in
+// PDF content-stream order (not just "operator is the last token").
+// content-stream.pdf draws `/F1 12 Tf`, `100 700 Td`, `(Hello World) Tj` -
+// each a multi-operand line. STRUCTURAL: on a line whose last token is a known
+// operand-taking operator, assert at least one operand token precedes it and
+// that the operator is genuinely last. NON-CONTRACTUAL plain text; no
+// whole-dump equality.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_PlainOperandsPrecedeOperator(t *testing.T) {
@@ -464,8 +461,8 @@ func TestStreamDump_PlainOperandsPrecedeOperator(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-007 [P1]: Stream dump with --json flag explicitly also works.
-// AC#1: --json flag is accepted.
+// Stream dump with --json flag explicitly also works.
+// --json flag is accepted.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_WithJSONFlag_OutputsJSON(t *testing.T) {
@@ -484,9 +481,9 @@ func TestStreamDump_WithJSONFlag_OutputsJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-008 [P1]: Parse entire stdout as JSON; any parse failure = test
-// failure. Ensures no log noise from pdfcpu leaks into stdout.
-// AC#3: The output can be piped to `jq` for filtering and transformation.
+// Parse entire stdout as JSON; any parse failure = test failure. Ensures
+// no log noise from pdfcpu leaks into stdout.
+// The output can be piped to `jq` for filtering and transformation.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_StdoutContainsOnlyJSON(t *testing.T) {
@@ -505,9 +502,9 @@ func TestStreamDump_StdoutContainsOnlyJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-009 [P2]: Non-existent file path returns JSON error on stderr
-// and exit code 2 (file error, not usage error).
-// AC#2 (boundary): File errors use exit code 2.
+// Non-existent file path returns JSON error on stderr and exit code 2
+// (file error, not usage error).
+// Boundary: File errors use exit code 2.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
@@ -534,9 +531,8 @@ func TestStreamDump_NonexistentFile_JSONErrorExitCode2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-010 [P2]: Encrypted PDF with --page produces JSON error on stderr
-// and exit code 2.
-// AC#2 (boundary): Encrypted PDF is a file-level error.
+// Encrypted PDF with --page produces JSON error on stderr and exit code 2.
+// Boundary: Encrypted PDF is a file-level error.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
@@ -564,9 +560,8 @@ func TestStreamDump_EncryptedPDF_JSONErrorExitCode2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT-011 [P2]: Malformed PDF with --page produces JSON error on stderr
-// and exit code 2.
-// AC#2 (boundary): Malformed PDF is a file-level error.
+// Malformed PDF with --page produces JSON error on stderr and exit code 2.
+// Boundary: Malformed PDF is a file-level error.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_MalformedPDF_JSONErrorExitCode2(t *testing.T) {
@@ -594,10 +589,9 @@ func TestStreamDump_MalformedPDF_JSONErrorExitCode2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-INTG-004 [P1]: Verify the nodeId field in ContentStreamData output
-// follows the node ID format (starts with "obj:" and has 3 colon-separated
-// parts).
-// AC#1: The JSON matches the ContentStreamData model (nodeId field).
+// Verify the nodeId field in ContentStreamData output follows the node ID
+// format (starts with "obj:" and has 3 colon-separated parts).
+// The JSON matches the ContentStreamData model (nodeId field).
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_NodeID_Format(t *testing.T) {
@@ -629,8 +623,8 @@ func TestStreamDump_NodeID_Format(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-BENCH-001 [P3]: Stream dump of `testdata/content-stream.pdf` page 1
-// completes in under 2 seconds. Performance guard.
+// Stream dump of `testdata/content-stream.pdf` page 1 completes in under
+// 2 seconds. Performance guard.
 // ---------------------------------------------------------------------------
 
 func BenchmarkStreamDump_ContentStreamPDF(b *testing.B) {

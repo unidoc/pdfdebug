@@ -13,9 +13,9 @@ func streamArgs(extra ...string) []string {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-030 [P0] STREAM-001: default (no flag) emits a human-readable
-// operator listing (plain text, NOT JSON). AC#3 (operator sequence) / AC#7.
-// One operator per line, operands before operator.
+// Default (no flag) emits a human-readable operator listing (plain text,
+// NOT JSON). (operator sequence). One operator per line, operands before
+// operator.
 // ---------------------------------------------------------------------------
 
 func TestStream_DefaultPlainOperatorListing(t *testing.T) {
@@ -59,8 +59,7 @@ func TestStream_DefaultPlainOperatorListing(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-031 [P0] STREAM-002: --json emits structured JSON of the operators.
-// AC#7.
+// --json emits structured JSON of the operators.
 // ---------------------------------------------------------------------------
 
 func TestStream_JSONFlag(t *testing.T) {
@@ -78,8 +77,8 @@ func TestStream_JSONFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-032 [P1] STREAM-003: --raw emits decoded stream bytes, UNCHANGED.
-// AC#7: --raw is a payload selector, exempt from the format rule.
+// --raw emits decoded stream bytes, UNCHANGED.
+// --raw is a payload selector, exempt from the format rule.
 // ---------------------------------------------------------------------------
 
 func TestStream_RawUnchanged(t *testing.T) {
@@ -99,8 +98,8 @@ func TestStream_RawUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-033 [P1] STREAM-004: --ops emits NDJSON (one JSON object per line),
-// UNCHANGED. AC#7: documented machine format with no plain-text equivalent.
+// --ops emits NDJSON (one JSON object per line), UNCHANGED. documented machine
+// format with no plain-text equivalent.
 // ---------------------------------------------------------------------------
 
 func TestStream_OpsNDJSONUnchanged(t *testing.T) {
@@ -131,9 +130,8 @@ func TestStream_OpsNDJSONUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-034 [P0] STREAM-005: --raw --json is rejected with a USAGE error
-// (NET-NEW validation). AC#7: nonsensical combinations are rejected, not given
-// invented semantics.
+// --raw --json is rejected with a USAGE error (NET-NEW validation).
+// nonsensical combinations are rejected, not given invented semantics.
 // ---------------------------------------------------------------------------
 
 func TestStream_RawAndJSONRejected(t *testing.T) {
@@ -154,8 +152,8 @@ func TestStream_RawAndJSONRejected(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1-INTG-035 [P0] STREAM-006: --ops --json is rejected with a USAGE error
-// (NET-NEW validation). AC#7: do NOT retrofit --ops under --json.
+// --ops --json is rejected with a USAGE error (NET-NEW validation). do NOT
+// retrofit --ops under --json.
 // ---------------------------------------------------------------------------
 
 func TestStream_OpsAndJSONRejected(t *testing.T) {

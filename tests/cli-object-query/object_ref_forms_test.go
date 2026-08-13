@@ -5,9 +5,9 @@
 // build the CLI, run as a subprocess, parse the {"error": ...} JSON value
 // (never byte-match escaped quotes).
 //
-// Covers (in this suite): AC2 (obj:G:N accepted by --ref), AC2/AC4 (malformed
-// obj: form rejected with both-forms error), AC3 (reversed-ref "did you mean"
-// suggestion), AC4 (malformed --ref format tip), AC6 (--pretty for dump object).
+// Covers in this suite: (obj:G:N accepted by --ref), (malformed obj: form
+// rejected with both-forms error), (reversed-ref "did you mean" suggestion),
+// (malformed --ref format tip), (--pretty for dump object).
 //
 // Run: cd tests/cli-object-query && go test -v -count=1 ./...
 package cli_object_query_test
@@ -20,9 +20,9 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-002 [P0] (AC2): `--ref "obj:0:N"` resolves the SAME object as
-// `--ref "N 0 R"`. The obj:G:N id (as emitted by dump tree) is accepted
-// directly; output is identical to the canonical form.
+// `--ref "obj:0:N"` resolves the SAME object as `--ref "N 0 R"`. The
+// obj:G:N id (as emitted by dump tree) is accepted directly; output is
+// identical to the canonical form.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_AcceptsObjGNForm(t *testing.T) {
@@ -50,10 +50,10 @@ func TestObjectDump_AcceptsObjGNForm(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-UNIT-001 [P1] (AC2/AC4): A malformed obj: form (wrong colon count,
-// non-numeric parts) is rejected with exit code 1, and the error text names
-// BOTH accepted forms (canonical "N G R" and the obj:G:N id form) so it is
-// coherent regardless of which form the user attempted.
+// A malformed obj: form (wrong colon count, non-numeric parts) is rejected
+// with exit code 1, and the error text names BOTH accepted forms (canonical
+// "N G R" and the obj:G:N id form) so it is coherent regardless of which
+// form the user attempted.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_MalformedObjForm_Rejected(t *testing.T) {
@@ -99,10 +99,10 @@ func TestObjectDump_MalformedObjForm_Rejected(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-UNIT-002 [P1] (AC3): A reversed reference (objNum 0, genNum > 0) that
-// is not found gets the heuristic suggestion appended to the JSON `error`
-// value: `did you mean: dump object --ref "25 0 R"` (operands swapped). Exit
-// code stays 2 and the base `object not found: 0 25 R` text is preserved.
+// A reversed reference (objNum 0, genNum > 0) that is not found gets the
+// heuristic suggestion appended to the JSON `error` value: `did you mean:
+// dump object --ref "25 0 R"` (operands swapped). Exit code stays 2 and the
+// base `object not found: 0 25 R` text is preserved.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_ReversedRef_SuggestsSwap(t *testing.T) {
@@ -136,8 +136,8 @@ func TestObjectDump_ReversedRef_SuggestsSwap(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-UNIT-002b [P2] (AC3 negative): "0 0 R" (free-list head) stays a PLAIN
-// not-found -- the reversal heuristic must NOT fire (genNum is not > 0).
+// Negative: "0 0 R" (free-list head) stays a PLAIN not-found -- the reversal
+// heuristic must NOT fire (genNum is not > 0).
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_ZeroZeroRef_NoSuggestion(t *testing.T) {
@@ -159,9 +159,9 @@ func TestObjectDump_ZeroZeroRef_NoSuggestion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-UNIT-003 [P1] (AC4): A malformed --ref error states the canonical
-// "<objNum> <gen> R" format, mentions the obj:G:N form is also accepted, and
-// notes that `dump tree` emits a ready-to-use pdfRef field. The legacy
+// A malformed --ref error states the canonical "<objNum> <gen> R" format,
+// mentions the obj:G:N form is also accepted, and notes that `dump tree`
+// emits a ready-to-use pdfRef field. The legacy
 // TestObjectDump_MalformedRef_ClearError substring set is still satisfiable.
 // ---------------------------------------------------------------------------
 
@@ -195,8 +195,8 @@ func TestObjectDump_MalformedRef_FormatTip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.3-INTG-003 [P1] (AC6): `dump object --pretty` emits indented multi-line
-// JSON; default stays compact single-line. Both decode to the same object.
+// `dump object --pretty` emits indented multi-line JSON; default stays
+// compact single-line. Both decode to the same object.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_PrettyVsCompact(t *testing.T) {
