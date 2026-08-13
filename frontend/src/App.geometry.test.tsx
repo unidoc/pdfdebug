@@ -11,7 +11,7 @@
  *   - On mount, persisted geometry is applied via Window.SetSize then
  *     Window.SetPosition (size-first ordering per Task 5.1)
  *   - Off-screen guard via Screens.GetAll() skips position restore but still
- *     applies size restore (AC#2)
+ *     applies size restore
  *   - Restore-feedback loop suppression: events fired during the restore
  *     window do NOT cause a re-save (Task 4.4 / R4)
  *   - Listeners unsubscribe on unmount (Task 4.3)
@@ -86,8 +86,8 @@ vi.mock(
     GetContentStream: vi.fn(),
     GetAncestorPath: vi.fn(),
     // Close the pre-existing 12-1 harness gap: without this stub the cold-start
-    // drain rejects, emitting unhandled errors (Story 13.2 AC9 "ideally close
-    // the pre-existing" clause).
+    // drain rejects, emitting unhandled errors (Story 13.2 "ideally close the
+    // pre-existing" clause).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
     // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
@@ -161,7 +161,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 8.4-INT-001 [P1]: App subscribes to common:WindowDidMove + WindowDidResize
+// App subscribes to common:WindowDidMove + WindowDidResize
 // ---------------------------------------------------------------------------
 
 describe('8.4 App.jsx geometry wiring', () => {
@@ -177,10 +177,9 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-002 [P1]: WindowDidMove handler reads Window.Position() / Window.Size()
-   * and persists the result via the geometry save path.
+   * WindowDidMove handler reads Window.Position() / Window.Size() and persists the
+   * result via the geometry save path.
    *
-   * AC#1, AC#4
    */
   test('WindowDidMove handler persists current geometry to localStorage (after debounce)', async () => {
     vi.useFakeTimers();
@@ -221,9 +220,8 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-003 [P1]: WindowDidResize handler persists current geometry too.
+   * WindowDidResize handler persists current geometry too.
    *
-   * AC#1, AC#4
    */
   test('WindowDidResize handler persists current geometry to localStorage', async () => {
     vi.useFakeTimers();
@@ -258,8 +256,8 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-004 [P1]: Startup restore calls Window.SetSize THEN Window.SetPosition
-   * with the persisted values, in that order (AC#1, Task 5.1 ordering).
+   * Startup restore calls Window.SetSize THEN Window.SetPosition with the
+   * persisted values, in that order (Task 5.1 ordering).
    */
   test('on mount, restore calls SetSize before SetPosition with persisted values', async () => {
     window.localStorage.setItem(
@@ -295,8 +293,8 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-005 [P1]: When localStorage is empty, neither SetSize nor
-   * SetPosition is called (AC#3).
+   * When localStorage is empty, neither SetSize nor SetPosition is
+   * called.
    */
   test('empty localStorage skips restore entirely', async () => {
     const { default: App } = await import('./App');
@@ -313,9 +311,9 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-006 [P1]: Off-screen guard (AC#2): when persisted geometry's
-   * rectangle does not intersect any screen's WorkArea, skip the position
-   * restore but STILL apply the size restore.
+   * Off-screen guard: when persisted geometry's rectangle does not
+   * intersect any screen's WorkArea, skip the position restore but STILL
+   * apply the size restore.
    */
   test('off-screen position is skipped, size restore still applies', async () => {
     // Persisted geometry is far off-screen (e.g. external monitor at -3000,-2000)
@@ -357,7 +355,7 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-007 [P1]: Restore-feedback loop suppression (Task 4.4 / R4).
+   * Restore-feedback loop suppression (Task 4.4 / R4).
    *
    * After mount, the OS will fire WindowDidMove/Resize as a side effect of
    * SetSize/SetPosition. Those echo events must NOT trigger a re-save of the
@@ -407,7 +405,7 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-008 [P2]: Listeners are removed on unmount (Task 4.3).
+   * Listeners are removed on unmount (Task 4.3).
    *
    * Important for HMR + unit tests; the production root never unmounts but
    * cleanup must exist.
@@ -428,8 +426,8 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * 8.4-INT-009 [P2]: Corrupt localStorage JSON does not crash startup and
-   * skips restore entirely (AC#3).
+   * Corrupt localStorage JSON does not crash startup and skips restore
+   * entirely.
    */
   test('corrupt localStorage does not crash and skips restore', async () => {
     window.localStorage.setItem(STORAGE_KEY, '{not valid json');

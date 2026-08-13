@@ -1,6 +1,6 @@
 /**
- * 2.9-UNIT: ErrorBanner severity-specific enhancements.
- * TDD RED PHASE -- these tests MUST fail until Story 2-9 is implemented.
+ * ErrorBanner severity-specific enhancements. TDD RED PHASE -- these
+ * tests MUST fail until Story 2-9 is implemented.
  *
  * Tests severity-aware data-testid, severity icons, and severity-aware
  * dismiss aria-label. Existing ErrorBanner.test.tsx covers baseline behavior.
@@ -10,7 +10,7 @@ import { describe, test, expect } from 'vitest';
 import { ErrorBanner } from './ErrorBanner';
 
 describe('ErrorBanner severity enhancements', () => {
-  // 2.9-UNIT-002 [P2]: ErrorBanner severity-aware data-testid
+  // ErrorBanner severity-aware data-testid
   test('warning severity uses data-testid="warning-banner"', () => {
     render(
       <ErrorBanner message="Structural errors" severity="warning" onDismiss={() => {}} />

@@ -1,5 +1,5 @@
 /**
- * Story 10.8 AC6: dead write-only state slots are removed from DetailPanel.tsx.
+ * Story 10.8: dead write-only state slots are removed from DetailPanel.tsx.
  *
  * The `setLoading` and `setFontLoading` slots are write-only (their reads were
  * dropped); they mislead future readers. They are deleted along with all call

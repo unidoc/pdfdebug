@@ -7,7 +7,7 @@
  * individual tests fail/pass depending on which sections of the component
  * have been wired in -- giving dev a granular green/red signal per AC.
  *
- * Test IDs follow the convention 9.9-UNIT-NNN where NNN groups by AC.
+ * Test IDs follow the convention where NNN groups by AC.
  * Run: cd frontend && npx vitest run src/components/FontPreview.test.tsx
  */
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -211,15 +211,15 @@ const fontWithToUnicodeError: FontDetailFixture = {
 };
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-001 [P0] AC#2 -- metadata header surfaces the core identity fields
+// Metadata header surfaces the core identity fields
 // ---------------------------------------------------------------------------
 
 describe('metadata header', () => {
   test('shows Subtype, BaseFont, FirstChar, LastChar', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
-    // BaseFont (load-bearing for header label too -- AC#11)
+    // BaseFont (load-bearing for header label too -)
     expect(screen.getByText('/Helvetica-Bold')).toBeInTheDocument();
-    // Subtype rendered verbatim (AC#2a regression guard)
+    // Subtype rendered verbatim (regression guard)
     expect(screen.getByText('TrueType')).toBeInTheDocument();
     // First/Last char range
     expect(screen.getByText(/32/)).toBeInTheDocument();
@@ -236,7 +236,7 @@ describe('metadata header', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-002 [P0] AC#2 -- Embedded badge state + copy
+// Embedded badge state + copy
 // ---------------------------------------------------------------------------
 
 describe('embedded badge', () => {
@@ -263,7 +263,7 @@ describe('embedded badge', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-003 [P0] AC#3 + AC#3a -- encoding name vs built-in encoding sentinel
+// Encoding name vs built-in encoding sentinel
 // ---------------------------------------------------------------------------
 
 describe('encoding -- named or built-in', () => {
@@ -285,7 +285,7 @@ describe('encoding -- named or built-in', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-004 [P0] AC#4 -- /Differences table with decimal, hex, glyph name
+// /Differences table with decimal, hex, glyph name
 // ---------------------------------------------------------------------------
 
 describe('/Differences encoding table', () => {
@@ -313,16 +313,16 @@ describe('/Differences encoding table', () => {
 
   test('Encoding/Differences table uses table semantics', () => {
     render(<FontPreview detail={differencesFont} onReferenceClick={() => {}} />);
-    // AC#12 requires real <table> semantics OR role="table" + row/cell roles
-    // so screen readers can read by column. We accept either.
+    // Requires real <table> semantics OR role="table" + row/cell roles so
+    // screen readers can read by column. We accept either.
     const tables = screen.getAllByRole('table');
     expect(tables.length).toBeGreaterThan(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-005 [P0] AC#5 -- /ToUnicode table: hex codes, U+XXXX form, glyph
-// blanking for control / PUA / surrogate.
+// /ToUnicode table: hex codes, U+XXXX form, glyph blanking for control /
+// PUA / surrogate.
 // ---------------------------------------------------------------------------
 
 describe('/ToUnicode table', () => {
@@ -380,7 +380,7 @@ describe('/ToUnicode table', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-006 [P0] AC#9a -- partial-success: toUnicodeError populated
+// partial-success: toUnicodeError populated
 // ---------------------------------------------------------------------------
 
 describe('partial-success ToUnicode warning', () => {
@@ -388,7 +388,7 @@ describe('partial-success ToUnicode warning', () => {
     render(
       <FontPreview detail={fontWithToUnicodeError} onReferenceClick={() => {}} />
     );
-    // The warning text exactly matches the AC9a wording.
+    // The warning text exactly matches the wording.
     expect(
       screen.getByText(/ToUnicode present but unparseable:/i)
     ).toBeInTheDocument();
@@ -405,8 +405,7 @@ describe('partial-success ToUnicode warning', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-007 [P0] AC#6 -- FontDescriptor card: name, flags decoded, metrics,
-// FontFile format string.
+// FontDescriptor card: name, flags decoded, metrics, FontFile format string.
 // ---------------------------------------------------------------------------
 
 describe('FontDescriptor card', () => {
@@ -466,7 +465,7 @@ describe('FontDescriptor card', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-008 [P0] AC#7 -- composite (Type0) Descendant Font section
+// Composite (Type0) Descendant Font section
 // ---------------------------------------------------------------------------
 
 describe('Type0 Descendant Font section', () => {
@@ -494,9 +493,9 @@ describe('Type0 Descendant Font section', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-009 [P0] AC#8 -- ref-token click + keyboard activation dispatches
-// the onReferenceClick prop. The component delegates to a handler passed by
-// DetailPanel; we verify the handler receives the right target.
+// ref-token click + keyboard activation dispatches the onReferenceClick
+// prop. The component delegates to a handler passed by DetailPanel; we
+// verify the handler receives the right target.
 // ---------------------------------------------------------------------------
 
 describe('ref-token click dispatches onReferenceClick', () => {
@@ -557,7 +556,7 @@ describe('ref-token click dispatches onReferenceClick', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-010 [P1] AC#2a -- unknown/missing subtype renders verbatim, no crash
+// unknown/missing subtype renders verbatim, no crash
 // ---------------------------------------------------------------------------
 
 describe('unknown subtype tolerated', () => {
@@ -587,8 +586,8 @@ describe('unknown subtype tolerated', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-011 [P1] -- defensive: nil FontDescriptor and nil descendant do
-// not crash. AC#2 / AC#7 nil-safety.
+// Defensive: nil FontDescriptor and nil descendant do not crash.
+// nil-safety.
 // ---------------------------------------------------------------------------
 
 describe('nil-safety on optional fields', () => {

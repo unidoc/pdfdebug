@@ -4,14 +4,14 @@
  * TDD RED PHASE: Tests MUST fail until TabBar.tsx is implemented.
  *
  * Component-level acceptance tests for TabBar:
- *   4.1-UNIT-004 [P0]: TabBar renders one tab per open document with correct file names
- *   4.1-UNIT-005 [P1]: TabBar highlights the active tab (aria-selected)
- *   4.1-UNIT-006 [P1]: TabBar tab has close button visible on hover
- *   4.1-UNIT-007 [P1]: Cmd/Ctrl+Tab cycles to next tab; Cmd/Ctrl+Shift+Tab cycles to previous
- *   4.1-UNIT-008 [P1]: TabBar uses Radix UI Tabs with proper ARIA roles (tablist, tab, aria-selected)
- *   4.1-UNIT-009 [P1]: Tab switch is instant -- no loading state, no backend calls
- *   4.1-UNIT-011 [P2]: Tab label shows truncated file name with tooltip showing full path
- *   4.1-UNIT-012 [P2]: Tab bar scrolls horizontally when too many tabs to fit
+ *   TabBar renders one tab per open document with correct file names
+ *   TabBar highlights the active tab (aria-selected)
+ *   TabBar tab has close button visible on hover
+ *   Cmd/Ctrl+Tab cycles to next tab; Cmd/Ctrl+Shift+Tab cycles to previous
+ *   TabBar uses Radix UI Tabs with proper ARIA roles (tablist, tab, aria-selected)
+ *   Tab switch is instant -- no loading state, no backend calls
+ *   Tab label shows truncated file name with tooltip showing full path
+ *   Tab bar scrolls horizontally when too many tabs to fit
  *
  * Run: cd frontend && npx vitest run src/components/TabBar.test.tsx
  */
@@ -126,7 +126,7 @@ function openTabs(count: number) {
 
 describe('4.1 TabBar Component Tests', () => {
   /**
-   * 4.1-UNIT-004 [P0]: TabBar renders one tab per open document with correct file names.
+   * TabBar renders one tab per open document with correct file names.
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -158,8 +158,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-005 [P1]: TabBar highlights the active tab with visual distinction
-   * (aria-selected).
+   * TabBar highlights the active tab with visual distinction (aria-selected).
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -181,7 +180,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-006 [P1]: TabBar tab has close button visible on hover.
+   * TabBar tab has close button visible on hover.
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    * Note: Hover visibility is CSS-only (opacity-0 -> opacity-100 on group-hover).
@@ -209,7 +208,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-007 [P1]: Cmd/Ctrl+Right cycles to next tab;
+   * Cmd/Ctrl+Right cycles to next tab;
    * Cmd/Ctrl+Left cycles to previous.
    */
   test('Ctrl+Tab cycles to next tab, Ctrl+Shift+Tab cycles to previous', () => {
@@ -262,10 +261,10 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-008 [P1]: TabBar uses Radix UI Tabs with proper ARIA roles
-   * (tablist, tab, aria-selected).
+   * TabBar uses Radix UI Tabs with proper ARIA roles (tablist, tab,
+   * aria-selected).
    *
-   * Note: Per story AC #4, do NOT assert role="tabpanel" -- we don't use
+   * Note: Per story, do NOT assert role="tabpanel" -- we don't use
    * Tabs.Content. The test design doc lists "tabpanel" for this test ID
    * but that is a spec error for our architecture.
    *
@@ -307,8 +306,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-009 [P1]: Tab switch is instant -- no loading state shown,
-   * no backend calls.
+   * Tab switch is instant -- no loading state shown, no backend calls.
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -340,8 +338,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-011 [P2]: Tab label shows truncated file name with tooltip
-   * showing full path.
+   * Tab label shows truncated file name with tooltip showing full path.
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -359,7 +356,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-012 [P2]: Tab bar scrolls horizontally when too many tabs to fit.
+   * Tab bar scrolls horizontally when too many tabs to fit.
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    * Note: This is a CSS behavior test -- we verify the overflow class is present
@@ -379,9 +376,9 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-006 supplemental: clicking close button dispatches CLOSE_DOCUMENT
-   * and calls backend CloseDocument.
-   * // Also covers 4.3-UNIT-004
+   * Supplemental: clicking close button dispatches CLOSE_DOCUMENT and calls
+   * backend CloseDocument.
+   * // Also covers
    *
    * RED PHASE: TabBar.tsx does not exist yet.
    */
@@ -413,8 +410,8 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-007 supplemental: Ctrl+W closes the active tab.
-   * // Also covers 4.3-UNIT-005
+   * Supplemental: Ctrl+W closes the active tab.
+   * // Also covers
    *
    * RED PHASE: TabBar.tsx does not exist yet. Keyboard handler not registered.
    */
@@ -446,9 +443,8 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.3-UNIT-006 [P1]: No confirmation dialog on tab close (read-only app,
-   * nothing to lose).
-   * AC#3: No confirmation dialog is shown when closing a tab.
+   * No confirmation dialog on tab close (read-only app, nothing to lose).
+   * No confirmation dialog is shown when closing a tab.
    *
    * Given a tab is open,
    * When the close button is clicked,
@@ -479,7 +475,7 @@ describe('4.1 TabBar Component Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-009 supplemental: clicking a tab triggers ACTIVATE_TAB, not
+   * Supplemental: clicking a tab triggers ACTIVATE_TAB, not
    * OPEN_DOCUMENT or any data-fetching action.
    *
    * RED PHASE: TabBar.tsx does not exist yet.

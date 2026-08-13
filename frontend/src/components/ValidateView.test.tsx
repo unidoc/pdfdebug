@@ -1,5 +1,5 @@
 /**
- * Story 13.5: ValidateView component tests (AC 4, 5).
+ * Story 13.5: ValidateView component tests.
  *
  * RED PHASE: the `./ValidateView` import below is the failing seam -- the
  * component does not exist yet, so this file fails to collect until Task 5
@@ -20,16 +20,15 @@
  *    that carries an objNodeId jumps the tree via onNavigate(objNodeId)
  *    (the existing NAVIGATE_TO_REF wiring). A problem with an empty (or
  *    unresolvable) objNodeId is shown but NOT clickable -- onNavigate is never
- *    called (the no-jump fallback, AC4).
+ *    called (the no-jump fallback).
  *  - Problems without an object ref (document-level, e.g. missing /Lang) are
  *    surfaced under a "Document" group.
  *  - Empty/clean result shows data-testid="validate-empty" reading
  *    "no structural problems found (structural checks only)".
  *  - The not-authoritative disclaimer (data-testid="validate-disclaimer",
  *    "structural checks only") is ALWAYS visible, and NO authoritative
- *    conformance verdict language appears anywhere (AC5).
+ *    conformance verdict language appears anywhere.
  *
- * Naming: 13.5-UNIT-1NN [Px].
  * Run: cd frontend && npx vitest run src/components/ValidateView.test.tsx
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -80,7 +79,7 @@ const cleanResult = {
   problems: [],
 };
 
-/** AC5: authoritative conformance verdicts the panel must never render. */
+/** Authoritative conformance verdicts the panel must never render. */
 const forbiddenVerdicts = [
   'pdf/a compliant',
   'pdf/a-compliant',
@@ -105,8 +104,8 @@ beforeEach(() => {
 });
 
 describe('ValidateView', () => {
-  // 13.5-UNIT-101 [P0] AC4: "Run checks" invokes Validate(tabId, profile) with
-  // the default profile and renders problems grouped by severity.
+  // "Run checks" invokes Validate(tabId, profile) with the default profile and
+  // renders problems grouped by severity.
   test('run checks fetches with default profile and groups by severity', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
@@ -119,7 +118,7 @@ describe('ValidateView', () => {
     expect(screen.getByTestId('validate-group-warning').textContent).toContain('/Lang is missing');
   });
 
-  // 13.5-UNIT-102 [P0] AC4: clicking an object-scoped problem jumps the tree via
+  // Clicking an object-scoped problem jumps the tree via
   // onNavigate(objNodeId).
   test('clicking an object-scoped problem navigates to its node', async () => {
     const onNavigate = vi.fn();
@@ -134,8 +133,8 @@ describe('ValidateView', () => {
     expect(onNavigate).toHaveBeenCalledWith('obj:0:4');
   });
 
-  // 13.5-UNIT-103 [P0] AC4: a problem with an empty objNodeId is shown but NOT
-  // clickable -- the no-jump fallback (never a broken navigation).
+  // A problem with an empty objNodeId is shown but NOT clickable -- the
+  // no-jump fallback (never a broken navigation).
   test('document-level problem does not navigate on click', async () => {
     const onNavigate = vi.fn();
     render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
@@ -149,9 +148,9 @@ describe('ValidateView', () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
-  // 13.5-UNIT-104 [P1] AC4: object-ref-less problems are surfaced as the
-  // "Document" group via a dedicated label (not merely because the message text
-  // happens to contain "document").
+  // object-ref-less problems are surfaced as the "Document" group via a
+  // dedicated label (not merely because the message text happens to contain
+  // "document").
   test('document-level problems carry a Document label', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
@@ -166,8 +165,8 @@ describe('ValidateView', () => {
     expect(langRow?.querySelector('[data-testid="validate-doc-label"]')).not.toBeNull();
   });
 
-  // 13.5-UNIT-105 [P0] AC5: the not-authoritative disclaimer is always visible
-  // (before and after a run) and no conformance verdict language appears.
+  // The not-authoritative disclaimer is always visible (before and after a
+  // run) and no conformance verdict language appears.
   test('disclaimer always visible, never a conformance verdict', async () => {
     const { container } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
@@ -185,8 +184,8 @@ describe('ValidateView', () => {
     assertNoVerdict(container.textContent ?? '');
   });
 
-  // 13.5-UNIT-106 [P1] AC4: a clean (zero-problem) result shows the explicit
-  // no-problems state -- not a "compliant/valid" verdict.
+  // A clean (zero-problem) result shows the explicit no-problems state --
+  // not a "compliant/valid" verdict.
   test('clean result shows the no-problems state', async () => {
     mockValidate.mockResolvedValue(cleanResult);
     const { container } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
@@ -199,8 +198,7 @@ describe('ValidateView', () => {
     assertNoVerdict(container.textContent ?? '');
   });
 
-  // 13.5-UNIT-107 [P1] AC2/AC4: the profile selector offers both profiles and a
-  // run uses the chosen one.
+  // The profile selector offers both profiles and a run uses the chosen one.
   test('profile selector drives the validated profile', async () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 

@@ -4,10 +4,10 @@
  * TDD RED PHASE: Tests MUST fail until Task 5 rewrites ObjectInfoPanel.tsx in
  * place to export ObjectSourcePanel and fetch GetObjectSource.
  *
- * Covers AC#1, AC#2, AC#3, AC#4, AC#5 (Object Source view contract) and the
- * AC#4 mapping that is the highest-leverage place to catch a regression:
- * `5 0 R` -> nodeID `obj:0:5` (capture-1 = num, capture-2 = gen). Swapping
- * them dispatches silently wrong navigation.
+ * Covers Object Source view contract and the mapping that is the
+ * highest-leverage place to catch a regression: `5 0 R` -> nodeID `obj:0:5`
+ * (capture-1 = num, capture-2 = gen). Swapping them dispatches silently
+ * wrong navigation.
  *
  * The original test file (Story 2-6 / 2-8) is replaced. The file path stays
  * the same to minimise import churn elsewhere (Task 5.1).
@@ -71,7 +71,7 @@ const catalogNode = {
   error: '',
 };
 
-// Example source strings matching AC#1 and AC#5.
+// Example source strings matching.
 const shortArraySource = `38109 0 obj
 [ 38110 0 R 38111 0 R 38112 0 R ]
 endobj`;
@@ -139,7 +139,7 @@ function renderPanel(selectedNodeId: string | null, extra?: React.ReactNode) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-101 [P0] AC#2: empty state when no node is selected
+// Empty state when no node is selected
 // ---------------------------------------------------------------------------
 
 describe('no-selection empty state', () => {
@@ -173,7 +173,7 @@ describe('no-selection empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-102 [P0] AC#3: empty state for non-indirect (inline) selections
+// Empty state for non-indirect (inline) selections
 // ---------------------------------------------------------------------------
 
 describe('inline-node empty state', () => {
@@ -203,7 +203,7 @@ describe('inline-node empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-103 [P0] AC#1: reserialized PDF syntax rendered in monospace
+// Reserialized PDF syntax rendered in monospace
 // ---------------------------------------------------------------------------
 
 describe('source rendering', () => {
@@ -239,10 +239,10 @@ describe('source rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-104 [P0] AC#4: indirect ref click dispatches NAVIGATE_TO_REF with
-// the correct obj:gen:num mapping. THIS IS THE LOAD-BEARING TEST: capture 1
-// is num, capture 2 is gen; the dispatched nodeID is `obj:${gen}:${num}`.
-// `5 0 R` -> `obj:0:5`, NOT `obj:5:0`.
+// Indirect ref click dispatches NAVIGATE_TO_REF with the correct obj:gen:num
+// mapping. THIS IS THE LOAD-BEARING TEST: capture 1 is num, capture 2 is gen;
+// the dispatched nodeID is `obj:${gen}:${num}`. `5 0 R` -> `obj:0:5`, NOT
+// `obj:5:0`.
 // ---------------------------------------------------------------------------
 
 describe('indirect-ref click mapping', () => {
@@ -353,7 +353,7 @@ describe('indirect-ref click mapping', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-105 [P0] AC#5: stream object renders placeholder, NOT clickable
+// Stream object renders placeholder, NOT clickable
 // ---------------------------------------------------------------------------
 
 describe('stream object placeholder', () => {
@@ -389,7 +389,7 @@ describe('stream object placeholder', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-106 [P1] AC#1: header label stays "Object Source"
+// Header label stays "Object Source"
 // ---------------------------------------------------------------------------
 
 describe('header label', () => {
@@ -412,7 +412,7 @@ describe('header label', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-107 [P1] AC#1 / Task 5.7: error state on fetch failure
+// Task 5.7: error state on fetch failure
 // ---------------------------------------------------------------------------
 
 describe('fetch error inline message', () => {

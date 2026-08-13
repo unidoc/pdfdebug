@@ -4,7 +4,7 @@
  * TDD RED PHASE: This test imports `./parseQuery` which does not exist yet.
  * The module must fail to resolve until Task 4.2 lands.
  *
- * AC5 grammar contract:
+ * Grammar contract:
  *   - `847`              -> numeric, any gen
  *   - `847 0`            -> numeric, gen=0
  *   - `847 0 R`          -> numeric, gen=0 (PDF syntax)

@@ -1,6 +1,6 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC7 (finding #5) -- raw-mode line splitting handles CR / CRLF / mixed.
+ * Story 10.7: Frontend Hook and Render-Path Correctness (finding #5) --
+ * raw-mode line splitting handles CR / CRLF / mixed.
  *
  * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX split at
  * ContentStreamViewer.tsx:222 -- `raw.split(/\r\n?|\n/)` instead of
@@ -14,7 +14,7 @@
  * <div> inside data-testid="content-stream-content"; the gutter renders one
  * <div>{i+1}</div> per line inside data-testid="content-stream-gutter".
  *
- * Test IDs follow the 10-7-UNIT-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.line-endings.test.tsx
  */
@@ -35,7 +35,7 @@ function gutterLineNumbers(): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-004 [P1] AC7: LF-only (baseline that already works).
+// LF-only (baseline that already works).
 // ---------------------------------------------------------------------------
 
 describe('LF-only line endings render N rows', () => {
@@ -47,7 +47,7 @@ describe('LF-only line endings render N rows', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-005 [P1] AC7: CR-only line endings -- the core fix.
+// CR-only line endings -- the core fix.
 // ---------------------------------------------------------------------------
 
 describe('CR-only line endings render N rows', () => {
@@ -67,7 +67,7 @@ describe('CR-only line endings render N rows', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-006 [P1] AC7: CRLF line endings count once (not as two breaks).
+// CRLF line endings count once (not as two breaks).
 // ---------------------------------------------------------------------------
 
 describe('CRLF line endings count once', () => {
@@ -79,7 +79,7 @@ describe('CRLF line endings count once', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-007 [P1] AC7: mixed line endings in one corpus.
+// Mixed line endings in one corpus.
 // ---------------------------------------------------------------------------
 
 describe('mixed CR / LF / CRLF', () => {

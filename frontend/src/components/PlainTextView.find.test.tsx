@@ -6,25 +6,25 @@
  * gutter density markers, auto-scroll on active match change).
  *
  * Scope:
- * - AC1 mount: Cmd+F + active=true + data ready -> FindBar appears.
- * - AC5 per-row <mark>: matched substrings render as <mark> spans with the
+ * - mount: Cmd+F + active=true + data ready -> FindBar appears.
+ * - per-row <mark>: matched substrings render as <mark> spans with the
  *   active match tagged data-testid="plain-text-find-active-match" and the
  *   others data-testid="plain-text-find-match".
- * - AC5 row textContent invariant: each row's textContent stays byte-identical
+ * - row textContent invariant: each row's textContent stays byte-identical
  *   to the raw line.
- * - AC6 gutter density markers: lines with matches get
+ * - gutter density markers: lines with matches get
  *   data-testid="plain-text-find-gutter-marker-{lineNo}".
- * - AC7 auto-scroll on next/prev: the scroll container's scrollTop is
+ * - auto-scroll on next/prev: the scroll container's scrollTop is
  *   adjusted to bring the active match's line into view.
- * - AC11 inner-tab persistence: query + matches survive an active=false ->
+ * - inner-tab persistence: query + matches survive an active=false ->
  *   active=true toggle on the same tabId.
- * - AC11 document-tab reset: query clears + bar closes when tabId changes.
- * - AC13 Cmd+F gate on data===null: keystroke is consumed (preventDefault)
+ * - document-tab reset: query clears + bar closes when tabId changes.
+ * - Cmd+F gate on data===null: keystroke is consumed (preventDefault)
  *   but bar does not open.
- * - AC22 Esc scope: a sibling window-level keydown listener does NOT fire
+ * - Esc scope: a sibling window-level keydown listener does NOT fire
  *   when Esc closes the FindBar (the handler is scoped to the FindBar root).
  *
- * Test IDs follow the 10-2-INTG-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.find.test.tsx
  */
@@ -97,8 +97,7 @@ const noMatchCorpus = {
 };
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-001 [P0] AC#1: Cmd+F on active Plain Text tab + data ready
-// mounts the FindBar.
+// Cmd+F on active Plain Text tab + data ready mounts the FindBar.
 // ---------------------------------------------------------------------------
 
 describe('Cmd+F mounts the FindBar', () => {
@@ -127,9 +126,9 @@ describe('Cmd+F mounts the FindBar', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-002 [P0] AC#5: per-row <mark> elements wrap matched substrings.
-// The active match carries data-testid="plain-text-find-active-match"; the
-// others carry data-testid="plain-text-find-match".
+// per-row <mark> elements wrap matched substrings. The active match carries
+// data-testid="plain-text-find-active-match"; the others carry
+// data-testid="plain-text-find-match".
 // ---------------------------------------------------------------------------
 
 describe('per-row <mark> rendering', () => {
@@ -166,8 +165,8 @@ describe('per-row <mark> rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-003 [P0] AC#5 row textContent invariant: each row's textContent
-// stays byte-identical to the raw line.
+// Row textContent invariant: each row's textContent stays byte-identical to
+// the raw line.
 // ---------------------------------------------------------------------------
 
 describe('row textContent invariant', () => {
@@ -201,7 +200,7 @@ describe('row textContent invariant', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-004 [P0] AC#6: gutter density markers on lines with matches.
+// Gutter density markers on lines with matches.
 // ---------------------------------------------------------------------------
 
 describe('gutter density markers', () => {
@@ -237,7 +236,7 @@ describe('gutter density markers', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-005 [P0] AC#7: clicking Next advances the active match.
+// Clicking Next advances the active match.
 // ---------------------------------------------------------------------------
 
 describe('Next button advances active match', () => {
@@ -273,7 +272,7 @@ describe('Next button advances active match', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-006 [P0] AC#18: no-match query renders no marks and "0 of 0".
+// no-match query renders no marks and "0 of 0".
 // ---------------------------------------------------------------------------
 
 describe('no-match query', () => {
@@ -305,9 +304,9 @@ describe('no-match query', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-007 [P0] AC#11: inner-tab persistence -- toggling active=false ->
-// active=true on the same tabId preserves query + matches (PlainTextView
-// stays mounted; only the `active` prop toggles).
+// inner-tab persistence -- toggling active=false -> active=true on the same
+// tabId preserves query + matches (PlainTextView stays mounted; only the
+// `active` prop toggles).
 // ---------------------------------------------------------------------------
 
 describe('inner-tab persistence', () => {
@@ -361,8 +360,7 @@ describe('inner-tab persistence', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-008 [P0] AC#11: document-tab reset -- changing tabId closes the
-// bar and clears the query.
+// document-tab reset -- changing tabId closes the bar and clears the query.
 // ---------------------------------------------------------------------------
 
 describe('document-tab reset on tabId change', () => {
@@ -403,8 +401,8 @@ describe('document-tab reset on tabId change', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-009 [P0] AC#13: Cmd+F on Plain Text inner tab with data===null
-// (loadState !== 'ready') is consumed but does NOT mount the bar.
+// Cmd+F on Plain Text inner tab with data===null (loadState !== 'ready')
+// is consumed but does NOT mount the bar.
 // ---------------------------------------------------------------------------
 
 describe('Cmd+F gated on data!==null', () => {
@@ -436,11 +434,11 @@ describe('Cmd+F gated on data!==null', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-011 [P0] AC#3: Esc close moves focus to the scroll container so
-// subsequent F3 / Shift+F3 keystrokes still reach the window-level navigation
-// handler (the App.jsx Cmd+G focus-guard relies on focus being OFF the
-// FindBar input after Esc). The scroll container is lazily given tabindex=-1
-// so it can accept programmatic focus.
+// Esc close moves focus to the scroll container so subsequent F3 / Shift+F3
+// keystrokes still reach the window-level navigation handler (the App.jsx
+// Cmd+G focus-guard relies on focus being OFF the FindBar input after Esc).
+// The scroll container is lazily given tabindex=-1 so it can accept
+// programmatic focus.
 // ---------------------------------------------------------------------------
 
 describe('Esc restores focus to the scroll container', () => {
@@ -475,11 +473,11 @@ describe('Esc restores focus to the scroll container', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-012 [P0] AC#7: auto-scroll on active-match change. When the new
-// active match is outside the vertical viewport, scrollTop is set so the
-// match's line is centered. jsdom does not lay out the DOM, so we stub
-// clientHeight / scrollHeight on the scroll container to simulate a viewport
-// smaller than the corpus. ROW_HEIGHT is 20.
+// auto-scroll on active-match change. When the new active match is outside
+// the vertical viewport, scrollTop is set so the match's line is centered.
+// jsdom does not lay out the DOM, so we stub clientHeight / scrollHeight on
+// the scroll container to simulate a viewport smaller than the corpus.
+// ROW_HEIGHT is 20.
 // ---------------------------------------------------------------------------
 
 describe('auto-scroll on Next when match is below the viewport', () => {
@@ -532,7 +530,7 @@ describe('auto-scroll on Next when match is below the viewport', () => {
     fireEvent.click(screen.getByTestId('plain-text-find-next'));
 
     // Either scrollTo was called (smooth path) or scrollTop was set directly
-    // (reduced-motion fallback / try-catch fallback). Both satisfy AC7.
+    // (reduced-motion fallback / try-catch fallback). Both satisfy.
     const scrolled =
       scrollToSpy.mock.calls.length > 0 || scroll.scrollTop !== scrollTopBefore;
     expect(scrolled).toBe(true);
@@ -540,9 +538,9 @@ describe('auto-scroll on Next when match is below the viewport', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-013 [P0] AC#7: when the active match is already visible, the
-// auto-scroll effect must NOT touch scrollTop. This pins the visibility
-// short-circuit so the scroll container doesn't jitter mid-typing.
+// When the active match is already visible, the auto-scroll effect must
+// NOT touch scrollTop. This pins the visibility short-circuit so the
+// scroll container doesn't jitter mid-typing.
 // ---------------------------------------------------------------------------
 
 describe('auto-scroll skips when the match is already visible', () => {
@@ -589,8 +587,8 @@ describe('auto-scroll skips when the match is already visible', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-INTG-010 [P0] AC#22: Esc inside the FindBar closes the bar and does
-// NOT propagate to a sibling window-level keydown listener.
+// Esc inside the FindBar closes the bar and does NOT propagate to a
+// sibling window-level keydown listener.
 // ---------------------------------------------------------------------------
 
 describe('Esc scope (does not collide with palette/window Esc)', () => {

@@ -1,6 +1,6 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC6 (finding #20) -- useFindBar memoizes the corpus-wide toLowerCase().
+ * Story 10.7: Frontend Hook and Render-Path Correctness (finding #20) --
+ * useFindBar memoizes the corpus-wide toLowerCase().
  *
  * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX contract:
  * useFindBar memoizes `haystack = useMemo(() => caseSensitive ? content :
@@ -15,13 +15,13 @@
  * corpus-length toLowerCase count after 10 keystrokes is ~10, not 1. This test
  * fails against current code; a developer activates it after Task 4.
  *
- * Counting strategy (per AC6): wrap String.prototype.toLowerCase with a counter
- * that records the LENGTH of each `this`. The short-query needle is lowercased
- * once per keystroke too, so we MUST filter by receiver length and only count
- * calls on a string of corpus length (>= 1 MB). Asserting "toLowerCase called
- * once" globally would fail because the needle is lowercased every keystroke.
+ * Counting strategy: wrap String.prototype.toLowerCase with a counter that
+ * records the LENGTH of each `this`. The short-query needle is lowercased once
+ * per keystroke too, so we MUST filter by receiver length and only count calls
+ * on a string of corpus length (>= 1 MB). Asserting "toLowerCase called once"
+ * globally would fail because the needle is lowercased every keystroke.
  *
- * Test IDs follow the 10-7-HOOK-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.haystack-memo.test.ts
  */

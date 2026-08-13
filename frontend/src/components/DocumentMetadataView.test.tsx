@@ -1,5 +1,5 @@
 /**
- * Story 13.2: DocumentMetadataView component tests (AC 7).
+ * Story 13.2: DocumentMetadataView component tests.
  *
  * TDD RED PHASE: `describe.skip` keeps CI green until Task 5 lands
  * `DocumentMetadataView.tsx`. The component is lazy-imported inside beforeAll so
@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe('DocumentMetadataView', () => {
-  // 13.2-UNIT-111 [P0] AC7: /Info fields render as a key/value block.
+  // /Info fields render as a key/value block.
   test('renders Info key/value block', async () => {
     mockGetDocumentMetadata.mockResolvedValue({
       info: { Title: 'Invoice 2024-001', Author: 'ACME GmbH' },
@@ -46,8 +46,8 @@ describe('DocumentMetadataView', () => {
     expect(screen.getByText(/Title/)).toBeInTheDocument();
   });
 
-  // 13.2-UNIT-112 [P0] AC7: the XMP packet renders in a read-only scrollable
-  // region AS PLAIN TEXT -- the markup is shown as text, never parsed into DOM.
+  // The XMP packet renders in a read-only scrollable region AS PLAIN TEXT --
+  // the markup is shown as text, never parsed into DOM.
   test('XMP rendered as plain text, never HTML-injected', async () => {
     const xmp = '<x:xmpmeta><script>window.__pwned=1</script>marker</x:xmpmeta>';
     mockGetDocumentMetadata.mockResolvedValue({ info: {}, xmp, warning: '' });
@@ -63,8 +63,7 @@ describe('DocumentMetadataView', () => {
     expect((window as unknown as { __pwned?: number }).__pwned).toBeUndefined();
   });
 
-  // 13.2-UNIT-113 [P1] AC3/AC7: missing metadata renders an empty state, not an
-  // error.
+  // Missing metadata renders an empty state, not an error.
   test('empty metadata shows empty state', async () => {
     mockGetDocumentMetadata.mockResolvedValue({ info: {}, xmp: '', warning: '' });
     render(<DocumentMetadataView tabId="t1" active />);
@@ -72,7 +71,7 @@ describe('DocumentMetadataView', () => {
     expect(await screen.findByTestId('metadata-empty')).toBeInTheDocument();
   });
 
-  // 13.2-UNIT-114 [P1] AC8: an undecodable-/Metadata warning is surfaced.
+  // An undecodable-/Metadata warning is surfaced.
   test('surfaces the XMP decode warning', async () => {
     mockGetDocumentMetadata.mockResolvedValue({
       info: { Title: 'X' },

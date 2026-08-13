@@ -3,15 +3,14 @@
  *
  * TDD RED PHASE: Tests MUST fail until ReverseRefsSection.tsx is created.
  *
- * Covers AC#7, AC#8, AC#9, AC#10, and the AC#6 frontend failure-mode banner
- * (Task 6.5 case 1) for the "Referenced by" section. AC#4 keyboard parity for
- * the row click target is also asserted here, mirroring DetailShared's
- * Enter/Space contract.
+ * Covers, and the frontend failure-mode banner (Task 6.5 case 1) for the
+ * "Referenced by" section. keyboard parity for the row click target is also
+ * asserted here, mirroring DetailShared's Enter/Space contract.
  *
  * Behavioral focus: the section MUST render three distinct empty states based
  * on props (index-unavailable / catalog / orphan) and MUST default-expand or
- * default-collapse based on entries.length <= 5 (AC#8). Toggle resets on
- * remount because DetailPanel passes key={selectedNodeId} (Task 6.3).
+ * default-collapse based on entries.length <= 5. Toggle resets on remount
+ * because DetailPanel passes key={selectedNodeId} (Task 6.3).
  *
  * Run: cd frontend && npx vitest run src/components/ReverseRefsSection.test.tsx
  */
@@ -42,7 +41,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 
 // --- Fixtures ---
 
-/** Five entries -- default expanded per AC#8. */
+/** Five entries -- default expanded. */
 const fiveEntries = [
   { parentNodeId: 'obj:0:10', parentRef: '10 0 R', parentType: 'Pages', path: '/Kids[0]', parentPath: '/Pages' },
   { parentNodeId: 'obj:0:11', parentRef: '11 0 R', parentType: 'Pages', path: '/Kids[1]', parentPath: '/Pages' },
@@ -51,7 +50,7 @@ const fiveEntries = [
   { parentNodeId: 'obj:0:14', parentRef: '14 0 R', parentType: 'Pages', path: '/Kids[4]', parentPath: '/Pages' },
 ];
 
-/** Six entries -- default collapsed per AC#8. */
+/** Six entries -- default collapsed. */
 const sixEntries = [
   ...fiveEntries,
   { parentNodeId: 'obj:0:15', parentRef: '15 0 R', parentType: 'Pages', path: '/Kids[5]', parentPath: '/Pages' },
@@ -123,7 +122,7 @@ function renderSection(opts: RenderOpts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-001 [P0] AC#8: default-expanded when entries.length <= 5
+// default-expanded when entries.length <= 5
 // ---------------------------------------------------------------------------
 
 describe('default expansion by entry count', () => {
@@ -161,7 +160,7 @@ describe('default expansion by entry count', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-002 [P0] AC#7: row content (ParentRef, Path, ParentType)
+// Row content (ParentRef, Path, ParentType)
 // ---------------------------------------------------------------------------
 
 describe('row content', () => {
@@ -185,8 +184,8 @@ describe('row content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-003 [P0] AC#7 / AC#4: clicking a row dispatches NAVIGATE_TO_REF
-// with the parent's indirect-object node ID. Keyboard parity required.
+// Clicking a row dispatches NAVIGATE_TO_REF with the parent's
+// indirect-object node ID. Keyboard parity required.
 // ---------------------------------------------------------------------------
 
 describe('row click dispatches NAVIGATE_TO_REF', () => {
@@ -226,7 +225,7 @@ describe('row click dispatches NAVIGATE_TO_REF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-004 [P0] AC#10: catalog empty state -- "Document root..."
+// Catalog empty state -- "Document root..."
 // ---------------------------------------------------------------------------
 
 describe('catalog empty state', () => {
@@ -246,7 +245,7 @@ describe('catalog empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-005 [P0] AC#9: orphan empty state -- "No incoming dict-graph..."
+// Orphan empty state -- "No incoming dict-graph..."
 // ---------------------------------------------------------------------------
 
 describe('orphan empty state', () => {
@@ -273,8 +272,8 @@ describe('orphan empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-006 [P0] AC#6: index-unavailable banner has priority over the
-// other empty states. Task 6.5 case 1.
+// index-unavailable banner has priority over the other empty states. Task
+// 6.5 case 1.
 // ---------------------------------------------------------------------------
 
 describe('index-unavailable banner', () => {
@@ -308,7 +307,7 @@ describe('index-unavailable banner', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-007 [P1] AC#7: count appears in header when there are entries
+// Count appears in header when there are entries
 // ---------------------------------------------------------------------------
 
 describe('section header count', () => {
@@ -326,8 +325,8 @@ describe('section header count', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-008 [P1] AC#8 reset rule: remount on selection change resets the
-// toggle to the default for the new entry count.
+// Reset rule: remount on selection change resets the toggle to the default
+// for the new entry count.
 // ---------------------------------------------------------------------------
 
 describe('remount-on-key resets toggle', () => {

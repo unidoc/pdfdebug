@@ -5,17 +5,17 @@
  * is implemented per Task 4.
  *
  * Scope:
- * - Static structure (role, aria-labels, data-testids) per AC1
- * - Keyboard wiring (Enter, Shift+Enter, Up/Down, arrow fall-through) per AC16
+ * - Static structure (role, aria-labels, data-testids)
+ * - Keyboard wiring (Enter, Shift+Enter, Up/Down, arrow fall-through)
  * - onQueryChange / onNext / onPrev / onCaseToggle / onClose callbacks
- * - Match count text "n of m" + "0 of 0" per AC4 / AC18
- * - aria-pressed reflects caseSensitive prop per AC1 / AC10
- * - non-Latin-1 hint visibility + aria-describedby per AC12
- * - prev/next disabled when matches.length === 0 per AC18
- * - Wrap-status testid mounts only when wrapped !== null per AC7 / AC8
- * - aria-live="polite" on count + wrap-status per AC21
+ * - Match count text "n of m" + "0 of 0"
+ * - aria-pressed reflects caseSensitive prop
+ * - non-Latin-1 hint visibility + aria-describedby
+ * - prev/next disabled when matches.length === 0
+ * - Wrap-status testid mounts only when wrapped !== null
+ * - aria-live="polite" on count + wrap-status
  *
- * Test IDs follow the 10-2-COMP-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/components/FindBar.test.tsx
  */
@@ -70,7 +70,7 @@ function renderBar(opts: RenderOpts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-001 [P0] AC#1: static structure -- role + aria-label root.
+// Static structure -- role + aria-label root.
 // ---------------------------------------------------------------------------
 
 describe('root role + aria-label', () => {
@@ -83,7 +83,7 @@ describe('root role + aria-label', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-002 [P0] AC#1: input renders with aria-label="Find query".
+// Input renders with aria-label="Find query".
 // ---------------------------------------------------------------------------
 
 describe('input', () => {
@@ -103,7 +103,7 @@ describe('input', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-003 [P0] AC#1, AC#4, AC#18: match count text.
+// Match count text.
 // ---------------------------------------------------------------------------
 
 describe('match count', () => {
@@ -129,7 +129,7 @@ describe('match count', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-004 [P0] AC#1, AC#10: case-toggle button.
+// case-toggle button.
 // ---------------------------------------------------------------------------
 
 describe('case toggle', () => {
@@ -182,7 +182,7 @@ describe('case toggle', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-005 [P0] AC#1: prev / next / close buttons.
+// Prev / next / close buttons.
 // ---------------------------------------------------------------------------
 
 describe('navigation + close buttons', () => {
@@ -212,7 +212,7 @@ describe('navigation + close buttons', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-006 [P0] AC#18: prev/next disabled when no matches.
+// prev/next disabled when no matches.
 // ---------------------------------------------------------------------------
 
 describe('prev/next disabled when matches empty', () => {
@@ -240,7 +240,7 @@ describe('prev/next disabled when matches empty', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-007 [P0] AC#7, AC#8: wrap-status mounts only when wrapped !== null.
+// wrap-status mounts only when wrapped !== null.
 // ---------------------------------------------------------------------------
 
 describe('wrap-status rendering', () => {
@@ -269,7 +269,7 @@ describe('wrap-status rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-008 [P0] AC#12: non-Latin-1 hint mount + aria-describedby linkage.
+// non-Latin-1 hint mount + aria-describedby linkage.
 // ---------------------------------------------------------------------------
 
 describe('non-Latin-1 hint', () => {
@@ -295,7 +295,7 @@ describe('non-Latin-1 hint', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-009 [P0] AC#16: keyboard wiring on the input.
+// Keyboard wiring on the input.
 // ---------------------------------------------------------------------------
 
 describe('keyboard wiring on the input', () => {
@@ -343,8 +343,8 @@ describe('keyboard wiring on the input', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-010 [P0] AC#20: tab order is input -> case toggle -> prev ->
-// next -> close. We assert by reading the DOM order of focusable elements.
+// Tab order is input -> case toggle -> prev -> next -> close. We assert by
+// reading the DOM order of focusable elements.
 // ---------------------------------------------------------------------------
 
 describe('tab order', () => {
@@ -374,7 +374,7 @@ describe('tab order', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-COMP-011 [P0] AC#1: input has focus on mount (autofocus contract).
+// Input has focus on mount (autofocus contract).
 // ---------------------------------------------------------------------------
 
 describe('input autofocus on mount', () => {

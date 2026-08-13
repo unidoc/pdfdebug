@@ -4,11 +4,11 @@
  * TDD RED PHASE: This test imports `./rankResults` which does not exist yet.
  * The module must fail to resolve until Task 4.3 lands.
  *
- * Ordering contract (AC5/AC6/AC8):
+ * Ordering contract:
  *   - Numeric: exact ObjNum match first, then gen-asc disambiguation
  *   - Type-filter: exact /Type match before prefix match (case-insensitive)
  *   - Within a match tier, free/orphan entries (Reachable=false) sort last
- *   - Result list capped at 8 entries (AC6)
+ *   - Result list capped at 8 entries
  *
  * Run: cd frontend && npx vitest run src/lib/palette/rankResults.test.ts
  */

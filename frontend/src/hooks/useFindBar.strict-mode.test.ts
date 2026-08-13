@@ -1,6 +1,6 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC1 + AC2 (finding #7) -- useFindBar render-phase side-effect removal.
+ * Story 10.7: Frontend Hook and Render-Path Correctness (finding #7) --
+ * useFindBar render-phase side-effect removal.
  *
  * TDD RED PHASE: every test below is emitted as `test()`. They assert the
  * POST-FIX contract: the deps-comparison block + every-render snapshot move
@@ -11,7 +11,7 @@
  * (useFindBar.ts:132-169 mutates prevDepsRef during render) these assertions
  * are not guaranteed; a developer activates them after Task 1.
  *
- * Per AC1 the absence-of-warning check is NOT the pass condition -- the
+ * The absence-of-warning check is NOT the pass condition -- the
  * idempotency assertion is. A console.error spy is included only as a
  * supplemental regression guard.
  *
@@ -19,7 +19,7 @@
  * nothing). It is enabled per-test via renderHook(fn, { reactStrictMode: true })
  * per Dev Notes.
  *
- * Test IDs follow the 10-7-HOOK-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.strict-mode.test.ts
  */
@@ -64,13 +64,13 @@ function driveSequence(reactStrictMode: boolean) {
   act(() => {
     result.current.next();
   });
-  // Case toggle (case-toggle-only path: preserve by start offset per AC10).
+  // Case toggle (case-toggle-only path: preserve by start offset).
   rerender({ caseSensitive: true });
   const afterToggle = {
     activeIndex: result.current.activeIndex,
     starts: result.current.matches.map((m) => m.start),
   };
-  // Query change (must reset activeIndex to 0 per AC4).
+  // Query change (must reset activeIndex to 0).
   act(() => {
     result.current.setQuery('bar');
   });
@@ -93,7 +93,7 @@ describe('useFindBar is StrictMode-idempotent', () => {
   test('StrictMode double-invoke yields the same activeIndex/matches as non-strict', () => {
     const nonStrict = driveSequence(false);
     const strict = driveSequence(true);
-    // (a) AC1: under StrictMode the double-invoke must not corrupt state.
+    // A: under StrictMode the double-invoke must not corrupt state.
     expect(strict.afterToggle.activeIndex).toBe(nonStrict.afterToggle.activeIndex);
     expect(strict.afterToggle.starts).toEqual(nonStrict.afterToggle.starts);
     expect(strict.afterQueryChange.activeIndex).toBe(nonStrict.afterQueryChange.activeIndex);
@@ -133,7 +133,7 @@ describe('useFindBar is StrictMode-idempotent', () => {
     expect(result.current.activeIndex).toBe(newIndex);
   });
 
-  // Supplemental ONLY (not the pass condition per AC1): the deprecated
+  // Supplemental ONLY (not the pass condition): the deprecated
   // cross-component warning must not regress.
   test('no React "Cannot update a component while rendering" warning regression', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

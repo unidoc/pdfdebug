@@ -1,5 +1,5 @@
 /**
- * Story 13.2: EmbeddedDataView component tests (AC 6, 8).
+ * Story 13.2: EmbeddedDataView component tests.
  *
  * TDD RED PHASE: this whole suite is `describe.skip` so the Vitest run stays
  * green in CI until Task 5 lands `EmbeddedDataView.tsx`. Each test body asserts
@@ -60,8 +60,7 @@ beforeEach(() => {
 });
 
 describe('EmbeddedDataView', () => {
-  // 13.2-UNIT-101 [P0] AC6: lists embedded files as table rows with the
-  // discriminating columns.
+  // Lists embedded files as table rows with the discriminating columns.
   test('lists rows with name, relationship, MIME, size', async () => {
     render(<EmbeddedDataView tabId="t1" active onNavigate={vi.fn()} />);
 
@@ -73,7 +72,7 @@ describe('EmbeddedDataView', () => {
     expect(screen.getByTestId('embedded-row-4 0 R')).toBeInTheDocument();
   });
 
-  // 13.2-UNIT-102 [P0] AC6: selecting a row reveals its /Filespec details.
+  // Selecting a row reveals its /Filespec details.
   test('selecting a row shows filespec detail', async () => {
     render(<EmbeddedDataView tabId="t1" active onNavigate={vi.fn()} />);
     await waitFor(() => screen.getByText('factur-x.xml'));
@@ -85,8 +84,8 @@ describe('EmbeddedDataView', () => {
     expect(detail).toHaveTextContent('6 0 R');
   });
 
-  // 13.2-UNIT-103 [P1] AC6: "Reveal in tree" dispatches navigation to the
-  // /EmbeddedFile stream node (reuses NAVIGATE_TO_REF wiring via onNavigate).
+  // "Reveal in tree" dispatches navigation to the /EmbeddedFile stream node
+  // (reuses NAVIGATE_TO_REF wiring via onNavigate).
   test('Reveal in tree navigates to the stream node', async () => {
     const onNavigate = vi.fn();
     render(<EmbeddedDataView tabId="t1" active onNavigate={onNavigate} />);
@@ -98,8 +97,8 @@ describe('EmbeddedDataView', () => {
     expect(onNavigate).toHaveBeenCalledWith('obj:0:4');
   });
 
-  // 13.2-UNIT-104 [P1] AC6: "Save..." fetches the bytes via GetEmbeddedFileBytes
-  // then hands them to the new SaveBytesToFile binding with the display name.
+  // "Save..." fetches the bytes via GetEmbeddedFileBytes then hands them to the
+  // new SaveBytesToFile binding with the display name.
   test('Save fetches bytes and calls SaveBytesToFile', async () => {
     mockGetEmbeddedFileBytes.mockResolvedValue('PGZvbz4='); // base64-ish payload
     mockSaveBytesToFile.mockResolvedValue('/Users/me/factur-x.xml');
@@ -115,7 +114,7 @@ describe('EmbeddedDataView', () => {
     expect(mockSaveBytesToFile.mock.calls[0][0]).toBe('factur-x.xml');
   });
 
-  // 13.2-UNIT-105 [P1] AC6: XML/text payloads get an inline read-only preview;
+  // XML/text payloads get an inline read-only preview;
   // binary payloads show size + save-only (no preview region).
   test('XML row previews inline; binary row is save-only', async () => {
     mockGetEmbeddedFileBytes.mockResolvedValue('PHg+aGVsbG88L3g+'); // <x>hello</x>
@@ -133,8 +132,8 @@ describe('EmbeddedDataView', () => {
     expect(screen.getByTestId('embedded-save')).toBeInTheDocument();
   });
 
-  // 13.2-UNIT-106 [P1] AC8: a per-entry degraded attachment (no /EmbeddedFile)
-  // renders a warning state, not a crash; Save is disabled.
+  // A per-entry degraded attachment (no /EmbeddedFile) renders a warning
+  // state, not a crash; Save is disabled.
   test('entry without stream shows warning, Save disabled', async () => {
     mockGetEmbeddedFiles.mockResolvedValue({
       files: [{ ...xmlEntry, embeddedFileRef: '', embeddedFileNodeId: '', size: 0 }],
@@ -147,8 +146,7 @@ describe('EmbeddedDataView', () => {
     expect(screen.getByTestId('embedded-save')).toBeDisabled();
   });
 
-  // 13.2-UNIT-107 [P1] AC6: empty document (no attachments) shows an empty
-  // state, not an error.
+  // Empty document (no attachments) shows an empty state, not an error.
   test('no attachments shows empty state', async () => {
     mockGetEmbeddedFiles.mockResolvedValue({ files: [] });
     render(<EmbeddedDataView tabId="t1" active onNavigate={vi.fn()} />);

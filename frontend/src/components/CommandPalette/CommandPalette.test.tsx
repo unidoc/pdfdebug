@@ -5,7 +5,7 @@
  * component and the useCommandPalette hook. The imports themselves fail
  * until Task 4 / Task 5 land.
  *
- * Covers AC4, AC5 (palette-side wiring), AC6, AC7, AC8, AC9, AC10.
+ * Covers palette-side wiring.
  *
  * Approach: mock the Wails binding so GetObjectIndex returns a deterministic
  * fixture. Render <App-shell-equivalent> with AppProvider and assert against
@@ -34,9 +34,9 @@ import { useCommandPalette } from '../../hooks/useCommandPalette';
 const mockGetObjectIndex = vi.hoisted(() => vi.fn());
 const mockGetAncestorPath = vi.hoisted(() => vi.fn());
 
-// Story 10.8 AC2: the palette open shortcut is now platform-aware (Cmd on
-// macOS, Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below
-// open the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
+// Story 10.8: the palette open shortcut is now platform-aware (Cmd on macOS,
+// Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below open
+// the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
 const mockGetPlatformModifier = vi.hoisted(() => vi.fn(() => 'Cmd'));
 vi.mock('../../lib/platform', () => ({
   getPlatformModifier: () => mockGetPlatformModifier(),
@@ -141,7 +141,7 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 -- Cmd+K opens, Esc closes, click-outside closes, focus trap/restore
+// Cmd+K opens, Esc closes, click-outside closes, focus trap/restore
 // ---------------------------------------------------------------------------
 
 describe('open/close lifecycle', () => {
@@ -180,7 +180,7 @@ describe('open/close lifecycle', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC5 / AC6 / AC9 -- numeric query, single-match Enter, navigation dispatch
+// Numeric query, single-match Enter, navigation dispatch
 // ---------------------------------------------------------------------------
 
 describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
@@ -193,7 +193,7 @@ describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
     const input = await screen.findByTestId('command-palette-input');
     await user.type(input, '3');
 
-    // AC6: 50ms idle gate. Pause longer than that before Enter.
+    // 50ms idle gate. Pause longer than that before Enter.
     await new Promise((r) => setTimeout(r, 80));
     await user.keyboard('{Enter}');
 
@@ -208,8 +208,7 @@ describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
     // 50ms with userEvent, so this test fires Enter with NO intermediate
     // idle pause -- userEvent.type queues keystrokes back-to-back, so the
     // last keystroke and the Enter are dispatched within the same
-    // microtask. Implementations that respect the AC6 gate will not
-    // commit.
+    // microtask. Implementations that respect the gate will not commit.
     const user = userEvent.setup();
     renderHarness();
     act(() => screen.getByTestId('bootstrap-open').click());
@@ -241,7 +240,7 @@ describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC6 -- multi-match: arrow keys + Enter
+// multi-match: arrow keys + Enter
 // ---------------------------------------------------------------------------
 
 describe('multi-match arrow navigation', () => {
@@ -269,7 +268,7 @@ describe('multi-match arrow navigation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC7 -- empty input shows per-tab recents (max 5)
+// Empty input shows per-tab recents (max 5)
 // ---------------------------------------------------------------------------
 
 describe('recent jumps', () => {
@@ -308,7 +307,7 @@ describe('recent jumps', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC8 -- free/orphan rows render but are non-navigable
+// free/orphan rows render but are non-navigable
 // ---------------------------------------------------------------------------
 
 describe('free/orphan rows', () => {
@@ -336,7 +335,7 @@ describe('free/orphan rows', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC10 -- tab switch closes the palette; recents are per-tab
+// Tab switch closes the palette; recents are per-tab
 // ---------------------------------------------------------------------------
 
 describe('tab switching', () => {

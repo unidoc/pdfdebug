@@ -1,6 +1,6 @@
 /**
  * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC3 (finding #28) -- useLatest ref-mirror consolidation hook.
+ * (finding #28) -- useLatest ref-mirror consolidation hook.
  *
  * TDD RED PHASE: every test below is emitted as `test()`. The hook does
  * not exist yet (Task 2 creates frontend/src/hooks/useLatest.ts). To keep the
@@ -10,7 +10,7 @@
  * G1 before Dev starts). A developer activates these by removing `.skip` after
  * the file lands.
  *
- * Test IDs follow the 10-7-HOOK-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useLatest.test.ts
  */
@@ -30,8 +30,8 @@ async function loadUseLatest() {
 }
 
 // ---------------------------------------------------------------------------
-// 10-7-HOOK-001 [P1] AC3: useLatest returns a ref whose .current reflects the
-// latest render's value across rerenders.
+// useLatest returns a ref whose .current reflects the latest render's value
+// across rerenders.
 // ---------------------------------------------------------------------------
 
 describe('useLatest reflects the latest value', () => {

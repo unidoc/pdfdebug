@@ -1,17 +1,17 @@
 /**
  * Story 4.2: Multi-Document State Isolation
  *
- * 4.2-UNIT-008 [P1]: Dedup cleanup calls CloseDocument for duplicate tabId.
+ * Dedup cleanup calls CloseDocument for duplicate tabId.
  *
  * Tests the component-layer cleanup: when a second document:opened event
  * arrives with the same filePath as an existing tab, the new tabId's backend
  * state is freed via CloseDocument.
  *
- * 4.4-UNIT-006 [P2] annotation: The OS file association path in main.go calls
- * openFileAndEmit, which emits the same document:opened event tested here.
- * The frontend event listener dispatches OPEN_DOCUMENT regardless of the
- * originating open path (menu, drag-and-drop, or file association). No
- * separate test is needed for the file association event flow.
+ * Annotation: The OS file association path in main.go calls openFileAndEmit,
+ * which emits the same document:opened event tested here. The frontend event
+ * listener dispatches OPEN_DOCUMENT regardless of the originating open path
+ * (menu, drag-and-drop, or file association). No separate test is needed for
+ * the file association event flow.
  *
  * Run: cd frontend && npx vitest run src/App.test.tsx
  */
@@ -53,10 +53,10 @@ vi.mock(
     GetAncestorPath: vi.fn(),
     // Story 12-1 harness gap: ConsumePendingOpenFiles was missing from this mock,
     // emitting 10 unhandled errors per run. Stubbed here so the cold-start drain
-    // resolves cleanly (Story 13.2 AC9 closes the pre-existing gap).
+    // resolves cleanly (Story 13.2 closes the pre-existing gap).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
-    // Story 13.2 new bound methods (AC9): mocked so DetailPanel's new tabs never
-    // widen the gap.
+    // Story 13.2 new bound methods: mocked so DetailPanel's new tabs never widen
+    // the gap.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),

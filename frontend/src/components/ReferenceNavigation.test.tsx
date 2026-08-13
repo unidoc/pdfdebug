@@ -3,7 +3,7 @@
  *
  * TDD RED PHASE: Tests MUST fail until Story 2-8 is implemented.
  *
- * Test IDs: 2.8-UNIT-001, 2.8-UNIT-002, 2.8-UNIT-003 (Vitest)
+ * Test IDs: (Vitest)
  * Run: cd frontend && npx vitest run src/components/ReferenceNavigation.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
@@ -249,8 +249,8 @@ function renderObjectInfoPanelWithState(selectedNodeId: string | null) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-001 [P1]: Reference values rendered as clickable links
-// AC#1: Given a property value is an indirect reference (e.g., "5 0 R"),
+// Reference values rendered as clickable links: Given a property value
+// is an indirect reference (e.g., "5 0 R"),
 //       When the reference is displayed in the DetailPanel or ObjectInfoPanel,
 //       Then it appears as a clickable link (purple/violet, underlined,
 //       cursor-pointer, role="button").
@@ -350,9 +350,9 @@ describe('Reference values rendered as clickable links', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-001b [P1]: Reference keyboard activation (Enter and Space)
-// AC#1: References must be activatable via keyboard (Enter/Space) for a11y.
-// Review finding: keyboard activation was patched in DetailShared.tsx.
+// Reference keyboard activation (Enter and Space): References must be
+// activatable via keyboard (Enter/Space) for a11y. Review finding: keyboard
+// activation was patched in DetailShared.tsx.
 // ---------------------------------------------------------------------------
 
 describe('Reference keyboard activation', () => {
@@ -428,8 +428,8 @@ describe('Reference keyboard activation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-002 [P2]: Clicking reference dispatches navigation action
-// AC#2: Given a clickable reference is displayed, When the user clicks it,
+// Clicking reference dispatches navigation action: Given a clickable
+// reference is displayed, When the user clicks it,
 //       Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
 // ---------------------------------------------------------------------------
 
@@ -552,8 +552,8 @@ describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-003 [P3]: Target node flash animation (100ms highlight pulse)
-// AC#3: Given a reference is clicked, When the tree navigates to the target,
+// Target node flash animation (100ms highlight pulse): Given a reference is
+// clicked, When the tree navigates to the target,
 //       Then the target node briefly flashes (100ms highlight pulse).
 // ---------------------------------------------------------------------------
 
@@ -602,8 +602,8 @@ describe('Target node flash animation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-004 [P1]: NAVIGATE_TO_REF reducer sets pendingNavTarget
-// AC#2: The reducer must set pendingNavTarget on the active tab and clear
+// NAVIGATE_TO_REF reducer sets pendingNavTarget: The reducer must set
+// pendingNavTarget on the active tab and clear
 //       navError when NAVIGATE_TO_REF is dispatched.
 // ---------------------------------------------------------------------------
 
@@ -723,8 +723,8 @@ describe('NAVIGATE_TO_REF reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-005 [P1]: CLEAR_NAV_TARGET reducer clears pendingNavTarget
-// AC#2: After navigation completes, CLEAR_NAV_TARGET resets pendingNavTarget.
+// CLEAR_NAV_TARGET reducer clears pendingNavTarget: After navigation
+// completes, CLEAR_NAV_TARGET resets pendingNavTarget.
 // ---------------------------------------------------------------------------
 
 describe('CLEAR_NAV_TARGET reducer', () => {
@@ -777,8 +777,8 @@ describe('CLEAR_NAV_TARGET reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-006 [P1]: NAV_ERROR reducer sets navError and clears target
-// AC#5: When a dangling reference is clicked and GetAncestorPath fails,
+// NAV_ERROR reducer sets navError and clears target: When a dangling
+// reference is clicked and GetAncestorPath fails,
 //       NAV_ERROR sets navError and clears pendingNavTarget.
 // ---------------------------------------------------------------------------
 
@@ -869,8 +869,8 @@ describe('NAV_ERROR reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-007 [P1]: DISMISS_NAV_ERROR reducer clears navError
-// AC#5: The transient error toast is dismissable.
+// DISMISS_NAV_ERROR reducer clears navError: The transient
+// error toast is dismissable.
 // ---------------------------------------------------------------------------
 
 describe('DISMISS_NAV_ERROR reducer', () => {
@@ -923,8 +923,8 @@ describe('DISMISS_NAV_ERROR reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-008 [P1]: OPEN_DOCUMENT initializes pendingNavTarget and navError
-// AC#2, #5: New tabs must have pendingNavTarget and navError initialized to null.
+// OPEN_DOCUMENT initializes pendingNavTarget and navError: New tabs must have
+// pendingNavTarget and navError initialized to null.
 // ---------------------------------------------------------------------------
 
 describe('OPEN_DOCUMENT initializes nav state', () => {
@@ -952,8 +952,8 @@ describe('OPEN_DOCUMENT initializes nav state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-009 [P1]: Nav error toast renders in TreePanel
-// AC#5: When navError is set, TreePanel renders a transient error toast.
+// Nav error toast renders in TreePanel: When navError is set, TreePanel
+// renders a transient error toast.
 // ---------------------------------------------------------------------------
 
 describe('Nav error toast renders in TreePanel', () => {

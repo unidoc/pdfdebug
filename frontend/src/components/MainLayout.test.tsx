@@ -1,5 +1,5 @@
 /**
- * 2.4-UNIT-003 / 2.5-INTG: MainLayout renders TreePanel component.
+ * MainLayout renders TreePanel component.
  *
  * Updated for Story 2-5: MainLayout now uses TreePanel instead of inline static list.
  */
@@ -188,7 +188,7 @@ describe('MainLayout tree content', () => {
 });
 
 /**
- * 4-5-UNIT-001: MainLayout pane structure.
+ * MainLayout pane structure.
  *
  * Replaces the deleted source-grep test `TestMainLayoutTwoColumnStructure`
  * (Story 4-5, test #4) which asserted the literal string

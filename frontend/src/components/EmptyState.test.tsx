@@ -1,5 +1,5 @@
 /**
- * 2.4-UNIT-002 [P1]: EmptyState drop zone highlights on drag-over with PDF file.
+ * EmptyState drop zone highlights on drag-over with PDF file.
  *
  * Tests visual feedback for drag-and-drop interactions and the presence of
  * data-file-drop-target attribute required by Wails.
@@ -75,7 +75,7 @@ describe('EmptyState drop zone', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Story 10.8 AC1 (RED PHASE): the per-file invalid flash is REMOVED. The drop
+  // Story 10.8 (RED PHASE): the per-file invalid flash is REMOVED. The drop
   // zone must NEVER claim pre-drop knowledge it does not have. For ANY drag
   // combination (PDF-only, mixed, non-PDF-only) the hint stays the constant
   // "Drop a PDF file here" in text-text-muted, and the error styling

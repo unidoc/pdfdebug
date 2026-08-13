@@ -3,7 +3,7 @@
  *
  * TDD RED PHASE: Tests MUST fail until TreePanel.tsx is implemented.
  *
- * Test IDs: 2.5-UNIT-001 through 2.5-UNIT-004
+ * Test IDs: through
  * Run: cd frontend && npx vitest run src/components/TreePanel.test.tsx
  */
 import { render, screen, act, within, waitFor } from '@testing-library/react';
@@ -233,8 +233,8 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-001 [P0]: TreePanel renders root node and expands on click
-// AC#1: Given a PDF is opened, the tree root is displayed. When the user
+// TreePanel renders root node and expands on click: Given a PDF is
+// opened, the tree root is displayed. When the user
 //       clicks the expand arrow, child nodes load from the Go backend.
 // ---------------------------------------------------------------------------
 
@@ -362,8 +362,8 @@ describe('TreePanel renders root and expands on click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-002 [P1]: TreePanel keyboard navigation
-// AC#2: Arrow keys move selection, Right expands, Left collapses.
+// TreePanel keyboard navigation: Arrow keys move selection, Right
+// expands, Left collapses.
 // ---------------------------------------------------------------------------
 
 describe('TreePanel keyboard navigation', () => {
@@ -464,8 +464,8 @@ describe('TreePanel keyboard navigation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-003 [P2]: ARIA roles and attributes
-// AC#2: container has role="tree", nodes have role="treeitem",
+// ARIA roles and attributes: container has role="tree", nodes
+// have role="treeitem",
 //       aria-expanded, aria-level.
 // ---------------------------------------------------------------------------
 
@@ -579,8 +579,8 @@ describe('TreePanel ARIA accessibility', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-004 [P2]: Loading indicator appears only after 200ms delay
-// AC#1: A subtle loading indicator (pulse animation) appears only if
+// Loading indicator appears only after 200ms delay: A subtle loading
+// indicator (pulse animation) appears only if
 //       loading takes more than 200ms.
 // ---------------------------------------------------------------------------
 
@@ -692,7 +692,7 @@ describe('Loading indicator with 200ms threshold', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC#4: SELECT_NODE dispatch on selection change
+// SELECT_NODE dispatch on selection change
 // ---------------------------------------------------------------------------
 
 describe('SELECT_NODE dispatch on selection', () => {
@@ -748,7 +748,7 @@ describe('SELECT_NODE dispatch on selection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC#5: Error nodes display with muted text and warning icon
+// Error nodes display with muted text and warning icon
 // ---------------------------------------------------------------------------
 
 describe('Error node rendering', () => {
@@ -821,7 +821,7 @@ describe('Error node rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC#3: Node labels show rawKey alongside label when different
+// Node labels show rawKey alongside label when different
 // ---------------------------------------------------------------------------
 
 describe('Node label display with rawKey', () => {
@@ -846,7 +846,7 @@ describe('Node label display with rawKey', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.5-UNIT-001: NodeRenderer renders lucide icons keyed by iconHint
+// NodeRenderer renders lucide icons keyed by iconHint
 // ---------------------------------------------------------------------------
 
 describe('Tree icons rendered from iconHint', () => {
@@ -1022,8 +1022,8 @@ describe('SELECT_NODE action in useDocumentState', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-KB-EXT: Extended keyboard navigation (Space, Home, End)
-// AC#2: Space on leaf selects, Space on internal toggles, Home/End jumps.
+// Extended keyboard navigation (Space, Home, End): Space on leaf selects,
+// Space on internal toggles, Home/End jumps.
 // ---------------------------------------------------------------------------
 
 describe('Extended keyboard navigation', () => {
@@ -1091,7 +1091,7 @@ describe('Extended keyboard navigation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-FETCH-ERR: GetChildren failure does not crash the tree
+// GetChildren failure does not crash the tree
 // ---------------------------------------------------------------------------
 
 describe('GetChildren error handling', () => {
@@ -1129,7 +1129,7 @@ describe('GetChildren error handling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-REEXPAND: Collapsing and re-expanding does not re-fetch
+// Collapsing and re-expanding does not re-fetch
 // ---------------------------------------------------------------------------
 
 describe('Re-expand does not re-fetch', () => {
@@ -1180,7 +1180,7 @@ describe('Re-expand does not re-fetch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.5-UNIT-EMPTY-ROOT: TreePanel handles null rootChildren gracefully
+// TreePanel handles null rootChildren gracefully
 // ---------------------------------------------------------------------------
 
 describe('TreePanel with null rootChildren', () => {
@@ -1217,9 +1217,9 @@ describe('TreePanel with null rootChildren', () => {
 // ---------------------------------------------------------------------------
 // Story 4.2: Multi-Document State Isolation
 //
-// 4.2-UNIT-004 [P1]: Each tab maintains independent tree expansion state
-// after switching away and back.
-// AC#3: Each TabState is independent. Tree expansion is preserved per tab.
+// Each tab maintains independent tree expansion state after switching
+// away and back.
+// Each TabState is independent. Tree expansion is preserved per tab.
 //
 // Given tab-1 is open with the root expanded (children visible),
 // And a child node "Pages" is expanded (grandchildren visible),

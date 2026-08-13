@@ -1,5 +1,5 @@
 /**
- * Story 10.8 AC4: formatBytes unifies on 1 decimal place across KB / MB / GB.
+ * Story 10.8: formatBytes unifies on 1 decimal place across KB / MB / GB.
  *
  * TDD RED PHASE: this test fails against the current PlainTextView.tsx for two
  * reasons:
@@ -8,7 +8,7 @@
  *   2. The MB branch uses `Math.round(n / (1024*1024))` (integer, no decimal)
  *      and the GB branch uses `.toFixed(2)`; both must become `.toFixed(1)`.
  *
- * Expected outputs per AC4:
+ * Expected outputs:
  *   0            -> "0 B"
  *   512          -> "512 B"
  *   1024         -> "1.0 KB"

@@ -1,16 +1,16 @@
 /**
  * Story 9-8: TreePanel inline object-ref + /T:Type suffix rendering.
  *
- * TDD RED PHASE: These tests pin the AC1/AC2/AC3 label-suffix contract.
- * They will fail until TreePanel.tsx is updated to render `objectRef`
- * (and the dedup-aware `/T:typeName` suffix) on each tree row.
+ * TDD RED PHASE: These tests pin the label-suffix contract. They will
+ * fail until TreePanel.tsx is updated to render `objectRef` (and the
+ * dedup-aware `/T:typeName` suffix) on each tree row.
  *
  * Source contract (backend, see internal/pdfcore/objectindex_test.go):
  *   - TreeNode.objectRef: "<num> <gen> R" for indirect objects, "" otherwise
  *   - TreeNode.typeName:  literal /Type value (e.g. "Pages", "Page", "Font"),
  *                         "" when the dict has no /Type key
  *
- * Render contract (AC2 dedup rule):
+ * Render contract (dedup rule):
  *   - Append `[objectRef]` after the semantic label when objectRef !== ""
  *   - Append `/T:typeName` after the ref when typeName !== "" AND
  *     typeName is NOT already encoded in the semantic label. The label
@@ -18,7 +18,7 @@
  *     Font nodes use semantic label "Font: <BaseFont>" which prefixes
  *     "Font", so /T:Font is also suppressed.
  *
- * AC3: clicking a tree row still dispatches SELECT_NODE (existing behavior);
+ * clicking a tree row still dispatches SELECT_NODE (existing behavior);
  *      the inline label is read-only display, never NAVIGATE_TO_REF.
  *
  * Run: cd frontend && npx vitest run \
@@ -90,7 +90,7 @@ const catalogNode: AnyNode = {
 };
 
 // Indirect object with semantic label "Pages" already encoding /Type /Pages
-// -- /T:Pages must be suppressed per AC2 dedup rule.
+// -- /T:Pages must be suppressed dedup rule.
 const pagesIndirect: AnyNode = {
   id: 'obj:0:2', label: 'Pages', rawKey: '/Pages', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 2, iconHint: 'pages',
@@ -98,7 +98,7 @@ const pagesIndirect: AnyNode = {
 };
 
 // Indirect object with /Type /Font and BaseFont -- semantic label is
-// "Font: Helvetica"; /T:Font is suppressed per AC2 dedup rule.
+// "Font: Helvetica"; /T:Font is suppressed dedup rule.
 const fontIndirect: AnyNode = {
   id: 'obj:0:5', label: 'Font: Helvetica', rawKey: '/F1', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 5, iconHint: 'font',
@@ -154,7 +154,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC1 -- inline [N G R] on indirect objects
+// Inline [N G R] on indirect objects
 // ---------------------------------------------------------------------------
 
 describe('inline object ref suffix', () => {
@@ -197,7 +197,7 @@ describe('inline object ref suffix', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2 -- /T:<TypeName> suffix with dedup rule
+// /T:<TypeName> suffix with dedup rule
 // ---------------------------------------------------------------------------
 
 describe('/T:<TypeName> suffix and dedup', () => {
@@ -254,7 +254,7 @@ describe('/T:<TypeName> suffix and dedup', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3 -- inline label is read-only; click still selects, never NAVIGATE_TO_REF
+// Inline label is read-only; click still selects, never NAVIGATE_TO_REF
 // ---------------------------------------------------------------------------
 
 describe('inline label is read-only display', () => {

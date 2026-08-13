@@ -1,6 +1,5 @@
 /**
- * Story 10.8 AC2 / AC3: platform-aware Cmd+K / Ctrl+K modifier for the command
- * palette.
+ * Story 10.8: platform-aware Cmd+K / Ctrl+K modifier for the command palette.
  *
  * TDD RED PHASE: these tests fail against the current useCommandPalette.ts,
  * which uses `const mod = e.metaKey || e.ctrlKey` (accepts EITHER modifier on
@@ -16,7 +15,7 @@
  * The hook reads tabActivationVersion from useAppState, so renderHook is wrapped
  * in AppProvider.
  *
- * Test IDs follow the 10-8-HOOK-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useCommandPalette.test.ts
  */
@@ -62,9 +61,9 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-8-HOOK-001 [P0] AC2: on macOS (modifier === 'Cmd'), Ctrl+K is a no-op.
-// The current `metaKey || ctrlKey` implementation OPENS on Ctrl+K, so this
-// FAILS until the platform-aware check lands.
+// On macOS (modifier === 'Cmd'), Ctrl+K is a no-op. The current `metaKey ||
+// ctrlKey` implementation OPENS on Ctrl+K, so this FAILS until the
+// platform-aware check lands.
 // ---------------------------------------------------------------------------
 describe('macOS - Ctrl+K does not open the palette', () => {
   test('Ctrl+K is a no-op on macOS', () => {
@@ -80,7 +79,7 @@ describe('macOS - Ctrl+K does not open the palette', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-8-HOOK-002 [P0] AC2: on macOS, Cmd+K opens the palette.
+// On macOS, Cmd+K opens the palette.
 // ---------------------------------------------------------------------------
 describe('macOS - Cmd+K opens the palette', () => {
   test('Cmd+K opens on macOS', () => {
@@ -113,8 +112,7 @@ describe('macOS - Cmd+K opens the palette', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-8-HOOK-003 [P0] AC3: on Linux/Windows (modifier === 'Ctrl'), Ctrl+K
-// opens the palette.
+// On Linux/Windows (modifier === 'Ctrl'), Ctrl+K opens the palette.
 // ---------------------------------------------------------------------------
 describe('Linux/Windows - Ctrl+K opens the palette', () => {
   test('Ctrl+K opens on non-mac platforms', () => {
@@ -130,7 +128,7 @@ describe('Linux/Windows - Ctrl+K opens the palette', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-8-HOOK-004 [P1] AC3: on Linux/Windows, Cmd+K does nothing (no metaKey to
+// On Linux/Windows, Cmd+K does nothing (no metaKey to
 // register in normal use). The current OR-based code would open on metaKey;
 // after the fix the non-mac branch reads e.ctrlKey only.
 // ---------------------------------------------------------------------------

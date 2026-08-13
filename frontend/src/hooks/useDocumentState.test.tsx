@@ -1,6 +1,6 @@
 /**
- * 2.4-UNIT-001 [P1]: useDocumentState reducer handles OPEN_DOCUMENT action,
- * transitions from empty to loaded state.
+ * useDocumentState reducer handles OPEN_DOCUMENT action, transitions from
+ * empty to loaded state.
  *
  * Also covers CLOSE_DOCUMENT, SET_DOCUMENT_ERROR, DISMISS_ERROR for completeness
  * since these are pure reducer logic at the lowest viable test layer.
@@ -290,9 +290,9 @@ const catalogNodeB = {
 };
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-001 [P0]: SELECT_NODE only modifies the active tab's state;
+// SELECT_NODE only modifies the active tab's state;
 // other tabs remain unchanged.
-// AC#3: Each TabState is independent with its own selectedNodeId.
+// Each TabState is independent with its own selectedNodeId.
 //
 // Given two tabs are open with tab-1 active,
 // When SELECT_NODE is dispatched selecting node "obj:0:5" in tab-1,
@@ -379,9 +379,9 @@ describe('SELECT_NODE isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-002 [P0]: NAVIGATE_TO_REF only modifies the active tab's
-// pendingNavTarget; other tabs remain unchanged.
-// AC#3: Each TabState has independent pendingNavTarget.
+// NAVIGATE_TO_REF only modifies the active tab's pendingNavTarget;
+// other tabs remain unchanged.
+// Each TabState has independent pendingNavTarget.
 //
 // Given two tabs are open with tab-1 active,
 // When NAVIGATE_TO_REF is dispatched with targetNodeId "obj:0:7",
@@ -449,8 +449,8 @@ describe('NAVIGATE_TO_REF isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-003 [P0]: SET_DOCUMENT_ERROR does not destroy other tabs' state.
-// AC#1: Errors are global banners that do not destroy other tabs' state.
+// SET_DOCUMENT_ERROR does not destroy other tabs' state.
+// Errors are global banners that do not destroy other tabs' state.
 //
 // Given two tabs are open with nodes selected in each,
 // When SET_DOCUMENT_ERROR is dispatched,
@@ -681,9 +681,8 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-001 [P0]: CLOSE_DOCUMENT removes only the target tab; other
-// tabs remain.
-// AC#1: Document is closed, tab is removed, other tabs unaffected.
+// CLOSE_DOCUMENT removes only the target tab; other tabs remain.
+// Document is closed, tab is removed, other tabs unaffected.
 //
 // Given 3 tabs are open (tab-1, tab-2, tab-3) with tab-3 active,
 // When CLOSE_DOCUMENT is dispatched for tab-2 (non-active),
@@ -728,9 +727,9 @@ describe('CLOSE_DOCUMENT removes only the target tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-002 [P0]: Closing active tab moves activeTabId to the next tab
-// (or previous if last).
-// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
+// Closing active tab moves activeTabId to the next tab (or previous if
+// last).
+// Focus moves to the next tab (or the previous tab if the closed tab
 //       was the last one).
 //
 // (a) Close the last-in-array tab (tab-3): activeTabId -> tab-2 (previous).
@@ -806,8 +805,8 @@ describe('Closing active tab transfers focus correctly', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-003 [P0]: Closing the last tab sets activeTabId to null (empty state).
-// AC#2: When no documents remain open, the empty state is shown again.
+// Closing the last tab sets activeTabId to null (empty state).
+// When no documents remain open, the empty state is shown again.
 //
 // Given 1 tab is open,
 // When CLOSE_DOCUMENT is dispatched for that tab,
@@ -844,8 +843,8 @@ describe('Closing last tab returns to empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-007 [P2]: Closing a non-active tab does not change the active tab.
-// AC#1: Tab is removed, focus stays on the current active tab.
+// Closing a non-active tab does not change the active tab.
+// Tab is removed, focus stays on the current active tab.
 //
 // Given 3 tabs are open with tab-3 active,
 // When CLOSE_DOCUMENT is dispatched for tab-1 (non-active),
@@ -885,8 +884,8 @@ describe('Closing non-active tab preserves activeTabId', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-008 [P2]: Rapidly closing multiple tabs does not corrupt state.
-// AC#1: Tab management handles rapid sequential closes gracefully.
+// Rapidly closing multiple tabs does not corrupt state.
+// Tab management handles rapid sequential closes gracefully.
 //
 // Given 4 tabs are open (tab-1..tab-4, tab-4 active),
 // When CLOSE_DOCUMENT is dispatched for tab-2, tab-3, tab-4 in rapid
@@ -940,8 +939,8 @@ describe('Rapid sequential closes do not corrupt state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-002 supplemental: Closing middle active tab prefers the next tab.
-// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
+// Supplemental: Closing middle active tab prefers the next tab.
+// Focus moves to the next tab (or the previous tab if the closed tab
 //       was the last one).
 //
 // Given 3 tabs are open with tab-2 active (middle),
@@ -989,7 +988,7 @@ describe('Closing middle active tab prefers next', () => {
 // ---------------------------------------------------------------------------
 // 4.3 supplemental: CLOSE_DOCUMENT clears documentError only when closing
 // the active tab. When closing a non-active tab, documentError is preserved.
-// AC#1: Resources are freed; state cleanup is correct.
+// Resources are freed; state cleanup is correct.
 //
 // Reducer logic: documentError: closingActive ? null : state.documentError
 // ---------------------------------------------------------------------------
@@ -1210,7 +1209,7 @@ describe('multi-PDF drop: reducer integrates with backend events', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.4-UNIT-001: OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
+// OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
 // ---------------------------------------------------------------------------
 
 function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openAction: AppAction }) {
@@ -1287,9 +1286,9 @@ describe('Go to Page dialog state', () => {
 
 // ---------------------------------------------------------------------------
 // Story 9.8: PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
-// Lowest-viable-layer coverage for AC7 (LRU max-5 eviction + dedup) and AC10
-// (per-tab recents isolation). These close the three low-severity gaps
-// identified by traceability-report-9-8.md.
+// Lowest-viable-layer coverage for (LRU max-5 eviction + dedup) and (per-tab
+// recents isolation). These close the three low-severity gaps identified by
+// traceability-report-9-8.md.
 // ---------------------------------------------------------------------------
 
 function makeJump(objNum: number) {

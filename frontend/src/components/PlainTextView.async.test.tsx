@@ -7,8 +7,8 @@
  * GetPlainText/GetPlainTextSize/CancelPlainText wiring, stale-fetch guard,
  * fast-path under-debounce, zero-byte payload).
  *
- * Test IDs follow the 10-1-UNIT-NNN convention. Each test maps to one or
- * more ACs in the story spec.
+ * Test IDs follow the convention. Each test maps to one or more ACs in
+ * the story spec.
  *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.async.test.tsx
  */
@@ -75,7 +75,7 @@ function deferred<T>(): {
 }
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-001 [P0] AC#1: first activation fires exactly one GetPlainText call.
+// First activation fires exactly one GetPlainText call.
 // ---------------------------------------------------------------------------
 
 describe('lazy fetch on first activation', () => {
@@ -100,8 +100,8 @@ describe('lazy fetch on first activation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-002 [P0] AC#2: loading card mounts after 200ms debounce with the
-// heading, size disclosure, elapsed counter, and Cancel button.
+// Loading card mounts after 200ms debounce with the heading, size
+// disclosure, elapsed counter, and Cancel button.
 // ---------------------------------------------------------------------------
 
 describe('loading card structure', () => {
@@ -136,22 +136,22 @@ describe('loading card structure', () => {
     });
 
     const card = screen.getByTestId('plain-text-loading-card');
-    // AC2 heading text.
+    // Heading text.
     expect(card.textContent).toContain('Loading plain text');
-    // AC2 size disclosure -- once GetPlainTextSize resolves (microtask flush).
+    // Size disclosure -- once GetPlainTextSize resolves (microtask flush).
     const sizeEl = screen.getByTestId('plain-text-loading-size');
     expect(sizeEl).toBeInTheDocument();
-    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form (Story 10.8 AC4).
+    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form (Story 10.8).
     expect(sizeEl.textContent).toContain('487.0 MB');
-    // AC2 Cancel button with the literal "Cancel" label.
+    // Cancel button with the literal "Cancel" label.
     const cancelBtn = screen.getByTestId('plain-text-cancel-button');
     expect(cancelBtn.textContent).toBe('Cancel');
   });
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-004 [P0] AC#2: size disclosure renders empty while
-// GetPlainTextSize is unresolved; the card still mounts.
+// Size disclosure renders empty while GetPlainTextSize is
+// unresolved; the card still mounts.
 // ---------------------------------------------------------------------------
 
 describe('size disclosure tolerates unresolved size', () => {
@@ -186,8 +186,7 @@ describe('size disclosure tolerates unresolved size', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-005 [P0] AC#3: successful resolve unmounts the loading card and
-// renders content.
+// Successful resolve unmounts the loading card and renders content.
 // ---------------------------------------------------------------------------
 
 describe('success path renders content', () => {
@@ -207,7 +206,7 @@ describe('success path renders content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-006 [P0] AC#4: Cancel click invokes CancelPlainText(tabID).
+// Cancel click invokes CancelPlainText(tabID).
 // ---------------------------------------------------------------------------
 
 describe('Cancel click invokes CancelPlainText', () => {
@@ -249,8 +248,8 @@ describe('Cancel click invokes CancelPlainText', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-007 [P0] AC#4 + AC#5: a cancellation rejection transitions to the
-// cancelled state with the documented body + CTA.
+// A cancellation rejection transitions to the cancelled state with the
+// documented body + CTA.
 // ---------------------------------------------------------------------------
 
 describe('cancelled state renders documented copy + CTA', () => {
@@ -267,7 +266,7 @@ describe('cancelled state renders documented copy + CTA', () => {
     render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
 
     // Reject with a cancellation error (substring 'cancel' is the frontend
-    // contract per AC4: extractErrorMessage(err) contains 'cancel').
+    // contract: extractErrorMessage(err) contains 'cancel').
     await act(async () => {
       fetchDef.reject(new Error('context canceled'));
     });
@@ -276,7 +275,7 @@ describe('cancelled state renders documented copy + CTA', () => {
       expect(screen.getByTestId('plain-text-load-cta')).toBeInTheDocument();
     });
 
-    // AC5: cancelled-state copy + CTA label.
+    // cancelled-state copy + CTA label.
     expect(screen.getByText('Plain text load cancelled.')).toBeInTheDocument();
     const cta = screen.getByTestId('plain-text-load-cta');
     expect(cta.textContent).toBe('Load plain text');
@@ -284,8 +283,7 @@ describe('cancelled state renders documented copy + CTA', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-008 [P0] AC#6: CTA click re-runs the fetch flow with a fresh
-// elapsed counter (0s).
+// CTA click re-runs the fetch flow with a fresh elapsed counter (0s).
 // ---------------------------------------------------------------------------
 
 describe('cancelled CTA re-runs fetch with elapsed reset', () => {
@@ -322,7 +320,7 @@ describe('cancelled CTA re-runs fetch with elapsed reset', () => {
       fireEvent.click(screen.getByTestId('plain-text-load-cta'));
     });
 
-    // GetPlainText must have been called a second time (AC6).
+    // GetPlainText must have been called a second time.
     expect(mockGetPlainText).toHaveBeenCalledTimes(2);
 
     // Advance past the 200ms debounce; loading card mounts again.
@@ -336,8 +334,8 @@ describe('cancelled CTA re-runs fetch with elapsed reset', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-009 [P0] AC#7: non-cancellation rejection renders the error state
-// with the mapped error message and a Retry button using the shared CTA testid.
+// non-cancellation rejection renders the error state with the mapped error
+// message and a Retry button using the shared CTA testid.
 // ---------------------------------------------------------------------------
 
 describe('error state shows Retry with shared CTA testid', () => {
@@ -386,8 +384,8 @@ describe('error state shows Retry with shared CTA testid', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-010 [P0] AC#8: document-tab switch mid-load triggers the stale-
-// fetch guard; the previous load's resolve does not mutate state on the new doc.
+// document-tab switch mid-load triggers the stale- fetch guard; the previous
+// load's resolve does not mutate state on the new doc.
 // ---------------------------------------------------------------------------
 
 describe('stale-fetch guard on document tab switch', () => {
@@ -442,8 +440,8 @@ describe('stale-fetch guard on document tab switch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-011 [P0] AC#16: inner-tab toggle (active=true -> false -> true)
-// does NOT re-fetch after a successful load.
+// inner-tab toggle (active=true -> false -> true) does NOT re-fetch after a
+// successful load.
 // ---------------------------------------------------------------------------
 
 describe('inner-tab cache persists across active toggles', () => {
@@ -471,8 +469,8 @@ describe('inner-tab cache persists across active toggles', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-012 [P0] AC#17: document tab change resets to idle and clears
-// in-flight refs / elapsed counter.
+// Document tab change resets to idle and clears in-flight refs / elapsed
+// counter.
 // ---------------------------------------------------------------------------
 
 describe('document tab change resets state', () => {
@@ -509,7 +507,7 @@ describe('document tab change resets state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-013 [P0] AC#20: fast-path under 200ms never mounts the loading card.
+// fast-path under 200ms never mounts the loading card.
 // ---------------------------------------------------------------------------
 
 describe('fast-path resolve < 200ms does not flash loading card', () => {
@@ -547,7 +545,7 @@ describe('fast-path resolve < 200ms does not flash loading card', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-014 [P0] AC#21: 0-byte payload renders the empty virtualized list.
+// 0-byte payload renders the empty virtualized list.
 // ---------------------------------------------------------------------------
 
 describe('zero-byte payload renders without error', () => {
@@ -577,8 +575,8 @@ describe('zero-byte payload renders without error', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-015 [P0] AC#1, AC#2: at load start, GetPlainText AND
-// GetPlainTextSize are dispatched in parallel.
+// At load start, GetPlainText AND GetPlainTextSize are
+// dispatched in parallel.
 // ---------------------------------------------------------------------------
 
 describe('parallel dispatch of GetPlainText + GetPlainTextSize', () => {
@@ -601,10 +599,9 @@ describe('parallel dispatch of GetPlainText + GetPlainTextSize', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-016 [P0] AC#4: extractErrorMessage on the rejection contains the
-// substring 'cancel' (case-insensitive). Cross-checked here on the frontend
-// side; the backend errors.Is(err, context.Canceled) identity is asserted in
-// the Go tests.
+// extractErrorMessage on the rejection contains the substring 'cancel'
+// (case-insensitive). Cross-checked here on the frontend side; the backend
+// errors.Is(err, context.Canceled) identity is asserted in the Go tests.
 // ---------------------------------------------------------------------------
 
 describe('cancellation rejection substring contract', () => {
@@ -636,9 +633,9 @@ describe('cancellation rejection substring contract', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-017 [P0] AC#5 + AC#7: terminal states (cancelled / error) must NOT
-// auto-refetch on an inner-tab active toggle. The user-visible CTA is the
-// explicit retry surface; a silent re-fetch on tab toggle defeats AC5 / AC7.
+// Terminal states (cancelled / error) must NOT auto-refetch on an inner-tab
+// active toggle. The user-visible CTA is the explicit retry surface; a silent
+// re-fetch on tab toggle defeats.
 // ---------------------------------------------------------------------------
 
 describe('terminal states do not auto-refetch on active toggle', () => {

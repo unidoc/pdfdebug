@@ -1,7 +1,7 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC8 (finding #9) -- useWindowPersistence flushes pending writes on the last
- * unmount instead of discarding them.
+ * Story 10.7: Frontend Hook and Render-Path Correctness (finding #9) --
+ * useWindowPersistence flushes pending writes on the last unmount instead of
+ * discarding them.
  *
  * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX cleanup at
  * useWindowPersistence.ts:184-192: when activeHookCount hits 0 AND a pending
@@ -22,7 +22,7 @@
  * unmount so the count returns to 0 between tests; each test starts from a
  * clean count because the prior test unmounted its last consumer.
  *
- * Test IDs follow the 10-7-UNIT-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.flush-on-last-unmount.test.ts
  */
@@ -60,7 +60,7 @@ describe('useWindowPersistence flushes on last unmount', () => {
     // Pending write is buffered; debounce timer has NOT fired.
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    // Last consumer unmounts. Per AC8 this must flush() synchronously.
+    // Last consumer unmounts. this must flush() synchronously.
     unmount();
 
     // No fake-timer advance. If the write is present, the flush was synchronous.

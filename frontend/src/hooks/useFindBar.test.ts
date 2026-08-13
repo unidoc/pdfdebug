@@ -6,18 +6,18 @@
  *
  * Scope:
  * - openBar / closeBar / setQuery / next / prev surface
- * - Cmd+F / Ctrl+F keystroke handler (open + re-focus + AC2 select-all path)
+ * - Cmd+F / Ctrl+F keystroke handler (open + re-focus + select-all path)
  * - Esc close path (scoped via the FindBar root)
- * - F3 / Shift+F3 stepping with the bar closed (AC9)
+ * - F3 / Shift+F3 stepping with the bar closed
  * - openedOnce flag: persists across Esc-close on the same tab, clears on tab change
- * - activeIndex preservation algorithm on case-toggle (AC10)
- * - Wrap-status one-shot flag (AC7 / AC8 / AC15)
- * - tabId-change reset (AC11)
- * - content===null gate (AC13)
- * - isInTextField focus guard (AC1 / AC22)
- * - nonLatin1 derived flag (AC12)
+ * - activeIndex preservation algorithm on case-toggle
+ * - Wrap-status one-shot flag
+ * - tabId-change reset
+ * - content===null gate
+ * - isInTextField focus guard
+ * - nonLatin1 derived flag
  *
- * Test IDs follow the 10-2-HOOK-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.test.ts
  */
@@ -68,8 +68,8 @@ function dispatchKey(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-001 [P0] AC#1: Cmd+F on an inactive Plain Text tab does NOT
-// open the bar. active=false short-circuits the listener.
+// Cmd+F on an inactive Plain Text tab does NOT open the bar.
+// active=false short-circuits the listener.
 // ---------------------------------------------------------------------------
 
 describe('active=false suppresses Cmd+F', () => {
@@ -94,8 +94,7 @@ describe('active=false suppresses Cmd+F', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-002 [P0] AC#1: Cmd+F on an active Plain Text tab with data ready
-// opens the bar.
+// Cmd+F on an active Plain Text tab with data ready opens the bar.
 // ---------------------------------------------------------------------------
 
 describe('Cmd+F opens the bar when active + data ready', () => {
@@ -129,8 +128,8 @@ describe('Cmd+F opens the bar when active + data ready', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-003 [P0] AC#13: Cmd+F when content===null does NOT open the
-// bar AND DOES call preventDefault on the keystroke.
+// Cmd+F when content===null does NOT open the bar AND DOES call
+// preventDefault on the keystroke.
 // ---------------------------------------------------------------------------
 
 describe('Cmd+F gated on content!==null', () => {
@@ -156,9 +155,9 @@ describe('Cmd+F gated on content!==null', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-004 [P0] AC#1, AC#22: Cmd+F when focus is in a non-FindBar text
-// input does NOT open the bar. Mirrors App.jsx's isInTextField guard so the
-// Cmd+K palette + ordinary search inputs are not stolen.
+// Cmd+F when focus is in a non-FindBar text input does NOT open the bar.
+// Mirrors App.jsx's isInTextField guard so the Cmd+K palette + ordinary
+// search inputs are not stolen.
 // ---------------------------------------------------------------------------
 
 describe('focus-guard against unrelated text inputs', () => {
@@ -205,8 +204,8 @@ describe('focus-guard against unrelated text inputs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-005 [P0] AC#2: Cmd+F when bar is already open does NOT close it.
-// AC2 mandates the bar stays open; the input is re-focused and contents are
+// Cmd+F when bar is already open does NOT close it.
+// Mandates the bar stays open; the input is re-focused and contents are
 // selected by the component (the hook surfaces an explicit `focusRequested`
 // signal). We assert here only the state-level invariant: open stays true.
 // ---------------------------------------------------------------------------
@@ -234,9 +233,9 @@ describe('Cmd+F is non-toggling', () => {
     expect(result.current.open).toBe(true);
   });
 
-  // AC2: when the bar is already open, the second Cmd+F bumps focusVersion so
-  // the FindBar component re-focuses + select-all on the input. The hook does
-  // not own focus directly -- it signals via a monotonic counter that the
+  // When the bar is already open, the second Cmd+F bumps focusVersion so the
+  // FindBar component re-focuses + select-all on the input. The hook does not
+  // own focus directly -- it signals via a monotonic counter that the
   // component watches in a useEffect.
   test('Cmd+F while open bumps focusVersion (the re-focus signal)', () => {
     const { result } = renderHook(() =>
@@ -255,8 +254,8 @@ describe('Cmd+F is non-toggling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-006 [P0] AC#3: closeBar() flips open=false but PRESERVES the
-// query, matches, and openedOnce flag on the same tab.
+// closeBar() flips open=false but PRESERVES the query, matches, and
+// openedOnce flag on the same tab.
 // ---------------------------------------------------------------------------
 
 describe('closeBar preserves query + openedOnce', () => {
@@ -290,9 +289,8 @@ describe('closeBar preserves query + openedOnce', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-007 [P0] AC#4: setQuery triggers a match recompute.
-// useDeferredValue is acceptable; tests run act() so the deferred pass
-// commits before assertions.
+// setQuery triggers a match recompute. useDeferredValue is acceptable;
+// tests run act() so the deferred pass commits before assertions.
 // ---------------------------------------------------------------------------
 
 describe('setQuery recomputes matches', () => {
@@ -337,8 +335,8 @@ describe('setQuery recomputes matches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-008 [P0] AC#7: next() advances activeIndex with wrap; wrap-step
-// sets the one-shot wrapped='top' flag.
+// next() advances activeIndex with wrap; wrap-step sets the one-shot
+// wrapped='top' flag.
 // ---------------------------------------------------------------------------
 
 describe('next advances with wrap-status', () => {
@@ -417,8 +415,8 @@ describe('next advances with wrap-status', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-009 [P0] AC#8: prev() retreats with wrap; wrap-step sets the
-// one-shot wrapped='bottom' flag.
+// prev() retreats with wrap; wrap-step sets the one-shot
+// wrapped='bottom' flag.
 // ---------------------------------------------------------------------------
 
 describe('prev retreats with wrap-status', () => {
@@ -450,7 +448,7 @@ describe('prev retreats with wrap-status', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-010 [P0] AC#15: last-match-then-Enter wraps to first.
+// last-match-then-Enter wraps to first.
 // ---------------------------------------------------------------------------
 
 describe('wrap-to-top from last match', () => {
@@ -488,7 +486,7 @@ describe('wrap-to-top from last match', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-011 [P0] AC#9: F3 navigates when the bar is closed but
+// F3 navigates when the bar is closed but
 // openedOnce && query !== ''. The bar does NOT auto-reopen.
 // ---------------------------------------------------------------------------
 
@@ -573,9 +571,9 @@ describe('F3 navigates when bar is closed (after openedOnce)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-012 [P0] AC#10: case-toggle activeIndex preservation algorithm.
-// Captures prevStart, then either finds the same start in the new matches
-// list OR resets activeIndex to 0.
+// case-toggle activeIndex preservation algorithm. Captures prevStart, then
+// either finds the same start in the new matches list OR resets activeIndex
+// to 0.
 // ---------------------------------------------------------------------------
 
 describe('case-toggle preserves activeIndex when prevStart survives', () => {
@@ -649,7 +647,7 @@ describe('case-toggle preserves activeIndex when prevStart survives', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-013 [P0] AC#4: setQuery resets activeIndex to 0 unconditionally.
+// setQuery resets activeIndex to 0 unconditionally.
 // ---------------------------------------------------------------------------
 
 describe('setQuery resets activeIndex', () => {
@@ -686,8 +684,8 @@ describe('setQuery resets activeIndex', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-014 [P0] AC#11: tabId-change clears query, activeIndex, and
-// openedOnce. The hook closes the bar.
+// tabId-change clears query, activeIndex, and openedOnce. The hook
+// closes the bar.
 // ---------------------------------------------------------------------------
 
 describe('tabId-change resets find state', () => {
@@ -726,7 +724,7 @@ describe('tabId-change resets find state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-015 [P0] AC#12: nonLatin1 flag derives from query codepoints.
+// nonLatin1 flag derives from query codepoints.
 // ---------------------------------------------------------------------------
 
 describe('nonLatin1 derived flag', () => {
@@ -767,9 +765,8 @@ describe('nonLatin1 derived flag', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-HOOK-016 [P0] AC#3: Cmd+F preventDefault contract. Cmd+F must consume
-// the keystroke even when content===null (AC13) so the WebView's native find
-// dialog does not surface.
+// Cmd+F preventDefault contract. Cmd+F must consume the keystroke even when
+// content===null so the WebView's native find dialog does not surface.
 // ---------------------------------------------------------------------------
 
 describe('Cmd+F preventDefault contract', () => {

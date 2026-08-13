@@ -4,10 +4,10 @@
  * TDD RED PHASE: Tests MUST fail until story 4-4 is implemented.
  *
  * Unit tests for the useWindowPersistence hook:
- *   4.4-UNIT-001 [P1]: Panel sizes saved to window.localStorage on resize
- *   4.4-UNIT-002 [P1]: Panel sizes restored from window.localStorage on mount
- *   4.4-UNIT-003 [P1]: Panel sizes saved and restored round-trip
- *   4.4-UNIT-004 [P1]: Graceful fallback to null when window.localStorage is empty or corrupt
+ *   Panel sizes saved to window.localStorage on resize
+ *   Panel sizes restored from window.localStorage on mount
+ *   Panel sizes saved and restored round-trip
+ *   Graceful fallback to null when window.localStorage is empty or corrupt
  *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.test.ts
  */
@@ -45,9 +45,9 @@ describe('4.4 useWindowPersistence', () => {
   });
 
   /**
-   * 4.4-UNIT-001 [P1]: Panel sizes saved to window.localStorage on resize.
+   * Panel sizes saved to window.localStorage on resize.
    *
-   * AC#3: When the user resizes panels, the new sizes are persisted to
+   * When the user resizes panels, the new sizes are persisted to
    *       window.localStorage so they survive app restart.
    */
   test('panel sizes saved to window.localStorage on resize', () => {
@@ -71,9 +71,9 @@ describe('4.4 useWindowPersistence', () => {
   });
 
   /**
-   * 4.4-UNIT-002 [P1]: Panel sizes restored from window.localStorage on mount.
+   * Panel sizes restored from window.localStorage on mount.
    *
-   * AC#3: When the app starts with valid persisted state in window.localStorage,
+   * When the app starts with valid persisted state in window.localStorage,
    *       the hook returns the stored panel sizes.
    */
   test('panel sizes restored from window.localStorage on mount', () => {
@@ -94,9 +94,9 @@ describe('4.4 useWindowPersistence', () => {
   });
 
   /**
-   * 4.4-UNIT-003 [P1]: Panel sizes saved and restored round-trip.
+   * Panel sizes saved and restored round-trip.
    *
-   * AC#3: Save sizes, then create a new hook instance, verify loaded
+   * Save sizes, then create a new hook instance, verify loaded
    *       sizes match saved sizes.
    */
   test('panel sizes saved and restored round-trip', () => {
@@ -121,10 +121,9 @@ describe('4.4 useWindowPersistence', () => {
   });
 
   /**
-   * 4.4-UNIT-004 [P1]: Graceful fallback to null when window.localStorage is empty
-   * or corrupt.
+   * Graceful fallback to null when window.localStorage is empty or corrupt.
    *
-   * AC#3: If window.localStorage is empty or corrupt, the application falls back to
+   * If window.localStorage is empty or corrupt, the application falls back to
    *       default panel sizes with no error.
    */
   test('fallback to null when window.localStorage is empty', () => {
@@ -220,7 +219,7 @@ describe('4.4 useWindowPersistence', () => {
 
   /**
    * Supplemental: a pending write is flushed synchronously on the last unmount
-   * (Story 10.7 AC8) and no leaked debounce timer fires a second write after.
+   * (Story 10.7) and no leaked debounce timer fires a second write after.
    */
   test('pending write is flushed on last unmount with no leaked timer', () => {
     const { result, unmount } = renderHook(() => useWindowPersistence());
@@ -229,7 +228,7 @@ describe('4.4 useWindowPersistence', () => {
       result.current.savePanelSizes({ treeWidth: 400, subPanelHeight: 200 });
     });
 
-    // Unmount before the debounce fires: AC8 flushes the pending write now.
+    // Unmount before the debounce fires: flushes the pending write now.
     unmount();
     const afterUnmount = window.localStorage.getItem(STORAGE_KEY);
     expect(afterUnmount).not.toBeNull();
@@ -294,8 +293,8 @@ describe('4.4 useWindowPersistence', () => {
  *
  * TDD RED PHASE: Tests MUST fail until story 8-4 is implemented.
  *
- *   8.4-UNIT-001..006 [P1]
- *   8.4-UNIT-007..008 [P2]
+ *   .006
+ *   .008
  *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.test.ts
  */
@@ -310,10 +309,9 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-001 [P1]: Geometry saved to window.localStorage on saveWindowGeometry
-   * (debounced 500ms).
+   * Geometry saved to window.localStorage on saveWindowGeometry (debounced 500ms).
    *
-   * AC#1, AC#4: Geometry change triggers a debounced write at +500ms.
+   * Geometry change triggers a debounced write at +500ms.
    */
   test('geometry saved to window.localStorage on saveWindowGeometry (debounced 500ms)', () => {
     const { result } = renderHook(() => useWindowPersistence());
@@ -336,9 +334,9 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-002 [P1]: Geometry restored from window.localStorage on mount.
+   * Geometry restored from window.localStorage on mount.
    *
-   * AC#1: Hook returns persisted geometry on mount when valid state exists.
+   * Hook returns persisted geometry on mount when valid state exists.
    */
   test('geometry restored from window.localStorage on mount', () => {
     window.localStorage.setItem(
@@ -355,9 +353,9 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-003 [P1]: Returns null geometry when localStorage is empty.
+   * Returns null geometry when localStorage is empty.
    *
-   * AC#3: Empty localStorage produces null geometry (no error).
+   * Empty localStorage produces null geometry (no error).
    */
   test('returns null geometry when localStorage is empty', () => {
     const { result } = renderHook(() => useWindowPersistence());
@@ -365,10 +363,10 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-004 [P1]: Returns null geometry when geometry shape is corrupt;
+   * Returns null geometry when geometry shape is corrupt;
    * panelSizes still load if present (forward/backward compat).
    *
-   * AC#3, AC#5: Independent validation per field.
+   * Independent validation per field.
    */
   test('corrupt geometry returns null but valid panelSizes still load', () => {
     window.localStorage.setItem(
@@ -388,9 +386,9 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-005 [P1]: saveWindowGeometry followed by savePanelSizes (or vice versa)
-   * within 500ms produces exactly ONE localStorage write at +500ms after the
-   * second call. The single write must contain BOTH fields. (AC#5)
+   * saveWindowGeometry followed by savePanelSizes (or vice versa) within 500ms
+   * produces exactly ONE localStorage write at +500ms after the second call. The
+   * single write must contain BOTH fields.
    *
    * Shared timer is reset on each call.
    */
@@ -431,10 +429,10 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-006 [P1]: Saving geometry does not erase a previously-stored
-   * panelSizes value already in localStorage (read-merge-write).
+   * Saving geometry does not erase a previously-stored panelSizes value
+   * already in localStorage (read-merge-write).
    *
-   * AC#5: A geometry-only save preserves the existing panelSizes field.
+   * A geometry-only save preserves the existing panelSizes field.
    */
   test('saving geometry preserves existing panelSizes in localStorage (read-merge-write)', () => {
     // Pre-existing panelSizes in localStorage from an earlier session
@@ -465,9 +463,9 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-007 [P2]: isValidGeometry() validator semantics.
+   * isValidGeometry() validator semantics.
    *
-   * AC#5: Validator allows negative x/y for multi-monitor;
+   * Validator allows negative x/y for multi-monitor;
    *       rejects non-finite/NaN x/y/width/height;
    *       rejects zero or negative width/height.
    */
@@ -500,10 +498,10 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * 8.4-UNIT-008 [P2]: Loader returns windowGeometry: null but a valid
-   * panelSizes when the persisted geometry is corrupt (forward/backward compat).
+   * Loader returns windowGeometry: null but a valid panelSizes when the
+   * persisted geometry is corrupt (forward/backward compat).
    *
-   * AC#5: Mirrors UNIT-004 from the inverse direction (corrupt geometry +
+   * Mirrors UNIT-004 from the inverse direction (corrupt geometry +
    *       valid panelSizes still loads panelSizes); this case validates
    *       that the panelSizes load path is unaffected by the geometry path.
    */
@@ -527,8 +525,8 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * Supplemental (AC#5 reverse direction): saving panel sizes does not erase
-   * a previously-stored windowGeometry value.
+   * Supplemental (reverse direction): saving panel sizes does not erase a
+   * previously-stored windowGeometry value.
    */
   test('saving panel sizes preserves existing windowGeometry in localStorage (read-merge-write)', () => {
     window.localStorage.setItem(
@@ -567,12 +565,12 @@ describe('8.4 useWindowPersistence (window geometry)', () => {
   });
 
   /**
-   * AC#4 cross-instance shared-timer regression: when two hook instances are
+   * cross-instance shared-timer regression: when two hook instances are
    * mounted (App.jsx + MainLayout.tsx in production), a panel save from one
    * instance and a geometry save from the other within the debounce window
-   * must coalesce into a SINGLE write. If timers were per-instance the
-   * panel save from instance A and the geometry save from instance B
-   * would each fire their own setTimeout and produce two writes.
+   * must coalesce into a SINGLE write. If timers were per-instance the panel
+   * save from instance A and the geometry save from instance B would each
+   * fire their own setTimeout and produce two writes.
    */
   test('shared timer coalesces saves across multiple hook instances into one write', () => {
     // Asserts via localStorage state. Two checkpoints prove the timer is shared

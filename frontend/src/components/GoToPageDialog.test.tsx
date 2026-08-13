@@ -1,6 +1,6 @@
 /**
- * 9.4-UNIT-002 [P1]: GoToPageDialog validates input, dispatches NAVIGATE_TO_REF
- * on success, surfaces backend errors inline, and closes on Cancel/Escape.
+ * GoToPageDialog validates input, dispatches NAVIGATE_TO_REF on success,
+ * surfaces backend errors inline, and closes on Cancel/Escape.
  *
  * Mocks the Wails binding via vi.mock so the test exercises the dialog's
  * validation, async flow, and dispatch wiring without a Go runtime.

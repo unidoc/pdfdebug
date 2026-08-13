@@ -1,7 +1,7 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC5 (finding #8) -- findMatches accepts a pre-built lineStartOffsets table.
- * AC6 (finding #20) -- findMatches accepts a pre-built haystack string.
+ * Story 10.7: Frontend Hook and Render-Path Correctness (finding #8) --
+ * findMatches accepts a pre-built lineStartOffsets table.
+ * (finding #20) -- findMatches accepts a pre-built haystack string.
  *
  * TDD RED PHASE: every test below is emitted as `test()`. They assert the
  * POST-FIX signature `findMatches(content, query, caseSensitive,
@@ -14,7 +14,7 @@
  * already exported. A developer activates them by removing `.skip` after the
  * params are added.
  *
- * Test IDs follow the 10-7-UNIT-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/lib/findMatches.lineStartOffsets.test.ts
  */
@@ -27,8 +27,8 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-001 [P1] AC5: when a caller-supplied lineStartOffsets is provided,
-// the internal buildLineStartOffsets(content) call is SKIPPED.
+// When a caller-supplied lineStartOffsets is provided, the internal
+// buildLineStartOffsets(content) call is SKIPPED.
 // ---------------------------------------------------------------------------
 
 describe('findMatches skips internal buildLineStartOffsets when offsets supplied', () => {
@@ -51,9 +51,9 @@ describe('findMatches skips internal buildLineStartOffsets when offsets supplied
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-002 [P1] AC5: the supplied offset table drives the reported `line`
-// field. A VALID-but-distinct table that partitions the content into different
-// line boundaries than the natural split must change the reported lines.
+// The supplied offset table drives the reported `line` field. A
+// VALID-but-distinct table that partitions the content into different line
+// boundaries than the natural split must change the reported lines.
 // ---------------------------------------------------------------------------
 
 describe('supplied offset table determines reported line numbers', () => {
@@ -83,9 +83,9 @@ describe('supplied offset table determines reported line numbers', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-003 [P1] AC6: findMatches accepts a pre-built haystack and uses it
-// instead of computing content.toLowerCase() internally. The haystack length
-// must equal content length (Latin-1 length-preserving invariant).
+// findMatches accepts a pre-built haystack and uses it instead of computing
+// content.toLowerCase() internally. The haystack length must equal content
+// length (Latin-1 length-preserving invariant).
 // ---------------------------------------------------------------------------
 
 describe('findMatches uses a supplied haystack', () => {
@@ -107,7 +107,7 @@ describe('findMatches uses a supplied haystack', () => {
     expect(matches.map((m) => m.start)).toEqual([0, 6]);
   });
 
-  // Gap (automate): the load-bearing AC6 invariant is that toLowerCase is
+  // Gap (automate): the load-bearing invariant is that toLowerCase is
   // length-preserving for the FULL Latin-1 range (U+00C0..U+00FF), not just
   // ASCII. UNIT-003 only uses ASCII. Supply a haystack lowercased from accented
   // uppercase (E-acute U+00C9 -> e-acute U+00E9) and assert offsets still index

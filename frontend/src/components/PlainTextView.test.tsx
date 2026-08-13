@@ -58,7 +58,7 @@ const latin1Doc: PlainTextDocumentFixture = {
 };
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-101 [P0] AC#6: renders 1-based line-number gutter + content lines.
+// Renders 1-based line-number gutter + content lines.
 // ---------------------------------------------------------------------------
 
 describe('line-number gutter + content lines', () => {
@@ -83,8 +83,8 @@ describe('line-number gutter + content lines', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-102 [P0] AC#6: CRLF / lone CR / lone LF all collapse to ONE
-// logical line break each (no empty intervening row).
+// CRLF / lone CR / lone LF all collapse to ONE logical line break each
+// (no empty intervening row).
 // ---------------------------------------------------------------------------
 
 describe('line-break regex collapses CRLF/CR/LF', () => {
@@ -108,7 +108,7 @@ describe('line-break regex collapses CRLF/CR/LF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-103 [P0] AC#6: Latin-1 high bytes (0x80-0xFF) render verbatim.
+// Latin-1 high bytes (0x80-0xFF) render verbatim.
 // ---------------------------------------------------------------------------
 
 describe('Latin-1 high bytes render verbatim', () => {
@@ -128,7 +128,7 @@ describe('Latin-1 high bytes render verbatim', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-109 [P1] AC#10: lazy fetch gated by active prop.
+// Lazy fetch gated by active prop.
 // ---------------------------------------------------------------------------
 
 describe('lazy fetch gated by active prop', () => {
@@ -153,7 +153,7 @@ describe('lazy fetch gated by active prop', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-110 [P0] Task 7.8: empty state when no tabId / no document.
+// Task 7.8: empty state when no tabId / no document.
 // ---------------------------------------------------------------------------
 
 describe('empty state when no document', () => {
@@ -169,7 +169,7 @@ describe('empty state when no document', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-111 [P1] Task 7.5: virtualization performance smoke test.
+// Task 7.5: virtualization performance smoke test.
 // ---------------------------------------------------------------------------
 
 describe('virtualization keeps DOM small', () => {

@@ -4,13 +4,15 @@
  * TDD RED PHASE: Tests MUST fail until XRefTableView.tsx is created and
  * GetXRefTable is wired through the Wails bindings.
  *
- * Covers AC#2 (table shape + columns + status pill text + row count label),
- * AC#3 (in-use / in-objstm click navigation, free rows non-clickable),
- * AC#4 (semantic HTML + tabIndex + arrow-key row focus + Enter dispatch),
- * AC#5 (status pill text is load-bearing signal),
- * AC#10 (200ms loading debounce),
- * AC#12 (in-objstm click navigates to underlying object, NOT host objstm),
- * AC#13 (error rendering with mapped message).
+ * Covers:
+ *   - table shape, columns, status pill text and the row count label;
+ *   - in-use / in-objstm click navigation, free rows non-clickable;
+ *   - semantic HTML, tabIndex, arrow-key row focus and Enter dispatch;
+ *   - status pill text as a load-bearing signal;
+ *   - the 200ms loading debounce;
+ *   - in-objstm click navigating to the underlying object, NOT the host
+ *     objstm;
+ *   - error rendering with a mapped message.
  *
  * Run: cd frontend && npx vitest run src/components/XRefTableView.test.tsx
  */
@@ -64,7 +66,7 @@ const xrefSingleInUse: XRefTableFixture = {
 };
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-001 [P0] AC#2: renders all five always-present columns in order.
+// Renders all five always-present columns in order.
 // ---------------------------------------------------------------------------
 
 describe('column headers and order', () => {
@@ -84,7 +86,7 @@ describe('column headers and order', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-002 [P0] AC#2: rows sorted ascending by object number.
+// Rows sorted ascending by object number.
 // ---------------------------------------------------------------------------
 
 describe('rows sorted by object number', () => {
@@ -106,8 +108,8 @@ describe('rows sorted by object number', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-003 [P0] AC#2 + AC#5: status pill text is "in-use" / "free" /
-// "in-objstm" -- load-bearing signal, NOT just color.
+// Status pill text is "in-use" / "free" / "in-objstm" -- load-bearing
+// signal, NOT just color.
 // ---------------------------------------------------------------------------
 
 describe('status pill text', () => {
@@ -127,8 +129,8 @@ describe('status pill text', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-004 [P0] AC#2: Offset column shows decimal byte offset for in-use,
-// "-" for free + in-objstm.
+// Offset column shows decimal byte offset for in-use, "-" for free +
+// in-objstm.
 // ---------------------------------------------------------------------------
 
 describe('Offset column sentinels', () => {
@@ -152,8 +154,8 @@ describe('Offset column sentinels', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-005 [P0] AC#2 + AC#12: Host ObjStm column shows the host number
-// for in-objstm rows, "-" for free + in-use.
+// Host ObjStm column shows the host number for in-objstm rows, "-" for free
+// + in-use.
 // ---------------------------------------------------------------------------
 
 describe('Host ObjStm column sentinels', () => {
@@ -175,8 +177,8 @@ describe('Host ObjStm column sentinels', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-006 [P0] AC#3: clicking an in-use row dispatches onNavigate with
-// the nodeID (obj:<gen>:<num>).
+// Clicking an in-use row dispatches onNavigate with the nodeID
+// (obj:<gen>:<num>).
 // ---------------------------------------------------------------------------
 
 describe('in-use row click dispatches onNavigate', () => {
@@ -198,9 +200,9 @@ describe('in-use row click dispatches onNavigate', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-007 [P0] AC#3 + AC#12: clicking an in-objstm row dispatches
-// onNavigate with the UNDERLYING object's nodeID (NOT the host objstm).
-// R4 of Story 9-11 risks list pins this distinction explicitly.
+// Clicking an in-objstm row dispatches onNavigate with the UNDERLYING
+// object's nodeID (NOT the host objstm). R4 of Story 9-11 risks list
+// pins this distinction explicitly.
 // ---------------------------------------------------------------------------
 
 describe('in-objstm row click navigates to underlying object', () => {
@@ -223,8 +225,7 @@ describe('in-objstm row click navigates to underlying object', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-008 [P0] AC#3 + AC#4: clicking a free row is a no-op (no
-// navigation target).
+// Clicking a free row is a no-op (no navigation target).
 // ---------------------------------------------------------------------------
 
 describe('free row click is no-op', () => {
@@ -246,8 +247,7 @@ describe('free row click is no-op', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-009 [P0] AC#4: Enter on a focused in-use row dispatches the same
-// navigation as a click.
+// Enter on a focused in-use row dispatches the same navigation as a click.
 // ---------------------------------------------------------------------------
 
 describe('Enter on in-use row triggers onNavigate', () => {
@@ -270,7 +270,7 @@ describe('Enter on in-use row triggers onNavigate', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-010 [P0] AC#4: Enter on a focused FREE row is a no-op.
+// Enter on a focused FREE row is a no-op.
 // ---------------------------------------------------------------------------
 
 describe('Enter on free row is no-op', () => {
@@ -293,8 +293,8 @@ describe('Enter on free row is no-op', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-011 [P0] AC#4: ArrowDown moves focus from row N to row N+1.
-// ArrowUp moves focus to row N-1. Wrap-around NOT required.
+// ArrowDown moves focus from row N to row N+1. ArrowUp moves focus to
+// row N-1. Wrap-around NOT required.
 // ---------------------------------------------------------------------------
 
 describe('arrow keys move row focus', () => {
@@ -328,8 +328,8 @@ describe('arrow keys move row focus', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-012 [P1] AC#4: free rows are focusable (tabIndex=0) AND carry
-// aria-disabled="true" so screen readers announce the disabled state.
+// Free rows are focusable (tabIndex=0) AND carry aria-disabled="true" so
+// screen readers announce the disabled state.
 // ---------------------------------------------------------------------------
 
 describe('free row a11y attributes', () => {
@@ -350,8 +350,8 @@ describe('free row a11y attributes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-013 [P0] AC#10: 200ms loading debounce. Under 200ms -> no
-// indicator. Over 200ms -> indicator visible.
+// 200ms loading debounce. Under 200ms -> no indicator. Over 200ms ->
+// indicator visible.
 // ---------------------------------------------------------------------------
 
 describe('200ms loading debounce', () => {
@@ -402,8 +402,8 @@ describe('200ms loading debounce', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-014 [P0] AC#13: error rendering. A rejected fetch surfaces the
-// mapped error message in data-testid="xref-error".
+// Error rendering. A rejected fetch surfaces the mapped error message in
+// data-testid="xref-error".
 // ---------------------------------------------------------------------------
 
 describe('error rendering', () => {
@@ -422,7 +422,7 @@ describe('error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-015 [P1]: the fetch is DEFERRED until the XREF tab is first
+// The fetch is DEFERRED until the XREF tab is first
 // activated. The payload can be very large (a 129k-entry PDF serializes ~12 MB);
 // because the pane is force-mounted, an unconditional fetch would JSON.parse
 // ~12 MB and render all rows on the main thread on EVERY document open, freezing
@@ -507,9 +507,9 @@ describe('fetch deferred until activation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-017 [P1] Perf: the row list is viewport-virtualized -- a large xref
-// (a 750-page PDF can carry ~129k entries) must render only a bounded window of
-// rows, not one <tr> per entry, or the main thread freezes on render.
+// Perf: the row list is viewport-virtualized -- a large xref (a 750-page PDF
+// can carry ~129k entries) must render only a bounded window of rows, not one
+// <tr> per entry, or the main thread freezes on render.
 // ---------------------------------------------------------------------------
 
 describe('row list is virtualized', () => {
@@ -546,9 +546,9 @@ describe('row list is virtualized', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-018 [P1] AC#4 + virtualization: ArrowDown past the rendered window
-// scrolls the next row into view and focuses it. DOM-sibling focus cannot work
-// here because off-window rows are unmounted; the handler walks the index.
+// + virtualization: ArrowDown past the rendered window scrolls the next row
+// into view and focuses it. DOM-sibling focus cannot work here because
+// off-window rows are unmounted; the handler walks the index.
 // ---------------------------------------------------------------------------
 
 describe('keyboard nav crosses the virtualization window', () => {
@@ -591,8 +591,8 @@ describe('keyboard nav crosses the virtualization window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-016 [P1] AC#2 + Task 6.10: onLoaded fires with the entry count
-// after a successful fetch.
+// + Task 6.10: onLoaded fires with the entry count after a successful
+// fetch.
 // ---------------------------------------------------------------------------
 
 describe('onLoaded callback', () => {
@@ -611,7 +611,7 @@ describe('onLoaded callback', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-017 [P0] Task 6.8: empty state when no tabId / no document open.
+// Task 6.8: empty state when no tabId / no document open.
 // ---------------------------------------------------------------------------
 
 describe('empty state when no document', () => {

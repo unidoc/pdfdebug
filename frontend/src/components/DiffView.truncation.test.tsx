@@ -1,5 +1,5 @@
 /**
- * Story 14.3: DiffView depth-cap truncation display branch (AC5, 14.3-COMP-001).
+ * Story 14.3: DiffView depth-cap truncation display branch.
  *
  * DiffView's `identical` const (DiffView.tsx) mirrors Go's diffIsIdentical, and
  * that includes `summary.truncatedSubtrees === 0`. Given a result whose walk was
@@ -12,7 +12,6 @@
  * the banner appeared on a bounded walk. This is the thin display branch of a
  * backend-verified field, kept at the component level (NOT E2E).
  *
- * Naming: 14.3-COMP-001 [P1].
  * Run: cd frontend && npx vitest run src/components/DiffView.truncation.test.tsx
  */
 import { render, screen, waitFor } from '@testing-library/react';
@@ -43,7 +42,7 @@ const depthCappedResult = {
     encryptionChanged: false,
     infoChanged: false,
     xmpChanged: false,
-    // Additive field surfaced by the Go DiffSummary (AC2); declared on
+    // Additive field surfaced by the Go DiffSummary; declared on
     // DiffSummaryData in DiffView.tsx.
     truncatedSubtrees: 1,
   },
@@ -75,9 +74,9 @@ beforeEach(() => {
 });
 
 describe('DiffView depth-cap truncation', () => {
-  // 14.3-COMP-001 [P1] AC5: a result with truncatedSubtrees > 0 must NOT render
-  // the "No structural differences / identical" banner -- the walk was bounded,
-  // so identity cannot be claimed.
+  // A result with truncatedSubtrees > 0 must NOT render the "No structural
+  // differences / identical" banner -- the walk was bounded, so identity cannot
+  // be claimed.
   test('suppresses the identical banner when a subtree was depth-capped', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
@@ -86,8 +85,8 @@ describe('DiffView depth-cap truncation', () => {
     expect(text).not.toMatch(/no structural differences|no differ|identical/);
   });
 
-  // 14.3-COMP-001 [P1] AC5: the per-node [truncated: depth cap] ROW renders, not
-  // just the summary note. The depth-capped node reports status "unchanged", so
+  // The per-node [truncated: depth cap] ROW renders, not just the summary note.
+  // The depth-capped node reports status "unchanged", so
   // hasDelta must treat `truncated` as a delta for its ancestors to auto-expand;
   // otherwise the marker sits under an unexpanded ancestor and is unreachable.
   // Asserts the bracketed row text (distinct from the summary note's "truncated

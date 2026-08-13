@@ -7,7 +7,7 @@
  * SET_FIND_CASE_SENSITIVE, OPEN_DOCUMENT defaults the field to false,
  * CLOSE_DOCUMENT drops it with the tab).
  *
- * Test IDs follow the 10-2-REDU-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useDocumentState.find.test.tsx
  */
@@ -56,8 +56,7 @@ function Inspector({ actions }: { actions: AppAction[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-001 [P0] AC#10, AC#14: OPEN_DOCUMENT seeds findCaseSensitive=false
-// on the new TabState.
+// OPEN_DOCUMENT seeds findCaseSensitive=false on the new TabState.
 // ---------------------------------------------------------------------------
 
 describe('OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
@@ -88,8 +87,8 @@ describe('OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-002 [P0] AC#10: SET_FIND_CASE_SENSITIVE flips the targeted tab's
-// flag without touching other tabs.
+// SET_FIND_CASE_SENSITIVE flips the targeted tab's flag without touching
+// other tabs.
 // ---------------------------------------------------------------------------
 
 describe('SET_FIND_CASE_SENSITIVE updates one tab', () => {
@@ -196,8 +195,8 @@ describe('SET_FIND_CASE_SENSITIVE updates one tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-003 [P0] AC#11: CLOSE_DOCUMENT drops the findCaseSensitive field
-// with the rest of TabState (covered by tab-count dropping).
+// CLOSE_DOCUMENT drops the findCaseSensitive field with the rest of TabState
+// (covered by tab-count dropping).
 // ---------------------------------------------------------------------------
 
 describe('CLOSE_DOCUMENT drops the field with the tab', () => {
@@ -233,8 +232,8 @@ describe('CLOSE_DOCUMENT drops the field with the tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-004 [P0] AC#10: SET_FIND_CASE_SENSITIVE on an unknown tabId is a
-// no-op (does not throw, does not corrupt other tabs).
+// SET_FIND_CASE_SENSITIVE on an unknown tabId is a no-op (does not throw,
+// does not corrupt other tabs).
 // ---------------------------------------------------------------------------
 
 describe('SET_FIND_CASE_SENSITIVE on unknown tabId is a no-op', () => {

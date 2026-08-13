@@ -1,11 +1,11 @@
 /**
- * Story 13.4: DetailPanel Signatures tab visibility tests (AC 6, 8).
+ * Story 13.4: DetailPanel Signatures tab visibility tests.
  *
  * Authored red-phase (`describe.skip`); unskipped in the Story 13.4 green
  * phase once the `DetailView` union gained 'signatures' and the CONDITIONAL
  * Tabs.Trigger/Tabs.Content pair landed.
  *
- * AC6 contract:
+ * Contract:
  *  - The "Signatures" document-level tab is shown ONLY when the document has
  *    >= 1 signature field; hidden otherwise (a deliberate departure from the
  *    always-visible tabs).
@@ -16,7 +16,6 @@
  * DetailPanel's new tab does not widen the App.test.tsx vi.mock gap (mirrors
  * the 13-2 DetailPanel.embeddedMetadata.test.tsx playbook).
  *
- * Naming: 13.4-UNIT-11N [Px].
  * Run: cd frontend && npx vitest run src/components/DetailPanel.signatures.test.tsx
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -126,8 +125,7 @@ beforeEach(() => {
 });
 
 describe('DetailPanel Signatures tab', () => {
-  // 13.4-UNIT-110 [P0] AC6: the tab is HIDDEN when the document has no
-  // signature fields.
+  // The tab is HIDDEN when the document has no signature fields.
   test('tab hidden when no signatures', async () => {
     mockGetSignatures.mockResolvedValue([]);
     renderPanel([openAction]);
@@ -136,8 +134,8 @@ describe('DetailPanel Signatures tab', () => {
     expect(screen.queryByRole('tab', { name: /signatures/i })).not.toBeInTheDocument();
   });
 
-  // 13.4-UNIT-111 [P0] AC6: the tab is SHOWN when the document has at least
-  // one signature field (signed or unsigned placeholder).
+  // The tab is SHOWN when the document has at least one signature field
+  // (signed or unsigned placeholder).
   test('tab shown when signatures present', async () => {
     mockGetSignatures.mockResolvedValue(oneSignature);
     renderPanel([openAction]);
@@ -147,8 +145,8 @@ describe('DetailPanel Signatures tab', () => {
     );
   });
 
-  // 13.4-UNIT-112 [P1] AC6: ONE GetSignatures fetch per document tab -- tab
-  // switches re-display the cached result, never refetch.
+  // ONE GetSignatures fetch per document tab -- tab switches re-display the
+  // cached result, never refetch.
   test('single fetch per document tab across tab switches', async () => {
     mockGetSignatures.mockResolvedValue(oneSignature);
     renderPanel([openAction]);

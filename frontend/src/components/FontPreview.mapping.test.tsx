@@ -2,10 +2,10 @@
  * Story 13.3: Font CMap and Glyph-Mapping Inspection -- FontPreview tests.
  *
  * TDD RED PHASE: these tests MUST fail until Task 4 extends FontPreview.tsx
- * with (a) a single JOINED code->glyphName->Unicode->text mapping table (AC1
- * columns), (b) a health-signals banner (AC2), and (c) virtualization of the
- * joined table so a CID font with thousands of rows does not render every row
- * to the DOM (AC4 / NFR5, reusing the PlainTextView windowing approach).
+ * with (a) a single JOINED code->glyphName->Unicode->text mapping table,
+ * (b) a health-signals banner, and (c) virtualization of the joined table so
+ * a CID font with thousands of rows does not render every row to the DOM
+ * (NFR5, reusing the PlainTextView windowing approach).
  *
  * Contract under test (the shape Dev must implement; kept in lockstep with the
  * pdfcore FontMappingRow / FontHealth types and the CLI acceptance JSON):
@@ -108,7 +108,7 @@ function renderFont(detail: FontDetail13_3) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.3-UNIT-101 (AC1): single joined mapping table -- one row per declared code
+// Single joined mapping table -- one row per declared code
 // ---------------------------------------------------------------------------
 describe('joined mapping table', () => {
   test('renders one joined table (not two separate Differences/ToUnicode tables) keyed by code', () => {
@@ -144,7 +144,7 @@ describe('joined mapping table', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 13.3-UNIT-102 (AC2): health-signals banner
+// health-signals banner
 // ---------------------------------------------------------------------------
 describe('health banner', () => {
   test('flags a missing ToUnicode CMap', () => {
@@ -198,10 +198,9 @@ describe('health banner', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 13.3-UNIT-103 (AC4 / NFR5): virtualization -- thousands of rows must NOT all
-// render to the DOM. A CID font with 5,000 mapping rows must render far fewer
-// table-body rows than the data length (windowed), keeping the panel
-// interactive.
+// / NFR5: virtualization -- thousands of rows must NOT all render to the DOM.
+// A CID font with 5,000 mapping rows must render far fewer table-body rows
+// than the data length (windowed), keeping the panel interactive.
 // ---------------------------------------------------------------------------
 describe('virtualization', () => {
   test('windows a large joined table instead of rendering every row', () => {
@@ -238,15 +237,14 @@ describe('virtualization', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 13.3-UNIT-104 (AC5): degradation -- FontPreview renders WITHOUT crashing for
-// a still-'detail' payload that carries a malformed ToUnicode signal
-// (toUnicodeError set) alongside whatever partial mappingRows / health the
-// backend could still assemble. This is the frontend render path for the
-// AC5 "malformed ToUnicode stream ... never a crash" clause; the backend
-// assembly side is covered by 13.3-UNIT-008. The DetailPanel-level 'neither'
-// (fallback DictView) and real-'error' (inline message) paths are already
-// covered in DetailPanel.fontPreview.test.tsx (9.9-UNIT-202 / 9.9-UNIT-203),
-// so they are NOT duplicated here.
+// Degradation -- FontPreview renders WITHOUT crashing for a still-'detail'
+// payload that carries a malformed ToUnicode signal (toUnicodeError set)
+// alongside whatever partial mappingRows / health the backend could still
+// assemble. This is the frontend render path for the "malformed ToUnicode
+// stream ... never a crash" clause; the backend assembly side is covered by.
+// The DetailPanel-level 'neither' (fallback DictView) and real-'error' (inline
+// message) paths are already covered in DetailPanel.fontPreview.test.tsx, so
+// they are NOT duplicated here.
 // ---------------------------------------------------------------------------
 describe('degradation renders without crashing', () => {
   test('malformed ToUnicode (toUnicodeError set) still renders the health banner and any parsed rows', () => {
@@ -268,13 +266,13 @@ describe('degradation renders without crashing', () => {
         encodingWithoutToUnicodeCodes: [32, 33],
       },
     };
-    // The render itself must not throw -- the crash guard for AC5.
+    // The render itself must not throw -- the crash guard for.
     expect(() => renderFont(detail)).not.toThrow();
 
     // The malformed-ToUnicode signal surfaces (existing ToUnicode error panel).
     expect(screen.getByTestId('font-tounicode-error')).toBeInTheDocument();
 
-    // Health signals still render for whatever parsed (AC5 "Health signals
+    // Health signals still render for whatever parsed ("Health signals
     // still render for whatever parsed").
     expect(screen.getByTestId('font-health-banner')).toBeInTheDocument();
 

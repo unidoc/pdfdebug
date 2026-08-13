@@ -5,11 +5,11 @@
  * is implemented per Task 2.
  *
  * Scope:
- * - findMatches(content, query, caseSensitive): Match[] -- AC4 algorithm,
- *   AC12 non-Latin-1 detection, AC19 performance budget.
- * - buildLineStartOffsets(content): number[] -- AC4 memoizable line table.
+ * - findMatches(content, query, caseSensitive): Match[] -- algorithm,
+ *   non-Latin-1 detection, performance budget.
+ * - buildLineStartOffsets(content): number[] -- memoizable line table.
  *
- * Test IDs follow the 10-2-UNIT-NNN convention.
+ * Test IDs follow the convention.
  *
  * Run: cd frontend && npx vitest run src/lib/findMatches.test.ts
  */
@@ -18,7 +18,7 @@ import { describe, test, expect } from 'vitest';
 import { findMatches, buildLineStartOffsets, type Match } from './findMatches';
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-001 [P0] AC#4: empty query yields zero matches.
+// Empty query yields zero matches.
 // ---------------------------------------------------------------------------
 
 describe('empty query', () => {
@@ -32,7 +32,7 @@ describe('empty query', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-002 [P0] AC#4: single literal substring match.
+// Single literal substring match.
 // ---------------------------------------------------------------------------
 
 describe('single match', () => {
@@ -50,7 +50,7 @@ describe('single match', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-003 [P0] AC#4: multiple matches across multiple lines.
+// Multiple matches across multiple lines.
 // ---------------------------------------------------------------------------
 
 describe('multiple matches', () => {
@@ -68,8 +68,8 @@ describe('multiple matches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-004 [P0] AC#4 (Decision: non-overlapping): "aaaa" searched for
-// "aa" yields 2 matches at offsets [0, 2].
+// Decision: non-overlapping: "aaaa" searched for "aa" yields 2 matches at
+// offsets [0, 2].
 // ---------------------------------------------------------------------------
 
 describe('non-overlapping matches', () => {
@@ -89,7 +89,7 @@ describe('non-overlapping matches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-005 [P0] AC#4: case-insensitive default.
+// case-insensitive default.
 // ---------------------------------------------------------------------------
 
 describe('case-insensitive default', () => {
@@ -107,7 +107,7 @@ describe('case-insensitive default', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-006 [P0] AC#4: case-sensitive opt-in.
+// case-sensitive opt-in.
 // ---------------------------------------------------------------------------
 
 describe('case-sensitive when caseSensitive=true', () => {
@@ -125,7 +125,7 @@ describe('case-sensitive when caseSensitive=true', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-007 [P0] AC#12: query with codepoint > U+00FF returns [].
+// Query with codepoint > U+00FF returns [].
 // ---------------------------------------------------------------------------
 
 describe('non-Latin-1 query rejected', () => {
@@ -158,8 +158,8 @@ describe('non-Latin-1 query rejected', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-008 [P0] AC#4: line number is 1-based and derived from a
-// memoized line-start offset table.
+// line number is 1-based and derived from a memoized line-start
+// offset table.
 // ---------------------------------------------------------------------------
 
 describe('line numbers are 1-based', () => {
@@ -192,8 +192,8 @@ describe('line numbers are 1-based', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-009 [P0] AC#4: buildLineStartOffsets returns 1-based-line offset
-// table where index i is the code-unit offset of line (i+1).
+// buildLineStartOffsets returns 1-based-line offset table where index i is
+// the code-unit offset of line (i+1).
 // ---------------------------------------------------------------------------
 
 describe('buildLineStartOffsets', () => {
@@ -223,7 +223,7 @@ describe('buildLineStartOffsets', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-010 [P0] AC#4: zero-byte / empty corpus edge case.
+// zero-byte / empty corpus edge case.
 // ---------------------------------------------------------------------------
 
 describe('empty corpus', () => {
@@ -233,8 +233,8 @@ describe('empty corpus', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-011 [P0] AC#4: Match.end == Match.start + query.length for the
-// case-insensitive path (no normalization expansion).
+// Match.end == Match.start + query.length for the case-insensitive path
+// (no normalization expansion).
 // ---------------------------------------------------------------------------
 
 describe('match end aligns with start + query.length', () => {
@@ -254,8 +254,8 @@ describe('match end aligns with start + query.length', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-012 [P1] AC#19: performance budget on a 25 MiB synthetic corpus
-// with ~10000 matches completes well under the CI ceiling.
+// Performance budget on a 25 MiB synthetic corpus with ~10000 matches
+// completes well under the CI ceiling.
 //
 // The CI assertion uses 500 ms to accommodate slow GHA runners; local dev
 // typically sees <50 ms (documented in Dev Notes). This test is the only
@@ -280,8 +280,8 @@ describe('performance budget', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-013 [P1] AC#4: query equal to the entire corpus returns one match
-// covering [0, corpus.length).
+// Query equal to the entire corpus returns one match covering [0,
+// corpus.length).
 // ---------------------------------------------------------------------------
 
 describe('query equal to corpus', () => {

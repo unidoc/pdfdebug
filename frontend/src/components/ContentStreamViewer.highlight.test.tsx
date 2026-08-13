@@ -4,7 +4,7 @@
  * TDD RED PHASE: Tests MUST fail until syntax highlighting is implemented
  * in ContentStreamViewer.tsx.
  *
- * Test IDs: 3.3-UNIT-008 through 3.3-UNIT-013 (Vitest)
+ * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.highlight.test.tsx
  */
 import { render, screen } from '@testing-library/react';
@@ -46,9 +46,9 @@ const sampleTokens = [
 const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-008 [P1]: Syntax highlighting applies distinct CSS classes for
-// operator, number, string, name, and comment token types.
-// AC#1: Operators visually distinct from operands.
+// Syntax highlighting applies distinct CSS classes for operator, number,
+// string, name, and comment token types.
+// Operators visually distinct from operands.
 // ---------------------------------------------------------------------------
 
 describe('Token type CSS classes', () => {
@@ -107,8 +107,8 @@ describe('Token type CSS classes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-012 [P2]: Operator highlighting does not rely solely on color.
-// AC#3: Font weight or style also differentiates operators from operands.
+// Operator highlighting does not rely solely on color.
+// Font weight or style also differentiates operators from operands.
 // ---------------------------------------------------------------------------
 
 describe('Non-color differentiation (accessibility)', () => {
@@ -135,9 +135,8 @@ describe('Non-color differentiation (accessibility)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-009 [P1]: Operator tooltip shows description on hover using
-// Radix UI Tooltip.
-// AC#2: Hovering over operator keyword shows brief description.
+// Operator tooltip shows description on hover using Radix UI Tooltip.
+// Hovering over operator keyword shows brief description.
 // ---------------------------------------------------------------------------
 
 describe('Operator tooltip', () => {
@@ -184,9 +183,8 @@ describe('Operator tooltip', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-FALLBACK [P1]: Falls back to plain text when tokenized is
-// null/undefined/empty.
-// AC#1: When tokenized is not provided, falls back to raw text rendering.
+// Falls back to plain text when tokenized is null/undefined/empty.
+// When tokenized is not provided, falls back to raw text rendering.
 // ---------------------------------------------------------------------------
 
 describe('Tokenized fallback to plain text', () => {
@@ -220,8 +218,7 @@ describe('Tokenized fallback to plain text', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-LINENUMS [P1]: Line numbers still rendered correctly with
-// tokenized data.
+// Line numbers still rendered correctly with tokenized data.
 // ---------------------------------------------------------------------------
 
 describe('Line numbers with tokenized data', () => {
