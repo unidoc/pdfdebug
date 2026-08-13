@@ -41,7 +41,7 @@ obj 5: 37                                            (the resolved length)
 
 Note: pdfcpu's reader observed during this story does populate
 `StreamDict.StreamLength` for this fixture (it dereferences the indirect
-length during `ReadContextFile`). The fallback path added by AC3 still pins
+length during `ReadContextFile`). The fallback path still pins
 the contract for any malformed PDF where pdfcpu leaves `StreamLength == nil`
 but the dict carries `/Length`. The unit test
 `TestExtractStreamInfoIndirectLength` exercises that fallback path with a
@@ -61,8 +61,8 @@ endstream
 
 Pre-fix `latin1Decode` was documented as replacing "everything else under
 0x20" but the implementation correctly mapped 0x80..0x9F verbatim to their
-Unicode codepoints U+0080..U+009F. AC4 keeps the implementation, rewrites
-the doc comment, and pins the byte-for-codepoint contract via a unit test on
+Unicode codepoints U+0080..U+009F. The implementation stands, the doc comment
+was corrected, and the byte-for-codepoint contract is pinned by a unit test on
 the full 0x00..0xFF range.
 
 ## diff-out-of-range.pdf

@@ -21,7 +21,7 @@ uncompressed content streams (no Flate/LZW), and no encryption.
 ```
 obj 1  Catalog                /Pages 2 0 R
 obj 2  Pages                  /Kids [3 0 R] /Count 1 /Rotate 90 /MediaBox [0 0 300 400]
-                              -- MediaBox + Rotate live HERE, inherited by the page (AC1 gotcha)
+                              -- MediaBox + Rotate live HERE, inherited by the page (the gotcha)
 obj 3  Page                   /Parent 2 0 R /Contents 4 0 R
                               /Resources <<
                                 /ExtGState << /GS0 5 0 R >>
@@ -31,22 +31,22 @@ obj 3  Page                   /Parent 2 0 R /Contents 4 0 R
                               >>
                               -- NO MediaBox / Rotate on the page: they resolve via inheritance
 obj 4  page content stream    "q /GS0 gs /Fm0 Do Q  q /Im0 Do Q"
-obj 5  ExtGState GS0          /BM /Multiply /ca 0.5 /CA 1.0 /SMask 6 0 R          (AC2)
-obj 6  SMask dict             /S /Luminosity /G 7 0 R /BC [0]                      (AC2: resolved descriptor)
+obj 5  ExtGState GS0          /BM /Multiply /ca 0.5 /CA 1.0 /SMask 6 0 R
+obj 6  SMask dict             /S /Luminosity /G 7 0 R /BC [0]                      (resolved descriptor)
 obj 7  Form (SMask /G group)  /Group << /S /Transparency /CS /DeviceGray /I true /K false >>
 obj 8  Form Fm0               /BBox [0 0 100 100] /Matrix [1 0 0 1 10 10]
                               /Group << /S /Transparency /CS /DeviceRGB /I false /K true >>
-                              /Resources << /XObject << /Fm1 9 0 R >> >>           (AC4: form's OWN resources)
+                              /Resources << /XObject << /Fm1 9 0 R >> >>           (the form's OWN resources)
                               content "q /Fm1 Do Q"
 obj 9  Form Fm1               /BBox [0 0 50 50]  content "0 0 50 50 re f"          (leaf nested form)
 obj 10 Form FmSelf            /BBox [0 0 20 20]
-                              /Resources << /XObject << /FmSelf 10 0 R >> >>       (AC4: SELF-REFERENTIAL)
+                              /Resources << /XObject << /FmSelf 10 0 R >> >>       (SELF-REFERENTIAL)
                               content "q /FmSelf Do Q"
 obj 11 Image Im0              /Width 4 /Height 4 /BitsPerComponent 8
-                              /ColorSpace [/ICCBased 12 0 R]                       (AC3: ICCBased)
+                              /ColorSpace [/ICCBased 12 0 R]                       (ICCBased)
                               content = 48 raw bytes (4x4x3, no filter)
 obj 12 ICC profile stream     /N 3 /Alternate /DeviceRGB                          (30-byte placeholder profile)
-obj 13 Pattern P0             /PatternType 2 /Shading 14 0 R                       (AC1/AC7: structural only)
+obj 13 Pattern P0             /PatternType 2 /Shading 14 0 R                       (structural only)
 obj 14 Shading Sh0            /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 1 1]
                               /Function << /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 1 1] /N 1 >>
 ```

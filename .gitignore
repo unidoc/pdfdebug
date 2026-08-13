@@ -45,7 +45,7 @@ dist
 # Wails build scaffolding -- ignore everything except config files we customize.
 # Tracked config files: config.yml, Taskfile.yml (common tasks included by per-platform
 # Taskfiles), darwin/Info.plist, linux/*.desktop, windows/info.json, plus the
-# per-platform Taskfile.yml (customised with -X main.version ldflag for AC #6).
+# per-platform Taskfile.yml (customised with the -X main.version ldflag).
 # These are force-added with git add -f.
 build/*
 !build/config.yml
