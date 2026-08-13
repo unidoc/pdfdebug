@@ -41,8 +41,8 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Image extraction dereferences indirect
-	// refs (Subtype, Filter, ColorSpace) and reads pdfcpu's XRefTable.
+	// Serialize pdfcpu access. Image extraction dereferences indirect refs
+	// (Subtype, Filter, ColorSpace) and reads pdfcpu's XRefTable.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 

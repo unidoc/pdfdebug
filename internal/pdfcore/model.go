@@ -15,11 +15,11 @@ type TreeNode struct {
 	Error       string `json:"error"`
 	// ObjectRef is "<num> <gen> R" when the node corresponds to an indirect
 	// object, "" otherwise. Powers the inline [N G R] suffix on tree rows
-	// (Story 9-8 AC1).
+	// (Story 9-8).
 	ObjectRef string `json:"objectRef"`
 	// TypeName is the literal /Type value of the resolved dict (e.g. "Pages",
 	// "Page", "Font"), "" when the dict has no /Type entry or the node is not
-	// a dict. The frontend dedups this against the semantic label (AC2).
+	// a dict. The frontend dedups this against the semantic label.
 	TypeName string `json:"typeName"`
 }
 
@@ -125,10 +125,10 @@ type ResolvedNode struct {
 	// unfollowed ref markers.
 	Children []*ResolvedNode `json:"children,omitempty"`
 	// Truncated is true when this node is an indirect ref left UNFOLLOWED because
-	// the MaxDepth/internal ceiling was hit (the depth-cap marker, AC3).
+	// the MaxDepth/internal ceiling was hit (the depth-cap marker).
 	Truncated bool `json:"truncated"`
 	// Cyclic is true when this node is an indirect ref that re-enters an object
-	// already on the current resolution path (the cycle back-edge marker, AC3).
+	// already on the current resolution path (the cycle back-edge marker).
 	Cyclic bool `json:"cyclic"`
 }
 
@@ -190,7 +190,7 @@ type PageRenderInfo struct {
 // ExtGStateInfo summarizes one /Resources/ExtGState entry: its resource name,
 // resolved ref, and the structural transparency parameters BM (blend-mode
 // name), ca (non-stroking alpha), CA (stroking alpha), and SMask. No blend MATH
-// is performed (AC2/AC7) - values are read verbatim from the file.
+// is performed - values are read verbatim from the file.
 type ExtGStateInfo struct {
 	Name string `json:"name"`
 	Ref  string `json:"ref"` // "<num> <gen> R", "" for a direct (inline) ExtGState
@@ -205,14 +205,14 @@ type ExtGStateInfo struct {
 	// SMask is the resolved soft-mask: the literal string "None" (the /None value),
 	// nil (no /SMask key), or a *SMaskDescriptor object (the resolved soft-mask
 	// dict, exposing /S, /G, etc.) when a soft-mask dict is present. Typed as any
-	// so the resolved descriptor serializes inline as the SMask value (AC2),
-	// rather than a placeholder string with the descriptor on a side field.
+	// so the resolved descriptor serializes inline as the SMask value, rather than
+	// a placeholder string with the descriptor on a side field.
 	SMask any `json:"SMask,omitempty"`
 }
 
-// SMaskDescriptor is the resolved soft-mask dict of an ExtGState /SMask (AC2):
-// the masking subtype /S (Alpha or Luminosity), the masked group /G ref, and
-// the backdrop /BC array length. STRUCTURAL ONLY: the mask is NOT composited.
+// SMaskDescriptor is the resolved soft-mask dict of an ExtGState /SMask: the
+// masking subtype /S (Alpha or Luminosity), the masked group /G ref, and the
+// backdrop /BC array length. STRUCTURAL ONLY: the mask is NOT composited.
 type SMaskDescriptor struct {
 	S      string `json:"S,omitempty"`      // "Alpha" | "Luminosity"
 	GRef   string `json:"gRef,omitempty"`   // ref to the transparency group XObject /G
@@ -220,9 +220,9 @@ type SMaskDescriptor struct {
 	BCSize int    `json:"bcSize,omitempty"` // /BC backdrop color component count
 }
 
-// XObjectRenderInfo classifies one /Resources/XObject entry (AC3). Form
+// XObjectRenderInfo classifies one /Resources/XObject entry. Form
 // XObjects carry BBox/Matrix/Group; Image XObjects carry Width/Height/
-// ColorSpace. Colorspace is CLASSIFIED, not evaluated (AC7).
+// ColorSpace. Colorspace is CLASSIFIED, not evaluated.
 type XObjectRenderInfo struct {
 	Name    string `json:"name"`
 	Ref     string `json:"ref"`     // "<num> <gen> R"
@@ -237,22 +237,22 @@ type XObjectRenderInfo struct {
 	ColorSpace *ColorSpaceInfo `json:"colorSpace,omitempty"`
 }
 
-// GroupInfo is a Form XObject's /Group (transparency group) attributes (AC3):
-// /S (group subtype, "Transparency"), /CS (group colorspace family), /I
+// GroupInfo is a Form XObject's /Group (transparency group) attributes: /S
+// (group subtype, "Transparency"), /CS (group colorspace family), /I
 // (isolated), /K (knockout). STRUCTURAL ONLY.
 type GroupInfo struct {
 	S  string `json:"S,omitempty"`
 	CS string `json:"CS,omitempty"` // group colorspace family (classified)
 	// I (isolated) and K (knockout) default to false when /I or /K is absent (PDF
 	// spec). They are NOT omitempty: a resolved group must report both flags so a
-	// consumer can distinguish "knockout false" from "field missing" (AC3).
+	// consumer can distinguish "knockout false" from "field missing".
 	I bool `json:"I"`
 	K bool `json:"K"`
 }
 
 // ColorSpaceInfo is the classified (NOT evaluated) colorspace of an Image
-// XObject or a /Group /CS (AC3/AC7). Family is the colorspace family name
-// (DeviceRGB, ICCBased, Separation, ...). For ICCBased: N (component count) and
+// XObject or a /Group /CS. Family is the colorspace family name (DeviceRGB,
+// ICCBased, Separation, ...). For ICCBased: N (component count) and
 // ICCProfileSize (the profile stream's byte length) are surfaced so the user
 // runs any color math themselves. For Separation/DeviceN: TintTransformType is
 // the tint-transform FUNCTION TYPE (structure, not evaluation) and AltFamily is
@@ -266,27 +266,27 @@ type ColorSpaceInfo struct {
 	HiVal             int    `json:"hiVal,omitempty"`             // Indexed palette hival
 }
 
-// PatternInfo is a STRUCTURAL-ONLY /Resources/Pattern entry (AC1/AC7): resource
-// name, resolved ref, and the /PatternType integer (1 = tiling, 2 = shading).
-// No tiling-content walk, no shading-function evaluation. Appears only in the
-// full object - there is no --section patterns.
+// PatternInfo is a STRUCTURAL-ONLY /Resources/Pattern entry: resource name,
+// resolved ref, and the /PatternType integer (1 = tiling, 2 = shading). No
+// tiling-content walk, no shading-function evaluation. Appears only in the full
+// object - there is no --section patterns.
 type PatternInfo struct {
 	Name        string `json:"name"`
 	Ref         string `json:"ref"`
 	PatternType int    `json:"patternType,omitempty"`
 }
 
-// ShadingInfo is a STRUCTURAL-ONLY /Resources/Shading entry (AC1/AC7): resource
-// name, resolved ref, and the /ShadingType integer. No shading-function
-// evaluation. Appears only in the full object - there is no --section shadings.
+// ShadingInfo is a STRUCTURAL-ONLY /Resources/Shading entry: resource name,
+// resolved ref, and the /ShadingType integer. No shading-function evaluation.
+// Appears only in the full object - there is no --section shadings.
 type ShadingInfo struct {
 	Name        string `json:"name"`
 	Ref         string `json:"ref"`
 	ShadingType int    `json:"shadingType,omitempty"`
 }
 
-// FormRenderInfo is one node in the recursive Form-XObject walk (AC4): the
-// resource name + ref the form was reached through, the form's OWN classified
+// FormRenderInfo is one node in the recursive Form-XObject walk: the resource
+// name + ref the form was reached through, the form's OWN classified
 // /Resources (the "does the inner Fm0 live in the page's or the outer form's
 // resources" gotcha - it lives in the form's own resources), and the Form
 // XObjects declared in that /Resources/XObject (recursing). The walk reads the
@@ -294,7 +294,7 @@ type ShadingInfo struct {
 //
 // Truncated marks a form left UNWALKED because FormsDepth was reached. Cyclic
 // marks a form that re-enters a form already on the current walk path (the
-// self-referential-form guard, AC4) - the walk terminates rather than looping.
+// self-referential-form guard) - the walk terminates rather than looping.
 type FormRenderInfo struct {
 	Name       string              `json:"name"`
 	Ref        string              `json:"ref"`
@@ -363,7 +363,7 @@ type ReverseRef struct {
 // is the partial-success signal: when the CMap stream exists but the bfchar /
 // bfrange scanner returns an error, ToUnicodeMappings is empty and the field
 // holds the parse error so the frontend can show a warning instead of blanking
-// the panel (AC9a).
+// the panel.
 type FontDetail struct {
 	NodeID            string               `json:"nodeId"`
 	ObjectRef         string               `json:"objectRef"`
@@ -380,27 +380,27 @@ type FontDetail struct {
 	FontDescriptor    *FontDescriptorInfo  `json:"fontDescriptor"`
 	Descendant        *FontDetail          `json:"descendant"`
 	// CIDSystemInfo / CIDToGIDMap / DefaultWidth populate only for CIDFont
-	// descendants (Subtype CIDFontType0 or CIDFontType2) per AC7. Zero values
-	// on non-CID fonts are inert; the frontend renders rows conditionally.
+	// descendants (Subtype CIDFontType0 or CIDFontType2). Zero values on
+	// non-CID fonts are inert; the frontend renders rows conditionally.
 	CIDSystemInfo *CIDSystemInfo `json:"cidSystemInfo"`
 	CIDToGIDMap   string         `json:"cidToGIDMap"`
 	DefaultWidth  int            `json:"defaultWidth"`
-	// MappingRows is the assembled per-code mapping table (Story 13.3 AC1): the
+	// MappingRows is the assembled per-code mapping table (Story 13.3): the
 	// JOIN of Differences (glyph name) and ToUnicodeMappings (unicode + literal
 	// text) over the union of declared codes. Assembled, never re-parsed.
 	MappingRows []FontMappingRow `json:"mappingRows"`
-	// Health carries the coverage/health diagnostic signals (Story 13.3 AC2).
+	// Health carries the coverage/health diagnostic signals (Story 13.3).
 	// Always populated, even on a malformed ToUnicode (the signals reflect
 	// whatever parsed).
 	Health *FontHealth `json:"health"`
 }
 
-// FontMappingRow is one assembled row in the per-code font mapping table
-// (Story 13.3 AC1). It is the JOIN of an /Encoding /Differences entry (GlyphName)
-// and a /ToUnicode CMap entry (Unicode, UnicodeText) keyed by character code.
-// Either side may be empty when a code is declared in only one of the two
-// sources. There is no single existing type spanning these fields, so this row
-// type is defined explicitly.
+// FontMappingRow is one assembled row in the per-code font mapping table (Story
+// 13.3). It is the JOIN of an /Encoding /Differences entry (GlyphName) and a
+// /ToUnicode CMap entry (Unicode, UnicodeText) keyed by character code. Either
+// side may be empty when a code is declared in only one of the two sources. There
+// is no single existing type spanning these fields, so this row type is defined
+// explicitly.
 type FontMappingRow struct {
 	Code        int    `json:"code"`        // character code
 	CodeHex     string `json:"codeHex"`     // "0x41" form
@@ -410,7 +410,7 @@ type FontMappingRow struct {
 }
 
 // FontHealth carries the coverage/health diagnostic signals for a font
-// (Story 13.3 AC2). These surface the classic text-extraction failure modes
+// (Story 13.3). These surface the classic text-extraction failure modes
 // explicitly rather than leaving the user to infer them.
 type FontHealth struct {
 	// DeclaredCodeCount is the count of distinct declared codes (the union of
@@ -429,8 +429,8 @@ type FontHealth struct {
 }
 
 // CIDSystemInfo carries the /Registry /Ordering /Supplement triplet from a
-// CIDFont's /CIDSystemInfo dict. AC7 requires these surfaced in the
-// "Descendant Font" section so users can identify the character collection.
+// CIDFont's /CIDSystemInfo dict. These are surfaced in the "Descendant
+// Font" section so users can identify the character collection.
 type CIDSystemInfo struct {
 	Registry   string `json:"registry"`
 	Ordering   string `json:"ordering"`
@@ -447,7 +447,7 @@ type EncodingDifference struct {
 // ToUnicodeMapping is one row in a font's /ToUnicode CMap: character code
 // mapped to its Unicode form (U+XXXX, possibly multi-codepoint for ligatures)
 // plus the literal glyph string suitable for display. Glyph is blanked for
-// codepoints in C0/C1 control, surrogate, or PUA ranges per AC5.
+// codepoints in C0/C1 control, surrogate, or PUA ranges.
 type ToUnicodeMapping struct {
 	Code    int    `json:"code"`
 	Unicode string `json:"unicode"`

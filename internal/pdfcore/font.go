@@ -38,7 +38,7 @@ var fontFlagOrder = []int{1, 2, 3, 4, 6, 7, 17, 18, 19}
 // Returns ErrNotAFont when the resolved dict does not carry /Type /Font; the
 // frontend uses this sentinel to silently fall back to the generic DictView
 // for the /Resources /Font resource-map iconHint false positive (story 9-9
-// AC1 / Task 1.3).
+// Task 1.3).
 func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error) {
 	if nodeID == "" {
 		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
@@ -51,7 +51,7 @@ func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Font detail extraction walks
+	// Serialize pdfcpu access. Font detail extraction walks
 	// /FontDescriptor, /Encoding, /DescendantFonts via Dereference.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
@@ -145,7 +145,7 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 		detail.FontDescriptor = fd
 	}
 
-	// CIDFont-specific fields (AC7): CIDSystemInfo, CIDToGIDMap mode, DW.
+	// CIDFont-specific fields: CIDSystemInfo, CIDToGIDMap mode, DW.
 	// Populated when this dict is itself a CIDFont (i.e. a Type0 parent's
 	// descendant), so the FontPreview's Descendant Font section can render
 	// them. No-op for Type1 / TrueType / Type0 parents -- those dicts
@@ -166,9 +166,9 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 		}
 	}
 
-	// Assembled per-code mapping table + health signals (Story 13.3 AC1/AC2).
-	// Assembled from the Differences / ToUnicodeMappings already populated
-	// above -- no re-parsing. Must run after populateEncoding/populateToUnicode.
+	// Assembled per-code mapping table + health signals (Story 13.3). Assembled
+	// from the Differences / ToUnicodeMappings already populated above -- no
+	// re-parsing. Must run after populateEncoding/populateToUnicode.
 	assembleMapping(detail)
 
 	// Embedded badge state: read from the FontDescriptor that actually carries
@@ -188,7 +188,7 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 // assembleMapping builds detail.MappingRows (the per-code JOIN of Differences
 // and ToUnicodeMappings over the union of declared codes) and detail.Health
 // (the coverage/health signals), from the already-populated parser outputs.
-// Pure assembly: it re-parses nothing. Story 13.3 AC1/AC2.
+// Pure assembly: it re-parses nothing. Story 13.3.
 //
 // MappingRows is always a non-nil slice and Health is always populated, even
 // on a degraded font (malformed ToUnicode), so the frontend never nil-derefs.
@@ -282,7 +282,7 @@ func nameField(d pdfcpu_types.Dict, key string) (string, bool) {
 // intField returns d[key] coerced to int when it is an Integer; false otherwise.
 // No IndirectRef dereferencing here -- font dicts overwhelmingly inline these
 // simple scalar fields; the few that don't will register as "missing" and the
-// frontend handles 0 defaults gracefully (AC2a tolerance).
+// frontend handles 0 defaults gracefully.
 func intField(d pdfcpu_types.Dict, key string) (int, bool) {
 	v, ok := d[key]
 	if !ok {
@@ -350,7 +350,7 @@ func parseDifferences(arr pdfcpu_types.Array) []EncodingDifference {
 		switch v := elem.(type) {
 		case pdfcpu_types.Integer:
 			currentCode = int(v)
-			// AC5 (Story 10.6): silently skip out-of-range codes. Malformed
+			// Story 10.6: silently skip out-of-range codes. Malformed
 			// /Differences arrays in the wild carry negatives or values >255
 			// (typo / merge-conflict residue). With no guard, the subsequent
 			// Name entries appended at those codes pollute the encoding table.
@@ -373,7 +373,7 @@ func parseDifferences(arr pdfcpu_types.Array) []EncodingDifference {
 
 // populateToUnicode extracts the bfchar/bfrange contents of a /ToUnicode CMap
 // stream. On parse error, ToUnicodeError is populated and ToUnicodeMappings is
-// left empty; the section still renders (AC9a partial-success contract).
+// left empty; the section still renders (partial-success contract).
 func populateToUnicode(doc *DocumentState, d pdfcpu_types.Dict, detail *FontDetail) {
 	tuObj, ok := d["ToUnicode"]
 	if !ok {
@@ -604,7 +604,7 @@ func dereferenceIfRef(doc *DocumentState, v pdfcpu_types.Object) pdfcpu_types.Ob
 
 // resolveCIDSystemInfo extracts a CIDFont's /CIDSystemInfo dict into the
 // IPC struct. Returns nil when the field is absent or unresolvable so the
-// frontend can omit the row. AC7.
+// frontend can omit the row.
 func resolveCIDSystemInfo(doc *DocumentState, d pdfcpu_types.Dict) *CIDSystemInfo {
 	v, ok := d["CIDSystemInfo"]
 	if !ok {
@@ -630,9 +630,9 @@ func resolveCIDSystemInfo(doc *DocumentState, d pdfcpu_types.Dict) *CIDSystemInf
 	return info
 }
 
-// resolveCIDToGIDMap returns a display string for /CIDToGIDMap:
-// "Identity" for the name form, "Stream (<size> bytes)" when the value is a
-// stream, or "" when the field is absent. AC7.
+// resolveCIDToGIDMap returns a display string for /CIDToGIDMap: "Identity"
+// for the name form, "Stream (<size> bytes)" when the value is a stream, or
+// "" when the field is absent.
 func resolveCIDToGIDMap(doc *DocumentState, d pdfcpu_types.Dict) string {
 	v, ok := d["CIDToGIDMap"]
 	if !ok {
@@ -689,7 +689,7 @@ func arrayToFloats(arr pdfcpu_types.Array) []float64 {
 //
 // Returns parsed mappings or an error describing where the scan failed. On
 // error, the caller surfaces it via ToUnicodeError and renders other sections
-// normally (AC9a partial-success contract).
+// normally (partial-success contract).
 func parseToUnicodeCMap(content []byte) ([]ToUnicodeMapping, error) {
 	out := []ToUnicodeMapping{}
 	s := string(content)
@@ -864,10 +864,10 @@ func parseBfrange(section string) ([]ToUnicodeMapping, error) {
 		}
 		for k := low; k <= high; k++ {
 			delta := k - low
-			// AC6 (Story 10.6): propagate the trailing-unit overflow into
-			// higher UTF-16 units (carry). PDF spec 9.10.3 increments the
-			// trailing 16-bit code unit; when (unit + delta) > 0xFFFF the
-			// excess MUST carry into the next-higher unit, not be silently
+			// Story 10.6: propagate the trailing-unit overflow into higher
+			// UTF-16 units (carry). PDF spec 9.10.3 increments the trailing
+			// 16-bit code unit; when (unit + delta) > 0xFFFF the excess
+			// MUST carry into the next-higher unit, not be silently
 			// dropped. If propagation overflows the LEADING unit (no higher
 			// unit to absorb the carry), stop the loop -- no wraparound, no
 			// error -- and return what was emitted.
@@ -1041,7 +1041,7 @@ func hexNibble(c byte) (byte, bool) {
 // decodeHexUnicode turns a `<...>` UTF-16BE hex literal into (display, glyph).
 // display is the space-separated U+XXXX form (one per codepoint after surrogate
 // pairing). glyph is the literal string suitable for the visual glyph cell,
-// with C0/C1/PUA/unpaired-surrogate codepoints blanked per AC5.
+// with C0/C1/PUA/unpaired-surrogate codepoints blanked.
 func decodeHexUnicode(hex string) (string, string) {
 	bytes, err := parseHexBytes(hex)
 	if err != nil || len(bytes) == 0 {
@@ -1125,15 +1125,14 @@ func formatCodepoint(cp int) string {
 }
 
 // glyphRuneForCodepoint returns the rune to render in the literal-glyph cell,
-// or 0 for codepoints that AC5 requires blanked (C0/C1 control, surrogate
-// halves, PUA). Returning 0 lets the caller drop the rune from the joined
-// glyph string.
+// or 0 for codepoints that must be blanked (C0/C1 control, surrogate halves,
+// PUA). Returning 0 lets the caller drop the rune from the joined glyph string.
 func glyphRuneForCodepoint(cp rune) rune {
 	if cp < 0x20 {
 		return 0 // C0 control
 	}
 	if cp >= 0x7F && cp <= 0xA0 {
-		return 0 // DEL + C1 control + NBSP boundary (per AC5)
+		return 0 // DEL + C1 control + NBSP boundary
 	}
 	if cp >= 0xD800 && cp <= 0xDFFF {
 		return 0 // surrogate

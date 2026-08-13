@@ -34,9 +34,9 @@ type revBfsEntry struct {
 // indirect objects and mis-label them as orphans.
 //
 // The trailer's /Root pointer is NOT recorded -- the catalog is the BFS source
-// and is treated as having no incoming edges by construction (see AC10).
-// However, edges OUT of the catalog into its children (e.g. /Pages 2 0 R)
-// ARE recorded because the catalog is itself an indirect object in real PDFs.
+// and is treated as having no incoming edges by construction. However, edges
+// OUT of the catalog into its children (e.g. /Pages 2 0 R) ARE recorded
+// because the catalog is itself an indirect object in real PDFs.
 func buildReverseRefs(doc *DocumentState, out map[[2]int][]ReverseRef) {
 	if doc == nil || doc.PDFContext == nil {
 		return
@@ -367,9 +367,8 @@ func parseObjGenR(s string) (num, gen int, ok bool) {
 }
 
 // buildReverseRefsOnce runs the reverse-refs BFS exactly once per
-// DocumentState via doc.revBuildOnce. AC7 moves the build out of Open and
-// defers it to the first GetReverseRefs call so Open stays responsive on
-// large PDFs.
+// DocumentState via doc.revBuildOnce. The build is deferred to the first
+// GetReverseRefs call so Open stays responsive on large PDFs.
 //
 // Locking: acquires doc.pdfMu for the duration of the BFS because the walk
 // calls doc.PDFContext.Dereference, which is pdfcpu state. The Once's inner
@@ -379,7 +378,7 @@ func parseObjGenR(s string) (num, gen int, ok bool) {
 // On panic during BFS, safeCall captures the panic; the inner function flags
 // revRefsBuildFailed = true so subsequent callers receive
 // ErrReverseRefIndexUnavailable without re-running the build. The
-// build-failure log line moved here from Inspector.Open (Story 10-5 AC7).
+// build-failure log line moved here from Inspector.Open (Story 10-5).
 func buildReverseRefsOnce(doc *DocumentState) {
 	if doc == nil {
 		return
@@ -424,7 +423,7 @@ func buildReverseRefsOnce(doc *DocumentState) {
 // (panic during BFS); empty list on every object would be the forbidden
 // silent failure mode.
 //
-// Story 10-5 AC7: the index is built lazily on the first call via
+// Story 10-5: the index is built lazily on the first call via
 // buildReverseRefsOnce; subsequent calls skip the build and read the cached
 // state.
 func (ins *Inspector) GetReverseRefs(tabID, nodeID string) ([]ReverseRef, error) {
@@ -439,7 +438,7 @@ func (ins *Inspector) GetReverseRefs(tabID, nodeID string) ([]ReverseRef, error)
 	// on revBuildOnce's internal mutex.
 	buildReverseRefsOnce(doc)
 
-	// AC1: serialize pdfcpu access while we read doc.reverseRefs. The Once
+	// Serialize pdfcpu access while we read doc.reverseRefs. The Once
 	// guarantees the build has completed (or failed) by this point.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()

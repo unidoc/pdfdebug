@@ -45,13 +45,13 @@ type DocumentMetadata struct {
 // stream, decompressed per its /Filter then passed through verbatim) and its
 // /Info dictionary fields. Missing /Metadata or /Info is a normal empty result.
 // A /Metadata stream that fails to decode surfaces as empty XMP + a warning,
-// never an error (AC3/AC8). Runs under doc.pdfMu + safeCall.
+// never an error. Runs under doc.pdfMu + safeCall.
 func (ins *Inspector) GetDocumentMetadata(tabID string) (*DocumentMetadata, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	// AC3: serialize pdfcpu access for the catalog read, /Info deref, and the
+	// Serialize pdfcpu access for the catalog read, /Info deref, and the
 	// /Metadata stream decode.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
@@ -117,7 +117,7 @@ func collectXMP(doc *DocumentState, md *DocumentMetadata) {
 
 // decodeXMPStream decompresses an XMP /Metadata stream per its /Filter (when
 // present) and returns the verbatim XML bytes as a string. A decode failure
-// returns ("", warning) per AC8 - empty XMP plus a non-fatal warning, never an
+// returns ("", warning) - empty XMP plus a non-fatal warning, never an
 // error. Separated from collectXMP so the decode/classify branch is unit
 // testable on a bare StreamDict (pdfcpu strictly decodes /Metadata at file-read
 // time, so the undecodable path is unreachable through Inspector.Open).
@@ -127,7 +127,7 @@ func decodeXMPStream(sd pdfcpu_types.StreamDict) (xmp, warning string) {
 			return sd.Decode()
 		})
 		if decErr != nil {
-			// AC8: undecodable /Metadata degrades to empty XMP + warning.
+			// Undecodable /Metadata degrades to empty XMP + warning.
 			return "", fmt.Sprintf("metadata stream could not be decoded: %v", decErr)
 		}
 		return string(sd.Content), ""

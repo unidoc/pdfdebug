@@ -15,7 +15,7 @@ func (ins *Inspector) GetTreeRoot(tabID string) (*TreeNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access (Catalog reads XRefTable state).
+	// Serialize pdfcpu access (Catalog reads XRefTable state).
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
@@ -80,7 +80,7 @@ func (ins *Inspector) GetChildren(tabID string, nodeID string) ([]*TreeNode, err
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. resolveNodeObject + buildChildren both
+	// Serialize pdfcpu access. resolveNodeObject + buildChildren both
 	// dereference indirect refs through pdfcpu.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
@@ -190,8 +190,8 @@ func buildChildFromDictEntry(doc *DocumentState, parentID, bareKey string, val p
 
 	id := fmt.Sprintf("dict:%s:%s", parentID, bareKey)
 	node := buildTreeNode(id, "/"+bareKey, bareKey, val)
-	// Inline dicts can still carry a /Type entry; surface it so AC2 dedup
-	// works for non-indirect dicts too (e.g. /Resources dict inline with /Type).
+	// Inline dicts can still carry a /Type entry; surface it so dedup works for
+	// non-indirect dicts too (e.g. /Resources dict inline with /Type).
 	node.TypeName = extractTypeName(val)
 	return node
 }

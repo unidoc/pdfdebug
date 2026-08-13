@@ -15,14 +15,14 @@ import (
 //
 // pdfcpu's XRefTable.Table is map[int]*XRefTableEntry keyed by object number,
 // so only one entry per ObjNum is enumerable here -- the multi-generation
-// clause in AC8 is treated as best-effort and is a no-op at this layer.
+// clause is treated as best-effort and is a no-op at this layer.
 func (ins *Inspector) GetObjectIndex(tabID string) ([]*ObjectIndexEntry, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Outer lock; objectIndexMu (inner) guards
-	// the cache. buildObjectIndex walks XRefTable.Table and dereferences
+	// Serialize pdfcpu access. Outer lock; objectIndexMu (inner) guards the
+	// cache. buildObjectIndex walks XRefTable.Table and dereferences
 	// indirect refs to compute the reachable set.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
@@ -116,10 +116,10 @@ func buildReachableSet(doc *DocumentState) map[int]bool {
 		reachable[rootRef.ObjectNumber.Value()] = true
 	}
 
-	// AC2 (Story 10.6): no depth cap. The visited-set (the `reachable` map plus
-	// the in-progress check inside queueRefs) already prevents cycles; the
-	// prior depth guard mislabeled legitimate-but-deep PDFs (page-tree chains
-	// over 32 levels deep) as orphan trees.
+	// Story 10.6: no depth cap. The visited-set (the `reachable` map plus the
+	// in-progress check inside queueRefs) already prevents cycles; the prior
+	// depth guard mislabeled legitimate-but-deep PDFs (page-tree chains over 32
+	// levels deep) as orphan trees.
 	queue := []reachEntry{{obj: rootDict, depth: 0}}
 	for len(queue) > 0 {
 		head := queue[0]

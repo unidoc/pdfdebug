@@ -53,7 +53,7 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 	// plainTextClosed check closes the race window where Inspector.Close fires
 	// between GetDocument and this registration: Close would observe a nil
 	// cancel func and the read would otherwise run to natural completion,
-	// defeating AC9's "one chunk-read cycle" promise. By checking the closed
+	// defeating the "one chunk-read cycle" promise. By checking the closed
 	// flag while holding plainTextCancelMu, we either see Close's flag (bail
 	// with context.Canceled) or our cancel func is published before Close can
 	// observe it.
@@ -84,8 +84,8 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 		// ceiling guard) so errors.Is(err, ...) survives across the boundary.
 		// The wrapper's %v verb stringifies the inner error and severs the
 		// chain; for context.Canceled the result is a misleading "malformed PDF"
-		// message, for ErrUnsupportedPDF the AC11.5 sentinel contract breaks.
-		// See Dev Notes "Why bypass wrapPDFError for context.Canceled".
+		// message, for ErrUnsupportedPDF the sentinel contract breaks. See Dev
+		// Notes "Why bypass wrapPDFError for context.Canceled".
 		if errors.Is(err, context.Canceled) || errors.Is(err, ErrUnsupportedPDF) {
 			return nil, err
 		}
@@ -117,10 +117,10 @@ func (ins *Inspector) CancelPlainText(tabID string) error {
 }
 
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
-// Powers the AC2 loading-card size disclosure. Returns the size captured at Open
+// Powers the loading-card size disclosure. Returns the size captured at Open
 // time; subsequent moves/deletions of the underlying file do not affect this
-// value (Story 10.6 AC7 removed the redundant re-stat). Returns
-// ErrDocumentNotFound for unknown tabs.
+// value (Story 10.6 removed the redundant re-stat). Returns ErrDocumentNotFound
+// for unknown tabs.
 func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -131,10 +131,10 @@ func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 
 // readPlainText performs the cancellable chunked read of path, Latin-1-decodes
 // the result, and returns the payload. The caller (GetPlainText) passes the
-// stat-at-Open size threaded through doc.FileSize so no in-function os.Stat
-// is needed (Story 10.6 AC7). Returns ctx.Err() (context.Canceled) when
-// cancellation is observed between chunks -- the caller must NOT wrap this
-// through wrapPDFError.
+// stat-at-Open size threaded through doc.FileSize so no in-function os.Stat is
+// needed (Story 10.6). Returns ctx.Err() (context.Canceled) when cancellation
+// is observed between chunks -- the caller must NOT wrap this through
+// wrapPDFError.
 //
 // If the underlying file grows between Open and this call, the buffer cap
 // under-allocates and append() handles reallocation correctly (the 4 GiB
@@ -216,8 +216,8 @@ func readPlainText(ctx context.Context, path string, size int64, tabID string) (
 
 // latin1Decode maps each input byte to its Unicode codepoint via rune(b).
 // Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except 0x09 TAB,
-// 0x0A LF, 0x0D CR; form-feed 0x0C IS replaced per Story 10-1 AC6) and to
-// 0x7F (DEL). C1 controls (0x80-0x9F) and all other Latin-1 supplement bytes
+// 0x0A LF, 0x0D CR; form-feed 0x0C IS replaced per Story 10-1) and to 0x7F
+// (DEL). C1 controls (0x80-0x9F) and all other Latin-1 supplement bytes
 // (0xA0-0xFF) map verbatim -- the Latin-1 decode path is intentionally
 // lossless for stream bytes so users debugging a PDF see what's actually
 // there. Go's `string(byteSlice)` produces UTF-8, which would mojibake
