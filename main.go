@@ -59,14 +59,14 @@ func extractPDFPaths(args []string) []string {
 	return paths
 }
 
-// routeOpenPath is the shared per-path decision used by both file-open
-// entry points (ApplicationOpenedWithFile, OnSecondInstanceLaunch). Story 12.1
-// AC7: it adds the path to the queue first; if the queue is ready (warm path)
-// it opens the path immediately via open and returns true so the caller can
-// decide whether to Focus the window. If the queue is not yet ready (cold
-// start) the path is buffered for the frontend drain and the function returns
-// false without opening. Extracting the decision keeps the two callbacks in
-// lockstep and gives the wiring a unit-testable seam (see TestRouteOpenPath).
+// routeOpenPath is the shared per-path decision used by both file-open entry
+// points (ApplicationOpenedWithFile, OnSecondInstanceLaunch). Story 12.1: it
+// adds the path to the queue first; if the queue is ready (warm path) it opens
+// the path immediately via open and returns true so the caller can decide
+// whether to Focus the window. If the queue is not yet ready (cold start) the
+// path is buffered for the frontend drain and the function returns false
+// without opening. Extracting the decision keeps the two callbacks in lockstep
+// and gives the wiring a unit-testable seam (see TestRouteOpenPath).
 func routeOpenPath(q *pendingopen.Queue, path string, open func(string)) bool {
 	if q.Add(path) {
 		open(path)
@@ -76,9 +76,9 @@ func routeOpenPath(q *pendingopen.Queue, path string, open func(string)) bool {
 }
 
 // pdfOpener is the narrow surface openFileAndEmitWithWarning needs from
-// pdfservice.PDFService. Defined as an interface so the AC8 latency test
-// can swap in a stub that sleeps inside OpenFile without dragging the
-// full Wails service plumbing into the unit test. *pdfservice.PDFService
+// pdfservice.PDFService. Defined as an interface so the latency test can
+// swap in a stub that sleeps inside OpenFile without dragging the full
+// Wails service plumbing into the unit test. *pdfservice.PDFService
 // satisfies this implicitly via its pointer-receiver methods.
 type pdfOpener interface {
 	OpenFile(path string) (*pdfcore.DocumentInfo, error)
@@ -89,7 +89,7 @@ type pdfOpener interface {
 
 // eventEmitter is the narrow surface openFileAndEmitWithWarning needs from
 // application.EventManager. *application.EventManager satisfies this
-// implicitly; the AC8 latency test passes a recording stub.
+// implicitly; the latency test passes a recording stub.
 type eventEmitter interface {
 	Emit(name string, data ...any) bool
 }
@@ -103,25 +103,24 @@ type eventEmitter interface {
 // the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
 // warning survives regardless of event-bus ordering.
 //
-// Story 10-5 AC8/AC9: the pdfcpu read is dispatched to a goroutine so the
-// caller (Wails event-dispatch goroutine for menu / file-drop / single
-// instance) returns immediately, leaving the native event loop free to
-// service window resize / menu clicks during the parse. The wg argument
-// lets callers synchronise on goroutine completion: openFilesBatch awaits
-// per file (sequential at the file boundary because pdfcpu's
-// ReadContextFile is not documented as concurrent-safe across files), and
-// single-file entry points pass a local WaitGroup so they preserve their
+// Story 10-5: the pdfcpu read is dispatched to a goroutine so the caller
+// (Wails event-dispatch goroutine for menu / file-drop / single instance)
+// returns immediately, leaving the native event loop free to service
+// window resize / menu clicks during the parse. The wg argument lets
+// callers synchronise on goroutine completion: openFilesBatch awaits per
+// file (sequential at the file boundary because pdfcpu's ReadContextFile
+// is not documented as concurrent-safe across files), and single-file
+// entry points pass a local WaitGroup so they preserve their
 // synchronous-completion contract.
 //
-// The caller MUST call wg.Add(1) BEFORE invoking this function (per the
-// AC9 code shape). The goroutine launched here calls wg.Done() on
-// completion. document:load-start is emitted synchronously (before the
+// The caller MUST call wg.Add(1) BEFORE invoking this function. The
+// goroutine launched here calls wg.Done() on completion. document:load-start is emitted synchronously (before the
 // goroutine is dispatched) so the frontend renders the loading indicator
 // without waiting on the goroutine scheduler.
 //
 // svc and emitter are narrow interfaces (pdfOpener, eventEmitter) so the
-// AC8 latency test can inject a slow-OpenFile stub and a recording
-// emitter. Production passes &pdfService and app.Event respectively.
+// latency test can inject a slow-OpenFile stub and a recording emitter.
+// Production passes &pdfService and app.Event respectively.
 func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string, extraWarning string, wg *sync.WaitGroup) {
 	// Emit load-start synchronously so the frontend can render an immediate
 	// "Opening ..." indicator instead of leaving the EmptyState drop area
@@ -178,8 +177,8 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 }
 
 // onSplashDismiss is the success-path dismissal handler for the startup
-// splash (story 9.13 AC5/AC6). It clears the splash's AlwaysOnTop so the
-// main window can render above it, triggers the crossfade by emitting
+// splash (story 9.13). It clears the splash's AlwaysOnTop so the main
+// window can render above it, triggers the crossfade by emitting
 // splash:dismiss (the splash's inline JS toggles its body opacity to 0)
 // and splash:dismissed (the main frontend fades its #root opacity to 1),
 // unhides the main window, then closes + destroys the splash after the
@@ -417,15 +416,15 @@ func main() {
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
 	//
-	// Story 10-5 AC8: openFileAndEmitWithWarning now dispatches the pdfcpu
-	// read to a goroutine. Single-file entry points (menu / file-drop /
+	// Story 10-5: openFileAndEmitWithWarning now dispatches the pdfcpu read
+	// to a goroutine. Single-file entry points (menu / file-drop /
 	// single-instance / file-association) wrap with a local WaitGroup +
 	// wg.Wait() so callers preserve their synchronous-completion contract.
 	// Without this Wait, callers would return to the event loop before the
 	// document opens, breaking the implicit "first call after Open succeeds
 	// returns the new tab" assumption.
 	openFileAndEmit = func(path string) {
-		// AC9 code shape: wg.Add(1) is called by the caller before invoking
+		// Code shape: wg.Add(1) is called by the caller before invoking
 		// openFileAndEmitWithWarning; the launched goroutine inside calls
 		// wg.Done() on completion.
 		var wg sync.WaitGroup
@@ -467,8 +466,8 @@ func main() {
 				"total": len(pdfPaths),
 			})
 		}
-		// Story 10-5 AC9: sequential dispatch at the file boundary.
-		// Local WaitGroup; wg.Add(1) before each call (AC9 code shape);
+		// Story 10-5: sequential dispatch at the file boundary.
+		// Local WaitGroup; wg.Add(1) before each call (code shape);
 		// wg.Wait() per iteration enforces "one file at a time" (pdfcpu's
 		// ReadContextFile is not documented as concurrent-safe across
 		// DIFFERENT files). The per-iteration Wait sits BEFORE the next
@@ -648,9 +647,9 @@ func main() {
 	// first launch). Lives only in this first-instance bootstrap path --
 	// the OnSecondInstanceLaunch and ApplicationOpenedWithFile callbacks
 	// above are reentrant and MUST NOT spawn additional splash windows
-	// per AC8 (story 9.13 Task 2.2). The splash is on EVERY launch by
-	// design (AC11: consistency is the brand signal); no first-launch
-	// persistence gate.
+	// (story 9.13 Task 2.2). The splash is on EVERY launch by design
+	// (consistency is the brand signal); no first-launch persistence
+	// gate.
 	//
 	// Option B (separate WebviewWindow) was chosen over Option A
 	// (native pre-WebView window) because Wails v3 alpha.85 does not
@@ -662,14 +661,14 @@ func main() {
 	// disables resize via DisableResize (the alpha.85 idiom) and
 	// suppresses close/minimise affordances by being Frameless. The
 	// literal field comments below are kept verbatim so the story 9.13
-	// integration tests (which scan source text for the AC3 options)
+	// integration tests (which scan source text for the options)
 	// remain pinned to the story spec wording.
 	//
-	// Splash window options (story 9.13 AC1/AC3):
-	//   Width: 480 -- AC3 logical width
-	//   Height: 320 -- AC3 logical height
+	// Splash window options (story 9.13):
+	//   Width: 480 -- logical width
+	//   Height: 320 -- logical height
 	//   Frameless: true -- no title bar / chrome
-	//   AlwaysOnTop: true -- cleared in the dismissal handler per AC5
+	//   AlwaysOnTop: true -- cleared in the dismissal handler
 	//   Resizable: false -- DisableResize: true is the alpha.85 spelling
 	//   Minimisable: false -- frameless suppresses the affordance
 	//   Closable: false -- frameless suppresses the affordance
@@ -680,7 +679,7 @@ func main() {
 		Frameless:     true,
 		AlwaysOnTop:   true,
 		DisableResize: true,
-		// AC3: "no context menu". Without this the WebView's default
+		// "no context menu". Without this the WebView's default
 		// right-click menu (Reload / Inspect Element / etc.) appears on
 		// the splash, especially in dev builds where DevToolsEnabled
 		// defaults to true.
@@ -702,7 +701,7 @@ func main() {
 		splashWindow.Center()
 	}
 
-	// splashFailed tracks whether the splash entered the AC7 failure
+	// splashFailed tracks whether the splash entered the failure
 	// (timeout) state. The flag is read by the splash WindowClosing
 	// listener below: if the user closes the splash error pane (via the
 	// Close button's window.close() or the OS), we terminate the app so
@@ -712,14 +711,14 @@ func main() {
 	var splashFailed atomic.Bool
 
 	// Wire the failure-path timeout and the success-path dismissal
-	// via the injectable-clock scheduler in internal/splash. AC4
-	// (min-display floor) and AC7 (failure-path timeout) are both
-	// served by this single Scheduler instance.
+	// via the injectable-clock scheduler in internal/splash. The
+	// min-display floor and the failure-path timeout are both served
+	// by this single Scheduler instance.
 	splashScheduler := splash.NewScheduler(
 		splash.RealClock{},
-		// onDismiss: clear AlwaysOnTop (AC5), trigger crossfade, then
-		// close + destroy the splash so it does not linger in the OS
-		// window list (AC6). The callback fires on a clock goroutine;
+		// onDismiss: clear AlwaysOnTop, trigger crossfade, then close
+		// + destroy the splash so it does not linger in the OS
+		// window list. The callback fires on a clock goroutine;
 		// Wails alpha.85 SetAlwaysOnTop / Show / Close / Event.Emit all
 		// InvokeSync internally so direct calls from a worker goroutine
 		// are safe.
@@ -743,7 +742,7 @@ func main() {
 		},
 	)
 
-	// AC7 close-to-quit: when the splash is closing after the failure
+	// Close-to-quit: when the splash is closing after the failure
 	// timeout fired, terminate the app. The error pane's Close button
 	// calls JS window.close() which WebView2 maps to WM_CLOSE and Wails
 	// translates to a closing event. On platforms where JS close is a
@@ -761,7 +760,7 @@ func main() {
 
 	// Create main window. Hidden: true keeps the WebView off-screen
 	// until splash dismissal so the crossfade is not defeated by an
-	// opaque first paint (AC5). The frontend additionally starts at
+	// opaque first paint. The frontend additionally starts at
 	// opacity 0 and fades to 1 on the splash:dismissed event.
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:              "UniDoc PDF Debugger",
