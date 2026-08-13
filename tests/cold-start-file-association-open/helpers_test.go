@@ -16,10 +16,6 @@
 // This keeps the suite BEHAVIOR-ONLY: zero source greps (the strict
 // source-grep guard forbids new grep tests), zero doc-content assertions.
 //
-// Red phase: every harness fails to BUILD today because
-// internal/pendingopen does not exist yet (and the pdfservice / main-package
-// symbols are not implemented). Dev's job turns each red harness green.
-//
 // Run: cd tests/cold-start-file-association-open && go test -count=1 ./...
 package story_12_1_test
 

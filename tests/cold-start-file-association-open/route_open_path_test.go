@@ -36,9 +36,9 @@ func TestRouteOpenPathDecision(t *testing.T) {
 	// A passing delegation requires BOTH: the command succeeded AND it
 	// actually ran at least one matching test. `go test -run` exits 0 when
 	// the regexp matches nothing, emitting the "no tests to run" warning, so
-	// we must reject that case explicitly or the red phase would pass.
+	// we must reject that case explicitly or a missing test would pass.
 	if strings.Contains(out, "no tests to run") {
-		t.Fatalf("red phase: no main-package test matching `RouteOpenPath` exists yet (Task 2.4: routeOpenPath helper + table test with a fake open func). Output:\n%s", out)
+		t.Fatalf("no main-package test matching `RouteOpenPath` exists (expected a routeOpenPath helper plus a table test with a fake open func). Output:\n%s", out)
 	}
 	if err != nil {
 		t.Fatalf("main-package RouteOpenPath test failed:\n%s", out)

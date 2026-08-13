@@ -2,8 +2,7 @@
 //
 // These tests pin the queue's public API through a harness package compiled
 // inside the main module (see helpers_test.go for why direct import is not
-// possible from a standalone test module). Every harness fails to build today
-// because internal/pendingopen does not exist -- that is the red phase.
+// possible from a standalone test module).
 //
 // Contract under test (from the story ACs):
 //   - Add(path) bool: true == ready (caller opens immediately, warm path);
@@ -63,7 +62,7 @@ func TestColdAddQueues(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -86,7 +85,7 @@ func TestWarmAddImmediate(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -113,7 +112,7 @@ func TestInsertionOrder(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -141,7 +140,7 @@ func TestSecondDrainEmpty(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -171,7 +170,7 @@ func TestQueuedDedup(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -200,7 +199,7 @@ func TestReadyNoDedup(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed:\n%s", out)
 	}
 }
 
@@ -291,6 +290,6 @@ func itoa(i int) string {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until internal/pendingopen lands; also fails on any -race violation):\n%s", out)
+		t.Fatalf("internal/pendingopen harness failed (a -race violation also lands here):\n%s", out)
 	}
 }

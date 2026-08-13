@@ -68,7 +68,7 @@ func TestConsumeDelegates(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until SetPendingOpens/ConsumePendingOpenFiles land):\n%s", out)
+		t.Fatalf("SetPendingOpens/ConsumePendingOpenFiles harness failed:\n%s", out)
 	}
 }
 
@@ -89,6 +89,6 @@ func TestConsumeNilGuard(t *testing.T) {
 `,
 	})
 	if err != nil {
-		t.Fatalf("red phase (expected until the nil-guarded method lands):\n%s", out)
+		t.Fatalf("nil-guarded method harness failed:\n%s", out)
 	}
 }
