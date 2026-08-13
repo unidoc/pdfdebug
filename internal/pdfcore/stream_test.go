@@ -1142,17 +1142,13 @@ func TestTokenizeInlineImagePayloadWhitespaceValuedByteKept(t *testing.T) {
 // ---------------------------------------------------------------------------
 // leading-sign number tokenization (F1).
 //
-// RED PHASE (Story 14-1): ISO 32000-1 7.3.3 permits a leading '+' (as well as
-// '-') on integers and reals. The current tokenizer accepts a leading '-' but
-// NOT a leading '+', so a spec-valid operand like "+5" falls through to the
-// word/operator branch and is mis-emitted as an OPERATOR token. This
-// table-driven test feeds bare number byte-slices and asserts each signed
-// value classifies as a SINGLE "number" token.
+// ISO 32000-1 7.3.3 permits a leading '+' as well as '-' on integers and
+// reals, so a spec-valid operand like "+5" must classify as a SINGLE "number"
+// token rather than falling through to the word/operator branch. This
+// table-driven test feeds bare number byte-slices and asserts that.
 //
-// Expected failures against baseline code: the "+5", "+.5", and "+5.0" cases
-// (mislabeled operator, and the "+5.0" case additionally split by the word
-// scan). The "-3" / "-.5" cases already pass. The bare "+"/"-" cases (a sign
-// not followed by a digit or ".digit") must REMAIN word/operator tokens.
+// The bare "+"/"-" cases -- a sign not followed by a digit or ".digit" --
+// REMAIN word/operator tokens.
 // ---------------------------------------------------------------------------
 
 func TestTokenizeLeadingSignNumbers(t *testing.T) {

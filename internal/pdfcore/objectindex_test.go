@@ -1,7 +1,6 @@
 // Story 9-8: Object Reference Visibility (Inline Labels + Command Palette)
 //
-// TDD RED PHASE: These tests must FAIL until the implementation lands. They
-// pin the contract for:
+// These tests pin the contract for:
 //
 //   - TreeNode.ObjectRef and TreeNode.TypeName: every indirect
 //     object surfaces "<num> <gen> R" on its node, plus the raw /Type when
@@ -391,7 +390,7 @@ func TestObjectIndexEntryShape(t *testing.T) {
 		NodeID:    "obj:0:1",
 	}
 	// Force compilation of every field; if any is missing or mis-named,
-	// the build fails here in red phase.
+	// the build fails here.
 	_ = e.ObjNum
 	_ = e.Gen
 	_ = e.TypeName

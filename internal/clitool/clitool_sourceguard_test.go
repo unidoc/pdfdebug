@@ -4,11 +4,8 @@
 // that the production source of package clitool imports neither `os/exec` nor
 // references the `osascript` / `brew --prefix` / `sh -c` escalation idioms.
 //
-// This is a TDD RED-PHASE test: it scans the package's own non-test .go files.
-// Until the Dev step creates package clitool's production source, the package
-// fails to compile (the rest of the suite references undefined symbols), which
-// is the red state. Once implemented, this guard stays green only if the
-// implementation honors the no-shell / no-root design.
+// The guard scans the package's own non-test .go files, so it stays green
+// only while the implementation honors the no-shell / no-root design.
 //
 // Scope note: only NON-test files are scanned. Test files legitimately mention
 // these tokens (e.g. this file names them as forbidden patterns); scanning

@@ -2,10 +2,6 @@ package pdfcore
 
 // Story 13.3: Font CMap and Glyph-Mapping Inspection.
 //
-// TDD RED PHASE: these tests MUST fail until Task 1 lands the assembled
-// per-code mapping table and the coverage/health signals on FontDetail
-// (or a sub-view carried on it).
-//
 // Contract under test (the shape Dev must implement; named here so the CLI
 // acceptance tests and the FontPreview Vitest stay in lockstep):
 //
@@ -27,9 +23,6 @@ package pdfcore
 //	    EncodingWithoutToUnicodeCodes []int `json:"encodingWithoutToUnicodeCodes"`
 //	}
 //
-// The assertions below reference these fields directly, so the package will
-// FAIL TO COMPILE until model.go declares them -- the intended red signal.
-
 import (
 	"testing"
 

@@ -1,16 +1,11 @@
-// Story 13-4 RED-PHASE co-located unit tests for digital-signature
-// decomposition.
+// Story 13-4 co-located unit tests for digital-signature decomposition.
 //
 // These exercise the NEW pdfcore surface:
 //
 //	(ins *Inspector) GetSignatures(tabID string) (*SignatureList, error)
 //	types SignatureField, SignatureList, CertInfo
 //
-// None of those exist yet, so this file does NOT compile against the current
-// tree -- that is the intended RED state for a co-located unit suite (the
-// package fails to build until Task 1 lands the signature.go surface). Once
-// the surface exists these assert the real behavior. Mirrors the Story 13-2
-// embedded_test.go playbook.
+// Mirrors the Story 13-2 embedded_test.go playbook.
 //
 // Go field contract pinned here (JSON tags are pinned by the CLI acceptance
 // suite in tests/signature-decomposition/):

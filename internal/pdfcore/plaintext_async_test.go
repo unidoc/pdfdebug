@@ -1,14 +1,8 @@
 // Story 10-1: Async Plain Text Load with Cancel -- co-located unit tests.
 //
-// TDD RED PHASE: these tests fail to compile until Inspector.GetPlainText is
-// rewritten with a cancellable chunked-read loop and Inspector.CancelPlainText
-// + Inspector.GetPlainTextSize are added. Test names match the runPdfcoreTest
-// patterns pinned in tests/async-plain-text-load/.
-//
-// These tests assert the NEW contract. The legacy 9-12 full-payload tests
-// in plaintext_test.go remain to fail at the dev step's cleanup boundary
-// (Task 1.6 deletes them); leaving the assertions here in a separate file
-// keeps the new behavior pinned independently of that cleanup.
+// These cover Inspector.GetPlainText's cancellable chunked-read loop plus
+// Inspector.CancelPlainText and Inspector.GetPlainTextSize. Test names match
+// the runPdfcoreTest patterns pinned in tests/async-plain-text-load/.
 
 package pdfcore
 

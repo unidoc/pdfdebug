@@ -1,4 +1,4 @@
-// Story 13-2 RED-PHASE co-located unit tests for embedded-file enumeration and
+// Story 13-2 co-located unit tests for embedded-file enumeration and
 // extraction.
 //
 // These exercise the NEW pdfcore surface:
@@ -6,11 +6,6 @@
 //	(ins *Inspector) GetEmbeddedFiles(tabID string) (*EmbeddedFileList, error)
 //	(ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 //	types EmbeddedFile, EmbeddedFileList
-//
-// None of those exist yet, so this file does NOT compile against the current
-// tree -- that is the intended RED state for a co-located unit suite (the
-// package fails to build until Task 1 lands the embedded.go surface). Once the
-// surface exists these assert the real behavior.
 //
 // Fixtures are hand-rolled raw PDF bytes assembled via the existing assemblexref
 // helper (resolve_ref_atdd_test.go) and opened through writeTempPDF, which uses

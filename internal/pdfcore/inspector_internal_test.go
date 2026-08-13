@@ -1,6 +1,6 @@
 package pdfcore
 
-// Red-phase acceptance tests for Story 10-5 ACs that require package-private
+// Acceptance tests for the Story 10-5 behaviours that require package-private
 // access to DocumentState's unexported fields:
 //   re-Open under same tabID must invoke the prior DocumentState's
 //     plainTextLoadCancel before the new entry is inserted.

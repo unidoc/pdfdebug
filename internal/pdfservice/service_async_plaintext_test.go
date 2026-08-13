@@ -1,8 +1,6 @@
 // Story 10-1: Async Plain Text Load with Cancel -- service-layer tests.
 //
-// TDD RED PHASE: these tests fail to compile until PDFService.CancelPlainText
-// and PDFService.GetPlainTextSize are added, and the legacy full-payload
-// method is removed.
+// These cover PDFService.CancelPlainText and PDFService.GetPlainTextSize.
 
 package pdfservice
 

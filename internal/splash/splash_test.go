@@ -285,10 +285,8 @@ func TestSplashMinDisplayAndTimeoutConstants(t *testing.T) {
 // JS, so it grep-asserts the diagnostic SOURCE is present in Render() output:
 // the warn message fragment and the wailsShape payload key.
 //
-// RED PHASE: fails against the current splash.go give-up branch (the
-// `else if (tries > 50)` block) which only calls clearInterval(iv) with no
-// console.warn. Once the diagnostic is added, both fragments appear in the
-// rendered HTML template.
+// The give-up branch is the `else if (tries > 50)` block; both fragments
+// appear in the rendered HTML template.
 func TestSplashRuntimeReadyGiveUpEmitsDiagnostic(t *testing.T) {
 	html := Render("0.0.0")
 

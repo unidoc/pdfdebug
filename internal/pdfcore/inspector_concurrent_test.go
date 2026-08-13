@@ -1,6 +1,6 @@
 package pdfcore
 
-// Red-phase acceptance test for Story 10-5:
+// Acceptance test for Story 10-5:
 // Inspector concurrent-soak under -race detector.
 //
 // Spec contract (story 10-5 verbatim):
@@ -12,16 +12,10 @@ package pdfcore
 //     GetContentStream(tabID, pageContentNodeID), GetObjectIndex,
 //     GetAncestorPath(tabID,"obj:0:2"), GetPageContentStreamNodeID(tabID,1)
 //
-// Expected behaviour AFTER Story 10-5:
-//   - Per-document pdfMu serializes pdfcpu access; the race detector reports
-//     no data races across all 10 -count repetitions.
-//
-// Expected behaviour BEFORE Story 10-5 (red phase):
-//   - pdfcpu's XRefTable.Dereference mutates internal state; concurrent calls
-//     interleave reads and writes against shared object-stream caches.
-//   - `go test -race -count=10 -run TestInspectorConcurrentSoak ./internal/pdfcore/...`
-//     reports a WARNING: DATA RACE and the test fails. That failure is the
-//     red signal this test is asserting.
+// Per-document pdfMu serializes pdfcpu access, so the race detector reports
+// no data races across all 10 -count repetitions. Without it, pdfcpu's
+// XRefTable.Dereference mutates internal state and concurrent calls interleave
+// reads and writes against shared object-stream caches.
 //
 // The test drives Inspector directly (NOT pdfservice). It bypasses any
 // pdfservice-layer recover by design -- pdfcore's safeCall re-panic for

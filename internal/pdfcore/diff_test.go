@@ -1,5 +1,4 @@
-// Story 13-6 RED-PHASE unit tests for the path-aligned structural diff
-// engine.
+// Story 13-6 unit tests for the path-aligned structural diff engine.
 //
 // These are co-located pdfcore UNIT tests (the project's precedent for keystone
 // pdfcore logic; see resolve_ref_atdd_test.go for 11-5). They assert the
@@ -26,11 +25,6 @@
 //	    InfoChanged                      bool  // /Info dictionary
 //	    XMPChanged                       bool  // XMP metadata packet
 //	}
-//
-// RED: diff.go does not exist yet, so this file (and the rest of the pdfcore
-// test package) fails to COMPILE until Task 1.2 lands the engine. That compile
-// failure IS the red state; the Dev step turns it green. `go build ./...`
-// (the CLI/app build) is unaffected -- _test.go files are excluded from builds.
 //
 // Naming: [Px] per the story Testing Requirements.
 // Run: cd code && go test -run TestDiff ./internal/pdfcore/...
@@ -199,8 +193,7 @@ func diffRetargetNamed() []byte {
 
 // --- two-document opener ------------------------------------------------------
 
-// openTwoForDiff writes both fixtures, verifies pdfcpu accepts each (guards an
-// eternally-red suite), opens BOTH into ONE Inspector under tabs "left"/"right"
+// openTwoForDiff writes both fixtures, verifies pdfcpu accepts each, opens BOTH into ONE Inspector under tabs "left"/"right"
 // (the diff is a read-only walk over two DocumentStates in one Inspector), and
 // returns the inspector + the two tab ids.
 func openTwoForDiff(t *testing.T, leftName string, left []byte, rightName string, right []byte) (*Inspector, string, string) {

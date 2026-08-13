@@ -1,5 +1,4 @@
-// Story 13-2 RED-PHASE co-located unit tests for the document metadata
-// view.
+// Story 13-2 co-located unit tests for the document metadata view.
 //
 // Exercises the NEW pdfcore surface:
 //
@@ -11,8 +10,7 @@
 // fields surfaced, missing = empty (not error), undecodable /Metadata = empty
 // XMP + warning (never an error that fails the view).
 //
-// RED state: the package will not compile until metadata.go lands
-// GetDocumentMetadata + DocumentMetadata. Naming: [Px].
+// Naming: [Px].
 package pdfcore
 
 import (
