@@ -66,8 +66,8 @@ func runStreamDump(args []string) int {
 	// --raw / --ops / --json select mutually-exclusive payloads/formats. --raw
 	// (decoded bytes) and --ops (NDJSON) are payload selectors; --json is the
 	// structured-JSON format. The --raw/--ops conflict is preexisting; the
-	// --raw+--json and --ops+--json rejections are net-new (AC7): --json no
-	// longer combines silently now that it is a real format switch.
+	// --raw+--json and --ops+--json rejections are net-new: --json no longer
+	// combines silently now that it is a real format switch.
 	if flags.ops && flags.raw {
 		writeJSONError(os.Stderr, "--ops and --raw are mutually exclusive")
 		return 1

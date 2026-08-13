@@ -12,7 +12,7 @@ import (
 // signature field (Story 13-4). Plain-text default is a per-signature block;
 // --json emits a top-level array. Zero signature fields is a normal empty
 // state (exit 0); open or view errors go to stderr with exit 2. The output
-// reports decomposed structural facts only - never a trust verdict (AC4).
+// reports decomposed structural facts only - never a trust verdict.
 func runSignaturesDump(args []string) int {
 	filePath, flags, ok := parseDocViewFlags("signatures", args)
 	if !ok {
@@ -44,7 +44,7 @@ func execSignaturesDump(filePath string, flags docViewFlags) (exitCode int) {
 	}
 
 	if flags.json {
-		// Emit the slice directly so the top-level shape is a JSON array (AC5).
+		// Emit the slice directly so the top-level shape is a JSON array.
 		if err := emit(os.Stdout, list.Signatures, flags.pretty); err != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 			return 2
@@ -62,7 +62,7 @@ func execSignaturesDump(filePath string, flags docViewFlags) (exitCode int) {
 // field: identity, signature-dict entries, signer/chain facts, and the
 // ByteRange coverage measurement. NON-CONTRACTUAL; use --json to parse. It
 // states coverage facts without implying breakage and never emits trust-claim
-// language (AC4).
+// language.
 func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 	if len(sigs) == 0 {
 		_, err := fmt.Fprintln(out, "no signature fields")

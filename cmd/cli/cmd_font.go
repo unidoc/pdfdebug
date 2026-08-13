@@ -10,8 +10,8 @@ import (
 )
 
 // fontFlags extends byRefFlags with the font-only --glyphs verbosity toggle
-// (Story 13.3 AC3): without it the plain output is a bounded summary, with it
-// the full per-code mapping table. --glyphs has no effect on --json (the JSON
+// (Story 13.3): without it the plain output is a bounded summary, with it the
+// full per-code mapping table. --glyphs has no effect on --json (the JSON
 // surface is always complete).
 type fontFlags struct {
 	byRefFlags
@@ -110,7 +110,7 @@ func printFontPlain(out io.Writer, v *pdfcore.FontView, glyphs bool) error {
 // block, with the descendant CIDFont (composite Type0 fonts) appended. The
 // mapping table follows: a bounded summary (declared-code count + health
 // signals) by default, or the full per-code table when glyphs is true
-// (Story 13.3 AC3). NON-CONTRACTUAL.
+// (Story 13.3). NON-CONTRACTUAL.
 func printFontDetailPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) error {
 	if d == nil {
 		_, err := io.WriteString(out, "Font: (no detail)\n")
@@ -157,7 +157,7 @@ func printFontMappingPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) er
 		return t.Render(out)
 	}
 
-	// Bounded summary: row count + the AC2 health signals.
+	// Bounded summary: row count + the health signals.
 	var w kvWriter
 	w.Heading("Mapping")
 	w.Addf("Declared codes", "%d", len(d.MappingRows))

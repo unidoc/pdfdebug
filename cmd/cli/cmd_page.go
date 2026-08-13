@@ -16,10 +16,10 @@ import (
 // LEVELS fully expanded (a form's OWN /Resources classified): depth N expands
 // the page's direct forms and surfaces the names/refs of the forms they declare,
 // down through N levels. The default of 2 expands the page's direct forms AND
-// names the forms THEY declare (the own-resources gotcha, AC4-002) while keeping
-// the artifact bounded; depth 1 lists the page's direct forms without
-// classifying their resources. It is a THIRD recursion axis, distinct from
-// `dump tree`'s --depth (tree-walk) and 11-5's --resolve-depth (ref-following).
+// names the forms THEY declare (the own-resources gotcha) while keeping the
+// artifact bounded; depth 1 lists the page's direct forms without classifying
+// their resources. It is a THIRD recursion axis, distinct from `dump tree`'s
+// --depth (tree-walk) and 11-5's --resolve-depth (ref-following).
 const defaultFormsDepth = 2
 
 // pageSections is the exact, closed enum of --section values. patterns/shadings
@@ -46,7 +46,7 @@ type pageFlags struct {
 
 // runPageDump parses flags for `dump page` and dispatches the assembled
 // per-page render-info view (Story 11-6). --info N selects 1-based page N.
-// EXPERIMENTAL: the JSON field set is not a frozen contract; see AC8.
+// EXPERIMENTAL: the JSON field set is not a frozen contract.
 func runPageDump(args []string) int {
 	fs := flag.NewFlagSet("dump page", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -83,7 +83,7 @@ func runPageDump(args []string) int {
 		writeJSONError(os.Stderr, "invalid --info: must be >= 1 (pages are 1-based)")
 		return 1
 	}
-	// --section, when present, must be one of the closed 4-value enum (AC5).
+	// --section, when present, must be one of the closed 4-value enum.
 	if flags.section != "" && !pageSections[flags.section] {
 		writeJSONError(os.Stderr, fmt.Sprintf("invalid --section %q: must be one of geometry|extgstates|xobjects|forms", flags.section))
 		return 1
@@ -105,8 +105,8 @@ func runPageDump(args []string) int {
 }
 
 // execPageDump opens the PDF, assembles the page render-info, and emits it as
-// JSON (or the selected --section). A page-not-found maps to exit 2 (AC6); a
-// valid page with no /Resources emits empty arrays at exit 0.
+// JSON (or the selected --section). A page-not-found maps to exit 2; a valid
+// page with no /Resources emits empty arrays at exit 0.
 func execPageDump(filePath string, flags pageFlags) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -122,7 +122,7 @@ func execPageDump(filePath string, flags pageFlags) (exitCode int) {
 	defer func() { _ = inspector.Close("cli") }()
 
 	// Upper-bound the page against the document's page count so out-of-range maps
-	// to exit 2 with a clear message (AC6), parallel to dump stream.
+	// to exit 2 with a clear message, parallel to dump stream.
 	if info.PageCount > 0 && flags.info > info.PageCount {
 		writeJSONError(os.Stderr, fmt.Sprintf("page %d out of range: document has %d pages", flags.info, info.PageCount))
 		return 2
@@ -140,8 +140,8 @@ func execPageDump(filePath string, flags pageFlags) (exitCode int) {
 
 	if flags.json {
 		out := sectionView(result, flags.section)
-		// _stability marker (AC8): the full object is the one EXPERIMENTAL contract
-		// an agent may script against, so it carries a top-level
+		// _stability marker: the full object is the one EXPERIMENTAL contract an
+		// agent may script against, so it carries a top-level
 		// "_stability":"experimental" field. Section-scoped views OMIT it (decided:
 		// the marker attaches to the full object only - the scoped maps are already
 		// understood to be slices of the unstable whole).
@@ -167,7 +167,7 @@ func execPageDump(filePath string, flags pageFlags) (exitCode int) {
 }
 
 // withStabilityMarker projects the full PageRenderInfo into a map carrying a
-// top-level "_stability":"experimental" field (AC8). Decoding through
+// top-level "_stability":"experimental" field. Decoding through
 // json.RawMessage preserves every field's serialized form verbatim (decoding
 // into map[string]any would relabel ints as float64).
 func withStabilityMarker(info *pdfcore.PageRenderInfo) (any, error) {
@@ -310,7 +310,7 @@ func floatsString(fs []float64) string {
 
 // sectionView returns the full PageRenderInfo when section is "", or a
 // section-scoped object carrying only that section (so a complex page is not a
-// multi-MB wall, AC5). patterns/shadings are never section-selectable; they
+// multi-MB wall). Patterns and shadings are never section-selectable; they
 // appear only in the full object.
 func sectionView(info *pdfcore.PageRenderInfo, section string) any {
 	switch section {

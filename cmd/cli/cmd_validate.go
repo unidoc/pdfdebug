@@ -17,13 +17,13 @@ const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-struc
 
 // runValidate handles the top-level `validate` command: run the bounded
 // structural conformance rule set for a profile and report problems. It uses a
-// three-way exit contract distinct from the `dump` commands (AC3):
+// three-way exit contract distinct from the `dump` commands:
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate)
 //	2  operational error (missing/unreadable file, unknown profile, view failure)
 //
-// Exit 0 means "no structural errors found," NOT "compliant/valid" (AC5).
+// Exit 0 means "no structural errors found," NOT "compliant/valid".
 func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -36,7 +36,7 @@ func runValidate(args []string) int {
 	}
 
 	profile := *profileFlag
-	// AC2: an unknown profile is a usage error - list the valid profiles to
+	// An unknown profile is a usage error - list the valid profiles to
 	// stderr, no partial run, operational exit (2).
 	if !slices.Contains(pdfcore.ValidProfiles, profile) {
 		fmt.Fprintf(os.Stderr, "unknown profile %q; valid profiles: %s\n", profile, strings.Join(pdfcore.ValidProfiles, ", "))
@@ -53,8 +53,8 @@ func runValidate(args []string) int {
 
 // execValidate opens the PDF, runs the profile's rule set, and renders the
 // result. The ErrEncryptedPDF open failure is reconciled into a single
-// error-severity encryption problem (exit 1), not a bare operational error
-// (AC1). Other open failures and view failures are operational (exit 2).
+// error-severity encryption problem (exit 1), not a bare operational
+// error. Other open failures and view failures are operational (exit 2).
 func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -66,7 +66,7 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 	ins := pdfcore.NewInspector()
 	if _, err := ins.Open("cli", filePath); err != nil {
 		if errors.Is(err, pdfcore.ErrEncryptedPDF) && profile == pdfcore.ProfilePDFA1B {
-			// AC1 reconciliation: no-encryption is a PDF/A-1b rule, and encrypted
+			// Reconciliation: no-encryption is a PDF/A-1b rule, and encrypted
 			// docs never reach Validate as an open tab, so surface encryption as
 			// an error problem here (exit 1). Only under the PDF/A profile - a
 			// PDF/UA-structural run has no encryption rule and must never gate on
@@ -115,7 +115,7 @@ var severityOrder = []string{"error", "warning", "info"}
 
 // printValidatePlain renders the grouped problem list plus a summary count.
 // NON-CONTRACTUAL; use --json to parse. It always carries the not-authoritative
-// disclaimer and never states an authoritative conformance verdict (AC5).
+// disclaimer and never states an authoritative conformance verdict.
 func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Validation profile: %s\n", res.Profile)
