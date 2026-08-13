@@ -29,7 +29,7 @@
 // mocks). Adding a browser layer would repeat what the component tests already
 // cover and contradict the test pyramid for this scope.
 //
-// Run: cd tests/10-1-async-plain-text-load && go test -v -count=1 ./...
+// Run: cd tests/async-plain-text-load && go test -v -count=1 ./...
 package async_plain_text_load_test
 
 import (

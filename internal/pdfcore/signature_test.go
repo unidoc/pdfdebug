@@ -13,7 +13,7 @@
 // embedded_test.go playbook.
 //
 // Go field contract pinned here (JSON tags are pinned by the CLI acceptance
-// suite in tests/13-4-signature-decomposition/):
+// suite in tests/signature-decomposition/):
 //
 //	SignatureList{ Signatures []SignatureField }
 //	SignatureField{

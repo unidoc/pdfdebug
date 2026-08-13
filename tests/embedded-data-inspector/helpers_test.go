@@ -20,7 +20,7 @@
 //
 // Naming: 13.2-INTG-NNN [Px] per the story Testing Requirements.
 //
-// Run: cd tests/13-2-embedded-data-inspector && go test -v -count=1 ./...
+// Run: cd tests/embedded-data-inspector && go test -v -count=1 ./...
 package embedded_data_inspector_test
 
 import (

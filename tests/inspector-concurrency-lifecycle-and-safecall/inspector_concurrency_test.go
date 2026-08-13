@@ -16,7 +16,7 @@
 // pin (e.g. existing safeCall test names that must survive); those use the
 // "MUST still exist" framing so a future deletion turns them red.
 //
-// Run: cd tests/10-5-inspector-concurrency-lifecycle-and-safecall-sev1 && go test -v -count=1 ./...
+// Run: cd tests/inspector-concurrency-lifecycle-and-safecall && go test -v -count=1 ./...
 package story_10_5_test
 
 import (

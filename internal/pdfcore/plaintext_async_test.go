@@ -3,7 +3,7 @@
 // TDD RED PHASE: these tests fail to compile until Inspector.GetPlainText is
 // rewritten with a cancellable chunked-read loop and Inspector.CancelPlainText
 // + Inspector.GetPlainTextSize are added. Test names match the runPdfcoreTest
-// patterns pinned in tests/10-1-async-plain-text-load/.
+// patterns pinned in tests/async-plain-text-load/.
 //
 // These tests assert the NEW contract. The legacy 9-12 full-payload tests
 // in plaintext_test.go remain to fail at the dev step's cleanup boundary

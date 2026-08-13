@@ -498,7 +498,7 @@ func unsignedSigFieldPDFContent() []byte {
 //
 // Programmatic negative fixtures (non-embedded font, device color without
 // OutputIntent, tagged vs untagged) plus the veraPDF-passing clean PDF/A-1b
-// positive fixture. The tests/13-5-compliance-validation acceptance suite
+// positive fixture. The tests/compliance-validation acceptance suite
 // carries its own self-contained copies of the negative builders; these are the
 // testdata/ equivalents Task 2.0 asks for. The clean fixture is the one the
 // veraPDF oracle clean-case cross-check (13.5-INTG-051) reads.

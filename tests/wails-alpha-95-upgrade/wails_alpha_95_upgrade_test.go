@@ -36,7 +36,7 @@
 //     pin must be a 3.0.0-alpha.N tag and >= alpha.79 (the current pin); it
 //     does NOT need to match the Go-side number.
 //
-// Run: cd tests/10-3-wails-alpha-95-upgrade && go test -v -count=1 ./...
+// Run: cd tests/wails-alpha-95-upgrade && go test -v -count=1 ./...
 package wails_alpha_95_upgrade_test
 
 import (
@@ -54,7 +54,7 @@ import (
 // suite. Their `v3\.0\.0-alpha\.(\d+)` regex cannot match the new alpha2.103
 // scheme, and re-pinning a scheme here would just re-create the brittleness the
 // 12.3 story set out to remove. The version-pin responsibility migrated to the
-// scheme-aware tests/12-3-wails-alpha2-103-upgrade/ suite (INTG-010/011/020/021/
+// scheme-aware tests/wails-alpha2-103-upgrade/ suite (INTG-010/011/020/021/
 // 022/030/031), which uses a unified alpha-ordinal that spans both schemes and
 // the alpha.102 fallback. The structural guards below (STRUCT-010/011/020/021/
 // 030..033/040/041/050/060) are scheme-independent and remain as standing
@@ -562,4 +562,4 @@ func TestSplashEventTriad(t *testing.T) {
 // STRUCT-080) version-pin checks were retired from this suite -- both keyed off
 // the alpha.95-scheme regex that cannot match alpha2.103. Their scheme-aware
 // successors are Test_12_3_INTG_011 (go.sum) and Test_12_3_INTG_031
-// (package-lock) in tests/12-3-wails-alpha2-103-upgrade/.
+// (package-lock) in tests/wails-alpha2-103-upgrade/.

@@ -10,7 +10,7 @@
 // output, so no in-package unit test (which would force a compile dependency on
 // the not-yet-existing PageRenderInfo type) is needed for red phase.
 //
-// Run: cd tests/11-6-page-render-info && go test -v -count=1 ./...
+// Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test
 
 import (

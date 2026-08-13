@@ -261,7 +261,7 @@ func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 
 // 9.11-INTG-025 / 9.11-INTG-026 retired by Story 10-1: the 25 MiB cap +
 // truncation banner are removed in favour of a single uncapped lazy-load.
-// See tests/10-1-async-plain-text-load/ for the replacement coverage.
+// See tests/async-plain-text-load/ for the replacement coverage.
 
 // 9.11-INTG-027 [P0] AC#8: encrypted streams (file with /Filter /Crypt) pass
 // through as raw on-disk bytes. The backend MUST NOT attempt to decode or
@@ -359,7 +359,7 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 		t.Fatalf("model.go must declare `type PlainTextDocument struct`")
 	}
 	// Story 10-1: Truncated + CapBytes removed; structural assertions on those
-	// fields live in tests/10-1-async-plain-text-load/.
+	// fields live in tests/async-plain-text-load/.
 	requiredFields := []string{"TabID", "Content", "TotalBytes"}
 	for _, f := range requiredFields {
 		if !strings.Contains(src, f) {
@@ -623,7 +623,7 @@ func TestPlainTextViewFileExists(t *testing.T) {
 // 9.11-STRUCT-021 [P0] AC#10, AC#13: PlainTextView carries the load-bearing
 // data-testids. The 9-11 truncation-banner testid was retired by Story 10-1;
 // the new async loading-card testids are pinned in
-// tests/10-1-async-plain-text-load/.
+// tests/async-plain-text-load/.
 func TestPlainTextViewTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{

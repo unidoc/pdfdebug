@@ -1,7 +1,7 @@
 // Story 9-11 / 10-1: Plain Text view tests.
 //
 // Test names are referenced by the runPdfcoreTest patterns in
-// tests/detail-panel-tabs/ and tests/10-1-async-plain-text-load/.
+// tests/detail-panel-tabs/ and tests/async-plain-text-load/.
 
 package pdfcore
 

@@ -8,11 +8,11 @@
 // empty-operator records) until Story 14-1 is implemented. They fail at
 // RUNTIME (wrong token type / phantom NDJSON record), not at compile time, so
 // the main module keeps building green. This module has its own go.mod and is
-// not part of the main build (mirrors tests/13-6-structural-diff).
+// not part of the main build (mirrors tests/structural-diff).
 //
 // Naming: 14.1-INTG-NNN [Px] per the story Testing Requirements (AC6).
 //
-// Run: cd tests/14-1-trustworthy-stream-op-output && go test -v -count=1 ./...
+// Run: cd tests/trustworthy-stream-op-output && go test -v -count=1 ./...
 package trustworthy_stream_test
 
 import (

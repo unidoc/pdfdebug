@@ -19,7 +19,7 @@
 //
 // Naming: 13.1-INTG-NNN [Px] per the story Testing Requirements.
 //
-// Run: cd tests/13-1-cli-output-format-normalization && go test -v -count=1 ./...
+// Run: cd tests/cli-output-format-normalization && go test -v -count=1 ./...
 package cli_output_format_normalization_test
 
 import (

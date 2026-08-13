@@ -4,7 +4,8 @@
 // scenario 14.2-INTG-001 [P0] (risk R-14-11): the wails3 CLI pin in BOTH
 // .github/workflows/ci.yml AND .github/workflows/release.yml must EQUAL the
 // go.mod library pin exactly, and go.mod must reach the committed target
-// v3.0.0-alpha2.117. This mirrors tests/12-3 INTG-020/021 -- it reads the files
+// v3.0.0-alpha2.117. This mirrors the version-pin cases in
+// tests/wails-alpha2-103-upgrade -- it reads the files
 // statically and does NOT shell out to `wails3 --version` (the live
 // go.mod==wails3 equality is confirmed only on the legs where the CLI is
 // installed: the 3-runner build and the manual smoke, out of this module's
@@ -64,7 +65,8 @@ func TestGoSumCarriesNewPin(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // assertWorkflowPinMatchesGoMod is the shared body for the ci.yml / release.yml
-// CLI-pin parity assertions (mirrors tests/12-3 INTG-020/021): the workflow must
+// CLI-pin parity assertions (mirroring tests/wails-alpha2-103-upgrade): the
+// workflow must
 // install wails3 with a v3.0.0 alpha pin, every alpha pin in the file must move
 // strictly past the pre-bump baseline (alpha2.103), and every one must EQUAL the
 // go.mod pin exactly (CLI == library). Authored RED (install line at alpha2.103,

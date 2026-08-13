@@ -10,7 +10,8 @@
 // (no `replace` link), so we exercise option (a)'s invariant via the CLI, the
 // executable expression of the SAME internal/pdfcore model.go structs: `dump
 // object` runs ObjectDetail (+ nested PropertyEntry/ValueEntry) through the real
-// json.Marshal (mirrors tests/12-3 INTG-001/002 and tests/11-6-page-render-info).
+// json.Marshal (mirrors tests/wails-alpha2-103-upgrade and
+// tests/page-render-info).
 //
 // STANDING regression net: passes on the current tree and stands through the
 // alpha2.117 bump. It is the AUTOMATED guard for the wire-shape risk; it does

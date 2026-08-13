@@ -42,7 +42,7 @@
 //
 // Naming: 13.6-INTG-NNN [Px] per the story Testing Requirements (AC7).
 //
-// Run: cd tests/13-6-structural-diff && go test -v -count=1 ./...
+// Run: cd tests/structural-diff && go test -v -count=1 ./...
 package structural_diff_test
 
 import (
@@ -56,7 +56,7 @@ import (
 	"testing"
 )
 
-// --- CLI harness (mirrors tests/13-2 .. 13-5) --------------------------------
+// --- CLI harness (mirrors the embedded-data through compliance suites) --------
 
 // projectRoot walks up from the test directory to find the main module's go.mod.
 func projectRoot(t *testing.T) string {

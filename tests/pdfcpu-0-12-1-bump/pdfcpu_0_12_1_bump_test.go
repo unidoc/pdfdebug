@@ -37,7 +37,7 @@
 //     behavioral tests for them.
 //   - AC9 (rollback policy) is a conditional flow; nothing to assert.
 //
-// Run: cd tests/10-4-pdfcpu-0-12-1-bump && go test -v -count=1 ./...
+// Run: cd tests/pdfcpu-0-12-1-bump && go test -v -count=1 ./...
 package pdfcpu_0_12_1_bump_test
 
 import (

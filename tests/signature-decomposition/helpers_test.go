@@ -55,7 +55,7 @@
 //
 // Naming: 13.4-INTG-NNN [Px] per the story Testing Requirements.
 //
-// Run: cd tests/13-4-signature-decomposition && go test -v -count=1 ./...
+// Run: cd tests/signature-decomposition && go test -v -count=1 ./...
 package signature_decomposition_test
 
 import (
@@ -81,7 +81,7 @@ import (
 	"time"
 )
 
-// --- CLI harness (mirrors tests/13-2 / 13-3) ---------------------------------
+// --- CLI harness (mirrors the embedded-data and font-cmap suites) -------------
 
 // projectRoot walks up from the test directory to find the main module's go.mod.
 func projectRoot(t *testing.T) string {

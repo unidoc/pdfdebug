@@ -12,7 +12,7 @@
 // the executable expression of the SAME internal/pdfcore model.go structs:
 // `dump object` runs ObjectDetail (+ nested PropertyEntry/ValueEntry) through
 // the real json.Marshal. So we exercise option (a)'s invariant via the
-// established CLI-exec harness (mirrors tests/11-6-page-render-info/), with zero
+// established CLI-exec harness (mirrors tests/page-render-info/), with zero
 // production-code dependency.
 //
 // This is the AUTOMATED guard for the P0 risk; it does not replace the manual

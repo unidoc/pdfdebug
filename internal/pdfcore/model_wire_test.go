@@ -5,7 +5,7 @@
 // `tabId` -> `tabID`, `pageCount` -> `pageCount`): TypeScript still compiles but
 // the field arrives `undefined` in the UI.
 //
-// The 12-3 acceptance module (tests/12-3-wails-alpha2-103-upgrade/) already pins
+// The tests/wails-alpha2-103-upgrade acceptance module already pins
 // ObjectDetail via the CLI-exec harness, but DocumentInfo is never marshalled to
 // CLI stdout, so that harness structurally cannot reach it. DocumentInfo is the
 // payload behind the `document:opened` event and the P0 bindings round-trip

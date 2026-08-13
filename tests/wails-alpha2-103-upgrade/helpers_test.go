@@ -20,15 +20,15 @@
 //     the story's own design (AC 8/9), MANUAL cross-OS smoke recorded in
 //     Completion Notes. Playwright cannot drive it; no red E2E is authored.
 //   - So every test here is a Go structural / CLI-integration acceptance test in
-//     this independent module (mirrors tests/10-3-wails-alpha-95-upgrade/ and
-//     tests/11-6-page-render-info/).
+//     this independent module (mirrors tests/wails-alpha-95-upgrade/ and
+//     tests/page-render-info/).
 //
 // The Go red phase is "compiles and FAILS at runtime against the current tree",
 // not test.skip(): the pins are still alpha.95 today, so the version assertions
 // fail; the wire-shape guards pass today and stand as the regression net for the
 // bump.
 //
-// Run: cd tests/12-3-wails-alpha2-103-upgrade && go test -v -count=1 ./...
+// Run: cd tests/wails-alpha2-103-upgrade && go test -v -count=1 ./...
 package story_12_3_wails_alpha2_103_upgrade_test
 
 import (

@@ -10,7 +10,7 @@
 // exit 0; a multi-stream page shows only stream 1 with no marker), NOT at
 // compile time, so the main `unidoc-pdf-debugger` module keeps building green.
 // This module has its own go.mod and is not part of the main build (mirrors
-// tests/14-1-trustworthy-stream-op-output and tests/13-6-structural-diff).
+// tests/trustworthy-stream-op-output and tests/structural-diff).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established acceptance level for
@@ -24,7 +24,7 @@
 //
 // Naming: 14.3-INTG-NNN [Px] per the story Testing Requirements (AC5/AC6).
 //
-// Run: cd tests/14-3-no-silent-truncation && go test -v -count=1 ./...
+// Run: cd tests/no-silent-truncation && go test -v -count=1 ./...
 package no_silent_truncation_test
 
 import (

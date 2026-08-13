@@ -23,7 +23,7 @@
 //     E2E is authored (see deferred_gates_test.go for the documented skips).
 //   - So every automated test here is a Go structural / CLI-integration
 //     acceptance test in this independent module (mirrors
-//     tests/12-3-wails-alpha2-103-upgrade/).
+//     tests/wails-alpha2-103-upgrade/).
 //
 // This module is an independent go.mod (the project convention: no `replace`
 // link into the main module, which would drag the whole Wails tree into a test
@@ -31,7 +31,7 @@
 // frontend/package.json, the regenerated binding) and exercises the CLI, which
 // is the executable expression of the SAME internal/pdfcore model.go structs.
 //
-// Run: cd tests/14-2-wails-alpha2-117-upgrade && go test -v -count=1 ./...
+// Run: cd tests/wails-alpha2-117-upgrade && go test -v -count=1 ./...
 package story_14_2_wails_alpha2_117_upgrade_test
 
 import (

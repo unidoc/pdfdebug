@@ -29,9 +29,9 @@
 // exports, data-testid strings, Tailwind token registration, project-context
 // section heading, deferred-work bookkeeping. Behavioral assertions live in
 // the colocated Vitest suites. Mirrors the convention established by
-// tests/10-1-async-plain-text-load/.
+// tests/async-plain-text-load/.
 //
-// Run: cd tests/10-2-plain-text-find-bar && go test -v -count=1 ./...
+// Run: cd tests/plain-text-find-bar && go test -v -count=1 ./...
 package plain_text_find_bar_test
 
 import (

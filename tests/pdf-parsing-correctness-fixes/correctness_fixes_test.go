@@ -15,7 +15,7 @@
 // against the pre-implementation tree. Dev's job is to land the changes
 // that turn each red test green.
 //
-// Run: cd tests/10-6-pdf-parsing-correctness-fixes && go test -v -count=1 ./...
+// Run: cd tests/pdf-parsing-correctness-fixes && go test -v -count=1 ./...
 package story_10_6_test
 
 import (

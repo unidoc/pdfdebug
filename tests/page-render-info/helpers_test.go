@@ -8,7 +8,7 @@
 // `unidoc-pdf-debugger` module keeps building green (mirrors the Story 11-5
 // cli-stream-retrieval convention).
 //
-// Run: cd tests/11-6-page-render-info && go test -v -count=1 ./...
+// Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test
 
 import (

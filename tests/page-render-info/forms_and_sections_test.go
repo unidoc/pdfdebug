@@ -1,7 +1,7 @@
 // Story 11-6 RED-PHASE acceptance tests: recursive Form walk (AC4) and
 // --section scoping (AC5). Black-box; MUST FAIL until 11-6 is implemented.
 //
-// Run: cd tests/11-6-page-render-info && go test -v -count=1 ./...
+// Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test
 
 import (

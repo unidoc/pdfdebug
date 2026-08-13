@@ -20,7 +20,7 @@
 // internal/pendingopen does not exist yet (and the pdfservice / main-package
 // symbols are not implemented). Dev's job turns each red harness green.
 //
-// Run: cd tests/12-1-cold-start-file-association-open && go test -count=1 ./...
+// Run: cd tests/cold-start-file-association-open && go test -count=1 ./...
 package story_12_1_test
 
 import (

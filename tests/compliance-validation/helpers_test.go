@@ -40,7 +40,7 @@
 //
 // Naming: 13.5-INTG-NNN [Px] per the story Testing Requirements.
 //
-// Run: cd tests/13-5-compliance-validation && go test -v -count=1 ./...
+// Run: cd tests/compliance-validation && go test -v -count=1 ./...
 package compliance_validation_test
 
 import (
@@ -55,7 +55,7 @@ import (
 	"testing"
 )
 
-// --- CLI harness (mirrors tests/13-2 / 13-3 / 13-4) --------------------------
+// --- CLI harness (mirrors the embedded-data, font-cmap and signature suites) --
 
 // projectRoot walks up from the test directory to find the main module's go.mod.
 func projectRoot(t *testing.T) string {
