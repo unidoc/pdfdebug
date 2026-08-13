@@ -1,14 +1,15 @@
-// AC 8, 11: live-event-surface preservation across the bump, plus the
-// pre-flight `native:*` invariant.
+// Live-event-surface preservation across the bump, plus the pre-flight
+// `native:*` invariant.
 //
 // alpha2.103 reorganized the event system (the documented breaking change is the
 // native:* -> common:* deprecation, mobile-only). Our events are all custom
 // namespaces; this suite pins that the Go-emit / JS-consume event names survive
 // the bump and that no native:* prefix is introduced.
 //
-// These read main.go the same way the GRANDFATHERED 10-3 event assertions do
-// (Test_10_3_STRUCT_030/032/060). They are NOT new content-grep tests of a
-// guarded file in the source-grep-guard sense: the guard forbids NEW greps of
+// These read main.go the same way the GRANDFATHERED event assertions in
+// tests/wails-alpha-95-upgrade do. They are NOT new content-grep tests of a
+// guarded file in the
+// source-grep-guard sense: the guard forbids NEW greps of
 // main.go/MainLayout.tsx/EmptyState.tsx; the 10-3 main.go event greps are
 // grandfathered and 12-3 reuses that exact established pattern for the same
 // upgrade-audit purpose.

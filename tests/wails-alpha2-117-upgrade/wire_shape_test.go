@@ -1,9 +1,9 @@
-// AC3.3: bindings wire-shape guard.
+// Bindings wire-shape guard.
 //
-// scenario 14.2-INTG-003 [P0] (risk R-14-08): the classic silent regression on
-// a Wails bump + binding regen is a JSON field getting re-tagged (e.g.
-// `objectRef` -> `objectref`, or `nodeId` -> `nodeID`): TypeScript still
-// compiles, but `payload.objectRef` arrives `undefined` in the UI.
+// Scenario: the classic silent regression on a Wails bump + binding regen is a
+// JSON field getting re-tagged (e.g. `objectRef` -> `objectref`, or `nodeId`
+// -> `nodeID`): TypeScript still compiles, but `payload.objectRef` arrives
+// `undefined` in the UI.
 //
 // Option (a): a Go-side check that json.Marshals a POPULATED pdfcore payload and
 // asserts the expected JSON keys/casing. This module is an independent go.mod
@@ -15,7 +15,7 @@
 //
 // STANDING regression net: passes on the current tree and stands through the
 // alpha2.117 bump. It is the AUTOMATED guard for the wire-shape risk; it does
-// NOT replace the manual round-trip smoke (AC4, deferred human/hardware gate).
+// NOT replace the manual round-trip smoke (deferred human/hardware gate).
 package story_14_2_wails_alpha2_117_upgrade_test
 
 import (

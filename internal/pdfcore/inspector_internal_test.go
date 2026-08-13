@@ -28,7 +28,7 @@ import (
 // the prior one.
 func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 	ins := NewInspector()
-	tabID := "10-5-ac4-tab"
+	tabID := "cancel-registration-tab"
 
 	path1 := filepath.Join("..", "..", "testdata", "minimal.pdf")
 	path2 := filepath.Join("..", "..", "testdata", "multipage.pdf")
@@ -81,7 +81,7 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 // revBuildOnce.
 func TestOpenDoesNotBuildReverseRefs(t *testing.T) {
 	ins := NewInspector()
-	tabID := "10-5-ac7-tab"
+	tabID := "reverse-refs-lazy-tab"
 
 	path := filepath.Join("..", "..", "testdata", "multipage.pdf")
 	if _, err := ins.Open(tabID, path); err != nil {
@@ -107,7 +107,7 @@ func TestOpenDoesNotBuildReverseRefs(t *testing.T) {
 // The sync.Once does not re-run, so later calls observe the same populated map.
 func TestFirstGetReverseRefsTriggersBuild(t *testing.T) {
 	ins := NewInspector()
-	tabID := "10-5-ac7-trigger-tab"
+	tabID := "reverse-refs-trigger-tab"
 
 	path := filepath.Join("..", "..", "testdata", "multipage.pdf")
 	if _, err := ins.Open(tabID, path); err != nil {

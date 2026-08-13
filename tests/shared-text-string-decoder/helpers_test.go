@@ -41,7 +41,7 @@ const (
 	rawCheckSumHex = "DEADBEEFCAFEF00D0011223344556677"
 )
 
-// --- typed JSON shapes (Epic 13 retro P1: parse-then-assert, never grep) -----
+// --- typed JSON shapes (parse-then-assert, never grep) ----------------------
 
 // metadataJSON mirrors `dump metadata --json`.
 type metadataJSON struct {

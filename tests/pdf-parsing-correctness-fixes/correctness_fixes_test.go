@@ -96,10 +96,10 @@ func extractTopLevelFuncBody(t *testing.T, src, name string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1 -- fixture corpus at testdata/correctness/ + README
+// Fixture corpus at testdata/correctness/ + README
 // ---------------------------------------------------------------------------
 
-// correctnessFixtures is the AC1-pinned list of fixture filenames. Each
+// correctnessFixtures is the pinned list of fixture filenames. Each
 // fixture demonstrates exactly one failure mode and is committed as a
 // hand-authored uncompressed PDF (not generated at test time).
 var correctnessFixtures = []string{
@@ -153,7 +153,7 @@ func TestFixtureCorpusReadme(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 -- drop depth cap in buildReachableSet AND findPathToObject
+// Drop depth cap in buildReachableSet AND findPathToObject
 // ---------------------------------------------------------------------------
 
 // TestBuildReachableSetNoDepthCap asserts buildReachableSet in
@@ -241,7 +241,7 @@ func TestFindPathToObjectTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#3 -- extractStreamInfo gains doc *DocumentState; IndirectRef length resolved
+// extractStreamInfo gains doc *DocumentState; IndirectRef length resolved
 // ---------------------------------------------------------------------------
 
 // TestExtractStreamInfoSignature asserts the signature in
@@ -324,7 +324,7 @@ func TestIndirectLengthTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#4 -- latin1Decode doc comment rewrite + full-range pinning test
+// latin1Decode doc comment rewrite + full-range pinning test
 // ---------------------------------------------------------------------------
 
 // TestLatin1DecodeBodyUnchanged pins the load-bearing branch of latin1Decode in
@@ -337,7 +337,7 @@ func TestLatin1DecodeBodyUnchanged(t *testing.T) {
 	if body == "" {
 		t.Fatalf("could not locate latin1Decode in plaintext.go")
 	}
-	// Pre-existing branches that AC4 says MUST stay:
+	// Pre-existing branches that says MUST stay:
 	if !strings.Contains(body, "c == 0x09 || c == 0x0A || c == 0x0D") {
 		t.Errorf("latin1Decode must retain the `c == 0x09 || c == 0x0A || c == 0x0D` whitespace passthrough branch (implementation unchanged)")
 	}
@@ -428,7 +428,7 @@ func TestLatin1C1IntegrationTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#5 -- parseDifferences out-of-range guard
+// parseDifferences out-of-range guard
 // ---------------------------------------------------------------------------
 
 // TestParseDifferencesBoundsGuard asserts parseDifferences in
@@ -474,7 +474,7 @@ func TestParseDifferencesOutOfRangeTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 -- parseBfrange overflow break replaced with carry propagation
+// parseBfrange overflow break replaced with carry propagation
 // ---------------------------------------------------------------------------
 
 // TestParseBfrangeNoSilentBreak asserts parseBfrange in internal/pdfcore/font.go
@@ -549,7 +549,7 @@ func TestParseBfrangeCarryTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#7 -- DocumentState.FileSize captured at Open; redundant os.Stat removed
+// DocumentState.FileSize captured at Open; redundant os.Stat removed
 // ---------------------------------------------------------------------------
 
 // TestDocumentStateHasFileSize asserts DocumentState declares a `FileSize int64`
@@ -756,7 +756,7 @@ func TestGetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#8 -- baseline regression invariant: existing Story-10-1 tests survive
+// Baseline regression invariant: existing Story-10-1 tests survive
 // ---------------------------------------------------------------------------
 
 // TestPlainTextAsyncTestsExist asserts the async plaintext test surface in

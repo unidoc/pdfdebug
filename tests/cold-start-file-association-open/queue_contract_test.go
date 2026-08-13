@@ -1,4 +1,4 @@
-// Story 12.1 AC3/AC4: internal/pendingopen.Queue Add/Drain contract.
+// Story 12.1: internal/pendingopen.Queue Add/Drain contract.
 //
 // These tests pin the queue's public API through a harness package compiled
 // inside the main module (see helpers_test.go for why direct import is not
@@ -13,7 +13,7 @@
 //     and stays ready.
 //   - While queued, Add dedups on EXACT raw string equality (no Clean/fold).
 //   - Once ready, Add returns true for EVERY path including repeats (no
-//     ready-path dedup -- deduping warm opens here would break AC2).
+//     ready-path dedup -- deduping warm opens here would break).
 //   - Every queued path delivered exactly once across any Add/Drain
 //     interleaving, verified under -race.
 package story_12_1_test

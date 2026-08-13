@@ -48,7 +48,7 @@ func TestInspectorConcurrentSoak(t *testing.T) {
 	}
 
 	ins := NewInspector()
-	tabID := "10-5-ac2-soak"
+	tabID := "lock-order-soak"
 	_, err := ins.Open(tabID, filepath.Join(testdataDir(t), "multipage.pdf"))
 	if err != nil {
 		t.Fatalf("failed to open multipage.pdf: %v", err)

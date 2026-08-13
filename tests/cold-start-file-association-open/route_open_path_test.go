@@ -1,4 +1,4 @@
-// Story 12.1 AC7: the shared per-path routing decision in main.go.
+// Story 12.1: the shared per-path routing decision in main.go.
 //
 // Both backend entry points (ApplicationOpenedWithFile, OnSecondInstanceLaunch)
 // route every path through the queue first and only call openFileAndEmit +
@@ -7,12 +7,12 @@
 //
 //	routeOpenPath(q *pendingopen.Queue, path string, open func(string)) bool
 //
-// returning the ready verdict (caller decides Focus). Per AC7 / Task 2.4 this
-// helper is exercised by a main-package table test (the only sanctioned
-// automated pin on the main.go wiring -- source-grep tests are forbidden by
-// the strict guard, precedent: TestExtractPDFPaths). The behavioural assertion:
-// before Drain the path is queued and the fake open func is NOT called; after
-// Drain the open func IS called.
+// Returning the ready verdict (caller decides Focus). Task 2.4 this helper is
+// exercised by a main-package table test (the only sanctioned automated pin on
+// the main.go wiring -- source-grep tests are forbidden by the strict guard,
+// precedent: TestExtractPDFPaths). The behavioural assertion: before Drain the
+// path is queued and the fake open func is NOT called; after Drain the open
+// func IS called.
 //
 // This acceptance test DELEGATES to that main-package test rather than
 // duplicating the wiring assertion, because the helper takes a func argument

@@ -1,6 +1,6 @@
-// AC 1, 2, 3: version-pin assertions across go.mod, go.sum, the two CI
-// workflows, and the frontend runtime. All compare on the unified alpha-ordinal
-// so both the alpha2.103 target and the alpha.102 fallback (AC 10) pass.
+// version-pin assertions across go.mod, go.sum, the two CI workflows, and the
+// frontend runtime. All compare on the unified alpha-ordinal so both the
+// alpha2.103 target and the alpha.102 fallback pass.
 package story_12_3_wails_alpha2_103_upgrade_test
 
 import (
@@ -11,7 +11,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AC 1 -- Go dependency bumped
+// Go dependency bumped
 // ---------------------------------------------------------------------------
 
 // TestGoModWailsBumped asserts go.mod's wails/v3 pin is strictly newer than the
@@ -72,7 +72,7 @@ func TestWebview2NotHandPinned(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC 2 -- CLI pins bumped in BOTH workflows, CLI == library exactly
+// CLI pins bumped in BOTH workflows, CLI == library exactly
 // ---------------------------------------------------------------------------
 
 // assertWorkflowPinMatchesGoMod is the shared body for the ci.yml / release.yml
@@ -125,7 +125,7 @@ func TestReleaseExpectedFilesInvariant(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC 3 -- Frontend runtime: verify-only, bump only if npm has a newer publish
+// Frontend runtime: verify-only, bump only if npm has a newer publish
 // ---------------------------------------------------------------------------
 
 // TestRuntimePinWellFormedNoPhantom asserts @wailsio/runtime is a well-formed
@@ -150,7 +150,7 @@ func TestRuntimePinWellFormedNoPhantom(t *testing.T) {
 	if len(m) < 3 {
 		t.Fatalf("@wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
 	}
-	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (AC3 anti-pattern).
+	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (anti-pattern).
 	if m[1] == "2" {
 		t.Errorf("@wailsio/runtime pin %q uses a phantom alpha2.* tag -- npm publishes no alpha2 runtime; the runtime stays on the alpha.N line", raw)
 	}

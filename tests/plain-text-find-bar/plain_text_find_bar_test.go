@@ -239,9 +239,9 @@ func TestFindBarAriaContract(t *testing.T) {
 func TestFindBarNonLatin1Hint(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredFragments := []string{
-		"plain-text-find-non-latin1-hint",            // testid + id
-		`Non-Latin-1 characters won't match`,         // AC12 exact copy
-		`aria-describedby`,                           // linkage
+		"plain-text-find-non-latin1-hint", // testid + id
+		`Non-Latin-1 characters won't match`, // exact copy
+		`aria-describedby`, // linkage
 	}
 	for _, frag := range requiredFragments {
 		if !strings.Contains(src, frag) {

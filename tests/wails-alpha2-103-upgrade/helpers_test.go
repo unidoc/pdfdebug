@@ -17,7 +17,7 @@
 //   - The decisive coverage (cold/warm OS file-association open, the live
 //     bindings round-trip in the WebView, multi-display / idle crash checks) is
 //     the native runtime layer. It requires a real GUI build + OS IPC and is, by
-//     the story's own design (AC 8/9), MANUAL cross-OS smoke recorded in
+//     the story's own design, MANUAL cross-OS smoke recorded in
 //     Completion Notes. Playwright cannot drive it; no red E2E is authored.
 //   - So every test here is a Go structural / CLI-integration acceptance test in
 //     this independent module (mirrors tests/wails-alpha-95-upgrade/ and
@@ -48,14 +48,13 @@ import (
 // preBumpBaselineOrdinal is the ordinal of the current pin, v3.0.0-alpha.95.
 // The post-bump pin MUST be strictly newer than this on every Go-side
 // touch-point (go.mod, go.sum, ci.yml, release.yml). Both the alpha2.103 target
-// and the alpha.102 fallback (AC 10) clear it.
+// and the alpha.102 fallback clear it.
 const preBumpBaselineOrdinal = 95 // == alpha.95 ordinal; see alphaOrdinal.
 
 // jsRuntimePreBumpAlpha is the current @wailsio/runtime pin alpha number. The
-// npm runtime tops out at alpha.79 (AC 3): the post-bump pin must be a
-// well-formed 3.0.0-alpha.N tag with N >= this. It must NOT be rewritten to a
-// phantom alpha2.* tag (none is published on npm; the story's explicit
-// anti-pattern).
+// npm runtime tops out at alpha.79: the post-bump pin must be a well-formed
+// 3.0.0-alpha.N tag with N >= this. It must NOT be rewritten to a phantom
+// alpha2.* tag (none is published on npm; the story's explicit anti-pattern).
 const jsRuntimePreBumpAlpha = 79
 
 // goWailsRe matches a Wails Go pin in either scheme and captures the variant
@@ -239,8 +238,8 @@ func scanRepoFor(t *testing.T, needle string) bool {
 // loadOwnTestSources concatenates every *_test.go file in THIS test module's
 // directory, EXCLUDING the files named in skip. Used by the anti-brittleness
 // meta-guard to prove no exact method-count pin was re-introduced into the 12-3
-// suite (AC 6); the guard's own file is skipped because it necessarily contains
-// the forbidden-pattern literals as its detection strings.
+// suite; the guard's own file is skipped because it necessarily contains the
+// forbidden-pattern literals as its detection strings.
 func loadOwnTestSources(t *testing.T, skip ...string) string {
 	t.Helper()
 	dir, err := os.Getwd()

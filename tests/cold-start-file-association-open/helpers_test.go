@@ -88,7 +88,7 @@ func runHarness(t *testing.T, pkgFiles map[string]string) (out string, err error
 }
 
 // runMainPackageTest runs a single named test in the MAIN package (root
-// directory of the module) via `go test -run`. Used to delegate the AC7
+// directory of the module) via `go test -run`. Used to delegate the
 // routing-helper verdict to the main-package table test (Task 2.4), which is
 // the only sanctioned automated pin on the main.go wiring (source-grep tests
 // are forbidden). Returns combined output and the run error.

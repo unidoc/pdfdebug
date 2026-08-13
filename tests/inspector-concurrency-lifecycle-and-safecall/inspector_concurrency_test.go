@@ -5,10 +5,10 @@
 // tree for the contracts pinned in the story's ACs that DO NOT require
 // runtime exercise. Behavioural tests live alongside the production code:
 //
-//   internal/pdfcore/inspector_concurrent_test.go      (AC2 -race soak)
-//   internal/pdfcore/stream_test.go                    (AC3 same-node race)
-//   internal/pdfcore/inspector_internal_test.go        (AC4, AC7 lifecycle)
-//   internal/pdfservice/service_recover_test.go        (AC5 behaviour, build-tag-gated)
+//   internal/pdfcore/inspector_concurrent_test.go (-race soak)
+//   internal/pdfcore/stream_test.go (same-node race)
+//   internal/pdfcore/inspector_internal_test.go (lifecycle)
+//   internal/pdfservice/service_recover_test.go (behaviour, build-tag-gated)
 //
 // The TDD red-phase contract: every Test_10_5_* in this file FAILS today
 // against the pre-implementation tree. Dev's job is to land the changes that
@@ -61,7 +61,7 @@ func readSource(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1 -- DocumentState.pdfMu field + per-method lock acquisition
+// DocumentState.pdfMu field + per-method lock acquisition
 // ---------------------------------------------------------------------------
 
 // TestDocumentStateHasPdfMu asserts DocumentState carries a `pdfMu sync.Mutex`
@@ -92,10 +92,10 @@ func TestDocumentStateHasRevBuildOnce(t *testing.T) {
 	}
 }
 
-// pdfMuRequiredMethods is the AC1 inventory of Inspector methods that MUST
+// pdfMuRequiredMethods is the inventory of Inspector methods that MUST
 // acquire `doc.pdfMu` after GetDocument returns. The list is verbatim from
-// the AC1 paragraph; new pdfcpu-touching methods would need updating here
-// as part of their introduction story.
+// the paragraph; new pdfcpu-touching methods would need updating here as
+// part of their introduction story.
 var pdfMuRequiredMethods = []string{
 	"GetTreeRoot",
 	"GetChildren",
@@ -209,7 +209,7 @@ func extractFunctionBody(t *testing.T, src, name string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#3 -- stream.go cache contract: streamMu held for resolve+decode
+// stream.go cache contract: streamMu held for resolve+decode
 // ---------------------------------------------------------------------------
 
 // TestGetContentStreamHoldsStreamMuForDecode asserts the GetContentStream body does
@@ -240,7 +240,7 @@ func TestGetContentStreamHoldsStreamMuForDecode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#5 -- pdfservice top-level recover helper + per-method defer
+// Pdfservice top-level recover helper + per-method defer
 // ---------------------------------------------------------------------------
 
 // TestRecoverRuntimePanicHelperExists asserts service.go declares the
@@ -311,7 +311,7 @@ func extractFunctionBodyTopLevel(t *testing.T, src, name string) string {
 	return tail[:end+1]
 }
 
-// pdfserviceWrappedMethods is the AC5-pinned list of 15 PDFService methods
+// pdfserviceWrappedMethods is the pinned list of 15 PDFService methods
 // that MUST begin with `defer recoverRuntimePanic("<Name>", &err)`. Methods
 // outside this list (OpenFileDialog, CloseDocument, GetPlainText,
 // CancelPlainText, GetPlainTextSize) MUST NOT be wrapped.
@@ -333,9 +333,9 @@ var pdfserviceWrappedMethods = []string{
 	"GetXRefTable",
 }
 
-// pdfserviceUnwrappedMethods is the AC5-pinned EXCLUSION list -- methods
-// that MUST NOT have the recover wrapper because they do not call pdfcpu.
-// A future Dev who adds the wrapper here would launder a Go bug as
+// pdfserviceUnwrappedMethods is the pinned EXCLUSION list -- methods that
+// MUST NOT have the recover wrapper because they do not call pdfcpu. A
+// future Dev who adds the wrapper here would launder a Go bug as
 // "malformed PDF" and mislead the user.
 var pdfserviceUnwrappedMethods = []string{
 	"OpenFileDialog",
@@ -404,12 +404,12 @@ func extractPDFServiceMethodBody(t *testing.T, src, name string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 -- existing safeCall test surface MUST survive unchanged
+// Existing safeCall test surface MUST survive unchanged
 // ---------------------------------------------------------------------------
 
-// safeCallContractTests is the AC6 verbatim list of test names in
+// safeCallContractTests is the verbatim list of test names in
 // errors_test.go that MUST continue to exist post-implementation. A rename
-// or deletion is the contract violation AC6 forbids.
+// or deletion is the contract violation forbids.
 var safeCallContractTests = []string{
 	"TestSafeCallSuccess",
 	"TestSafeCallReturnsError",
@@ -447,7 +447,7 @@ func TestSafeCallRePanicsRuntimeErrorPreserved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#7 -- reverse-refs build moved out of Open
+// reverse-refs build moved out of Open
 // ---------------------------------------------------------------------------
 
 // TestOpenNoLongerCallsBuildReverseRefs asserts the Inspector.Open body does not
@@ -504,7 +504,7 @@ func TestGetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#8 -- main.go openFileAndEmitWithWarning dispatches pdfcpu read to goroutine
+// main.go openFileAndEmitWithWarning dispatches pdfcpu read to goroutine
 // ---------------------------------------------------------------------------
 
 // TestOpenFileAndEmitDispatchesGoroutine asserts openFileAndEmitWithWarning
@@ -513,7 +513,7 @@ func TestGetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 // *sync.WaitGroup parameter and on a `go func(` inside the body.
 func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	src := readSource(t, "main.go")
-	// AC9 task 7 gains an extra *sync.WaitGroup parameter.
+	// Task 7 gains an extra *sync.WaitGroup parameter.
 	sigRe := regexp.MustCompile(`func openFileAndEmitWithWarning\([^)]*\*sync\.WaitGroup[^)]*\)`)
 	if !sigRe.MatchString(src) {
 		t.Errorf("openFileAndEmitWithWarning signature must include a `*sync.WaitGroup` parameter")
@@ -527,7 +527,7 @@ func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	}
 	// The goroutine takes path/extraWarning/svc/app as explicit arguments
 	// for lifetime documentation. Loose anchor: the closure has at least
-	// one parameter (matches the AC8 spec shape).
+	// one parameter (matches the spec shape).
 	closureRe := regexp.MustCompile(`go func\([^)]*\w+\s+\w+`)
 	if !closureRe.MatchString(body) {
 		t.Errorf("the `go func(...)` in openFileAndEmitWithWarning should take explicit parameters (path, extraWarning, svc, app, wg) (Goroutine arguments are used for explicit lifetime documentation)")
@@ -537,8 +537,7 @@ func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 // extractTopLevelFuncBody locates `func <name>(` at column 0 (no receiver,
 // no method receiver pattern) and returns the body up to the next column-0
 // `func `. Differs from extractFunctionBodyTopLevel by being defined in
-// this file's scope so the AC8 / AC9 main.go tests don't depend on the
-// AC5 helper.
+// this file's scope so the main.go tests don't depend on the helper.
 func extractTopLevelFuncBody(t *testing.T, src, name string) string {
 	t.Helper()
 	needle := "func " + name + "("
@@ -555,7 +554,7 @@ func extractTopLevelFuncBody(t *testing.T, src, name string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#9 -- main.go openFilesBatch uses per-iteration WaitGroup.Wait()
+// main.go openFilesBatch uses per-iteration WaitGroup.Wait()
 // ---------------------------------------------------------------------------
 
 // TestOpenFilesBatchUsesWaitGroup asserts the batch open dispatcher declares a
@@ -579,7 +578,7 @@ func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 		t.Fatalf("could not locate `document:batch-complete` emit inside openFilesBatch")
 	}
 	body := tail[:endIdx]
-	// AC9 contract markers:
+	// Contract markers:
 	if !strings.Contains(body, "var wg sync.WaitGroup") {
 		t.Errorf("openFilesBatch must declare a local `var wg sync.WaitGroup` (code shape)")
 	}

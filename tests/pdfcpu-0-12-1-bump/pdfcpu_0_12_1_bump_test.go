@@ -5,21 +5,21 @@
 // spec and the user directive:
 //
 //  1. "Actual red" tests for the deltas the Dev step must land:
-//     - go.mod's pdfcpu require literal must move v0.12.0 -> v0.12.1 (AC1)
-//     - go.sum must carry v0.12.1 hashes (AC1)
+//     - go.mod's pdfcpu require literal must move v0.12.0 -> v0.12.1
+//     - go.sum must carry v0.12.1 hashes
 //     - _bmad-output/project-context.md's Technology Stack line for pdfcpu must
-//       be updated to the AC10 verbatim phrasing
+//       be updated to the verbatim phrasing
 //     These FAIL on the pre-bump tree by design.
 //
 //  2. "Baseline invariant" tests that MUST pass on the pre-bump tree AND
 //     continue to pass post-bump. They pin the contract surface the patch
 //     must not regress:
-//     - safeCall's runtime.Error re-panic guarantee (AC5)
-//     - the six named errors_test.go tests still exist (AC5)
-//     - image.go's three memory-guard literals are unchanged (AC6)
-//     - image.go still calls the two pdfcpu_render functions (AC6)
-//     - stream.go still wraps sd.Decode() in safeCall (AC7)
-//     - stream_test.go still carries TestTokenizeInlineImagePayloadOpaque (AC7)
+//     - safeCall's runtime.Error re-panic guarantee
+//     - the six named errors_test.go tests still exist
+//     - image.go's three memory-guard literals are unchanged
+//     - image.go still calls the two pdfcpu_render functions
+//     - stream.go still wraps sd.Decode() in safeCall
+//     - stream_test.go still carries TestTokenizeInlineImagePayloadOpaque
 //     - pdfcore/doc.go retains the blank import that pins pdfcpu (Dev Notes:
 //       "pdfcpu dependency is pinned via blank import")
 //
@@ -29,13 +29,13 @@
 //   - Pure structural / source-grep assertions only. Patch bumps introduce
 //     ZERO new business logic, ZERO new component, ZERO new hook. Adding
 //     unit/component/E2E tests would be speculative coverage.
-//   - The behavioral ACs (AC2 vet/lint baseline diff, AC3 parent test pass,
-//     AC4 per-suite tests pass, AC8 CLI smoke) are EXPLICITLY delegated by
+//   - The behavioral ACs (vet/lint baseline diff, parent test pass,
+//     per-suite tests pass, CLI smoke) are EXPLICITLY delegated by
 //     the story spec to "run the existing test surface" via Task 2 (parent
 //     `go test ./...`, per-suite `cd tests/<name> && go test -count=1 ./...`)
 //     and Task 3 (CLI binary smoke). This story does not author parallel
 //     behavioral tests for them.
-//   - AC9 (rollback policy) is a conditional flow; nothing to assert.
+//   - (rollback policy) is a conditional flow; nothing to assert.
 //
 // Run: cd tests/pdfcpu-0-12-1-bump && go test -v -count=1 ./...
 package pdfcpu_0_12_1_bump_test
@@ -52,7 +52,7 @@ import (
 // tree MUST replace this with targetVersion on the require line in go.mod.
 const preBumpVersion = "v0.12.0"
 
-// targetVersion is the patch bump destination per AC1.
+// targetVersion is the patch bump destination.
 const targetVersion = "v0.12.1"
 
 // pdfcpuModulePath is the Go module path for pdfcpu, used to anchor regex /
@@ -105,7 +105,7 @@ func findRequireLine(src string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1 -- go.mod version literal change + go.sum settled
+// go.mod version literal change + go.sum settled
 // ---------------------------------------------------------------------------
 
 // TestGoModPdfcpuAtTargetVersion asserts go.mod declares pdfcpu at the target
@@ -166,7 +166,7 @@ func TestGoSumCarriesTargetVersion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#5 -- safeCall re-panic guarantee + named errors_test.go suite intact
+// safeCall re-panic guarantee + named errors_test.go suite intact
 // ---------------------------------------------------------------------------
 
 // TestSafeCallRePanicsRuntimeError asserts internal/pdfcore/errors.go's safeCall
@@ -192,9 +192,9 @@ func TestSafeCallRePanicsRuntimeError(t *testing.T) {
 	}
 }
 
-// safeCallNamedTests is the AC5-mandated test name list. Each must exist in
+// safeCallNamedTests is the mandated test name list. Each must exist in
 // errors_test.go post-bump. A renamed test that drifts from this list is a
-// silent contract loss; AC5 says these specific tests MUST pass.
+// silent contract loss; says these specific tests MUST pass.
 var safeCallNamedTests = []string{
 	"TestSafeCallPropagatesRuntimeError",
 	"TestSafeCallSuccess",
@@ -203,9 +203,9 @@ var safeCallNamedTests = []string{
 	"TestSafeCallCatchesErrorPanic",
 }
 
-// wrapPDFErrorNamedTests is the AC5 "TestWrapPDFError* suite" set. AC5 names
-// the suite by glob; this list pins the current members. A bump must not
-// delete any.
+// wrapPDFErrorNamedTests is the "TestWrapPDFError* suite" set. names the
+// suite by glob; this list pins the current members. A bump must not delete
+// any.
 var wrapPDFErrorNamedTests = []string{
 	"TestWrapPDFErrorPasswordBecomesEncrypted",
 	"TestWrapPDFErrorOwnerPasswordBecomesEncrypted",
@@ -230,7 +230,7 @@ func TestSafeCallNamedTestsExist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 -- image.go memory guards + pdfcpu_render call surface preserved
+// image.go memory guards + pdfcpu_render call surface preserved
 // ---------------------------------------------------------------------------
 
 // TestImageMemoryGuardsUnchanged asserts the three numeric memory-guard constants
@@ -268,7 +268,7 @@ func TestImageRenderCallsiteIntact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#7 -- stream decode path + inline-image opacity test intact
+// Stream decode path + inline-image opacity test intact
 // ---------------------------------------------------------------------------
 
 // TestStreamDecodeWrappedInSafeCall asserts internal/pdfcore/stream.go retains the

@@ -553,13 +553,13 @@ func TestStream_RawJSON_Rejected(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--raw", "--json", "--page", "1", pdfPath)
 	if ec != 1 {
-		t.Errorf("[13.1] STREAM-005: --raw --json expected exit 1 (usage), got %d", ec)
+		t.Errorf("--raw --json expected exit 1 (usage), got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[13.1] STREAM-005: stdout should be empty on usage error, got: %s", stdout)
+		t.Errorf("--raw --json: stdout should be empty on usage error, got: %s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[13.1] STREAM-005: stderr should carry a usage/error message")
+		t.Error("--raw --json: stderr should carry a usage/error message")
 	}
 }
 
@@ -569,12 +569,12 @@ func TestStream_OpsJSON_Rejected(t *testing.T) {
 
 	stdout, stderr, ec := runCLI(t, bin, "dump", "stream", "--ops", "--json", "--page", "1", pdfPath)
 	if ec != 1 {
-		t.Errorf("[13.1] STREAM-006: --ops --json expected exit 1 (usage), got %d", ec)
+		t.Errorf("--ops --json expected exit 1 (usage), got %d", ec)
 	}
 	if strings.TrimSpace(stdout) != "" {
-		t.Errorf("[13.1] STREAM-006: stdout should be empty on usage error, got: %s", stdout)
+		t.Errorf("--ops --json: stdout should be empty on usage error, got: %s", stdout)
 	}
 	if strings.TrimSpace(stderr) == "" {
-		t.Error("[13.1] STREAM-006: stderr should carry a usage/error message")
+		t.Error("--ops --json: stderr should carry a usage/error message")
 	}
 }

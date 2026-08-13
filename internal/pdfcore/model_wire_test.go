@@ -8,7 +8,7 @@
 // The tests/wails-alpha2-103-upgrade acceptance module already pins ObjectDetail
 // via the CLI-exec harness, but DocumentInfo is never marshalled to CLI stdout,
 // so that harness structurally cannot reach it. DocumentInfo is the payload
-// behind the `document:opened` event and the P0 bindings round-trip (Smoke item
+// behind the `document:opened` event and the bindings round-trip (Smoke item
 // 3) -- names it as the PREFERRED wire-shape target. This co-located unit test is
 // the lowest viable layer for that guard: a pure json.Marshal of a populated
 // struct, in-package, no CLI exec, no go.mod barrier.

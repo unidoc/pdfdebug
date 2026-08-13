@@ -1,15 +1,14 @@
-// AC1, AC2, AC3.1, AC5, AC8: the CLI==library version-pin invariant plus the
-// runtime-honesty guard.
+// The CLI==library version-pin invariant plus the runtime-honesty guard.
 //
-// scenario 14.2-INTG-001 [P0] (risk R-14-11): the wails3 CLI pin in BOTH
-// .github/workflows/ci.yml AND .github/workflows/release.yml must EQUAL the
-// go.mod library pin exactly, and go.mod must reach the committed target
-// v3.0.0-alpha2.117. This mirrors the version-pin cases in
-// tests/wails-alpha2-103-upgrade -- it reads the files
-// statically and does NOT shell out to `wails3 --version` (the live
-// go.mod==wails3 equality is confirmed only on the legs where the CLI is
-// installed: the 3-runner build and the manual smoke, out of this module's
-// scope). A mismatch means everything downstream tests a phantom -- stop.
+// Scenario: the wails3 CLI pin in BOTH .github/workflows/ci.yml AND
+// .github/workflows/release.yml must EQUAL the go.mod library pin exactly,
+// and go.mod must reach the committed target v3.0.0-alpha2.117. This
+// mirrors the version-pin cases in tests/wails-alpha2-103-upgrade -- it
+// reads the files statically and does NOT shell out to `wails3 --version`
+// (the live go.mod==wails3 equality is confirmed only on the legs where the
+// CLI is installed: the 3-runner build and the manual smoke, out of this
+// module's scope). A mismatch means everything downstream tests a phantom
+// -- stop.
 //
 // Authored RED (go.mod at alpha2.103, below the alpha2.117 floor); now GREEN
 // after the committed bump and standing as the regression gate against drift.
@@ -23,7 +22,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AC1/AC2 -- go.mod library pin reaches the committed target
+// go.mod library pin reaches the committed target
 // ---------------------------------------------------------------------------
 
 // TestGoModPinAtTarget asserts go.mod's wails/v3 pin reaches the committed target
@@ -61,7 +60,7 @@ func TestGoSumCarriesNewPin(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC3.1 -- CLI==library: wails3 install pin parity in BOTH workflows
+// CLI==library: wails3 install pin parity in BOTH workflows
 // ---------------------------------------------------------------------------
 
 // assertWorkflowPinMatchesGoMod is the shared body for the ci.yml / release.yml
@@ -117,7 +116,7 @@ func TestReleaseExpectedFilesInvariant(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC5/AC8 -- runtime held to what upstream publishes (no phantom alpha2)
+// Runtime held to what upstream publishes (no phantom alpha2)
 // ---------------------------------------------------------------------------
 
 // TestRuntimePinNoPhantomAlpha2 asserts @wailsio/runtime is a well-formed
@@ -144,7 +143,7 @@ func TestRuntimePinNoPhantomAlpha2(t *testing.T) {
 	if len(m) < 3 {
 		t.Fatalf("@wailsio/runtime pin %q must carry a 3.0.0-alpha.N tag", raw)
 	}
-	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (AC5 anti-pattern).
+	// Phantom-alpha2 guard: no alpha2 runtime exists on npm (anti-pattern).
 	if m[1] == "2" {
 		t.Errorf("@wailsio/runtime pin %q uses a phantom alpha2.* tag -- npm publishes no alpha2 runtime; Go-side currency does not license runtime skew. Relax this guard ONLY if upstream publishes a matching runtime and it is adopted.", raw)
 	}

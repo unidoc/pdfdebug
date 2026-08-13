@@ -1,4 +1,4 @@
-// Story 12.1 AC5: PDFService.ConsumePendingOpenFiles service-boundary contract.
+// Story 12.1: PDFService.ConsumePendingOpenFiles service-boundary contract.
 //
 // The drain is exposed over the Wails service boundary as a thin delegation:
 //   - SetPendingOpens(q *pendingopen.Queue) injects the queue from main.go.
@@ -13,7 +13,7 @@ package story_12_1_test
 import "testing"
 
 // serviceHarnessPreamble imports both the service and the queue. The
-// PDFService zero value must support the queue path (AC5: exported setter +
+// PDFService zero value must support the queue path (exported setter +
 // nil-guarded method); the harness uses &pdfservice.PDFService{} so the test
 // does not depend on a Wails app instance.
 const serviceHarnessPreamble = `package atdd

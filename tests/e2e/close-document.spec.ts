@@ -1,7 +1,7 @@
 /**
  * E2E Acceptance Tests for Story 4.3: Close Document and Tab Management
  *
- * Test IDs: 4.3-E2E-001
+ * Test IDs:
  * Run: npx playwright test tests/e2e/close-document.spec.ts
  *
  * This test validates the full close-to-empty-state path: opening a PDF,
@@ -13,9 +13,9 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
 test.describe('Close Document and Tab Management', () => {
   // ---------------------------------------------------------------------------
-  // 4.3-E2E-001 [P0]: Close last tab returns to empty state
-  // AC#1: Document is closed, tab is removed from tab bar.
-  // AC#2: When no documents remain open, empty state is shown again with
+  // Close last tab returns to empty state: Document is
+  // closed, tab is removed from tab bar.
+  // When no documents remain open, empty state is shown again with
   //       the drag-and-drop zone, and the user can immediately open a new PDF.
   // ---------------------------------------------------------------------------
   test('should close last tab and return to empty state', async ({ appPage }) => {

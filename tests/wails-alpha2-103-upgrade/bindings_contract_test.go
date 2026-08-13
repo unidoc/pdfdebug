@@ -1,6 +1,6 @@
-// AC 4, 6: consumer-driven binding-presence contract that REPLACES the brittle
-// exact-method-count pin (Test_10_3_STRUCT_010), plus the anti-brittleness
-// meta-guard proving no `count == N` pin was re-introduced.
+// Consumer-driven binding-presence contract that REPLACES the brittle
+// exact-method-count pin the alpha.95 suite carried, plus the
+// anti-brittleness meta-guard proving no `count == N` pin was re-introduced.
 //
 // Per project_struct_grep_tests_brittle.md and the story: assert PRESENCE of the
 // methods the frontend actually binds, checked against the REGENERATED ARTIFACT

@@ -561,7 +561,7 @@ func TestUninstallCLIRemovesOnlyOurSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P1, coverage expansion: -- the NeedsPathHelp export line is EXACTLY `export
+// Coverage expansion: the NeedsPathHelp export line is EXACTLY `export
 // PATH="<dir>:$PATH"` with the directory DOUBLE-QUOTED, not merely a substring
 // containing `export PATH=`. The double-quoting is the special-char invariant
 // applied to the guidance: a `~/.local/bin`-style dir whose path contains a space
@@ -600,7 +600,7 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P1, coverage expansion: -- UninstallCLI is idempotent when the link is ABSENT
+// Coverage expansion: UninstallCLI is idempotent when the link is ABSENT
 // (e.g. the user already uninstalled, or trashed the app and removed the
 // dangling link). It returns nil, not an error. The implementation has an
 // explicit `absent -> nil` branch (clitool.go) but no test pinned it; the
@@ -623,7 +623,7 @@ func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// P1, coverage expansion: (d) -- the explicit Overwrite flag replaces a
+// Coverage expansion: the explicit Overwrite flag replaces a
 // FOREIGN-SHAPED SYMLINK (not just a regular file) with OUR symlink. UNIT-014
 // confirms the overwrite-a-regular-file path; the symlink case exercises a
 // structurally different clobber branch (lstat reports a symlink, linkInto

@@ -1,4 +1,4 @@
-// AC 7: bindings wire-shape guard for the P0 alpha.96 struct-tag risk.
+// Bindings wire-shape guard for the alpha.96 struct-tag risk.
 //
 // alpha.96 moved the runtime-facing payload under a stable binding API + JSON
 // struct tags. The classic silent regression is a field getting re-tagged
@@ -15,8 +15,8 @@
 // established CLI-exec harness (mirrors tests/page-render-info/), with zero
 // production-code dependency.
 //
-// This is the AUTOMATED guard for the P0 risk; it does not replace the manual
-// round-trip smoke (AC 8/9, Smoke item 3).
+// This is the AUTOMATED guard for that risk; it does not replace the manual
+// round-trip smoke (Smoke item 3).
 package story_12_3_wails_alpha2_103_upgrade_test
 
 import (

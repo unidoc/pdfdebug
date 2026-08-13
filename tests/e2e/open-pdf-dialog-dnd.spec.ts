@@ -3,11 +3,11 @@
  *
  * TDD RED PHASE: Tests MUST fail until Story 2-4 is implemented.
  *
- * Only the critical happy path (2.4-E2E-001) is tested at E2E level.
- * All structural/state/error tests are handled by Go integration tests
- * in tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go.
+ * Only the critical happy path is tested at E2E level. All
+ * structural/state/error tests are handled by Go integration tests in
+ * tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go.
  *
- * Test IDs: 2.4-E2E-001, 2.4-E2E-002
+ * Test IDs:
  * Run: npx playwright test tests/e2e/open-pdf-dialog-dnd.spec.ts
  */
 import { test, expect } from '../support/fixtures';
@@ -15,12 +15,12 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
 test.describe('Open PDF via File Dialog and Drag-and-Drop', () => {
   // ---------------------------------------------------------------------------
-  // 2.4-E2E-001 [P0]: User opens PDF via drag-and-drop, sees tree Catalog
-  // AC#2: Given the empty state, When the user drags a PDF onto the window
+  // User opens PDF via drag-and-drop, sees tree Catalog: Given the empty
+  // state, When the user drags a PDF onto the window
   //       and releases, Then the PDF is opened and the tree panel shows the
   //       document structure with the root "Catalog" node visible and
   //       auto-expanded to show its immediate children.
-  // AC#3: The root Catalog node is visible and auto-expanded.
+  // The root Catalog node is visible and auto-expanded.
   // ---------------------------------------------------------------------------
   test('should open PDF via drag-and-drop and show Catalog in tree', async ({ appPage }) => {
     await waitForWailsReady(appPage);
@@ -111,8 +111,8 @@ test.describe('Open PDF via File Dialog and Drag-and-Drop', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 2.4-E2E-002 [P0]: Error banner appears for malformed PDF and is dismissible
-  // AC#4: Given a PDF that cannot be parsed, When the user opens it,
+  // Error banner appears for malformed PDF and is dismissible: Given a PDF that
+  // cannot be parsed, When the user opens it,
   //       Then an ErrorBanner appears with a clear message, And the error
   //       banner is dismissible, And the user can open a different file.
   // ---------------------------------------------------------------------------

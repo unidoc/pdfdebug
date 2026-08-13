@@ -9,7 +9,7 @@
  * MainLayout. Source-level validation (menu bar setup, file structure, imports)
  * is handled by Go integration tests in tests/app-shell/app_shell_test.go.
  *
- * Test IDs: 1.4-E2E-001, 1.4-E2E-002, 1.4-E2E-003
+ * Test IDs:
  * Run: npx playwright test tests/e2e/app-shell.spec.ts
  */
 import { test, expect } from '../support/fixtures';
@@ -17,29 +17,29 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
 test.describe('Native Menu Bar and Application Shell', () => {
   // ---------------------------------------------------------------------------
-  // 1.4-E2E-001 (P0): App launches with EmptyState (no document open)
-  // AC#6: App renders AppProvider -> EmptyState when no active document
-  // AC#2: MainLayout is NOT rendered when no document is open
+  // App launches with EmptyState (no document open): App renders
+  // AppProvider -> EmptyState when no active document: MainLayout is
+  // NOT rendered when no document is open
   // ---------------------------------------------------------------------------
   test('should display EmptyState when no document is open', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
-    // AC#6: EmptyState should be visible (initial state has no tabs)
+    // EmptyState should be visible (initial state has no tabs)
     await expect(
       appPage.getByTestId('empty-state'),
     ).toBeVisible();
 
-    // AC#2: MainLayout should NOT be present when no document is open
+    // MainLayout should NOT be present when no document is open
     await expect(
       appPage.getByTestId('main-layout'),
     ).not.toBeVisible();
   });
 
   // ---------------------------------------------------------------------------
-  // 1.4-E2E-002 (P0): Two-column layout renders with semantic HTML and
+  // Two-column layout renders with semantic HTML and
   //                     data-testid attributes when MainLayout is active
-  // AC#2: Left panel (aside) + right panel (main) with resizable divider
-  // AC#5: Semantic HTML elements <aside> and <main>
+  // Left panel (aside) + right panel (main) with resizable divider:
+  // Semantic HTML elements <aside> and <main>
   //
   // NOTE: This test requires a mechanism to trigger MainLayout rendering.
   // Since no document open logic exists yet, this test validates the DOM
@@ -70,9 +70,9 @@ test.describe('Native Menu Bar and Application Shell', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 1.4-E2E-003 (P1): Verify all required data-testid attributes are present
+  // Verify all required data-testid attributes are present
   //                     in the rendered DOM
-  // AC#2, AC#5, AC#6: DOM structure verification
+  // DOM structure verification
   //
   // This test launches the app and checks that the expected data-testid
   // attributes are present. In the default state (no document), it checks

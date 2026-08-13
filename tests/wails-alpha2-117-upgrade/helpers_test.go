@@ -18,7 +18,7 @@
 //   - The decisive coverage (the live bindings round-trip inside the platform
 //     WebView, multi-WebView desktop smoke) is the native runtime layer. It
 //     needs real macOS + Windows hardware and a human observer and is, by the
-//     story's own design (AC4, a DEFERRED HUMAN/HARDWARE gate), MANUAL cross-OS
+//     story's own design (a DEFERRED HUMAN/HARDWARE gate), MANUAL cross-OS
 //     smoke recorded in the Dev Agent Record. Playwright cannot drive it; no red
 //     E2E is authored (see deferred_gates_test.go for the documented skips).
 //   - So every automated test here is a Go structural / CLI-integration
@@ -58,18 +58,18 @@ const alpha2Base = 1000
 // (RED phase), which is why the version-pin tests were RED before the bump landed.
 const currentBaselineOrdinal = alpha2Base + 103
 
-// targetOrdinal is the committed AC1/AC2 target v3.0.0-alpha2.117. The go.mod
-// pin must reach this floor (>=), which encodes "the bump landed the committed
-// target" while staying non-brittle to a defensibly-newer most-baked pick.
-// Fallback rungs (AC7): rung 1 = alpha2.103 (current known-good), rung 2 =
-// alpha.102 (deeper) -- both sit BELOW this floor, so a rollback correctly
-// leaves this gate red (the story does not reach done on a rolled-back tree).
+// targetOrdinal is the committed target v3.0.0-alpha2.117. The go.mod pin must
+// reach this floor (>=), which encodes "the bump landed the committed target"
+// while staying non-brittle to a defensibly-newer most-baked pick. Fallback
+// rungs: rung 1 = alpha2.103 (current known-good), rung 2 = alpha.102 (deeper)
+// -- both sit BELOW this floor, so a rollback correctly leaves this gate red
+// (the story does not reach done on a rolled-back tree).
 const targetOrdinal = alpha2Base + 117
 
 // jsRuntimeCurrentAlpha is the current @wailsio/runtime pin alpha number. npm
-// tops out at alpha.79 (AC5): the runtime is held to what upstream publishes, so
-// the pin must stay a well-formed 3.0.0-alpha.N tag with N >= this and must NOT
-// be rewritten to a phantom alpha2.* tag (none is published on npm).
+// tops out at alpha.79: the runtime is held to what upstream publishes, so the
+// pin must stay a well-formed 3.0.0-alpha.N tag with N >= this and must NOT be
+// rewritten to a phantom alpha2.* tag (none is published on npm).
 const jsRuntimeCurrentAlpha = 79
 
 // goWailsRe matches a Wails Go pin in either scheme and captures the variant

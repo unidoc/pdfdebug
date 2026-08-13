@@ -12,27 +12,27 @@
 //     component, no new hook. The entire story is a platform-version bump +
 //     contract-preservation audit. Adding unit/component/E2E tests would be
 //     speculative coverage.
-//   - The automatable ACs (AC1, AC2, AC3, AC5, AC8, AC9, AC11, AC13, AC14)
+//   - The automatable ACs
 //     reduce to structural assertions over: version pins, the bound-method
 //     surface, IPC type JSON tags, regenerated binding files, the live event
 //     name set, the Vite quirk comments, and the doc-staleness fixes named
 //     in Task 9.
-//   - The behavioral ACs (AC4 splash + tabs smoke, AC6 splash lifecycle, AC7
-//     single-instance + file-association, AC12 rollback policy, AC15
+//   - The behavioral ACs (splash + tabs smoke, splash lifecycle
+//     single-instance + file-association, rollback policy
 //     boot-smoke pass-through) are EXPLICITLY delegated by the story spec to
 //     "document in Completion Notes" via manual smoke and to existing
 //     acceptance suites (tests/boot-smoke/, tests/file-association-
-//     persistence/, tests/startup-splash-screen/). AC5 requires those suites
+//     persistence/, tests/startup-splash-screen/). requires those suites
 //     to PASS post-bump; this story does not author new behavioral tests for
 //     them.
 //
 // What the assertions do NOT pin:
 //
-//   - The exact target alpha number. AC1 + Task 2.1 say "current latest at
+//   - The exact target alpha number. + Task 2.1 say "current latest at
 //     story pickup, target alpha.95 unless newer". Assertions require strictly
 //     newer than alpha.85 (the current pin) AND parity across go.mod /
 //     package.json / ci.yml / release.yml.
-//   - The JS-side alpha number when AC13's drift exemption applies. The JS
+//   - The JS-side alpha number when the drift exemption applies. The JS
 //     pin must be a 3.0.0-alpha.N tag and >= alpha.79 (the current pin); it
 //     does NOT need to match the Go-side number.
 //
@@ -96,7 +96,7 @@ func readSource(t *testing.T, relPath string) string {
 // loadFrontendSrcConcat walks frontend/src (non-test files only) and returns a
 // concatenation of every JS/TS/JSX/TSX source. Extracting the walk into a
 // helper keeps the test function bodies free of literal os.ReadFile calls,
-// which the source-grep-guard (Story 4-5 AC#7) flags when paired with a
+// which the source-grep-guard (Story 4-5) flags when paired with a
 // guarded-path literal like "main.go".
 func loadFrontendSrcConcat(t *testing.T) string {
 	t.Helper()
@@ -182,12 +182,12 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 -- bound method surface preservation (PDFService receiver signatures)
+// Bound method surface preservation (PDFService receiver signatures)
 // ---------------------------------------------------------------------------
 
 // expectedServiceMethods enumerates the 20 PDFService receiver method
-// signatures the bump must preserve verbatim (AC2). Drift in any one is a
-// hard fail: a renamed method, a re-typed return value, or a removed method
+// signatures the bump must preserve verbatim. Drift in any one is a hard
+// fail: a renamed method, a re-typed return value, or a removed method
 // silently breaks the regenerated bindings and every caller.
 //
 // Signature strings are matched as substrings of internal/pdfservice/service.go
@@ -237,8 +237,8 @@ var expectedServiceMethods = []struct {
 // but still catches a reshaped or removed documented one.
 func TestPDFServiceMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
-	// Verify each documented signature appears verbatim. No exact-count pin
-	// (AC 6): a method ADDED by a future change must not fail this test.
+	// Verify each documented signature appears verbatim. No exact-count
+	// pin: a method ADDED by a future change must not fail this test.
 	for _, m := range expectedServiceMethods {
 		if !strings.Contains(src, m.sig) {
 			t.Errorf("PDFService.%s signature drift -- expected substring not found:\n %s\n(a regenerated binding signature must match the pre-bump signature)", m.id, m.sig)
@@ -247,7 +247,7 @@ func TestPDFServiceMethodSurface(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 -- IPC type JSON-tag preservation (model.go + adjacent files)
+// IPC type JSON-tag preservation (model.go + adjacent files)
 // ---------------------------------------------------------------------------
 
 // expectedJSONTags enumerates the IPC-relevant JSON tags that the frontend
@@ -257,9 +257,9 @@ func TestPDFServiceMethodSurface(t *testing.T) {
 // drift at story time.
 //
 // Tags listed are the LOAD-BEARING tags on actively-consumed types. The list
-// is intentionally narrower than "every json tag in pdfcore" -- AC2 says
-// "JSON tag names unchanged on each IPC type", and the contract surfaces are
-// the structs returned by the bound methods listed in expectedServiceMethods.
+// is intentionally narrower than "every json tag in pdfcore" -- says "JSON
+// tag names unchanged on each IPC type", and the contract surfaces are the
+// structs returned by the bound methods listed in expectedServiceMethods.
 var expectedJSONTags = map[string][]string{
 	"internal/pdfcore/model.go": {
 		// TreeNode
@@ -330,7 +330,7 @@ func TestJSONTagsPreserved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#2 -- regenerated bindings carry the post-10-1 method surface
+// Regenerated bindings carry the post-10-1 method surface
 // ---------------------------------------------------------------------------
 
 // TestBindingsExportAll20Methods asserts the regenerated frontend Wails binding
@@ -366,14 +366,14 @@ func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#11 -- live event surface preservation (Go-emitted + JS-consumed names)
+// Live event surface preservation (Go-emitted + JS-consumed names)
 // ---------------------------------------------------------------------------
 
 // goEmittedEvents are the events main.go emits to the frontend via
-// `app.Event.Emit("<name>", ...)`. AC11 lists each one; a rename in the Wails
+// `app.Event.Emit("<name>", ...)`. lists each one; a rename in the Wails
 // runtime that propagates to our call sites is a silent break.
 //
-// Note: AC11 also lists "document:warning" under Go -> JS, but the current
+// Note: also lists "document:warning" under Go -> JS, but the current
 // pre-bump main.go does NOT emit it (the frontend listens via App.jsx but no
 // Go-side Emit exists). The structural assertion only pins what is currently
 // emitted; "document:warning" is covered by the JS-listener assertion in
@@ -411,7 +411,7 @@ func TestGoEventEmitNamesPreserved(t *testing.T) {
 }
 
 // jsConsumedEvents are the events the frontend subscribes to via
-// `Events.On('<name>', ...)`. AC11 calls out the common:Window* names
+// `Events.On('<name>', ...)`. calls out the common:Window* names
 // explicitly because they are emitted by the Wails runtime itself -- a
 // runtime-side rename in a new alpha would silently break window geometry
 // persistence.
@@ -451,7 +451,7 @@ func TestJsEventOnNamesPreserved(t *testing.T) {
 }
 
 // jsEmittedEvents are events the frontend emits BACK to Go via Events.Emit.
-// AC11 currently lists only one: 'document:batch-cancel'.
+// Currently lists only one: 'document:batch-cancel'.
 var jsEmittedEvents = []string{
 	"document:batch-cancel",
 }
@@ -486,7 +486,7 @@ func TestNoPhantomBatchProgressEvent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#10 -- window geometry runtime calls still present in App.jsx
+// Window geometry runtime calls still present in App.jsx
 // ---------------------------------------------------------------------------
 
 // TestWailsJSRuntimeGeometryCalls asserts App.jsx still calls Screens.GetAll(),
@@ -515,7 +515,7 @@ func TestWindowGeometryGuardWorkAreaField(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#9 -- dev-loop quirks documented in vite.config.ts
+// dev-loop quirks documented in vite.config.ts
 // ---------------------------------------------------------------------------
 
 // TestViteConfigQuirks asserts vite.config.ts retains the IPv4 host pin and the
@@ -537,7 +537,7 @@ func TestViteConfigQuirks(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#6 -- splash lifecycle source intact (does not behavior-test; pins layout)
+// Splash lifecycle source intact (does not behavior-test; pins layout)
 // ---------------------------------------------------------------------------
 
 // TestSplashEventTriad asserts the splash lifecycle event names main.go emits
@@ -558,8 +558,7 @@ func TestSplashEventTriad(t *testing.T) {
 	}
 }
 
-// Story 12.3: the go.sum (former STRUCT-090) and package-lock (former
-// STRUCT-080) version-pin checks were retired from this suite -- both keyed off
-// the alpha.95-scheme regex that cannot match alpha2.103. Their scheme-aware
-// successors are Test_12_3_INTG_011 (go.sum) and Test_12_3_INTG_031
-// (package-lock) in tests/wails-alpha2-103-upgrade/.
+// Story 12.3: the go.sum and package-lock version-pin checks were retired from
+// this suite -- both keyed off the alpha.95-scheme regex that cannot match
+// alpha2.103. Their scheme-aware successors are TestGoSumCarriesNewPin and
+// TestPackageLockRuntimeNotRegressed in tests/wails-alpha2-103-upgrade/.
