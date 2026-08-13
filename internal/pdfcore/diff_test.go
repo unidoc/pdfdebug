@@ -1,5 +1,5 @@
-// Story 13-6 RED-PHASE unit tests for the path-aligned structural diff engine
-// (AC 1, 2, 3, 6).
+// Story 13-6 RED-PHASE unit tests for the path-aligned structural diff
+// engine.
 //
 // These are co-located pdfcore UNIT tests (the project's precedent for keystone
 // pdfcore logic; see resolve_ref_atdd_test.go for 11-5). They assert the
@@ -32,7 +32,7 @@
 // failure IS the red state; the Dev step turns it green. `go build ./...`
 // (the CLI/app build) is unaffected -- _test.go files are excluded from builds.
 //
-// Naming: 13.6-UNIT-NNN [Px] per the story Testing Requirements (AC7).
+// Naming: [Px] per the story Testing Requirements.
 // Run: cd code && go test -run TestDiff ./internal/pdfcore/...
 //
 // Status literals are asserted as strings (not exported const names) to keep the
@@ -201,8 +201,8 @@ func diffRetargetNamed() []byte {
 
 // openTwoForDiff writes both fixtures, verifies pdfcpu accepts each (guards an
 // eternally-red suite), opens BOTH into ONE Inspector under tabs "left"/"right"
-// (AC1: the diff is a read-only walk over two DocumentStates in one Inspector),
-// and returns the inspector + the two tab ids.
+// (the diff is a read-only walk over two DocumentStates in one Inspector), and
+// returns the inspector + the two tab ids.
 func openTwoForDiff(t *testing.T, leftName string, left []byte, rightName string, right []byte) (*Inspector, string, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -305,12 +305,12 @@ func diffSharedDeepAndShallow(chainLen int, sharedValue string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-UNIT-001b [P1] AC2 regression (Story 14.3 code review): a shared object
-// reachable both shallow (fully walked) and past the depth cap must NOT be
-// counted as a truncated subtree. Before reconcileTruncation the capped
-// encounter over-counted TruncatedSubtrees, flipping an IDENTICAL pair to a
-// false "not identical" / exit 1 -- the same false-positive class the spec's
-// adversarial review flagged. Exercises the deep-first DFS order.
+// Regression (Story 14.3 code review): a shared object reachable both shallow
+// (fully walked) and past the depth cap must NOT be counted as a truncated
+// subtree. Before reconcileTruncation the capped encounter over-counted
+// TruncatedSubtrees, flipping an IDENTICAL pair to a false "not identical" /
+// exit 1 -- the same false-positive class the spec's adversarial review
+// flagged. Exercises the deep-first DFS order.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SharedRefWalkedElsewhereNotTruncated(t *testing.T) {
@@ -376,11 +376,11 @@ func TestReconcileTruncation_EntryNotCompletion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 14.3-UNIT-001 [P1] AC1/AC2 (Story 14.3): a deep chain diffed past the
-// maxResolveDepth cap marks the cut node DiffNode.Truncated and tallies it in
-// DiffSummary.TruncatedSubtrees, and does so only at the depth-cap arm (a
-// self-diff of a SHALLOW graph counts zero). This is the co-located pdfcore
-// logic assertion the ATDD step deferred until the production types existed.
+// Story 14.3: a deep chain diffed past the maxResolveDepth cap marks the cut
+// node DiffNode.Truncated and tallies it in DiffSummary.TruncatedSubtrees,
+// and does so only at the depth-cap arm (a self-diff of a SHALLOW graph
+// counts zero). This is the co-located pdfcore logic assertion the ATDD step
+// deferred until the production types existed.
 // ---------------------------------------------------------------------------
 
 func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
@@ -433,8 +433,8 @@ func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-001 [P0] AC1/AC6: a document diffed against ITSELF (same bytes,
-// two tabs) yields an all-unchanged tree and a zero-delta summary.
+// A document diffed against ITSELF (same bytes, two tabs) yields an
+// all-unchanged tree and a zero-delta summary.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SelfIsZeroDelta(t *testing.T) {
@@ -463,9 +463,9 @@ func TestDiff_SelfIsZeroDelta(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-002 [P0] AC1: the ALIGNMENT GUARDRAIL. A renumbered-but-
-// structurally-identical pair must produce ZERO delta. If this shows a large
-// delta the diff is aligning by object number, not by structural path.
+// The ALIGNMENT GUARDRAIL. A renumbered-but- structurally-identical pair
+// must produce ZERO delta. If this shows a large delta the diff is aligning
+// by object number, not by structural path.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
@@ -485,11 +485,11 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-002b [P0] AC1: the alignment guardrail at CUT points. A THREE-level
-// page tree renumbered asymmetrically must produce ZERO delta. The /Parent
-// back-edges are cut and compared by value summary; if that summary embedded
-// object numbers, the renumbered intermediate Pages nodes (different /Parent
-// numbers) would wrongly show as changed. Regression guard for the number-leak.
+// The alignment guardrail at CUT points. A THREE-level page tree renumbered
+// asymmetrically must produce ZERO delta. The /Parent back-edges are cut and
+// compared by value summary; if that summary embedded object numbers, the
+// renumbered intermediate Pages nodes (different /Parent numbers) would wrongly
+// show as changed. Regression guard for the number-leak.
 // ---------------------------------------------------------------------------
 
 func TestDiff_MultiLevelRenumberedIsZeroDelta(t *testing.T) {
@@ -509,8 +509,8 @@ func TestDiff_MultiLevelRenumberedIsZeroDelta(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-003 [P1] AC1: an object present only on the right is reported as
-// ADDED (both in the tree and the summary count).
+// An object present only on the right is reported as ADDED (both in the tree
+// and the summary count).
 // ---------------------------------------------------------------------------
 
 func TestDiff_AddedObject(t *testing.T) {
@@ -542,8 +542,8 @@ func TestDiff_AddedObject(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-004 [P1] AC1: the mirror of 003 -- an object present only on the
-// left (right is the baseline) is reported as REMOVED.
+// The mirror of 003 -- an object present only on the left (right is the
+// baseline) is reported as REMOVED.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RemovedObject(t *testing.T) {
@@ -572,7 +572,7 @@ func TestDiff_RemovedObject(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-005 [P0] AC2: a modified dictionary is reported as CHANGED and its
+// A modified dictionary is reported as CHANGED and its
 // ChangedKeys names the modified key ("MediaBox").
 // ---------------------------------------------------------------------------
 
@@ -599,8 +599,8 @@ func TestDiff_ChangedDictReportsChangedKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-006 [P1] AC2: a modified scalar LEAF reports distinct left vs right
-// value summaries (the actual value change, not just "changed").
+// A modified scalar LEAF reports distinct left vs right value summaries (the
+// actual value change, not just "changed").
 // ---------------------------------------------------------------------------
 
 func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
@@ -626,7 +626,7 @@ func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-007 [P0] AC3: the document summary reports the page-count change.
+// The document summary reports the page-count change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryPageCountChange(t *testing.T) {
@@ -645,7 +645,7 @@ func TestDiff_SummaryPageCountChange(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-008 [P1] AC3: a catalog /Version change is surfaced in the summary.
+// A catalog /Version change is surfaced in the summary.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryVersionChange(t *testing.T) {
@@ -661,10 +661,10 @@ func TestDiff_SummaryVersionChange(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-009 [P2] AC3 contract shape: the summary carries the enumerated
-// high-signal fields (encryption/info/xmp read outside the catalog walk). A
-// self-diff must leave every one of them false/zero. This also PINS the field
-// set at compile time so the CLI/GUI can rely on it.
+// Contract shape: the summary carries the enumerated high-signal fields
+// (encryption/info/xmp read outside the catalog walk). A self-diff must leave
+// every one of them false/zero. This also PINS the field set at compile time
+// so the CLI/GUI can rely on it.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryShapeStableOnSelfDiff(t *testing.T) {
@@ -686,9 +686,9 @@ func TestDiff_SummaryShapeStableOnSelfDiff(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-010 [P2] AC1/AC6: a cyclic graph diffed against itself TERMINATES
-// (depth-bounded by maxResolveDepth) and does not hang or stack-overflow.
-// cyclePDF is the A->B->A fixture from resolve_ref_atdd_test.go.
+// A cyclic graph diffed against itself TERMINATES (depth-bounded by
+// maxResolveDepth) and does not hang or stack-overflow. cyclePDF is the
+// A->B->A fixture from resolve_ref_atdd_test.go.
 // ---------------------------------------------------------------------------
 
 func TestDiff_CyclicGraphTerminates(t *testing.T) {
@@ -709,12 +709,12 @@ func TestDiff_CyclicGraphTerminates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-012 [P1] AC2/AC7: a RETARGETED indirect ref (same structural path,
-// the ref points to a DIFFERENT object with different content AND a different
-// object number) is reported as a change by TARGET CONTENT, not object number.
-// This is the AC7-enumerated "retargeted ref" fixture, distinct from the
-// renumbered-identical guardrail: here the target genuinely differs, so the
-// diff must show a delta at /Root/OpenAction carrying the /S value change.
+// A RETARGETED indirect ref (same structural path, the ref points to a
+// DIFFERENT object with different content AND a different object number) is
+// reported as a change by TARGET CONTENT, not object number. This is the
+// enumerated "retargeted ref" fixture, distinct from the renumbered-identical
+// guardrail: here the target genuinely differs, so the diff must show a delta
+// at /Root/OpenAction carrying the /S value change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
@@ -764,8 +764,8 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-011 [P1] AC6: DiffDocuments with an unknown tab id returns an error
-// (not a panic), so a parse/load failure never crashes the session.
+// DiffDocuments with an unknown tab id returns an error (not a panic), so a
+// parse/load failure never crashes the session.
 // ---------------------------------------------------------------------------
 
 func TestDiff_UnknownTabReturnsError(t *testing.T) {
@@ -798,10 +798,10 @@ func diffDiamondLadder(levels int) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-013 [P1] AC6: a shared subgraph reachable by exponentially many
-// structural paths (a diamond "ladder") is diffed in LINEAR time via the global
-// cross-path (left,right)-pair dedup. Without it the walk is O(2^levels) and
-// hangs. Guards the shared-/Resources re-walk and the crafted-diamond DoS.
+// A shared subgraph reachable by exponentially many structural paths (a diamond
+// "ladder") is diffed in LINEAR time via the global cross-path
+// (left,right)-pair dedup. Without it the walk is O(2^levels) and hangs. Guards
+// the shared-/Resources re-walk and the crafted-diamond DoS.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SharedSubgraphDedupTerminates(t *testing.T) {
@@ -850,12 +850,12 @@ func diffInfoProducer(producer string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-014 [P1] AC3: a trailer /Info-only difference is surfaced as
-// InfoChanged WITHOUT bumping the node counts, proving /Info is read from the
-// DocumentState trailer (off the catalog walk) as AC3 requires. This is the
-// exact fact that makes the CLI's exit-1-on-flags-only-change contract necessary
-// (the counts stay 0/0/0). The /Producer strings are the SAME length so the only
-// possible source of a delta is the /Info comparison, not an object size change.
+// A trailer /Info-only difference is surfaced as InfoChanged WITHOUT bumping the
+// node counts, proving /Info is read from the DocumentState trailer (off the
+// catalog walk) as requires. This is the exact fact that makes the CLI's
+// exit-1-on-flags-only-change contract necessary (the counts stay 0/0/0). The
+// /Producer strings are the SAME length so the only possible source of a delta
+// is the /Info comparison, not an object size change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryInfoChange(t *testing.T) {
@@ -891,10 +891,10 @@ func diffXMP(packet string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-015 [P1] AC3: a catalog /Metadata XMP change (equal-length packet,
-// so the stream dict is identical and the object walk sees no delta) is surfaced
-// as XMPChanged. Guards AC3's XMP fact AND the Out-of-Scope "stream bytes are not
-// diffed" boundary in one shot: node counts stay 0/0/0, XMPChanged is true.
+// A catalog /Metadata XMP change (equal-length packet, so the stream dict is
+// identical and the object walk sees no delta) is surfaced as XMPChanged. Guards
+// the XMP fact AND the Out-of-Scope "stream bytes are not diffed" boundary in one
+// shot: node counts stay 0/0/0, XMPChanged is true.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryXMPChange(t *testing.T) {
@@ -914,11 +914,11 @@ func TestDiff_SummaryXMPChange(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-016 [P1] AC2: a KEY added to a dict present on BOTH sides is
-// reported as an added CHILD node under that dict AND named in the parent's
-// ChangedKeys - the "which keys were added/removed/modified" granularity of AC2,
-// distinct from a wholly-added object (13.6-UNIT-003). The right catalog gains a
-// /Metadata key vs the left; the shared /Root dict must report it.
+// A KEY added to a dict present on BOTH sides is reported as an added CHILD node
+// under that dict AND named in the parent's ChangedKeys - the "which keys were
+// added/removed/modified" granularity, distinct from a wholly-added object.
+// The right catalog gains a /Metadata key vs the left; the shared /Root dict
+// must report it.
 // ---------------------------------------------------------------------------
 
 func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {

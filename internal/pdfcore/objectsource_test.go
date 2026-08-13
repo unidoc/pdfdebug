@@ -66,7 +66,7 @@ func TestObjectSourceDictPagesNode(t *testing.T) {
 // TestObjectSourceCycleSafe verifies a page tree /Parent cycle does not
 // cause stack overflow during serialization: refs emit as `N G R` literals
 // rather than being followed. Name pinned by integration test
-// 9.10-INTG-004 (TestObjectSourceCycleSafe).
+// (TestObjectSourceCycleSafe).
 func TestObjectSourceCycleSafe(t *testing.T) {
 	ins, tabID := openFixture(t, "multipage.pdf")
 	src, err := ins.GetObjectSource(tabID, "obj:0:3")
@@ -103,8 +103,8 @@ func TestObjectSourceStreamPlaceholder(t *testing.T) {
 }
 
 // TestObjectSourceInlineNodeIDReturnsEmptyString verifies inline-node IDs
-// (dict:* / arr:*) return ("", nil) so the frontend renders the AC3 empty
-// state. Name pinned by integration test 9.10-INTG-006.
+// (dict:* / arr:*) return ("", nil) so the frontend renders the empty
+// State. Name pinned by integration test.
 func TestObjectSourceInlineNodeIDReturnsEmptyString(t *testing.T) {
 	ins, tabID := openFixture(t, "minimal.pdf")
 	src, err := ins.GetObjectSource(tabID, "dict:obj:0:1:Type")
@@ -130,8 +130,8 @@ func TestObjectSourceUnknownNodeReturnsEmpty(t *testing.T) {
 // TestObjectSourceCatalogRootNodeID verifies the catalog tree node (sentinel
 // nodeID "root") resolves to the catalog's real indirect object and emits its
 // Object Source. Without this mapping the catalog selection would fall through
-// to the AC3 inline empty state, hiding the source for a node that is in fact
-// an indirect object (AC10 / Dev Notes: catalog is a real indirect object).
+// to the inline empty state, hiding the source for a node that is in fact an
+// indirect object (/ Dev Notes: catalog is a real indirect object).
 func TestObjectSourceCatalogRootNodeID(t *testing.T) {
 	ins, tabID := openFixture(t, "minimal.pdf")
 	src, err := ins.GetObjectSource(tabID, "root")
@@ -231,8 +231,7 @@ func TestObjectSourceLongArrayMultiline(t *testing.T) {
 
 // TestObjectSourceTruncationRule verifies the truncation rule: output capped
 // at the byte limit, only between top-level entries, always emits closing
-// bracket AND the truncation marker. Name pinned by integration test
-// 9.10-INTG-008.
+// bracket AND the truncation marker. Name pinned by integration test.
 func TestObjectSourceTruncationRule(t *testing.T) {
 	w := &sourceWriter{cap: 200} // very low cap to force truncation quickly
 	arr := make(pdfcpu_types.Array, 200)
@@ -275,7 +274,7 @@ func TestObjectSourceScalarTypes(t *testing.T) {
 
 // TestObjectSourceRefsEmittedNotDereferenced verifies indirect refs in
 // serialized output emit as `N G R` literals (NOT followed). Name pinned by
-// integration test 9.10-INTG-003.
+// integration test.
 func TestObjectSourceRefsEmittedNotDereferenced(t *testing.T) {
 	w := &sourceWriter{cap: 1024}
 	ref := pdfcpu_types.IndirectRef{
@@ -289,10 +288,9 @@ func TestObjectSourceRefsEmittedNotDereferenced(t *testing.T) {
 	}
 }
 
-// TestObjectSourceSerializeForms covers AC1: dict short/long forms, array
+// TestObjectSourceSerializeForms covers: dict short/long forms, array
 // short/long forms, and inline nesting. Aggregates the dict/array assertions
-// from the multipage and minimal fixtures. Name pinned by integration test
-// 9.10-INTG-002.
+// from the multipage and minimal fixtures. Name pinned by integration test.
 func TestObjectSourceSerializeForms(t *testing.T) {
 	t.Run("short_array", func(t *testing.T) {
 		ins, tabID := openFixture(t, "multipage.pdf")
@@ -336,7 +334,7 @@ func TestObjectSourceSerializeForms(t *testing.T) {
 
 // TestObjectSourceDictKeysSorted verifies dict entries are emitted in sorted
 // key order so the output is deterministic (Go map iteration is random). Name
-// pinned by integration test 9.10-INTG-005.
+// pinned by integration test.
 func TestObjectSourceDictKeysSorted(t *testing.T) {
 	d := pdfcpu_types.Dict{
 		"Zebra": pdfcpu_types.Integer(1),

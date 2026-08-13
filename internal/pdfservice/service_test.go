@@ -458,7 +458,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// 9.4-UNIT-001: GoToPage exposes the pdfcore page-content-stream resolver to
+// GoToPage exposes the pdfcore page-content-stream resolver to
 // the Wails service layer. Valid page resolves to a non-empty node ID;
 // out-of-range and unknown-tab paths surface as errors that map to user-facing
 // error messages on the frontend.

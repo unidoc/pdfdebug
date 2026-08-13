@@ -18,7 +18,7 @@ import (
 )
 
 // TestServiceCancelPlainTextUnknownTab verifies the unknown-tab path on the
-// new CancelPlainText service binding (AC13 routed through the thin pdfservice
+// new CancelPlainText service binding (routed through the thin pdfservice
 // adapter).
 func TestServiceCancelPlainTextUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -32,7 +32,7 @@ func TestServiceCancelPlainTextUnknownTab(t *testing.T) {
 }
 
 // TestServiceCancelPlainTextValidNoOp verifies CancelPlainText on a known tab
-// with no load in flight returns nil (AC12: "no-op if no load is in flight").
+// with no load in flight returns nil ("no-op if no load is in flight").
 func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
 	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
@@ -122,7 +122,7 @@ func TestServiceCancelPlainTextCancelsInFlight(t *testing.T) {
 }
 
 // TestServiceGetPlainTextSizeUnknownTab verifies the unknown-tab path on the
-// new GetPlainTextSize service binding (AC19).
+// new GetPlainTextSize service binding.
 func TestServiceGetPlainTextSizeUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
 	_, err := svc.GetPlainTextSize("nonexistent-tab-id")

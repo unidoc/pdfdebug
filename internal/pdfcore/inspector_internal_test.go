@@ -2,15 +2,15 @@ package pdfcore
 
 // Red-phase acceptance tests for Story 10-5 ACs that require package-private
 // access to DocumentState's unexported fields:
-//   - AC#4: re-Open under same tabID must invoke the prior DocumentState's
+//   re-Open under same tabID must invoke the prior DocumentState's
 //     plainTextLoadCancel before the new entry is inserted.
-//   - AC#7: reverse-refs build is deferred to first GetReverseRefs call;
+//   reverse-refs build is deferred to first GetReverseRefs call;
 //     `doc.reverseRefs == nil && !doc.revRefsBuildFailed` MUST hold
 //     immediately after Open returns.
 //
 // `package pdfcore` (NOT `pdfcore_test`) is required because:
-//   - AC4 writes a wrapping closure directly into prior.plainTextLoadCancel.
-//   - AC7 reads doc.reverseRefs and doc.revRefsBuildFailed.
+//   - writes a wrapping closure directly into prior.plainTextLoadCancel.
+//   - reads doc.reverseRefs and doc.revRefsBuildFailed.
 
 import (
 	"path/filepath"
@@ -19,7 +19,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AC#4 -- tabID-collision lifecycle: re-Open invokes prior cancel
+// tabID-collision lifecycle: re-Open invokes prior cancel
 // ---------------------------------------------------------------------------
 
 // TestOpenSameTabIDReleasesPrior asserts that re-Opening a tabID which already
@@ -44,8 +44,8 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 
 	// Install a wrapping cancel func that increments an atomic counter.
 	// This stands in for the real cancel registered by an in-flight
-	// GetPlainText -- AC4 asserts the LIFECYCLE contract (cancel invoked),
-	// not a real plaintext read.
+	// GetPlainText -- asserts the LIFECYCLE contract (cancel invoked), not
+	// a real plaintext read.
 	var cancelCalls atomic.Int32
 	prior.plainTextCancelMu.Lock()
 	prior.plainTextLoadCancel = func() {
@@ -72,7 +72,7 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC#7 -- reverse-refs build deferred to first GetReverseRefs call
+// reverse-refs build deferred to first GetReverseRefs call
 // ---------------------------------------------------------------------------
 
 // TestOpenDoesNotBuildReverseRefs asserts that immediately after Inspector.Open

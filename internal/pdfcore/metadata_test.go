@@ -1,5 +1,5 @@
-// Story 13-2 RED-PHASE co-located unit tests for the document metadata view
-// (AC 3, 8).
+// Story 13-2 RED-PHASE co-located unit tests for the document metadata
+// view.
 //
 // Exercises the NEW pdfcore surface:
 //
@@ -12,7 +12,7 @@
 // XMP + warning (never an error that fails the view).
 //
 // RED state: the package will not compile until metadata.go lands
-// GetDocumentMetadata + DocumentMetadata. Naming: 13.2-UNIT-NNN [Px].
+// GetDocumentMetadata + DocumentMetadata. Naming: [Px].
 package pdfcore
 
 import (
@@ -69,7 +69,7 @@ func metadataPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-020 [P0] AC3: the XMP /Metadata stream is returned.
+// The XMP /Metadata stream is returned.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_ReturnsXMP(t *testing.T) {
@@ -85,9 +85,9 @@ func TestGetDocumentMetadata_ReturnsXMP(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-021 [P0] AC3: the XMP bytes are passed VERBATIM -- no Go-side XML
-// parse/mutation. The exact marker survives byte-for-byte and the packet is not
-// re-escaped or re-serialized.
+// The XMP bytes are passed VERBATIM -- no Go-side XML parse/mutation. The exact
+// marker survives byte-for-byte and the packet is not re-escaped or
+// re-serialized.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-022 [P0] AC3: /Info fields are surfaced when present.
+// /Info fields are surfaced when present.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
@@ -125,8 +125,7 @@ func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-023 [P1] AC3: missing /Metadata AND /Info is a normal empty result,
-// not an error.
+// Missing /Metadata AND /Info is a normal empty result, not an error.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
@@ -153,15 +152,14 @@ func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-024 [P0] AC3/8: a /Metadata stream whose /Filter decode fails
-// surfaces as an EMPTY-XMP result PLUS a warning, never an error that fails the
-// view.
+// A /Metadata stream whose /Filter decode fails surfaces as an EMPTY-XMP result
+// PLUS a warning, never an error that fails the view.
 //
 // NOTE: pdfcpu STRICTLY decodes every stream's /Filter at file-read time
 // (ReadContextFile rejects a /FlateDecode /Metadata over garbage bytes with
 // "zlib: invalid header"), so an undecodable /Metadata is unreachable through
 // Inspector.Open with a hand-rolled fixture - the file would never open. The
-// AC8 contract is therefore asserted directly against decodeXMPStream, the pure
+// contract is therefore asserted directly against decodeXMPStream, the pure
 // decode/classify branch collectXMP delegates to: a /FlateDecode StreamDict
 // over non-zlib bytes whose Decode() fails must yield ("", warning), never an
 // error. (Original ATDD fixture revised during the green phase: it could not
@@ -192,9 +190,9 @@ func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-025 [P1] AC3: an UNFILTERED /Metadata stream (no /Filter) passes
-// its Raw bytes through VERBATIM as the XMP packet with NO warning -- the happy
-// counterpart to UNIT-024's undecodable path (metadata.go:119-123).
+// An UNFILTERED /Metadata stream (no /Filter) passes its Raw bytes through
+// VERBATIM as the XMP packet with NO warning -- the happy counterpart to
+// UNIT-024's undecodable path (metadata.go:119-123).
 // ---------------------------------------------------------------------------
 
 func TestDecodeXMPStream_UnfilteredVerbatimNoWarning(t *testing.T) {

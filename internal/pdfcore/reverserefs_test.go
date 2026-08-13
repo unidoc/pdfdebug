@@ -8,7 +8,7 @@ import (
 
 // TestReverseRefIndexBuildPopulatesPagesAndKids verifies the index is built
 // at Open for a well-formed multipage PDF and pages report the parent Pages
-// node as their reverse ref. Name pinned by integration test 9.10-INTG-013.
+// node as their reverse ref. Name pinned by integration test.
 func TestReverseRefIndexBuildPopulatesPagesAndKids(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-rr-multi"
@@ -70,7 +70,7 @@ func TestReverseRefsCatalogEdgeToPages(t *testing.T) {
 
 // TestReverseRefIndexCatalogIsEmpty verifies the catalog itself has no
 // reverse-ref entries (the trailer's /Root pointer is excluded by
-// construction). Name pinned by integration test 9.10-INTG-018.
+// construction). Name pinned by integration test.
 func TestReverseRefIndexCatalogIsEmpty(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-rr-cat-empty"
@@ -107,8 +107,8 @@ func TestReverseRefsInlineNodeReturnsEmpty(t *testing.T) {
 
 // TestReverseRefIndexBuildPanicSurfacesSentinel verifies a panicked build
 // flips the failure flag and queries return the sentinel error rather than
-// an empty list. AC6 forbidden-failure-mode guard. Name pinned by
-// integration test 9.10-INTG-014.
+// an empty list. forbidden-failure-mode guard. Name pinned by integration
+// test.
 func TestReverseRefIndexBuildPanicSurfacesSentinel(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-rr-fail"
@@ -167,7 +167,7 @@ func TestReverseRefsCycleSafe(t *testing.T) {
 
 // TestReverseRefEntriesSortedByParentThenPath verifies entries return in
 // stable order: ParentRef numeric asc, then Path asc, then ParentNodeID asc.
-// Name pinned by integration test 9.10-INTG-017.
+// Name pinned by integration test.
 func TestReverseRefEntriesSortedByParentThenPath(t *testing.T) {
 	// /Pages 2 0 R has three /Kids entries pointing to 3, 4, 5. From each
 	// page's perspective only one ref points at it, but the global ordering
@@ -202,9 +202,9 @@ func TestReverseRefsPerformanceBudget(t *testing.T) {
 
 // TestReverseRefIndexOrphanObjectHasEmptyList verifies that an indirect object
 // that is NOT referenced by any dict-graph parent returns an empty list (NOT
-// the sentinel error). Empty list IS the orphan signal per AC9. Injects an
-// orphan by mutating the cached map directly -- no fixture needed.
-// Name pinned by integration test 9.10-INTG-019.
+// the sentinel error). Empty list IS the orphan signal. Injects an orphan by
+// mutating the cached map directly -- no fixture needed. Name pinned by
+// integration test.
 func TestReverseRefIndexOrphanObjectHasEmptyList(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-rr-orphan"
@@ -367,7 +367,7 @@ func TestGetReverseRefsMalformedNodeIDReturnsEmpty(t *testing.T) {
 
 // TestReverseRefIndexPerDocumentIsolation verifies that opening two documents
 // in two tabs yields two independent indexes; queries against one are
-// unaffected by the other. Name pinned by integration test 9.10-INTG-020.
+// unaffected by the other. Name pinned by integration test.
 func TestReverseRefIndexPerDocumentIsolation(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-a", filepath.Join(testdataDir(t), "multipage.pdf"))

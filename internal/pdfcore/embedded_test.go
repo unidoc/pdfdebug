@@ -1,5 +1,5 @@
 // Story 13-2 RED-PHASE co-located unit tests for embedded-file enumeration and
-// extraction (AC 1, 2, 8).
+// extraction.
 //
 // These exercise the NEW pdfcore surface:
 //
@@ -18,7 +18,7 @@
 // default validation). The embedded-file Subtype MUST be a Name with #2F
 // hex-escapes (/text#2Fxml) or pdfcpu's default validator rejects the document.
 //
-// Naming: 13.2-UNIT-NNN [Px].
+// Naming: [Px].
 package pdfcore
 
 import (
@@ -32,7 +32,7 @@ import (
 
 // embeddedStreamObj returns an /EmbeddedFile stream object body carrying payload
 // as its (unfiltered) stream bytes plus a /Params dict with /Size, /CheckSum,
-// /ModDate so AC1's Params surfacing can be asserted.
+// /ModDate so the Params surfacing can be asserted.
 func embeddedStreamObj(num int, payload string) string {
 	return strconv.Itoa(num) + " 0 obj\n" +
 		"<< /Type /EmbeddedFile /Subtype /text#2Fxml /Length " + strconv.Itoa(len(payload)) +
@@ -52,8 +52,8 @@ func filespecObj(num, efNum int, displayName, afRel string) string {
 
 // zugferdSharedFilespec builds a ZUGFeRD/Factur-X-style PDF where ONE /Filespec
 // (object 6) is reachable from BOTH the catalog /AF array and the
-// /Names/EmbeddedFiles name tree (object 7). AC1: it must appear ONCE after
-// dedupe by the /Filespec indirect ref. The XML stream is object 4.
+// /Names/EmbeddedFiles name tree (object 7). it must appear ONCE after dedupe
+// by the /Filespec indirect ref. The XML stream is object 4.
 //
 // Object map: 1 Catalog, 2 Pages, 3 Page, 4 EmbeddedFile(XML), 5 null,
 // 6 Filespec, 7 EmbeddedFiles name-tree node.
@@ -71,8 +71,8 @@ func zugferdSharedFilespec(xml string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-001 [P0] AC1: enumeration finds the embedded file from BOTH the
-// catalog /AF array and the /Names/EmbeddedFiles name tree.
+// Enumeration finds the embedded file from BOTH the catalog /AF array and
+// the /Names/EmbeddedFiles name tree.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_FindsFromBothSources(t *testing.T) {
@@ -88,8 +88,8 @@ func TestGetEmbeddedFiles_FindsFromBothSources(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-002 [P0] AC1: a /Filespec reachable from BOTH /AF and the name tree
-// (same indirect object) is merged and de-duplicated -> appears exactly ONCE.
+// A /Filespec reachable from BOTH /AF and the name tree (same indirect object)
+// is merged and de-duplicated -> appears exactly ONCE.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DedupesSharedFilespec(t *testing.T) {
@@ -112,8 +112,8 @@ func TestGetEmbeddedFiles_DedupesSharedFilespec(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-003 [P1] AC1: a DIRECT (non-indirect, inline) /Filespec is kept as
-// a distinct entry with an empty filespec ref -- never silently dropped.
+// A DIRECT (non-indirect, inline) /Filespec is kept as a distinct entry with
+// an empty filespec ref -- never silently dropped.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DirectFilespecKeptWithEmptyRef(t *testing.T) {
@@ -148,9 +148,9 @@ func TestGetEmbeddedFiles_DirectFilespecKeptWithEmptyRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-004 [P0] AC1: each entry carries the discriminating fields --
-// display name (/UF preferred), AFRelationship, Subtype MIME, decoded size,
-// and the EmbeddedFile stream ref.
+// Each entry carries the discriminating fields -- display name (/UF
+// preferred), AFRelationship, Subtype MIME, decoded size, and the
+// EmbeddedFile stream ref.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_EntryCarriesDiscriminatingFields(t *testing.T) {
@@ -184,8 +184,7 @@ func TestGetEmbeddedFiles_EntryCarriesDiscriminatingFields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-005 [P1] AC1: /Params CheckSum/ModDate/Size are surfaced when
-// present.
+// /Params CheckSum/ModDate/Size are surfaced when present.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_SurfacesParams(t *testing.T) {
@@ -205,8 +204,8 @@ func TestGetEmbeddedFiles_SurfacesParams(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-006 [P1] AC1: a document with NO embedded files returns an empty
-// list and NO error (normal empty state).
+// A document with NO embedded files returns an empty list and NO error
+// (normal empty state).
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_NoneIsEmptyNotError(t *testing.T) {
@@ -231,9 +230,9 @@ func TestGetEmbeddedFiles_NoneIsEmptyNotError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-010 [P0] AC2: GetEmbeddedFileBytes returns the decoded bytes of one
-// embedded file, addressed by the obj:G:N nodeID of its /EmbeddedFile stream
-// (same nodeID convention as GetImageData). Round-trip.
+// GetEmbeddedFileBytes returns the decoded bytes of one embedded file,
+// addressed by the obj:G:N nodeID of its /EmbeddedFile stream (same nodeID
+// convention as GetImageData). Round-trip.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_RoundTrip(t *testing.T) {
@@ -251,9 +250,9 @@ func TestGetEmbeddedFileBytes_RoundTrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-011 [P0] AC2: a stream whose DECODED size exceeds the image.go
-// ceiling discipline (maxImageBytes order of magnitude, NOT the 4 GiB plaintext
-// cap) returns ErrUnsupportedPDF rather than OOMing.
+// A stream whose DECODED size exceeds the image.go ceiling discipline
+// (maxImageBytes order of magnitude, NOT the 4 GiB plaintext cap) returns
+// ErrUnsupportedPDF rather than OOMing.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_OverCeilingReturnsUnsupported(t *testing.T) {
@@ -279,8 +278,8 @@ func TestGetEmbeddedFileBytes_OverCeilingReturnsUnsupported(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-012 [P1] AC2/8: an empty, malformed, or non-stream nodeID returns an
-// error (or a non-crashing sentinel), never a panic.
+// An empty, malformed, or non-stream nodeID returns an error (or a non-crashing
+// sentinel), never a panic.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_BadNodeIDErrors(t *testing.T) {
@@ -299,8 +298,8 @@ func TestGetEmbeddedFileBytes_BadNodeIDErrors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-013 [P0] AC8: a /Filespec with no /EF (or no /EmbeddedFile) produces
-// a per-entry empty/warning state, NOT a crash or a failed whole-document load.
+// A /Filespec with no /EF (or no /EmbeddedFile) produces a per-entry
+// empty/warning state, NOT a crash or a failed whole-document load.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_FilespecWithoutEFDegradesPerEntry(t *testing.T) {
@@ -336,9 +335,8 @@ func TestGetEmbeddedFiles_FilespecWithoutEFDegradesPerEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-014 [P1] AC8: a malformed /Names/EmbeddedFiles tree degrades (the
-// /AF source still yields its entries) and the whole-document view does not
-// fail.
+// A malformed /Names/EmbeddedFiles tree degrades (the /AF source still yields
+// its entries) and the whole-document view does not fail.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_BrokenNameTreeDegrades(t *testing.T) {
@@ -377,8 +375,8 @@ func embeddedStreamNoParams(num int, payload string) string {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-007 [P1] AC1: when /Params /Size is absent, the decoded size falls
-// back to the resolved stream length (/Length), not zero.
+// When /Params /Size is absent, the decoded size falls back to the resolved
+// stream length (/Length), not zero.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_SizeFallsBackToStreamLength(t *testing.T) {
@@ -411,9 +409,8 @@ func TestGetEmbeddedFiles_SizeFallsBackToStreamLength(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-008 [P1] AC1: the name-tree walk recurses through /Kids
-// intermediate nodes (not just a flat /Names leaf). The filespec lives in a
-// child node reached via /Kids.
+// The name-tree walk recurses through /Kids intermediate nodes (not just a
+// flat /Names leaf). The filespec lives in a child node reached via /Kids.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
@@ -450,10 +447,10 @@ func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-009 [P0] AC1: a DIRECT (inline, non-indirect) /Filespec inside the
-// /Names/EmbeddedFiles NAME TREE is kept with an empty filespec ref -- never
-// silently dropped (the name-tree analogue of UNIT-003, guarding the review
-// patch at embedded.go:268-270).
+// A DIRECT (inline, non-indirect) /Filespec inside the /Names/EmbeddedFiles
+// NAME TREE is kept with an empty filespec ref -- never silently dropped (the
+// name-tree analogue of UNIT-003, guarding the review patch at
+// embedded.go:268-270).
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {

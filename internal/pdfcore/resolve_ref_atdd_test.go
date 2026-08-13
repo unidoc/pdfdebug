@@ -1,8 +1,8 @@
 // Story 11-5 acceptance test for the keystone primitive ResolveRef.
 //
-// AC3: pdfcore.ResolveRef(tabID, nodeID, {MaxDepth}) is a bounded,
-// cycle-guarded resolver. These assertions pin the cycle/depth/MaxDepth-0
-// guards and the ResolvedNode JSON shape contract for Story 11-6 and the GUI.
+// pdfcore.ResolveRef(tabID, nodeID, {MaxDepth}) is a bounded, cycle-guarded
+// resolver. These assertions pin the cycle/depth/MaxDepth-0 guards and the
+// ResolvedNode JSON shape contract for Story 11-6 and the GUI.
 //
 // Run: cd code && go test -run TestResolveRef ./internal/pdfcore/...
 
@@ -124,8 +124,8 @@ func pad10(n int) string {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-001 [P0]: A->B->A cycle terminates and marks the back-edge
-// Cyclic rather than looping or stack-overflowing.
+// A->B->A cycle terminates and marks the back-edge Cyclic rather than
+// looping or stack-overflowing.
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_CycleTerminatesAndMarksCyclic(t *testing.T) {
@@ -149,7 +149,7 @@ func TestResolveRef_CycleTerminatesAndMarksCyclic(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-002 [P0]: A->A self-reference terminates and marks Cyclic.
+// A->A self-reference terminates and marks Cyclic.
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_SelfReferenceTerminates(t *testing.T) {
@@ -168,8 +168,8 @@ func TestResolveRef_SelfReferenceTerminates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-003 [P0]: A known-deep linear chain is resolved fully below
-// the cap and marked Truncated at the cap.
+// A known-deep linear chain is resolved fully below the cap and marked
+// Truncated at the cap.
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_DeepChainTruncatedAtCap(t *testing.T) {
@@ -195,8 +195,8 @@ func TestResolveRef_DeepChainTruncatedAtCap(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-004 [P0]: MaxDepth=0 resolves the addressed object only and
-// leaves its child refs UNFOLLOWED (no resolved children for indirect refs).
+// MaxDepth=0 resolves the addressed object only and leaves its child refs
+// UNFOLLOWED (no resolved children for indirect refs).
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_MaxDepthZeroLeavesChildRefsUnfollowed(t *testing.T) {
@@ -218,10 +218,10 @@ func TestResolveRef_MaxDepthZeroLeavesChildRefsUnfollowed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-005 [P1]: Negative MaxDepth is rejected (error) OR clamped to
-// 0 (resolve addressed object only, no children followed). The story leaves
-// the choice to Dev; this test accepts either contract but FORBIDS following
-// child refs on a negative input.
+// Negative MaxDepth is rejected (error) OR clamped to 0 (resolve addressed
+// object only, no children followed). The story leaves the choice to Dev;
+// this test accepts either contract but FORBIDS following child refs on a
+// negative input.
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_NegativeMaxDepthRejectedOrClamped(t *testing.T) {
@@ -242,9 +242,9 @@ func TestResolveRef_NegativeMaxDepthRejectedOrClamped(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.5-UNIT-AC3-006 [P1]: ResolvedNode JSON shape is a stable contract for
-// 11-6 and the GUI: it must marshal and expose objectRef, cyclic, and
-// truncated keys (the load-bearing AC3 markers).
+// ResolvedNode JSON shape is a stable contract for 11-6 and the GUI: it
+// must marshal and expose objectRef, cyclic, and truncated keys (the
+// load-bearing markers).
 // ---------------------------------------------------------------------------
 
 func TestResolveRef_JSONShapeContract(t *testing.T) {

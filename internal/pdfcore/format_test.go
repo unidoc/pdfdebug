@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-// 9.6-UNIT-001 [P0]: Format groups operands with their operator and emits
-// one FormattedLine per logical PDF operation. Test cases cover the six
-// canonical fixtures the story spec calls out.
+// Format groups operands with their operator and emits one FormattedLine
+// per logical PDF operation. Test cases cover the six canonical fixtures
+// the story spec calls out.
 
 func TestFormatBaseline_OperatorPerLine(t *testing.T) {
 	// Each operator on its own source line; baseline that should round-trip
@@ -284,7 +284,7 @@ func TestFormatTrailingOperandsWithoutOperator(t *testing.T) {
 	}
 }
 
-// AC #6 invariant: every line has SrcLineStart <= SrcLineEnd, ranges are
+// Invariant: every line has SrcLineStart <= SrcLineEnd, ranges are
 // monotonically non-decreasing across the slice, and the union of ranges
 // covers every source line that contains at least one token.
 func validateLineRanges(t *testing.T, lines []FormattedLine) {

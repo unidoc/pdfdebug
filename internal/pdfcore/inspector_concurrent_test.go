@@ -1,9 +1,9 @@
 package pdfcore
 
-// Red-phase acceptance test for Story 10-5 AC2:
+// Red-phase acceptance test for Story 10-5:
 // Inspector concurrent-soak under -race detector.
 //
-// Spec contract (story 10-5 AC2 verbatim):
+// Spec contract (story 10-5 verbatim):
 //   50 goroutines, 1 second, each goroutine randomly picks ONE of the
 //   following nine Inspector methods on every iteration and invokes it
 //   against the same tabID:
@@ -25,9 +25,9 @@ package pdfcore
 //
 // The test drives Inspector directly (NOT pdfservice). It bypasses any
 // pdfservice-layer recover by design -- pdfcore's safeCall re-panic for
-// runtime.Error stays intact (AC6), so a genuine runtime.Error inside pdfcpu
-// would crash this test binary. multipage.pdf is a known-clean fixture and
-// is not expected to trigger pdfcpu's runtime.Error surface.
+// runtime.Error stays intact, so a genuine runtime.Error inside pdfcpu would
+// crash this test binary. multipage.pdf is a known-clean fixture and is not
+// expected to trigger pdfcpu's runtime.Error surface.
 
 import (
 	"context"
@@ -55,14 +55,14 @@ func TestInspectorConcurrentSoak(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
-	// Resolve a content-stream node ID for the AC2 GetContentStream call.
+	// Resolve a content-stream node ID for the GetContentStream call.
 	// multipage.pdf's page-1 has no /Contents entry (see testdata generator
 	// for `multipagePDFContent`); we substitute an obj reference that
 	// resolves but isn't a stream, so GetContentStream exercises the
 	// resolveNodeObject + cache-write path without requiring stream decode.
-	// This still drives the streamMu critical section that AC3 hardens and
-	// keeps the pdfcpu Dereference call inside the method pool for the
-	// race detector to observe.
+	// This still drives the streamMu critical section that hardens and
+	// keeps the pdfcpu Dereference call inside the method pool for the race
+	// detector to observe.
 	pageNodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
 	if err != nil {
 		t.Fatalf("GetPageContentStreamNodeID(1) failed: %v", err)
@@ -76,7 +76,7 @@ func TestInspectorConcurrentSoak(t *testing.T) {
 		pageNodeID = "obj:0:3" // multipage page 1 object
 	}
 
-	// The nine method bodies from AC2. Each closure invokes one Inspector
+	// The nine wrapped method bodies. Each closure invokes one Inspector
 	// method and ignores the result -- the assertion is solely about the
 	// race detector and the absence of panics.
 	methods := []func(){

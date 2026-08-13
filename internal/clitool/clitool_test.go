@@ -22,8 +22,8 @@ import (
 )
 
 // onlyDarwin skips a test on non-darwin hosts where the bundle/PATH semantics
-// under test are macOS-specific. The install feature itself is gated to darwin
-// (AC1), so exercising it elsewhere is not meaningful.
+// under test are macOS-specific. The install feature itself is gated to
+// darwin, so exercising it elsewhere is not meaningful.
 func onlyDarwin(t *testing.T) {
 	t.Helper()
 	if runtime.GOOS != "darwin" {
@@ -58,12 +58,12 @@ func fakeBundle(t *testing.T, base, name string) (macOSBin, resourcesCLI string)
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-001 (P1): AC #1 -- the menu item label is EXACTLY
-// "Install 'pdfdebug' Command in PATH..." (trailing ellipsis per Apple HIG:
-// "opens a dialog"). main.go must consume this exported constant so the visible
-// label and the macOS-only gating have a single source of truth. The menu
-// gating itself (runtime.GOOS == "darwin") and the FindByLabel/GetSubmenu wiring
-// live in source-grep-guarded main.go and are verified manually.
+// The menu item label is EXACTLY "Install 'pdfdebug' Command in PATH..."
+// (trailing ellipsis per Apple HIG: "opens a dialog"). main.go must consume this
+// exported constant so the visible label and the macOS-only gating have a single
+// source of truth. The menu gating itself (runtime.GOOS == "darwin") and the
+// FindByLabel/GetSubmenu wiring live in source-grep-guarded main.go and are
+// verified manually.
 // ---------------------------------------------------------------------------
 
 func TestMenuItemLabelExactString(t *testing.T) {
@@ -74,8 +74,8 @@ func TestMenuItemLabelExactString(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-002 (P0): AC #2/#4(a) -- resolveBundleCLI derives the CLI path from
-// a Contents/MacOS/<bin> running-executable location and returns the sibling
+// resolveBundleCLI derives the CLI path from a Contents/MacOS/<bin>
+// running-executable location and returns the sibling
 // Contents/Resources/pdfdebug, NOT a hardcoded /Applications path.
 // ---------------------------------------------------------------------------
 
@@ -100,9 +100,9 @@ func TestResolveBundleCLIReturnsResourcesPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-003 (P0): AC #4(a) -- a non-.app layout (a `go run`/dev binary that
-// is NOT inside <X>.app/Contents/MacOS/) is rejected with a clear error rather
-// than linking a bogus path.
+// a non-.app layout (a `go run`/dev binary that is NOT inside
+// <X>.app/Contents/MacOS/) is rejected with a clear error rather than linking a
+// bogus path.
 // ---------------------------------------------------------------------------
 
 func TestResolveBundleCLIRejectsNonAppLayout(t *testing.T) {
@@ -118,9 +118,9 @@ func TestResolveBundleCLIRejectsNonAppLayout(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-004 (P0): AC #2 -- when a directory is BOTH user-writable AND on
-// $PATH, InstallCLI symlinks the bundled CLI into it without prompting and
-// reports Installed. os.Readlink resolves to the bundle CLI.
+// When a directory is BOTH user-writable AND on $PATH, InstallCLI symlinks
+// the bundled CLI into it without prompting and reports Installed.
+// os.Readlink resolves to the bundle CLI.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLILinksIntoWritableOnPathDir(t *testing.T) {
@@ -156,8 +156,8 @@ func TestInstallCLILinksIntoWritableOnPathDir(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-005 (P0): AC #4(a) -- InstallCLI run from a non-.app (dev) binary
-// returns NotInBundle rather than linking a derived-but-bogus path.
+// InstallCLI run from a non-.app (dev) binary returns NotInBundle
+// rather than linking a derived-but-bogus path.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLINotInBundleWhenDevBinary(t *testing.T) {
@@ -183,10 +183,9 @@ func TestInstallCLINotInBundleWhenDevBinary(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 12.1-UNIT-008 (P0): AC #3 -- when ~/.local/bin is not on $PATH, InstallCLI
-// returns NeedsPathHelp carrying the exact `export PATH="...:$PATH"` line for
-// the install directory; it does NOT shell out as root and does NOT silently
-// fail.
+// When ~/.local/bin is not on $PATH, InstallCLI returns NeedsPathHelp
+// carrying the exact `export PATH="...:$PATH"` line for the install
+// directory; it does NOT shell out as root and does NOT silently fail.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLINeedsPathHelpSurfacesExportLine(t *testing.T) {
@@ -221,10 +220,9 @@ func TestInstallCLINeedsPathHelpSurfacesExportLine(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 12.1-UNIT-009 (P1): AC #1/#3 -- when ~/.local/bin does not exist yet,
-// InstallCLI creates it (0o755) and links into it, then falls to NeedsPathHelp
-// guidance. We model this via InstallDir set to a not-yet-existing dir; the link
-// must be created there.
+// When ~/.local/bin does not exist yet, InstallCLI creates it (0o755) and links
+// into it, then falls to NeedsPathHelp guidance. We model this via InstallDir
+// set to a not-yet-existing dir; the link must be created there.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
@@ -261,9 +259,9 @@ func TestInstallCLICreatesMissingLocalBin(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-010 (P0): AC #4(b) -- idempotency. Running InstallCLI twice leaves
-// the link unchanged and errors on neither run (the second run sees OUR symlink
-// already pointing at the current bundle CLI and no-ops).
+// idempotency. Running InstallCLI twice leaves the link unchanged and
+// errors on neither run (the second run sees OUR symlink already pointing at
+// the current bundle CLI and no-ops).
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIIdempotentWhenOursAndCurrent(t *testing.T) {
@@ -298,10 +296,10 @@ func TestInstallCLIIdempotentWhenOursAndCurrent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-011 (P0): AC #4(c) -- OUR stale/old-bundle link self-heals. A
-// pre-existing symlink whose target matches the `.../Contents/Resources/pdfdebug`
-// shape but points at a DIFFERENT/old .app (the user reinstalled) is silently
-// re-pointed to the freshly resolved target -- NOT treated as foreign.
+// OUR stale/old-bundle link self-heals. A pre-existing symlink whose
+// target matches the `.../Contents/Resources/pdfdebug` shape but points at a
+// DIFFERENT/old .app (the user reinstalled) is silently re-pointed to the freshly
+// resolved target -- NOT treated as foreign.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIRepointsOursButStaleLink(t *testing.T) {
@@ -340,9 +338,8 @@ func TestInstallCLIRepointsOursButStaleLink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-012 (P0): AC #4(d) -- a FOREIGN regular file at the link path is
-// NOT overwritten; InstallCLI returns ConfirmOverwrite and leaves the file
-// intact.
+// a FOREIGN regular file at the link path is NOT overwritten;
+// InstallCLI returns ConfirmOverwrite and leaves the file intact.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIConfirmOverwriteForeignFile(t *testing.T) {
@@ -378,9 +375,9 @@ func TestInstallCLIConfirmOverwriteForeignFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-013 (P0): AC #4(d) -- a FOREIGN-shaped symlink (target does NOT
-// match `.../Contents/Resources/pdfdebug`) is NOT overwritten; InstallCLI
-// returns ConfirmOverwrite and the link is left pointing at its original target.
+// a FOREIGN-shaped symlink (target does NOT match
+// `.../Contents/Resources/pdfdebug`) is NOT overwritten; InstallCLI returns
+// ConfirmOverwrite and the link is left pointing at its original target.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIConfirmOverwriteForeignShapedSymlink(t *testing.T) {
@@ -415,9 +412,9 @@ func TestInstallCLIConfirmOverwriteForeignShapedSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-014 (P1): AC #4(d) -- with the explicit overwrite flag (the user
-// confirmed via the ConfirmOverwrite dialog), InstallCLI replaces a foreign
-// entry with OUR symlink to the current bundle CLI.
+// with the explicit overwrite flag (the user confirmed via the
+// ConfirmOverwrite dialog), InstallCLI replaces a foreign entry with OUR
+// symlink to the current bundle CLI.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIOverwriteFlagReplacesForeign(t *testing.T) {
@@ -451,10 +448,10 @@ func TestInstallCLIOverwriteFlagReplacesForeign(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-015 (P0): AC #5 -- the install LOCATION may legitimately contain
-// shell-significant characters (space, single quote, `$`). InstallCLI passes
-// paths directly to os.Symlink with NO shell, so os.Readlink round-trips the
-// exact byte-for-byte target including those characters.
+// The install LOCATION may legitimately contain shell-significant characters
+// (space, single quote, `$`). InstallCLI passes paths directly to os.Symlink
+// with NO shell, so os.Readlink round-trips the exact byte-for-byte target
+// including those characters.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLISpecialCharPathReadlinkRoundTrip(t *testing.T) {
@@ -490,10 +487,9 @@ func TestInstallCLISpecialCharPathReadlinkRoundTrip(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-016 (P1): AC #6 -- IsInstalled returns true ONLY when the link path
-// is OUR symlink (target matches `.../Contents/Resources/pdfdebug`), whether or
-// not it dangles; false for a foreign file, a foreign-shaped symlink, or a
-// missing entry.
+// IsInstalled returns true ONLY when the link path is OUR symlink (target
+// matches `.../Contents/Resources/pdfdebug`), whether or not it dangles; false
+// for a foreign file, a foreign-shaped symlink, or a missing entry.
 // ---------------------------------------------------------------------------
 
 func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
@@ -539,8 +535,8 @@ func TestIsInstalledTrueOnlyForOurSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-017 (P1): AC #6 -- UninstallCLI removes ONLY our symlink (verified
-// by lstat + Readlink shape match before removal).
+// UninstallCLI removes ONLY our symlink (verified by lstat + Readlink shape
+// match before removal).
 // ---------------------------------------------------------------------------
 
 func TestUninstallCLIRemovesOnlyOurSymlink(t *testing.T) {
@@ -565,13 +561,13 @@ func TestUninstallCLIRemovesOnlyOurSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-020 (P1, coverage expansion): AC #3/#5 -- the NeedsPathHelp export
-// line is EXACTLY `export PATH="<dir>:$PATH"` with the directory DOUBLE-QUOTED,
-// not merely a substring containing `export PATH=`. The double-quoting is the
-// AC5 special-char invariant applied to the AC3 guidance: a `~/.local/bin`-style
-// dir whose path contains a space (or `$`) would silently break an UNQUOTED
-// export line the user pastes into their shell profile. UNIT-008 only asserts
-// the `contains "export PATH="` substring, so the exact quoted shape is unpinned.
+// P1, coverage expansion: -- the NeedsPathHelp export line is EXACTLY `export
+// PATH="<dir>:$PATH"` with the directory DOUBLE-QUOTED, not merely a substring
+// containing `export PATH=`. The double-quoting is the special-char invariant
+// applied to the guidance: a `~/.local/bin`-style dir whose path contains a space
+// (or `$`) would silently break an UNQUOTED export line the user pastes into
+// their shell profile. UNIT-008 only asserts the `contains "export PATH="`
+// substring, so the exact quoted shape is unpinned.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
@@ -579,7 +575,7 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 	tmp := t.TempDir()
 	macOSBin, _ := fakeBundle(t, tmp, "UniDoc PDF Debugger")
 
-	// Writable dir whose path contains a space and a `$` (the AC5 hazard set).
+	// Writable dir whose path contains a space and a `$` (the hazard set).
 	writableOffPath := filepath.Join(tmp, "My $cope", "local bin")
 	if err := os.MkdirAll(writableOffPath, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -596,7 +592,7 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 		t.Fatalf("InstallCLI result = %T, want NeedsPathHelp", res)
 	}
 	// Exact shape: the dir MUST be double-quoted so spaces/$ survive a paste into
-	// the shell profile (AC5 special-char invariant carried into AC3 guidance).
+	// the shell profile (special-char invariant carried into guidance).
 	want := `export PATH="` + writableOffPath + `:$PATH"`
 	if help.ExportLine != want {
 		t.Errorf("NeedsPathHelp.ExportLine = %q, want %q (dir must be double-quoted for space/$ safety)", help.ExportLine, want)
@@ -604,12 +600,12 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-021 (P1, coverage expansion): AC #6 -- UninstallCLI is idempotent
-// when the link is ABSENT (e.g. the user already uninstalled, or trashed the
-// app and removed the dangling link). It returns nil, not an error. The
-// implementation has an explicit `absent -> nil` branch (clitool.go) but no test
-// pinned it; the foreign-entry test (UNIT-018) and the our-symlink test
-// (UNIT-017) leave this branch uncovered.
+// P1, coverage expansion: -- UninstallCLI is idempotent when the link is ABSENT
+// (e.g. the user already uninstalled, or trashed the app and removed the
+// dangling link). It returns nil, not an error. The implementation has an
+// explicit `absent -> nil` branch (clitool.go) but no test pinned it; the
+// foreign-entry test (UNIT-018) and the our-symlink test (UNIT-017) leave this
+// branch uncovered.
 // ---------------------------------------------------------------------------
 
 func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
@@ -627,13 +623,12 @@ func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-022 (P1, coverage expansion): AC #4(d) -- the explicit Overwrite
-// flag replaces a FOREIGN-SHAPED SYMLINK (not just a regular file) with OUR
-// symlink. UNIT-014 confirms the overwrite-a-regular-file path; the symlink
-// case exercises a structurally different clobber branch (lstat reports a
-// symlink, linkInto must os.Remove the symlink before re-creating it), and was
-// only covered for the REFUSE case (UNIT-013), never the confirmed-overwrite
-// case.
+// P1, coverage expansion: (d) -- the explicit Overwrite flag replaces a
+// FOREIGN-SHAPED SYMLINK (not just a regular file) with OUR symlink. UNIT-014
+// confirms the overwrite-a-regular-file path; the symlink case exercises a
+// structurally different clobber branch (lstat reports a symlink, linkInto
+// must os.Remove the symlink before re-creating it), and was only covered for
+// the REFUSE case (UNIT-013), never the confirmed-overwrite case.
 // ---------------------------------------------------------------------------
 
 func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
@@ -668,10 +663,10 @@ func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 12.1-UNIT-023 (P0): AC #1 -- the PRODUCTION default install dir is exactly
-// ~/.local/bin and is NEVER a Homebrew-managed prefix. This pins the core 12.1
-// contract: we must not squat on /opt/homebrew/bin or /usr/local/bin (a future
-// official pdfdebug Homebrew formula would collide there at `brew link`).
+// The PRODUCTION default install dir is exactly ~/.local/bin and is NEVER a
+// Homebrew-managed prefix. This pins the core 12.1 contract: we must not squat
+// on /opt/homebrew/bin or /usr/local/bin (a future official pdfdebug Homebrew
+// formula would collide there at `brew link`).
 // ---------------------------------------------------------------------------
 
 func TestDefaultInstallDirIsLocalBin(t *testing.T) {
@@ -691,8 +686,8 @@ func TestDefaultInstallDirIsLocalBin(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.2-UNIT-018 (P0): AC #6 -- UninstallCLI refuses to remove a foreign entry
-// (regular file OR foreign-shaped symlink); the entry survives.
+// UninstallCLI refuses to remove a foreign entry (regular file OR
+// foreign-shaped symlink); the entry survives.
 // ---------------------------------------------------------------------------
 
 func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
@@ -729,9 +724,9 @@ func TestUninstallCLIRefusesForeignEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 12.1-UNIT-024 (P0): AC #4 -- "Add it for me" appends the attributed PATH line
-// to the shell's rc file and is idempotent: a second call detects its own marker
-// and does NOT append a duplicate block.
+// "Add it for me" appends the attributed PATH line to the shell's rc file and is
+// idempotent: a second call detects its own marker and does NOT append a
+// duplicate block.
 // ---------------------------------------------------------------------------
 
 func TestAddDirToShellProfileAppendsAndIsIdempotent(t *testing.T) {
@@ -777,9 +772,8 @@ func TestAddDirToShellProfileAppendsAndIsIdempotent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 12.1-UNIT-025 (P1): AC #5 -- when $SHELL is unrecognized, AddDirToShellProfile
-// returns ErrUnknownShell (so the UI falls back to manual guidance) and edits
-// no file.
+// When $SHELL is unrecognized, AddDirToShellProfile returns ErrUnknownShell (so
+// the UI falls back to manual guidance) and edits no file.
 // ---------------------------------------------------------------------------
 
 func TestAddDirToShellProfileUnknownShell(t *testing.T) {

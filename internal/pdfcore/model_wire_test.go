@@ -1,17 +1,17 @@
-// Story 12-3 (AC7): wire-shape guard for the DocumentInfo payload.
+// Story 12-3: wire-shape guard for the DocumentInfo payload.
 //
 // alpha.96 moved the runtime-facing payload under a stable binding API + JSON
 // struct tags. The classic silent regression is a field getting re-tagged (e.g.
 // `tabId` -> `tabID`, `pageCount` -> `pageCount`): TypeScript still compiles but
 // the field arrives `undefined` in the UI.
 //
-// The tests/wails-alpha2-103-upgrade acceptance module already pins
-// ObjectDetail via the CLI-exec harness, but DocumentInfo is never marshalled to
-// CLI stdout, so that harness structurally cannot reach it. DocumentInfo is the
-// payload behind the `document:opened` event and the P0 bindings round-trip
-// (Smoke item 3) -- AC7 names it as the PREFERRED wire-shape target. This
-// co-located unit test is the lowest viable layer for that guard: a pure
-// json.Marshal of a populated struct, in-package, no CLI exec, no go.mod barrier.
+// The tests/wails-alpha2-103-upgrade acceptance module already pins ObjectDetail
+// via the CLI-exec harness, but DocumentInfo is never marshalled to CLI stdout,
+// so that harness structurally cannot reach it. DocumentInfo is the payload
+// behind the `document:opened` event and the P0 bindings round-trip (Smoke item
+// 3) -- names it as the PREFERRED wire-shape target. This co-located unit test is
+// the lowest viable layer for that guard: a pure json.Marshal of a populated
+// struct, in-package, no CLI exec, no go.mod barrier.
 package pdfcore
 
 import (

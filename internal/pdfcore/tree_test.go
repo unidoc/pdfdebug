@@ -458,7 +458,7 @@ func TestScalarLeafNodes(t *testing.T) {
 
 // --- Gap coverage tests below ---
 
-// TestErrorNodeSiblingSurvival verifies AC#3: when one dict entry causes a panic,
+// TestErrorNodeSiblingSurvival verifies: when one dict entry causes a panic,
 // sibling nodes are still returned.
 func TestErrorNodeSiblingSurvival(t *testing.T) {
 	// Build a dict where one entry is a well-known type and another triggers

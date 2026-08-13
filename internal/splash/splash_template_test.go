@@ -8,11 +8,11 @@ import (
 	"text/template"
 )
 
-// TestRenderUsesTextTemplate is the Story 10.9 AC5 red-phase contract for the
+// TestRenderUsesTextTemplate is the Story 10.9 red-phase contract for the
 // splash.Render text/template migration (finding #27).
 //
 // RED PHASE: this test references the package-scope splashTmpl template
-// variable that AC5 mandates Render be backed by:
+// variable, so Render must be backed by:
 //
 //	var splashTmpl = template.Must(template.New("splash").Parse(splashHTMLTemplate))
 //
@@ -25,20 +25,20 @@ import (
 //
 // Beyond the compile-time symbol assertion, the test independently re-derives
 // the expected text/template output and asserts Render's bytes are identical
-// for the three Version inputs named in AC5 ("dev", "v0.2.0", "v0.2.0-rc1").
+// for the three Version inputs named in ("dev", "v0.2.0", "v0.2.0-rc1").
 // The html.EscapeString(RenderVersion(version)) pre-escaping (Dev Notes for
 // #27: text/template does NOT HTML-escape, so the explicit escape must remain)
 // is reproduced here so the parity check is exact.
 func TestRenderUsesTextTemplate(t *testing.T) {
 	// Reference the package-scope splashTmpl the migration must introduce.
-	// Undefined until the Dev step lands AC5 -> compile error -> red.
+	// Undefined until the Dev step lands -> compile error -> red.
 	if splashTmpl == nil {
 		t.Fatal("splashTmpl is nil: Render must be backed by a package-scope text/template")
 	}
 
 	// Independent oracle: a freshly parsed text/template over the UNCHANGED
 	// splashHTMLTemplate constant, executed against the same single-field
-	// struct AC5 specifies. This is what Render must produce byte-for-byte.
+	// struct specifies. This is what Render must produce byte-for-byte.
 	oracle := template.Must(template.New("splash-oracle").Parse(splashHTMLTemplate))
 
 	for _, version := range []string{"dev", "v0.2.0", "v0.2.0-rc1"} {

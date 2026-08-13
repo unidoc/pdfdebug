@@ -1,5 +1,5 @@
 // Story 13-4 RED-PHASE co-located unit tests for digital-signature
-// decomposition (AC 1, 2, 3, 7, 8).
+// decomposition.
 //
 // These exercise the NEW pdfcore surface:
 //
@@ -38,7 +38,7 @@
 // /Contents capacity) to fixtures validated against pdfcpu default validation
 // during ATDD authoring.
 //
-// Naming: 13.4-UNIT-NNN [Px].
+// Naming: [Px].
 package pdfcore
 
 import (
@@ -237,8 +237,8 @@ func oneSigField(t *testing.T, list *SignatureList, err error) SignatureField {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-001 [P0] AC1: a /FT /Sig field reachable from /AcroForm /Fields
-// is enumerated with its name, signed flag, /V ref, and /SubFilter.
+// A /FT /Sig field reachable from /AcroForm /Fields is enumerated with its
+// name, signed flag, /V ref, and /SubFilter.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_EnumeratesSigField(t *testing.T) {
@@ -261,9 +261,9 @@ func TestGetSignatures_EnumeratesSigField(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-002 [P0] AC1: /FT is INHERITABLE -- a terminal widget with no own
-// /FT that inherits /Sig via /Parent counts, and the fully qualified name
-// joins the parent /T chain with ".".
+// /FT is INHERITABLE -- a terminal widget with no own /FT that inherits /Sig
+// via /Parent counts, and the fully qualified name joins the parent /T chain
+// with ".".
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_InheritedFTAndFQName(t *testing.T) {
@@ -280,8 +280,8 @@ func TestGetSignatures_InheritedFTAndFQName(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-003 [P0] AC1: a /FT /Sig field with NO /V is listed as
-// Signed=false with no decomposition and no error.
+// A /FT /Sig field with NO /V is listed as Signed=false with no
+// decomposition and no error.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_UnsignedPlaceholder(t *testing.T) {
@@ -304,8 +304,8 @@ func TestGetSignatures_UnsignedPlaceholder(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-004 [P1] AC1: a DIRECT (inline dict) /V is legal -- listed with
-// an empty SignatureRef, never dropped.
+// A DIRECT (inline dict) /V is legal -- listed with an empty SignatureRef,
+// never dropped.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_DirectVEmptyRef(t *testing.T) {
@@ -325,8 +325,7 @@ func TestGetSignatures_DirectVEmptyRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-005 [P1] AC1: output order is deterministic -- the document
-// /Fields walk order.
+// Output order is deterministic -- the document /Fields walk order.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_DeterministicFieldsOrder(t *testing.T) {
@@ -346,8 +345,8 @@ func TestGetSignatures_DeterministicFieldsOrder(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-006 [P0] AC3: a /ByteRange covering the whole file except the
-// exact /Contents hole -> CoversWholeFile true, HoleMatchesContents true.
+// A /ByteRange covering the whole file except the exact /Contents hole ->
+// CoversWholeFile true, HoleMatchesContents true.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageCoversWholeFile(t *testing.T) {
@@ -370,9 +369,8 @@ func TestGetSignatures_CoverageCoversWholeFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-007 [P0] AC3: a range stopping 100 bytes short of EOF (the
-// earlier-revision case) -> CoversWholeFile false with the trailing gap
-// reported as a fact.
+// A range stopping 100 bytes short of EOF (the earlier-revision case)
+// -> CoversWholeFile false with the trailing gap reported as a fact.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageTrailingGap(t *testing.T) {
@@ -392,8 +390,8 @@ func TestGetSignatures_CoverageTrailingGap(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-008 [P1] AC3: an excluded span that does not exactly equal the
-// /Contents extent -> HoleMatchesContents false (a distinct structural fact).
+// An excluded span that does not exactly equal the /Contents extent ->
+// HoleMatchesContents false (a distinct structural fact).
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageHoleMismatch(t *testing.T) {
@@ -407,8 +405,8 @@ func TestGetSignatures_CoverageHoleMismatch(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-009 [P0] AC3/AC7: a malformed /ByteRange (odd-length) degrades to
-// a per-signature CoverageError -- the list call still succeeds.
+// A malformed /ByteRange (odd-length) degrades to a per-signature
+// CoverageError -- the list call still succeeds.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_MalformedByteRangeDegrades(t *testing.T) {
@@ -425,8 +423,7 @@ func TestGetSignatures_MalformedByteRangeDegrades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-010 [P0] AC7: a document with NO AcroForm yields an empty list
-// and no error.
+// A document with NO AcroForm yields an empty list and no error.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_NoAcroFormEmptyList(t *testing.T) {
@@ -442,8 +439,8 @@ func TestGetSignatures_NoAcroFormEmptyList(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-011 [P1] AC2/AC7: a non-CMS /Contents blob yields a per-signature
-// DecomposeError -- the field is still listed with its structural facts.
+// A non-CMS /Contents blob yields a per-signature DecomposeError -- the field
+// is still listed with its structural facts.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_BadContentsPerSignatureError(t *testing.T) {
@@ -460,8 +457,7 @@ func TestGetSignatures_BadContentsPerSignatureError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-012 [P1] AC1: /M surfaces both the raw PDF date string and the
-// parsed ISO 8601 form.
+// /M surfaces both the raw PDF date string and the parsed ISO 8601 form.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_SigningTimeRawAndISO(t *testing.T) {
@@ -478,8 +474,8 @@ func TestGetSignatures_SigningTimeRawAndISO(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-013 [P2] AC2: adbe.x509.rsa_sha1 -- /Contents is PKCS#1, so the
-// cert chain is read from the field's /Cert entry instead.
+// adbe.x509.rsa_sha1 -- /Contents is PKCS#1, so the cert chain is read from
+// the field's /Cert entry instead.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_X509RSASHA1CertFromCertEntry(t *testing.T) {
@@ -497,8 +493,8 @@ func TestGetSignatures_X509RSASHA1CertFromCertEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-014 [P2] AC2/AC7: an unknown SubFilter degrades to a labeled
-// "not decomposed" note -- never an error, never a crash.
+// An unknown SubFilter degrades to a labeled "not decomposed" note --
+// never an error, never a crash.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_UnknownSubFilterNote(t *testing.T) {
@@ -518,7 +514,7 @@ func TestGetSignatures_UnknownSubFilterNote(t *testing.T) {
 // sigUnitBRVariantPDF builds a signed field whose /Sig dict carries the given
 // raw /ByteRange fragment verbatim (e.g. "/ByteRange [0 100 -50 100] "), plus a
 // tiny fake /Contents. Passing an empty fragment omits /ByteRange entirely.
-// Used for the AC3 malformed-/ByteRange degradation branches.
+// Used for the malformed-/ByteRange degradation branches.
 func sigUnitBRVariantPDF(byteRange string) []byte {
 	return assemblexref("%PDF-1.7\n",
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",
@@ -530,8 +526,8 @@ func sigUnitBRVariantPDF(byteRange string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-015 [P1] AC3/AC7: a /ByteRange with a non-integer entry (a real
-// number) degrades to a per-signature CoverageError -- the list call succeeds.
+// A /ByteRange with a non-integer entry (a real number) degrades to a
+// per-signature CoverageError -- the list call succeeds.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeNonIntegerDegrades(t *testing.T) {
@@ -548,8 +544,8 @@ func TestGetSignatures_ByteRangeNonIntegerDegrades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-016 [P1] AC3/AC7: a /ByteRange with a negative offset degrades to
-// a per-signature CoverageError.
+// A /ByteRange with a negative offset degrades to a per-signature
+// CoverageError.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeNegativeDegrades(t *testing.T) {
@@ -566,8 +562,8 @@ func TestGetSignatures_ByteRangeNegativeDegrades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-017 [P1] AC3/AC7: overlapping /ByteRange ranges (the second range
-// starts inside the first) degrade to a per-signature CoverageError.
+// Overlapping /ByteRange ranges (the second range starts inside the first)
+// degrade to a per-signature CoverageError.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeOverlapDegrades(t *testing.T) {
@@ -584,9 +580,9 @@ func TestGetSignatures_ByteRangeOverlapDegrades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-018 [P1] AC3/AC7: a signed field whose /Sig dict has NO /ByteRange
-// at all degrades to a per-signature CoverageError -- the field is still
-// enumerated with its structural facts.
+// A signed field whose /Sig dict has NO /ByteRange at all degrades to a
+// per-signature CoverageError -- the field is still enumerated with its
+// structural facts.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeMissingDegrades(t *testing.T) {
@@ -606,9 +602,9 @@ func TestGetSignatures_ByteRangeMissingDegrades(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-019 [P2] AC2/AC7: adbe.x509.rsa_sha1 whose /Cert entry holds an
-// unreadable (non-DER) blob degrades to a per-signature DecomposeError -- the
-// field is still listed, no crash.
+// adbe.x509.rsa_sha1 whose /Cert entry holds an unreadable (non-DER) blob
+// degrades to a per-signature DecomposeError -- the field is still listed, no
+// crash.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_X509UnreadableCertDegrades(t *testing.T) {

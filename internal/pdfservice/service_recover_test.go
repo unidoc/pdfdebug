@@ -14,7 +14,7 @@ import (
 )
 
 // panickingInspector simulates a pdfcore.Inspector that panics with a
-// runtime.Error from its bound methods. Used by AC5 to exercise the
+// runtime.Error from its bound methods. Used by to exercise the
 // pdfservice top-level recover that converts runtime.Error to
 // ErrMalformedPDF: internal error.
 //
@@ -26,7 +26,7 @@ type panickingInspector struct {
 	pdfcore.Inspector // embed for unimplemented methods; the test never calls them
 }
 
-// GetTreeRoot panics with a synthetic runtime.Error to drive AC5's recover
+// GetTreeRoot panics with a synthetic runtime.Error to drive the recover
 // path. The exact runtime error kind is irrelevant; any runtime.Error
 // implementation satisfies the type assertion `r.(runtime.Error)` in the
 // recoverRuntimePanic helper.

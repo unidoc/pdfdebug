@@ -28,10 +28,10 @@ import (
 // resolve via Inspector.GetDocument before any file I/O, so no pure-bytes
 // fixture is needed at this layer.)
 
-// TestGetPlainTextAsyncHappyPath verifies 10-1-INTG-001 / AC11+AC15: open a
-// small fixture, GetPlainText returns full content with TotalBytes equal to
-// the on-disk size, no truncation (the struct no longer has the field), and
-// the Latin-1 decode rules unchanged (%PDF- header passes through).
+// TestGetPlainTextAsyncHappyPath verifies: open a small fixture,
+// GetPlainText returns full content with TotalBytes equal to the on-disk
+// size, no truncation (the struct no longer has the field), and the Latin-1
+// decode rules unchanged (%PDF- header passes through).
 func TestGetPlainTextAsyncHappyPath(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	got, err := ins.GetPlainText(tabID)
@@ -62,11 +62,11 @@ func TestGetPlainTextAsyncHappyPath(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCancelReturnsContextCanceled verifies 10-1-INTG-002 /
-// AC4 + AC11: a cancel mid-load returns an error that satisfies
-// errors.Is(err, context.Canceled). The authoritative cancellation contract
-// is the identity, NOT the substring -- if this assertion regresses, the
-// frontend extractErrorMessage substring check becomes the only safety net.
+// TestGetPlainTextAsyncCancelReturnsContextCanceled verifies: a cancel
+// mid-load returns an error that satisfies errors.Is(err, context.Canceled).
+// The authoritative cancellation contract is the identity, NOT the substring
+// -- if this assertion regresses, the frontend extractErrorMessage substring
+// check becomes the only safety net.
 func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 	// Make a large enough file that the chunked-read loop has time to observe
 	// ctx.Done() between chunks. The story spec pins chunkSize = 1 MiB. A
@@ -118,11 +118,11 @@ func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCloseReleasesGoroutine verifies 10-1-INTG-003 / AC9:
-// Inspector.Close mid-load releases the goroutine within ~2 seconds. Uses a
-// delta runtime.NumGoroutine check with a bounded retry loop (NOT absolute
-// count) per the story's explicit guidance -- absolute NumGoroutine is
-// well-known flaky.
+// TestGetPlainTextAsyncCloseReleasesGoroutine verifies: Inspector.Close
+// mid-load releases the goroutine within ~2 seconds. Uses a delta
+// runtime.NumGoroutine check with a bounded retry loop (NOT absolute count)
+// per the story's explicit guidance -- absolute NumGoroutine is well-known
+// flaky.
 func TestGetPlainTextAsyncCloseReleasesGoroutine(t *testing.T) {
 	// 64 MiB fixture so the read is in-flight long enough to be observably
 	// mid-loop when Close fires.
@@ -175,9 +175,9 @@ func TestGetPlainTextAsyncCloseReleasesGoroutine(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncUnknownTabSentinels verifies 10-1-INTG-004 / AC13 +
-// AC14 + AC19: unknown-tab paths return errors that satisfy errors.Is(...,
-// ErrDocumentNotFound) for GetPlainText, CancelPlainText, and GetPlainTextSize.
+// TestGetPlainTextAsyncUnknownTabSentinels verifies: unknown-tab paths return
+// errors that satisfy errors.Is(..., ErrDocumentNotFound) for GetPlainText,
+// CancelPlainText, and GetPlainTextSize.
 func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 	ins := NewInspector()
 
@@ -200,9 +200,9 @@ func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncGetPlainTextSize verifies 10-1-INTG-005 / AC19:
-// happy path returns the stat-at-Open size; file-moved returns the cached
-// size without error (Story 10.6 AC7 changed the file-moved contract).
+// TestGetPlainTextAsyncGetPlainTextSize verifies: happy path returns the
+// stat-at-Open size; file-moved returns the cached size without error
+// (Story 10.6 changed the file-moved contract).
 func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	// Happy path: open a real fixture, assert size matches.
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
@@ -219,7 +219,7 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	}
 
 	// File-moved path: open from a temp location, remove the file, assert the
-	// cached size is returned without error (Story 10.6 AC7: no re-stat).
+	// cached size is returned without error (Story 10.6: no re-stat).
 	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {
@@ -256,10 +256,10 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncZeroByteFile verifies 10-1-INTG-006 / AC21: opening a
-// 0-byte file via GetPlainText returns Content="" and TotalBytes=0 with no
-// error. The read loop's first chunk reads io.EOF immediately; the buffer
-// stays empty; decode produces "".
+// TestGetPlainTextAsyncZeroByteFile verifies: opening a 0-byte file via
+// GetPlainText returns Content="" and TotalBytes=0 with no error. The read
+// loop's first chunk reads io.EOF immediately; the buffer stays empty;
+// decode produces "".
 //
 // Note: this test cannot open a 0-byte file via Inspector.Open because pdfcpu
 // rejects empty files at the parse step. We exercise the read path via a
@@ -314,9 +314,9 @@ func TestGetPlainTextAsyncZeroByteFile(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncConcurrentSharesIO verifies 10-1-INTG-007 / AC10: two
-// concurrent callers on the same tab serialize on plainTextMu; they converge
-// on the same cached pointer.
+// TestGetPlainTextAsyncConcurrentSharesIO verifies: two concurrent callers
+// on the same tab serialize on plainTextMu; they converge on the same cached
+// pointer.
 func TestGetPlainTextAsyncConcurrentSharesIO(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	var wg sync.WaitGroup
@@ -346,8 +346,8 @@ func TestGetPlainTextAsyncConcurrentSharesIO(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCacheHit verifies 10-1-INTG-008 / AC11: consecutive
-// successful calls return the same cached pointer.
+// TestGetPlainTextAsyncCacheHit verifies: consecutive successful calls
+// return the same cached pointer.
 func TestGetPlainTextAsyncCacheHit(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 
@@ -364,8 +364,8 @@ func TestGetPlainTextAsyncCacheHit(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCancelDoesNotPopulateCache verifies 10-1-INTG-009 /
-// AC11: a cancelled load does NOT populate plainTextCache. A subsequent call
+// TestGetPlainTextAsyncCancelDoesNotPopulateCache verifies: a cancelled load
+// does NOT populate plainTextCache. A subsequent call
 // performs a fresh read (different pointer would be the post-cancel observation;
 // here we assert that the cache slot is empty after cancel by performing the
 // follow-up call and checking the err path / fresh build).
@@ -433,7 +433,7 @@ func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 
 // TestGetPlainTextAsyncCancelNoOpWhenIdle verifies that CancelPlainText is
 // safe to call when no load is in flight (no-op, returns nil). Belt-and-
-// braces for AC12: "no-op if no load is in flight or the load already
+// braces for: "no-op if no load is in flight or the load already
 // completed".
 func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
@@ -452,9 +452,9 @@ func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncMaxAllocCeiling verifies AC11.5: a file exceeding the
-// 4 GiB maxPlainTextAlloc ceiling returns ErrUnsupportedPDF before attempting
-// the read.
+// TestGetPlainTextAsyncMaxAllocCeiling verifies: a file exceeding the 4 GiB
+// maxPlainTextAlloc ceiling returns ErrUnsupportedPDF before attempting the
+// read.
 //
 // We do NOT create a 4 GiB file on disk -- that would balloon CI time and
 // disk usage. Instead this test asserts the constant value as a structural
@@ -471,12 +471,12 @@ func TestGetPlainTextAsyncMaxAllocCeiling(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextErrUnsupportedPDFPreserved verifies AC11.5 + sentinel
-// identity: an oversize-file error from readPlainText must remain
-// errors.Is(err, ErrUnsupportedPDF) at the GetPlainText boundary.
-// wrapPDFError without a bypass would re-classify it as ErrMalformedPDF
-// (the wrapper's "%w: %v" format chains ErrMalformedPDF in the outer position
-// and stringifies the inner error, severing the ErrUnsupportedPDF identity).
+// TestGetPlainTextErrUnsupportedPDFPreserved verifies + sentinel identity: an
+// oversize-file error from readPlainText must remain errors.Is(err,
+// ErrUnsupportedPDF) at the GetPlainText boundary. wrapPDFError without a
+// bypass would re-classify it as ErrMalformedPDF (the wrapper's "%w: %v"
+// format chains ErrMalformedPDF in the outer position and stringifies the
+// inner error, severing the ErrUnsupportedPDF identity).
 //
 // Exercises the wrap path directly via readPlainText so no TB-class fixture
 // is needed.
@@ -494,13 +494,13 @@ func TestGetPlainTextErrUnsupportedPDFPreserved(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncErrWrappingPreservesCanceled verifies AC11 error-
-// wrapping rule + Dev Notes: GetPlainText MUST NOT route context.Canceled
-// through wrapPDFError (which would mask the Canceled identity behind an
+// TestGetPlainTextAsyncErrWrappingPreservesCanceled verifies error- wrapping
+// rule + Dev Notes: GetPlainText MUST NOT route context.Canceled through
+// wrapPDFError (which would mask the Canceled identity behind an
 // ErrMalformedPDF wrap). The structural guard test in the acceptance suite
 // checks for the early-return source pattern; this test verifies the runtime
-// behavior end-to-end: a cancelled load returns an err where
-// errors.Is(err, ErrMalformedPDF) is FALSE.
+// behavior end-to-end: a cancelled load returns an err where errors.Is(err,
+// ErrMalformedPDF) is FALSE.
 func TestGetPlainTextAsyncErrWrappingPreservesCanceled(t *testing.T) {
 	path := makeOversizedPDF(t, 64*1024*1024)
 	defer func() { _ = os.Remove(path) }()

@@ -1,5 +1,5 @@
-// Source-guard test for Story 11.2 AC #5(b): the install path's security
-// guarantee is "no shell exists" -- which cannot be asserted by inspecting a
+// Source-guard test for Story 11.2 (b): the install path's security guarantee
+// is "no shell exists" -- which cannot be asserted by inspecting a
 // (non-existent) shell string. So this test asserts, at AST + content level,
 // that the production source of package clitool imports neither `os/exec` nor
 // references the `osascript` / `brew --prefix` / `sh -c` escalation idioms.
@@ -51,8 +51,7 @@ func productionGoFiles(t *testing.T) []string {
 }
 
 // TestSourceGuardNoOsExecImport asserts no production file imports os/exec.
-// (AC #5b -- the no-shell guarantee forbids spawning processes for the install
-// path.)
+// (the no-shell guarantee forbids spawning processes for the install path.)
 func TestSourceGuardNoOsExecImport(t *testing.T) {
 	forbidden := "os" + "/" + "exec"
 	fset := token.NewFileSet()
@@ -72,9 +71,8 @@ func TestSourceGuardNoOsExecImport(t *testing.T) {
 
 // TestSourceGuardNoShellEscalationTokens asserts no production file contains the
 // shell-escalation idioms. Tokens are assembled from fragments so this guard
-// file's own source never carries the literal patterns it forbids.
-// (AC #5b -- no `osascript ... with administrator privileges`, no `brew --prefix`
-// exec, no `sh -c`.)
+// file's own source never carries the literal patterns it forbids. (no `osascript
+// ... with administrator privileges`, no `brew --prefix` exec, no `sh -c`.)
 func TestSourceGuardNoShellEscalationTokens(t *testing.T) {
 	forbidden := []string{
 		"osa" + "script",

@@ -12,9 +12,9 @@ import (
 )
 
 // slowOpener is a pdfOpener stub that blocks inside OpenFile for sleepFor.
-// Used by TestOpenFileAndEmitReturnsBeforeParseCompletes to
-// verify openFileAndEmitWithWarning returns BEFORE the parse completes
-// (AC8 50ms wallclock budget while the goroutine sleeps for 2s).
+// Used by TestOpenFileAndEmitReturnsBeforeParseCompletes to verify
+// openFileAndEmitWithWarning returns BEFORE the parse completes (50ms
+// wallclock budget while the goroutine sleeps for 2s).
 type slowOpener struct {
 	sleepFor    time.Duration
 	openCalled  atomic.Bool
@@ -93,7 +93,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	openFileAndEmitWithWarning(opener, emitter, "/fake/path.pdf", "", &wg)
 	elapsed := time.Since(start)
 
-	// AC8 contract: return-time-versus-parse-time. The function MUST
+	// Contract: return-time-versus-parse-time. The function MUST
 	// return well before the 2s parse completes.
 	if elapsed > latencyBudget {
 		t.Errorf("openFileAndEmitWithWarning returned in %v, exceeds %v budget (returns within 50ms while parse is in flight). flake-handling note: if CI flakes above 50ms, raise to 200ms; never to 0.", elapsed, latencyBudget)
@@ -149,11 +149,11 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	}
 }
 
-// 4.4-UNIT-005 [P2]: extractPDFPaths extracts .pdf paths from args.
+// extractPDFPaths extracts .pdf paths from args.
 //
-// AC#2: Given a second instance is launched with args containing PDF paths,
-// When extractPDFPaths parses the args,
-// Then it returns only the .pdf arguments (case-insensitive extension).
+// Given a second instance is launched with args containing PDF paths, When
+// extractPDFPaths parses the args, Then it returns only the .pdf arguments
+// (case-insensitive extension).
 func TestExtractPDFPaths(t *testing.T) {
 	tests := []struct {
 		name string
@@ -232,7 +232,7 @@ func TestExtractPDFPaths(t *testing.T) {
 	}
 }
 
-// TestRouteOpenPath pins the Story 12.1 AC7 routing decision shared by both
+// TestRouteOpenPath pins the Story 12.1 routing decision shared by both
 // file-open callbacks. Before Drain (cold start) the path is queued and the
 // fake open func is NOT called; after Drain (warm/ready) the open func IS
 // called and the verdict is true. This is the only sanctioned automated pin on
