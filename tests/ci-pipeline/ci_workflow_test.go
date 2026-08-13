@@ -145,8 +145,8 @@ func stepUses(t *testing.T) []string {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-001 (P0): ci.yml exists and parses as valid YAML
-// Covers AC #2 (workflow is defined in .github/workflows/ci.yml)
+// ci.yml exists and parses as valid YAML Covers workflow is
+// defined in .github/workflows/ci.yml
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowFileExistsAndParses(t *testing.T) {
@@ -155,8 +155,8 @@ func TestCIWorkflowFileExistsAndParses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-002 (P0): workflow triggers include pull_request and push on main+dev
-// Covers AC #1 ("Given a pull request is opened or updated against `main` (or `dev`)")
+// Workflow triggers include pull_request and push on main+dev
+// Covers ("Given a pull request is opened or updated against `main` (or `dev`)")
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowTriggers(t *testing.T) {
@@ -212,8 +212,8 @@ func TestCIWorkflowTriggers(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-003 (P0): matrix strategy includes all 3 OS runners
-// Covers AC #2 ("matrix strategy with macos-latest, windows-latest, ubuntu-latest")
+// matrix strategy includes all 3 OS runners
+// Covers "matrix strategy with macos-latest, windows-latest, ubuntu-latest"
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowMatrixOS(t *testing.T) {
@@ -225,7 +225,7 @@ func TestCIWorkflowMatrixOS(t *testing.T) {
 		t.Fatalf("ci.yml: build-and-test.strategy is missing")
 	}
 
-	// fail-fast MUST be false so one flaky platform does not mask others (AC #7 rationale)
+	// fail-fast MUST be false so one flaky platform does not mask others (rationale)
 	ff, ok := strat["fail-fast"].(bool)
 	if !ok {
 		t.Errorf("ci.yml: build-and-test.strategy.fail-fast not set")
@@ -256,8 +256,8 @@ func TestCIWorkflowMatrixOS(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-004 (P0): runs-on references matrix.os
-// Covers AC #2 (matrix-driven runner selection)
+// runs-on references matrix.os Covers matrix-driven
+// runner selection
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowRunsOnMatrix(t *testing.T) {
@@ -274,8 +274,8 @@ func TestCIWorkflowRunsOnMatrix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-005 (P0): no job-level `name:` override (default = "build-and-test (<os>)")
-// Covers AC #7 (three distinct check runs named build-and-test (<os>))
+// No job-level `name:` override (default = "build-and-test (<os>)") Covers (three
+// distinct check runs named build-and-test (<os>))
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowNoJobNameOverride(t *testing.T) {
@@ -287,8 +287,8 @@ func TestCIWorkflowNoJobNameOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-006 (P0): job-level timeout-minutes is 30
-// Covers AC #8 (hard 30-minute cap per matrix cell)
+// job-level timeout-minutes is 30 Covers hard
+// 30-minute cap per matrix cell
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowJobTimeout(t *testing.T) {
@@ -308,8 +308,8 @@ func TestCIWorkflowJobTimeout(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-007 (P0): workflow-level `permissions: contents: read`
-// Covers security hardening in Dev Notes + Task 1.2
+// workflow-level `permissions: contents: read` Covers security
+// hardening in Dev Notes + Task 1.2
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPermissionsReadOnly(t *testing.T) {
@@ -332,8 +332,8 @@ func TestCIWorkflowPermissionsReadOnly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-008 (P1): workflow-level concurrency.cancel-in-progress is true
-// Covers Dev Notes "Concurrency" rationale
+// workflow-level concurrency.cancel-in-progress is true Covers Dev Notes
+// "Concurrency" rationale
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowConcurrency(t *testing.T) {
@@ -361,8 +361,8 @@ func TestCIWorkflowConcurrency(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-009 (P0): Go pinned to 1.26.x via setup-go@v6 with cache-dependency-path
-// Covers AC #2 (Go pinned to 1.26.x via actions/setup-go@v6) and AC #6 (caching)
+// Go pinned to 1.26.x via setup-go@v6 with cache-dependency-path Covers Go pinned to
+// 1.26.x via actions/setup-go@v6 and (caching)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
@@ -399,7 +399,7 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 		t.Errorf("ci.yml: setup-go.go-version must pin 1.26.x, got %q", ver)
 	}
 
-	// cache-dependency-path must include BOTH root go.sum AND tests/** go.sum (AC #6)
+	// cache-dependency-path must include BOTH root go.sum AND tests/** go.sum
 	cdp, hasCDP := with["cache-dependency-path"]
 	if !hasCDP {
 		t.Fatalf("ci.yml: setup-go.with.cache-dependency-path missing (per-suite modules must be cached)")
@@ -426,8 +426,8 @@ func TestCIWorkflowSetupGoPinAndCache(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-010 (P0): Node pinned to 20 via setup-node@v5 with npm cache
-// Covers AC #2 (Node pinned to 20 via actions/setup-node@v5) and AC #6 (npm caching)
+// Node pinned to 20 via setup-node@v5 with npm cache Covers Node pinned to 20 via
+// actions/setup-node@v5 and (npm caching)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
@@ -489,8 +489,8 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-011 (P0): Linux-guarded step installs apt native deps
-// Covers AC #3 (libgtk-3-dev, libwebkit2gtk-4.1-dev, build-essential on Linux)
+// Linux-guarded step installs apt native deps Covers libgtk-3-dev,
+// libwebkit2gtk-4.1-dev, build-essential on Linux
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
@@ -529,8 +529,8 @@ func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-012 (P0): Wails CLI pin matches go.mod
-// Covers AC #4 (go install wails3 at pinned alpha version matching go.mod)
+// Wails CLI pin matches go.mod Covers go install wails3 at pinned alpha
+// version matching go.mod
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsCLIPinMatchesGoMod(t *testing.T) {
@@ -556,8 +556,8 @@ func TestCIWorkflowWailsCLIPinMatchesGoMod(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-013 (P0): golangci-lint v2 module path pinned (not @latest)
-// Covers Task 1.5 step 6 rationale + AC #1 linting
+// golangci-lint v2 module path pinned (not @latest) Covers Task 1.5 step
+// 6 rationale + linting
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintV2Pinned(t *testing.T) {
@@ -578,8 +578,8 @@ func TestCIWorkflowGolangciLintV2Pinned(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-014 (P0): go vet ./... step present
-// Covers AC #1 (go vet ./... passes)
+// go vet ./... step present Covers go vet ./...
+// passes
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGoVetStep(t *testing.T) {
@@ -591,8 +591,8 @@ func TestCIWorkflowGoVetStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-015 (P0): go test ./... at repo root
-// Covers AC #1 (go test ./... at root) and is paired with per-suite loop test
+// go test ./... at repo root
+// Covers go test ./... at root and is paired with per-suite loop test
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGoTestRootStep(t *testing.T) {
@@ -604,8 +604,8 @@ func TestCIWorkflowGoTestRootStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-016 (P0): per-suite tests/*/go.mod loop step exists and is correct
-// Covers AC #5 (iterate tests/*/go.mod modules; skip e2e + support)
+// per-suite tests/*/go.mod loop step exists and is correct Covers iterate
+// tests/*/go.mod modules; skip e2e + support
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
@@ -639,7 +639,7 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 
 	run := loopStep["run"].(string)
 
-	// Must skip e2e and support per AC #5 / Task 2.3
+	// Must skip e2e and support Task 2.3
 	if !strings.Contains(run, "e2e") || !strings.Contains(run, "support") {
 		t.Errorf("ci.yml: per-suite loop must skip tests/e2e and tests/support (Task 2.3)")
 	}
@@ -661,8 +661,8 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-017 (P0): per-suite module directories actually exist at expected count
-// Covers AC #5 (20 per-suite go.mod files) -- guards against accidental deletion
+// per-suite module directories actually exist at expected count Covers 20 per-suite
+// go.mod files -- guards against accidental deletion
 // ---------------------------------------------------------------------------
 
 func TestPerSuiteGoModuleCount(t *testing.T) {
@@ -692,8 +692,8 @@ func TestPerSuiteGoModuleCount(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-018 (P0): frontend lint + typecheck + test steps
-// Covers AC #1 (tsc --noEmit, ESLint, Vitest on frontend)
+// Frontend lint + typecheck + test steps Covers tsc --noEmit,
+// ESLint, Vitest on frontend
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowFrontendSteps(t *testing.T) {
@@ -725,8 +725,8 @@ func TestCIWorkflowFrontendSteps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-019 (P0): wails3 build step present
-// Covers AC #1 (wails3 build succeeds for each matrix platform)
+// wails3 build step present Covers wails3 build succeeds for
+// each matrix platform
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsBuildStep(t *testing.T) {
@@ -738,8 +738,8 @@ func TestCIWorkflowWailsBuildStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-020 (P2): CLI sanity build (go build ./cmd/cli/)
-// Covers Task 1.5 step 16 (CLI compile check)
+// CLI sanity build (go build ./cmd/cli/) Covers Task 1.5 step
+// 16 (CLI compile check)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowCLIBuildStep(t *testing.T) {
@@ -751,8 +751,8 @@ func TestCIWorkflowCLIBuildStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-021 (P1): checkout@v5 is the first action step
-// Covers Task 1.5 step 1 (ordering requirement)
+// checkout@v5 is the first action step Covers Task 1.5 step
+// 1 (ordering requirement)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowCheckoutIsFirst(t *testing.T) {

@@ -4,7 +4,7 @@
 // These tests target concrete behaviors mandated by Story 7.2 tasks and Review
 // findings that were not asserted by the original 26 acceptance tests:
 //
-//   - actions/download-artifact@v5 uses merge-multiple: true (AC #9 / Task 1.4)
+//   - actions/download-artifact@v5 uses merge-multiple: true (Task 1.4)
 //   - build-job artifact name pattern `build-${{ matrix.platform }}` (Task 4.4)
 //   - build-job timeout-minutes: 45 budget for macOS notarize (Task 1.2)
 //   - Wails CLI pin matches go.mod direct dependency (Task 1.3 #5)
@@ -21,7 +21,7 @@
 //   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=6, line-count invariant,
 //     and `shasum -a 256 -c` self-verify (Review #3 Medium)
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
-//     (AC #7 / Task 5.2)
+//     (Task 5.2)
 //   - PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes
 //     (Task 6.3; Review #1 Medium)
 //   - workflow_dispatch checkout uses `ref: ${{ inputs.tag || github.ref }}`
@@ -40,9 +40,9 @@
 // already covered at lower layers; only add E2E to fill gaps in critical
 // happy-path coverage."
 //
-// The single E2E scenario in the epic test design (7.2-E2E-001: RC tag produces
-// downloadable assets) is documented as a manual post-merge verification step
-// and cannot be exercised from a Go test; no new E2E is added here.
+// The single E2E scenario in the epic test design (RC tag produces downloadable
+// assets) is documented as a manual post-merge verification step and cannot be
+// exercised from a Go test; no new E2E is added here.
 //
 // Run: cd tests/release-pipeline && go test -v -count=1 ./...
 package release_pipeline_test
@@ -72,8 +72,8 @@ func findStepByPredicate(t *testing.T, jobName string, predicate func(map[string
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): download-artifact uses merge-multiple: true
-// Covers AC #9 + Task 1.4 (single `dist/` merges all three matrix cells)
+// download-artifact uses merge-multiple: true Covers + Task 1.4 (single
+// `dist/` merges all three matrix cells)
 // ---------------------------------------------------------------------------
 
 func TestDownloadArtifactMergeMultiple(t *testing.T) {
@@ -99,9 +99,9 @@ func TestDownloadArtifactMergeMultiple(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): upload-artifact uses `build-${{ matrix.platform }}` name
-// Covers Task 4.4 (stable per-cell artifact name consumed by download-artifact
-// pattern: build-*)
+// upload-artifact uses `build-${{ matrix.platform }}` name Covers Task 4.4
+// (stable per-cell artifact name consumed by download-artifact pattern:
+// build-*)
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactNamePattern(t *testing.T) {
@@ -405,10 +405,10 @@ func TestCLISmokeTestStep(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // SHA256SUMS integrity guard: asserts EXPECTED_FILES=6, line-count invariant,
-// and `shasum -a 256 -c` self-verify.
-// Covers Review #3 Medium (AC #7 "all 6 assets MUST be attached" invariant:
-// 3 platforms x 2 archives each -- a GUI archive that also embeds the CLI, plus
-// a standalone CLI archive; the bundled-in CLI is not a separate counted file).
+// and `shasum -a 256 -c` self-verify. Covers Review #3 Medium ("all 6 assets
+// MUST be attached" invariant: 3 platforms x 2 archives each -- a GUI archive
+// that also embeds the CLI, plus a standalone CLI archive; the bundled-in CLI
+// is not a separate counted file).
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsIntegrityGuard(t *testing.T) {
@@ -431,8 +431,8 @@ func TestSHA256SumsIntegrityGuard(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // action-gh-release publish step uploads `dist/*` (picks up SHA256SUMS.txt)
-// and fails on unmatched files.
-// Covers AC #8 (SHA256SUMS.txt uploaded as 9th asset) + Task 5.2.
+// and fails on unmatched files. Covers SHA256SUMS.txt uploaded as 9th asset
+// + Task 5.2.
 // ---------------------------------------------------------------------------
 
 func TestReleasePublishFilesGlob(t *testing.T) {
@@ -608,8 +608,8 @@ func TestEntitlementsPlistNotGitignored(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Prerelease detection regex matches both `-rcN`, `-alphaN`, and `-betaN`.
-// Covers AC #7 and verifies the exact contract via simulated shell-regex match
-// (the existing TestPrereleaseDetectionLogic only asserts the regex STRING is
+// Covers and verifies the exact contract via simulated shell-regex match (the
+// existing TestPrereleaseDetectionLogic only asserts the regex STRING is
 // present; this asserts the matching behavior across all three prefixes).
 // ---------------------------------------------------------------------------
 
@@ -675,7 +675,7 @@ func TestWorkflowDispatchTagInputTyped(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Apple-secrets probe emits a `::warning::` on partial-secret state.
-// Covers Story 8-5 AC #1 pre-flight (the dry-run pre-flight relies on a
+// Covers Story 8-5 pre-flight (the dry-run pre-flight relies on a
 // partial state being noisy so it isn't accidentally taken for fully-absent;
 // release.yml line 117 emits this warning only when SOME but not ALL of the
 // three codesign secrets are set).
@@ -693,18 +693,18 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 
 	// Must emit a `::warning::` annotation when partial-secret state is detected.
 	// The annotation surfaces in the Actions UI so a partial state is not
-	// silently treated as "fully absent" (see Story 8-5 AC #1 + Task 1.1).
+	// silently treated as "fully absent" (see Story 8-5 + Task 1.1).
 	if !strings.Contains(run, "::warning::") {
 		t.Errorf("release.yml: apple_secrets probe must emit `::warning::` on partial-secret state (otherwise partial config silently degrades to unsigned)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Linux native runtime deps are installed in the build job.
-// Covers Story 8-5 AC #5: the Linux artifact must be runnable, which depends
-// on `libgtk-3` and `libwebkit2gtk-4.1` being present on the runner. The
-// install step at release.yml lines 62-63 is also the README's source of
-// truth for the runtime-deps note end users follow.
+// Linux native runtime deps are installed in the build job. Covers Story
+// 8-5: the Linux artifact must be runnable, which depends on `libgtk-3` and
+// `libwebkit2gtk-4.1` being present on the runner. The install step at
+// release.yml lines 62-63 is also the README's source of truth for the
+// runtime-deps note end users follow.
 // ---------------------------------------------------------------------------
 
 func TestLinuxRuntimeDepsInstalled(t *testing.T) {

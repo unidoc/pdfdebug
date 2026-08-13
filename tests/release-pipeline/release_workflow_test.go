@@ -14,36 +14,13 @@
 // repo ships TDD-red tests directly).
 //
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks. No
-// browser or HTTP surface. Per Epic 7 test design, the single E2E AC (#10,
-// 7.2-E2E-001) is a manual RC-tag smoke test that cannot be exercised from a
-// local Go test; it is not automated here.
+// browser or HTTP surface. Per the epic test design the single end-to-end
+// case is a manual RC-tag smoke test that cannot be exercised from a local Go
+// test; it is not automated here. Notarization is currently disabled, so the
+// macOS flow is asserted as codesign + verify only.
 //
-// Trace:
-//   AC #1  -> TestReleaseWorkflowFileExistsAndParses, TestTriggerIsVersionTag,
-//              TestWorkflowDispatchSupported (7.2-STATIC-001)
-//   AC #2  -> TestMatrixContainsAllFourPlatforms, TestArtifactStagingNaming
-//              (7.2-STATIC-002)
-//   AC #3  -> TestMatrixContainsAllFourPlatforms, TestMatrixFailFastFalse
-//              (7.2-STATIC-002)
-//   AC #4  -> TestCodesignStepPresent, TestMacOSVerificationCommands
-//              (7.2-STATIC-003) -- notarization currently disabled.
-//   AC #5  -> TestAppleKeychainImport, TestKeychainCleanupAlways,
-//              TestAppleSecretsReferenced (7.2-STATIC-003)
-//   AC #6  -> TestCLIBuildUsesTrimpathAndLdflags,
-//              TestCLIBuildGOOSGOARCHFromMatrix (7.2-STATIC-002)
-//   AC #7  -> TestReleasePublishStepUsesActionGhRelease,
-//              TestPrereleaseDetectionLogic, TestGenerateReleaseNotesEnabled
-//              (7.2-STATIC-006)
-//   AC #8  -> TestSHA256SumsStepPresent, TestSHA256SumsExcludesSelf
-//              (7.2-STATIC-005)
-//   AC #9  -> TestTwoJobsBuildAndRelease, TestUploadArtifactAndDownloadArtifactV4
-//              (7.2-STATIC-004)
-//   Cross  -> TestSecretsNotLoggedOutsideSecretsExpr,
-//              TestConcurrencyCancelInProgressFalse,
-//              TestWorkflowPermissionsWrite, TestShellBashOnRunSteps
-//
-// Supporting files:
-//   AC #4  -> TestEntitlementsPlistExists (Task 6.1)
+// Each test function below names the workflow property it checks, so there is
+// no mapping table to keep in sync.
 //
 // Run: cd tests/release-pipeline && go test -v -count=1 ./...
 package release_pipeline_test
@@ -166,8 +143,8 @@ func jobUses(t *testing.T, jobName string) []string {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): release.yml exists and parses
-// Covers AC #1 (workflow defined in .github/workflows/release.yml)
+// release.yml exists and parses Covers workflow defined in
+// .github/workflows/release.yml
 // ---------------------------------------------------------------------------
 
 func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
@@ -175,8 +152,8 @@ func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): on.push.tags contains 'v*'
-// Covers AC #1 (tag push triggers release)
+// on.push.tags contains 'v*' Covers tag push
+// triggers release
 // ---------------------------------------------------------------------------
 
 func TestTriggerIsVersionTag(t *testing.T) {
@@ -210,8 +187,8 @@ func TestTriggerIsVersionTag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): workflow_dispatch with `tag` input supported
-// Covers AC #1 + Task 1.5 (manual re-run against existing tag)
+// workflow_dispatch with `tag` input supported Covers + Task 1.5
+// (manual re-run against existing tag)
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchSupported(t *testing.T) {
@@ -286,9 +263,8 @@ func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): matrix contains exactly 4 include cells covering every
-// required {os, arch, goos, platform} combination
-// Covers AC #2, AC #3, AC #6
+// matrix contains exactly 4 include cells covering every required {os, arch,
+// goos, platform} combination Covers
 // ---------------------------------------------------------------------------
 
 func TestMatrixContainsAllFourPlatforms(t *testing.T) {
@@ -355,8 +331,8 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): strategy.fail-fast is false
-// Covers AC #3 (one platform failure must not mask others)
+// strategy.fail-fast is false Covers one platform failure
+// must not mask others
 // ---------------------------------------------------------------------------
 
 func TestMatrixFailFastFalse(t *testing.T) {
@@ -374,9 +350,9 @@ func TestMatrixFailFastFalse(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): codesign step present with required flags
-// Covers AC #4 (codesign with --force --deep --options runtime --entitlements
-// build/darwin/entitlements.plist --timestamp --sign)
+// Codesign step present with required flags Covers codesign with --force
+// --deep --options runtime --entitlements build/darwin/entitlements.plist
+// --timestamp --sign
 // ---------------------------------------------------------------------------
 
 func TestCodesignStepPresent(t *testing.T) {
@@ -398,9 +374,9 @@ func TestCodesignStepPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): codesign --verify runs after the sign step.
-// Covers AC #4 (signed bundle is verified). Notarization is currently
-// disabled, so notarytool/stapler/spctl assertions are not required.
+// Codesign --verify runs after the sign step. Covers signed bundle is
+// verified. Notarization is currently disabled, so
+// notarytool/stapler/spctl assertions are not required.
 // ---------------------------------------------------------------------------
 
 func TestMacOSVerificationCommands(t *testing.T) {
@@ -412,8 +388,8 @@ func TestMacOSVerificationCommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): macOS Developer ID keychain is imported at job start
-// Covers AC #5 (security create-keychain + import + set-key-partition-list)
+// macOS Developer ID keychain is imported at job start Covers security
+// create-keychain + import + set-key-partition-list
 // ---------------------------------------------------------------------------
 
 func TestAppleKeychainImport(t *testing.T) {
@@ -432,8 +408,8 @@ func TestAppleKeychainImport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): keychain cleanup runs under if: always()
-// Covers AC #5 (secrets never linger on runner)
+// Keychain cleanup runs under if: always() Covers secrets never
+// linger on runner
 // ---------------------------------------------------------------------------
 
 func TestKeychainCleanupAlways(t *testing.T) {
@@ -461,9 +437,8 @@ func TestKeychainCleanupAlways(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): all required Apple secrets are referenced via
-// ${{ secrets.* }} expressions in the workflow
-// Covers AC #5 (explicit secret list)
+// All required Apple secrets are referenced via ${{ secrets.* }}
+// expressions in the workflow Covers explicit secret list
 // ---------------------------------------------------------------------------
 
 func TestAppleSecretsReferenced(t *testing.T) {
@@ -517,8 +492,8 @@ func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): CLI build uses -trimpath + -ldflags with version
-// Covers AC #6 (go build -trimpath -ldflags="-s -w -X main.version=<version>")
+// CLI build uses -trimpath + -ldflags with version Covers go build -trimpath
+// -ldflags="-s -w -X main.version=<version>"
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildUsesTrimpathAndLdflags(t *testing.T) {
@@ -540,8 +515,8 @@ func TestCLIBuildUsesTrimpathAndLdflags(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): CLI build reads GOOS/GOARCH from matrix keys
-// Covers AC #6 (GOOS/GOARCH per matrix cell)
+// CLI build reads GOOS/GOARCH from matrix keys Covers GOOS/GOARCH
+// per matrix cell
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
@@ -558,8 +533,8 @@ func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): two jobs -- build and release, with release needing build
-// Covers AC #9 (parallel build matrix then single release job)
+// Two jobs -- build and release, with release needing build Covers parallel
+// build matrix then single release job
 // ---------------------------------------------------------------------------
 
 func TestTwoJobsBuildAndRelease(t *testing.T) {
@@ -598,7 +573,7 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 	default:
 		t.Errorf("release.yml: jobs.release.needs has unexpected type %T", needs)
 	}
-	// release job must run on ubuntu-latest (AC #8 requires shasum on ubuntu)
+	// release job must run on ubuntu-latest (requires shasum on ubuntu)
 	runsOn, _ := rel["runs-on"].(string)
 	if runsOn != "ubuntu-latest" {
 		t.Errorf("release.yml: jobs.release.runs-on must be \"ubuntu-latest\", got %q", runsOn)
@@ -606,8 +581,8 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): upload-artifact@v5 in build, download-artifact@v5 in release
-// Covers AC #9 (artifact staging via v4 actions)
+// upload-artifact@v5 in build, download-artifact@v5 in release Covers artifact
+// staging via v4 actions
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
@@ -634,8 +609,8 @@ func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-005 (P1): SHA256SUMS computed via shasum -a 256 in release job
-// Covers AC #8 (single sha256 computation in the release job)
+// SHA256SUMS computed via shasum -a 256 in release job Covers single sha256
+// computation in the release job
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsStepPresent(t *testing.T) {
@@ -650,8 +625,8 @@ func TestSHA256SumsStepPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-005 (P1): SHA256SUMS generation excludes itself and is NUL-safe
-// Covers AC #8 + Task 5.1 (no `$(ls | sort)` anti-pattern)
+// SHA256SUMS generation excludes itself and is NUL-safe Covers + Task 5.1
+// (no `$(ls | sort)` anti-pattern)
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsExcludesSelf(t *testing.T) {
@@ -667,8 +642,7 @@ func TestSHA256SumsExcludesSelf(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): release publication step uses softprops/action-gh-release@v3
-// Covers AC #7
+// release publication step uses softprops/action-gh-release@v3 Covers
 // ---------------------------------------------------------------------------
 
 func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
@@ -686,8 +660,8 @@ func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): prerelease flag set for v*-rc* / -alpha* / -beta*
-// Covers AC #7 (pre-release detection logic)
+// prerelease flag set for v*-rc* / -alpha* / -beta* Covers pre-release
+// detection logic
 // ---------------------------------------------------------------------------
 
 func TestPrereleaseDetectionLogic(t *testing.T) {
@@ -707,8 +681,8 @@ func TestPrereleaseDetectionLogic(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): action-gh-release `generate_release_notes: true`
-// Covers AC #7 (Release description populated from commits since previous tag)
+// action-gh-release `generate_release_notes: true` Covers Release description
+// populated from commits since previous tag
 // ---------------------------------------------------------------------------
 
 func TestGenerateReleaseNotesEnabled(t *testing.T) {
@@ -740,7 +714,7 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 		t.Errorf("release.yml: softprops/action-gh-release `with.generate_release_notes` must be true")
 	}
 
-	// prerelease must be parameterized (AC #7: toggled by tag pattern)
+	// prerelease must be parameterized (toggled by tag pattern)
 	prerelease, _ := with["prerelease"].(string)
 	if !strings.Contains(prerelease, "${{") {
 		t.Errorf("release.yml: softprops/action-gh-release `with.prerelease` must be a step-output expression, got %q", prerelease)
@@ -779,9 +753,9 @@ func TestShellBashOnRunSteps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Artifact staging produces the 6 named artifacts plus SHA256SUMS
-// (3 platforms x 2 archives each: a GUI archive that also embeds the CLI, plus
-// a standalone CLI archive). Covers AC #2, Task 4.3 naming contract.
+// Artifact staging produces the 6 named artifacts plus SHA256SUMS (3 platforms
+// x 2 archives each: a GUI archive that also embeds the CLI, plus a standalone
+// CLI archive). Covers, Task 4.3 naming contract.
 // ---------------------------------------------------------------------------
 
 func TestArtifactStagingNaming(t *testing.T) {
@@ -821,8 +795,7 @@ func TestArtifactStagingNaming(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Supporting file: build/darwin/entitlements.plist exists with Wails-v3
-// baseline entries
-// Covers AC #4 + Task 6.1
+// baseline entries Covers + Task 6.1
 // ---------------------------------------------------------------------------
 
 func TestEntitlementsPlistExists(t *testing.T) {

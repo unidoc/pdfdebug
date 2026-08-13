@@ -17,20 +17,8 @@
 // No browser or HTTP surface; this is a build/CI packaging story with no
 // frontend/runtime code in scope, so no E2E applies.
 //
-// Trace:
-//   AC #1  -> TestBuildCLIStepRunsBeforeMacGUIBuild,
-//             TestBuildCLIStepRunsBeforeMacSignStep (11.1-STATIC-001)
-//   AC #1/6-> TestDarwinBundleBuildsCLI,
-//             TestDarwinBundleCopiesCLIIntoResources,
-//             TestDarwinBundleCLICopyPrecedesCodesignDispatch (11.1-STATIC-002)
-//   AC #2  -> TestDarwinGUIStageHasNoLooseCLI,
-//             TestDarwinStandaloneCLIArchiveRetained (11.1-STATIC-003)
-//   AC #3  -> TestWindowsGUIStageBundlesCLI,
-//             TestWindowsStandaloneCLIArchiveRetained (11.1-STATIC-004)
-//   AC #4  -> TestLinuxGUIStageBundlesCLI,
-//             TestLinuxStandaloneCLIArchiveRetained (11.1-STATIC-005)
-//   AC #5  -> TestArtifactCountStaysSix,
-//             TestSHA256SumsCommentHasNoStaleEightAssets (11.1-STATIC-006)
+// Each test function below names the packaging property it checks, so there is
+// no mapping table to keep in sync.
 //
 // Run: cd tests/release-pipeline && go test -v -count=1 ./...
 package release_pipeline_test
@@ -103,10 +91,9 @@ func stageCaseBlock(t *testing.T, caseLabel string) string {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-001 (P0): "Build CLI" step is reordered to run BEFORE the macOS
-// GUI package step so the CLI binary exists at package time and can be embedded
-// in the .app.
-// Covers AC #1 + Task 0.1.
+// "Build CLI" step is reordered to run BEFORE the macOS GUI package step so the
+// CLI binary exists at package time and can be embedded in the .app. Covers +
+// Task 0.1.
 // ---------------------------------------------------------------------------
 
 func TestBuildCLIStepRunsBeforeMacGUIBuild(t *testing.T) {
@@ -128,10 +115,9 @@ func TestBuildCLIStepRunsBeforeMacGUIBuild(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-001 (P0): "Build CLI" step runs BEFORE the conditional
-// "Sign macOS app bundle" step, so a Mach-O added to the bundle is covered by
-// the signature whenever Developer ID signing is later enabled.
-// Covers AC #1 + Task 0.1.
+// "Build CLI" step runs BEFORE the conditional "Sign macOS app bundle" step,
+// so a Mach-O added to the bundle is covered by the signature whenever
+// Developer ID signing is later enabled. Covers + Task 0.1.
 // ---------------------------------------------------------------------------
 
 func TestBuildCLIStepRunsBeforeMacSignStep(t *testing.T) {
@@ -153,12 +139,12 @@ func TestBuildCLIStepRunsBeforeMacSignStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-001 (P1): the "CLI smoke test" step still runs AFTER the
-// (now-earlier) "Build CLI" step. Task 0.1 reorders Build CLI before the macOS
-// GUI/sign steps but explicitly requires the smoke test to stay downstream of
-// Build CLI -- the smoke step invokes the produced bin/pdfdebug, so if a future
-// edit moved it ahead of Build CLI it would run against a missing binary.
-// Covers AC #7 + Task 0.1 ("Keep the CLI smoke test step after the Build CLI step").
+// The "CLI smoke test" step still runs AFTER the (now-earlier) "Build CLI"
+// step. Task 0.1 reorders Build CLI before the macOS GUI/sign steps but
+// explicitly requires the smoke test to stay downstream of Build CLI -- the
+// smoke step invokes the produced bin/pdfdebug, so if a future edit moved it
+// ahead of Build CLI it would run against a missing binary.
+// Covers + Task 0.1 ("Keep the CLI smoke test step after the Build CLI step").
 // ---------------------------------------------------------------------------
 
 func TestCLISmokeTestStepRunsAfterBuildCLI(t *testing.T) {
@@ -180,10 +166,9 @@ func TestCLISmokeTestStepRunsAfterBuildCLI(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-002 (P0): build/darwin/Taskfile.yml create:app:bundle is
-// self-sufficient -- it builds the CLI itself (CGO_ENABLED=0, ./cmd/cli, with
-// VERSION resolution) rather than assuming a pre-built bin/pdfdebug.
-// Covers AC #6 + Task 1.1.
+// build/darwin/Taskfile.yml create:app:bundle is self-sufficient -- it builds
+// the CLI itself (CGO_ENABLED=0, ./cmd/cli, with VERSION resolution) rather
+// than assuming a pre-built bin/pdfdebug. Covers + Task 1.1.
 // ---------------------------------------------------------------------------
 
 func TestDarwinBundleBuildsCLI(t *testing.T) {
@@ -211,9 +196,9 @@ func TestDarwinBundleBuildsCLI(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-002 (P0): create:app:bundle copies the CLI to
+// create:app:bundle copies the CLI to
 // Contents/Resources/pdfdebug and marks it executable.
-// Covers AC #1, AC #6 + Task 1.1.
+// Covers + Task 1.1.
 // ---------------------------------------------------------------------------
 
 func TestDarwinBundleCopiesCLIIntoResources(t *testing.T) {
@@ -235,10 +220,10 @@ func TestDarwinBundleCopiesCLIIntoResources(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-002 (P0): the CLI copy cmd in create:app:bundle is placed BEFORE
-// the final `task: codesign:adhoc`/`codesign:skip` dispatch, so the ad-hoc
-// signature (on a darwin host) covers the nested Mach-O.
-// Covers AC #1 (copy-before-sign ordering) + Task 1.1.
+// The CLI copy cmd in create:app:bundle is placed BEFORE the final `task:
+// codesign:adhoc`/`codesign:skip` dispatch, so the ad-hoc signature (on a
+// darwin host) covers the nested Mach-O. Covers copy-before-sign ordering +
+// Task 1.1.
 // ---------------------------------------------------------------------------
 
 func TestDarwinBundleCLICopyPrecedesCodesignDispatch(t *testing.T) {
@@ -277,10 +262,9 @@ func TestDarwinBundleCLICopyPrecedesCodesignDispatch(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-003 (P1): the darwin GUI (dmg) staging carries NO loose pdfdebug
-// file -- the CLI ships inside the .app. The dmg stage copies only the app +
-// LICENSE/NOTICE + the /Applications symlink.
-// Covers AC #2 + Task 2.1.
+// The darwin GUI (dmg) staging carries NO loose pdfdebug file -- the CLI ships
+// inside the .app. The dmg stage copies only the app + LICENSE/NOTICE + the
+// /Applications symlink. Covers + Task 2.1.
 // ---------------------------------------------------------------------------
 
 func TestDarwinGUIStageHasNoLooseCLI(t *testing.T) {
@@ -292,8 +276,8 @@ func TestDarwinGUIStageHasNoLooseCLI(t *testing.T) {
 	// standalone CLI staging begins.
 	cliStageIdx := strings.Index(block, "darwin-cli-stage")
 	if cliStageIdx == -1 {
-		// Standalone CLI staging must still exist; if it is gone this assertion
-		// cannot scope correctly -- fail loudly (also caught by AC #2 retention test).
+		// Standalone CLI staging must still exist; if it is gone this assertion cannot
+		// scope correctly -- fail loudly (also caught by retention test).
 		t.Fatalf("release.yml darwin stage: standalone CLI staging (darwin-cli-stage) not found; cannot scope the DMG-stage loose-CLI check")
 	}
 	dmgStage := block[:cliStageIdx]
@@ -305,8 +289,7 @@ func TestDarwinGUIStageHasNoLooseCLI(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-003 (P1): the standalone darwin CLI tar.gz is still produced.
-// Covers AC #2 + Task 2.2.
+// The standalone darwin CLI tar.gz is still produced. Covers + Task 2.2.
 // ---------------------------------------------------------------------------
 
 func TestDarwinStandaloneCLIArchiveRetained(t *testing.T) {
@@ -318,10 +301,9 @@ func TestDarwinStandaloneCLIArchiveRetained(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-004 (P0): the windows GUI zip staging copies pdfdebug.exe into
-// the GUI stage dir BEFORE the GUI `7z a -tzip`, so the GUI zip contains both
-// the GUI exe and the CLI exe.
-// Covers AC #3 + Task 3.1.
+// The windows GUI zip staging copies pdfdebug.exe into the GUI stage dir
+// BEFORE the GUI `7z a -tzip`, so the GUI zip contains both the GUI exe and
+// the CLI exe. Covers + Task 3.1.
 // ---------------------------------------------------------------------------
 
 func TestWindowsGUIStageBundlesCLI(t *testing.T) {
@@ -341,8 +323,7 @@ func TestWindowsGUIStageBundlesCLI(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-004 (P1): the standalone windows CLI zip is still produced.
-// Covers AC #3 + Task 3.2.
+// The standalone windows CLI zip is still produced. Covers + Task 3.2.
 // ---------------------------------------------------------------------------
 
 func TestWindowsStandaloneCLIArchiveRetained(t *testing.T) {
@@ -354,10 +335,9 @@ func TestWindowsStandaloneCLIArchiveRetained(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-005 (P0): the linux GUI tar.gz staging copies pdfdebug into the
-// GUI stage dir BEFORE the GUI `tar -czf`, so the GUI tar.gz contains both the
-// GUI binary and the CLI.
-// Covers AC #4 + Task 4.1.
+// The linux GUI tar.gz staging copies pdfdebug into the GUI stage dir BEFORE
+// the GUI `tar -czf`, so the GUI tar.gz contains both the GUI binary and the
+// CLI. Covers + Task 4.1.
 // ---------------------------------------------------------------------------
 
 func TestLinuxGUIStageBundlesCLI(t *testing.T) {
@@ -377,8 +357,7 @@ func TestLinuxGUIStageBundlesCLI(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-005 (P1): the standalone linux CLI tar.gz is still produced.
-// Covers AC #4 + Task 4.2.
+// The standalone linux CLI tar.gz is still produced. Covers + Task 4.2.
 // ---------------------------------------------------------------------------
 
 func TestLinuxStandaloneCLIArchiveRetained(t *testing.T) {
@@ -390,9 +369,8 @@ func TestLinuxStandaloneCLIArchiveRetained(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-006 (P1): the net artifact count stays 6 -- the bundled-in CLI is
-// not a separate counted file. EXPECTED_FILES=6 is unchanged.
-// Covers AC #5 + Task 5.1.
+// The net artifact count stays 6 -- the bundled-in CLI is not a separate
+// counted file. EXPECTED_FILES=6 is unchanged. Covers + Task 5.1.
 // ---------------------------------------------------------------------------
 
 func TestArtifactCountStaysSix(t *testing.T) {
@@ -403,10 +381,9 @@ func TestArtifactCountStaysSix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11.1-STATIC-006 (P1): the SHA256SUMS integrity-guard comment no longer
-// references the stale "8 assets" / "4 matrix cells" rationale; it must state
-// the real 6-asset invariant (3 platforms x 2 archives each).
-// Covers AC #5 + Task 5.2.
+// The SHA256SUMS integrity-guard comment no longer references the stale "8
+// assets" / "4 matrix cells" rationale; it must state the real 6-asset
+// invariant (3 platforms x 2 archives each). Covers + Task 5.2.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsCommentHasNoStaleEightAssets(t *testing.T) {

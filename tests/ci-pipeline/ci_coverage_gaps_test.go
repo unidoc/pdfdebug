@@ -48,8 +48,8 @@ func stepIndexByPredicate(t *testing.T, predicate func(map[string]interface{}) b
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-027 (P1): workflow_dispatch trigger present for manual reruns
-// Covers Task 1.2 (workflow_dispatch allows manual re-runs from the GitHub UI)
+// workflow_dispatch trigger present for manual reruns Covers Task 1.2
+// (workflow_dispatch allows manual re-runs from the GitHub UI)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowDispatchTrigger(t *testing.T) {
@@ -68,10 +68,10 @@ func TestCIWorkflowDispatchTrigger(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-028 (P0): per-suite loop step-level timeout-minutes == 20
-// Covers Task 2.2 (step-level 20-minute cap so hung per-suite module cannot
-// consume job budget). The existing TestCIWorkflowPerSuiteModuleLoop only
-// asserts the field is present; this asserts the exact 20-minute value.
+// per-suite loop step-level timeout-minutes == 20 Covers Task 2.2
+// (step-level 20-minute cap so hung per-suite module cannot consume job
+// budget). The existing TestCIWorkflowPerSuiteModuleLoop only asserts the
+// field is present; this asserts the exact 20-minute value.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
@@ -104,8 +104,8 @@ func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-029 (P1): golangci-lint invoked with explicit --timeout flag
-// Covers Task 1.5 step 9 (`golangci-lint run --timeout 5m ./...`)
+// golangci-lint invoked with explicit --timeout flag Covers Task 1.5 step
+// 9 (`golangci-lint run --timeout 5m ./...`)
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
@@ -119,7 +119,7 @@ func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-030 (P1): root `go test ./...` uses explicit -timeout flag
+// root `go test ./...` uses explicit -timeout flag
 // Covers Task 1.5 step 10 (`go test ./... -timeout 10m`)
 // ---------------------------------------------------------------------------
 
@@ -132,9 +132,9 @@ func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-031 (P0): wails3 generate bindings step present
-// Covers Review #1 critical fix (16 frontend files import from ../bindings/...
-// which is gitignored; without this step every frontend CI step fails).
+// wails3 generate bindings step present Covers Review #1 critical fix (16
+// frontend files import from ../bindings/... which is gitignored; without this
+// step every frontend CI step fails).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsGenerateBindingsStep(t *testing.T) {
@@ -145,9 +145,9 @@ func TestCIWorkflowWailsGenerateBindingsStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-032 (P0): bindings generation must run before frontend typecheck,
-// lint, and test. Review #1 finding: otherwise unresolved-import errors block
-// the first frontend step on every CI run.
+// Bindings generation must run before frontend typecheck, lint, and test.
+// Review #1 finding: otherwise unresolved-import errors block the first
+// frontend step on every CI run.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
@@ -180,10 +180,10 @@ func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-033 (P0): bindings step runs after frontend deps installed
-// (`npm ci --prefix frontend`). `wails3 generate bindings` writes TypeScript
-// files under `frontend/bindings/`; node_modules must already exist or the
-// generated imports resolve to nothing. Dev ordered it this way intentionally.
+// Bindings step runs after frontend deps installed (`npm ci --prefix
+// frontend`). `wails3 generate bindings` writes TypeScript files under
+// `frontend/bindings/`; node_modules must already exist or the generated
+// imports resolve to nothing. Dev ordered it this way intentionally.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowBindingsAfterNpmCi(t *testing.T) {
@@ -204,9 +204,9 @@ func TestCIWorkflowBindingsAfterNpmCi(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-034 (P0): Wails CLI install precedes bindings generation and
-// wails3 build. If the CLI is installed after either, the step fails at
-// `command not found: wails3`.
+// Wails CLI install precedes bindings generation and wails3 build. If the
+// CLI is installed after either, the step fails at `command not found:
+// wails3`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
@@ -238,10 +238,10 @@ func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-035 (P1): .golangci.yml excludes `build` path
-// Covers Review #2 fix -- `build/ios/app_options_default.go` has an `unused`
-// scaffold, so the `build` directory must be in exclusions.paths to keep
-// golangci-lint exit 0.
+// .golangci.yml excludes `build` path Covers Review #2 fix --
+// `build/ios/app_options_default.go` has an `unused` scaffold, so the
+// `build` directory must be in exclusions.paths to keep golangci-lint exit
+// 0.
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintExcludesBuildPath(t *testing.T) {
@@ -278,9 +278,9 @@ func TestGolangciLintExcludesBuildPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-036 (P2): .golangci.yml disables QF1003 and QF1008 quick-fix
-// style refactors (Review #2 fix -- these fired on pre-existing style patterns
-// across cmd/cli/ and internal/pdfcore/).
+// .golangci.yml disables QF1003 and QF1008 quick-fix style refactors (Review
+// #2 fix -- these fired on pre-existing style patterns across cmd/cli/ and
+// internal/pdfcore/).
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
@@ -322,10 +322,10 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-037 (P1): eslint.config.js ignores test files and test-setup
-// Covers eslint.config.js ignores block: `**/*.test.ts`, `**/*.test.tsx`,
-// `src/test-setup.ts`. tsconfig.json explicitly excludes test files, so without
-// these ignores typed linting throws "file not included in any project".
+// eslint.config.js ignores test files and test-setup Covers eslint.config.js
+// ignores block: `**/*.test.ts`, `**/*.test.tsx`, `src/test-setup.ts`.
+// tsconfig.json explicitly excludes test files, so without these ignores typed
+// linting throws "file not included in any project".
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigIgnoresTestFiles(t *testing.T) {
@@ -340,9 +340,9 @@ func TestESLintConfigIgnoresTestFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-038 (P2): eslint.config.js enforces `no-console: warn`
-// Dev Notes: "already de-facto convention; keep as warn not error to avoid
-// churn". Guards against accidental downgrade/removal.
+// eslint.config.js enforces `no-console: warn` Dev Notes: "already
+// de-facto convention; keep as warn not error to avoid churn". Guards
+// against accidental downgrade/removal.
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigNoConsoleWarn(t *testing.T) {
@@ -355,9 +355,9 @@ func TestESLintConfigNoConsoleWarn(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-039 (P1): .gitattributes marks binary asset extensions as binary
-// Prevents git from mangling PDF fixtures (used by every acceptance test suite
-// under tests/) when users clone on Windows. Implementation adds pdf/png/jpg/
+// .gitattributes marks binary asset extensions as binary Prevents git from
+// mangling PDF fixtures (used by every acceptance test suite under tests/)
+// when users clone on Windows. Implementation adds pdf/png/jpg/
 // jpeg/gif/ico/icns/ttf/otf/woff/woff2/eot -- assert the critical ones used by
 // test fixtures (pdf, png).
 // ---------------------------------------------------------------------------
@@ -372,8 +372,8 @@ func TestGitattributesBinaryPatterns(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-040 (P2): this new ci-pipeline module is picked up by the
-// per-suite loop. The loop skips `e2e` and `support`; ci-pipeline is neither,
+// This new ci-pipeline module is picked up by the per-suite loop. The loop
+// skips `e2e` and `support`; ci-pipeline is neither,
 // so its tests must be invoked by `go test ./...` inside `tests/ci-pipeline/`.
 // Catch future regressions where someone adds `ci-pipeline` to the skip list.
 // ---------------------------------------------------------------------------

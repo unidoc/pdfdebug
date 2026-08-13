@@ -15,43 +15,19 @@
 // TDD-red tests directly).
 //
 // Test Levels: Static (Go) -- pure filesystem + string grep checks. No YAML
-// parsing dependency; no external modules. The test design scenarios
-// 7.3-STATIC-001 through 7.3-STATIC-006 are covered by the 14 test functions
-// below (multiple tests per scenario for granularity).
+// parsing dependency; no external modules. Each of the 14 test functions below
+// names the property it checks, so the properties are read off the function
+// list rather than from a mapping table:
 //
-// Trace (AC -> test):
-//   AC #1 (all four files present)             -> TestVerifyLicenseScriptExistsAndExecutable
-//                                                  (via fixtures + presence checks across other tests)
-//   AC #2 (LICENSE byte-matches canonical)     -> TestLicenseMatchesCanonicalWithSubstitution,
-//                                                  TestApache20FixtureIsCanonical,
-//                                                  TestLicenseCopyrightHasUniDocAttribution
-//   AC #3 (NOTICE attribution)                 -> TestNoticeHasRequiredAttributions,
-//                                                  TestNoticeHasNoUnicodeCopyright
-//   AC #4 (README H2 sections in order)        -> TestReadmeHasRequiredSections
-//   AC #5 (README screenshot)                  -> TestReadmeHasScreenshotReference
-//   AC #6 (README Installation subsections)    -> TestReadmeHasInstallationSubsections
-//   AC #7 (README Build-from-Source cmds)      -> TestReadmeBuildFromSourceHasAllCommands
-//   AC #8 (CONTRIBUTING structure)             -> TestContributingHasRequiredSections,
-//                                                  TestContributingRunningTestsHasAllCommands,
-//                                                  TestContributingReleaseProcessHasAppleCertRotation
-//   AC #9 (CI wire-up)                         -> TestVerifyLicenseScriptExistsAndExecutable,
-//                                                  TestCIWorkflowReferencesVerifyScript
-//
-// Test design scenarios (epic-7-test-design.md):
-//   7.3-STATIC-001 -> TestLicenseMatchesCanonicalWithSubstitution,
-//                     TestApache20FixtureIsCanonical,
-//                     TestLicenseCopyrightHasUniDocAttribution
-//   7.3-STATIC-002 -> TestNoticeHasRequiredAttributions,
-//                     TestNoticeHasNoUnicodeCopyright
-//   7.3-STATIC-003 -> TestReadmeHasRequiredSections,
-//                     TestReadmeHasScreenshotReference,
-//                     TestReadmeHasInstallationSubsections
-//   7.3-STATIC-004 -> TestContributingHasRequiredSections
-//   7.3-STATIC-005 -> TestReadmeBuildFromSourceHasAllCommands,
-//                     TestContributingRunningTestsHasAllCommands,
-//                     TestContributingReleaseProcessHasAppleCertRotation
-//   7.3-STATIC-006 -> TestVerifyLicenseScriptExistsAndExecutable,
-//                     TestCIWorkflowReferencesVerifyScript
+//   - LICENSE byte-matches the canonical Apache 2.0 text after the copyright
+//     substitution, and the canonical fixture itself is unmodified;
+//   - NOTICE carries the UniDoc attribution and no Unicode copyright glyph;
+//   - README has its required H2 sections in order, a screenshot reference,
+//     the Installation subsections, and every Build-from-Source command;
+//   - CONTRIBUTING has its required sections, every test command, and the
+//     Apple certificate-rotation step in the release process;
+//   - scripts/verify-license.sh exists, is executable, and the CI workflow
+//     references it.
 //
 // Run: cd tests/open-source-docs && go test -v -count=1 ./...
 package open_source_docs_test
@@ -101,8 +77,7 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-001 (P0): LICENSE byte-matches canonical Apache 2.0 text
-// Covers AC #2 (Task 1)
+// LICENSE byte-matches canonical Apache 2.0 text Covers Task 1
 // ---------------------------------------------------------------------------
 
 // TestLicenseMatchesCanonicalWithSubstitution asserts that LICENSE at repo root
@@ -198,8 +173,7 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-002 (P0): NOTICE has UniDoc + third-party attributions
-// Covers AC #3 (Task 2)
+// NOTICE has UniDoc + third-party attributions Covers Task 2
 // ---------------------------------------------------------------------------
 
 // TestNoticeHasRequiredAttributions asserts NOTICE contains UniDoc ehf.,
@@ -209,7 +183,7 @@ func TestNoticeHasRequiredAttributions(t *testing.T) {
 	content := readFileAtRoot(t, "NOTICE")
 
 	required := []string{
-		"UniDoc ehf.",     // AC #3 UniDoc attribution
+		"UniDoc ehf.",     // UniDoc attribution
 		"(c)",             // ASCII copyright marker (project ASCII-only rule)
 		"Apache License",  // Apache 2.0 reference
 		"pdfcpu",          // Go runtime dep #1
@@ -240,8 +214,7 @@ func TestNoticeHasNoUnicodeCopyright(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-006 (P1): Verify-license shell script exists and is wired into CI
-// Covers AC #9 (Task 5)
+// Verify-license shell script exists and is wired into CI Covers Task 5
 // ---------------------------------------------------------------------------
 
 // TestVerifyLicenseScriptExistsAndExecutable asserts scripts/verify-license.sh
@@ -276,7 +249,7 @@ func TestVerifyLicenseScriptExistsAndExecutable(t *testing.T) {
 }
 
 // TestCIWorkflowReferencesVerifyScript asserts .github/workflows/ci.yml
-// references the scripts/verify-license.sh invocation per AC #9.
+// references the scripts/verify-license.sh invocation.
 func TestCIWorkflowReferencesVerifyScript(t *testing.T) {
 	content := readFileAtRoot(t, ".github/workflows/ci.yml")
 
