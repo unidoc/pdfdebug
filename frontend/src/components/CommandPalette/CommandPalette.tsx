@@ -1,5 +1,5 @@
 /**
- * @file Cmd+K command palette overlay. Story 9-8 AC4-AC10.
+ * @file Cmd+K command palette overlay. Story 9-8.
  *
  * Behaviour:
  *   - Renders only when the module-level useCommandPalette state is open.
@@ -51,7 +51,7 @@ export function CommandPalette() {
   }, [isOpen, activeTabId, ensureIndex]);
 
   // Reset transient state on open and capture the previously-focused element
-  // so we can restore focus on close (AC4).
+  // so we can restore focus on close.
   useEffect(() => {
     if (isOpen) {
       previouslyFocusedRef.current = (document.activeElement as HTMLElement | null) ?? null;
@@ -111,7 +111,7 @@ export function CommandPalette() {
           setBreadcrumb(path.slice(0, -1).join(' > '));
         }
       } catch {
-        // Silent: missing/loading breadcrumb renders as nothing per AC6.
+        // Silent: missing/loading breadcrumb renders as nothing.
       }
     })();
     return () => {
@@ -194,7 +194,7 @@ export function CommandPalette() {
         commitEntry(results[selectedIndex]);
         return;
       }
-      // Focus trap (AC4): the input is the only focusable element in the
+      // Focus trap: the input is the only focusable element in the
       // palette, so Tab and Shift+Tab pin focus on it instead of escaping
       // to elements behind the backdrop.
       if (e.key === 'Tab') {
@@ -205,7 +205,7 @@ export function CommandPalette() {
     [results, selectedIndex, commitEntry],
   );
 
-  // Auto-dismiss the unreachable notice after 2s (AC8).
+  // Auto-dismiss the unreachable notice after 2s.
   useEffect(() => {
     if (unreachable === null) return;
     const t = setTimeout(() => setUnreachable(null), 2000);

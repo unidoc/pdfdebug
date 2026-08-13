@@ -4,7 +4,7 @@
  * Cmd+F / Ctrl+F / F3 / Shift+F3 keyboard listeners at window level, gated on
  * the active prop. Esc is NOT bound here -- the FindBar component scopes its
  * own Esc handler to its DOM subtree so the Cmd+K palette's Esc handler is
- * not co-fired (Story 10-2 AC22).
+ * not co-fired (Story 10-2).
  */
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { findMatches, buildLineStartOffsets, type Match } from '../lib/findMatches';
@@ -13,11 +13,11 @@ import { useLatest } from './useLatest';
 
 /** Arguments accepted by {@link useFindBar}. */
 export interface UseFindBarArgs {
-  /** Active document tab ID. A change resets all find-bar state (AC11). */
+  /** Active document tab ID. A change resets all find-bar state. */
   tabId: string;
   /**
    * The Plain Text corpus. `null` when the load is not in the ready state;
-   * Cmd+F consumes the keystroke but does not open the bar (AC13).
+   * Cmd+F consumes the keystroke but does not open the bar.
    */
   content: string | null;
   /** Per-tab case-sensitivity toggle (lives on TabState; sourced by caller). */
@@ -37,7 +37,7 @@ export interface UseFindBarReturn {
   nonLatin1: boolean;
   /** Line-start offset table memoized on content; consumed by per-row slicing. */
   lineStartOffsets: number[];
-  /** Bumped when the bar should re-focus + select-all its input (AC2). */
+  /** Bumped when the bar should re-focus + select-all its input. */
   focusVersion: number;
   openBar: () => void;
   closeBar: () => void;
@@ -89,7 +89,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const [focusVersion, setFocusVersion] = useState(0);
 
   // Deferred query feeds the match recompute so input character paint stays
-  // synchronous on large corpora (AC4).
+  // synchronous on large corpora.
   const deferredQuery = useDeferredValue(query);
 
   // Memoized line-start offsets; recomputed only when content changes.
@@ -120,10 +120,10 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const nonLatin1 = useMemo(() => detectNonLatin1(query), [query]);
 
   // Track the previous matches list so the case-toggle preservation algorithm
-  // (AC10) can capture prevStart BEFORE the recompute. We compare the current
+  // can capture prevStart BEFORE the recompute. We compare the current
   // deferredQuery + caseSensitive against the previous render to decide whether
   // a recompute was case-toggle-only (preserve activeIndex) or query-driven
-  // (reset to 0 per AC4).
+  // (reset to 0).
   const prevDepsRef = useRef<{ query: string; caseSensitive: boolean; matches: Match[]; activeIndex: number }>({
     query: '',
     caseSensitive,
@@ -138,11 +138,11 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const matchesRef = useLatest(matches);
   const activeIndexRef = useLatest(activeIndex);
 
-  // Reconcile activeIndex with the new matches list per AC4 (query change ->
-  // reset to 0) and AC10 (case-toggle -> preserve by start offset). Moved out
-  // of render (#7) into a single useLayoutEffect keyed on the recompute inputs
-  // so no prevDepsRef.current mutation happens during render. useLayoutEffect
-  // (not useEffect) so activeIndex is settled before paint -- the active-match
+  // Reconcile activeIndex with the new matches list (query change -> reset to
+  // 0; case-toggle -> preserve by start offset). Moved out of render (#7)
+  // into a single useLayoutEffect keyed on the recompute inputs so no
+  // prevDepsRef.current mutation happens during render. useLayoutEffect (not
+  // useEffect) so activeIndex is settled before paint -- the active-match
   // highlight and the downstream auto-scroll both read it.
   useLayoutEffect(() => {
     const queryChanged = prevDepsRef.current.query !== deferredQuery;
@@ -169,7 +169,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
 
     let nextIndex = 0;
     if (caseFlipped && !queryChanged) {
-      // AC10: preserve by start offset when surviving. Read the live
+      // Preserve by start offset when surviving. Read the live
       // activeIndex (post-navigation), not the prior snapshot's.
       const prevStart = prevDepsRef.current.matches[activeIndexRef.current]?.start;
       if (prevStart !== undefined) {
@@ -193,8 +193,8 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredQuery, caseSensitive, matches]);
 
-  // Reset on document-tab change (AC11). Inner-tab toggle (active prop) does
-  // NOT reset because PlainTextView stays mounted across inner-tab switches.
+  // Reset on document-tab change. Inner-tab toggle (active prop) does NOT
+  // reset because PlainTextView stays mounted across inner-tab switches.
   useEffect(() => {
     setOpen(false);
     setQueryState('');
@@ -221,7 +221,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const closeBar = useCallback(() => {
     setOpen(false);
     // PRESERVE query, matches, activeIndex, openedOnce so the Notepad++ "open
-    // -> type -> Esc -> F3 F3 F3" muscle-memory path works (Story 10-2 AC9).
+    // -> type -> Esc -> F3 F3 F3" muscle-memory path works (Story 10-2).
   }, []);
 
   const setQuery = useCallback((q: string) => {
@@ -274,7 +274,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const contentRef = useLatest(content);
 
   // Window-level Cmd+F / Ctrl+F / F3 / Shift+F3 listener. Esc is handled in
-  // the FindBar component (scoped to its own subtree per AC22).
+  // the FindBar component (scoped to its own subtree).
   useEffect(() => {
     if (!active) return;
     const wantsMeta = getPlatformModifier() === 'Cmd';
@@ -287,16 +287,16 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
 
       if (mod && (e.key === 'f' || e.key === 'F')) {
         // Focus-guard: a Cmd+F dispatched from a non-FindBar text input falls
-        // through to whatever owns that input (AC1, AC22).
+        // through to whatever owns that input.
         if (targetIsTextField && !targetIsFindBar) return;
-        // Consume the keystroke regardless of data state (AC13).
+        // Consume the keystroke regardless of data state.
         e.preventDefault();
         if (contentRef.current === null) {
-          // AC13: data not ready -> no-op, but keystroke is consumed.
+          // Data not ready -> no-op, but keystroke is consumed.
           return;
         }
         if (openRef.current) {
-          // AC2: bar already open -> re-focus + select-all (driven by
+          // The bar is already open -> re-focus + select-all (driven by
           // focusVersion bump on the component side).
           setFocusVersion((v) => v + 1);
         } else {
@@ -306,7 +306,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
       }
 
       // F3 / Shift+F3: navigate matches even when the bar is closed, provided
-      // openedOnce && query !== '' on the current tab (AC9).
+      // openedOnce && query !== '' on the current tab.
       if (e.key === 'F3') {
         // Focus-guard: don't steal F3 from arbitrary text inputs.
         if (targetIsTextField && !targetIsFindBar) return;

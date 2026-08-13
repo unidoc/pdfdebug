@@ -1,6 +1,6 @@
 /**
  * @file Command-palette result ranker. Pure function operating on a parsed
- * query and the in-memory object index. Story 9-8 AC5/AC6/AC8.
+ * query and the in-memory object index. Story 9-8.
  */
 import type { ObjectIndexEntry } from '../../types/palette';
 import type { PaletteQuery } from './parseQuery';

@@ -12,10 +12,10 @@ if (!rootEl) {
   throw new Error('Root element #root not found in document');
 }
 
-// Story 9.13 AC5: the main window's #root starts at opacity 0 (set in
+// Story 9.13: the main window's #root starts at opacity 0 (set in
 // index.html) so the splash crossfade is not defeated by an opaque first
-// paint. The .splash-dismissed class flips opacity to 1 via the
-// 200ms CSS transition. The class is added either when Go emits
+// paint. The .splash-dismissed class flips opacity to 1 via the 200ms
+// CSS transition. The class is added either when Go emits
 // splash:dismissed at the end of the splash scheduler's dismissal
 // handler, OR after a 1500ms fallback guard so a missed/dropped event
 // never leaves the user staring at a blank window. The fallback covers

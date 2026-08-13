@@ -83,7 +83,7 @@ function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
 
 /**
  * Decide whether the /T:<typeName> suffix should be rendered for a tree row.
- * AC2 dedup: suppress when the semantic label already encodes the type.
+ * Dedup: suppress when the semantic label already encodes the type.
  *   - exact case-insensitive match (e.g. label "Pages" vs typeName "Pages")
  *   - "Font:" prefix label (e.g. "Font: Helvetica" vs typeName "Font")
  * Otherwise render. Empty typeName -> never render.
@@ -170,7 +170,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
 
   // Hide rawKey when the inline objectRef suffix is rendered. PDFBox-style
   // rows show "Pages [2 0 R]" rather than "Pages /Pages [2 0 R]" -- the
-  // /<bareKey> rawKey adds nothing once the ref is visible (Story 9-8 AC1).
+  // /<bareKey> rawKey adds nothing once the ref is visible (Story 9-8).
   const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
 
   const rowClasses = [
@@ -223,7 +223,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         <span className="text-text-muted ml-1.5 text-xs">{data.rawKey}</span>
       )}
 
-      {/* Inline object ref [N G R] (Story 9-8 AC1) */}
+      {/* Inline object ref [N G R] (Story 9-8) */}
       {data.objectRef !== '' && (
         <span
           className="text-text-muted ml-1.5 text-xs whitespace-nowrap"
@@ -233,7 +233,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         </span>
       )}
 
-      {/* /T:<TypeName> suffix with dedup (Story 9-8 AC2) */}
+      {/* /T:<TypeName> suffix with dedup (Story 9-8) */}
       {shouldRenderTypeSuffix(data.name, data.typeName) && (
         <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap">
           /T:{data.typeName}

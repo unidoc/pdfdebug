@@ -20,13 +20,13 @@ export interface TreeNode {
   /**
    * "<num> <gen> R" for indirect objects; "" for inline scalars/arrays/dicts
    * without an indirect identity. Renders as the [N G R] suffix on tree rows
-   * (Story 9-8 AC1).
+   * (Story 9-8).
    */
   objectRef: string;
   /**
    * Literal /Type value of the resolved dict (e.g. "Pages", "Page", "Font");
    * "" when absent. Frontend dedups this against the semantic label before
-   * rendering /T:<TypeName> (Story 9-8 AC2).
+   * rendering /T:<TypeName> (Story 9-8).
    */
   typeName: string;
 }
@@ -41,7 +41,7 @@ export interface NavHistoryEntry {
 
 /**
  * One recent palette jump. Mirrors ObjectIndexEntry fields the palette needs
- * to re-render the row without re-querying the backend (Story 9-8 AC7).
+ * to re-render the row without re-querying the backend (Story 9-8).
  */
 export interface RecentJump {
   objNum: number;
@@ -68,14 +68,14 @@ export interface TabState {
   navHistoryIndex: number;
   /**
    * Most-recent palette jumps for this tab, newest first. LRU capped at 5;
-   * deduped by nodeId. Lives in memory only -- dies with the tab on
-   * CLOSE_DOCUMENT (Story 9-8 AC7 / Task 5.3).
+   * Deduped by nodeId. Lives in memory only -- dies with the tab on
+   * CLOSE_DOCUMENT (Story 9-8 Task 5.3).
    */
   recentJumps: RecentJump[];
   /**
    * Plain Text find-bar case-sensitivity toggle. Persists across find-bar
-   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT
-   * (Story 10-2 AC10 / AC14).
+   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT (Story
+   * 10-2).
    */
   findCaseSensitive: boolean;
 }
@@ -104,7 +104,7 @@ export interface AppState {
    * Monotonic counter incremented on every ACTIVATE_TAB dispatch (even when
    * the target is the already-active tab). The Cmd+K palette subscribes to
    * this so any user-initiated tab activation closes the palette, matching
-   * Story 9-8 AC10's intent.
+   * the Story 9-8 intent.
    */
   tabActivationVersion: number;
   // True while a single-file open is in flight. Drives the inline loading
@@ -523,7 +523,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_FIND_CASE_SENSITIVE': {
       const { tabId, value } = action.payload;
       // No-op when the target tab is absent so unknown-tabId dispatches do
-      // not corrupt other tabs (Story 10-2 AC10 boundary).
+      // not corrupt other tabs (Story 10-2 boundary).
       if (!state.tabs.some((t) => t.tabId === tabId)) return state;
       return {
         ...state,

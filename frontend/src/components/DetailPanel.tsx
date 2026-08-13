@@ -111,9 +111,9 @@ function DetailPanelInner() {
 
   // Story 9-11: per-document local state for the active DetailPanel tab.
   // Resets to 'object' on activeTabId change so a fresh document opens on the
-  // per-selection view (AC11). Mirrors the streamViewMode pattern.
+  // per-selection view. Mirrors the streamViewMode pattern.
   const [detailView, setDetailView] = useState<DetailView>('object');
-  // Entry count from the XREF tab, used in the "XREF (N)" tab label per AC2.
+  // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
   // label (Story 13.2, mirrors the XREF count pattern).
@@ -168,9 +168,9 @@ function DetailPanelInner() {
     };
   }, [diffRightTabId]);
 
-  // Story 13.4 AC6: one signature fetch per document tab. The result is
-  // passed down to SignaturesView via the data prop so the view never issues
-  // a second fetch. A fetch failure hides the tab (empty list) and logs.
+  // Story 13.4: one signature fetch per document tab. The result is passed
+  // down to SignaturesView via the data prop so the view never issues a
+  // second fetch. A fetch failure hides the tab (empty list) and logs.
   useEffect(() => {
     if (!activeTabId) return;
     let cancelled = false;
@@ -330,8 +330,8 @@ function DetailPanelInner() {
     return () => { cancelled = true; };
   }, [detail, detailTabId, selectedNodeIconHint]);
 
-  // 200ms-debounced loading indicator timer for the font fetch (AC9). Keyed
-  // on selectedNodeId + iconHint so it starts as soon as the user clicks a
+  // 200ms-debounced loading indicator timer for the font fetch. Keyed on
+  // selectedNodeId + iconHint so it starts as soon as the user clicks a
   // font node -- before detail resolves. This avoids a microtask-ordering
   // gap where the timer would otherwise be unscheduled until detail settled
   // (visible only under tests that use sync vi.advanceTimersByTime; real
@@ -351,9 +351,9 @@ function DetailPanelInner() {
 
   // Story 9-10: fetch reverse refs for indirect-object selections only. The
   // catalog (nodeId='root') is also treated as indirect because in real PDFs
-  // it lives in the indirect-object graph and AC#10 requires the section to
-  // render the "Document root..." empty state for it. Inline-value nodes
-  // never mount the section. Stale-fetch guard matches existing patterns.
+  // it lives in the indirect-object graph and the section must render the
+  // "Document root..." empty state for it. Inline-value nodes never
+  // mount the section. Stale-fetch guard matches existing patterns.
   useEffect(() => {
     const isIndirect = !!selectedNodeId &&
       (INDIRECT_NODE_RE.test(selectedNodeId) || selectedNodeId === 'root');
@@ -385,7 +385,7 @@ function DetailPanelInner() {
         if (cancelled) return;
         const msg = extractErrorMessage(err);
         if (msg.toLowerCase().includes(REV_REFS_UNAVAILABLE_MARKER)) {
-          // AC#6 failure mode: surface the unavailable banner.
+          // Failure mode: surface the unavailable banner.
           setReverseRefs([]);
           setReverseRefsUnavailable(true);
           setReverseRefsLoaded(true);
@@ -427,9 +427,9 @@ function DetailPanelInner() {
   }, [dispatch]);
 
   /**
-   * XREF row click handler. Per AC14, switches the active tab to Object
-   * BEFORE dispatching navigation so React batches both updates in one render
-   * and the user never sees a flash of "XREF active + new selection".
+   * XREF row click handler. Switches the active tab to Object BEFORE
+   * dispatching navigation so React batches both updates in one render and
+   * the user never sees a flash of "XREF active + new selection".
    */
   const handleXRefNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -497,14 +497,14 @@ function DetailPanelInner() {
       .catch((err: unknown) => setDiffError(extractErrorMessage(err)));
   }, [activeTabId]);
 
-  // AC6: the Signatures tab exists only when the document has >= 1 signature
+  // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
   const showSignaturesTab = (signatures?.length ?? 0) > 0;
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
-  // fetch resolved to a detail payload (not fallback / error). AC11 header
-  // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
+  // fetch resolved to a detail payload (not fallback / error). The header
+  // contract is "Font - <BaseFont>" (with BaseFont falling back to "" -> just
   // "Font"); preempts the generic TYPE_LABEL_MAP "Properties" entry.
   const fontActive = selectedNodeIconHint === 'font'
     && detail?.type === 'dict'

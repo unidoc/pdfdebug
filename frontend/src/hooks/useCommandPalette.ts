@@ -1,8 +1,8 @@
 /**
  * @file useCommandPalette -- owns open/close state for the Cmd+K palette
- * (Story 9-8 AC4 / AC10). Designed to be mounted once at App level so the
- * keyboard listener does not double-fire. Reads activeTabId from AppState
- * to force-close the palette on tab switch.
+ * (Story 9-8). Designed to be mounted once at App level so the keyboard
+ * listener does not double-fire. Reads activeTabId from AppState to
+ * force-close the palette on tab switch.
  *
  * Open/close state is held in a module-level subscribable so the
  * <CommandPalette /> component (rendered separately, also at App level)
@@ -92,7 +92,7 @@ export function useCommandPalette(): { isOpen: boolean; open: () => void; close:
 
   // ACTIVATE_TAB dispatch -> close. Watches a monotonic counter (not just
   // activeTabId) so same-tab activation also closes the palette, matching
-  // AC10's "switching tabs while palette is open closes it".
+  // the "switching tabs while the palette is open closes it" rule.
   useEffect(() => {
     if (tabActivationVersion === initialVersionRef.current) return;
     closePalette();

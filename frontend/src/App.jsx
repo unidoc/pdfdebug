@@ -21,8 +21,8 @@ import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 
 /**
  * Module-level set of file paths the frontend has opened in this JS session.
- * Story 12.1 (AC6): the cold-start drain consults this so a drained path that
- * is already open frees its newly-created backend tab instead of leaking it.
+ * Story 12.1: the cold-start drain consults this so a drained path that is
+ * already open frees its newly-created backend tab instead of leaking it.
  * tabsRef alone cannot cover this because a dev-mode reload mounts a fresh
  * reducer (empty tabs) while the previous session's documents are still open;
  * the per-instance ref does not see them. This survives a re-mount within the
@@ -111,7 +111,7 @@ function AppContent() {
         lastOpenedTabIdRef.current = data.tabId
       }
       // Record the open so a later cold-start drain of the same path can
-      // detect it (Story 12.1 AC6 cross-session dedup).
+      // detect it (Story 12.1 cross-session dedup).
       if (filePath) sessionOpenPaths.add(filePath)
       dispatch({
         type: 'OPEN_DOCUMENT',
@@ -174,9 +174,9 @@ function AppContent() {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
 
-    // Story 12.1 (AC6): cold-start drain. STRICTLY AFTER the document:opened
-    // listener above is registered, drain any file-association paths the
-    // backend buffered before the frontend was ready (cold start). Ordering is
+    // Story 12.1: cold-start drain. STRICTLY AFTER the document:opened listener
+    // above is registered, drain any file-association paths the backend
+    // buffered before the frontend was ready (cold start). Ordering is
     // load-bearing: a path delivered between drain and subscribe would be lost,
     // so this MUST run after Events.On('document:opened', ...). Drain-on-read
     // (the backend queue stays empty after the first drain) makes StrictMode

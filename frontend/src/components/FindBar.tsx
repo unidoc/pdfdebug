@@ -17,7 +17,7 @@ export interface FindBarProps {
   caseSensitive: boolean;
   wrapped: 'top' | 'bottom' | null;
   nonLatin1: boolean;
-  /** Monotonic counter; on bump, the bar re-focuses + selects-all the input (AC2). */
+  /** Monotonic counter; on bump, the bar re-focuses + selects-all the input. */
   focusVersion?: number;
   onQueryChange: (q: string) => void;
   onNext: () => void;
@@ -29,8 +29,7 @@ export interface FindBarProps {
 const HINT_ID = 'plain-text-find-non-latin1-hint';
 
 /**
- * Inline find bar mounted above the Plain Text scroll container. AC1 / AC4 /
- * AC5 / AC6 / AC10 / AC12 / AC16 / AC18 / AC20 / AC21 contracts.
+ * Inline find bar mounted above the Plain Text scroll container.
  */
 export function FindBar(props: FindBarProps): JSX.Element {
   const {
@@ -50,7 +49,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Autofocus on mount + on every focusVersion bump (AC1 / AC2).
+  // Autofocus on mount + on every focusVersion bump.
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -80,9 +79,9 @@ export function FindBar(props: FindBarProps): JSX.Element {
     }
   };
 
-  // AC3 / AC22: Esc is scoped to the FindBar root subtree so it fires no
-  // matter which descendant (input, buttons) holds focus, and stopPropagation
-  // keeps it from waking a window-level sibling listener (e.g. Cmd+K palette).
+  // Esc is scoped to the FindBar root subtree so it fires no matter which
+  // descendant (input, buttons) holds focus, and stopPropagation keeps it from
+  // waking a window-level sibling listener (e.g. Cmd+K palette).
   const handleRootKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();

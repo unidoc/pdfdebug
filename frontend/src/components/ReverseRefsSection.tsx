@@ -4,7 +4,7 @@
  * expanded for <=5 entries, collapsed otherwise. Toggle resets on selection
  * change via React's key-based remount (DetailPanel passes key={selectedNodeId}).
  *
- * Story 9-10 AC#7-#10 + AC#6 failure-mode banner (case 1).
+ * Renders the inbound-edge list plus the index-unavailable banner (case 1).
  */
 import { useState } from 'react';
 import { useAppDispatch } from '../hooks/useDocumentState';

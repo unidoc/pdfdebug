@@ -12,10 +12,10 @@ import { GetObjectSource } from '../../bindings/unidoc-pdf-debugger/internal/pdf
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 
 /**
- * Indirect-ref scanner. Capture 1 is num, capture 2 is gen.
- * Load-bearing mapping: dispatched nodeID is `obj:${gen}:${num}`, matching
+ * Indirect-ref scanner. Capture 1 is num, capture 2 is gen. Load-bearing
+ * mapping: dispatched nodeID is `obj:${gen}:${num}`, matching
  * `inspector.go:objectRefFromNodeID` (parentID=gen, lastPart=num). Inverting
- * the mapping yields silently wrong navigation -- 9.10-UNIT-104 guards it.
+ * the mapping yields silently wrong navigation, so it is covered by tests.
  */
 const REF_REGEX = /\b(\d+)\s+(\d+)\s+R\b/g;
 
