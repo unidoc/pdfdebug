@@ -1,8 +1,6 @@
 // Package wails_service_layer_test provides acceptance tests for Story 2.3:
 // Wails Service Layer -- Bind PDF Core to Frontend.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-3 is implemented.
-//
 // Test Levels: Unit (Go) -- source file content parsing + delegated test execution.
 // No browser interaction required; all criteria are Go package validation.
 //

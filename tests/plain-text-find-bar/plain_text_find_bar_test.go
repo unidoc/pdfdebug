@@ -1,8 +1,6 @@
 // Package plain_text_find_bar_test provides acceptance tests for Story 10.2:
 // Find Bar in Plain Text View.
 //
-// TDD RED PHASE: these tests MUST fail until Story 10-2 is implemented.
-//
 // Test pyramid for this story (per the user's "favour API/integration over
 // E2E" directive + Task 7.3 of the story spec: no Playwright in v1):
 //

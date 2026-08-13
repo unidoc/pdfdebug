@@ -1,14 +1,12 @@
-// Story 11-6 RED-PHASE acceptance tests for `pdfdebug dump page --info N`.
+// Story 11-6 acceptance tests for `pdfdebug dump page --info N`.
 //
-// These assert the EXPECTED assembled-view behavior and MUST FAIL against the
-// current binary (no `page` dump resource exists). Failures are at RUNTIME
-// (unknown resource / wrong JSON / wrong exit code), keeping the main module's
-// build green per the Story 11-5 black-box convention.
+// These assert the assembled-view behaviour. Failures are at RUNTIME (unknown
+// resource / wrong JSON / wrong exit code), keeping the main module's build
+// green per the Story 11-5 black-box convention.
 //
 // Level: Integration (CLI black-box). The assembled view is a pdfcore struct,
-// but every testable -7) is fully observable through the command's JSON output,
-// so no in-package unit test (which would force a compile dependency on the
-// not-yet-existing PageRenderInfo type) is needed for red phase.
+// but every property is fully observable through the command's JSON output, so
+// no in-package unit test is needed.
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test

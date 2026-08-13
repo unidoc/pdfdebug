@@ -11,10 +11,6 @@
 // pins their NAMES so a Dev cannot land the production change without the
 // named test.
 //
-// TDD red-phase contract: every Test_10_6_* in this file FAILS today
-// against the pre-implementation tree. Dev's job is to land the changes
-// that turn each red test green.
-//
 // Run: cd tests/pdf-parsing-correctness-fixes && go test -v -count=1 ./...
 package story_10_6_test
 

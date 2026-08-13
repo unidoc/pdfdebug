@@ -1,8 +1,6 @@
-// Story 11.3: CLI ergonomics & discoverability -- RED PHASE acceptance tests.
+// Story 11.3: CLI ergonomics & discoverability -- acceptance tests.
 //
-// These tests assert the EXPECTED post-implementation behavior and MUST FAIL
-// against the current binary until Story 11-3 is implemented. They are
-// black-box: build the CLI, run it as a subprocess, parse stdout/stderr.
+// Black-box: build the CLI, run it as a subprocess, parse stdout/stderr.
 //
 // Covers in this suite: (pdfRef + typeName on tree nodes), (--help worked
 // examples), (--pretty for dump tree), (dump tree --page N).

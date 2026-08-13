@@ -10,11 +10,9 @@
 //   internal/pdfcore/inspector_internal_test.go (lifecycle)
 //   internal/pdfservice/service_recover_test.go (behaviour, build-tag-gated)
 //
-// The TDD red-phase contract: every Test_10_5_* in this file FAILS today
-// against the pre-implementation tree. Dev's job is to land the changes that
-// turn each red test green. A test that already passes today is a contract
-// pin (e.g. existing safeCall test names that must survive); those use the
-// "MUST still exist" framing so a future deletion turns them red.
+// A test here that pins an existing name (e.g. the safeCall contract tests that
+// must survive) uses the "MUST still exist" framing, so a future deletion fails
+// it.
 //
 // Run: cd tests/inspector-concurrency-lifecycle-and-safecall && go test -v -count=1 ./...
 package story_10_5_test
@@ -419,8 +417,8 @@ var safeCallContractTests = []string{
 }
 
 // TestSafeCallContractTestsExist asserts each named safeCall contract test in
-// errors_test.go is still declared. It is a contract pin: a later removal turns it
-// red.
+// errors_test.go is still declared. It is a contract pin: a later removal fails
+// it.
 func TestSafeCallContractTestsExist(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors_test.go")
 	for _, name := range safeCallContractTests {

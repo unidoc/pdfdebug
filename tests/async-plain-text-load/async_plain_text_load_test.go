@@ -1,8 +1,6 @@
 // Package async_plain_text_load_test provides acceptance tests for Story 10.1:
 // Async Plain Text Load with Cancel.
 //
-// TDD RED PHASE: these tests MUST fail until Story 10-1 is implemented.
-//
 // Test pyramid for this story (per the story Decision section + user directive
 // to favour API/integration over E2E):
 //

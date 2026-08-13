@@ -1,13 +1,8 @@
-// Package story_14_2_wails_alpha2_117_upgrade_test provides RED-PHASE acceptance
-// tests for Story 14.2: the governed Wails v3 version bump from the current pin
+// Package story_14_2_wails_alpha2_117_upgrade_test provides acceptance tests
+// for Story 14.2: the governed Wails v3 version bump from the current pin
 // v3.0.0-alpha2.103 to the committed target v3.0.0-alpha2.117 (Go module +
 // wails3 CLI in lockstep), holding the @wailsio/runtime JS runtime at whatever
 // upstream actually publishes (still alpha.79; no alpha2 runtime exists on npm).
-//
-// TDD RED PHASE: the version-pin tests MUST fail on the pre-bump tree (current
-// pin alpha2.103) and pass after the Dev step lands the bump to the target per
-// the story. The presence + wire-shape guards pass today and stand as the
-// standing regression net across the bump.
 //
 // Test pyramid for this story (per the directive to favour API/integration over
 // E2E, unit only where there is business logic):
@@ -54,8 +49,7 @@ const alpha2Base = 1000
 
 // currentBaselineOrdinal is the ordinal of the pre-bump pin v3.0.0-alpha2.103.
 // Every Go-side touch-point (go.mod, ci.yml, release.yml) must move STRICTLY
-// past this on a bump; the tree sat exactly at it when these tests were authored
-// (RED phase), which is why the version-pin tests were RED before the bump landed.
+// past this on a bump.
 const currentBaselineOrdinal = alpha2Base + 103
 
 // targetOrdinal is the committed target v3.0.0-alpha2.117. The go.mod pin must

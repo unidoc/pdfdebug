@@ -1,10 +1,7 @@
-// Story 11.4: Expose existing pdfcore views as CLI commands -- RED PHASE.
+// Story 11.4: Expose existing pdfcore views as CLI commands.
 //
-// These tests assert the EXPECTED post-implementation behavior of the new
-// reference-taking dump subcommands (font, image, source, reverserefs) and
-// MUST FAIL against the current binary until Story 11-4 is implemented (those
-// resources are not yet wired into the dispatch switch, so they currently
-// exit 1 "Unknown resource"). Black-box: build the CLI, run as a subprocess.
+// Covers the reference-taking dump subcommands (font, image, source,
+// reverserefs). Black-box: build the CLI, run as a subprocess.
 //
 // Test level: Integration (Go) -- CLI binary build + execution. No browser
 // interaction; every criterion is CLI binary I/O validation, so per the test
@@ -417,10 +414,8 @@ func TestByRef_TypeMismatch_NonErrorPayloadExit0(t *testing.T) {
 // RESOURCE-SPECIFIC worked-example message naming the command and its --ref
 // form; stdout is empty.
 //
-// Red-phase discriminator: the current binary rejects unknown resources with
-// the GENERIC usage menu (which does not name `dump font`/`dump image`/etc.),
-// so asserting a resource-specific `dump <resource> ... --ref` usage line
-// fails now and passes only once each command parses its own --ref flag.
+// The discriminator against the generic usage menu is that the message names
+// the resource: `dump font`/`dump image`/etc., not the menu that lists them all.
 // ---------------------------------------------------------------------------
 
 func TestByRef_MissingRefFlag_UsageError(t *testing.T) {
@@ -482,10 +477,8 @@ func TestByRef_NonexistentFile_JSONErrorExit2(t *testing.T) {
 // rejects it before any PDF work, surfacing the shared refFormatHint (which
 // names the "N G R" / obj:G:N forms).
 //
-// Red-phase discriminator: the current binary doesn't recognize the resource,
-// so it never reaches parseObjectRef and never emits the format hint; the
-// hint substring ("N G R") inside a JSON error fails now and passes only once
-// the command is wired to parseObjectRef.
+// The discriminator is the hint substring ("N G R") inside the JSON error,
+// which only appears once the command reaches parseObjectRef.
 // ---------------------------------------------------------------------------
 
 func TestByRef_MalformedRef_UsageError(t *testing.T) {

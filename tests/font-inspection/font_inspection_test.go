@@ -1,8 +1,6 @@
 // Package font_inspection_test provides acceptance tests for Story 9.9:
 // Font Inspection View.
 //
-// TDD RED PHASE: these tests MUST fail until Story 9-9 is implemented.
-//
 // Test pyramid for this story:
 //   - Backend (iconHint='font' contract),
 //     (font dict extraction + encoding + ToUnicode CMap +

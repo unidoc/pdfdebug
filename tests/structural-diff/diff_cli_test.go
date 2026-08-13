@@ -1,8 +1,6 @@
 package structural_diff_test
 
-// Story 13.6 -- the top-level `diff` command. RED PHASE: `diff` does not
-// exist yet; every test below (except the fixture sanity check) fails at
-// runtime against the current binary.
+// Story 13.6 -- the top-level `diff` command.
 
 import (
 	"strings"

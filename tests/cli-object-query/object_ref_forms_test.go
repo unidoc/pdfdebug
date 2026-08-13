@@ -1,9 +1,7 @@
-// Story 11.3: CLI ergonomics & discoverability -- RED PHASE acceptance tests.
+// Story 11.3: CLI ergonomics & discoverability -- acceptance tests.
 //
-// These tests assert the EXPECTED post-implementation behavior and MUST FAIL
-// against the current binary until Story 11-3 is implemented. Black-box:
-// build the CLI, run as a subprocess, parse the {"error": ...} JSON value
-// (never byte-match escaped quotes).
+// Black-box: build the CLI, run as a subprocess, parse the {"error": ...} JSON
+// value (never byte-match escaped quotes).
 //
 // Covers in this suite: (obj:G:N accepted by --ref), (malformed obj: form
 // rejected with both-forms error), (reversed-ref "did you mean" suggestion),

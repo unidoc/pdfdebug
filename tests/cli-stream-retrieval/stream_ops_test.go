@@ -1,11 +1,9 @@
-// Story 11-5 RED-PHASE acceptance tests for `dump stream --ops` (item 2) and
-// the Do -> resourceType lookup.
+// Story 11-5 acceptance tests for `dump stream --ops` (item 2) and the
+// Do -> resourceType lookup.
 //
-// Black-box: build the CLI binary and run it as a subprocess. These tests
-// assert the EXPECTED post-implementation behavior and MUST FAIL against the
-// current binary (which has no --ops flag) until Story 11-5 is implemented.
-// They fail at RUNTIME (unknown flag / wrong output), not compile time, so the
-// main build stays green.
+// Black-box: build the CLI binary and run it as a subprocess. Failures surface
+// at RUNTIME (unknown flag / wrong output), not compile time, so the main build
+// stays green.
 //
 // Run: cd tests/cli-stream-retrieval && go test -v -count=1 ./...
 package cli_stream_retrieval_test

@@ -1,14 +1,11 @@
-// Story 13-5 RED-PHASE acceptance test harness for the new top-level CLI
+// Story 13-5 acceptance test harness for the top-level CLI
 // command `validate` (structural PDF/A-1b and PDF/UA-1-structural conformance
 // checks with jump-to-object).
 //
-// Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
-// tests assert the EXPECTED post-implementation behavior of the NEW `validate`
-// command. They MUST FAIL against the current binary (which only has `dump`
-// resources and no `validate` command) until Story 13-5 is implemented. They
-// fail at RUNTIME (unknown command -> exit 1 / wrong output shape / wrong exit
-// code), not at compile time, so the main `unidoc-pdf-debugger` module keeps
-// building green (mirrors 13-2 / 13-3 / 13-4).
+// Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
+// surface at RUNTIME (unknown command -> exit 1 / wrong output shape / wrong
+// exit code), not at compile time, so the main `unidoc-pdf-debugger` module
+// keeps building green (mirrors 13-2 / 13-3 / 13-4).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established acceptance level
@@ -315,9 +312,8 @@ func assertNoComplianceVerdict(t *testing.T, id, out string) {
 //
 // Every fixture is a minimal hand-assembled PDF built to PARSE through the
 // existing Inspector.Open path while deliberately tripping (or
-// satisfying) specific structural rules. None of these exist in testdata/
-// today; the story's Task 2.0 later migrates equivalents into
-// testdata/generate_test.go, but the red-phase suite is self-contained.
+// satisfying) specific structural rules. They are not in testdata/; this suite
+// is self-contained.
 
 func pad10(n int) string {
 	s := strconv.Itoa(n)

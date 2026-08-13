@@ -1,8 +1,6 @@
 // Package file_association_persistence_test provides acceptance tests for
 // Story 4.4: OS File Association, Single Instance, and Window Persistence.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 4-4 is implemented.
-//
 // Test Levels:
 //   - Unit (Go): extractPDFPaths helper in main.go
 //   - Structural: Verify production files exist and contain expected content

@@ -1,8 +1,6 @@
 /**
  * E2E Acceptance Tests for Story 2.4: Open PDF via File Dialog and Drag-and-Drop
  *
- * TDD RED PHASE: Tests MUST fail until Story 2-4 is implemented.
- *
  * Only the critical happy path is tested at E2E level. All
  * structural/state/error tests are handled by Go integration tests in
  * tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go.

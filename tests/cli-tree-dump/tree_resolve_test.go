@@ -1,12 +1,9 @@
-// Story 11-5 RED-PHASE acceptance tests for `dump tree --resolve` (item 4;
-// ). Black-box: build the CLI and run it as a subprocess.
+// Story 11-5 acceptance tests for `dump tree --resolve` (item 4).
+// Black-box: build the CLI and run it as a subprocess.
 //
-// These assert the EXPECTED post-implementation behavior and MUST FAIL against
-// the current binary (no --resolve flag) until Story 11-5 is implemented, with
-// one exception: the regression test (TestTreeResolve_OffIsUnchanged) PINS
-// today's no-flag behavior and should already pass -- it turns red only if a
-// future change regresses the default output. That is the intended
-// no-regression guard.
+// The regression test (TestTreeResolve_OffIsUnchanged) PINS the no-flag
+// behaviour, so it fails only if a future change regresses the default output.
+// That is the intended no-regression guard.
 //
 // Run: cd tests/cli-tree-dump && go test -v -count=1 ./...
 package cli_tree_dump_test

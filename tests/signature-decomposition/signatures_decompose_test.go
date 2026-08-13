@@ -1,7 +1,6 @@
 package signature_decomposition_test
 
-// Story 13.4 -- PKCS#7/CMS decomposition. RED PHASE: fails
-// at runtime until `dump signatures` lands.
+// Story 13.4 -- PKCS#7/CMS decomposition.
 
 import (
 	"encoding/json"

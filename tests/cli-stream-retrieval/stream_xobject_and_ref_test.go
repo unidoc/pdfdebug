@@ -1,10 +1,7 @@
-// Story 11-5 RED-PHASE acceptance tests for `dump stream --xobject NAME` and
-// `dump stream --ref REF` (item 3;).
+// Story 11-5 acceptance tests for `dump stream --xobject NAME` and
+// `dump stream --ref REF` (item 3).
 //
-// Black-box: build the CLI binary and run it as a subprocess. These assert the
-// EXPECTED post-implementation behavior and MUST FAIL against the current
-// binary (no --xobject / --ref flags on dump stream; the unconditional
-// `--page < 1` guard rejects these paths) until Story 11-5 is implemented.
+// Black-box: build the CLI binary and run it as a subprocess.
 //
 // Run: cd tests/cli-stream-retrieval && go test -v -count=1 ./...
 package cli_stream_retrieval_test

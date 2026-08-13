@@ -1,8 +1,6 @@
 // Package object_source_and_reverse_refs_test provides acceptance tests for
 // Story 9.10: Object Source View + Reverse References.
 //
-// TDD RED PHASE: these tests MUST fail until Story 9-10 is implemented.
-//
 // Test pyramid for this story:
 //   - Backend (Object Source serialization) -> pdfcore Go unit
 //     tests delegated via runPdfcoreTest. Source-format determinism is best

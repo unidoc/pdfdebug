@@ -1,12 +1,10 @@
-// Story 13-2 RED-PHASE acceptance test harness for the new CLI resources
-// `dump embedded` and `dump metadata`.
+// Story 13-2 acceptance test harness for the CLI resources `dump embedded` and
+// `dump metadata`.
 //
-// Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
-// tests assert the EXPECTED post-implementation behavior of the NEW resources.
-// They MUST FAIL against the current binary (which has no `embedded`/`metadata`
-// resource arm) until Story 13-2 is implemented. They fail at RUNTIME (unknown
-// resource / wrong output shape / wrong exit code), not at compile time, so the
-// main `unidoc-pdf-debugger` module keeps building green (mirrors 13-1 / 11-6).
+// Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
+// surface at RUNTIME (unknown resource / wrong output shape / wrong exit code),
+// not at compile time, so the main `unidoc-pdf-debugger` module keeps building
+// green (mirrors 13-1 / 11-6).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established level for CLI

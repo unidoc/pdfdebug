@@ -1,9 +1,6 @@
 // Package wails_alpha_95_upgrade_test provides acceptance tests for Story 10.3:
 // Wails v3 alpha bump (current pin alpha.85 -> latest alpha at story pickup).
 //
-// TDD RED PHASE: these tests MUST fail on the pre-bump tree (current alpha.85
-// pin) and pass after the Dev step lands the bump per the story spec.
-//
 // Test pyramid for this story (per the story Decision section + user directive
 // to favour API/integration over E2E, and to keep unit tests for business
 // logic only):

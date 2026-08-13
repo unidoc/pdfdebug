@@ -1,10 +1,9 @@
 package trustworthy_stream_test
 
 // Story 14.1 -- machine-contract correctness of `dump stream --json` / `--ops`.
-// RED PHASE: the tokenizer mislabels leading-'+' operands and --ops emits
-// empty-operator records; the two contract tests below fail at runtime against
-// the current binary. The fixture-sanity test passes today and guards the
-// suite against an eternally-red (unparseable) fixture.
+// The two contract tests below pin leading-'+' operand tokenization and the
+// absence of empty-operator --ops records. The fixture-sanity test guards the
+// suite against an unparseable fixture.
 
 import (
 	"encoding/json"
@@ -39,7 +38,7 @@ type opsRecord struct {
 // ---------------------------------------------------------------------------
 // Fixture sanity: the hand-authored corpus fixtures must
 // parse through the EXISTING open path (dump objects, exit 0). Passes TODAY;
-// guards the suite against an eternally-red broken fixture (13-4/13-5/13-6
+// guards the suite against a broken fixture (13-4/13-5/13-6
 // precedent).
 // ---------------------------------------------------------------------------
 
@@ -57,10 +56,10 @@ func TestStream_FixturesParseThroughOpenPath(t *testing.T) {
 // Fixture F1: `dump stream --json` on leading-plus.pdf (content
 // stream "+5 0 0 +5 0 0 cm").
 //
-// RED today: the tokenizer emits "+5" as an OPERATOR token, so Format groups
-// it as a standalone operation and --json reports a bogus operator "+5".
-// Post-fix: each "+5" is a "number" token, "cm" is the sole operator, and no
-// token/operator is named "+5" as an operator.
+// Each "+5" is a "number" token, "cm" is the sole operator, and no
+// token/operator is named "+5" as an operator. A tokenizer that emitted "+5"
+// as an OPERATOR would make Format group it as a standalone operation and
+// --json report a bogus operator.
 // ---------------------------------------------------------------------------
 
 func TestStream_LeadingPlusJSON(t *testing.T) {
@@ -76,7 +75,7 @@ func TestStream_LeadingPlusJSON(t *testing.T) {
 	}
 
 	// Every token whose value is "+5" must be classified as a number, never an
-	// operator. This is the headline red assertion.
+	// operator.
 	plusCount := 0
 	for _, tk := range res.Tokenized {
 		if tk.Value == "+5" {
@@ -110,10 +109,10 @@ func TestStream_LeadingPlusJSON(t *testing.T) {
 // Fixture F2: `dump stream --ops` on comment-and-dangling.pdf (a "%
 // comment" line plus a trailing dangling operand run with no operator).
 //
-// RED today: emitOps iterates Formatted with no guard on Operator, so the
-// comment line and the dangling operands each yield a phantom {"op":""} NDJSON
-// record. Post-fix: zero records with op == "" -- every emitted record has a
-// non-empty op -- and the real "cm" operator still emits exactly one record.
+// Zero records carry op == "" -- every emitted record has a non-empty op --
+// and the real "cm" operator emits exactly one record. Without a guard on
+// Operator, emitOps would yield a phantom {"op":""} record for the comment
+// line and for each dangling operand.
 // ---------------------------------------------------------------------------
 
 func TestStream_CommentAndDanglingOps(t *testing.T) {

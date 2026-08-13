@@ -1,8 +1,6 @@
 package signature_decomposition_test
 
-// Story 13.4 -- signature enumeration + CLI surface. RED PHASE: `dump
-// signatures` does not exist yet; every test below (except the fixture
-// sanity check) fails at runtime against the current binary.
+// Story 13.4 -- signature enumeration + CLI surface.
 
 import (
 	"strings"

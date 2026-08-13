@@ -1,8 +1,8 @@
-// Story 11.4: Expose existing pdfcore views as CLI commands -- RED PHASE.
+// Story 11.4: Expose existing pdfcore views as CLI commands.
 //
-// Usage/help discoverability + compact/pretty parity (cross-cutting). These
-// MUST FAIL until Story 11-4 extends printUsage with the new subcommands and
-// examples. Black-box: build the CLI, run as a subprocess.
+// Usage/help discoverability + compact/pretty parity (cross-cutting), covering
+// printUsage's subcommands and examples. Black-box: build the CLI, run as a
+// subprocess.
 //
 // Test level: Integration (Go) for help text; Unit-ish for the pretty/compact
 // JSON contract. No browser.

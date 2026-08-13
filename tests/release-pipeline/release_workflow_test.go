@@ -9,10 +9,6 @@
 // softprops/action-gh-release@v3 publication with prerelease detection, and
 // the Apple Developer ID keychain import + cleanup pattern.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.2 is
-// implemented. No t.Skip() sentinels (per story 7-1 dev-story outcome: the
-// repo ships TDD-red tests directly).
-//
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks. No
 // browser or HTTP surface. Per the epic test design the single end-to-end
 // case is a manual RC-tag smoke test that cannot be exercised from a local Go

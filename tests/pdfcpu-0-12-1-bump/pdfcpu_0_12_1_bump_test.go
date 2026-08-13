@@ -1,19 +1,16 @@
 // Package pdfcpu_0_12_1_bump_test provides acceptance tests for Story 10.4:
 // pdfcpu patch bump (v0.12.0 -> v0.12.1).
 //
-// TDD RED PHASE for a dependency patch bump combines two modes per the story
-// spec and the user directive:
+// The suite covers two things:
 //
-//  1. "Actual red" tests for the deltas the Dev step must land:
-//     - go.mod's pdfcpu require literal must move v0.12.0 -> v0.12.1
-//     - go.sum must carry v0.12.1 hashes
-//     - _bmad-output/project-context.md's Technology Stack line for pdfcpu must
-//       be updated to the verbatim phrasing
-//     These FAIL on the pre-bump tree by design.
+//  1. The bump deltas:
+//     - go.mod's pdfcpu require literal at v0.12.1
+//     - go.sum carrying v0.12.1 hashes
+//     - _bmad-output/project-context.md's Technology Stack line for pdfcpu in
+//       the verbatim phrasing
 //
-//  2. "Baseline invariant" tests that MUST pass on the pre-bump tree AND
-//     continue to pass post-bump. They pin the contract surface the patch
-//     must not regress:
+//  2. Baseline invariants, which hold on either side of the bump. They pin the
+//     contract surface the patch must not regress:
 //     - safeCall's runtime.Error re-panic guarantee
 //     - the six named errors_test.go tests still exist
 //     - image.go's three memory-guard literals are unchanged

@@ -1,8 +1,6 @@
 // Package reference_navigation_test provides acceptance tests for Story 2.8:
 // Clickable Reference Navigation.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-8 is implemented.
-//
 // Test Levels:
 //   - Structural (Go): file content checks for backend GetAncestorPath and frontend wiring
 //   - Unit delegation via runPdfcoreTest: verifies pdfcore unit tests exist and pass

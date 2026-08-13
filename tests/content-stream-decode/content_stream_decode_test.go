@@ -1,8 +1,6 @@
 // Package content_stream_decode_test provides acceptance tests for Story 3.1:
 // Content Stream Decoding in PDF Core.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 3-1 is implemented.
-//
 // Test Levels: Unit (Go) and Integration (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.
 //

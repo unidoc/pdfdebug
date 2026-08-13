@@ -1,4 +1,4 @@
-// Story 13-6 RED-PHASE acceptance harness for the new top-level CLI command
+// Story 13-6 acceptance harness for the top-level CLI command
 // `diff` (path-aligned structural diff of two PDFs).
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
@@ -232,8 +232,8 @@ func getStr(m map[string]any, key string) string {
 //
 // Every fixture is a minimal hand-assembled PDF built to parse through the
 // existing open path while exercising a specific structural
-// relationship. None exist in testdata/ today; the red-phase suite is
-// self-contained (13-4 / 13-5 precedent).
+// relationship. They are not in testdata/; this suite is self-contained
+// (13-4 / 13-5 precedent).
 
 func itoa(n int) string {
 	if n == 0 {

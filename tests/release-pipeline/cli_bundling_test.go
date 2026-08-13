@@ -9,10 +9,6 @@
 //   - build/darwin/Taskfile.yml (create:app:bundle builds + copies the CLI into
 //     Contents/Resources before the codesign:adhoc dispatch)
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 11.1 is
-// implemented. No t.Skip() sentinels (matches the existing repo convention:
-// the repo ships TDD-red tests directly).
-//
 // Test Levels: Integration (Go) -- YAML/Taskfile parsing + filesystem checks.
 // No browser or HTTP surface; this is a build/CI packaging story with no
 // frontend/runtime code in scope, so no E2E applies.

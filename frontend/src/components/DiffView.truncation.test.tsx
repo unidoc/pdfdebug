@@ -8,9 +8,8 @@
  * render the "No structural differences" banner without a truncation marker --
  * the quiet lie this story closes, mirrored on the GUI surface.
  *
- * Before the fix these cases were red: `identical` ignored truncatedSubtrees, so
- * the banner appeared on a bounded walk. This is the thin display branch of a
- * backend-verified field, kept at the component level (NOT E2E).
+ * This is the thin display branch of a backend-verified field, kept at the
+ * component level (NOT E2E).
  *
  * Run: cd frontend && npx vitest run src/components/DiffView.truncation.test.tsx
  */

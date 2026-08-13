@@ -1,9 +1,7 @@
-// Story 11-5 RED-PHASE acceptance tests for `dump object --resolve` (item 4;
-// ). Black-box: build the CLI and run it as a subprocess.
+// Story 11-5 acceptance tests for `dump object --resolve` (item 4).
+// Black-box: build the CLI and run it as a subprocess.
 //
-// These assert the EXPECTED post-implementation behavior and MUST FAIL against
-// the current binary (no --resolve flag on dump object) until Story 11-5 is
-// implemented, except the regression test which PINS today's no-flag output.
+// The regression test PINS the no-flag output.
 //
 // Run: cd tests/cli-object-query && go test -v -count=1 ./...
 package cli_object_query_test

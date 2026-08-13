@@ -1,4 +1,4 @@
-// Story 14-1 RED-PHASE acceptance harness for the machine-contract surface of
+// Story 14-1 acceptance harness for the machine-contract surface of
 // `dump stream --json` / `--ops`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess against

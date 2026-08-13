@@ -7,10 +7,6 @@
 // matching go.mod, per-suite test loop for tests/*/go.mod modules, dependency
 // caching, distinct check runs per platform, and 30-minute job timeout.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.1 is implemented.
-// Each test calls t.Skip() so CI does not turn red before implementation; the
-// dev removes the t.Skip() calls to drive implementation.
-//
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks.
 // No browser or API surface exists for this story. Per the Epic 7 test design
 // (infrastructure-as-code epic), tests are heavily skewed to static validation.

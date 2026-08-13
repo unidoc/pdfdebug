@@ -1,8 +1,6 @@
 // Package cli_tree_dump_test provides acceptance tests for Story 5.1:
 // CLI Binary Setup and Tree Dump Command.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 5-1 is implemented.
-//
 // Test Levels: Unit (Go) and Integration (Go) -- CLI binary build + execution.
 // No browser interaction required; all criteria are CLI binary validation.
 //

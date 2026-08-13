@@ -1,8 +1,6 @@
 // Package error_handling_test provides acceptance tests for Story 2.9:
 // Error Handling and Graceful Degradation.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-9 is implemented.
-//
 // Test Levels:
 //   - Structural (Go): file content checks for backend and frontend artifacts
 //   - Unit delegation via runPdfcoreTest: verifies pdfcore unit tests exist and pass

@@ -2,13 +2,12 @@ package no_silent_truncation_test
 
 // Story 14.3 #5 -- multi-stream /Contents shows only the first stream.
 //
-// RED PHASE: multi-content-stream.pdf has one page whose /Contents is an array
-// of two stream refs. Stream 1 is `q ... cm` (opens a graphics state, NO
-// matching Q); stream 2 is `BT /F1 24 Tf 0 0 Td (Hello) Tj ET Q` (the matching
-// Q plus a text block). Per ISO 32000-1 7.8.2 the page's content is the
-// CONCATENATION of both. Today `dump stream --page 1` decodes ONLY stream 1 and
-// emits no marker, presenting an unbalanced partial program as if it were the
-// whole content stream.
+// multi-content-stream.pdf has one page whose /Contents is an array of two
+// stream refs. Stream 1 is `q ... cm` (opens a graphics state, NO matching Q);
+// stream 2 is `BT /F1 24 Tf 0 0 Td (Hello) Tj ET Q` (the matching Q plus a text
+// block). Per ISO 32000-1 7.8.2 the page's content is the CONCATENATION of
+// both, so decoding only stream 1 and emitting no marker would present an
+// unbalanced partial program as if it were the whole content stream.
 //
 // The GREEN target is path-dependent (Task 0's return-type decision), so each
 // assertion accepts EITHER outcome and fails only the silent stream-1-only
@@ -17,7 +16,6 @@ package no_silent_truncation_test
 //     or Tj is present); OR
 //   - floor: a machine-visible truncation marker (streamCount / truncated) is
 //     present so no consumer mistakes the partial for the whole.
-// Today neither holds -> RED.
 
 import (
 	"strings"
@@ -44,8 +42,7 @@ func TestMultiStream_FixtureParsesThroughOpenPath(t *testing.T) {
 // ---------------------------------------------------------------------------
 // `dump stream --page 1 --json` must NOT present a silent stream-1-only view.
 // GREEN is either (preferred) operators from BOTH streams, or (floor) a
-// truncation marker with the array length. RED today: only stream 1's
-// operators (q, cm), no marker.
+// truncation marker with the array length.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
@@ -91,8 +88,7 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 // operators. GREEN is either (preferred) NDJSON operator records from BOTH
 // streams, or (floor) a DISTINCT trailing meta record carrying the truncation
 // state (streamCount, no "op" key) that rides the NDJSON without breaching
-// Story 14-1's one-object-per-operator contract. RED today: only q + cm
-// records, no stream-2 op, no meta record.
+// Story 14-1's one-object-per-operator contract.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {

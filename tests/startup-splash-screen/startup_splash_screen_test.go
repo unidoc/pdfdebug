@@ -1,16 +1,6 @@
 // Package startup_splash_screen_test provides acceptance tests for Story 9.13:
 // Startup Splash Screen.
 //
-// TDD RED PHASE: every assertion below FAILS until Story 9-13 is implemented.
-// The dev step turns these green by:
-//   - introducing splash window creation in main.go (or internal/splash) per
-//     the story's Tasks 2-5
-//   - authoring the inline splash HTML (Option B) or platform-native
-//     primitives (Option A)
-//   - creating the internal/splash package with an injectable-clock scheduler
-//     so (min-display floor), (timeout), and (version render)
-//     are unit-testable from pure Go (no Wails dependency)
-//
 // Test Pyramid placement per story spec:
 //   - Unit (Go, internal/splash): min-display floor, timeout race,
 //     version-string passthrough -- delegated via subprocess to

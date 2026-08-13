@@ -4,8 +4,6 @@
 // Package open_pdf_dialog_dnd_test provides acceptance tests for Story 2.4:
 // Open PDF via File Dialog and Drag-and-Drop.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-4 is implemented.
-//
 // Test Levels: Integration (Go) -- source file content parsing, structural validation.
 // Frontend state/UI tests are Vitest (/002/003) or E2E.
 //

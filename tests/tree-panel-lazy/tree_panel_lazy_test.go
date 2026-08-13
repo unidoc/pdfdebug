@@ -1,8 +1,6 @@
 // Package tree_panel_lazy_test provides acceptance tests for Story 2.5:
 // Tree Panel with Lazy-Loading Navigation.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-5 is implemented.
-//
 // This story is purely frontend. Go structural tests verify:
 // 1. No backend regressions
 // 2. TreePanel.tsx exists with required attributes

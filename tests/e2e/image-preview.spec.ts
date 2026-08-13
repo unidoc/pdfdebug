@@ -1,8 +1,6 @@
 /**
  * E2E Acceptance Test for Story 6.2: Image Preview in Detail Panel
  *
- * TDD RED PHASE: Test MUST fail until Story 6-2 is implemented.
- *
  * Only the critical full-stack happy path is tested at E2E level. All
  * component/state/loading/error tests are handled by Vitest in
  * frontend/src/components/ImagePreview.test.tsx and

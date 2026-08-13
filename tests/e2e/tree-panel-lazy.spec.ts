@@ -1,8 +1,6 @@
 /**
  * E2E Acceptance Tests for Story 2.5: Tree Panel with Lazy-Loading Navigation
  *
- * TDD RED PHASE: Tests MUST fail until Story 2-5 is implemented.
- *
  * Only the critical full-stack happy path is tested at E2E level. All
  * component/state/ARIA/loading tests are handled by Vitest in
  * frontend/src/components/TreePanel.test.tsx.

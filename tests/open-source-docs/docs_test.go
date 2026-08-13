@@ -10,10 +10,6 @@
 //   - scripts/verify-license.sh (executable, wired into .github/workflows/ci.yml)
 //   - scripts/fixtures/apache-2.0.txt, apache-2.0-with-copyright.txt
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.3 is implemented.
-// No t.Skip() sentinels (per story 7-1 and 7-2 dev-story outcome: the repo ships
-// TDD-red tests directly).
-//
 // Test Levels: Static (Go) -- pure filesystem + string grep checks. No YAML
 // parsing dependency; no external modules. Each of the 14 test functions below
 // names the property it checks, so the properties are read off the function

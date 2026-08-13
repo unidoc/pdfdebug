@@ -1,8 +1,6 @@
 // Package multi_document_state_isolation_test provides acceptance tests for
 // Story 4.2: Multi-Document State Isolation.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 4-2 is implemented.
-//
 // Test Levels: Integration (Go) and Unit (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.
 //
@@ -46,8 +44,8 @@ func testdataDir(t *testing.T) string {
 }
 
 // runColocatedTest runs a specific test by name in the given Go package and
-// verifies it was actually executed (not just "no tests to run"). This ensures
-// the RED phase fails when the co-located test does not exist yet.
+// verifies it was actually executed (not just "no tests to run"), so a missing
+// co-located test fails rather than passing silently.
 func runColocatedTest(t *testing.T, root, testName, pkg string) {
 	t.Helper()
 	cmd := exec.Command("go", "test", "-v", "-run", "^"+testName+"$", "-count=1", pkg)
@@ -60,7 +58,7 @@ func runColocatedTest(t *testing.T, root, testName, pkg string) {
 	// go test -run with no matching tests prints "no tests to run" but exits 0.
 	// We must detect this and fail: the co-located test does not exist yet.
 	if strings.Contains(out, "no tests to run") {
-		t.Fatalf("co-located test %s does not exist yet in %s (RED phase)\n%s", testName, pkg, out)
+		t.Fatalf("co-located test %s does not exist in %s\n%s", testName, pkg, out)
 	}
 	if !strings.Contains(out, "PASS") {
 		t.Fatalf("expected PASS for %s but got:\n%s", testName, out)

@@ -1,16 +1,13 @@
-// Story 13-1 RED-PHASE acceptance test harness for CLI output format
+// Story 13-1 acceptance test harness for CLI output format
 // normalization: plain text is the default for every `dump` command, JSON is
 // emitted only behind --json, --pretty applies only to JSON, --raw/--ops stay
 // an orthogonal payload axis, and `dump page --info --json` carries an in-band
 // "_stability":"experimental" marker.
 //
-// Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
-// tests assert the EXPECTED post-implementation behavior. They MUST FAIL
-// against the current binary (which emits JSON by default and treats --json as
-// a no-op on most commands) until Story 13-1 is implemented. They fail at
-// RUNTIME (wrong output shape / wrong exit code), not at compile time, so the
-// main `unidoc-pdf-debugger` module keeps building green (mirrors the Story
-// 11-5 / 11-6 convention).
+// Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
+// surface at RUNTIME (wrong output shape / wrong exit code), not at compile
+// time, so the main `unidoc-pdf-debugger` module keeps building green (mirrors
+// the Story 11-5 / 11-6 convention).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established level for CLI

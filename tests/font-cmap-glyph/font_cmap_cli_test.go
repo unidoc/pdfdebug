@@ -2,10 +2,6 @@ package font_cmap_glyph_test
 
 // Story 13.3: Font CMap and Glyph-Mapping Inspection -- CLI acceptance suite.
 //
-// TDD RED PHASE: these tests MUST fail until Task 2 lands the fuller `dump
-// font` mapping output and Task 1/3 surface the mapping array + health
-// signals on the FontView JSON (riding through the bindings).
-//
 // Contract under test (13-1: plain text is the DEFAULT; --json is the stable
 // surface):
 //   - `dump font --ref "N G R" <file>`            : plain summary (row count +

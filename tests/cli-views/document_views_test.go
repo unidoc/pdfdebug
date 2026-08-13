@@ -1,8 +1,7 @@
-// Story 11.4: Expose existing pdfcore views as CLI commands -- RED PHASE.
+// Story 11.4: Expose existing pdfcore views as CLI commands.
 //
-// Document-level presenters (no --ref): xref, objects, plaintext. These MUST
-// FAIL against the current binary until Story 11-4 wires the new resources
-// into the dispatch switch. Black-box: build the CLI, run as a subprocess.
+// Document-level presenters (no --ref): xref, objects, plaintext. Black-box:
+// build the CLI, run as a subprocess.
 //
 // Test level: Integration (Go) -- CLI binary build + execution. No browser.
 //

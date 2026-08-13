@@ -1,8 +1,6 @@
 // Package detail_panel_tabs_test provides acceptance tests for Story 9.11:
 // XREF Table and Plain Text View Tabs in DetailPanel.
 //
-// TDD RED PHASE: these tests MUST fail until Story 9-11 is implemented.
-//
 // Test pyramid for this story:
 //
 //   - Backend (XRefTable extraction + status strings +

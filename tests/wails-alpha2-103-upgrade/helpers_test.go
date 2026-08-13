@@ -1,11 +1,8 @@
-// Package story_12_3_wails_alpha2_103_upgrade_test provides RED-PHASE acceptance
-// tests for Story 12.3: bump Wails v3 (Go library + CLI) from alpha.95 to the
+// Package story_12_3_wails_alpha2_103_upgrade_test provides acceptance tests
+// for Story 12.3: bump Wails v3 (Go library + CLI) from alpha.95 to the
 // latest alpha2.103 (fallback alpha.102), regenerate bindings, loosen the
 // brittle method-count test into a consumer-driven presence contract, and add a
 // wire-shape guard for the alpha.96 struct-tag change.
-//
-// TDD RED PHASE: these tests MUST fail on the pre-bump tree (current pin
-// alpha.95) and pass after the Dev step lands the bump + regen per the story.
 //
 // Test pyramid for this story (per the user directive to favour API/integration
 // over E2E, unit only for business logic):
@@ -23,10 +20,9 @@
 //     this independent module (mirrors tests/wails-alpha-95-upgrade/ and
 //     tests/page-render-info/).
 //
-// The Go red phase is "compiles and FAILS at runtime against the current tree",
-// not test.skip(): the pins are still alpha.95 today, so the version assertions
-// fail; the wire-shape guards pass today and stand as the regression net for the
-// bump.
+// The Go assertions run against the built tree rather than being skipped: the
+// version assertions read the pins, and the wire-shape guards stand as the
+// regression net across the bump.
 //
 // Run: cd tests/wails-alpha2-103-upgrade && go test -v -count=1 ./...
 package story_12_3_wails_alpha2_103_upgrade_test

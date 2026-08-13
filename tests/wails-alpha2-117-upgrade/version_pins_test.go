@@ -9,9 +9,6 @@
 // CLI is installed: the 3-runner build and the manual smoke, out of this
 // module's scope). A mismatch means everything downstream tests a phantom
 // -- stop.
-//
-// Authored RED (go.mod at alpha2.103, below the alpha2.117 floor); now GREEN
-// after the committed bump and standing as the regression gate against drift.
 package story_14_2_wails_alpha2_117_upgrade_test
 
 import (
@@ -68,8 +65,7 @@ func TestGoSumCarriesNewPin(t *testing.T) {
 // workflow must
 // install wails3 with a v3.0.0 alpha pin, every alpha pin in the file must move
 // strictly past the pre-bump baseline (alpha2.103), and every one must EQUAL the
-// go.mod pin exactly (CLI == library). Authored RED (install line at alpha2.103,
-// not strictly past the alpha2.103 baseline); GREEN once the workflows are bumped.
+// go.mod pin exactly (CLI == library).
 func assertWorkflowPinMatchesGoMod(t *testing.T, relPath string) {
 	t.Helper()
 	src := readSource(t, relPath)

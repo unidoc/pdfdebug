@@ -1,8 +1,6 @@
 // Package tree_node_builder_test provides acceptance tests for Story 2.2:
 // Tree Node Builder -- PDF Object Graph to Tree Nodes.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-2 is implemented.
-//
 // Test Levels: Unit (Go) -- pdfcore tree builder API validation.
 // No browser interaction required; all criteria are Go package validation.
 //

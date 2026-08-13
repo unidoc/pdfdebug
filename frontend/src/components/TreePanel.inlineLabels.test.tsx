@@ -72,9 +72,9 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-// --- Fixtures: TreeNodes the backend will emit once 9-8 lands. The
-// `objectRef` / `typeName` fields are the new additions. We assume the
-// existing TreeNode TS type will be extended; cast through unknown so the
+// --- Fixtures: TreeNodes the backend emits for 9-8. `objectRef` and
+// `typeName` are the added fields; cast through unknown so the fixtures
+// compile whichever way the TreeNode TS type is widened. ---
 
 type AnyNode = Record<string, unknown>;
 

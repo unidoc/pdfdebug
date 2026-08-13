@@ -5,9 +5,6 @@
 //   - frontend/package.json devDependencies + `lint` + `typecheck` scripts
 //   - .golangci.yml (v2 schema)
 //   - .gitattributes (line-ending normalization)
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.1 is implemented.
-// Run: cd tests/ci-pipeline && go test -v -count=1 ./...
 package ci_pipeline_test
 
 import (

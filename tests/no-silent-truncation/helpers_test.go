@@ -1,14 +1,13 @@
-// Story 14-3 RED-PHASE acceptance harness for the "no silent truncation" rule
+// Story 14-3 acceptance harness for the "no silent truncation" rule
 // across two machine-contract surfaces: `diff` (depth-cap under-report) and
 // `dump stream` (multi-stream /Contents).
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess against
 // the committed correctness-corpus fixtures deep-change-{a,b}.pdf and
-// multi-content-stream.pdf. These tests assert the EXPECTED post-implementation
-// contract and MUST FAIL against the current binary until Story 14-3 is
-// implemented. They fail at RUNTIME (a truncated diff reports "identical" at
-// exit 0; a multi-stream page shows only stream 1 with no marker), NOT at
-// compile time, so the main `unidoc-pdf-debugger` module keeps building green.
+// multi-content-stream.pdf. Failures surface at RUNTIME (a truncated diff
+// reporting "identical" at exit 0; a multi-stream page showing only stream 1
+// with no marker), NOT at compile time, so the main `unidoc-pdf-debugger`
+// module keeps building green.
 // This module has its own go.mod and is not part of the main build (mirrors
 // tests/trustworthy-stream-op-output and tests/structural-diff).
 //

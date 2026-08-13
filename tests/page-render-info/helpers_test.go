@@ -1,12 +1,9 @@
-// Story 11-6 RED-PHASE acceptance test harness for `dump page --info`.
+// Story 11-6 acceptance test harness for `dump page --info`.
 //
-// Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
-// tests assert the EXPECTED post-implementation behavior of the NEW `dump page`
-// resource. They MUST FAIL against the current binary (which has no `page`
-// resource arm) until Story 11-6 is implemented. They fail at RUNTIME (unknown
-// resource / wrong output / wrong exit code), not at compile time, so the main
-// `unidoc-pdf-debugger` module keeps building green (mirrors the Story 11-5
-// cli-stream-retrieval convention).
+// Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
+// surface at RUNTIME (unknown resource / wrong output / wrong exit code), not at
+// compile time, so the main `unidoc-pdf-debugger` module keeps building green
+// (mirrors the Story 11-5 cli-stream-retrieval convention).
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test

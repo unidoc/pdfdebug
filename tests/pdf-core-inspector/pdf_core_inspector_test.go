@@ -1,8 +1,6 @@
 // Package pdf_core_inspector_test provides acceptance tests for Story 2.1:
 // PDF Core Inspector -- Open and Parse PDF Files.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-1 is implemented.
-//
 // Test Levels: Unit (Go) and Integration (Go) -- pdfcore API + filesystem checks.
 // No browser interaction required; all criteria are Go package validation.
 //

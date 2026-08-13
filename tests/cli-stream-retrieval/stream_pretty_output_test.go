@@ -1,8 +1,6 @@
-// Story 11.3: CLI ergonomics & discoverability -- RED PHASE acceptance tests.
+// Story 11.3: CLI ergonomics & discoverability -- acceptance tests.
 //
-// These tests assert the EXPECTED post-implementation behavior and MUST FAIL
-// against the current binary until Story 11-3 is implemented. Black-box:
-// build the CLI, run as a subprocess.
+// Black-box: build the CLI, run as a subprocess.
 //
 // Covers in this suite: (--pretty for dump stream; --raw --pretty is a no-op
 // that still emits verbatim bytes, not JSON).

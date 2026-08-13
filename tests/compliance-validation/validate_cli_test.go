@@ -1,8 +1,6 @@
 package compliance_validation_test
 
-// Story 13.5 -- the top-level `validate` command. RED PHASE: `validate`
-// does not exist yet; every test below (except the fixture sanity check)
-// fails at runtime against the current binary.
+// Story 13.5 -- the top-level `validate` command.
 
 import (
 	"regexp"

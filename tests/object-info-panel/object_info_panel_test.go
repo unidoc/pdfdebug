@@ -1,8 +1,6 @@
 // Package object_info_panel_test provides acceptance tests for Story 2.6:
 // Object Info Panel -- Property Display for Selected Nodes.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-6 is implemented.
-//
 // Test Levels: Unit (Go) -- pdfcore GetObjectDetail API validation.
 // No browser interaction required; all criteria are Go package validation.
 //

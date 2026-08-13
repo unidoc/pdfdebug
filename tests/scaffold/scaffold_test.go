@@ -2,8 +2,6 @@
 // Initialize Wails v3 Project with React-TypeScript Scaffold.
 //
 // These tests verify that the project scaffolding was performed correctly.
-// They are TDD RED PHASE tests -- they MUST fail until Story 1.1 is implemented.
-//
 // Test Levels: Integration (Go) -- shell commands + filesystem checks.
 // No browser interaction required; all criteria are build/scaffold validation.
 //
