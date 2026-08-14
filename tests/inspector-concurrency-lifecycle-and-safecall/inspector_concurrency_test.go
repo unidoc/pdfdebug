@@ -1,4 +1,4 @@
-// Package story_10_5_test holds the per-story acceptance test suite for
+// Package inspector_concurrency_lifecycle_and_safecall_test holds the per-story acceptance test suite for
 // Inspector Concurrency, Lifecycle Safety, and safeCall Sev-1.
 //
 // This is the structural-assertion suite -- it source-greps the production
@@ -15,7 +15,7 @@
 // it.
 //
 // Run: cd tests/inspector-concurrency-lifecycle-and-safecall && go test -v -count=1 ./...
-package story_10_5_test
+package inspector_concurrency_lifecycle_and_safecall_test
 
 import (
 	"os"
