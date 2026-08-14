@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Tests for Story 2.4: Open PDF via File Dialog and Drag-and-Drop
+ * E2E Acceptance Tests for Open PDF via File Dialog and Drag-and-Drop
  *
  * Only the critical happy path is tested at E2E level. All
  * structural/state/error tests are handled by Go integration tests in

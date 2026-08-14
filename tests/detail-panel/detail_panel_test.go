@@ -154,7 +154,7 @@ func TestDetailPanelAriaLive(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through useAppDispatch when a
-// reference value is clicked. Re-pinned 2026-05-22 (Epic 9 retro) -- the
+// reference value is clicked. Re-pinned 2026-05-22 -- the
 // original DetailShared import assertion was stale (the component was
 // refactored to consume context via useAppState/useAppDispatch directly and to
 // fetch source via GetObjectSource). Behavioral coverage for the

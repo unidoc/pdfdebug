@@ -1,11 +1,11 @@
-// Story 14-1 acceptance harness for the machine-contract surface of
+// Acceptance harness for the machine-contract surface of
 // `dump stream --json` / `--ops`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess against
 // committed fixtures in testdata/correctness/. These tests assert the EXPECTED
 // post-implementation contract behavior and MUST FAIL against the current
 // binary (leading-sign operands mislabeled as operators; --ops emitting
-// empty-operator records) until Story 14-1 is implemented. They fail at
+// empty-operator records). They fail at
 // RUNTIME (wrong token type / phantom NDJSON record), not at compile time, so
 // the main module keeps building green. This module has its own go.mod and is
 // not part of the main build (mirrors tests/structural-diff).

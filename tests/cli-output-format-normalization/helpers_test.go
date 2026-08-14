@@ -7,11 +7,11 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
 // surface at RUNTIME (wrong output shape / wrong exit code), not at compile
 // time, so the main `unidoc-pdf-debugger` module keeps building green (mirrors
-// the Story 11-5 / 11-6 convention).
+// the cli-stream-retrieval convention).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established level for CLI
-// acceptance. No browser/E2E layer is warranted; Story 13-1 touches only
+// acceptance. No browser/E2E layer is warranted; the change touches only
 // cmd/cli output presentation and has zero UI surface.
 //
 // Naming: [Px] per the story Testing Requirements.

@@ -24,7 +24,7 @@ import (
 	"testing"
 )
 
-// fontViewJSON mirrors the FontView JSON wire shape with the NEW Story 13.3
+// fontViewJSON mirrors the FontView JSON wire shape with the mapping
 // fields. The struct tags pin the contract the bindings must carry through.
 type fontViewJSON struct {
 	Kind   string `json:"kind"`

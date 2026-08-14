@@ -94,7 +94,7 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 	}
 }
 
-// Story 4-5: TestNativeMenuBarCreated, TestPlatformConditionalQuit, and
+// TestNativeMenuBarCreated, TestPlatformConditionalQuit, and
 // TestMainGoSetupOrdering were source-grep assertions on main.go.
 // TestNativeMenuBarCreated and TestMainGoSetupOrdering are replaced by
 // tests/boot-smoke (boot path runs to
@@ -266,8 +266,8 @@ func TestMainLayoutFileExists(t *testing.T) {
 	}
 }
 
-// Story 4-5: TestMainLayoutTwoColumnStructure was a source-grep on
-// MainLayout.tsx asserting the literal `preferredSize={300}`. Story 4-4 made
+// TestMainLayoutTwoColumnStructure was a source-grep on MainLayout.tsx
+// asserting the literal `preferredSize={300}`. That literal became
 // `preferredSize` conditional on persisted state, breaking the grep while
 // behaviour was preserved. Replaced by an extension of
 // frontend/src/components/MainLayout.test.tsx that asserts both `left-panel`
@@ -484,7 +484,7 @@ func TestUseDocumentStateContextNullGuards(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// App.jsx keeps .jsx extension (regression guard from Story 1.3)
+// App.jsx keeps its .jsx extension -- regression guard
 // ---------------------------------------------------------------------------
 
 func TestAppJsxExtensionPreserved(t *testing.T) {

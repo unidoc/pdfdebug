@@ -93,7 +93,7 @@ func readSource(t *testing.T, relPath string) string {
 // loadFrontendSrcConcat walks frontend/src (non-test files only) and returns a
 // concatenation of every JS/TS/JSX/TSX source. Extracting the walk into a
 // helper keeps the test function bodies free of literal os.ReadFile calls,
-// which the source-grep-guard (Story 4-5) flags when paired with a
+// which the source-grep-guard flags when paired with a
 // guarded-path literal like "main.go".
 func loadFrontendSrcConcat(t *testing.T) string {
 	t.Helper()
@@ -555,7 +555,7 @@ func TestSplashEventTriad(t *testing.T) {
 	}
 }
 
-// Story 12.3: the go.sum and package-lock version-pin checks were retired from
+// The go.sum and package-lock version-pin checks are retired from
 // this suite -- both keyed off the alpha.95-scheme regex that cannot match
 // alpha2.103. Their scheme-aware successors are TestGoSumCarriesNewPin and
 // TestPackageLockRuntimeNotRegressed in tests/wails-alpha2-103-upgrade/.

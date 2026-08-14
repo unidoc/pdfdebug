@@ -1,7 +1,7 @@
 // Package boot_smoke_test smoke-tests that the GUI binary builds and starts
 // without panicking.
 //
-// Purpose: replaces the source-grep tests (Story 4-5: tests #1
+// Purpose: replaces the source-grep tests (tests #1
 // TestNativeMenuBarCreated, #3 TestMainGoSetupOrdering, #7 TestMainGoCallsSetApp)
 // with a single behavioural assertion: "the boot path runs to the event loop
 // without panic." If main.go's window/menu wiring or pdfservice.NewPDFService
@@ -300,7 +300,7 @@ func scanForFatalOutput(s string) string {
 // SIGTERM (or taskkill on Windows) and verifies clean shutdown.
 //
 // This is a behavioural replacement for source-grep tests #1, #3, #7
-// (Story 4-5). It does NOT verify PDF service registration directly; it
+// It does NOT verify PDF service registration directly; it
 // verifies that the boot path -- including pdfservice.NewPDFService
 // registration -- runs to the event loop without panicking.
 func TestAppBootsWithoutPanic(t *testing.T) {

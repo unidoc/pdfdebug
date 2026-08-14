@@ -1,5 +1,5 @@
 // Package source_grep_guard_test enforces the anti-recurrence clause
-// from Story 4-5 ("Replace Source-Grep Tests with Behavioral Coverage").
+// from "Replace Source-Grep Tests with Behavioral Coverage".
 //
 // The rule: future contributors MUST NOT add NEW `strings.Contains` /
 // `regexp.Match` / file-content assertions in tests under `tests/` that read
@@ -21,7 +21,7 @@
 //
 // This test partially fulfills the deferred CI-lint follow-up tracked in
 // docs/_bmad-output/implementation-artifacts/deferred-work.md under
-// "Deferred from: story 4-5".
+// "Deferred from" note.
 //
 // Run: cd tests/source-grep-guard && go test -count=1 ./...
 package source_grep_guard_test
@@ -71,8 +71,8 @@ var readFunctionNames = map[string]bool{
 // New entries require a story-spec justification. If a behavioral
 // alternative is feasible, prefer it.
 //
-// Story 9-2 (2026-05-07) deleted every pre-existing source-grep test from
-// the suite. Story 9-13 (2026-05-20) added the two splash entries below.
+// Every pre-existing source-grep test was deleted from the suite on
+// 2026-05-07; the two splash entries below were added on 2026-05-20.
 var grandfatheredAllowlist = []string{
 	// Splash window must be created before the main
 	// WebviewWindow so the user sees branding during WebView2 cold init.

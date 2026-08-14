@@ -82,7 +82,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // PDFService imports wails application package: pdfservice is the Wails
 // adapter layer -- it MAY import Wails packages
-//       (unlike pdfcore which must have zero Wails deps). After story 2-4,
+//       (unlike pdfcore which must have zero Wails deps). Here,
 //       service.go must import application for *application.App type.
 // ---------------------------------------------------------------------------
 
@@ -439,7 +439,7 @@ func TestUsePDFServiceExportsOpenPDFFile(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // go build compiles the full project: Full project
-// compiles with story 2-4 changes.
+// compiles.
 // ---------------------------------------------------------------------------
 
 func TestProjectCompiles(t *testing.T) {

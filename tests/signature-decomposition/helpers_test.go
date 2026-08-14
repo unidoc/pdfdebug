@@ -4,7 +4,7 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
 // tests assert the EXPECTED post-implementation behavior of the NEW resource.
 // They MUST FAIL against the current binary (which has no `signatures`
-// resource arm) until Story 13-4 is implemented. They fail at RUNTIME (unknown
+// resource arm). They fail at RUNTIME (unknown
 // resource / wrong output shape / wrong exit code), not at compile time, so
 // the main `unidoc-pdf-debugger` module keeps building green (mirrors 13-2 /
 // 13-3).

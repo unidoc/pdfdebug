@@ -79,7 +79,7 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 // TestLicenseMatchesCanonicalWithSubstitution asserts that LICENSE at repo root
 // is byte-identical to scripts/fixtures/apache-2.0-with-copyright.txt (the
 // canonical Apache 2.0 text with the documented UniDoc copyright substitution
-// applied). This is the primary byte-match contract per Epic 7 risk E7-R-004.
+// applied). This is the primary byte-match contract.
 func TestLicenseMatchesCanonicalWithSubstitution(t *testing.T) {
 	license := readFileAtRoot(t, "LICENSE")
 	fixture := readFileAtRoot(t, "scripts/fixtures/apache-2.0-with-copyright.txt")
@@ -260,7 +260,7 @@ func TestCIWorkflowReferencesVerifyScript(t *testing.T) {
 }
 
 // TestReadmeHasNoBmadOutputLinks guards against the specific anti-pattern
-// called out in story 7-3 Task 3.7: `_bmad-output` is a symlink that exits the
+// called out separately: `_bmad-output` is a symlink that exits the
 // code repo, so any GitHub-rendered link into it 404s. No markdown link in
 // README may reference that path.
 func TestReadmeHasNoBmadOutputLinks(t *testing.T) {

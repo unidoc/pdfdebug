@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Tests for Story 1.4: Native Menu Bar and Application Shell
+ * E2E Acceptance Tests for the Native Menu Bar and Application Shell
  *
  * TDD GREEN PHASE: Implementation is complete. Tests un-skipped for validation.
  *

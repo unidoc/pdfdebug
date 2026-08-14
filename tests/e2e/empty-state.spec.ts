@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Tests for Story 1.3: Empty State with Drag-and-Drop Zone
+ * E2E Acceptance Tests for the Empty State with Drag-and-Drop Zone
  *
  * TDD GREEN PHASE: Implementation is complete. Tests un-skipped for validation.
  *

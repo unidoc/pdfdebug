@@ -1,4 +1,4 @@
-# Page Render-Info Fixture (Story 11-6)
+# Page Render-Info Fixture
 
 `render-info.pdf` is a hand-authored, uncompressed PDF 1.5 that exercises every
 branch of the `dump page --info` assembled view: geometry inheritance,

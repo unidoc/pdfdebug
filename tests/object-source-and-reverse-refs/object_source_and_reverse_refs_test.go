@@ -447,7 +447,7 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 	}
 }
 
-// ObjectInfoPanel.test.tsx has been rewritten in place to cover Story 9-10
+// ObjectInfoPanel.test.tsx has been rewritten in place to cover the
 // (Task 8.1). We assert that the new test file references the renamed
 // component, the new testid, and the obj:gen:num mapping.
 func TestObjectInfoPanelTestFileRewritten(t *testing.T) {

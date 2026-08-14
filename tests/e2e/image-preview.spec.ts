@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Test for Story 6.2: Image Preview in Detail Panel
+ * E2E Acceptance Test for Image Preview in the Detail Panel
  *
  * Only the critical full-stack happy path is tested at E2E level. All
  * component/state/loading/error tests are handled by Vitest in

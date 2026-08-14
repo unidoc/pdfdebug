@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Tests for Story 4.3: Close Document and Tab Management
+ * E2E Acceptance Tests for Close Document and Tab Management
  *
  * Test IDs:
  * Run: npx playwright test tests/e2e/close-document.spec.ts

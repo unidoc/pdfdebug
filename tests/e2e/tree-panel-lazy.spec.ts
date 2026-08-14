@@ -1,5 +1,5 @@
 /**
- * E2E Acceptance Tests for Story 2.5: Tree Panel with Lazy-Loading Navigation
+ * E2E Acceptance Tests for the Tree Panel with Lazy-Loading Navigation
  *
  * Only the critical full-stack happy path is tested at E2E level. All
  * component/state/ARIA/loading tests are handled by Vitest in

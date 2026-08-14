@@ -1,6 +1,6 @@
 package font_cmap_glyph_test
 
-// Shared helpers for the Story 13.3 CLI acceptance suite. Mirrors the
+// Shared helpers for the font CMap/glyph CLI acceptance suite. Mirrors the
 // tests/cli-views helpers: the suite shells out to a freshly built pdfdebug
 // binary (no Go dependency on the main module) so it exercises the real CLI
 // surface end-to-end.

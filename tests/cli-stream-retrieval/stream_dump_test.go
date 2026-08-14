@@ -375,7 +375,7 @@ func TestStreamDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// REVISED by Story 13-1: Stream dump WITHOUT --json emits a human-readable
+// Stream dump WITHOUT --json emits a human-readable
 // operator listing (the flipped default), NOT JSON. One operator per line; the
 // content-stream.pdf fixture draws a BT ... ET text block.
 // ---------------------------------------------------------------------------

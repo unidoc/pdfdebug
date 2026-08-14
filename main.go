@@ -60,7 +60,7 @@ func extractPDFPaths(args []string) []string {
 }
 
 // routeOpenPath is the shared per-path decision used by both file-open entry
-// points (ApplicationOpenedWithFile, OnSecondInstanceLaunch). Story 12.1: it
+// points (ApplicationOpenedWithFile, OnSecondInstanceLaunch). It
 // adds the path to the queue first; if the queue is ready (warm path) it opens
 // the path immediately via open and returns true so the caller can decide
 // whether to Focus the window. If the queue is not yet ready (cold start) the

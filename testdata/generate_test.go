@@ -167,7 +167,7 @@ func imageXObjectPDFContent() []byte {
 	return bodyBytes
 }
 
-// fontsMixedPDFContent returns a multi-font PDF used by Story 9-9 tests.
+// fontsMixedPDFContent returns a multi-font PDF used by the font-inspection tests.
 // Covers: simple Type1 with named encoding, TrueType with /Differences, Type0
 // composite with Identity-H + CIDFontType2 descendant + a bfchar ToUnicode
 // CMap, and an unembedded reference font. The PDF references font streams in
@@ -266,7 +266,7 @@ func fontsMixedPDFContent() []byte {
 	return []byte(body + xref + trailer)
 }
 
-// --- Story 13-4 digital-signature fixtures ------------------------------
+// --- digital-signature fixtures ------------------------------------------
 //
 // A REAL adbe.pkcs7.detached signature built programmatically: self-signed CA
 // + leaf signer cert via crypto/x509.CreateCertificate, a CMS SignedData
@@ -494,7 +494,7 @@ func unsignedSigFieldPDFContent() []byte {
 	})
 }
 
-// --- Story 13-5 structural-compliance fixtures --------------------------
+// --- structural-compliance fixtures --------------------------------------
 //
 // Programmatic negative fixtures (non-embedded font, device color without
 // OutputIntent, tagged vs untagged) plus the veraPDF-passing clean PDF/A-1b
@@ -575,7 +575,7 @@ func taggedPDFContent() []byte {
 // pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
 // passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
 // document /ID, no fonts, no device color, and a blank page. Provenance:
-// hand-assembled during Story 13-5 implementation and verified to pass veraPDF
+// hand-assembled and verified to pass veraPDF
 // 1.30.x --flavour 1b with zero failed clauses (the clean-case oracle fixture;
 // our rule set also flags zero errors on it).
 func pdfaCleanContent() []byte {

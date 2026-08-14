@@ -1,5 +1,5 @@
 // Package story_14_2_wails_alpha2_117_upgrade_test provides acceptance tests
-// for Story 14.2: the governed Wails v3 version bump from the current pin
+// for the governed Wails v3 version bump from the current pin
 // v3.0.0-alpha2.103 to the committed target v3.0.0-alpha2.117 (Go module +
 // wails3 CLI in lockstep), holding the @wailsio/runtime JS runtime at whatever
 // upstream actually publishes (still alpha.79; no alpha2 runtime exists on npm).

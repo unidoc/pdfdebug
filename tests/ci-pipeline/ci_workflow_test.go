@@ -683,7 +683,7 @@ func TestPerSuiteGoModuleCount(t *testing.T) {
 	}
 	// Story says 20 today; adding this suite (ci-pipeline) makes 21. Accept >= 20.
 	if count < 20 {
-		t.Errorf("tests/*/go.mod count is %d; story 7.1 Task 2.1 expects at least 20 (if someone moved the per-suite modules, update the CI loop and this test together)", count)
+		t.Errorf("tests/*/go.mod count is %d; the CI per-suite loop expects at least 20 (if someone moved the per-suite modules, update the CI loop and this test together)", count)
 	}
 }
 

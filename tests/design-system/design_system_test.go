@@ -466,7 +466,7 @@ func TestWailsTemplateFontDeleted(t *testing.T) {
 	fontPath := filepath.Join(root, "frontend", "public", "Inter-Medium.ttf")
 
 	if _, err := os.Stat(fontPath); err == nil {
-		t.Error("frontend/public/Inter-Medium.ttf still exists -- should be deleted per Story 1.2 task 2.5 (replaced by Google Fonts CDN import)")
+		t.Error("frontend/public/Inter-Medium.ttf still exists -- it is replaced by the Google Fonts CDN import and must be deleted")
 	} else if !os.IsNotExist(err) {
 		t.Errorf("unexpected error checking font file: %v", err)
 	}

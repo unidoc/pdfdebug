@@ -182,7 +182,7 @@ func TestSafeCallRePanicsRuntimeError(t *testing.T) {
 	// Anchor on the type assertion + the bare `panic(r)`.
 	rePanic := regexp.MustCompile(`if\s+_,\s*ok\s*:=\s*r\.\(runtime\.Error\)`)
 	if !rePanic.MatchString(src) {
-		t.Errorf("internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover block (the re-panic guarantee pinned in Epic 9)")
+		t.Errorf("internal/pdfcore/errors.go must retain the runtime.Error type assertion in safeCall's recover block (the re-panic guarantee)")
 	}
 	if !strings.Contains(src, "panic(r)") {
 		t.Errorf("internal/pdfcore/errors.go must retain the `panic(r)` re-panic call in safeCall (runtime.Error must surface, not be laundered into ErrMalformedPDF)")

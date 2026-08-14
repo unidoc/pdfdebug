@@ -170,7 +170,7 @@ func TestPDFServiceGetChildren(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService.GetObjectDetail() returns stub error: Given any input,
 // When GetObjectDetail(tabID, nodeID) is called,
-//       Then it returns a "not implemented" error (stub until Story 2-6).
+//       Then it returns a "not implemented" error while it is a stub.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetObjectDetail(t *testing.T) {
@@ -478,7 +478,7 @@ func TestPDFServiceOpenFileEncrypted(t *testing.T) {
 func TestProjectCompiles(t *testing.T) {
 	root := projectRoot(t)
 
-	// Build packages in story 2-3 scope: internal packages and root main.
+	// Build packages in scope: internal packages and root main.
 	// cmd/cli/ and build/ios/ have pre-existing empty main stubs (no func main)
 	// that are out of scope for this story -- exclude them.
 	packages := []string{

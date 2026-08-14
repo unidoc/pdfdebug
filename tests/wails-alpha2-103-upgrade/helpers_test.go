@@ -1,5 +1,5 @@
 // Package story_12_3_wails_alpha2_103_upgrade_test provides acceptance tests
-// for Story 12.3: bump Wails v3 (Go library + CLI) from alpha.95 to the
+// for the Wails v3 bump (Go library + CLI) from alpha.95 to the
 // latest alpha2.103 (fallback alpha.102), regenerate bindings, loosen the
 // brittle method-count test into a consumer-driven presence contract, and add a
 // wire-shape guard for the alpha.96 struct-tag change.

@@ -1,4 +1,4 @@
-// Story 13-2 acceptance test harness for the CLI resources `dump embedded` and
+// Acceptance test harness for the CLI resources `dump embedded` and
 // `dump metadata`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures

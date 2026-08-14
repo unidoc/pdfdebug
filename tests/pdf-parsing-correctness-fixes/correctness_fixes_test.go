@@ -752,7 +752,7 @@ func TestGetPlainTextSizeAfterRemoveTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Baseline regression invariant: existing Story-10-1 tests survive
+// Baseline regression invariant: the existing async plain-text tests survive
 // ---------------------------------------------------------------------------
 
 // TestPlainTextAsyncTestsExist asserts the async plaintext test surface in
@@ -764,7 +764,7 @@ func TestPlainTextAsyncTestsExist(t *testing.T) {
 	// At least one Test function MUST be declared in this file.
 	re := regexp.MustCompile(`(?m)^func Test\w+\(t \*testing\.T\)`)
 	if !re.MatchString(src) {
-		t.Errorf("internal/pdfcore/plaintext_async_test.go must continue to declare at least one Test* function (baseline: Story 10-1 async test surface preserved)")
+		t.Errorf("internal/pdfcore/plaintext_async_test.go must continue to declare at least one Test* function (the async plain-text test surface must be preserved)")
 	}
 }
 

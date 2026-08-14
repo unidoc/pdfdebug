@@ -88,7 +88,7 @@ func TestMultiStream_JSONNotSilentStreamOne(t *testing.T) {
 // operators. GREEN is either (preferred) NDJSON operator records from BOTH
 // streams, or (floor) a DISTINCT trailing meta record carrying the truncation
 // state (streamCount, no "op" key) that rides the NDJSON without breaching
-// Story 14-1's one-object-per-operator contract.
+// the one-object-per-operator contract.
 // ---------------------------------------------------------------------------
 
 func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {

@@ -1,7 +1,7 @@
 // Package ci_pipeline_test: additional static-validation tests closing coverage
-// gaps in the Story 7.1 CI pipeline.
+// gaps in the CI pipeline.
 //
-// These tests target concrete behaviors mandated by Story 7.1 tasks and Review
+// These tests target concrete behaviors mandated by the CI tasks and Review
 // findings that were not asserted by the original 26 ATDD tests:
 //
 //   - workflow_dispatch trigger (Task 1.2)

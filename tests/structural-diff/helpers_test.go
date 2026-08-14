@@ -4,7 +4,7 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These
 // tests assert the EXPECTED post-implementation behavior of the NEW `diff`
 // command. They MUST FAIL against the current binary (which has no `diff`
-// command) until Story 13-6 is implemented. They fail at RUNTIME (unknown
+// command). They fail at RUNTIME (unknown
 // command -> exit 1 / wrong output shape / wrong exit code), not at compile
 // time, so the main `unidoc-pdf-debugger` module keeps building green (mirrors
 // 13-2 / 13-3 / 13-4 / 13-5). This module has its own go.mod and is not part of

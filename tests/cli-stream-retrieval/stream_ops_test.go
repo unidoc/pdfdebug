@@ -1,4 +1,4 @@
-// Story 11-5 acceptance tests for `dump stream --ops` (item 2) and the
+// Acceptance tests for `dump stream --ops` (item 2) and the
 // Do -> resourceType lookup.
 //
 // Black-box: build the CLI binary and run it as a subprocess. Failures surface

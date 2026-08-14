@@ -1,7 +1,7 @@
 // Hand-authored fixture PDFs.
 //
 // REPRODUCIBILITY: every fixture is built from raw PDF bytes in this file via
-// assembleXref (same approach Story 11-5 used for its cycle/chain fixtures).
+// assembleXref (the same approach the cycle/chain fixtures use).
 // There is NO external tool, no checked-in binary blob: the fixture IS this Go
 // source, so it is reviewable in diff and regenerated deterministically on every
 // `go test` run. To inspect a fixture by hand, write its bytes to a file:
@@ -163,7 +163,7 @@ func noResourcesFixturePDF() []byte {
 	return assembleXref(pdf, obj1, obj2, obj3)
 }
 
-// --- raw-PDF assembly helpers (mirrors Story 11-5's assembleXref) -----------
+// --- raw-PDF assembly helpers (mirrors assembleXref) ----------------------
 
 func itoa(n int) string {
 	if n == 0 {

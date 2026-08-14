@@ -654,7 +654,7 @@ func TestDetailPanelMountsFontPreview(t *testing.T) {
 }
 
 // DetailPanel.fontPreview.test.tsx exists. Mirrors the
-// DetailPanel.reverseRefs.test.tsx pattern used by Story 9-10 -- standalone
+// DetailPanel.reverseRefs.test.tsx pattern -- standalone
 // file to avoid splicing into the existing 1678-line DetailPanel.test.tsx.
 func TestDetailPanelFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)

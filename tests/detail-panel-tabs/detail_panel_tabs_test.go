@@ -165,7 +165,7 @@ func TestXRefEntryNodeIDEncoding(t *testing.T) {
 // in-objstm rows expose the underlying object number in NodeID (NOT the
 // host objstm). Compressed objects use gen=0 per ISO 32000-1 §7.5.8.1, so
 // the nodeID is "obj:0:<num>" where <num> is the underlying object, not the
-// host objstm. R4 of Story 9-11 risks list calls this out explicitly.
+// host objstm. The risks list calls this out explicitly.
 func TestXRefEntryCompressedNodeIDTargetsUnderlyingObject(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableCompressedNodeIDTargetsUnderlying")
 }
@@ -255,7 +255,7 @@ func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextWhitespaceBytesPreserved")
 }
 
-// Retired by Story 10-1: the 25 MiB cap + truncation banner are removed
+// Retired: the 25 MiB cap + truncation banner are removed
 // in favour of a single uncapped lazy-load. See
 // tests/async-plain-text-load/ for the replacement coverage.
 
@@ -611,7 +611,7 @@ func TestPlainTextViewFileExists(t *testing.T) {
 }
 
 // PlainTextView carries the load-bearing
-// data-testids. The 9-11 truncation-banner testid was retired by Story 10-1;
+// data-testids. The truncation-banner testid is retired;
 // the new async loading-card testids are pinned in
 // tests/async-plain-text-load/.
 func TestPlainTextViewTestIds(t *testing.T) {
@@ -627,7 +627,7 @@ func TestPlainTextViewTestIds(t *testing.T) {
 	}
 }
 
-// Retired by Story 10-1: the truncation banner that read capBytes +
+// Retired: the truncation banner that read capBytes +
 // totalBytes from the payload no longer exists. The 10-1 loading card
 // surfaces totalBytes via GetPlainTextSize instead.
 

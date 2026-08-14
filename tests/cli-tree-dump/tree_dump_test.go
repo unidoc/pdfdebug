@@ -345,7 +345,7 @@ func TestTreeDump_MultipagePDF_IncludesPageLabels(t *testing.T) {
 }
 
 // TestTreeDump_MultipagePDF_PlainIncludesPageLabels is the plain-text sibling
-// (Story 13-1): the default (no --json) output is human-readable plain text and
+// The default (no --json) output is human-readable plain text and
 // still names the page structure (label spine), but must NOT be JSON.
 func TestTreeDump_MultipagePDF_PlainIncludesPageLabels(t *testing.T) {
 	bin := buildCLI(t)
@@ -543,7 +543,7 @@ func TestObjectDump_NonexistentFile_JSONError(t *testing.T) {
 // ---------------------------------------------------------------------------
 // `pdfdebug dump stream` with non-existent file returns JSON error on
 // stderr and exit code 2 (file error). Originally tested the stub "not
-// implemented" response; updated after story 5-3 implementation.
+// implemented" response.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_NonexistentFile_JSONError(t *testing.T) {
@@ -644,7 +644,7 @@ func TestUnknownCommand_ExitCode1(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// REVISED by Story 13-1: Tree dump WITHOUT --json now emits human-readable
+// Tree dump WITHOUT --json emits human-readable
 // PLAIN TEXT (the flipped default), NOT JSON. The plain output is structural:
 // indented node lines with the catalog spine. --json opts into the JSON
 // contract (covered by the other JSON cases).

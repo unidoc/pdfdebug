@@ -1,7 +1,7 @@
 # Correctness Fixture Corpus
 
 Hand-authored uncompressed PDFs, each demonstrating exactly one parser /
-data-extraction bug fixed by Story 10.6. Committed as `.pdf` so the failure
+data-extraction bug. Committed as `.pdf` so the failure
 mode stays explicit and reviewable; the generator script is **not** committed
 (an engineer can regenerate any one of these by hand using the byte-level
 description below).
@@ -83,7 +83,7 @@ Post-fix both entries are skipped silently; only the `/space` entry at code
 ## leading-plus.pdf
 
 Single-page PDF whose content stream carries leading-`+` signed operands
-(Story 14-1, F1):
+(F1):
 
 ```
 obj 4: << /Length 16 >> stream
@@ -101,7 +101,7 @@ operator `+5` and `Format()` mis-groups the transform. Post-fix each `+5` is a
 ## comment-and-dangling.pdf
 
 Single-page PDF whose content stream contains a `%` comment line and a trailing
-dangling operand run with no terminating operator (Story 14-1, F2):
+dangling operand run with no terminating operator (F2):
 
 ```
 obj 4: << /Length 40 >> stream
@@ -145,7 +145,7 @@ U+0000`. Pre-fix this entry was silently dropped (the `break` on `tail >
 ## deep-change-a.pdf / deep-change-b.pdf
 
 A pair of single-page PDFs that are byte-identical EXCEPT one scalar nested far
-below the catalog, used to make the `diff` depth cap honest (Story 14-3, #2).
+below the catalog, used to make the `diff` depth cap honest.
 
 ```
 obj 1: /Type /Catalog /Pages 2 0 R /Deep 4 0 R
@@ -170,7 +170,7 @@ the two files share identical byte lengths and xref offsets. 48 objects each.
 ## multi-content-stream.pdf
 
 Single-page PDF whose `/Contents` is an ARRAY of two content-stream refs whose
-operators only balance when concatenated (Story 14-3, #5):
+operators only balance when concatenated:
 
 ```
 obj 3: /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]

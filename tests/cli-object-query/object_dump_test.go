@@ -514,7 +514,7 @@ func TestObjectDump_MissingFilePath_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// REVISED by Story 13-1: Object dump WITHOUT --json emits human-readable
+// Object dump WITHOUT --json emits human-readable
 // PLAIN TEXT (the flipped default), NOT JSON. The plain output is an aligned
 // single record (Object/Type header + Properties block).
 // ---------------------------------------------------------------------------

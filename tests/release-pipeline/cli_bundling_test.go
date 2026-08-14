@@ -1,4 +1,4 @@
-// Package release_pipeline_test: acceptance tests for Story 11.1 -- "Bundle the
+// Package release_pipeline_test: acceptance tests for "Bundle the
 // pdfdebug CLI with the desktop app archives (all platforms)".
 //
 // These tests verify the packaging-only change that ships the pdfdebug CLI

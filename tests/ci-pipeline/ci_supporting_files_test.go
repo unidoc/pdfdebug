@@ -1,4 +1,4 @@
-// Package ci_pipeline_test: supporting-file acceptance tests for Story 7.1.
+// Package ci_pipeline_test: supporting-file acceptance tests for the CI pipeline.
 //
 // Validates the files produced alongside .github/workflows/ci.yml:
 //   - frontend/eslint.config.js (ESLint 9 flat config)

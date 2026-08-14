@@ -1,7 +1,7 @@
 // Package release_pipeline_test: additional static-validation tests closing
 // coverage gaps in the release pipeline.
 //
-// These tests target concrete behaviors mandated by Story 7.2 tasks and Review
+// These tests target concrete behaviors mandated by the release tasks and Review
 // findings that were not asserted by the original 26 acceptance tests:
 //
 //   - actions/download-artifact@v5 uses merge-multiple: true (Task 1.4)
@@ -9,9 +9,9 @@
 //   - build-job timeout-minutes: 45 budget for macOS notarize (Task 1.2)
 //   - Wails CLI pin matches go.mod direct dependency (Task 1.3 #5)
 //   - `wails3 generate bindings -clean=true` present BEFORE any frontend build
-//     (Task 1.3 #7; story 7-1 Review #1 lesson carried forward)
+//     (Task 1.3 #7; the Review #1 lesson carried forward)
 //   - Go 1.26.x and Node 20 pins match ci.yml (cross-workflow consistency;
-//     Dev Notes "Reuse Everything from Story 7-1")
+//     Dev Notes "Reuse Everything from the CI pipeline")
 //   - SemVer validation in Resolve version step (Task 1.3 #8; rejects crafted tags)
 //   - Apple secret gate idiom (`steps.apple_secrets.outputs.available == 'true'`)
 //     (Task 2.6)
@@ -177,7 +177,7 @@ func TestWailsCLIPinMatchesGoMod(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // `wails3 generate bindings -clean=true` runs BEFORE any frontend/GUI build step.
-// Covers Task 1.3 #7 + story 7-1 Review #1 carry-forward (frontend/bindings/
+// Covers Task 1.3 #7 + the Review #1 carry-forward (frontend/bindings/
 // is gitignored; all frontend steps fail without it).
 // ---------------------------------------------------------------------------
 
@@ -675,7 +675,7 @@ func TestWorkflowDispatchTagInputTyped(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Apple-secrets probe emits a `::warning::` on partial-secret state.
-// Covers Story 8-5 pre-flight (the dry-run pre-flight relies on a
+// Covers the release pre-flight (the dry-run pre-flight relies on a
 // partial state being noisy so it isn't accidentally taken for fully-absent;
 // release.yml line 117 emits this warning only when SOME but not ALL of the
 // three codesign secrets are set).
@@ -693,7 +693,7 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 
 	// Must emit a `::warning::` annotation when partial-secret state is detected.
 	// The annotation surfaces in the Actions UI so a partial state is not
-	// silently treated as "fully absent" (see Story 8-5 + Task 1.1).
+	// silently treated as "fully absent".
 	if !strings.Contains(run, "::warning::") {
 		t.Errorf("release.yml: apple_secrets probe must emit `::warning::` on partial-secret state (otherwise partial config silently degrades to unsigned)")
 	}

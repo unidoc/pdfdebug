@@ -1,4 +1,4 @@
-// Story 11-5 acceptance tests for `dump stream --xobject NAME` and
+// Acceptance tests for `dump stream --xobject NAME` and
 // `dump stream --ref REF` (item 3).
 //
 // Black-box: build the CLI binary and run it as a subprocess.
