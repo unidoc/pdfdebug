@@ -1,4 +1,4 @@
-// Package story_10_6_test holds the per-story acceptance test suite for
+// Package pdf_parsing_correctness_fixes_test holds the per-story acceptance test suite for
 // PDF Parsing and Data-Correctness Fixes.
 //
 // This is the structural-assertion suite -- it source-greps the production
@@ -12,7 +12,7 @@
 // named test.
 //
 // Run: cd tests/pdf-parsing-correctness-fixes && go test -v -count=1 ./...
-package story_10_6_test
+package pdf_parsing_correctness_fixes_test
 
 import (
 	"os"
