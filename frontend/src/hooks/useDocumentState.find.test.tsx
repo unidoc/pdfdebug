@@ -1,5 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- reducer suite for
+ * Find Bar in Plain Text View -- reducer suite for
  * per-tab `findCaseSensitive` field + SET_FIND_CASE_SENSITIVE action.
  *
  * Test IDs follow the convention.

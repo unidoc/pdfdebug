@@ -39,8 +39,8 @@ type DocumentState struct {
 	FilePath   string
 	PDFContext *pdfcpu_model.Context
 	PageCount  int
-	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat
-	// (Story 10.6). Surfaced by Inspector.GetPlainTextSize directly (no
+	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat.
+	// Surfaced by Inspector.GetPlainTextSize directly (no
 	// re-stat) and threaded into readPlainText for the buffer pre-size. If the
 	// underlying file is moved or deleted after Open, this value is unchanged.
 	FileSize int64
@@ -84,7 +84,7 @@ type DocumentState struct {
 
 	// plainTextCache caches the per-tab GetPlainText result. Lazy on first
 	// call; mutex coverage includes the I/O so concurrent callers share one
-	// disk read. Story 9-11 Task 2.9 (cap removed in Story 10-1).
+	// disk read. There is no size cap.
 	plainTextMu    sync.Mutex
 	plainTextCache *PlainTextDocument
 
@@ -209,7 +209,6 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 // GetPlainText load is in flight for this tab, the cancel func is invoked
 // before the document is dropped so the read goroutine returns
 // context.Canceled within one chunk-read cycle and releases its file handle.
-// Story 10-1.
 //
 // Critical: the cancel invocation acquires plainTextCancelMu only, NEVER
 // plainTextMu (which the read goroutine holds for the entire I/O). Holding
@@ -241,7 +240,6 @@ func (ins *Inspector) Close(tabID string) error {
 // the higher-level lock". Inspector.Close holds ins.mu briefly to delete the
 // map entry, drops it, then calls closeDocLocked. Inspector.Open holds ins.mu
 // across the closeDocLocked + map-insert pair to keep the lifecycle atomic.
-// Story 10-5.
 func closeDocLocked(doc *DocumentState) {
 	if doc == nil {
 		return

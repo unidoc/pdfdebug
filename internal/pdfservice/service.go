@@ -55,8 +55,8 @@ type inspectorAPI interface {
 // PDFService is the Wails-bound service that exposes PDF inspection to the
 // frontend. It delegates to the inspector backend for all PDF operations.
 //
-// The inspector field is typed as the inspectorAPI interface (the Story 10-5
-// test seam) rather than the concrete *pdfcore.Inspector; the production
+// The inspector field is typed as the inspectorAPI interface (the test seam)
+// rather than the concrete *pdfcore.Inspector; the production
 // constructor injects a *pdfcore.Inspector via pdfcore.NewInspector() and
 // tests inject a stub that panics with a runtime.Error to drive the
 // recoverRuntimePanic path.
@@ -64,7 +64,7 @@ type PDFService struct {
 	inspector inspectorAPI
 	app       *application.App
 	// pendingOpens buffers cold-start file-association paths until the
-	// frontend drains them (Story 12.1). Injected from main.go via
+	// frontend drains them. Injected from main.go via
 	// SetPendingOpens; nil in tests that do not exercise the cold-start path.
 	pendingOpens *pendingopen.Queue
 }
@@ -89,8 +89,8 @@ func NewPDFService(app *application.App) PDFService {
 // closure that owns the deferred recover; the closure writes its result and
 // error into outer locals (via shadow) and the recover overwrites the error
 // local via pointer if a runtime.Error fires. This pattern keeps the method
-// signatures stable (no named returns; the existing Story 10-3
-// signature-preservation contract continues to hold) while still letting the
+// signatures stable (the signature-preservation contract continues to hold,
+// with no named returns) while still letting the
 // recover replace the returned error.
 func recoverRuntimePanic(methodName string, errOut *error) {
 	if r := recover(); r != nil {
@@ -342,8 +342,8 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 }
 
 // GetPlainText returns the Latin-1-decoded file bytes for the document in
-// tabID. Story 10-1 (replaces the 9-11 25 MiB cap + 9-12 "Load all" two-tier
-// model with a single uncapped lazy-load + cancellable chunked read). The
+// tabID. There is no size cap and no two-tier "Load all" step: a single
+// uncapped lazy load feeds a cancellable chunked read. The
 // read is cancellable via CancelPlainText; cancellation surfaces an error
 // satisfying errors.Is(err, context.Canceled).
 //
@@ -379,7 +379,7 @@ func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 }
 
 // ConsumePendingOpenFiles drains and returns any file-association paths that
-// were buffered before the frontend was ready (cold start). Story 12.1: thin
+// were buffered before the frontend was ready (cold start). A thin
 // delegation to Queue.Drain -- the frontend calls this immediately after
 // registering its document:opened listener. Returns nil when no queue is wired
 // (the unwired-or-empty case marshals to JSON null, which the frontend treats

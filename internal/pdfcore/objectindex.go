@@ -116,7 +116,7 @@ func buildReachableSet(doc *DocumentState) map[int]bool {
 		reachable[rootRef.ObjectNumber.Value()] = true
 	}
 
-	// Story 10.6: no depth cap. The visited-set (the `reachable` map plus the
+	// No depth cap. The visited-set (the `reachable` map plus the
 	// in-progress check inside queueRefs) already prevents cycles; the prior
 	// depth guard mislabeled legitimate-but-deep PDFs (page-tree chains over 32
 	// levels deep) as orphan trees.

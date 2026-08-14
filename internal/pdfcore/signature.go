@@ -289,7 +289,7 @@ func isCMSSubFilter(sub string) bool {
 // to surface certificates, the signer identity, and the SignerInfo algorithms.
 // encoding/asn1 is strict DER: BER indefinite-length blobs (some CAdES
 // signers) degrade to the per-signature DecomposeError, which is acceptable
-// decompose-and-display behavior (Story 13-4 Dev Notes).
+// decompose-and-display behavior.
 
 // oidCMSSignedData is id-signedData (1.2.840.113549.1.7.2).
 var oidCMSSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}

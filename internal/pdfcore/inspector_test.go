@@ -898,7 +898,7 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 	}
 }
 
-// --- Story 4.2: Multi-Document State Isolation ---
+// --- Multi-Document State Isolation ---
 
 // Two independent DocumentState entries.
 func TestTwoDocumentStatesIndependent(t *testing.T) {
@@ -1085,8 +1085,8 @@ func TestStreamCacheIsolationAfterClose(t *testing.T) {
 }
 
 // TestFindPathToObjectDeepNesting verifies findPathToObject (the
-// orphan-detection BFS in inspector.go) no longer caps the walk at depth 32
-// (Story 10.6). With the deep-nesting fixture (page-tree chain of 53
+// orphan-detection BFS in inspector.go) does not cap the walk at depth 32.
+// With the deep-nesting fixture (page-tree chain of 53
 // objects), GetAncestorPath to the deepest leaf MUST return a path that
 // starts at "root" and threads through every intermediate Pages node.
 func TestFindPathToObjectDeepNesting(t *testing.T) {

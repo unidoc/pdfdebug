@@ -1,6 +1,6 @@
 package trustworthy_stream_test
 
-// Story 14.1 -- machine-contract correctness of `dump stream --json` / `--ops`.
+// Machine-contract correctness of `dump stream --json` / `--ops`.
 // The two contract tests below pin leading-'+' operand tokenization and the
 // absence of empty-operator --ops records. The fixture-sanity test guards the
 // suite against an unparseable fixture.

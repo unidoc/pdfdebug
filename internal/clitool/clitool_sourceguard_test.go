@@ -1,4 +1,4 @@
-// Source-guard test for Story 11.2 (b): the install path's security guarantee
+// Source-guard test: the install path's security guarantee
 // is "no shell exists" -- which cannot be asserted by inspecting a
 // (non-existent) shell string. So this test asserts, at AST + content level,
 // that the production source of package clitool imports neither `os/exec` nor

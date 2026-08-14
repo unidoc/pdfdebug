@@ -1,6 +1,6 @@
 package signature_decomposition_test
 
-// Story 13.4 -- signature enumeration + CLI surface.
+// Signature enumeration + CLI surface.
 
 import (
 	"strings"

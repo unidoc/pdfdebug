@@ -257,7 +257,7 @@ func TestErrorBannerHasTestIDs(t *testing.T) {
 
 	content := readFile(t, "frontend/src/components/ErrorBanner.tsx")
 
-	// Story 2-9 made the root testid severity-aware (error-banner / warning-banner)
+	// Made the root testid severity-aware (error-banner / warning-banner)
 	// so check for the dynamic pattern and the static child testids.
 	testIDs := []string{
 		`data-testid={testId}`,

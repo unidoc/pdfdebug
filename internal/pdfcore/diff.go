@@ -363,8 +363,8 @@ func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth 
 	// current path (e.g. a page's /Parent). The target is fully accounted for
 	// by its first visit, so the shallow-summary comparison hides nothing - this
 	// is NOT truncation and must not be marked (marking it would flip every real
-	// multi-page PDF to a false non-identical; Story 14.3 "Only the depth cap is
-	// truncation").
+	// multi-page PDF to a false non-identical). Only the depth cap is
+	// truncation.
 	if leftCycle || rightCycle {
 		return scalarLeaf(path, "ref", lres, rres)
 	}
@@ -490,7 +490,7 @@ func countDelta(n *DiffNode, s *DiffSummary) {
 	}
 	// A depth-capped node is counted regardless of its shallow-summary status:
 	// its subtree was not walked, so a matching summary does not prove equality
-	// (Story 14.3).
+	// walked.
 	if n.Truncated {
 		s.TruncatedSubtrees++
 	}

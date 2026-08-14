@@ -9,7 +9,7 @@
  *
  * The debounce timer and pending-write buffers live at module scope so that
  * multiple consumers (e.g. App.jsx for window geometry, MainLayout.tsx for
- * panel sizes) coalesce into a single write, per story 8-4. If the refs were
+ * panel sizes) coalesce into a single write. If the refs were
  * per-instance, each consumer would maintain its own timer and a panel save
  * + a geometry save within 500ms would produce two writes.
  */

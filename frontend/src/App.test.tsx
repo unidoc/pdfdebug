@@ -51,11 +51,11 @@ vi.mock(
     GetObjectDetail: vi.fn(),
     GetContentStream: vi.fn(),
     GetAncestorPath: vi.fn(),
-    // Story 12-1 harness gap: ConsumePendingOpenFiles was missing from this mock,
+    // Harness gap: ConsumePendingOpenFiles was missing from this mock,
     // emitting 10 unhandled errors per run. Stubbed here so the cold-start drain
     // resolves cleanly (closes the pre-existing gap).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
-    // Story 13.2 new bound methods: mocked so DetailPanel's new tabs never widen
+    // New bound methods: mocked so DetailPanel's new tabs never widen
     // the gap.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),

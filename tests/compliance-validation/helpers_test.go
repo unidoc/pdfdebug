@@ -1,4 +1,4 @@
-// Story 13-5 acceptance test harness for the top-level CLI
+// Acceptance test harness for the top-level CLI
 // command `validate` (structural PDF/A-1b and PDF/UA-1-structural conformance
 // checks with jump-to-object).
 //

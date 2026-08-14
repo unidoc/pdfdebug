@@ -1017,7 +1017,7 @@ func TestTokenizeContentStreamEdgeCases(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Tokenizer delivers inline-image payloads opaquely.
 //
-// Locks the contract that Story 9-6's content-stream formatter depends on:
+// Locks the contract the content-stream formatter depends on:
 // for any BI..ID..<bytes>..EI sequence the tokenizer emits exactly
 // [..., {operator ID}, {string <payload>}, {operator EI}] with the payload
 // delivered as ONE string token regardless of whitespace, newlines, or the
@@ -1223,7 +1223,7 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// Story 10-5 -- concurrent cache-build race avoidance
+// Concurrent cache-build race avoidance
 // ---------------------------------------------------------------------------
 
 // TestGetContentStreamConcurrentSameNode asserts two concurrent GetContentStream

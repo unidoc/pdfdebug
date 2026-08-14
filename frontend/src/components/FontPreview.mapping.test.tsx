@@ -23,7 +23,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import { FontPreview } from './FontPreview';
 
-// Local fixture shapes that include the NEW Story 13.3 fields. Typed locally
+// Local fixture shapes that include the mapping fields. Typed locally
 // (not imported) so this file compiles before model.go / FontPreview.tsx grow
 // the fields; the component is invoked through an `as never`-free structural
 // cast at the call site.
@@ -60,7 +60,7 @@ type FontDetail13_3 = {
   cidSystemInfo: null;
   cidToGIDMap: string;
   defaultWidth: number;
-  // Story 13.3 additions.
+  // Mapping-table and health-signal additions.
   mappingRows: FontMappingRowData[];
   health: FontHealthData | null;
 };

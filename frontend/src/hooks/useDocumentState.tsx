@@ -19,8 +19,7 @@ export interface TreeNode {
   error: string;
   /**
    * "<num> <gen> R" for indirect objects; "" for inline scalars/arrays/dicts
-   * without an indirect identity. Renders as the [N G R] suffix on tree rows
-   * (Story 9-8).
+   * without an indirect identity. Renders as the [N G R] suffix on tree rows.
    */
   objectRef: string;
   /**

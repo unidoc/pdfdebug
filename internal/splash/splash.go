@@ -6,7 +6,7 @@
 // dependency, so the min-display floor, the timeout race and the version
 // render are unit-testable in isolation.
 //
-// Story 9.13 picked Option B (separate WebviewWindow as the splash) over
+// Picked Option B (separate WebviewWindow as the splash) over
 // Option A (native pre-WebView window) because Wails v3 alpha.85 does not
 // expose a pre-WebView native window primitive on Windows; rolling our own
 // Win32 CreateWindowEx + NSWindow + GtkWindow trio would have ballooned the
@@ -372,7 +372,7 @@ const splashHTMLTemplate = `<!DOCTYPE html>
   // (that lives in @wailsio/runtime/src/events.ts which is never loaded
   // for HTML-loaded windows). We define our own dispatchWailsEvent stub
   // below so splash:dismiss (fade) and splash:timeout (error pane
-  // reveal) reach the splash. See review #3 in story 9-13 for the full
+  // reveal) reach the splash. See the splash review notes for the full
   // analysis.
   //
   // The Close button on the error pane cannot Events.Emit back to Go

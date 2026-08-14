@@ -489,7 +489,7 @@ func TestParseDifferences(t *testing.T) {
 	}
 }
 
-// --- Aliases bridging story 9-9 acceptance test name expectations to the
+// --- Aliases bridging the acceptance-suite test name expectations to the
 // implementation tests above. The tests/font-inspection acceptance suite uses
 // exact `-run` patterns; renaming the implementation tests would break the
 // vitest-style readability, so we keep the original tests and add focused

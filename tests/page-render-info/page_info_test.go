@@ -1,4 +1,4 @@
-// Story 11-6 acceptance tests for `pdfdebug dump page --info N`.
+// Acceptance tests for `pdfdebug dump page --info N`.
 //
 // These assert the assembled-view behaviour. Failures are at RUNTIME (unknown
 // resource / wrong JSON / wrong exit code), keeping the main module's build

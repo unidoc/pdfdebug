@@ -7,7 +7,7 @@
  * Pure presentational: receives all data plus an onReferenceClick handler.
  * No Wails calls, no useAppDispatch. Mirrors the ImagePreview pattern.
  *
- * The Story 13.3 joined mapping table is viewport-virtualized with the same
+ * The joined mapping table is viewport-virtualized with the same
  * hand-rolled windowing approach as PlainTextView (a tall spacer fixes total
  * scroll height; only the visible slice of rows renders), so a CID font with
  * thousands of codes keeps the panel interactive (NFR5) with no new dependency.
@@ -98,7 +98,7 @@ export interface FontDetailData {
   /** Assembled per-code mapping table: the JOIN of Differences + ToUnicode
    *  over the union of declared codes. */
   mappingRows: FontMappingRowData[];
-  /** Coverage/health diagnostic signals (Story 13.3). Null when the
+  /** Coverage/health diagnostic signals. Null when the
    *  backend did not populate it (older payloads). */
   health: FontHealthData | null;
 }

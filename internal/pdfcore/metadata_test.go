@@ -1,4 +1,4 @@
-// Story 13-2 co-located unit tests for the document metadata view.
+// Co-located unit tests for the document metadata view.
 //
 // Exercises the NEW pdfcore surface:
 //

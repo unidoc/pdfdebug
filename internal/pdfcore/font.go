@@ -37,7 +37,7 @@ var fontFlagOrder = []int{1, 2, 3, 4, 6, 7, 17, 18, 19}
 //
 // Returns ErrNotAFont when the resolved dict does not carry /Type /Font; the
 // frontend uses this sentinel to silently fall back to the generic DictView
-// for the /Resources /Font resource-map iconHint false positive (story 9-9
+// for the /Resources /Font resource-map iconHint false positive (see the
 // Task 1.3).
 func (ins *Inspector) GetFontDetail(tabID, nodeID string) (*FontDetail, error) {
 	if nodeID == "" {

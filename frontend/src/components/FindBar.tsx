@@ -1,5 +1,5 @@
 /**
- * @file Presentational find-bar component for Story 10-2. Static structure
+ * @file Presentational find-bar component. Static structure
  * (input + count + case toggle + prev + next + close) plus conditional
  * non-Latin-1 hint and wrap-status. All state lives in useFindBar; this
  * component is pure props -> DOM.

@@ -12,7 +12,7 @@ if (!rootEl) {
   throw new Error('Root element #root not found in document');
 }
 
-// Story 9.13: the main window's #root starts at opacity 0 (set in
+// The main window's #root starts at opacity 0 (set in
 // index.html) so the splash crossfade is not defeated by an opaque first
 // paint. The .splash-dismissed class flips opacity to 1 via the 200ms
 // CSS transition. The class is added either when Go emits

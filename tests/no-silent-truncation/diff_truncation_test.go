@@ -1,6 +1,6 @@
 package no_silent_truncation_test
 
-// Story 14.3 #2 -- the diff depth-cap quiet lie.
+// The diff depth-cap quiet lie.
 //
 // The depth-32 diff cap compares any subtree below it by SHALLOW SUMMARY only.
 // deep-change-{a,b}.pdf differ by one scalar (/V 111 vs /V 222) nested ~45

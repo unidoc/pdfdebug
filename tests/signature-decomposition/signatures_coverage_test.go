@@ -1,6 +1,6 @@
 package signature_decomposition_test
 
-// Story 13.4 -- ByteRange coverage facts.
+// ByteRange coverage facts.
 //
 // Coverage is a MEASUREMENT, never a validity verdict: the JSON carries
 // coversWholeFile / trailingGap / holeMatchesContents / coverageError.

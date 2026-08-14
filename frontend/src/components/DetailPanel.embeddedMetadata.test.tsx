@@ -49,7 +49,7 @@ vi.mock(
     GetPlainText: vi.fn().mockResolvedValue({ tabId: 'tab-1', content: '', totalBytes: 0 }),
     GetPlainTextSize: vi.fn().mockResolvedValue(0),
     CancelPlainText: vi.fn(),
-    // The four NEW Story 13.2 bound methods.
+    // The four embedded/metadata bound methods.
     GetEmbeddedFiles: (...a: unknown[]) => mockGetEmbeddedFiles(...a),
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: (...a: unknown[]) => mockGetEmbeddedFileBytes(...a),
@@ -128,7 +128,7 @@ describe('DetailPanel Embedded + Metadata tabs', () => {
   });
 
   // The Metadata tab trigger is present beside Embedded. Base tab bar is now 7
-  // triggers after Story 13.6 added the Diff tab:
+  // triggers, the Diff tab included:
   // object/xref/plaintext/embedded/metadata/validate/diff.
   test('Metadata tab trigger present (7 tabs total)', async () => {
     renderPanel([openAction]);

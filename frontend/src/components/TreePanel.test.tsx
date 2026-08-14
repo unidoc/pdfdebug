@@ -265,7 +265,7 @@ describe('TreePanel renders root and expands on click', () => {
     expect(screen.getByText('Catalog')).toBeInTheDocument();
   });
 
-  test('renders immediate children of the root (pre-loaded from story 2-4)', async () => {
+  test('renders immediate children of the root (pre-loaded)', async () => {
 
     render(
       <AppProvider>
@@ -880,7 +880,7 @@ describe('Tree icons rendered from iconHint', () => {
 
 describe('SELECT_NODE action in useDocumentState', () => {
   test('TabState has selectedNodeId field initialized to null on OPEN_DOCUMENT', async () => {
-    // This test validates that the state shape is correct after story 2-5 changes.
+    // This test validates that the state shape is correct.
     // The reducer must initialize selectedNodeId: null on OPEN_DOCUMENT.
 
     function StateInspector() {
@@ -1361,7 +1361,7 @@ describe('Tree expansion state preserved across tab switches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.3 supplemental: Tree cache cleanup on tab close
+// Supplemental: Tree cache cleanup on tab close
 //
 // Verifies that the treeDataCache cleanup useEffect (TreePanel.tsx lines
 // 235-246) evicts entries for closed tabs. Since the cache is a useRef

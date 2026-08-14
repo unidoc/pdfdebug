@@ -3,7 +3,7 @@
  * from App.jsx so it can be tested in isolation against synthetic
  * Screens.GetAll() payloads.
  *
- * Story 8-4 traceability follow-up: closes the PARTIAL coverage gap
+ * Traceability follow-up: closes the PARTIAL coverage gap
  * (WorkArea intersection logic had no unit test).
  *
  * Run: cd frontend && npx vitest run src/lib/windowGeometryGuard.test.ts

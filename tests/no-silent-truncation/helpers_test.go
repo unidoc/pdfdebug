@@ -1,4 +1,4 @@
-// Story 14-3 acceptance harness for the "no silent truncation" rule
+// Acceptance harness for the "no silent truncation" rule
 // across two machine-contract surfaces: `diff` (depth-cap under-report) and
 // `dump stream` (multi-stream /Contents).
 //

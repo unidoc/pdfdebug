@@ -1,4 +1,4 @@
-// Story 13-6 unit tests for the path-aligned structural diff engine.
+// Unit tests for the path-aligned structural diff engine.
 //
 // These are co-located pdfcore UNIT tests (the project's precedent for keystone
 // pdfcore logic; see resolve_ref_atdd_test.go for 11-5). They assert the
@@ -255,7 +255,7 @@ func containsStr(ss []string, s string) bool {
 // << /L (n+1) 0 R >>, terminating in a << /V value >> leaf. With chainLen well
 // above maxResolveDepth (32) the diff's depth cap cuts the chain before it
 // reaches the leaf, so a change in the leaf's /V is HIDDEN behind the shallow
-// summary at the cut (Story 14.3 #2). Mirrors testdata/correctness/
+// summary at the cut. Mirrors testdata/correctness/
 // deep-change-{a,b}.pdf without touching disk.
 func diffDeepChain(chainLen int, leafValue string) []byte {
 	objs := []string{

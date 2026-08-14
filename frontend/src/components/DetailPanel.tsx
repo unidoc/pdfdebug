@@ -1,8 +1,8 @@
 /**
  * @file Right-hand detail panel. Shows the full object detail for the
- * selected tree node, with a contextual header label. Story 9-11 adds a tab
- * bar at the top with three tabs: Object (per-selection), XREF (document-level
- * xref table), Plain Text (document-level Latin-1 bytes).
+ * selected tree node, with a contextual header label. A tab bar at the top
+ * carries Object (per-selection), XREF (document-level xref table) and Plain
+ * Text (document-level Latin-1 bytes).
  */
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -64,11 +64,11 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/** Which of the seven DetailPanel tabs is currently active. Story 13.2 adds
- *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP);
- *  Story 13.4 adds 'signatures' (shown only when signature fields exist);
- *  Story 13.5 adds 'validate' (structural conformance checks); Story 13.6 adds
- *  'diff' (side-by-side structural diff against a second PDF). */
+/** Which of the seven DetailPanel tabs is currently active. 'embedded' is
+ *  attachments/associated files and 'metadata' is Info + XMP; 'signatures' is
+ *  shown only when signature fields exist; 'validate' runs the structural
+ *  conformance checks; 'diff' is the side-by-side structural diff against a
+ *  second PDF. */
 type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'validate' | 'signatures' | 'diff';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
@@ -99,7 +99,7 @@ function DetailPanelInner() {
   const [fontState, setFontState] = useState<FontFetchState>(null);
   const [showFontLoading, setShowFontLoading] = useState(false);
 
-  // Story 9-10: reverse-refs are fetched per-selection. The backend has the
+  // Reverse-refs are fetched per-selection. The backend has the
   // document-level index so the call is O(1); no client cache is needed.
   // reverseRefsLoaded gates the section render until the fetch resolves so an
   // in-flight selection does not flash the orphan empty state for objects that
@@ -116,14 +116,14 @@ function DetailPanelInner() {
   // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
-  // label (Story 13.2, mirrors the XREF count pattern).
+  // label (mirrors the XREF count pattern).
   const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
   // The signature list drives the Signatures tab visibility. ONE
   // GetSignatures fetch per document tab, made on mount and cached here (no
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
-  // Story 13.6: the second (comparison) document's tab ID for the Diff tab, and
+  // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
   const [diffRightTabId, setDiffRightTabId] = useState<string | null>(null);
@@ -467,7 +467,7 @@ function DetailPanelInner() {
   }, [dispatch]);
 
   /**
-   * Story 13.6: pick a second PDF to diff against the active document. Opens a
+   * Pick a second PDF to diff against the active document. Opens a
    * native file dialog, loads the chosen file into the shared inspector as a new
    * tab, and stores its tab ID as the diff's right-hand side. A cancelled dialog
    * (empty selection) is a no-op.

@@ -9,8 +9,8 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-// fontFlags extends byRefFlags with the font-only --glyphs verbosity toggle
-// (Story 13.3): without it the plain output is a bounded summary, with it the
+// fontFlags extends byRefFlags with the font-only --glyphs verbosity toggle:
+// without it the plain output is a bounded summary, with it the
 // full per-code mapping table. --glyphs has no effect on --json (the JSON
 // surface is always complete).
 type fontFlags struct {
@@ -109,8 +109,8 @@ func printFontPlain(out io.Writer, v *pdfcore.FontView, glyphs bool) error {
 // printFontDetailPlain renders a single FontDetail as an aligned key/value
 // block, with the descendant CIDFont (composite Type0 fonts) appended. The
 // mapping table follows: a bounded summary (declared-code count + health
-// signals) by default, or the full per-code table when glyphs is true
-// (Story 13.3). NON-CONTRACTUAL.
+// signals) by default, or the full per-code table when glyphs is true.
+// NON-CONTRACTUAL.
 func printFontDetailPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) error {
 	if d == nil {
 		_, err := io.WriteString(out, "Font: (no detail)\n")

@@ -223,7 +223,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         <span className="text-text-muted ml-1.5 text-xs">{data.rawKey}</span>
       )}
 
-      {/* Inline object ref [N G R] (Story 9-8) */}
+      {/* Inline object ref [N G R] */}
       {data.objectRef !== '' && (
         <span
           className="text-text-muted ml-1.5 text-xs whitespace-nowrap"
@@ -233,7 +233,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         </span>
       )}
 
-      {/* /T:<TypeName> suffix with dedup (Story 9-8) */}
+      {/* /T:<TypeName> suffix with dedup */}
       {shouldRenderTypeSuffix(data.name, data.typeName) && (
         <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap">
           /T:{data.typeName}

@@ -53,7 +53,7 @@ vi.mock(
     GetEmbeddedFileBytes: vi.fn(),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '' }),
     SaveBytesToFile: vi.fn(),
-    // The NEW Story 13.4 bound method.
+    // The signatures bound method.
     GetSignatures: (...a: unknown[]) => mockGetSignatures(...a),
   })
 );

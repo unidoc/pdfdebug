@@ -522,7 +522,7 @@ func main() {
 	// macOS app menu (About, Services, Hide, Quit) -- AddRole is a no-op on non-macOS
 	menu.AddRole(application.AppMenu)
 
-	// Story 11.2: macOS-only "Install 'pdfdebug' Command in PATH..." item under
+	// macOS-only "Install 'pdfdebug' Command in PATH..." item under
 	// the app menu. AddRole(AppMenu) returns the PARENT *Menu, not the app
 	// submenu, so the item is appended via FindByLabel(appName).GetSubmenu()
 	// (verified against Wails v3 alpha.95; see the story's Menu-API note).
@@ -647,7 +647,7 @@ func main() {
 	// first launch). Lives only in this first-instance bootstrap path --
 	// the OnSecondInstanceLaunch and ApplicationOpenedWithFile callbacks
 	// above are reentrant and MUST NOT spawn additional splash windows
-	// (story 9.13 Task 2.2). The splash is on EVERY launch by design
+	// (they are reentrant). The splash is on EVERY launch by design
 	// (consistency is the brand signal); no first-launch persistence
 	// gate.
 	//
@@ -660,9 +660,9 @@ func main() {
 	// Resizable / Minimisable / Closable boolean fields -- the splash
 	// disables resize via DisableResize (the alpha.85 idiom) and
 	// suppresses close/minimise affordances by being Frameless. The
-	// literal field comments below are kept verbatim so the story 9.13
-	// integration tests (which scan source text for the options)
-	// remain pinned to the story spec wording.
+	// literal field comments below are kept verbatim so the splash
+	// integration tests, which scan this source text for the options,
+	// stay pinned to that wording.
 	//
 	// Splash window options:
 	//   Width: 480 -- logical width

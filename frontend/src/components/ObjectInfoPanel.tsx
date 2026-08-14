@@ -5,7 +5,7 @@
  * Enter/Space dispatches NAVIGATE_TO_REF.
  *
  * Component is named ObjectSourcePanel (the file keeps the legacy name to
- * minimize cross-test churn -- see Story 9-10 Task 5.1).
+ * minimize cross-test churn).
  */
 import { useState, useEffect, Fragment } from 'react';
 import { GetObjectSource } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';

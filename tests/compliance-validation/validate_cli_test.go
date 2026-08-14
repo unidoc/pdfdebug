@@ -1,6 +1,6 @@
 package compliance_validation_test
 
-// Story 13.5 -- the top-level `validate` command.
+// The top-level `validate` command.
 
 import (
 	"regexp"

@@ -6,7 +6,7 @@
  * synthetic Screens.GetAll() payloads (multi-monitor, monitor-disconnected,
  * empty-array fallback paths).
  *
- * Story 8-4 Task 5.2 (off-screen guard) and Task 5.3 (size clamp).
+ * Task 5.2 (off-screen guard) and Task 5.3 (size clamp).
  */
 import type { WindowGeometry } from '../hooks/useWindowPersistence';
 

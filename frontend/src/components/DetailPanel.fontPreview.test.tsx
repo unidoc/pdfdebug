@@ -221,7 +221,7 @@ describe('Kind=neither silent DictView fallback', () => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
     });
     // No font-specific UI: no font-embedding badge, no font sections. Scope the
-    // query to the Object pane so it does NOT match the Story 13.2 "Embedded"
+    // query to the Object pane so it does NOT match the "Embedded"
     // tab trigger (a document-level tab, not font UI).
     const objectPane = screen.getByTestId('detail-pane-object');
     expect(within(objectPane).queryByText(/Embedded/)).not.toBeInTheDocument();

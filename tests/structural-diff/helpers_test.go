@@ -1,4 +1,4 @@
-// Story 13-6 acceptance harness for the top-level CLI command
+// Acceptance harness for the top-level CLI command
 // `diff` (path-aligned structural diff of two PDFs).
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These

@@ -6,7 +6,7 @@
  * (capture-1 = num, capture-2 = gen). Swapping them dispatches silently
  * wrong navigation.
  *
- * The original test file (Story 2-6 / 2-8) is replaced. The file path stays
+ * The original test file is replaced. The file path stays
  * the same to minimise import churn elsewhere (Task 5.1).
  *
  * Run: cd frontend && npx vitest run src/components/ObjectInfoPanel.test.tsx

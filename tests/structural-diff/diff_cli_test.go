@@ -1,6 +1,6 @@
 package structural_diff_test
 
-// Story 13.6 -- the top-level `diff` command.
+// The top-level `diff` command.
 
 import (
 	"strings"

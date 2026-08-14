@@ -1,4 +1,4 @@
-// Story 11-6 hand-authored fixture PDFs.
+// Hand-authored fixture PDFs.
 //
 // REPRODUCIBILITY: every fixture is built from raw PDF bytes in this file via
 // assembleXref (same approach Story 11-5 used for its cycle/chain fixtures).

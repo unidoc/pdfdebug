@@ -213,7 +213,7 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	}
 
 	// File-moved path: open from a temp location, remove the file, assert the
-	// cached size is returned without error (Story 10.6: no re-stat).
+	// cached size is returned without error and without a re-stat.
 	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {

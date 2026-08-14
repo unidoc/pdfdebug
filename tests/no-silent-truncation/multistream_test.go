@@ -1,6 +1,6 @@
 package no_silent_truncation_test
 
-// Story 14.3 #5 -- multi-stream /Contents shows only the first stream.
+// Multi-stream /Contents must not show only the first stream.
 //
 // multi-content-stream.pdf has one page whose /Contents is an array of two
 // stream refs. Stream 1 is `q ... cm` (opens a graphics state, NO matching Q);

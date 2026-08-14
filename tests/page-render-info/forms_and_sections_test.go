@@ -1,4 +1,4 @@
-// Story 11-6 acceptance tests: recursive Form walk and --section scoping.
+// Acceptance tests: recursive Form walk and --section scoping.
 // Black-box.
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...

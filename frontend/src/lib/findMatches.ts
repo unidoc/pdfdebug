@@ -1,5 +1,5 @@
 /**
- * @file Pure-function literal-substring match finder for Story 10-2 Plain Text
+ * @file Pure-function literal-substring match finder for the Plain Text
  * find bar. Operates over the Latin-1 byte-for-codepoint string produced by
  * internal/pdfcore/plaintext.go's latin1Decode -- any query codepoint > U+00FF
  * cannot match by construction and short-circuits to an empty list.

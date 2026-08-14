@@ -1,4 +1,4 @@
-// Story 9-11 / 10-1: Plain Text view tests.
+// Plain Text view tests.
 //
 // Test names are referenced by the runPdfcoreTest patterns in
 // tests/detail-panel-tabs/ and tests/async-plain-text-load/.

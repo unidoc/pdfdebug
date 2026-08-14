@@ -1,7 +1,6 @@
 /**
  * @file Single result row in the Cmd+K palette. Renders the object ref,
  * /Type, and (when this row is highlighted) the breadcrumb path.
- * Story 9-8 Task 4.
  */
 import type { ObjectIndexEntry } from '../../types/palette';
 

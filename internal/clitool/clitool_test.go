@@ -1,6 +1,6 @@
-// Package clitool unit tests. Originally Story 11.2 "macOS: Install 'pdfdebug'
-// Command in PATH"; revised in Story 12.1 to install ONLY into ~/.local/bin
-// (never a Homebrew prefix) and to offer an "Add it for me" shell-profile edit
+// Package clitool unit tests. The installer targets the macOS "Install
+// 'pdfdebug' Command in PATH" action, installs ONLY into ~/.local/bin (never a
+// Homebrew prefix), and offers an "Add it for me" shell-profile edit
 // when ~/.local/bin is not on $PATH.
 //
 // Scope: all install business logic is pure Go and OS-filesystem, so every AC

@@ -1,4 +1,4 @@
-// Story 13-1 acceptance test harness for CLI output format
+// Acceptance test harness for CLI output format
 // normalization: plain text is the default for every `dump` command, JSON is
 // emitted only behind --json, --pretty applies only to JSON, --raw/--ops stay
 // an orthogonal payload axis, and `dump page --info --json` carries an in-band

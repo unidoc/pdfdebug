@@ -1,5 +1,5 @@
 /**
- * @file Find-bar state hook for Story 10-2. Owns the local find-bar state
+ * @file Find-bar state hook. Owns the local find-bar state
  * (open / query / matches / activeIndex / wrapped / openedOnce) and wires the
  * Cmd+F / Ctrl+F / F3 / Shift+F3 keyboard listeners at window level, gated on
  * the active prop. Esc is NOT bound here -- the FindBar component scopes its

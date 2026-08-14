@@ -14,8 +14,7 @@ type TreeNode struct {
 	IconHint    string `json:"iconHint"`
 	Error       string `json:"error"`
 	// ObjectRef is "<num> <gen> R" when the node corresponds to an indirect
-	// object, "" otherwise. Powers the inline [N G R] suffix on tree rows
-	// (Story 9-8).
+	// object, "" otherwise. Powers the inline [N G R] suffix on tree rows.
 	ObjectRef string `json:"objectRef"`
 	// TypeName is the literal /Type value of the resolved dict (e.g. "Pages",
 	// "Page", "Font"), "" when the dict has no /Type entry or the node is not
@@ -73,7 +72,7 @@ type ContentStreamData struct {
 
 // FormattedLine is one logical PDF operation in a content stream: zero or more
 // operand tokens followed by their operator, plus the indent depth and the
-// source-byte-line range the operation came from. Story 9-6 introduced this
+// source-byte-line range the operation came from. This
 // shape so the frontend can render formatted view as a flat row sequence
 // without re-deriving operator boundaries or indent client-side.
 type FormattedLine struct {
@@ -166,7 +165,7 @@ type PageRenderOpts struct {
 // actually Does); it does not parse the content stream.
 //
 // EXPERIMENTAL CONTRACT (caution 1): the field set is derived from a single
-// transcript. It is NOT a frozen contract. Story 11-5's low-level flags
+// transcript. It is NOT a frozen contract. The low-level flags
 // (dump stream --xobject/--ref/--ops, dump tree/dump object --resolve) remain
 // the escape hatch for anything this omits. STRUCTURAL ONLY (caution 2): every
 // field is file-resident structure (names, refs, function types, profile
@@ -385,7 +384,7 @@ type FontDetail struct {
 	CIDSystemInfo *CIDSystemInfo `json:"cidSystemInfo"`
 	CIDToGIDMap   string         `json:"cidToGIDMap"`
 	DefaultWidth  int            `json:"defaultWidth"`
-	// MappingRows is the assembled per-code mapping table (Story 13.3): the
+	// MappingRows is the assembled per-code mapping table: the
 	// JOIN of Differences (glyph name) and ToUnicodeMappings (unicode + literal
 	// text) over the union of declared codes. Assembled, never re-parsed.
 	MappingRows []FontMappingRow `json:"mappingRows"`
@@ -409,8 +408,8 @@ type FontMappingRow struct {
 	UnicodeText string `json:"unicodeText"` // literal glyph string, "" if none
 }
 
-// FontHealth carries the coverage/health diagnostic signals for a font
-// (Story 13.3). These surface the classic text-extraction failure modes
+// FontHealth carries the coverage/health diagnostic signals for a font.
+// These surface the classic text-extraction failure modes
 // explicitly rather than leaving the user to infer them.
 type FontHealth struct {
 	// DeclaredCodeCount is the count of distinct declared codes (the union of
@@ -536,9 +535,8 @@ type XRefEntry struct {
 // returned by Inspector.GetPlainText. Latin-1 is a deliberate choice over
 // UTF-8 because UTF-8 decode would inject replacement characters for valid
 // PDF byte sequences inside stream contents; Latin-1 is lossless byte-for-byte
-// (every byte maps to a Unicode codepoint U+0000-U+00FF). Story 9-11; the
-// Truncated and CapBytes fields were removed in Story 10-1 alongside the
-// single uncapped lazy-load contract.
+// (every byte maps to a Unicode codepoint U+0000-U+00FF). There are no
+// Truncated or CapBytes fields: the load is a single uncapped lazy read.
 type PlainTextDocument struct {
 	TabID      string `json:"tabId"`
 	Content    string `json:"content"`    // Latin-1-decoded full-file bytes

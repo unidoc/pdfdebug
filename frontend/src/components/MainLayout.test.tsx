@@ -1,7 +1,7 @@
 /**
  * MainLayout renders TreePanel component.
  *
- * Updated for Story 2-5: MainLayout now uses TreePanel instead of inline static list.
+ * MainLayout uses TreePanel instead of an inline static list.
  */
 import { render, screen, act } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -190,19 +190,18 @@ describe('MainLayout tree content', () => {
 /**
  * MainLayout pane structure.
  *
- * Replaces the deleted source-grep test `TestMainLayoutTwoColumnStructure`
- * (Story 4-5, test #4) which asserted the literal string
- * `preferredSize={300}` in MainLayout.tsx. That literal became conditional
- * in Story 4-4 (`{...(panelSizes ? {} : { preferredSize: 300 })}`), so the
- * grep broke even though behaviour was preserved.
+ * Replaces the deleted source-grep test `TestMainLayoutTwoColumnStructure`,
+ * which asserted the literal string `preferredSize={300}` in MainLayout.tsx.
+ * That literal is conditional (`{...(panelSizes ? {} : { preferredSize: 300
+ * })}`), so the grep broke even though behaviour was preserved.
  *
  * Known limitation: Allotment is mocked above as plain `<div>` because its
  * real implementation requires browser layout APIs not available in jsdom.
  * As a result this test ONLY confirms that the MainLayout JSX includes the
  * `main-layout`, `left-panel`, and `right-panel` testids. It does NOT
  * exercise Allotment-driven layout, resize, or persisted-size behaviour.
- * Real layout/resize coverage lives in Playwright E2E (out of scope for
- * Story 4-5). This is a strictly weaker assertion than the deleted
+ * Real layout/resize coverage lives in Playwright E2E. This is a strictly
+ * weaker assertion than the deleted
  * source-grep was attempting; the trade-off is that this test is immune to
  * whether `preferredSize` is literal, conditional, or removed entirely.
  */

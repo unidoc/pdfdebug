@@ -373,7 +373,7 @@ describe('ContentStreamViewer fallback to plain text', () => {
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer line numbers with tokens', () => {
-  test('renders one gutter row per formatted line (story 9-6 semantics)', () => {
+  test('renders one gutter row per formatted line', () => {
     // 5-row formatted fixture: BT, Tf, Td, Tj, ET -- one logical operation each.
     const fiveRows = [
       { tokens: [{ type: 'operator', value: 'BT', line: 1, col: 1 }], indent: 0, operator: 'BT', srcLineStart: 1, srcLineEnd: 1 },

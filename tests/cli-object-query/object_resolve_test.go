@@ -1,4 +1,4 @@
-// Story 11-5 acceptance tests for `dump object --resolve` (item 4).
+// Acceptance tests for `dump object --resolve` (item 4).
 // Black-box: build the CLI and run it as a subprocess.
 //
 // The regression test PINS the no-flag output.

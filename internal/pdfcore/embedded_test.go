@@ -1,4 +1,4 @@
-// Story 13-2 co-located unit tests for embedded-file enumeration and
+// Co-located unit tests for embedded-file enumeration and
 // extraction.
 //
 // These exercise the NEW pdfcore surface:

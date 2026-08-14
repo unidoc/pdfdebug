@@ -1,6 +1,6 @@
 package compliance_validation_test
 
-// Story 13.5 -- veraPDF oracle cross-check.
+// veraPDF oracle cross-check.
 //
 // veraPDF is the TEST ORACLE, never a runtime dependency (NFR7 forbids
 // bundling Java). This test shells veraPDF on the SAME fixtures our `validate`

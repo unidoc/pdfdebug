@@ -1,4 +1,4 @@
-// Build tag removed in Story 10-5 implementation: the recoverRuntimePanic
+// No build tag: the recoverRuntimePanic
 // helper and the inspectorAPI seam now live in service.go, so this test
 // compiles and runs as part of `go test ./internal/pdfservice/...`.
 

@@ -1,4 +1,4 @@
-// Story 13-4 co-located unit tests for digital-signature decomposition.
+// Co-located unit tests for digital-signature decomposition.
 //
 // These exercise the NEW pdfcore surface:
 //

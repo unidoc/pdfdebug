@@ -10,8 +10,7 @@ import (
 )
 
 // chunkSize is the per-iteration read size of the cancellable plaintext load.
-// At 1 MiB, cancel latency upper-bounds at one chunk-read time (story 10-1
-// Dev Notes "Chunk size choice").
+// At 1 MiB, cancel latency upper-bounds at one chunk-read time.
 const chunkSize = 1 << 20
 
 // maxPlainTextAlloc caps the single contiguous []byte allocation for the
@@ -22,8 +21,8 @@ const chunkSize = 1 << 20
 const maxPlainTextAlloc = int64(4) << 30
 
 // GetPlainText reads the on-disk bytes of the PDF backing tabID and returns a
-// Latin-1-decoded view of the FULL file. Story 10-1 (replaces the 9-11 25 MiB
-// cap + 9-12 "Load all" two-tier model).
+// Latin-1-decoded view of the FULL file: no size cap, no two-tier
+// "Load all" step.
 //
 // The read is cancellable: a per-document context.CancelFunc is stored under
 // the dedicated plainTextCancelMu mutex so CancelPlainText can preempt the
@@ -132,7 +131,7 @@ func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 // readPlainText performs the cancellable chunked read of path, Latin-1-decodes
 // the result, and returns the payload. The caller (GetPlainText) passes the
 // stat-at-Open size threaded through doc.FileSize so no in-function os.Stat is
-// needed (Story 10.6). Returns ctx.Err() (context.Canceled) when cancellation
+// needed. Returns ctx.Err() (context.Canceled) when cancellation
 // is observed between chunks -- the caller must NOT wrap this through
 // wrapPDFError.
 //

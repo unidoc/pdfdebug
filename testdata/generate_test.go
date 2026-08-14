@@ -721,7 +721,7 @@ func TestGenerateFixtures(t *testing.T) {
 		t.Logf("image-xobject.pdf created: %d pages", ctx.PageCount)
 	})
 
-	// Story 13-4 signature fixtures: a real programmatically signed
+	// Signature fixtures: a real programmatically signed
 	// adbe.pkcs7.detached PDF plus its byte-surgery variants and the unsigned
 	// placeholder. Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
@@ -750,7 +750,7 @@ func TestGenerateFixtures(t *testing.T) {
 		})
 	}
 
-	// Story 13-5 structural-compliance fixtures. Each must parse through
+	// Structural-compliance fixtures. Each must parse through
 	// pdfcpu's default validation; pdfa-1b-clean.pdf is the veraPDF oracle
 	// clean-case fixture.
 	complFixtures := []struct {

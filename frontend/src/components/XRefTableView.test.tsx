@@ -197,7 +197,7 @@ describe('in-use row click dispatches onNavigate', () => {
 
 // ---------------------------------------------------------------------------
 // Clicking an in-objstm row dispatches onNavigate with the UNDERLYING
-// object's nodeID (NOT the host objstm). R4 of Story 9-11 risks list
+// object's nodeID (NOT the host objstm). The risks list
 // pins this distinction explicitly.
 // ---------------------------------------------------------------------------
 

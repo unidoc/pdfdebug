@@ -1,6 +1,6 @@
 /**
- * @file useCommandPalette -- owns open/close state for the Cmd+K palette
- * (Story 9-8). Designed to be mounted once at App level so the keyboard
+ * @file useCommandPalette -- owns open/close state for the Cmd+K palette.
+ * Designed to be mounted once at App level so the keyboard
  * listener does not double-fire. Reads activeTabId from AppState to
  * force-close the palette on tab switch.
  *

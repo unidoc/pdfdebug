@@ -1,4 +1,4 @@
-// Story 11-6 acceptance tests for `dump page --info N`: the assembled per-page
+// Acceptance tests for `dump page --info N`: the assembled per-page
 // rendering picture (geometry + extgstates + xobjects + patterns + shadings +
 // recursive forms). Black-box: build the CLI binary and run it as a subprocess.
 //

@@ -423,7 +423,7 @@ func buildReverseRefsOnce(doc *DocumentState) {
 // (panic during BFS); empty list on every object would be the forbidden
 // silent failure mode.
 //
-// Story 10-5: the index is built lazily on the first call via
+// The index is built lazily on the first call via
 // buildReverseRefsOnce; subsequent calls skip the build and read the cached
 // state.
 func (ins *Inspector) GetReverseRefs(tabID, nodeID string) ([]ReverseRef, error) {

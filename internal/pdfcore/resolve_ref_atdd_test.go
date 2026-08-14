@@ -1,8 +1,8 @@
-// Story 11-5 acceptance test for the keystone primitive ResolveRef.
+// Acceptance test for the keystone primitive ResolveRef.
 //
 // pdfcore.ResolveRef(tabID, nodeID, {MaxDepth}) is a bounded, cycle-guarded
 // resolver. These assertions pin the cycle/depth/MaxDepth-0 guards and the
-// ResolvedNode JSON shape contract for Story 11-6 and the GUI.
+// ResolvedNode JSON shape contract for the page render-info view and the GUI.
 //
 // Run: cd code && go test -run TestResolveRef ./internal/pdfcore/...
 

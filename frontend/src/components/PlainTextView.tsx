@@ -1,8 +1,8 @@
 /**
  * @file Plain Text view -- document-level Latin-1-decoded file bytes with a
- * 1-based line-number gutter and viewport virtualization. Story 9-11
- * (initial); Story 10-1 (single uncapped lazy load + cancellable read +
- * loading card with size disclosure and Cancel button).
+ * 1-based line-number gutter and viewport virtualization. A single uncapped
+ * lazy load feeds it, with a cancellable read and a loading card carrying the
+ * size disclosure and a Cancel button.
  *
  * Lines are split on /\r\n?|\n/ so CRLF / lone CR / lone LF all collapse to
  * one logical row.
@@ -45,7 +45,7 @@ const ROW_HEIGHT = 20;
 /** Number of rows to render above/below the viewport for smooth scrolling. */
 const OVERSCAN = 20;
 
-/** Per-component load lifecycle. Story 10-1. */
+/** Per-component load lifecycle. */
 type LoadState = 'idle' | 'loading' | 'ready' | 'cancelled' | 'error';
 
 /**
@@ -130,7 +130,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     // listed to satisfy exhaustive-deps without a disable.
   }, [tabId, dataRef, tabIdRef]);
 
-  /** Kicks the GetPlainText + GetPlainTextSize pair. Story 10-1. */
+  /** Kicks the GetPlainText + GetPlainTextSize pair. */
   const handleLoad = useCallback(() => {
     if (!tabId) return;
     if (inFlightRef.current) return;
@@ -192,7 +192,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     // exhaustive-deps without a disable.
   }, [tabId, dataRef, tabIdRef]);
 
-  // Lazy fetch gated on `active`. Story 10-1. handleLoad is omitted from deps
+  // Lazy fetch gated on `active`. handleLoad is omitted from deps
   // (and loadState is too via the ref) because handleLoad already guards via
   // inFlightRef; re-running this effect on every loadState transition would
   // race the trigger conditions.
@@ -420,7 +420,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   }, [findActiveIndex, findMatchesList, findOpen, findLineStarts]);
 
   /** Fire-and-forget Cancel. The original GetPlainText promise rejects with
-   * context.Canceled; the .catch branch flips to 'cancelled'. Story 10-1. */
+   * context.Canceled; the .catch branch flips to 'cancelled'. */
   const handleCancel = useCallback(() => {
     if (cancelling) return;
     setCancelling(true);

@@ -74,10 +74,10 @@ var readFunctionNames = map[string]bool{
 // Story 9-2 (2026-05-07) deleted every pre-existing source-grep test from
 // the suite. Story 9-13 (2026-05-20) added the two splash entries below.
 var grandfatheredAllowlist = []string{
-	// Story 9-13 -- splash window must be created before the main
+	// Splash window must be created before the main
 	// WebviewWindow so the user sees branding during WebView2 cold init.
 	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashWindowCreatedBeforeMainWindow",
-	// Story 9-13 -- structural regression guard: splash creation
+	// Structural regression guard: splash creation
 	// must NOT appear inside OnSecondInstanceLaunch or
 	// ApplicationOpenedWithFile callback bodies.
 	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashNotCreatedInsideSecondInstanceCallback",

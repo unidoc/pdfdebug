@@ -1,7 +1,7 @@
 /**
- * Plain Text View tests -- retained tests from Story 9.11 that survive the
- * Story 10-1 collapse (truncation banner / Load all flow removed; see
- * PlainTextView.async.test.tsx for the new async loading-card behavior).
+ * Plain Text View tests -- the cases that survive the load collapse
+ * (truncation banner / Load all flow removed; see
+ * PlainTextView.async.test.tsx for the async loading-card behavior).
  *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.test.tsx
  */

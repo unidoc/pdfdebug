@@ -1,4 +1,4 @@
-// Story 11-6 acceptance test harness for `dump page --info`.
+// Acceptance test harness for `dump page --info`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
 // surface at RUNTIME (unknown resource / wrong output / wrong exit code), not at

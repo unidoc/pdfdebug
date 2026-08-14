@@ -1,4 +1,4 @@
-// Story 13-4 acceptance test harness for the CLI resource
+// Acceptance test harness for the CLI resource
 // `dump signatures`.
 //
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. These

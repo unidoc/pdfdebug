@@ -1,6 +1,6 @@
 package signature_decomposition_test
 
-// Story 13.4 -- PKCS#7/CMS decomposition.
+// PKCS#7/CMS decomposition.
 
 import (
 	"encoding/json"
