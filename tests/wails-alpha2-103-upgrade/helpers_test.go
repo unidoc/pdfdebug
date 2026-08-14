@@ -1,4 +1,4 @@
-// Package story_12_3_wails_alpha2_103_upgrade_test provides acceptance tests
+// Package wails_alpha2_103_upgrade_test provides acceptance tests
 // for the Wails v3 bump (Go library + CLI) from alpha.95 to the
 // latest alpha2.103 (fallback alpha.102), regenerate bindings, loosen the
 // brittle method-count test into a consumer-driven presence contract, and add a
@@ -25,7 +25,7 @@
 // regression net across the bump.
 //
 // Run: cd tests/wails-alpha2-103-upgrade && go test -v -count=1 ./...
-package story_12_3_wails_alpha2_103_upgrade_test
+package wails_alpha2_103_upgrade_test
 
 import (
 	"encoding/json"

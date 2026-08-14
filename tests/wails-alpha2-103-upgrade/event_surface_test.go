@@ -13,7 +13,7 @@
 // main.go/MainLayout.tsx/EmptyState.tsx; the 10-3 main.go event greps are
 // grandfathered and 12-3 reuses that exact established pattern for the same
 // upgrade-audit purpose.
-package story_12_3_wails_alpha2_103_upgrade_test
+package wails_alpha2_103_upgrade_test
 
 import (
 	"fmt"

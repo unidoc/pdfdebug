@@ -1,7 +1,7 @@
 // version-pin assertions across go.mod, go.sum, the two CI workflows, and the
 // frontend runtime. All compare on the unified alpha-ordinal so both the
 // alpha2.103 target and the alpha.102 fallback pass.
-package story_12_3_wails_alpha2_103_upgrade_test
+package wails_alpha2_103_upgrade_test
 
 import (
 	"encoding/json"

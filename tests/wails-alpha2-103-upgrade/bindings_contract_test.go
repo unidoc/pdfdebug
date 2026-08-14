@@ -6,7 +6,7 @@
 // methods the frontend actually binds, checked against the REGENERATED ARTIFACT
 // (frontend/bindings/...), NOT a `strings.Count(... "func (s *PDFService)")` of
 // internal/pdfservice/service.go. No exact count is asserted anywhere.
-package story_12_3_wails_alpha2_103_upgrade_test
+package wails_alpha2_103_upgrade_test
 
 import (
 	"strings"

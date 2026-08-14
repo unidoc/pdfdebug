@@ -17,7 +17,7 @@
 //
 // This is the AUTOMATED guard for that risk; it does not replace the manual
 // round-trip smoke (Smoke item 3).
-package story_12_3_wails_alpha2_103_upgrade_test
+package wails_alpha2_103_upgrade_test
 
 import (
 	"path/filepath"
