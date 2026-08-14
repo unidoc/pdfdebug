@@ -18,7 +18,7 @@
 // duplicating the wiring assertion, because the helper takes a func argument
 // and lives in `package main` (not importable from any test module). The
 // delegation runs `go test -run RouteOpenPath .` at the module root.
-package story_12_1_test
+package cold_start_file_association_open_test
 
 import (
 	"strings"

@@ -15,7 +15,7 @@
 //     ready-path dedup -- deduping warm opens here would break).
 //   - Every queued path delivered exactly once across any Add/Drain
 //     interleaving, verified under -race.
-package story_12_1_test
+package cold_start_file_association_open_test
 
 import "testing"
 

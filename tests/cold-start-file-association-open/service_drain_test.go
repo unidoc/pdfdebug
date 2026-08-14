@@ -8,7 +8,7 @@
 // pdfservice is a thin adapter, so these are integration-level tests that
 // exercise the delegation through the real PDFService + real Queue together.
 // Harness compiled inside the main module (see helpers_test.go).
-package story_12_1_test
+package cold_start_file_association_open_test
 
 import "testing"
 

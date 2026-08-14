@@ -1,4 +1,4 @@
-// Package story_12_1_test holds the per-story acceptance suite for Cold-Start
+// Package cold_start_file_association_open_test holds the per-story acceptance suite for Cold-Start
 // File Association Open.
 //
 // Cross-module mechanics: the production logic under test lives in
@@ -17,7 +17,7 @@
 // source-grep guard forbids new grep tests), zero doc-content assertions.
 //
 // Run: cd tests/cold-start-file-association-open && go test -count=1 ./...
-package story_12_1_test
+package cold_start_file_association_open_test
 
 import (
 	"os"
