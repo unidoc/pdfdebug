@@ -1,5 +1,5 @@
 /**
- * Story 10.8: platform-aware Cmd+K / Ctrl+K modifier for the command palette.
+ * platform-aware Cmd+K / Ctrl+K modifier for the command palette.
  *
  * So on macOS, Ctrl+K must be a no-op (palette stays closed) and only Cmd+K
  * opens it; on Linux/Windows, Ctrl+K opens it.

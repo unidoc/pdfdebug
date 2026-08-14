@@ -142,7 +142,7 @@ func printFontDetailPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) err
 	return nil
 }
 
-// printFontMappingPlain emits the Story 13.3 mapping section: a bounded summary
+// printFontMappingPlain emits the mapping section: a bounded summary
 // (declared-code count + health signals) by default, or the full aligned
 // per-code table (CODE GLYPH UNICODE TEXT) when glyphs is true.
 func printFontMappingPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) error {

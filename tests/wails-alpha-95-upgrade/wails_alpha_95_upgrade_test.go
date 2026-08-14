@@ -45,7 +45,7 @@ import (
 	"testing"
 )
 
-// NOTE (Story 12.3): the alpha.95-scheme version-pin tests (STRUCT-001..004,
+// NOTE: the alpha.95-scheme version-pin tests (STRUCT-001..004,
 // 080, 090) and their helpers (goAlphaRe/jsAlphaRe/extractAlpha/extractAllAlphas
 // and the goSidePreBumpAlpha/jsSidePreBumpAlpha constants) were retired from this
 // suite. Their `v3\.0\.0-alpha\.(\d+)` regex cannot match the new alpha2.103
@@ -214,7 +214,7 @@ var expectedServiceMethods = []struct {
 	{"GetPlainText", "func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error)"},
 	{"CancelPlainText", "func (s *PDFService) CancelPlainText(tabID string) error"},
 	{"GetPlainTextSize", "func (s *PDFService) GetPlainTextSize(tabID string) (int64, error)"},
-	// Story 12.1: cold-start file-association queue setter + drain. Every
+	// cold-start file-association queue setter + drain. Every
 	// exported PDFService method is bound by Wails, so the exported setter also
 	// counts -- the receiver surface grew by two, not one.
 	{"SetPendingOpens", "func (s *PDFService) SetPendingOpens(q *pendingopen.Queue)"},
@@ -301,10 +301,10 @@ var expectedJSONTags = map[string][]string{
 		// FontResourceMap / FontRosterEntry / FontView
 		`json:"entries"`, `json:"name"`, `json:"encodingSummary"`,
 		`json:"unresolved"`, `json:"kind"`, `json:"detail"`, `json:"roster"`,
-		// XRefTable / XRefEntry (Story 9-11)
+		// XRefTable / XRefEntry
 		`json:"tabId"`, `json:"status"`, `json:"offset"`, `json:"hostObjStm"`,
 		`json:"nodeID"`,
-		// PlainTextDocument (Story 10-1)
+		// PlainTextDocument
 		`json:"content"`, `json:"totalBytes"`,
 		// DocumentInfo
 		`json:"fileName"`, `json:"filePath"`, `json:"pageCount"`,

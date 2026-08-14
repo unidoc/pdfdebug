@@ -1,5 +1,5 @@
 /**
- * @file Frontend types for the Cmd+K command palette (Story 9-8).
+ * @file Frontend types for the Cmd+K command palette.
  * Mirrors the backend ObjectIndexEntry struct -- kept as a hand-rolled TS
  * type rather than imported from the Wails binding so unit tests can build
  * fixtures without pulling in the Wails runtime mock.

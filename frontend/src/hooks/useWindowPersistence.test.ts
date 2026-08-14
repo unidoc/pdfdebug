@@ -1,5 +1,5 @@
 /**
- * Story 4.4: OS File Association, Single Instance, and Window Persistence
+ * OS File Association, Single Instance, and Window Persistence
  *
  * Unit tests for the useWindowPersistence hook:
  *   Panel sizes saved to window.localStorage on resize
@@ -217,7 +217,7 @@ describe('4.4 useWindowPersistence', () => {
 
   /**
    * Supplemental: a pending write is flushed synchronously on the last unmount
-   * (Story 10.7) and no leaked debounce timer fires a second write after.
+   * and no leaked debounce timer fires a second write after.
    */
   test('pending write is flushed on last unmount with no leaked timer', () => {
     const { result, unmount } = renderHook(() => useWindowPersistence());
@@ -287,7 +287,7 @@ describe('4.4 useWindowPersistence', () => {
 });
 
 /**
- * Story 8.4: Window Geometry Persistence
+ * Window Geometry Persistence
  *
  *   .006
  *   .008

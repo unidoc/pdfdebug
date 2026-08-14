@@ -2,7 +2,7 @@
 //
 // These assert the assembled-view behaviour. Failures are at RUNTIME (unknown
 // resource / wrong JSON / wrong exit code), keeping the main module's build
-// green per the Story 11-5 black-box convention.
+// green per the black-box convention.
 //
 // Level: Integration (CLI black-box). The assembled view is a pdfcore struct,
 // but every property is fully observable through the command's JSON output, so

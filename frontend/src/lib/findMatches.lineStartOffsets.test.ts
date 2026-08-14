@@ -1,5 +1,5 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness (finding #8) --
+ * Frontend Hook and Render-Path Correctness (finding #8) --
  * findMatches accepts a pre-built lineStartOffsets table.
  * (finding #20) -- findMatches accepts a pre-built haystack string.
  *

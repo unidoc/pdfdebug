@@ -1,4 +1,4 @@
-// Story 11.3: CLI ergonomics & discoverability -- acceptance tests.
+// CLI ergonomics & discoverability -- acceptance tests.
 //
 // Black-box: build the CLI, run as a subprocess.
 //

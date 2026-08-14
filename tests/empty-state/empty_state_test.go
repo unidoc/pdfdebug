@@ -147,7 +147,7 @@ func TestPlatformDetectionUtilityExists(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 
-// Story 4-5: TestOpenFileButtonOnClickBehavior was a source-grep asserting
+// TestOpenFileButtonOnClickBehavior was a source-grep asserting
 // EmptyState.tsx still calls `console.log` as a fallback when no
 // onOpenFile prop is supplied. The console.log was placeholder scaffolding;
 // real file-open behaviour is covered by tests/e2e/open-pdf-dialog-dnd.spec.ts.

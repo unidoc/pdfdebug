@@ -91,7 +91,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // main.go creates PDFService with app after application.New()
 // ---------------------------------------------------------------------------
 
-// Story 4-5: TestMainGoCallsSetApp was a source-grep asserting
+// TestMainGoCallsSetApp was a source-grep asserting
 // `pdfservice.NewPDFService(app)` appears between `application.New(` and
 // `app.Run()`. Replaced by tests/boot-smoke (boot path runs to event loop
 // without panic; the registration crashing or being misordered would surface
@@ -564,6 +564,6 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 	}
 }
 
-// Story 4-5: TestAppShellNoRegression was a meta-test that subprocess-ran
+// TestAppShellNoRegression was a meta-test that subprocess-ran
 // the app-shell suite. CI already runs that suite, so this is pure overhead
 // and a flake-risk amplifier. Delete-only, no replacement.

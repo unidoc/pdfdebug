@@ -11,7 +11,7 @@ import (
 // GetObjectIndex returns the full xref-derived object index for the document
 // in tabID. Lazy-built on first call, cached on the per-tab DocumentState so
 // re-Open under the same tabID transparently invalidates (the DocumentState
-// pointer is replaced). Story 9-8 Task 3.
+// pointer is replaced).
 //
 // pdfcpu's XRefTable.Table is map[int]*XRefTableEntry keyed by object number,
 // so only one entry per ObjNum is enumerable here -- the multi-generation

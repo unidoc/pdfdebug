@@ -30,7 +30,7 @@ var version = "dev"
 
 // appName is the application's display name. It is BOTH the Wails app Name and
 // the macOS app-submenu label (Wails builds the app submenu via
-// NewSubMenuItem(options.Name)), so the Story 11.2 install item lookup
+// NewSubMenuItem(options.Name)), so the install item lookup
 // (menu.FindByLabel(appName)) MUST use the same literal -- a single source of
 // truth here prevents the menu item from silently vanishing on a rename.
 const appName = "UniDoc PDF Debugger"
@@ -103,7 +103,7 @@ type eventEmitter interface {
 // the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
 // warning survives regardless of event-bus ordering.
 //
-// Story 10-5: the pdfcpu read is dispatched to a goroutine so the caller
+// The pdfcpu read is dispatched to a goroutine so the caller
 // (Wails event-dispatch goroutine for menu / file-drop / single instance)
 // returns immediately, leaving the native event loop free to service
 // window resize / menu clicks during the parse. The wg argument lets
@@ -177,7 +177,7 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 }
 
 // onSplashDismiss is the success-path dismissal handler for the startup
-// splash (story 9.13). It clears the splash's AlwaysOnTop so the main
+// splash. It clears the splash's AlwaysOnTop so the main
 // window can render above it, triggers the crossfade by emitting
 // splash:dismiss (the splash's inline JS toggles its body opacity to 0)
 // and splash:dismissed (the main frontend fades its #root opacity to 1),
@@ -362,7 +362,7 @@ func main() {
 	var openFileAndEmit func(string)
 	var window *application.WebviewWindow
 
-	// Story 12.1: the cold-start file-association queue. Constructed BEFORE
+	// The cold-start file-association queue. Constructed BEFORE
 	// application.New() so both file-open callbacks can capture it by value
 	// (it has no dependency on app/window, unlike the openFileAndEmit/window
 	// closure dance above). On cold start, paths arriving before the frontend
@@ -384,7 +384,7 @@ func main() {
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "com.unidoc.unidoc-pdf-debugger",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-				// Story 12.1: route every path through the queue first. A path
+				// Route every path through the queue first. A path
 				// that arrives before the frontend has drained is buffered
 				// (Add returns false) instead of dropped; only ready/warm paths
 				// open immediately. window.Focus() fires only when at least one
@@ -406,7 +406,7 @@ func main() {
 	}
 
 	pdfService := pdfservice.NewPDFService(app)
-	// Story 12.1: wire the cold-start queue so ConsumePendingOpenFiles can
+	// Wire the cold-start queue so ConsumePendingOpenFiles can
 	// drain it from the frontend.
 	pdfService.SetPendingOpens(openQueue)
 
@@ -416,7 +416,7 @@ func main() {
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
 	//
-	// Story 10-5: openFileAndEmitWithWarning now dispatches the pdfcpu read
+	// openFileAndEmitWithWarning now dispatches the pdfcpu read
 	// to a goroutine. Single-file entry points (menu / file-drop /
 	// single-instance / file-association) wrap with a local WaitGroup +
 	// wg.Wait() so callers preserve their synchronous-completion contract.
@@ -466,7 +466,7 @@ func main() {
 				"total": len(pdfPaths),
 			})
 		}
-		// Story 10-5: sequential dispatch at the file boundary.
+		// Sequential dispatch at the file boundary.
 		// Local WaitGroup; wg.Add(1) before each call (code shape);
 		// wg.Wait() per iteration enforces "one file at a time" (pdfcpu's
 		// ReadContextFile is not documented as concurrent-safe across
@@ -502,7 +502,7 @@ func main() {
 	// On macOS this fires for both cold and warm starts. On Windows/Linux cold
 	// start only -- warm start is handled by OnSecondInstanceLaunch.
 	app.Event.OnApplicationEvent(events.Common.ApplicationOpenedWithFile, func(event *application.ApplicationEvent) {
-		// Story 12.1: no nil guard. The invariant: Drain is reachable only
+		// No nil guard. The invariant: Drain is reachable only
 		// through the bound ConsumePendingOpenFiles method, bindings serve only
 		// after app.Run(), and both openFileAndEmit (assigned above) and window
 		// (assigned before app.Run()) exist by then. An early-fire path is
@@ -641,7 +641,7 @@ func main() {
 	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
 
-	// Story 9.13: Startup splash window. Created BEFORE the main
+	// Startup splash window. Created BEFORE the main
 	// WebviewWindow so the user sees branding during WebView2 cold init
 	// (especially on Windows where the main webview can take 10-30s on
 	// first launch). Lives only in this first-instance bootstrap path --
@@ -664,7 +664,7 @@ func main() {
 	// integration tests (which scan source text for the options)
 	// remain pinned to the story spec wording.
 	//
-	// Splash window options (story 9.13):
+	// Splash window options:
 	//   Width: 480 -- logical width
 	//   Height: 320 -- logical height
 	//   Frameless: true -- no title bar / chrome

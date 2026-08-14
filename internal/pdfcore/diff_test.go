@@ -369,7 +369,7 @@ func TestReconcileTruncation_EntryNotCompletion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Story 14.3: a deep chain diffed past the maxResolveDepth cap marks the cut
+// A deep chain diffed past the maxResolveDepth cap marks the cut
 // node DiffNode.Truncated and tallies it in DiffSummary.TruncatedSubtrees,
 // and does so only at the depth-cap arm (a self-diff of a SHALLOW graph
 // counts zero). This is the co-located pdfcore logic assertion the ATDD step

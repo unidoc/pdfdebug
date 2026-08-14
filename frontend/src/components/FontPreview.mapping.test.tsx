@@ -1,5 +1,5 @@
 /**
- * Story 13.3: Font CMap and Glyph-Mapping Inspection -- FontPreview tests.
+ * Font CMap and Glyph-Mapping Inspection -- FontPreview tests.
  *
  * Contract under test (the shape Dev must implement; kept in lockstep with the
  * pdfcore FontMappingRow / FontHealth types and the CLI acceptance JSON):

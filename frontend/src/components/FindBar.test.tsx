@@ -1,5 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- FindBar component suite.
+ * Find Bar in Plain Text View -- FindBar component suite.
  *
  * Scope:
  * - Static structure (role, aria-labels, data-testids)

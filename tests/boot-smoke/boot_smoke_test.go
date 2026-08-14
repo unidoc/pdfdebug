@@ -334,7 +334,7 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 
 	// Probe the process every 200ms. Pass when we see the process alive on
 	// two consecutive probes (~400ms after first observation). 1s as a
-	// single sample was too aggressive on cold runners (R5 in story 4-5).
+	// single sample was too aggressive on cold runners (R5).
 	const probeInterval = 200 * time.Millisecond
 	const probeBudget = 3 * time.Second
 

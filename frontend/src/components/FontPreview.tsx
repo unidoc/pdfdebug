@@ -1,5 +1,5 @@
 /**
- * @file FontPreview -- presentational component for the Story 9-9 font
+ * @file FontPreview -- presentational component for the font
  * inspection view. Renders the consolidated FontDetail payload (metadata
  * header, encoding section, ToUnicode table, FontDescriptor card, optional
  * descendant section) returned by GetFontDetail.
@@ -51,7 +51,7 @@ export interface CIDSystemInfoData {
   supplement: number;
 }
 
-/** One assembled row in the joined per-code mapping table (Story 13.3):
+/** One assembled row in the joined per-code mapping table:
  *  the JOIN of /Differences (glyphName) and /ToUnicode (unicode, unicodeText)
  *  keyed by character code. Mirrors backend FontMappingRow. */
 export interface FontMappingRowData {
@@ -62,7 +62,7 @@ export interface FontMappingRowData {
   unicodeText: string;
 }
 
-/** Coverage/health diagnostic signals for a font (Story 13.3). Mirrors
+/** Coverage/health diagnostic signals for a font. Mirrors
  *  backend FontHealth. */
 export interface FontHealthData {
   declaredCodeCount: number;
@@ -96,7 +96,7 @@ export interface FontDetailData {
   /** /DW default width for CIDFonts. 0 when absent. */
   defaultWidth: number;
   /** Assembled per-code mapping table: the JOIN of Differences + ToUnicode
-   *  over the union of declared codes (Story 13.3). */
+   *  over the union of declared codes. */
   mappingRows: FontMappingRowData[];
   /** Coverage/health diagnostic signals (Story 13.3). Null when the
    *  backend did not populate it (older payloads). */
@@ -535,7 +535,7 @@ function DescendantSection({
   );
 }
 
-/** Health-signals banner (Story 13.3): surfaces the classic
+/** Health-signals banner: surfaces the classic
  *  text-extraction failure modes explicitly. Renders nothing when health is
  *  absent or all signals are clear. */
 function FontHealthBanner({ health }: { health: FontHealthData }) {
@@ -579,7 +579,7 @@ const MAPPING_ROW_HEIGHT = 26;
 /** Rows rendered above/below the viewport for smooth scrolling. */
 const MAPPING_OVERSCAN = 12;
 
-/** Joined per-code mapping table (Story 13.3): one row per declared code
+/** Joined per-code mapping table: one row per declared code
  *  carrying code (hex), glyph name, Unicode, and literal text -- the JOIN of
  *  the Differences and ToUnicode sources. Viewport-virtualized (NFR5): only the
  *  visible window of rows is committed to the DOM, so thousands of CID codes do

@@ -338,7 +338,7 @@ jobs:
               GUI_STAGE="$RUNNER_TEMP/linux-gui-stage"
               rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
               cp "bin/unidoc-pdf-debugger" "$GUI_STAGE/"
-              # Bundle the CLI alongside the GUI (Story 11-1). PATH is left to the user;
+              # Bundle the CLI alongside the GUI. PATH is left to the user;
               # the standalone CLI tar.gz below is retained for headless use.
               cp "bin/pdfdebug" "$GUI_STAGE/"
               cp LICENSE NOTICE "$GUI_STAGE/"

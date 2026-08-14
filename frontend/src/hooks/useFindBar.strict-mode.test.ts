@@ -1,5 +1,5 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness (finding #7) --
+ * Frontend Hook and Render-Path Correctness (finding #7) --
  * useFindBar render-phase side-effect removal.
  *
  * The absence-of-warning check is NOT the pass condition -- the

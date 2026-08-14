@@ -1,4 +1,4 @@
-// Story 12.1: internal/pendingopen.Queue Add/Drain contract.
+// internal/pendingopen.Queue Add/Drain contract.
 //
 // These tests pin the queue's public API through a harness package compiled
 // inside the main module (see helpers_test.go for why direct import is not

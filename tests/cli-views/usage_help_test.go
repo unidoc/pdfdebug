@@ -1,4 +1,4 @@
-// Story 11.4: Expose existing pdfcore views as CLI commands.
+// Expose existing pdfcore views as CLI commands.
 //
 // Usage/help discoverability + compact/pretty parity (cross-cutting), covering
 // printUsage's subcommands and examples. Black-box: build the CLI, run as a

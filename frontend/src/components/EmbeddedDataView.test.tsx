@@ -1,5 +1,5 @@
 /**
- * Story 13.2: EmbeddedDataView component tests.
+ * EmbeddedDataView component tests.
  *
  * Component contract (from the story):
  *  - Document-level view fed by GetEmbeddedFiles(tabId) -> EmbeddedFileList.

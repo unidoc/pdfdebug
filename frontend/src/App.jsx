@@ -21,7 +21,7 @@ import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 
 /**
  * Module-level set of file paths the frontend has opened in this JS session.
- * Story 12.1: the cold-start drain consults this so a drained path that is
+ * The cold-start drain consults this so a drained path that is
  * already open frees its newly-created backend tab instead of leaking it.
  * tabsRef alone cannot cover this because a dev-mode reload mounts a fresh
  * reducer (empty tabs) while the previous session's documents are still open;
@@ -174,7 +174,7 @@ function AppContent() {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
 
-    // Story 12.1: cold-start drain. STRICTLY AFTER the document:opened listener
+    // cold-start drain. STRICTLY AFTER the document:opened listener
     // above is registered, drain any file-association paths the backend
     // buffered before the frontend was ready (cold start). Ordering is
     // load-bearing: a path delivered between drain and subscribe would be lost,

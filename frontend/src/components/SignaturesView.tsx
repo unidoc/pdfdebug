@@ -1,6 +1,6 @@
 /**
  * @file Signatures view -- document-level decomposition of every digital
- * signature field (Story 13.4). One key/value card per signature: signer,
+ * signature field. One key/value card per signature: signer,
  * issuer, validity window, algorithms, SubFilter, signing time, and the
  * ByteRange coverage facts, plus an expandable certificate chain and a
  * "Reveal in tree" jump. Structural decomposition ONLY: the view never makes

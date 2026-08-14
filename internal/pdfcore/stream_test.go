@@ -402,7 +402,7 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Story 14.3: pageContentStreamNodeIDs enumerates the page's content-stream
+// pageContentStreamNodeIDs enumerates the page's content-stream
 // refs (the concatenation order/set).
 //
 // Per ISO 32000-1 7.8.2 a page's content is the concatenation of its /Contents

@@ -1,5 +1,5 @@
 /**
- * Story 9-8: Command Palette (Cmd+K) -- inline labels + jump-to-object.
+ * Command Palette (Cmd+K) -- inline labels + jump-to-object.
  *
  * Covers palette-side wiring.
  *
@@ -28,7 +28,7 @@ import { useCommandPalette } from '../../hooks/useCommandPalette';
 const mockGetObjectIndex = vi.hoisted(() => vi.fn());
 const mockGetAncestorPath = vi.hoisted(() => vi.fn());
 
-// Story 10.8: the palette open shortcut is now platform-aware (Cmd on macOS,
+// The palette open shortcut is now platform-aware (Cmd on macOS,
 // Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below open
 // the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
 const mockGetPlatformModifier = vi.hoisted(() => vi.fn(() => 'Cmd'));

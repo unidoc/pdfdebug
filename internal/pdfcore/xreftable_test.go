@@ -1,4 +1,4 @@
-// Story 9-11: XREF Table extraction tests.
+// XREF Table extraction tests.
 //
 // Tests are named to match the runPdfcoreTest patterns pinned in
 // tests/detail-panel-tabs/detail_panel_tabs_test.go.

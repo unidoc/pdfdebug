@@ -14,7 +14,7 @@ import (
 // per-path visited set (onPath) is the primary cycle guard.
 const maxFormWalkDepth = 32
 
-// PageRenderInfo assembles the complete per-page rendering picture (Story 11-6):
+// PageRenderInfo assembles the complete per-page rendering picture:
 // resolved geometry (with /Pages inheritance), every ExtGState's blend/alpha/
 // SMask, every XObject classified (Form vs Image + colorspace family), and -
 // when opts.FormsRecursive is set - each Form XObject walked recursively against

@@ -1,5 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- pure-function suite.
+ * Find Bar in Plain Text View -- pure-function suite.
  *
  * Scope:
  * - findMatches(content, query, caseSensitive): Match[] -- algorithm,

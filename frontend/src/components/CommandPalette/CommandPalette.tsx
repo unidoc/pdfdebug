@@ -1,5 +1,5 @@
 /**
- * @file Cmd+K command palette overlay. Story 9-8.
+ * @file Cmd+K command palette overlay.
  *
  * Behaviour:
  *   - Renders only when the module-level useCommandPalette state is open.

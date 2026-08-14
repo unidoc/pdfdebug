@@ -1,4 +1,4 @@
-// Story 10-1: Async Plain Text Load with Cancel -- service-layer tests.
+// Async Plain Text Load with Cancel -- service-layer tests.
 //
 // These cover PDFService.CancelPlainText and PDFService.GetPlainTextSize.
 

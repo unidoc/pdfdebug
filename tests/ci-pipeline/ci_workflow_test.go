@@ -8,7 +8,7 @@
 // caching, distinct check runs per platform, and 30-minute job timeout.
 //
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks.
-// No browser or API surface exists for this story. Per the Epic 7 test design
+// No browser or API surface exists for this story. Per the test design
 // (infrastructure-as-code epic), tests are heavily skewed to static validation.
 // The single end-to-end acceptance criterion (PR triggers green CI on all 3
 // matrix cells) is verified manually by the smoke-test PR -- it cannot be

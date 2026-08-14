@@ -1,5 +1,5 @@
 /**
- * Story 13.6: DiffView side-by-side comparison component tests.
+ * DiffView side-by-side comparison component tests.
  *
  * Component contract (from the story):
  *  - On mount (active), DiffView fetches DiffDocuments(leftTabId, rightTabId)

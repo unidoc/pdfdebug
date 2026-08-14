@@ -1,5 +1,5 @@
 // Package story_10_5_test holds the per-story acceptance test suite for
-// Story 10-5: Inspector Concurrency, Lifecycle Safety, and safeCall Sev-1.
+// Inspector Concurrency, Lifecycle Safety, and safeCall Sev-1.
 //
 // This is the structural-assertion suite -- it source-greps the production
 // tree for the contracts pinned in the story's ACs that DO NOT require

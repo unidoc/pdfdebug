@@ -18,7 +18,7 @@ import (
 
 // DocumentState holds the parsed pdfcpu context and metadata for one open PDF.
 //
-// Lock ordering (Story 10-5):
+// Lock ordering:
 //
 //   - pdfMu is the OUTER lock for every pdfcpu-touching Inspector method.
 //     pdfcpu's XRefTable is not concurrent-read-safe (Dereference mutates the
@@ -49,20 +49,20 @@ type DocumentState struct {
 	// Inspector.GetX method that calls into pdfcpu, immediately after
 	// GetDocument returns. Methods that do NOT call pdfcpu (GetPlainText,
 	// GetPlainTextSize, CancelPlainText, Open, Close, GetDocument) are exempt.
-	// See lock-ordering note on the struct doc comment. Story 10-5.
+	// See lock-ordering note on the struct doc comment.
 	pdfMu sync.Mutex
 
 	// revBuildOnce gates the lazy reverse-refs build. The reverse-ref index is
 	// no longer built at Open time; the first GetReverseRefs call triggers
 	// buildReverseRefsOnce which runs the BFS under pdfMu inside the Once's
-	// inner function. Story 10-5.
+	// inner function.
 	revBuildOnce sync.Once
 
 	streamMu    sync.Mutex
 	streamCache map[string]*ContentStreamData
 
 	// reverseRefs maps (objNum, gen) -> inbound dict-graph references. Built
-	// lazily on the first GetReverseRefs call via revBuildOnce (Story 10-5);
+	// lazily on the first GetReverseRefs call via revBuildOnce;
 	// Open does not build it. The trailer's /Root pointer is NOT recorded as
 	// a reverse ref (the catalog is treated as having no
 	// incoming edges by construction). Nil means the build has not yet run OR
@@ -72,13 +72,13 @@ type DocumentState struct {
 
 	// objectIndex caches the per-tab GetObjectIndex result. Lazy on first call;
 	// invalidated implicitly when the DocumentState pointer is replaced by a
-	// re-Open under the same tabID (Story 9-8 Task 3.4).
+	// re-Open under the same tabID.
 	objectIndexMu    sync.Mutex
 	objectIndexCache []*ObjectIndexEntry
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced
-	// by a re-Open under the same tabID. Story 9-11 Task 1.6.
+	// by a re-Open under the same tabID.
 	xrefTableMu    sync.Mutex
 	xrefTableCache *XRefTable
 
@@ -92,7 +92,7 @@ type DocumentState struct {
 	// chunked read. Nil when no load is in flight. Guarded by
 	// plainTextCancelMu (NOT plainTextMu) so CancelPlainText can preempt a
 	// read without contending against the mutex the read itself holds for the
-	// entire I/O. Story 10-1.
+	// entire I/O.
 	//
 	// plainTextClosed is set by Inspector.Close under plainTextCancelMu so a
 	// GetPlainText goroutine that has acquired the cancel mutex AFTER Close
@@ -400,7 +400,7 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 //     via doc.PDFContext.Dereference (caller MUST hold doc.pdfMu; the only
 //     call site is GetObjectDetail, which acquires pdfMu before invoking).
 //
-// Story 10.6: the prior single-arg signature could not reach pdfcpu's
+// The prior single-arg signature could not reach pdfcpu's
 // Dereference so streams with an indirect /Length whose StreamLength field was
 // left nil (a corner the spec permits and pdfcpu's older reads occasionally
 // expose) reported Length=0 in the inspector UI.
@@ -550,7 +550,7 @@ func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error)
 	visited := map[string]bool{"root": true}
 	queue := []queueEntry{{nodeID: "root", obj: rootDict, path: []string{"root"}, depth: 0}}
 
-	// Story 10.6: no depth cap. The visited-set already prevents cycles;
+	// No depth cap. The visited-set already prevents cycles;
 	// the prior depth guard made findPathToObject fail to surface
 	// legitimate-but-deep paths in PDFs with page-tree chains over 32 levels.
 	for len(queue) > 0 {

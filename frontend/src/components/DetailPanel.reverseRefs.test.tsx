@@ -1,5 +1,5 @@
 /**
- * Story 9.10: Object Source View + Reverse References
+ * Object Source View + Reverse References
  *
  * Covers frontend banner trigger, section mount-after-parsed-view, orphan
  * empty state propagation, catalog copy, per-document isolation, and
@@ -53,7 +53,7 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Co-located unit tests for the Story 13-5 structural rule engine. Fixtures are
+// Co-located unit tests for the structural rule engine. Fixtures are
 // hand-assembled via the shared assemblexref helper and opened through the same
 // Inspector.Open path the app uses. Each rule is exercised positive + negative.
 

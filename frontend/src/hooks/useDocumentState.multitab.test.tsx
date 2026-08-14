@@ -1,5 +1,5 @@
 /**
- * Story 4.1: Tab Bar Component for Multi-Document Management
+ * Tab Bar Component for Multi-Document Management
  *
  * Reducer-level acceptance tests for multi-tab state management:
  *   OPEN_DOCUMENT appends new tab (does not replace)

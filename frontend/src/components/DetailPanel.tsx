@@ -109,7 +109,7 @@ function DetailPanelInner() {
   const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
-  // Story 9-11: per-document local state for the active DetailPanel tab.
+  // per-document local state for the active DetailPanel tab.
   // Resets to 'object' on activeTabId change so a fresh document opens on the
   // per-selection view. Mirrors the streamViewMode pattern.
   const [detailView, setDetailView] = useState<DetailView>('object');
@@ -118,7 +118,7 @@ function DetailPanelInner() {
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
   // label (Story 13.2, mirrors the XREF count pattern).
   const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
-  // Story 13.4: the signature list drives the Signatures tab visibility. ONE
+  // The signature list drives the Signatures tab visibility. ONE
   // GetSignatures fetch per document tab, made on mount and cached here (no
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
@@ -156,7 +156,7 @@ function DetailPanelInner() {
     setDiffError(null);
   }, [activeTabId]);
 
-  // Story 13.6: the comparison document is opened backend-only (not an app tab),
+  // The comparison document is opened backend-only (not an app tab),
   // so close it when it is replaced, cleared on document switch, or the panel
   // unmounts - otherwise every diff leaks a parsed document in the Go backend.
   useEffect(() => {
@@ -168,7 +168,7 @@ function DetailPanelInner() {
     };
   }, [diffRightTabId]);
 
-  // Story 13.4: one signature fetch per document tab. The result is passed
+  // One signature fetch per document tab. The result is passed
   // down to SignaturesView via the data prop so the view never issues a
   // second fetch. A fetch failure hides the tab (empty list) and logs.
   useEffect(() => {
@@ -299,7 +299,7 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [imageLoading]);
 
-  // Story 9-9: fetch the unified FontView when detail resolves to a dict node
+  // Fetch the unified FontView when detail resolves to a dict node
   // tagged iconHint='font'. The backend disambiguates the three outcomes
   // ("detail" / "roster" / "neither") in one call so the binding layer never
   // logs ERR on the iconHint='font' false positive. .catch fires only on
@@ -349,7 +349,7 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [selectedNodeId, selectedNodeIconHint]);
 
-  // Story 9-10: fetch reverse refs for indirect-object selections only. The
+  // Fetch reverse refs for indirect-object selections only. The
   // catalog (nodeId='root') is also treated as indirect because in real PDFs
   // it lives in the indirect-object graph and the section must render the
   // "Document root..." empty state for it. Inline-value nodes never
@@ -439,7 +439,7 @@ function DetailPanelInner() {
   /**
    * Embedded "Reveal in tree" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the /EmbeddedFile stream object
-   * in one render (mirrors handleXRefNavigate). Story 13.2.
+   * in one render (mirrors handleXRefNavigate).
    */
   const handleEmbeddedNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -449,7 +449,7 @@ function DetailPanelInner() {
   /**
    * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the /V signature dict (or the
-   * field node fallback) in one render. Story 13.4.
+   * field node fallback) in one render.
    */
   const handleSignaturesNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -459,7 +459,7 @@ function DetailPanelInner() {
   /**
    * Validate "jump to object" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the offending object in one
-   * render (mirrors handleSignaturesNavigate). Story 13.5.
+   * render (mirrors handleSignaturesNavigate).
    */
   const handleValidateNavigate = useCallback((nodeId: string) => {
     setDetailView('object');

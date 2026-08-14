@@ -1,5 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- integration suite.
+ * Find Bar in Plain Text View -- integration suite.
  *
  * Scope:
  * - mount: Cmd+F + active=true + data ready -> FindBar appears.

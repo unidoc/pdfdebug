@@ -1,5 +1,5 @@
 /**
- * Story 3.3: Content Stream Tokenizer with Syntax Highlighting (V1)
+ * Content Stream Tokenizer with Syntax Highlighting (V1)
  *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.highlight.test.tsx
@@ -219,7 +219,7 @@ describe('Tokenized fallback to plain text', () => {
 // ---------------------------------------------------------------------------
 
 describe('Line numbers with tokenized data', () => {
-  // Story 9-6: gutter is keyed by formatted-row index in formatted mode.
+  // Gutter is keyed by formatted-row index in formatted mode.
   // Build a 5-row fixture (one per logical operation) so the gutter shows 1..5.
   test('renders one gutter row per formatted line', () => {
     const fiveRows = [

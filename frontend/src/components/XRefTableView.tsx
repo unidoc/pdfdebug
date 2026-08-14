@@ -1,5 +1,5 @@
 /**
- * @file XREF Table view -- document-level cross-reference table. Story 9-11.
+ * @file XREF Table view -- document-level cross-reference table.
  * Renders one row per xref entry sorted by object number. In-use and
  * in-objstm rows navigate via `onNavigate` when clicked or Entered; free
  * rows are focusable but not clickable.

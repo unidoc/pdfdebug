@@ -56,7 +56,7 @@ type DiffNode struct {
 	// single-sided (added/removed) nodes, and depth-capped refs.
 	Children []*DiffNode `json:"children,omitempty"`
 	// Truncated is true ONLY when this node is a ref left unwalked at the
-	// maxResolveDepth depth cap and compared by shallow summary (Story 14.3).
+	// maxResolveDepth depth cap and compared by shallow summary.
 	// It is NOT set for back-edge (cycle) cuts or the visitedPairs cross-path
 	// dedup, both of which hide nothing (the target is fully accounted for
 	// elsewhere). A truncated node's shallow summaries can match while a
@@ -91,7 +91,7 @@ type DiffSummary struct {
 	XMPChanged        bool `json:"xmpChanged"`        // catalog /Metadata XMP packet
 	// TruncatedSubtrees counts the nodes cut at the maxResolveDepth depth cap
 	// (DiffNode.Truncated) - subtrees compared only by shallow summary, whose
-	// deeper contents were not walked (Story 14.3). When > 0 the walk was
+	// deeper contents were not walked. When > 0 the walk was
 	// bounded, so the pair CANNOT be certified identical: the CLI withholds
 	// exit 0 and the "structurally identical" claim. Not omitempty so the
 	// honest count is always present in the JSON contract.

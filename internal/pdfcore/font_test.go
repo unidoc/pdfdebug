@@ -1277,7 +1277,7 @@ func TestStringField_NameRejected(t *testing.T) {
 }
 
 func TestGetFontDetail_ErrorNodeIDReturnsSentinel(t *testing.T) {
-	// Story 9-9: nodes that resolved to error sentinels in the tree must
+	// Nodes that resolved to error sentinels in the tree must
 	// not crash GetFontDetail; the helper returns ErrNotAFont so the
 	// frontend falls back to DictView rather than rendering a broken view.
 	ins, tabID := openFontsPDF(t)

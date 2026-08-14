@@ -352,7 +352,7 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 	if !strings.Contains(src, "type PlainTextDocument struct") {
 		t.Fatalf("model.go must declare `type PlainTextDocument struct`")
 	}
-	// Story 10-1: Truncated + CapBytes removed; structural assertions on those
+	// Truncated + CapBytes removed; structural assertions on those
 	// fields live in tests/async-plain-text-load/.
 	requiredFields := []string{"TabID", "Content", "TotalBytes"}
 	for _, f := range requiredFields {

@@ -260,7 +260,7 @@ describe('appReducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.2: Multi-Document State Isolation
+// Multi-Document State Isolation
 //
 // These tests verify tab-scoped reducer actions serve as regression guards.
 // ---------------------------------------------------------------------------
@@ -673,11 +673,11 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.3: Close Document and Tab Management
+// Close Document and Tab Management
 //
 // These tests verify CLOSE_DOCUMENT reducer behavior with 3+ tabs, focus
 // transfer logic, and return-to-empty-state. The reducer is already
-// implemented (story 4-1). These tests are verification-only.
+// implemented. These tests are verification-only.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -1285,7 +1285,7 @@ describe('Go to Page dialog state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 9.8: PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
+// PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
 // Lowest-viable-layer coverage for (LRU max-5 eviction + dedup) and (per-tab
 // recents isolation). These close the three low-severity gaps identified by
 // traceability-report-9-8.md.

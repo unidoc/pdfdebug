@@ -474,8 +474,7 @@ func TestWailsTemplateFontDeleted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// style.css retains Tailwind import Verify the file still imports Tailwind
-// (from Story 1.1) -- regression guard
+// style.css retains its Tailwind import -- regression guard.
 // ---------------------------------------------------------------------------
 
 func TestTailwindImportRetained(t *testing.T) {

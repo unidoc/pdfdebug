@@ -1,5 +1,5 @@
 /**
- * Story 13.5: ValidateView component tests.
+ * ValidateView component tests.
  *
  * Component contract (from the story):
  *  - Document-level Validate panel with a "Run checks" action

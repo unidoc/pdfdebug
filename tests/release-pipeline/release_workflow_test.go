@@ -725,7 +725,7 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Every run: step must set shell: bash (Windows defaults to PowerShell)
-// Covers Dev Notes lesson #3 from story 7-1
+// Covers Dev Notes lesson #3
 // ---------------------------------------------------------------------------
 
 func TestShellBashOnRunSteps(t *testing.T) {

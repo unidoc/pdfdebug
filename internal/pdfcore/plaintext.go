@@ -18,7 +18,7 @@ const chunkSize = 1 << 20
 // plaintext load. 4 GiB. Prevents 32-bit int overflow on `make([]byte, 0,
 // int(totalBytes))` and guards against single-call OOM-killer triggers on
 // 64-bit hosts. Files above this ceiling return ErrUnsupportedPDF before any
-// read begins. Story 10-1.
+// read begins.
 const maxPlainTextAlloc = int64(4) << 30
 
 // GetPlainText reads the on-disk bytes of the PDF backing tabID and returns a
@@ -101,7 +101,7 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 // plainTextMu would deadlock against the active read.
 //
 // Returns immediately; the in-flight goroutine observes ctx.Done() between
-// chunks and unwinds on its own. Story 10-1.
+// chunks and unwinds on its own.
 func (ins *Inspector) CancelPlainText(tabID string) error {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -216,7 +216,7 @@ func readPlainText(ctx context.Context, path string, size int64, tabID string) (
 
 // latin1Decode maps each input byte to its Unicode codepoint via rune(b).
 // Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except 0x09 TAB,
-// 0x0A LF, 0x0D CR; form-feed 0x0C IS replaced per Story 10-1) and to 0x7F
+// 0x0A LF, 0x0D CR; form-feed 0x0C IS replaced) and to 0x7F
 // (DEL). C1 controls (0x80-0x9F) and all other Latin-1 supplement bytes
 // (0xA0-0xFF) map verbatim -- the Latin-1 decode path is intentionally
 // lossless for stream bytes so users debugging a PDF see what's actually

@@ -4,7 +4,7 @@
  * Cmd+F / Ctrl+F / F3 / Shift+F3 keyboard listeners at window level, gated on
  * the active prop. Esc is NOT bound here -- the FindBar component scopes its
  * own Esc handler to its DOM subtree so the Cmd+K palette's Esc handler is
- * not co-fired (Story 10-2).
+ * not co-fired.
  */
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { findMatches, buildLineStartOffsets, type Match } from '../lib/findMatches';
@@ -221,7 +221,7 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   const closeBar = useCallback(() => {
     setOpen(false);
     // PRESERVE query, matches, activeIndex, openedOnce so the Notepad++ "open
-    // -> type -> Esc -> F3 F3 F3" muscle-memory path works (Story 10-2).
+    // -> type -> Esc -> F3 F3 F3" muscle-memory path works.
   }, []);
 
   const setQuery = useCallback((q: string) => {

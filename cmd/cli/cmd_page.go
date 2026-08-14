@@ -45,7 +45,7 @@ type pageFlags struct {
 }
 
 // runPageDump parses flags for `dump page` and dispatches the assembled
-// per-page render-info view (Story 11-6). --info N selects 1-based page N.
+// per-page render-info view. --info N selects 1-based page N.
 // EXPERIMENTAL: the JSON field set is not a frozen contract.
 func runPageDump(args []string) int {
 	fs := flag.NewFlagSet("dump page", flag.ContinueOnError)

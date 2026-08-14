@@ -1,5 +1,5 @@
 /**
- * Story 13.4: SignaturesView component tests.
+ * SignaturesView component tests.
  *
  * Component contract (from the story):
  *  - Document-level view fed by GetSignatures(tabId) -> signature list.

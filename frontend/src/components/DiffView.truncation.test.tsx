@@ -1,5 +1,5 @@
 /**
- * Story 14.3: DiffView depth-cap truncation display branch.
+ * DiffView depth-cap truncation display branch.
  *
  * DiffView's `identical` const (DiffView.tsx) mirrors Go's diffIsIdentical, and
  * that includes `summary.truncatedSubtrees === 0`. Given a result whose walk was

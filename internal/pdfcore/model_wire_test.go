@@ -1,4 +1,4 @@
-// Story 12-3: wire-shape guard for the DocumentInfo payload.
+// wire-shape guard for the DocumentInfo payload.
 //
 // alpha.96 moved the runtime-facing payload under a stable binding API + JSON
 // struct tags. The classic silent regression is a field getting re-tagged (e.g.

@@ -1,5 +1,5 @@
 /**
- * Story 9-8: Command palette grammar parser.
+ * Command palette grammar parser.
  *
  * Grammar contract:
  *   - `847`              -> numeric, any gen

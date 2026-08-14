@@ -1,5 +1,5 @@
 // Package story_10_6_test holds the per-story acceptance test suite for
-// Story 10.6: PDF Parsing and Data-Correctness Fixes.
+// PDF Parsing and Data-Correctness Fixes.
 //
 // This is the structural-assertion suite -- it source-greps the production
 // tree for the contracts pinned in the story's ACs, plus checks the fixture

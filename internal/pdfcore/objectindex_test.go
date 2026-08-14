@@ -1,4 +1,4 @@
-// Story 9-8: Object Reference Visibility (Inline Labels + Command Palette)
+// Object Reference Visibility (Inline Labels + Command Palette)
 //
 // These tests pin the contract for:
 //
@@ -342,7 +342,7 @@ func TestGetObjectIndexInvalidatesOnReopen(t *testing.T) {
 }
 
 // TestBuildReachableSetDeepNesting verifies that buildReachableSet no longer
-// caps the BFS at depth 32 (Story 10.6). The fixture page-tree depth is 52;
+// caps the BFS at depth 32. The fixture page-tree depth is 52;
 // pre-fix, objects 34..53 were mislabeled as orphan trees. Post-fix all 53
 // objects are reachable. Boundary at depth 32 AND well past it.
 func TestBuildReachableSetDeepNesting(t *testing.T) {

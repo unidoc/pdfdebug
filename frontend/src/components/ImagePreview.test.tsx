@@ -1,5 +1,5 @@
 /**
- * Story 6.2: Image Preview in Detail Panel -- ImagePreview Component Tests
+ * Image Preview in Detail Panel -- ImagePreview Component Tests
  *
  * Test IDs:
  *           (Vitest)

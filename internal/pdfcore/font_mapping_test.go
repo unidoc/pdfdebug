@@ -1,6 +1,6 @@
 package pdfcore
 
-// Story 13.3: Font CMap and Glyph-Mapping Inspection.
+// Font CMap and Glyph-Mapping Inspection.
 //
 // Contract under test (the shape Dev must implement; named here so the CLI
 // acceptance tests and the FontPreview Vitest stay in lockstep):

@@ -1,5 +1,5 @@
 /**
- * Story 4.2: Multi-Document State Isolation
+ * Multi-Document State Isolation
  *
  * Dedup cleanup calls CloseDocument for duplicate tabId.
  *
@@ -61,7 +61,7 @@ vi.mock(
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),
-    // Story 13.6: the Diff tab imports DiffDocuments; stubbed so the factory
+    // The Diff tab imports DiffDocuments; stubbed so the factory
     // never throws on the new export (the picker only calls it after a second
     // file is chosen).
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),

@@ -24,7 +24,7 @@ type TreeNode struct {
 }
 
 // ObjectIndexEntry is one row in the per-document object index produced by
-// Inspector.GetObjectIndex. It backs the Cmd+K command palette (Story 9-8).
+// Inspector.GetObjectIndex. It backs the Cmd+K command palette.
 type ObjectIndexEntry struct {
 	ObjNum    int    `json:"objNum"`
 	Gen       int    `json:"gen"`
@@ -109,7 +109,7 @@ type ResolveOpts struct {
 type ResolvedNode struct {
 	// Value is the raw resolved pdfcpu object (a Dict, StreamDict, Array, scalar,
 	// or - for an unfollowed ref marker - the IndirectRef itself). Excluded from
-	// JSON; Go callers (Story 11-6) read it to classify type and named entries.
+	// JSON; Go callers read it to classify type and named entries.
 	Value pdfcpu_types.Object `json:"-"`
 	// Key is the dict key ("Subtype") or array index ("[0]") this node occupies
 	// in its parent; "" for the root.
@@ -157,7 +157,7 @@ type PageRenderOpts struct {
 	FormsDepth     int
 }
 
-// PageRenderInfo is the assembled per-page rendering picture (Story 11-6): page
+// PageRenderInfo is the assembled per-page rendering picture: page
 // geometry (resolved incl. /Pages inheritance), every ExtGState's
 // blend/alpha/SMask, every XObject classified (Form vs Image with colorspace
 // family), and - when requested - each Form XObject walked recursively against
@@ -339,7 +339,7 @@ type Token struct {
 // ReverseRef describes one inbound dict-graph edge pointing at an object:
 // which indirect object contains the reference, where inside it the reference
 // lives (dict-key/array-index path), and the parent's /Type if present.
-// Used to power the right-panel "Referenced by" section (Story 9-10).
+// Used to power the right-panel "Referenced by" section.
 //
 // The ParentType *string pointer (NOT string) is load-bearing: nil means
 // "key absent" so the frontend can omit the column, while a non-nil pointer
@@ -356,7 +356,7 @@ type ReverseRef struct {
 // FontDetail is the consolidated font inspection payload returned by
 // Inspector.GetFontDetail. Mirrors the metadata + encoding + ToUnicode +
 // FontDescriptor structure that PDF debuggers (iText RUPS, PDFBox) surface
-// for /Type /Font dicts. Story 9-9.
+// for /Type /Font dicts.
 //
 // Descendant is non-nil only for composite (/Subtype /Type0) fonts and
 // recursively carries the same shape for the descendant CIDFont. ToUnicodeError
@@ -389,7 +389,7 @@ type FontDetail struct {
 	// JOIN of Differences (glyph name) and ToUnicodeMappings (unicode + literal
 	// text) over the union of declared codes. Assembled, never re-parsed.
 	MappingRows []FontMappingRow `json:"mappingRows"`
-	// Health carries the coverage/health diagnostic signals (Story 13.3).
+	// Health carries the coverage/health diagnostic signals.
 	// Always populated, even on a malformed ToUnicode (the signals reflect
 	// whatever parsed).
 	Health *FontHealth `json:"health"`
@@ -512,7 +512,7 @@ type FontRosterEntry struct {
 }
 
 // XRefTable is the document-level cross-reference table payload returned by
-// Inspector.GetXRefTable. Story 9-11.
+// Inspector.GetXRefTable.
 type XRefTable struct {
 	TabID   string      `json:"tabId"`
 	Entries []XRefEntry `json:"entries"` // sorted by ObjNum asc, then Gen asc
@@ -522,7 +522,7 @@ type XRefTable struct {
 // status, and the on-disk byte offset (for in-use entries) or the host
 // object stream number (for compressed entries). The frontend renders free
 // entries as non-clickable. Status is the load-bearing IPC contract: "in-use"
-// / "free" / "in-objstm" -- frontend pills key off these literals. Story 9-11.
+// / "free" / "in-objstm" -- frontend pills key off these literals.
 type XRefEntry struct {
 	ObjNum     int    `json:"objNum"`
 	Gen        int    `json:"gen"`

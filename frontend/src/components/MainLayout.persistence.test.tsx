@@ -1,5 +1,5 @@
 /**
- * Story 4.4: OS File Association, Single Instance, and Window Persistence
+ * OS File Association, Single Instance, and Window Persistence
  *
  * Integration tests for panel size persistence in MainLayout:
  *   - MainLayout reads persisted panel sizes from useWindowPersistence

@@ -5,7 +5,7 @@
 //	(ins *Inspector) GetSignatures(tabID string) (*SignatureList, error)
 //	types SignatureField, SignatureList, CertInfo
 //
-// Mirrors the Story 13-2 embedded_test.go playbook.
+// Mirrors the embedded_test.go playbook.
 //
 // Go field contract pinned here (JSON tags are pinned by the CLI acceptance
 // suite in tests/signature-decomposition/):

@@ -1,5 +1,5 @@
 /**
- * Story 9-8: TreePanel inline object-ref + /T:Type suffix rendering.
+ * TreePanel inline object-ref + /T:Type suffix rendering.
  *
  * Source contract (backend, see internal/pdfcore/objectindex_test.go):
  *   - TreeNode.objectRef: "<num> <gen> R" for indirect objects, "" otherwise

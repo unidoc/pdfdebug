@@ -1,5 +1,5 @@
 /**
- * Story 13.4: DetailPanel Signatures tab visibility tests.
+ * DetailPanel Signatures tab visibility tests.
  *
  * Contract:
  *  - The "Signatures" document-level tab is shown ONLY when the document has

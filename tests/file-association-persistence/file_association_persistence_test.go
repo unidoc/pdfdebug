@@ -1,5 +1,5 @@
 // Package file_association_persistence_test provides acceptance tests for
-// Story 4.4: OS File Association, Single Instance, and Window Persistence.
+// OS File Association, Single Instance, and Window Persistence.
 //
 // Test Levels:
 //   - Unit (Go): extractPDFPaths helper in main.go

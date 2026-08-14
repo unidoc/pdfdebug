@@ -1,5 +1,5 @@
 /**
- * Story 9.9: Font Inspection View -- DetailPanel integration tests.
+ * Font Inspection View -- DetailPanel integration tests.
  *
  * Updated for the unified GetFontView endpoint (replaces the prior
  * GetFontDetail + GetFontResourceMap two-call cascade). The backend now
@@ -50,7 +50,7 @@ vi.mock(
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetFontView: (...args: unknown[]) => mockGetFontView(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),

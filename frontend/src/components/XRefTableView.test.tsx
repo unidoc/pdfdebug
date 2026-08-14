@@ -1,5 +1,5 @@
 /**
- * Story 9.11: XREF Table View Tests
+ * XREF Table View Tests
  *
  * Covers:
  *   - table shape, columns, status pill text and the row count label;

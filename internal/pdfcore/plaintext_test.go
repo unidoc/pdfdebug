@@ -251,7 +251,7 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 }
 
 // TestLatin1DecodeFullRange pins the byte-for-codepoint contract of
-// latin1Decode for every byte 0x00..0xFF (Story 10.6). C1 controls
+// latin1Decode for every byte 0x00..0xFF. C1 controls
 // (0x80-0x9F) and the rest of the Latin-1 supplement (0xA0-0xFF) map verbatim
 // via rune(b). Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except
 // TAB / LF / CR; form-feed IS replaced) and to 0x7F (DEL). Direct call -- no

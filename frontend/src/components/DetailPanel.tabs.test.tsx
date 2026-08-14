@@ -1,5 +1,5 @@
 /**
- * Story 9.11: DetailPanel Tabs Integration Tests
+ * DetailPanel Tabs Integration Tests
  *
  * Covers:
  *   - the tab bar with three triggers and Object as the default;
@@ -66,14 +66,14 @@ vi.mock(
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
     CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),
-    // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
+    // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   })

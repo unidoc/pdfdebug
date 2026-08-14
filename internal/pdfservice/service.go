@@ -85,7 +85,7 @@ func NewPDFService(app *application.App) PDFService {
 // test-binary-crash diagnostic for genuine bugs not in the inspector's
 // documented panic surface).
 //
-// Story 10-5: each wrapper invokes the inspector call inside an anonymous
+// Each wrapper invokes the inspector call inside an anonymous
 // closure that owns the deferred recover; the closure writes its result and
 // error into outer locals (via shadow) and the recover overwrites the error
 // local via pointer if a runtime.Error fires. This pattern keeps the method
@@ -219,7 +219,7 @@ func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageDa
 // /Type /Font dict node. Returns pdfcore.ErrNotAFont when the resolved dict
 // is not a Font dict (e.g. the iconHint='font' false positive on the
 // /Resources /Font resource map); the frontend treats this sentinel as a
-// signal to silently render the generic DictView (Story 9-9).
+// signal to silently render the generic DictView.
 func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error) {
 	var result *pdfcore.FontDetail
 	var err error
@@ -276,7 +276,7 @@ func (s *PDFService) GetFontView(tabID string, nodeID string) (*pdfcore.FontView
 
 // GetReverseRefs returns the inbound dict-graph references for the indirect
 // object identified by nodeID, sourced from the per-document reverse-ref
-// index built lazily on first call (Story 10-5). Returns
+// index built lazily on first call. Returns
 // pdfcore.ErrReverseRefIndexUnavailable when the index could not be built.
 //
 // Returns []*pdfcore.ReverseRef so the Wails-generated TS binding produces a
@@ -317,7 +317,7 @@ func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
 }
 
 // GetObjectIndex returns the full xref-derived object index for the document
-// in tabID. Powers the Cmd+K command palette (Story 9-8). Lazy on first call,
+// in tabID. Powers the Cmd+K command palette. Lazy on first call,
 // cached per document state.
 func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error) {
 	var result []*pdfcore.ObjectIndexEntry
@@ -330,7 +330,7 @@ func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, 
 }
 
 // GetXRefTable returns the cross-reference table view for the document in
-// tabID. Lazy on first call, cached per document state. Story 9-11.
+// tabID. Lazy on first call, cached per document state.
 func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 	var result *pdfcore.XRefTable
 	var err error
@@ -347,7 +347,7 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 // read is cancellable via CancelPlainText; cancellation surfaces an error
 // satisfying errors.Is(err, context.Canceled).
 //
-// Story 10-5: NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
+// NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
 // disk bytes and never calls into the PDF backend; a runtime.Error here is a
 // Go bug in our non-backend code and SHOULD crash loudly rather than be
 // laundered as "malformed PDF" (which would mislead the user).
@@ -356,23 +356,23 @@ func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, err
 }
 
 // CancelPlainText cancels an in-flight GetPlainText for tabID. No-op when no
-// load is in flight. Returns ErrDocumentNotFound for unknown tabs. Story 10-1.
+// load is in flight. Returns ErrDocumentNotFound for unknown tabs.
 //
-// Story 10-5: NOT wrapped by recoverRuntimePanic (non-backend code path).
+// NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) CancelPlainText(tabID string) error {
 	return s.inspector.CancelPlainText(tabID)
 }
 
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
-// Powers the loading-card size disclosure on PlainTextView. Story 10-1.
+// Powers the loading-card size disclosure on PlainTextView.
 //
-// Story 10-5: NOT wrapped by recoverRuntimePanic (non-backend code path).
+// NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) GetPlainTextSize(tabID string) (int64, error) {
 	return s.inspector.GetPlainTextSize(tabID)
 }
 
 // SetPendingOpens injects the cold-start file-association queue from main.go.
-// Story 12.1: the queue is constructed in main.go (app-shell state) and wired
+// The queue is constructed in main.go (app-shell state) and wired
 // here so the bound ConsumePendingOpenFiles method can drain it.
 func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 	s.pendingOpens = q
@@ -392,7 +392,7 @@ func (s *PDFService) ConsumePendingOpenFiles() []string {
 }
 
 // GetEmbeddedFiles enumerates the embedded/associated files for the document in
-// tabID (catalog /AF + /Names/EmbeddedFiles, merged and deduped). Story 13.2.
+// tabID (catalog /AF + /Names/EmbeddedFiles, merged and deduped).
 func (s *PDFService) GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error) {
 	var result *pdfcore.EmbeddedFileList
 	var err error
@@ -405,7 +405,7 @@ func (s *PDFService) GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, 
 
 // GetEmbeddedFileBytes returns the decoded bytes of one embedded file, addressed
 // by the obj:G:N nodeID of its /EmbeddedFile stream. Wails marshals the []byte
-// as a base64 string to the frontend. Story 13.2.
+// as a base64 string to the frontend.
 func (s *PDFService) GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error) {
 	var result []byte
 	var err error
@@ -417,7 +417,7 @@ func (s *PDFService) GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, 
 }
 
 // GetDocumentMetadata returns the document's XMP packet and /Info dictionary
-// fields for the document in tabID. Story 13.2.
+// fields for the document in tabID.
 func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error) {
 	var result *pdfcore.DocumentMetadata
 	var err error
@@ -431,7 +431,7 @@ func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadat
 // GetSignatures returns the decomposed digital-signature fields for the
 // document in tabID as a flat array (the frontend consumes the entry list
 // directly; an empty document yields an empty array). Structural
-// decomposition only - no trust verdict of any kind. Story 13.4.
+// decomposition only - no trust verdict of any kind.
 func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, error) {
 	var result []pdfcore.SignatureField
 	var err error
@@ -464,7 +464,7 @@ func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult,
 // DiffDocuments computes the path-aligned structural delta between two already
 // open documents (both tab IDs must be open in this service's inspector). It is
 // a read-only walk over both documents aligned by structural path, NOT object
-// number. Story 13.6.
+// number.
 func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffResult, error) {
 	var result *pdfcore.DiffResult
 	var err error
@@ -478,7 +478,7 @@ func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffR
 // SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
 // writes data to the chosen path, returning the saved path. An empty path (user
 // cancelled) returns ("", nil) so the frontend can treat cancel as a no-op.
-// Story 13.2: the GUI "Save..." action for an extracted embedded file. This is
+// The GUI "Save..." action for an extracted embedded file. This is
 // the first save-dialog path in the app (no prior SaveFile usage); it is NOT
 // part of inspectorAPI because it is an app-level dialog, not a PDF-backend
 // call.

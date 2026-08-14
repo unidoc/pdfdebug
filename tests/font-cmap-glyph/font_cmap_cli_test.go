@@ -1,6 +1,6 @@
 package font_cmap_glyph_test
 
-// Story 13.3: Font CMap and Glyph-Mapping Inspection -- CLI acceptance suite.
+// Font CMap and Glyph-Mapping Inspection -- CLI acceptance suite.
 //
 // Contract under test (13-1: plain text is the DEFAULT; --json is the stable
 // surface):

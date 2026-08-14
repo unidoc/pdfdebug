@@ -3,7 +3,7 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
 // surface at RUNTIME (unknown resource / wrong output / wrong exit code), not at
 // compile time, so the main `unidoc-pdf-debugger` module keeps building green
-// (mirrors the Story 11-5 cli-stream-retrieval convention).
+// (mirrors the cli-stream-retrieval convention).
 //
 // Run: cd tests/page-render-info && go test -v -count=1 ./...
 package page_render_info_test

@@ -1,5 +1,5 @@
 // Package release_pipeline_test: additional static-validation tests closing
-// coverage gaps in the Story 7.2 release pipeline.
+// coverage gaps in the release pipeline.
 //
 // These tests target concrete behaviors mandated by Story 7.2 tasks and Review
 // findings that were not asserted by the original 26 acceptance tests:

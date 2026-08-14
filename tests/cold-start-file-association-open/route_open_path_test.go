@@ -1,4 +1,4 @@
-// Story 12.1: the shared per-path routing decision in main.go.
+// The shared per-path routing decision in main.go.
 //
 // Both backend entry points (ApplicationOpenedWithFile, OnSecondInstanceLaunch)
 // route every path through the queue first and only call openFileAndEmit +

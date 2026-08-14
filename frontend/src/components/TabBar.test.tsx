@@ -1,5 +1,5 @@
 /**
- * Story 4.1: Tab Bar Component for Multi-Document Management
+ * Tab Bar Component for Multi-Document Management
  *
  * Component-level acceptance tests for TabBar:
  *   TabBar renders one tab per open document with correct file names

@@ -514,7 +514,7 @@ func TestTreeDump_NegativeDepth_Error(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// `pdfdebug dump object` is implemented (story 5-2). Verify it produces
+// `pdfdebug dump object` is implemented. Verify it produces
 // a JSON error for a non-existent file (exit code 2).
 // ---------------------------------------------------------------------------
 

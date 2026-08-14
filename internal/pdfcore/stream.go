@@ -186,7 +186,7 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.
 //
-// Story 10-5: streamMu is held for the ENTIRE resolve+decode+write path, not
+// streamMu is held for the ENTIRE resolve+decode+write path, not
 // dropped between cache check and write. The previous "drop lock for decode,
 // reacquire to write" pattern let two concurrent first-time callers both
 // decode and both clobber the cache, so each received a different

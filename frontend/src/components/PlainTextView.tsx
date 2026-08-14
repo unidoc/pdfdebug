@@ -73,7 +73,7 @@ export function formatBytes(n: number): string {
 
 /**
  * Document-level Plain Text view. Lazy-fetches on first activation; renders
- * a virtualized scroll container once the payload is ready. Story 10-1.
+ * a virtualized scroll container once the payload is ready.
  */
 export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [data, setData] = useState<PlainTextDocumentData | null>(null);
@@ -85,7 +85,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
-  // Per-tab case-sensitivity toggle on TabState (Story 10-2).
+  // Per-tab case-sensitivity toggle on TabState.
   const appState = useAppState();
   const dispatch = useAppDispatch();
   const findCaseSensitive =
@@ -212,7 +212,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   }, [tabId, active]);
 
   // 200ms loading-card debounce. Avoids flash-of-loading for the fast path
-  // (OS page-cache-warm reads complete under 200ms). Story 10-1.
+  // (OS page-cache-warm reads complete under 200ms).
   useEffect(() => {
     if (loadState !== 'loading') {
       setShowLoadingCard(false);
@@ -253,7 +253,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     return content.split(/\r\n?|\n/);
   }, [data]);
 
-  // Story 10-2: find-bar hook. content is the raw payload when load is ready;
+  // find-bar hook. content is the raw payload when load is ready;
   // Null otherwise so Cmd+F preventDefault-only.
   const findBar = useFindBar({
     tabId,

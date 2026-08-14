@@ -33,7 +33,7 @@ type CertInfo struct {
 // SignatureField is one signature field decomposed into structural facts:
 // field identity, signature-dictionary entries, the PKCS#7/CMS certificate
 // facts, and the /ByteRange coverage measurement. It NEVER carries a trust
-// verdict - decompose-and-display only (Story 13-4).
+// verdict - decompose-and-display only.
 type SignatureField struct {
 	// FieldName is the fully qualified field name (parent /T chain joined
 	// with ".").

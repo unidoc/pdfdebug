@@ -1,5 +1,5 @@
 /**
- * Story 10.8: formatBytes unifies on 1 decimal place across KB / MB / GB.
+ * formatBytes unifies on 1 decimal place across KB / MB / GB.
  *
  * Expected outputs:
  *   0            -> "0 B"

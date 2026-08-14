@@ -1,5 +1,5 @@
 /**
- * Story 13.2: DocumentMetadataView component tests.
+ * DocumentMetadataView component tests.
  *
  * Component contract (from the story):
  *  - Fed by GetDocumentMetadata(tabId) -> { info: {...}, xmp: "...", warning }.

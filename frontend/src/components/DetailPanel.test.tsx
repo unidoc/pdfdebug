@@ -1,5 +1,5 @@
 /**
- * Story 2.7: Detail Panel -- Context-Sensitive Content Display
+ * Detail Panel -- Context-Sensitive Content Display
  *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/DetailPanel.test.tsx
@@ -45,7 +45,7 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw on the new
     // exports.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
@@ -53,7 +53,7 @@ vi.mock(
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),
-    // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
+    // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   })
@@ -755,7 +755,7 @@ describe('DetailPanel React.memo export', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.2: Content Stream Viewer integration tests
+// Content Stream Viewer integration tests
 // ---------------------------------------------------------------------------
 
 const contentStreamData = {
@@ -1108,7 +1108,7 @@ describe('DetailPanel content stream IPC rejection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.3: Syntax highlighting integration tests
+// Syntax highlighting integration tests
 // ---------------------------------------------------------------------------
 
 const sampleTokens = [
@@ -1128,7 +1128,7 @@ const contentStreamDataWithTokens = {
   nodeId: 'obj:0:10',
   raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
   tokenized: sampleTokens,
-  // Story 9-6: the Go formatter pre-groups tokens into FormattedLine[]; here
+  // The Go formatter pre-groups tokens into FormattedLine[]; here
   // we wrap all sample tokens into a single row for the integration test
   // since the per-token highlight assertions don't depend on row structure.
   formatted: [{
@@ -1208,7 +1208,7 @@ describe('DetailPanel syntax highlighting integration', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 6.2: Image Preview in Detail Panel -- Integration Tests
+// Image Preview in Detail Panel -- Integration Tests
 // ---------------------------------------------------------------------------
 
 // Minimal 1x1 PNG for test rendering

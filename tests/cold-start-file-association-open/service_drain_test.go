@@ -1,4 +1,4 @@
-// Story 12.1: PDFService.ConsumePendingOpenFiles service-boundary contract.
+// PDFService.ConsumePendingOpenFiles service-boundary contract.
 //
 // The drain is exposed over the Wails service boundary as a thin delegation:
 //   - SetPendingOpens(q *pendingopen.Queue) injects the queue from main.go.

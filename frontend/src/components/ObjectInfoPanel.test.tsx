@@ -1,5 +1,5 @@
 /**
- * Story 9.10: Object Source View + Reverse References
+ * Object Source View + Reverse References
  *
  * Covers Object Source view contract and the mapping that is the
  * highest-leverage place to catch a regression: `5 0 R` -> nodeID `obj:0:5`

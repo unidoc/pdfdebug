@@ -1,5 +1,5 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness (finding #5) --
+ * Frontend Hook and Render-Path Correctness (finding #5) --
  * raw-mode line splitting handles CR / CRLF / mixed.
  *
  * The split at ContentStreamViewer.tsx:222 is `raw.split(/\r\n?|\n/)`, so

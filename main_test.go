@@ -232,7 +232,7 @@ func TestExtractPDFPaths(t *testing.T) {
 	}
 }
 
-// TestRouteOpenPath pins the Story 12.1 routing decision shared by both
+// TestRouteOpenPath pins the routing decision shared by both
 // file-open callbacks. Before Drain (cold start) the path is queued and the
 // fake open func is NOT called; after Drain (warm/ready) the open func IS
 // called and the verdict is true. This is the only sanctioned automated pin on

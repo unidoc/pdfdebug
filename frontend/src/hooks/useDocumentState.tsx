@@ -26,7 +26,7 @@ export interface TreeNode {
   /**
    * Literal /Type value of the resolved dict (e.g. "Pages", "Page", "Font");
    * "" when absent. Frontend dedups this against the semantic label before
-   * rendering /T:<TypeName> (Story 9-8).
+   * rendering /T:<TypeName>.
    */
   typeName: string;
 }
@@ -41,7 +41,7 @@ export interface NavHistoryEntry {
 
 /**
  * One recent palette jump. Mirrors ObjectIndexEntry fields the palette needs
- * to re-render the row without re-querying the backend (Story 9-8).
+ * to re-render the row without re-querying the backend.
  */
 export interface RecentJump {
   objNum: number;
@@ -69,7 +69,7 @@ export interface TabState {
   /**
    * Most-recent palette jumps for this tab, newest first. LRU capped at 5;
    * Deduped by nodeId. Lives in memory only -- dies with the tab on
-   * CLOSE_DOCUMENT (Story 9-8 Task 5.3).
+   * CLOSE_DOCUMENT.
    */
   recentJumps: RecentJump[];
   /**
@@ -103,8 +103,7 @@ export interface AppState {
   /**
    * Monotonic counter incremented on every ACTIVATE_TAB dispatch (even when
    * the target is the already-active tab). The Cmd+K palette subscribes to
-   * this so any user-initiated tab activation closes the palette, matching
-   * the Story 9-8 intent.
+   * this so any user-initiated tab activation closes the palette.
    */
   tabActivationVersion: number;
   // True while a single-file open is in flight. Drives the inline loading

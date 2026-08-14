@@ -9,7 +9,7 @@ import (
 )
 
 // runSignaturesDump handles `dump signatures`: enumerate + decompose every
-// signature field (Story 13-4). Plain-text default is a per-signature block;
+// signature field. Plain-text default is a per-signature block;
 // --json emits a top-level array. Zero signature fields is a normal empty
 // state (exit 0); open or view errors go to stderr with exit 2. The output
 // reports decomposed structural facts only - never a trust verdict.

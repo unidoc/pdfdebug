@@ -1,4 +1,4 @@
-// Story 10-1: Async Plain Text Load with Cancel -- co-located unit tests.
+// Async Plain Text Load with Cancel -- co-located unit tests.
 //
 // These cover Inspector.GetPlainText's cancellable chunked-read loop plus
 // Inspector.CancelPlainText and Inspector.GetPlainTextSize. Test names match

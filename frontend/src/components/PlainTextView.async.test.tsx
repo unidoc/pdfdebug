@@ -1,5 +1,5 @@
 /**
- * Story 10.1: Async Plain Text Load with Cancel -- Vitest suite.
+ * Async Plain Text Load with Cancel -- Vitest suite.
  *
  * Test IDs follow the convention. Each test maps to one or more ACs in
  * the story spec.
@@ -134,7 +134,7 @@ describe('loading card structure', () => {
     // Size disclosure -- once GetPlainTextSize resolves (microtask flush).
     const sizeEl = screen.getByTestId('plain-text-loading-size');
     expect(sizeEl).toBeInTheDocument();
-    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form (Story 10.8).
+    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form.
     expect(sizeEl.textContent).toContain('487.0 MB');
     // Cancel button with the literal "Cancel" label.
     const cancelBtn = screen.getByTestId('plain-text-cancel-button');

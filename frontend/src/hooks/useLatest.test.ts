@@ -1,5 +1,5 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
+ * Frontend Hook and Render-Path Correctness
  * (finding #28) -- useLatest ref-mirror consolidation hook.
  *
  * Test IDs follow the convention.

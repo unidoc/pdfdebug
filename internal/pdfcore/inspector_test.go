@@ -751,7 +751,7 @@ func TestObjectRefFromNodeID(t *testing.T) {
 	}
 }
 
-// --- Partial open / error node tests (Story 2-9) ---
+// --- Partial open / error node tests ---
 
 func TestOpenPartialSuccess(t *testing.T) {
 	// Verify that Open() on a valid PDF returns no warning.

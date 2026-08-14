@@ -378,7 +378,7 @@ func parseObjGenR(s string) (num, gen int, ok bool) {
 // On panic during BFS, safeCall captures the panic; the inner function flags
 // revRefsBuildFailed = true so subsequent callers receive
 // ErrReverseRefIndexUnavailable without re-running the build. The
-// build-failure log line moved here from Inspector.Open (Story 10-5).
+// build-failure log line moved here from Inspector.Open.
 func buildReverseRefsOnce(doc *DocumentState) {
 	if doc == nil {
 		return

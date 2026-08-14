@@ -1,5 +1,5 @@
 /**
- * Story 9.10: Object Source View + Reverse References
+ * Object Source View + Reverse References
  *
  * Covers, and the frontend failure-mode banner (Task 6.5 case 1) for the
  * "Referenced by" section. keyboard parity for the row click target is also

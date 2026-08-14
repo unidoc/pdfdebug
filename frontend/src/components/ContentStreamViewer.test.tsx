@@ -1,5 +1,5 @@
 /**
- * Story 3.2: Content Stream Viewer -- Raw Text Display (Prototype)
+ * Content Stream Viewer -- Raw Text Display (Prototype)
  *
  * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.test.tsx
@@ -200,7 +200,7 @@ describe('ContentStreamViewer single-line content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.3: Syntax highlighting unit tests
+// Syntax highlighting unit tests
 // ---------------------------------------------------------------------------
 
 const tokenizedFixture = [
@@ -438,7 +438,7 @@ describe('Tooltip map completeness', () => {
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer edge cases', () => {
-  // Story 9-6: in formatted view the gutter is keyed by formatted-row index,
+  // In formatted view the gutter is keyed by formatted-row index,
   // not source line, so blank source lines no longer map to a gutter row.
   // The Raw view (which is byte-faithful) preserves source-line semantics
   // including blanks; assert there.
@@ -462,7 +462,7 @@ describe('ContentStreamViewer edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.4: View mode toggle unit tests
+// View mode toggle unit tests
 // ---------------------------------------------------------------------------
 
 // Helper to render with controlled view mode. Accepts a flat token fixture

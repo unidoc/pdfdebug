@@ -1,5 +1,5 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- useFindBar hook suite.
+ * Find Bar in Plain Text View -- useFindBar hook suite.
  *
  * Scope:
  * - openBar / closeBar / setQuery / next / prev surface

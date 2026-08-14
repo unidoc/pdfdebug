@@ -166,7 +166,7 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 		}
 	}
 
-	// Assembled per-code mapping table + health signals (Story 13.3). Assembled
+	// Assembled per-code mapping table + health signals. Assembled
 	// from the Differences / ToUnicodeMappings already populated above -- no
 	// re-parsing. Must run after populateEncoding/populateToUnicode.
 	assembleMapping(detail)
@@ -188,7 +188,7 @@ func buildFontDetailFromDictDepth(doc *DocumentState, nodeID string, d pdfcpu_ty
 // assembleMapping builds detail.MappingRows (the per-code JOIN of Differences
 // and ToUnicodeMappings over the union of declared codes) and detail.Health
 // (the coverage/health signals), from the already-populated parser outputs.
-// Pure assembly: it re-parses nothing. Story 13.3.
+// Pure assembly: it re-parses nothing.
 //
 // MappingRows is always a non-nil slice and Health is always populated, even
 // on a degraded font (malformed ToUnicode), so the frontend never nil-derefs.
@@ -350,7 +350,7 @@ func parseDifferences(arr pdfcpu_types.Array) []EncodingDifference {
 		switch v := elem.(type) {
 		case pdfcpu_types.Integer:
 			currentCode = int(v)
-			// Story 10.6: silently skip out-of-range codes. Malformed
+			// Silently skip out-of-range codes. Malformed
 			// /Differences arrays in the wild carry negatives or values >255
 			// (typo / merge-conflict residue). With no guard, the subsequent
 			// Name entries appended at those codes pollute the encoding table.
@@ -864,7 +864,7 @@ func parseBfrange(section string) ([]ToUnicodeMapping, error) {
 		}
 		for k := low; k <= high; k++ {
 			delta := k - low
-			// Story 10.6: propagate the trailing-unit overflow into higher
+			// Propagate the trailing-unit overflow into higher
 			// UTF-16 units (carry). PDF spec 9.10.3 increments the trailing
 			// 16-bit code unit; when (unit + delta) > 0xFFFF the excess
 			// MUST carry into the next-higher unit, not be silently

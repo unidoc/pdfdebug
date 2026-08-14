@@ -61,7 +61,7 @@ var readFunctionNames = map[string]bool{
 //     the production-source layout, not of runtime behavior, and is not
 //     reproducible via Vitest, Playwright, or boot-smoke because the
 //     splash WebView is a frameless OS-native window outside Playwright's
-//     reach. See story 9-13.
+//     reach. See.
 //
 //  2. Structural regression guards on reentrant callbacks (e.g. the
 //     splash MUST NOT be created inside OnSecondInstanceLaunch). Same

@@ -1,5 +1,5 @@
 /**
- * Story 12.1: Cold-Start File Association Open -- frontend drain.
+ * Cold-Start File Association Open -- frontend drain.
  *
  * On cold start the backend queues file-association paths instead of emitting
  * document:opened into a not-yet-listening WebView. App.jsx must, inside the

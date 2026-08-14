@@ -1,5 +1,5 @@
 /**
- * Story 2.5: Tree Panel with Lazy-Loading Navigation
+ * Tree Panel with Lazy-Loading Navigation
  *
  * Test IDs: through
  * Run: cd frontend && npx vitest run src/components/TreePanel.test.tsx
@@ -277,7 +277,7 @@ describe('TreePanel renders root and expands on click', () => {
 
     act(() => screen.getByTestId('dispatch').click());
 
-    // Root children should be visible (root is pre-expanded with children from story 2-4)
+    // Root children should be visible (root is pre-expanded with children)
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Pages')).toBeInTheDocument();
     expect(screen.getByText('Metadata')).toBeInTheDocument();
@@ -1211,7 +1211,7 @@ describe('TreePanel with null rootChildren', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.2: Multi-Document State Isolation
+// Multi-Document State Isolation
 //
 // Each tab maintains independent tree expansion state after switching
 // away and back.

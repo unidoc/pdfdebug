@@ -170,7 +170,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
 
   // Hide rawKey when the inline objectRef suffix is rendered. PDFBox-style
   // rows show "Pages [2 0 R]" rather than "Pages /Pages [2 0 R]" -- the
-  // /<bareKey> rawKey adds nothing once the ref is visible (Story 9-8).
+  // /<bareKey> rawKey adds nothing once the ref is visible.
   const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
 
   const rowClasses = [

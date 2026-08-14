@@ -1,5 +1,5 @@
 /**
- * Story 8.4: Window Geometry Persistence
+ * Window Geometry Persistence
  *
  * Integration tests for the App.jsx wiring of window-geometry events and
  * startup restore. These cover Tasks 4 and 5 of the story:
@@ -87,7 +87,7 @@ vi.mock(
     // drain rejects, emitting unhandled errors (Story 13.2 "ideally close the
     // pre-existing" clause).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
-    // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
+    // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   }),

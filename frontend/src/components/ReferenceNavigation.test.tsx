@@ -1,5 +1,5 @@
 /**
- * Story 2.8: Clickable Reference Navigation
+ * Clickable Reference Navigation
  *
  * Test IDs: (Vitest)
  * Run: cd frontend && npx vitest run src/components/ReferenceNavigation.test.tsx
@@ -50,7 +50,7 @@ vi.mock(
     GetObjectSource: (...args: unknown[]) => mockGetObjectSource(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),
@@ -315,7 +315,7 @@ describe('Reference values rendered as clickable links', () => {
   });
 
   test('reference value in ObjectSourcePanel also has clickable styling', async () => {
-    // Story 9-10: ObjectInfoPanel was rewritten as ObjectSourcePanel. The
+    // ObjectInfoPanel was rewritten as ObjectSourcePanel. The
     // bottom-left panel now renders reserialized PDF text; ref clickability
     // is driven by a regex over that text. Drive it via the GetObjectSource
     // mock returning a source string containing "2 0 R".
@@ -466,7 +466,7 @@ describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
   });
 
   test('clicking reference in ObjectSourcePanel dispatches NAVIGATE_TO_REF', async () => {
-    // Story 9-10: ObjectInfoPanel was rewritten. Drive via GetObjectSource.
+    // ObjectInfoPanel was rewritten. Drive via GetObjectSource.
     mockGetObjectSource.mockResolvedValueOnce('1 0 obj\n<< /Pages 2 0 R >>\nendobj');
     const user = userEvent.setup();
 

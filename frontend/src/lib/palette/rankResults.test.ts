@@ -1,5 +1,5 @@
 /**
- * Story 9-8: Command palette result ranker.
+ * Command palette result ranker.
  *
  * Ordering contract:
  *   - Numeric: exact ObjNum match first, then gen-asc disambiguation

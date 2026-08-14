@@ -1,5 +1,5 @@
 // Package multi_document_state_isolation_test provides acceptance tests for
-// Story 4.2: Multi-Document State Isolation.
+// Multi-Document State Isolation.
 //
 // Test Levels: Integration (Go) and Unit (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.

@@ -1,4 +1,4 @@
-// Story 11.4: Expose existing pdfcore views as CLI commands.
+// Expose existing pdfcore views as CLI commands.
 //
 // Document-level presenters (no --ref): xref, objects, plaintext. Black-box:
 // build the CLI, run as a subprocess.
