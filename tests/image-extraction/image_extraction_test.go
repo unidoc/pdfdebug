@@ -1,5 +1,5 @@
-// Package image_extraction_test provides acceptance tests for Story 6.1:
-// Image Extraction in PDF Core.
+// Package image_extraction_test provides acceptance tests for Image Extraction
+// in PDF Core.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.

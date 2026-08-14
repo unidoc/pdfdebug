@@ -1,5 +1,5 @@
-// Package startup_splash_screen_test provides acceptance tests for Story 9.13:
-// Startup Splash Screen.
+// Package startup_splash_screen_test provides acceptance tests for Startup
+// Splash Screen.
 //
 // Test Pyramid placement per story spec:
 //   - Unit (Go, internal/splash): min-display floor, timeout race,

@@ -1,5 +1,5 @@
-// Package detail_panel_tabs_test provides acceptance tests for Story 9.11:
-// XREF Table and Plain Text View Tabs in DetailPanel.
+// Package detail_panel_tabs_test provides acceptance tests for XREF Table and
+// Plain Text View Tabs in DetailPanel.
 //
 // Test pyramid for this story:
 //

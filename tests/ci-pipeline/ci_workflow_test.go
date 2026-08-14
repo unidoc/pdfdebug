@@ -1,5 +1,5 @@
-// Package ci_pipeline_test provides acceptance tests for Story 7.1:
-// GitHub Actions CI Pipeline.
+// Package ci_pipeline_test provides acceptance tests for GitHub Actions CI
+// Pipeline.
 //
 // These tests verify that .github/workflows/ci.yml is structured per the
 // acceptance criteria: matrix build on ubuntu-latest/macos-latest/windows-latest,

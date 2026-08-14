@@ -1,5 +1,5 @@
-// Package release_pipeline_test provides acceptance tests for Story 7.2:
-// Release Build Pipeline and Distribution.
+// Package release_pipeline_test provides acceptance tests for Release Build
+// Pipeline and Distribution.
 //
 // These tests verify that .github/workflows/release.yml is structured per the
 // acceptance criteria: tag-triggered workflow, 4-platform matrix (macOS arm64,

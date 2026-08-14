@@ -1,5 +1,5 @@
-// Package tree_panel_lazy_test provides acceptance tests for Story 2.5:
-// Tree Panel with Lazy-Loading Navigation.
+// Package tree_panel_lazy_test provides acceptance tests for Tree Panel with
+// Lazy-Loading Navigation.
 //
 // This story is purely frontend. Go structural tests verify:
 // 1. No backend regressions

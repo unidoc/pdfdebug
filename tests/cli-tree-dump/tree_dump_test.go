@@ -1,5 +1,5 @@
-// Package cli_tree_dump_test provides acceptance tests for Story 5.1:
-// CLI Binary Setup and Tree Dump Command.
+// Package cli_tree_dump_test provides acceptance tests for CLI Binary Setup and
+// Tree Dump Command.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- CLI binary build + execution.
 // No browser interaction required; all criteria are CLI binary validation.

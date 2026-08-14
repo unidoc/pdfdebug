@@ -1,5 +1,5 @@
-// Package cli_stream_retrieval_test provides acceptance tests for Story 5.3:
-// CLI Content Stream Retrieval.
+// Package cli_stream_retrieval_test provides acceptance tests for CLI Content
+// Stream Retrieval.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- CLI binary build + execution.
 // No browser interaction required; all criteria are CLI binary validation.

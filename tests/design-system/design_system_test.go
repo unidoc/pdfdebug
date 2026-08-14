@@ -1,5 +1,5 @@
-// Package design_system_test provides acceptance tests for Story 1.2:
-// Design System Foundation and Theme Setup.
+// Package design_system_test provides acceptance tests for Design System
+// Foundation and Theme Setup.
 //
 // These tests verify that CSS custom properties, font configuration,
 // Tailwind v4 theme extension, and accessibility features are configured

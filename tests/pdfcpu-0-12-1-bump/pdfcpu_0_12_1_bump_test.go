@@ -1,5 +1,5 @@
-// Package pdfcpu_0_12_1_bump_test provides acceptance tests for Story 10.4:
-// pdfcpu patch bump (v0.12.0 -> v0.12.1).
+// Package pdfcpu_0_12_1_bump_test provides acceptance tests for pdfcpu patch
+// bump (v0.12.0 -> v0.12.1).
 //
 // The suite covers two things:
 //

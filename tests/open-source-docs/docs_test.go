@@ -1,5 +1,5 @@
-// Package open_source_docs_test provides acceptance tests for Story 7.3:
-// Open-Source Project Setup.
+// Package open_source_docs_test provides acceptance tests for Open-Source
+// Project Setup.
 //
 // These tests verify that the repository ships the open-source documentation
 // deliverables:

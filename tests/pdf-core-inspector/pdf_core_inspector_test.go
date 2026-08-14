@@ -1,5 +1,5 @@
-// Package pdf_core_inspector_test provides acceptance tests for Story 2.1:
-// PDF Core Inspector -- Open and Parse PDF Files.
+// Package pdf_core_inspector_test provides acceptance tests for PDF Core
+// Inspector -- Open and Parse PDF Files.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- pdfcore API + filesystem checks.
 // No browser interaction required; all criteria are Go package validation.

@@ -136,7 +136,7 @@ type ResolvedNode struct {
 // resource name (e.g. "Fm0"), the resolved indirect-object reference, the node
 // ID of the resolved XObject stream, and its /Subtype ("Image", "Form", or the
 // raw value when neither). Backs the --ops Do classification and the
-// --xobject NAME stream resolution (Story 11-5 items 2/3).
+// --xobject NAME stream resolution.
 type XObjectInfo struct {
 	Name      string `json:"name"`
 	ObjectRef string `json:"objectRef"` // "<num> <gen> R"

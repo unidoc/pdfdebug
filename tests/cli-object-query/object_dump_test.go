@@ -1,5 +1,5 @@
-// Package cli_object_query_test provides acceptance tests for Story 5.2:
-// CLI Object Query by Reference.
+// Package cli_object_query_test provides acceptance tests for CLI Object Query
+// by Reference.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- CLI binary build + execution.
 // No browser interaction required; all criteria are CLI binary validation.

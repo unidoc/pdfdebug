@@ -298,7 +298,7 @@ func diffSharedDeepAndShallow(chainLen int, sharedValue string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// Regression (Story 14.3 code review): a shared object reachable both shallow
+// Regression: a shared object reachable both shallow
 // (fully walked) and past the depth cap must NOT be counted as a truncated
 // subtree. Before reconcileTruncation the capped encounter over-counted
 // TruncatedSubtrees, flipping an IDENTICAL pair to a false "not identical" /

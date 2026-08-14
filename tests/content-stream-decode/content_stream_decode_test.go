@@ -1,5 +1,5 @@
-// Package content_stream_decode_test provides acceptance tests for Story 3.1:
-// Content Stream Decoding in PDF Core.
+// Package content_stream_decode_test provides acceptance tests for Content
+// Stream Decoding in PDF Core.
 //
 // Test Levels: Unit (Go) and Integration (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.

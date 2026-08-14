@@ -1,8 +1,8 @@
 // 4-5: deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
 //      duplicate-prevention not separately covered, accept regression risk).
 
-// Package app_shell_test provides acceptance tests for Story 1.4:
-// Native Menu Bar and Application Shell.
+// Package app_shell_test provides acceptance tests for Native Menu Bar and
+// Application Shell.
 //
 // These tests verify that:
 //   - main.go is cleaned up (template boilerplate removed) and contains

@@ -1,5 +1,5 @@
-// Package scaffold_test provides acceptance tests for Story 1.1:
-// Initialize Wails v3 Project with React-TypeScript Scaffold.
+// Package scaffold_test provides acceptance tests for Initialize Wails v3
+// Project with React-TypeScript Scaffold.
 //
 // These tests verify that the project scaffolding was performed correctly.
 // Test Levels: Integration (Go) -- shell commands + filesystem checks.

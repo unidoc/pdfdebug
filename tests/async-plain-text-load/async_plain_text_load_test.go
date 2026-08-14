@@ -1,5 +1,5 @@
-// Package async_plain_text_load_test provides acceptance tests for Story 10.1:
-// Async Plain Text Load with Cancel.
+// Package async_plain_text_load_test provides acceptance tests for Async Plain
+// Text Load with Cancel.
 //
 // Test pyramid for this story (per the story Decision section + user directive
 // to favour API/integration over E2E):

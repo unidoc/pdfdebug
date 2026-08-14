@@ -119,7 +119,7 @@ func (ins *Inspector) CancelPlainText(tabID string) error {
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
 // Powers the loading-card size disclosure. Returns the size captured at Open
 // time; subsequent moves/deletions of the underlying file do not affect this
-// value (Story 10.6 removed the redundant re-stat). Returns ErrDocumentNotFound
+// value; there is no redundant re-stat. Returns ErrDocumentNotFound
 // for unknown tabs.
 func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 	doc, err := ins.GetDocument(tabID)

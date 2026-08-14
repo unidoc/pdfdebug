@@ -196,7 +196,7 @@ func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 
 // TestGetPlainTextAsyncGetPlainTextSize verifies: happy path returns the
 // stat-at-Open size; file-moved returns the cached size without error
-// (Story 10.6 changed the file-moved contract).
+// under the file-moved contract.
 func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	// Happy path: open a real fixture, assert size matches.
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")

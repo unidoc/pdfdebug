@@ -1,5 +1,5 @@
-// Package reference_navigation_test provides acceptance tests for Story 2.8:
-// Clickable Reference Navigation.
+// Package reference_navigation_test provides acceptance tests for Clickable
+// Reference Navigation.
 //
 // Test Levels:
 //   - Structural (Go): file content checks for backend GetAncestorPath and frontend wiring
@@ -311,7 +311,7 @@ func TestDetailPanelHasHandleReferenceClick(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF via useAppDispatch on reference
-// click. Re-pinned 2026-05-22 (Epic 9 retro): the original handleReferenceClick
+// click. Re-pinned 2026-05-22: the original handleReferenceClick
 // identifier pin was stale -- the local handler was renamed to handleRefClick and
 // routes through useAppDispatch. The behavioral contract (click -> NAVIGATE_TO_REF
 // dispatch) is preserved; only the identifier name drifted. Behavioral coverage

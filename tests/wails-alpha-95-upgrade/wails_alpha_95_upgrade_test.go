@@ -1,5 +1,5 @@
-// Package wails_alpha_95_upgrade_test provides acceptance tests for Story 10.3:
-// Wails v3 alpha bump (current pin alpha.85 -> latest alpha at story pickup).
+// Package wails_alpha_95_upgrade_test provides acceptance tests for Wails v3
+// alpha bump (current pin alpha.85 -> latest alpha at story pickup).
 //
 // Test pyramid for this story (per the story Decision section + user directive
 // to favour API/integration over E2E, and to keep unit tests for business
@@ -283,7 +283,7 @@ var expectedJSONTags = map[string][]string{
 		// ReverseRef
 		`json:"parentNodeId"`, `json:"parentRef"`,
 		`json:"parentType,omitempty"`, `json:"path"`, `json:"parentPath"`,
-		// FontDetail (Story 9-9 contract)
+		// FontDetail contract
 		`json:"subtype"`, `json:"baseFont"`, `json:"firstChar"`,
 		`json:"lastChar"`, `json:"encodingName"`, `json:"baseEncoding"`,
 		`json:"differences"`, `json:"toUnicodeMappings"`,

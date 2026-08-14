@@ -1,9 +1,8 @@
 package pdfcore
 
-// Acceptance test for Story 10-5:
-// Inspector concurrent-soak under -race detector.
+// Acceptance test for Inspector concurrent-soak under -race detector.
 //
-// Spec contract (story 10-5 verbatim):
+// Spec contract:
 //   50 goroutines, 1 second, each goroutine randomly picks ONE of the
 //   following nine Inspector methods on every iteration and invokes it
 //   against the same tabID:

@@ -1,8 +1,8 @@
 // 4-5: deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
 //      console.log fallback; real behaviour covered by Playwright E2E).
 
-// Package empty_state_test provides acceptance tests for Story 1.3:
-// Empty State with Drag-and-Drop Zone.
+// Package empty_state_test provides acceptance tests for Empty State with
+// Drag-and-Drop Zone.
 //
 // These tests verify that the EmptyState component, platform detection
 // utility, App.jsx integration, and supporting CSS rules are correctly

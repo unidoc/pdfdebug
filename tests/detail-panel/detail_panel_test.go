@@ -1,5 +1,5 @@
-// Package detail_panel_test provides acceptance tests for Story 2.7:
-// Detail Panel -- Context-Sensitive Content Display.
+// Package detail_panel_test provides acceptance tests for Detail Panel --
+// Context-Sensitive Content Display.
 //
 // Test Levels: Structural (Go) -- file existence checks for frontend artifacts.
 // This story is frontend-only. No Go logic is added. These tests verify that

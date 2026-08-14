@@ -213,7 +213,7 @@ jobs:
       - name: Build macOS GUI
         # Build CLI runs first so darwin:package (create:app:bundle) can embed
         # bin/pdfdebug into Contents/Resources before the bundle is assembled and
-        # before the conditional Sign step (Story 11-1, Task 0).
+        # before the conditional Sign step.
         if: startsWith(matrix.os, 'macos')
         shell: bash
         env:

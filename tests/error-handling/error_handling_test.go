@@ -1,5 +1,5 @@
-// Package error_handling_test provides acceptance tests for Story 2.9:
-// Error Handling and Graceful Degradation.
+// Package error_handling_test provides acceptance tests for Error Handling and
+// Graceful Degradation.
 //
 // Test Levels:
 //   - Structural (Go): file content checks for backend and frontend artifacts
@@ -270,7 +270,7 @@ func TestErrorBannerHasTintedBackgrounds(t *testing.T) {
 		t.Fatalf("cannot read ErrorBanner.tsx: %v", err)
 	}
 	src := string(content)
-	// Re-pinned 2026-05-22 (Epic 9 retro): the original dark:bg-* pin was stale.
+	// Re-pinned 2026-05-22: the original dark:bg-* pin was stale.
 	// ErrorBanner.tsx deliberately drops `dark:` Tailwind variants because the
 	// app shell uses design-token CSS that does not flip on prefers-color-scheme;
 	// a tinted banner with dark: variants would mismatch surrounding chrome.

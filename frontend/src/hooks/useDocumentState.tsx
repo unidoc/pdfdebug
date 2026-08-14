@@ -522,7 +522,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_FIND_CASE_SENSITIVE': {
       const { tabId, value } = action.payload;
       // No-op when the target tab is absent so unknown-tabId dispatches do
-      // not corrupt other tabs (Story 10-2 boundary).
+      // not corrupt other tabs.
       if (!state.tabs.some((t) => t.tabId === tabId)) return state;
       return {
         ...state,

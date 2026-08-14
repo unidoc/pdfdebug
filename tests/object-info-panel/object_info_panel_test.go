@@ -1,5 +1,5 @@
-// Package object_info_panel_test provides acceptance tests for Story 2.6:
-// Object Info Panel -- Property Display for Selected Nodes.
+// Package object_info_panel_test provides acceptance tests for Object Info
+// Panel -- Property Display for Selected Nodes.
 //
 // Test Levels: Unit (Go) -- pdfcore GetObjectDetail API validation.
 // No browser interaction required; all criteria are Go package validation.

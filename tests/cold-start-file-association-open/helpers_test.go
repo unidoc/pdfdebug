@@ -1,5 +1,5 @@
-// Package story_12_1_test holds the per-story acceptance suite for Story 12.1:
-// Cold-Start File Association Open.
+// Package story_12_1_test holds the per-story acceptance suite for Cold-Start
+// File Association Open.
 //
 // Cross-module mechanics: the production logic under test lives in
 // unidoc-pdf-debugger/internal/pendingopen and internal/pdfservice. Go forbids

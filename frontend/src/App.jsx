@@ -111,7 +111,7 @@ function AppContent() {
         lastOpenedTabIdRef.current = data.tabId
       }
       // Record the open so a later cold-start drain of the same path can
-      // detect it (Story 12.1 cross-session dedup).
+      // detect it (cross-session dedup).
       if (filePath) sessionOpenPaths.add(filePath)
       dispatch({
         type: 'OPEN_DOCUMENT',
