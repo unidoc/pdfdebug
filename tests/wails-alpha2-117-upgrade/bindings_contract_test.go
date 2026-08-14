@@ -11,7 +11,7 @@
 // This is a STANDING regression net: it passes on the current tree (the binding
 // already exports these) and re-passes after the bump + regen (the zero-diff /
 // reconciled case), or fails loud if the regen moved the wire.
-package story_14_2_wails_alpha2_117_upgrade_test
+package wails_alpha2_117_upgrade_test
 
 import (
 	"strings"

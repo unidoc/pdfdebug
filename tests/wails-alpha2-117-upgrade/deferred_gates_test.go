@@ -7,7 +7,7 @@
 // Per the ATDD directive: follow the test pyramid, do NOT create E2E/browser
 // tests for criteria that need full desktop/WebView interaction, and encode the
 // bindings zero-diff check as a documented integration check (not a grep).
-package story_14_2_wails_alpha2_117_upgrade_test
+package wails_alpha2_117_upgrade_test
 
 import "testing"
 

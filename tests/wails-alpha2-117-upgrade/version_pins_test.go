@@ -9,7 +9,7 @@
 // CLI is installed: the 3-runner build and the manual smoke, out of this
 // module's scope). A mismatch means everything downstream tests a phantom
 // -- stop.
-package story_14_2_wails_alpha2_117_upgrade_test
+package wails_alpha2_117_upgrade_test
 
 import (
 	"encoding/json"

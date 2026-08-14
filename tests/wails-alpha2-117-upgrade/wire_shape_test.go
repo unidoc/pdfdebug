@@ -16,7 +16,7 @@
 // STANDING regression net: passes on the current tree and stands through the
 // alpha2.117 bump. It is the AUTOMATED guard for the wire-shape risk; it does
 // NOT replace the manual round-trip smoke (deferred human/hardware gate).
-package story_14_2_wails_alpha2_117_upgrade_test
+package wails_alpha2_117_upgrade_test
 
 import (
 	"path/filepath"
