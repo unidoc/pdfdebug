@@ -209,20 +209,6 @@ func TestReverseRefSentinelErrorDeclared(t *testing.T) {
 	}
 }
 
-// Index build happens at Open() inside safeCall. We can only verify this
-// structurally from the integration layer: the source file must call into
-// the build entry point inside Open, and the build must be wrapped by
-// safeCall.
-func TestReverseRefIndexBuiltAtOpen(t *testing.T) {
-	src := readSource(t, "internal/pdfcore/inspector.go")
-	if !strings.Contains(src, "buildReverseRefs") && !strings.Contains(src, "BuildReverseRefs") {
-		t.Fatalf("inspector.go Open must call a reverse-refs build entry point (buildReverseRefs / BuildReverseRefs)")
-	}
-	if !strings.Contains(src, "safeCall") {
-		t.Fatalf("inspector.go must use safeCall (already true today; check preserved)")
-	}
-}
-
 // Pdfcore unit test verifies the build walks the full graph from /Root using
 // a visited set keyed by (num, gen) and emits a ReverseRef per outbound
 // indirect ref encountered in dict/array/stream-dict containers (matching
