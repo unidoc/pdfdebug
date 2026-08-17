@@ -186,32 +186,11 @@ func TestFindPathToObjectNoDepthCap(t *testing.T) {
 
 // TestTreeMaxRefDepthRetained asserts the maxRefDepth constant in
 // internal/pdfcore/tree.go is retained for the page-tree caller, whose
-// cycle-tolerance semantics differ, along with the one-line comment noting why it
-// stays.
+// cycle-tolerance semantics differ.
 func TestTreeMaxRefDepthRetained(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/tree.go")
 	if !strings.Contains(src, "maxRefDepth = 32") {
 		t.Errorf("internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (tree.go semantics unchanged by this story)")
-	}
-	// Look for an explanatory comment immediately above the constant. Loose
-	// match: any of these phrases anchor the retention rationale.
-	retentionMarkers := []string{
-		"retained",
-		"page-tree",
-		"page tree",
-		"buildChildren",
-		"different cycle",
-	}
-	body := src
-	hit := false
-	for _, marker := range retentionMarkers {
-		if strings.Contains(body, marker) {
-			hit = true
-			break
-		}
-	}
-	if !hit {
-		t.Errorf("tree.go must carry a one-line comment near `maxRefDepth = 32` noting its retention rationale (e.g. \"retained for buildChildren / page-tree\")")
 	}
 }
 
@@ -342,50 +321,6 @@ func TestLatin1DecodeBodyUnchanged(t *testing.T) {
 	}
 	if !strings.Contains(body, "sb.WriteRune(rune(c))") {
 		t.Errorf("latin1Decode must retain `sb.WriteRune(rune(c))` for the passthrough branches (lossless byte-for-codepoint mapping)")
-	}
-}
-
-// TestLatin1DecodeDocCommentRewritten asserts the doc comment in
-// internal/pdfcore/plaintext.go describes the real behavior: it must contain "C1
-// controls" (naming the 0x80-0x9F range) and "map verbatim" (the lossless Latin-1
-// contract).
-func TestLatin1DecodeDocCommentRewritten(t *testing.T) {
-	src := readSource(t, "internal/pdfcore/plaintext.go")
-	// Anchor on the comment immediately preceding `func latin1Decode`.
-	idx := strings.Index(src, "func latin1Decode(")
-	if idx == -1 {
-		t.Fatalf("could not locate latin1Decode in plaintext.go")
-	}
-	// Walk back ~30 lines to capture the leading // comment block.
-	start := max(idx-2000, 0)
-	preface := src[start:idx]
-	// Trim to the start of the contiguous // block before the func.
-	lines := strings.Split(preface, "\n")
-	commentLines := []string{}
-	// Walk from the bottom up collecting consecutive `//` lines.
-	for i := len(lines) - 1; i >= 0; i-- {
-		trim := strings.TrimSpace(lines[i])
-		if strings.HasPrefix(trim, "//") {
-			commentLines = append([]string{trim}, commentLines...)
-			continue
-		}
-		if trim == "" && len(commentLines) > 0 {
-			continue
-		}
-		if len(commentLines) > 0 {
-			break
-		}
-	}
-	commentBlock := strings.Join(commentLines, "\n")
-	requiredPhrases := []string{
-		"C1 controls",
-		"0x80-0x9F",
-		"verbatim",
-	}
-	for _, p := range requiredPhrases {
-		if !strings.Contains(commentBlock, p) {
-			t.Errorf("latin1Decode doc comment must mention %q (comment rewrite must accurately describe C1 passthrough). Got comment block:\n%s", p, commentBlock)
-		}
 	}
 }
 
@@ -655,57 +590,6 @@ func TestReadPlainTextNoStat(t *testing.T) {
 	}
 	if strings.Contains(body, "os.Stat(") {
 		t.Errorf("readPlainText must NOT call `os.Stat(...)` -- it uses the passed-in `size` argument")
-	}
-}
-
-// TestGetPlainTextSizeDocCommentUpdated asserts the doc comment on
-// GetPlainTextSize describes the cached-size behavior: it mentions "captured at
-// Open" (or equivalent) and no longer claims to surface a raw os.Stat error when
-// the file moves after Open.
-func TestGetPlainTextSizeDocCommentUpdated(t *testing.T) {
-	src := readSource(t, "internal/pdfcore/plaintext.go")
-	// Anchor on the doc-comment block immediately preceding GetPlainTextSize.
-	idx := strings.Index(src, "func (ins *Inspector) GetPlainTextSize(")
-	if idx == -1 {
-		t.Fatalf("could not locate Inspector.GetPlainTextSize in plaintext.go")
-	}
-	start := max(idx-2000, 0)
-	preface := src[start:idx]
-	lines := strings.Split(preface, "\n")
-	commentLines := []string{}
-	for i := len(lines) - 1; i >= 0; i-- {
-		trim := strings.TrimSpace(lines[i])
-		if strings.HasPrefix(trim, "//") {
-			commentLines = append([]string{trim}, commentLines...)
-			continue
-		}
-		if trim == "" && len(commentLines) > 0 {
-			continue
-		}
-		if len(commentLines) > 0 {
-			break
-		}
-	}
-	commentBlock := strings.Join(commentLines, "\n")
-	// Pre-fix wording MUST be gone.
-	if strings.Contains(commentBlock, "surfaces the raw os.Stat error") {
-		t.Errorf("GetPlainTextSize doc comment must NOT retain \"surfaces the raw os.Stat error when the file moves post-Open\" -- there is no re-stat and the contract no longer says that")
-	}
-	// Post-fix wording: any of these phrases anchor the new contract.
-	postFixMarkers := []string{
-		"captured at Open",
-		"size captured at Open",
-		"stat-at-Open",
-	}
-	hit := false
-	for _, m := range postFixMarkers {
-		if strings.Contains(commentBlock, m) {
-			hit = true
-			break
-		}
-	}
-	if !hit {
-		t.Errorf("GetPlainTextSize doc comment must affirm the value was \"captured at Open\" (post-Open moves/deletions do not affect this value). Got:\n%s", commentBlock)
 	}
 }
 

@@ -6,3 +6,6 @@
 # that is not listed here fails the gate as an unexplained loss.
 #
 # Blank lines and lines starting with '#' are ignored.
+
+TestLatin1DecodeDocCommentRewritten  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: latin1Decode doc-comment block in internal/pdfcore/plaintext.go ("C1 controls", "0x80-0x9F", "verbatim") :: comment-grep
+TestGetPlainTextSizeDocCommentUpdated  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: GetPlainTextSize doc-comment block in internal/pdfcore/plaintext.go ("surfaces the raw os.Stat error", "captured at Open") :: comment-grep
