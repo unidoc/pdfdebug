@@ -193,14 +193,58 @@ func TestNoRiskIDsInTree(t *testing.T) {
 	}
 }
 
+// releaseDocuments are the files the story-and-epic gate does not read.
+//
+// The naming rules govern two surfaces: comments, test names and assertion
+// messages; and the names of files, directories, packages and modules. A line
+// recording which epic shipped a feature is neither. It is release documentation,
+// where naming the epic is the information the reader came for, and this project
+// treats a changelog, a contributing guide and a README as prose written for
+// people rather than as annotation on code.
+//
+// Three named paths, not a pattern over markdown: an epic number in a
+// testdata README was ruled residue and swept, and a blanket markdown skip would
+// quietly re-admit it.
+//
+// The carve-out is this gate's alone. Every other gate still reads these files,
+// because a scenario ID, a priority tag or a risk ID is residue wherever it turns
+// up, release documentation included.
+var releaseDocuments = map[string]bool{
+	"CHANGELOG.md":    true,
+	"CONTRIBUTING.md": true,
+	"README.md":       true,
+}
+
 func TestNoStoryOrEpicNumberReferencesInTree(t *testing.T) {
 	root := projectRoot(t)
-	hits := scanTree(t, root, storyOrEpicReference)
+	var hits []hit
+	carved := map[string]int{}
+	for _, h := range scanTree(t, root, storyOrEpicReference) {
+		if releaseDocuments[h.path] {
+			carved[h.path]++
+			continue
+		}
+		hits = append(hits, h)
+	}
+
+	// Reported on a pass as well as a failure, so the carve-out does not have to
+	// be rediscovered from the source by whoever widens this gate next.
+	var carvedPaths []string
+	total := 0
+	for p := range releaseDocuments {
+		carvedPaths = append(carvedPaths, fmt.Sprintf("%s (%d reference(s) read as content)", p, carved[p]))
+		total += carved[p]
+	}
+	t.Logf("release documentation is outside this gate and inside every other one. %d reference(s) carved out: %s",
+		total, reportPaths(carvedPaths))
+
 	if len(hits) > 0 {
 		t.Errorf("story and epic number references must not appear in tracked source, comments, test names, assertion\n"+
 			"messages or Go package names. Rewrite the sentence to state what the code or the case does; where the\n"+
 			"reference is a package name, rename the package after what the suite covers.\n"+
-			"pattern %s matched %s", storyOrEpicReference, reportHits(hits, 40, 25))
+			"Release documentation is the one exception and is not scanned here: %s"+
+			"pattern %s matched %s",
+			reportPaths(carvedPaths), storyOrEpicReference, reportHits(hits, 40, 25))
 	}
 }
 
