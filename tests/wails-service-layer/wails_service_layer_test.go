@@ -257,8 +257,8 @@ func TestServiceFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// PDFService struct holds *pdfcore.Inspector: PDFService holds a
-// *pdfcore.Inspector instance, not a documents map.
+// PDFService is backed by a pdfcore Inspector injected at construction, and
+// keeps no documents map of its own.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceStructHoldsInspector(t *testing.T) {
@@ -268,8 +268,12 @@ func TestPDFServiceStructHoldsInspector(t *testing.T) {
 		t.Fatal("service.go missing PDFService struct")
 	}
 
-	if !strings.Contains(content, "*pdfcore.Inspector") {
-		t.Error("PDFService does not hold *pdfcore.Inspector")
+	// The struct field is typed as the inspectorAPI test seam, so the concrete
+	// backend shows up at the injection point in NewPDFService. Anchored there:
+	// "*pdfcore.Inspector" on its own now matches only the doc comment above the
+	// struct.
+	if !strings.Contains(content, "inspector: pdfcore.NewInspector(),") {
+		t.Error("NewPDFService must inject pdfcore.NewInspector() as the inspector backend")
 	}
 
 	// Must NOT have its own documents map

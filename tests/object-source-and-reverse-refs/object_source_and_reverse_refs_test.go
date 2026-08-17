@@ -280,9 +280,12 @@ func TestReverseRefStructShape(t *testing.T) {
 		}
 	}
 	// ParentType MUST be *string (omitempty pointer). A non-pointer type would
-	// lose the "absent vs empty" distinction required by Task 6.4.
-	if !strings.Contains(src, "ParentType *string") {
-		t.Fatalf("ParentType must be *string so the frontend can distinguish 'key absent' from 'value is empty name'")
+	// lose the "absent vs empty" distinction. Anchored on the type and the tag
+	// together so the field declaration is what satisfies it: gofmt pads the
+	// name-to-type gap, and prose about the pointer appears in the doc comment
+	// above the struct.
+	if !strings.Contains(src, "*string `json:\"parentType,omitempty\"`") {
+		t.Fatalf("ParentType must be declared `*string` with the parentType,omitempty tag so the frontend can distinguish 'key absent' from 'value is empty name'")
 	}
 }
 
