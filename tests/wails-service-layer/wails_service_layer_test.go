@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -261,6 +262,10 @@ func TestServiceFileExists(t *testing.T) {
 // keeps no documents map of its own.
 // ---------------------------------------------------------------------------
 
+// inspectorInjection matches the NewPDFService composite-literal entry that
+// injects the concrete backend, regardless of the column padding gofmt gives it.
+var inspectorInjection = regexp.MustCompile(`inspector:\s+pdfcore\.NewInspector\(\),`)
+
 func TestPDFServiceStructHoldsInspector(t *testing.T) {
 	content := readFile(t, "internal/pdfservice/service.go")
 
@@ -270,9 +275,11 @@ func TestPDFServiceStructHoldsInspector(t *testing.T) {
 
 	// The struct field is typed as the inspectorAPI test seam, so the concrete
 	// backend shows up at the injection point in NewPDFService. Anchored there:
-	// "*pdfcore.Inspector" on its own now matches only the doc comment above the
-	// struct.
-	if !strings.Contains(content, "inspector: pdfcore.NewInspector(),") {
+	// "*pdfcore.Inspector" on its own matches only the doc comment above the
+	// struct. The gap after the key is matched as a run of whitespace because
+	// gofmt sets that column from the longest key in the composite literal, so
+	// adding an entry with a longer key than "inspector" repads this line.
+	if !inspectorInjection.MatchString(content) {
 		t.Error("NewPDFService must inject pdfcore.NewInspector() as the inspector backend")
 	}
 
@@ -555,8 +562,8 @@ func TestPdfcoreNoRegression(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// App-shell TestServicesFieldRemoved still passes b: The existing
-// app-shell acceptance test must not regress.
+// App-shell TestServicesFieldRemoved still passes: the existing app-shell
+// acceptance test must not regress.
 // ---------------------------------------------------------------------------
 
 func TestAppShellNoRegression(t *testing.T) {

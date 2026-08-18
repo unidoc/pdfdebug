@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -166,7 +167,8 @@ func TestObjectSourceTruncation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// reverse-ref index built at document open, with failure mode
+// reverse-ref index built lazily on the first GetReverseRefs call, with
+// failure mode
 // ---------------------------------------------------------------------------
 
 // reverserefs.go exists and declares GetReverseRefs on the Inspector.
@@ -249,6 +251,10 @@ func TestReverseRefIndexUsesVisitedSetNotDepthCap(t *testing.T) {
 // ReverseRef shape (ParentNodeID, ParentRef, ParentType, Path)
 // ---------------------------------------------------------------------------
 
+// parentTypeFieldDecl matches the ReverseRef.ParentType declaration line
+// regardless of the column padding gofmt gives it.
+var parentTypeFieldDecl = regexp.MustCompile("ParentType\\s+\\*string\\s+`json:\"parentType,omitempty\"`")
+
 // model.go declares the ReverseRef struct with the exact JSON shape the
 // frontend expects. ParentType MUST be *string so the frontend can distinguish
 // "absent" from "empty value" -- this is load-bearing.
@@ -280,11 +286,12 @@ func TestReverseRefStructShape(t *testing.T) {
 		}
 	}
 	// ParentType MUST be *string (omitempty pointer). A non-pointer type would
-	// lose the "absent vs empty" distinction. Anchored on the type and the tag
-	// together so the field declaration is what satisfies it: gofmt pads the
-	// name-to-type gap, and prose about the pointer appears in the doc comment
-	// above the struct.
-	if !strings.Contains(src, "*string `json:\"parentType,omitempty\"`") {
+	// lose the "absent vs empty" distinction. Anchored on the field name, the
+	// type and the tag together so the declaration is what satisfies it, and
+	// with the gaps matched as runs of whitespace: gofmt sets both the
+	// name-to-type and type-to-tag columns from the widest entry in the field
+	// block, so a new field with a wider type than *string repads this line.
+	if !parentTypeFieldDecl.MatchString(src) {
 		t.Fatalf("ParentType must be declared `*string` with the parentType,omitempty tag so the frontend can distinguish 'key absent' from 'value is empty name'")
 	}
 }
@@ -436,8 +443,8 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 	}
 }
 
-// ObjectInfoPanel.test.tsx has been rewritten in place to cover the
-// (Task 8.1). We assert that the new test file references the renamed
+// ObjectInfoPanel.test.tsx has been rewritten in place to cover the panel
+// rename (Task 8.1). We assert that the new test file references the renamed
 // component, the new testid, and the obj:gen:num mapping.
 func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.test.tsx")
