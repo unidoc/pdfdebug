@@ -75,7 +75,7 @@ func TestPDFServiceOpenFile(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.OpenFile valid PDF test failed:\n%s", string(output))
+		t.Fatalf("PDFService.OpenFile() valid PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -102,7 +102,7 @@ func TestPDFServiceCloseDocument(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.CloseDocument test failed:\n%s", string(output))
+		t.Fatalf("PDFService.CloseDocument() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -131,7 +131,7 @@ func TestPDFServiceGetTreeRoot(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.GetTreeRoot test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetTreeRoot() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -159,7 +159,7 @@ func TestPDFServiceGetChildren(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.GetChildren test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetChildren() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -185,7 +185,7 @@ func TestPDFServiceGetObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.GetObjectDetail test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetObjectDetail() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -309,7 +309,7 @@ func TestPDFServiceMethodSignatures(t *testing.T) {
 
 	// Verify NewPDFService constructor exists
 	if !strings.Contains(content, "func NewPDFService(") {
-		t.Error("service.go missing NewPDFService constructor")
+		t.Error("service.go missing NewPDFService() constructor")
 	}
 }
 
@@ -510,7 +510,7 @@ func TestProjectVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go vet./... failed:\n%s", string(output))
+		t.Fatalf("go vet ./... failed:\n%s", string(output))
 	}
 }
 

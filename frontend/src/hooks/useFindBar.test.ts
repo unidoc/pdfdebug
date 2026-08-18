@@ -254,7 +254,7 @@ describe('Cmd+F is non-toggling', () => {
 // openedOnce flag on the same tab.
 // ---------------------------------------------------------------------------
 
-describe('closeBar preserves query + openedOnce', () => {
+describe('closeBar() preserves query + openedOnce', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -263,7 +263,7 @@ describe('closeBar preserves query + openedOnce', () => {
     restore();
   });
 
-  test('closeBar preserves query, openedOnce stays true', () => {
+  test('closeBar() preserves query, openedOnce stays true', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo bar foo', caseSensitive: false, active: true }),
     );
@@ -335,7 +335,7 @@ describe('setQuery recomputes matches', () => {
 // wrapped='top' flag.
 // ---------------------------------------------------------------------------
 
-describe('next advances with wrap-status', () => {
+describe('next() advances with wrap-status', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -344,7 +344,7 @@ describe('next advances with wrap-status', () => {
     restore();
   });
 
-  test('next advances activeIndex by 1 within bounds', () => {
+  test('next() advances activeIndex by 1 within bounds', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -362,7 +362,7 @@ describe('next advances with wrap-status', () => {
     expect(result.current.wrapped).toBeNull();
   });
 
-  test('next at the last match wraps to 0 AND sets wrapped="top"', () => {
+  test('next() at the last match wraps to 0 AND sets wrapped="top"', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -415,7 +415,7 @@ describe('next advances with wrap-status', () => {
 // wrapped='bottom' flag.
 // ---------------------------------------------------------------------------
 
-describe('prev retreats with wrap-status', () => {
+describe('prev() retreats with wrap-status', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -424,7 +424,7 @@ describe('prev retreats with wrap-status', () => {
     restore();
   });
 
-  test('prev at activeIndex=0 wraps to last AND sets wrapped="bottom"', () => {
+  test('prev() at activeIndex=0 wraps to last AND sets wrapped="bottom"', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );

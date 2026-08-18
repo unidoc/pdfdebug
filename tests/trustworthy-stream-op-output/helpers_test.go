@@ -10,8 +10,6 @@
 // the main module keeps building green. This module has its own go.mod and is
 // not part of the main build (mirrors tests/structural-diff).
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/trustworthy-stream-op-output && go test -v -count=1 ./...
 package trustworthy_stream_test
 

@@ -3,9 +3,9 @@
 // Black-box: build the CLI, run as a subprocess, parse the {"error": ...} JSON
 // value (never byte-match escaped quotes).
 //
-// Covers in this suite: (obj:G:N accepted by --ref), (malformed obj: form
-// rejected with both-forms error), (reversed-ref "did you mean" suggestion),
-// (malformed --ref format tip), (--pretty for dump object).
+// Covers in this suite: obj:G:N accepted by --ref; the malformed obj: form
+// rejected with the both-forms error; the reversed-ref "did you mean"
+// suggestion; the malformed --ref format tip; --pretty for dump object.
 //
 // Run: cd tests/cli-object-query && go test -v -count=1 ./...
 package cli_object_query_test

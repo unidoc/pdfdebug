@@ -199,7 +199,7 @@ func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 }
 
 // ErrReverseRefIndexUnavailable sentinel error is declared. The frontend uses
-// it (/ Task 6.5 case 1) to render the unavailable banner. Empty list MUST mean
+// it (Task 6.5 case 1) to render the unavailable banner. Empty list MUST mean
 // "no incoming refs"; failure mode is signalled by this sentinel, not by an
 // empty slice.
 func TestReverseRefSentinelErrorDeclared(t *testing.T) {
@@ -423,7 +423,7 @@ func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	// A loose substring match catches the obvious failure modes (key on a
 	// wrapper, or key omitted entirely).
 	if !strings.Contains(src, "key={selectedNodeId}") {
-		t.Fatalf("DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId}...> so the section unmounts/remounts on selection change (Task 6.3 reset rule)")
+		t.Fatalf("DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId} ...> so the section unmounts/remounts on selection change (Task 6.3 reset rule)")
 	}
 }
 

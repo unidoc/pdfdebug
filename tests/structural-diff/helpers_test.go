@@ -40,8 +40,6 @@
 //	1  ran successfully AND the documents DIFFER (the scriptable signal)
 //	2  operational error (missing/unreadable file, bad args, parse failure)
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/structural-diff && go test -v -count=1 ./...
 package structural_diff_test
 

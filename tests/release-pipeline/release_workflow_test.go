@@ -139,8 +139,8 @@ func jobUses(t *testing.T, jobName string) []string {
 }
 
 // ---------------------------------------------------------------------------
-// release.yml exists and parses Covers workflow defined in
-// .github/workflows/release.yml
+// release.yml exists and parses.
+// Covers workflow defined in .github/workflows/release.yml.
 // ---------------------------------------------------------------------------
 
 func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
@@ -148,8 +148,8 @@ func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// on.push.tags contains 'v*' Covers tag push
-// triggers release
+// on.push.tags contains 'v*'.
+// Covers that a tag push triggers the release.
 // ---------------------------------------------------------------------------
 
 func TestTriggerIsVersionTag(t *testing.T) {
@@ -183,8 +183,8 @@ func TestTriggerIsVersionTag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// workflow_dispatch with `tag` input supported Covers + Task 1.5
-// (manual re-run against existing tag)
+// workflow_dispatch with `tag` input supported.
+// Covers Task 1.5 (manual re-run against existing tag).
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchSupported(t *testing.T) {
@@ -211,8 +211,8 @@ func TestWorkflowDispatchSupported(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Workflow-level permissions: contents: write (required to create Release)
-// Covers Task 1.1
+// Workflow-level permissions: contents: write (required to create Release).
+// Covers Task 1.1.
 // ---------------------------------------------------------------------------
 
 func TestWorkflowPermissionsWrite(t *testing.T) {
@@ -232,8 +232,8 @@ func TestWorkflowPermissionsWrite(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Concurrency: cancel-in-progress must be FALSE (opposite of ci.yml)
-// Covers Task 1.1 reasoning (cancelling mid-release corrupts assets)
+// Concurrency: cancel-in-progress must be FALSE (opposite of ci.yml).
+// Covers Task 1.1 reasoning (cancelling mid-release corrupts assets).
 // ---------------------------------------------------------------------------
 
 func TestConcurrencyCancelInProgressFalse(t *testing.T) {
@@ -327,8 +327,8 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// strategy.fail-fast is false Covers one platform failure
-// must not mask others
+// strategy.fail-fast is false.
+// Covers that one platform failure must not mask others.
 // ---------------------------------------------------------------------------
 
 func TestMatrixFailFastFalse(t *testing.T) {
@@ -346,9 +346,9 @@ func TestMatrixFailFastFalse(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Codesign step present with required flags Covers codesign with --force
-// --deep --options runtime --entitlements build/darwin/entitlements.plist
-// --timestamp --sign
+// Codesign step present with required flags.
+// Covers codesign with --force --deep --options runtime --entitlements
+// build/darwin/entitlements.plist --timestamp --sign.
 // ---------------------------------------------------------------------------
 
 func TestCodesignStepPresent(t *testing.T) {
@@ -384,8 +384,8 @@ func TestMacOSVerificationCommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// macOS Developer ID keychain is imported at job start Covers security
-// create-keychain + import + set-key-partition-list
+// macOS Developer ID keychain is imported at job start.
+// Covers security create-keychain + import + set-key-partition-list.
 // ---------------------------------------------------------------------------
 
 func TestAppleKeychainImport(t *testing.T) {
@@ -404,8 +404,8 @@ func TestAppleKeychainImport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Keychain cleanup runs under if: always() Covers secrets never
-// linger on runner
+// Keychain cleanup runs under if: always().
+// Covers that secrets never linger on the runner.
 // ---------------------------------------------------------------------------
 
 func TestKeychainCleanupAlways(t *testing.T) {
@@ -422,7 +422,7 @@ func TestKeychainCleanupAlways(t *testing.T) {
 		if strings.Contains(run, "security delete-keychain") {
 			found = true
 			if !strings.Contains(ifClause, "always()") {
-				t.Errorf("release.yml: keychain cleanup step must use `if: always`, got %q", ifClause)
+				t.Errorf("release.yml: keychain cleanup step must use `if: always()`, got %q", ifClause)
 			}
 			break
 		}
@@ -433,8 +433,9 @@ func TestKeychainCleanupAlways(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// All required Apple secrets are referenced via ${{ secrets.* }}
-// expressions in the workflow Covers explicit secret list
+// All required Apple secrets are referenced via ${{ secrets.* }} expressions
+// in the workflow.
+// Covers explicit secret list.
 // ---------------------------------------------------------------------------
 
 func TestAppleSecretsReferenced(t *testing.T) {
@@ -457,9 +458,9 @@ func TestAppleSecretsReferenced(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Secrets must never appear as literal environment values outside the
-// ${{ secrets.* }} expression form. Verifies no accidental plaintext logging.
-// Covers Task 8.2 final bullet + security hardening
+// Secrets must never appear as literal environment values outside the ${{
+// secrets.* }} expression form. Verifies no accidental plaintext logging.
+// Covers Task 8.2 final bullet + security hardening.
 // ---------------------------------------------------------------------------
 
 func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
@@ -488,8 +489,8 @@ func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// CLI build uses -trimpath + -ldflags with version Covers go build -trimpath
-// -ldflags="-s -w -X main.version=<version>"
+// CLI build uses -trimpath + -ldflags with version.
+// Covers go build -trimpath -ldflags="-s -w -X main.version=<version>".
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildUsesTrimpathAndLdflags(t *testing.T) {
@@ -511,8 +512,8 @@ func TestCLIBuildUsesTrimpathAndLdflags(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// CLI build reads GOOS/GOARCH from matrix keys Covers GOOS/GOARCH
-// per matrix cell
+// CLI build reads GOOS/GOARCH from matrix keys.
+// Covers GOOS/GOARCH per matrix cell.
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
@@ -529,8 +530,8 @@ func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Two jobs -- build and release, with release needing build Covers parallel
-// build matrix then single release job
+// Two jobs -- build and release, with release needing build.
+// Covers parallel build matrix then single release job.
 // ---------------------------------------------------------------------------
 
 func TestTwoJobsBuildAndRelease(t *testing.T) {
@@ -577,8 +578,8 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// upload-artifact@v5 in build, download-artifact@v5 in release Covers artifact
-// staging via v4 actions
+// upload-artifact@v5 in build, download-artifact@v5 in release.
+// Covers artifact staging via v5 actions.
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
@@ -605,8 +606,8 @@ func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// SHA256SUMS computed via shasum -a 256 in release job Covers single sha256
-// computation in the release job
+// SHA256SUMS computed via shasum -a 256 in release job.
+// Covers single sha256 computation in the release job.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsStepPresent(t *testing.T) {
@@ -621,8 +622,8 @@ func TestSHA256SumsStepPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// SHA256SUMS generation excludes itself and is NUL-safe Covers + Task 5.1
-// (no `$(ls | sort)` anti-pattern)
+// SHA256SUMS generation excludes itself and is NUL-safe.
+// Covers Task 5.1 (no `$(ls | sort)` anti-pattern).
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsExcludesSelf(t *testing.T) {
@@ -656,8 +657,8 @@ func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// prerelease flag set for v*-rc* / -alpha* / -beta* Covers pre-release
-// detection logic
+// prerelease flag set for v*-rc* / -alpha* / -beta*.
+// Covers pre-release detection logic.
 // ---------------------------------------------------------------------------
 
 func TestPrereleaseDetectionLogic(t *testing.T) {
@@ -677,8 +678,8 @@ func TestPrereleaseDetectionLogic(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// action-gh-release `generate_release_notes: true` Covers Release description
-// populated from commits since previous tag
+// action-gh-release `generate_release_notes: true`.
+// Covers Release description populated from commits since previous tag.
 // ---------------------------------------------------------------------------
 
 func TestGenerateReleaseNotesEnabled(t *testing.T) {
@@ -724,8 +725,8 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Every run: step must set shell: bash (Windows defaults to PowerShell)
-// Covers Dev Notes lesson #3
+// Every run: step must set shell: bash (Windows defaults to PowerShell).
+// Covers Dev Notes lesson #3.
 // ---------------------------------------------------------------------------
 
 func TestShellBashOnRunSteps(t *testing.T) {
@@ -791,7 +792,8 @@ func TestArtifactStagingNaming(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Supporting file: build/darwin/entitlements.plist exists with Wails-v3
-// baseline entries Covers + Task 6.1
+// baseline entries.
+// Covers Task 6.1.
 // ---------------------------------------------------------------------------
 
 func TestEntitlementsPlistExists(t *testing.T) {

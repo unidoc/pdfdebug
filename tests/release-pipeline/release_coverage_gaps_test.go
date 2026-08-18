@@ -72,8 +72,8 @@ func findStepByPredicate(t *testing.T, jobName string, predicate func(map[string
 }
 
 // ---------------------------------------------------------------------------
-// download-artifact uses merge-multiple: true Covers + Task 1.4 (single
-// `dist/` merges all three matrix cells)
+// download-artifact uses merge-multiple: true.
+// Covers Task 1.4 (single `dist/` merges all three matrix cells).
 // ---------------------------------------------------------------------------
 
 func TestDownloadArtifactMergeMultiple(t *testing.T) {
@@ -99,9 +99,9 @@ func TestDownloadArtifactMergeMultiple(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// upload-artifact uses `build-${{ matrix.platform }}` name Covers Task 4.4
-// (stable per-cell artifact name consumed by download-artifact pattern:
-// build-*)
+// upload-artifact uses `build-${{ matrix.platform }}` name.
+// Covers Task 4.4 (stable per-cell artifact name consumed by download-
+// artifact pattern: build-*).
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactNamePattern(t *testing.T) {
@@ -176,9 +176,10 @@ func TestWailsCLIPinMatchesGoMod(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// `wails3 generate bindings -clean=true` runs BEFORE any frontend/GUI build step.
-// Covers Task 1.3 #7 + the Review #1 carry-forward (frontend/bindings/
-// is gitignored; all frontend steps fail without it).
+// `wails3 generate bindings -clean=true` runs BEFORE any frontend/GUI build
+// step.
+// Covers Task 1.3 #7 + the Review #1 carry-forward (frontend/bindings/ is
+// gitignored; all frontend steps fail without it).
 // ---------------------------------------------------------------------------
 
 func TestWailsBindingsGeneratedBeforeBuild(t *testing.T) {
@@ -527,8 +528,9 @@ func TestCheckoutUsesTagRefOnDispatch(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Signing-identity lookup uses `grep -qF` (fixed-string), not `grep -q`.
-// Covers Review #3 Low (Apple Developer ID strings contain `.` and `()` which
-// are BRE regex metacharacters; `grep -q` could accept a near-miss identity).
+// Covers Review #3 Low (Apple Developer ID strings contain `.` and `()`
+// which are BRE regex metacharacters; `grep -q` could accept a near-miss
+// identity).
 // ---------------------------------------------------------------------------
 
 func TestSigningIdentityGrepFixedString(t *testing.T) {
@@ -608,9 +610,9 @@ func TestEntitlementsPlistNotGitignored(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Prerelease detection regex matches both `-rcN`, `-alphaN`, and `-betaN`.
-// Covers and verifies the exact contract via simulated shell-regex match (the
-// existing TestPrereleaseDetectionLogic only asserts the regex STRING is
-// present; this asserts the matching behavior across all three prefixes).
+// Covers and verifies the exact contract via simulated shell-regex match
+// (the existing TestPrereleaseDetectionLogic only asserts the regex STRING
+// is present; this asserts the matching behavior across all three prefixes).
 // ---------------------------------------------------------------------------
 
 func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
@@ -652,8 +654,8 @@ func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Workflow_dispatch `tag` input has `required: true` and type `string`.
-// Covers Task 1.1 + Task 1.5 contract (missing input causes immediate failure
-// rather than defaulting to branch HEAD).
+// Covers Task 1.1 + Task 1.5 contract (missing input causes immediate
+// failure rather than defaulting to branch HEAD).
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchTagInputTyped(t *testing.T) {
@@ -675,8 +677,8 @@ func TestWorkflowDispatchTagInputTyped(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Apple-secrets probe emits a `::warning::` on partial-secret state.
-// Covers the release pre-flight (the dry-run pre-flight relies on a
-// partial state being noisy so it isn't accidentally taken for fully-absent;
+// Covers the release pre-flight (the dry-run pre-flight relies on a partial
+// state being noisy so it isn't accidentally taken for fully-absent;
 // release.yml line 117 emits this warning only when SOME but not ALL of the
 // three codesign secrets are set).
 // ---------------------------------------------------------------------------

@@ -44,7 +44,7 @@ func TestGoSumCarriesNewPin(t *testing.T) {
 	gosum := readSource(t, "go.sum")
 	needle := "github.com/wailsapp/wails/v3 v3.0.0-" + tag
 	if !strings.Contains(gosum, needle) {
-		t.Errorf("go.sum must contain %q -- run `go mod tidy` after editing go.mod (/ Task 1.1)", needle)
+		t.Errorf("go.sum must contain %q -- run `go mod tidy` after editing go.mod (Task 1.1)", needle)
 	}
 }
 

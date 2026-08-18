@@ -53,8 +53,6 @@
 //	  coverageError        string  malformed-/ByteRange degradation
 //	CertInfo: { subject, issuer, serial, notBefore, notAfter } all strings.
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/signature-decomposition && go test -v -count=1 ./...
 package signature_decomposition_test
 

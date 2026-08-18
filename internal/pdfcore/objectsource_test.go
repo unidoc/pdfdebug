@@ -131,7 +131,7 @@ func TestObjectSourceUnknownNodeReturnsEmpty(t *testing.T) {
 // nodeID "root") resolves to the catalog's real indirect object and emits its
 // Object Source. Without this mapping the catalog selection would fall through
 // to the inline empty state, hiding the source for a node that is in fact an
-// indirect object (/ Dev Notes: catalog is a real indirect object).
+// indirect object (Dev Notes: catalog is a real indirect object).
 func TestObjectSourceCatalogRootNodeID(t *testing.T) {
 	ins, tabID := openFixture(t, "minimal.pdf")
 	src, err := ins.GetObjectSource(tabID, "root")

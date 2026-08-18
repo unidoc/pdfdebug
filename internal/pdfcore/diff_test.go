@@ -26,7 +26,6 @@
 //	    XMPChanged                       bool  // XMP metadata packet
 //	}
 //
-// Naming: [Px] per the story Testing Requirements.
 // Run: cd code && go test -run TestDiff ./internal/pdfcore/...
 //
 // Status literals are asserted as strings (not exported const names) to keep the

@@ -32,8 +32,6 @@
 // a genuinely signed fixture. Layouts here are byte-identical (modulo the
 // /Contents capacity) to fixtures validated against pdfcpu default validation
 // during ATDD authoring.
-//
-// Naming: [Px].
 package pdfcore
 
 import (

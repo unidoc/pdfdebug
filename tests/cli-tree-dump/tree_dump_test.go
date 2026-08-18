@@ -354,13 +354,13 @@ func TestTreeDump_MultipagePDF_PlainIncludesPageLabels(t *testing.T) {
 	stdout, _, exitCode := runCLI(t, bin, "dump", "tree", pdfPath)
 
 	if exitCode != 0 {
-		t.Fatalf("[13.1] tree plain: expected exit code 0, got %d", exitCode)
+		t.Fatalf("tree plain: expected exit code 0, got %d", exitCode)
 	}
 	if json.Valid([]byte(strings.TrimSpace(stdout))) && strings.HasPrefix(strings.TrimSpace(stdout), "{") {
-		t.Errorf("[13.1] tree plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Errorf("tree plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	if !strings.Contains(strings.ToLower(stdout), "page") {
-		t.Error("[13.1] tree plain: default output does not name any page label")
+		t.Error("tree plain: default output does not name any page label")
 	}
 }
 

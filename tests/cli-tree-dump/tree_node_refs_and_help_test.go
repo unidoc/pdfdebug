@@ -2,8 +2,8 @@
 //
 // Black-box: build the CLI, run it as a subprocess, parse stdout/stderr.
 //
-// Covers in this suite: (pdfRef + typeName on tree nodes), (--help worked
-// examples), (--pretty for dump tree), (dump tree --page N).
+// Covers in this suite: pdfRef + typeName on tree nodes; --help worked
+// examples; --pretty for dump tree; dump tree --page N.
 //
 // Run: cd tests/cli-tree-dump && go test -v -count=1 ./...
 package cli_tree_dump_test
@@ -256,7 +256,7 @@ func TestHelp_PerSubcommandExamples(t *testing.T) {
 	}
 	for _, c := range checks {
 		if !exampleLinePresent(combined, c.subcmd) {
-			t.Errorf("--help missing a copy-pasteable %q example line ending in a.pdf placeholder\noutput:\n%s", c.subcmd, combined)
+			t.Errorf("--help missing a copy-pasteable %q example line ending in a .pdf placeholder\noutput:\n%s", c.subcmd, combined)
 		}
 	}
 }

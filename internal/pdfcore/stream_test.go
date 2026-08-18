@@ -388,8 +388,7 @@ func TestGetPageContentStreamNodeID_UnknownTab(t *testing.T) {
 
 // GetPageContentStreamNodeID returns empty string (no error) for a page with
 // no Contents entry. Uses minimal.pdf whose page 1 has no Contents key in its
-// page dict.
-// page with no content stream returns non-fatal empty result.
+// page dict. A page with no content stream returns a non-fatal empty result.
 func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 	ins, tabID := openMinimal(t)
 	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)

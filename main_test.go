@@ -141,7 +141,7 @@ func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	case <-done:
 		// goroutine completed cleanly.
 	case <-time.After(parseDuration + 500*time.Millisecond):
-		t.Fatalf("dispatched goroutine did not complete within %v -- wg.Done not reached", parseDuration+500*time.Millisecond)
+		t.Fatalf("dispatched goroutine did not complete within %v -- wg.Done() not reached", parseDuration+500*time.Millisecond)
 	}
 
 	if !opener.openCalled.Load() {

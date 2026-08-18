@@ -470,7 +470,7 @@ func TestProjectVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go vet./... failed:\n%s", string(output))
+		t.Fatalf("go vet ./... failed:\n%s", string(output))
 	}
 }
 

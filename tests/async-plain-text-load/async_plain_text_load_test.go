@@ -378,13 +378,13 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 	}
 	src := string(data)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method (/ Task 2.3)")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method (Task 2.3)")
 	}
 	if !strings.Contains(src, "export function CancelPlainText") {
-		t.Errorf("pdfservice.js must export CancelPlainText (/ Task 2.3)")
+		t.Errorf("pdfservice.js must export CancelPlainText (Task 2.3)")
 	}
 	if !strings.Contains(src, "export function GetPlainTextSize") {
-		t.Errorf("pdfservice.js must export GetPlainTextSize (/ Task 2.3)")
+		t.Errorf("pdfservice.js must export GetPlainTextSize (Task 2.3)")
 	}
 }
 
@@ -435,7 +435,7 @@ func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 	}
 	for _, sym := range deleted {
 		if strings.Contains(src, sym) {
-			t.Errorf("PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (/ Task 3)", sym)
+			t.Errorf("PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (Task 3)", sym)
 		}
 	}
 	// The PlainTextDocumentData interface drops truncated + capBytes.

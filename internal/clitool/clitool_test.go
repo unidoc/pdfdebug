@@ -678,10 +678,10 @@ func TestDefaultInstallDirIsLocalBin(t *testing.T) {
 	got := DefaultInstallDir()
 	want := filepath.Join(home, ".local", "bin")
 	if got != want {
-		t.Errorf("DefaultInstallDir = %q, want %q (install target is user-owned ~/.local/bin)", got, want)
+		t.Errorf("DefaultInstallDir() = %q, want %q (install target is user-owned ~/.local/bin)", got, want)
 	}
 	if got == "/opt/homebrew/bin" || got == "/usr/local/bin" {
-		t.Errorf("DefaultInstallDir = %q must NOT be a Homebrew-managed prefix (avoid brew-link collision)", got)
+		t.Errorf("DefaultInstallDir() = %q must NOT be a Homebrew-managed prefix (avoid brew-link collision)", got)
 	}
 }
 

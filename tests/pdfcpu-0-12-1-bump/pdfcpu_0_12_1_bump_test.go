@@ -200,8 +200,8 @@ var safeCallNamedTests = []string{
 	"TestSafeCallCatchesErrorPanic",
 }
 
-// wrapPDFErrorNamedTests is the "TestWrapPDFError* suite" set. names the
-// suite by glob; this list pins the current members. A bump must not delete
+// wrapPDFErrorNamedTests is the "TestWrapPDFError* suite" set. The suite is
+// named by glob; this list pins the current members. A bump must not delete
 // any.
 var wrapPDFErrorNamedTests = []string{
 	"TestWrapPDFErrorPasswordBecomesEncrypted",

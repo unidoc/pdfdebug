@@ -12,8 +12,6 @@
 // the SAME Inspector.Open path the app uses (pdfcpu_api.ReadContextFile under
 // default validation). The embedded-file Subtype MUST be a Name with #2F
 // hex-escapes (/text#2Fxml) or pdfcpu's default validator rejects the document.
-//
-// Naming: [Px].
 package pdfcore
 
 import (

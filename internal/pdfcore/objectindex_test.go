@@ -131,8 +131,8 @@ func TestTreeNodeTypeNameBlankWhenNoTypeKey(t *testing.T) {
 }
 
 // TestTreeNodeObjectRefArrayElement verifies array elements that resolve to
-// indirect objects also carry ObjectRef + TypeName. applies to array
-// members too (e.g. Pages.Kids[0] -> Page object).
+// indirect objects also carry ObjectRef + TypeName. The rule applies to
+// array members too (e.g. Pages.Kids[0] -> Page object).
 func TestTreeNodeObjectRefArrayElement(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	// /Pages is obj 2 0 R; its /Kids array contains the page refs.

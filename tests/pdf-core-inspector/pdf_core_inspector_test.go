@@ -76,7 +76,7 @@ func TestInspectorOpenValidPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Inspector.Open valid PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open() valid PDF test failed:\n%s", string(output))
 	}
 
 	// Verify the test actually ran (not just skipped)
@@ -111,7 +111,7 @@ func TestInspectorOpenMalformedPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Inspector.Open malformed PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open() malformed PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -140,7 +140,7 @@ func TestSafeCallCatchesPanic(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("safeCall panic recovery tests failed:\n%s", string(output))
+		t.Fatalf("safeCall() panic recovery tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -167,7 +167,7 @@ func TestInspectorOpenNonExistentFile(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Inspector.Open non-existent file test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open() non-existent file test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -199,7 +199,7 @@ func TestInspectorOpenEncryptedPDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Inspector.Open encrypted PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open() encrypted PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -282,7 +282,7 @@ func TestInspectorOpenMultipagePDF(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Inspector.Open multipage PDF test failed:\n%s", string(output))
+		t.Fatalf("Inspector.Open() multipage PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
@@ -384,12 +384,12 @@ func TestErrorTypesExist(t *testing.T) {
 
 	// Verify safeCall function exists
 	if !strings.Contains(errorsContent, "func safeCall(") {
-		t.Error("errors.go missing safeCall function")
+		t.Error("errors.go missing safeCall() function")
 	}
 
 	// Verify wrapPDFError helper exists
 	if !strings.Contains(errorsContent, "func wrapPDFError(") {
-		t.Error("errors.go missing wrapPDFError function")
+		t.Error("errors.go missing wrapPDFError() function")
 	}
 }
 
@@ -416,7 +416,7 @@ func TestInspectorAPIExists(t *testing.T) {
 
 	// Verify constructor
 	if !strings.Contains(inspectorContent, "func NewInspector()") {
-		t.Error("inspector.go missing NewInspector constructor")
+		t.Error("inspector.go missing NewInspector() constructor")
 	}
 
 	// Verify method signatures

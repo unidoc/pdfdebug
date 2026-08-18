@@ -30,8 +30,8 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// frontend/eslint.config.js exists and is flat config Covers Task 3.4
-// (ESLint 9 flat config)
+// frontend/eslint.config.js exists and is flat config.
+// Covers Task 3.4 (ESLint 9 flat config).
 // ---------------------------------------------------------------------------
 
 func TestESLintFlatConfigExists(t *testing.T) {
@@ -81,7 +81,8 @@ func TestESLintFlatConfigExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// frontend/package.json has lint + typecheck scripts Covers Task 3.3
+// frontend/package.json has lint + typecheck scripts.
+// Covers Task 3.3.
 // ---------------------------------------------------------------------------
 
 func TestFrontendPackageScripts(t *testing.T) {
@@ -116,8 +117,8 @@ func TestFrontendPackageScripts(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// frontend/package.json has required ESLint devDependencies Covers Task 3.2
-// (flat-config compatible versions)
+// frontend/package.json has required ESLint devDependencies.
+// Covers Task 3.2 (flat-config compatible versions).
 // ---------------------------------------------------------------------------
 
 func TestFrontendESLintDevDependencies(t *testing.T) {
@@ -153,7 +154,8 @@ func TestFrontendESLintDevDependencies(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// .golangci.yml uses v2 schema with required linters Covers Task 4.1
+// .golangci.yml uses v2 schema with required linters.
+// Covers Task 4.1.
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintV2Config(t *testing.T) {
@@ -218,8 +220,8 @@ func yamlInt(i int) string {
 }
 
 // ---------------------------------------------------------------------------
-// .gitattributes normalizes line endings Covers Task 6.1
-// (risk mitigation E7-R-005)
+// .gitattributes normalizes line endings.
+// Covers Task 6.1 (risk mitigation E7-R-005).
 // ---------------------------------------------------------------------------
 
 func TestGitattributesLineEndings(t *testing.T) {

@@ -204,7 +204,7 @@ func TestPDFServiceGetContentStreamValid(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.GetContentStream valid test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetContentStream() valid test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
 		t.Fatalf("expected PASS in output but got:\n%s", string(output))
@@ -218,7 +218,7 @@ func TestPDFServiceGetContentStreamUnknown(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("PDFService.GetContentStream unknown tab test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetContentStream() unknown tab test failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
 		t.Fatalf("expected PASS in output but got:\n%s", string(output))

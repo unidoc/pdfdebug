@@ -5,8 +5,8 @@
 //
 // Test level: Integration (Go) -- CLI binary build + execution. No browser.
 //
-// Covers: (xref + objects JSON), (plaintext raw byte-exact + --json wrapper
-// without the tabId leak).
+// Covers: xref + objects JSON; plaintext raw byte-exact; the --json wrapper
+// without the tabId leak.
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
 package cli_views_test
@@ -219,18 +219,18 @@ func TestXRefDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, exitCode := runCLI(t, bin, "dump", "xref", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[13.1] xref plain: expected exit code 0, got %d", exitCode)
+		t.Fatalf("xref plain: expected exit code 0, got %d", exitCode)
 	}
 	if json.Valid([]byte(trimSpace(stdout))) && (len(stdout) > 0 && (stdout[0] == '{' || stdout[0] == '[')) {
-		t.Fatalf("[13.1] xref plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("xref plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	lines := nonEmptyLines(stdout)
 	if len(lines) < 2 {
-		t.Fatalf("[13.1] xref plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
+		t.Fatalf("xref plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
 	}
 	for _, col := range []string{"OBJ", "GEN", "TYPE"} {
 		if !contains(lines[0], col) {
-			t.Errorf("[13.1] xref plain: header row missing column %q\nheader: %s", col, lines[0])
+			t.Errorf("xref plain: header row missing column %q\nheader: %s", col, lines[0])
 		}
 	}
 }
@@ -241,18 +241,18 @@ func TestObjectsDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, exitCode := runCLI(t, bin, "dump", "objects", pdfPath)
 	if exitCode != 0 {
-		t.Fatalf("[13.1] objects plain: expected exit code 0, got %d", exitCode)
+		t.Fatalf("objects plain: expected exit code 0, got %d", exitCode)
 	}
 	if json.Valid([]byte(trimSpace(stdout))) && (len(stdout) > 0 && (stdout[0] == '{' || stdout[0] == '[')) {
-		t.Fatalf("[13.1] objects plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("objects plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	lines := nonEmptyLines(stdout)
 	if len(lines) < 2 {
-		t.Fatalf("[13.1] objects plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
+		t.Fatalf("objects plain: expected a header row + at least one data row, got %d lines:\n%s", len(lines), stdout)
 	}
 	for _, col := range []string{"OBJ", "GEN", "TYPE"} {
 		if !contains(lines[0], col) {
-			t.Errorf("[13.1] objects plain: header row missing column %q\nheader: %s", col, lines[0])
+			t.Errorf("objects plain: header row missing column %q\nheader: %s", col, lines[0])
 		}
 	}
 }

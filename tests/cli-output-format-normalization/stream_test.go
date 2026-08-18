@@ -131,7 +131,7 @@ func TestStream_OpsNDJSONUnchanged(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // --raw --json is rejected with a USAGE error (NET-NEW validation).
-// nonsensical combinations are rejected, not given invented semantics.
+// Nonsensical combinations are rejected, not given invented semantics.
 // ---------------------------------------------------------------------------
 
 func TestStream_RawAndJSONRejected(t *testing.T) {

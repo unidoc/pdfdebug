@@ -489,10 +489,10 @@ func TestUseDocumentStateContextNullGuards(t *testing.T) {
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("frontend/src/App.jsx does not exist -- must keep.jsx extension per project convention")
+		t.Fatal("frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
 	}
 
 	if fileExists(t, "frontend/src/App.tsx") {
-		t.Error("frontend/src/App.tsx exists -- App should remain.jsx per project convention")
+		t.Error("frontend/src/App.tsx exists -- App should remain .jsx per project convention")
 	}
 }

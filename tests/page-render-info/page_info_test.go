@@ -456,22 +456,22 @@ func TestPageInfo_JSONStabilityMarker(t *testing.T) {
 
 	full, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] page _stability: full --json exit %d", ec)
+		t.Fatalf("page _stability: full --json exit %d", ec)
 	}
 	var fm map[string]any
 	mustParseJSON(t, full, &fm)
 	if s, _ := fm["_stability"].(string); s != "experimental" {
-		t.Errorf("[13.1] page _stability: full --json must carry \"_stability\":\"experimental\", got %v", fm["_stability"])
+		t.Errorf("page _stability: full --json must carry \"_stability\":\"experimental\", got %v", fm["_stability"])
 	}
 
 	sec, _, ecs := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "geometry", pdfPath)
 	if ecs != 0 {
-		t.Fatalf("[13.1] page _stability: section --json exit %d", ecs)
+		t.Fatalf("page _stability: section --json exit %d", ecs)
 	}
 	var sm map[string]any
 	mustParseJSON(t, sec, &sm)
 	if _, present := sm["_stability"]; present {
-		t.Errorf("[13.1] page _stability: section --json must OMIT _stability, got %v", sm["_stability"])
+		t.Errorf("page _stability: section --json must OMIT _stability, got %v", sm["_stability"])
 	}
 }
 
@@ -486,18 +486,18 @@ func TestPageInfo_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] page plain: exit %d", ec)
+		t.Fatalf("page plain: exit %d", ec)
 	}
 	trimmed := strings.TrimSpace(stdout)
 	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
-		t.Fatalf("[13.1] page plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("page plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	for _, heading := range []string{"Geometry:", "ExtGStates:", "XObjects:"} {
 		if !strings.Contains(stdout, heading) {
-			t.Errorf("[13.1] page plain: expected the %q section heading\n%s", heading, stdout)
+			t.Errorf("page plain: expected the %q section heading\n%s", heading, stdout)
 		}
 	}
 	if strings.Contains(stdout, "_stability") {
-		t.Errorf("[13.1] page plain: plain output must not carry the _stability marker")
+		t.Errorf("page plain: plain output must not carry the _stability marker")
 	}
 }

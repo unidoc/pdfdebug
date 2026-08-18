@@ -5,18 +5,18 @@
 // E2E" directive + Task 7.3 of the story spec: no Playwright in v1):
 //
 //   - Frontend pure-function logic (findMatches.ts): unit tested in
-//     findMatches.test.ts. -- match algorithm, non-Latin-1
-//     codepoint detection, perf budget.
-//   - Frontend hook logic (useFindBar.ts): hook tested in useFindBar.test.ts.
-//     keystroke
-//     handlers, navigation, wrap-status, openedOnce flag, focus-guard.
+//     findMatches.test.ts -- match algorithm, non-Latin-1 codepoint
+//     detection, perf budget.
+//   - Frontend hook logic (useFindBar.ts): hook tested in useFindBar.test.ts
+//     -- keystroke handlers, navigation, wrap-status, openedOnce flag,
+//     focus-guard.
 //   - Frontend component contract (FindBar.tsx): component tested in
-//     FindBar.test.tsx. testids, aria, hint, keyboard
-//     wiring, disabled state, tab order, aria-live.
-//   - Frontend integration (PlainTextView.find.test.tsx): full FindBar mounted
-//     over PlainTextView. auto-scroll, inner-tab vs
-//     document-tab persistence, cmd+F gate on data===null, viewport
-//     re-render on scroll.
+//     FindBar.test.tsx -- testids, aria, hint, keyboard wiring, disabled
+//     state, tab order, aria-live.
+//   - Frontend integration (PlainTextView.find.test.tsx): full FindBar
+//     mounted over PlainTextView -- auto-scroll, inner-tab vs document-tab
+//     persistence, cmd+F gate on data===null, viewport re-render on
+//     scroll.
 //   - Frontend reducer (useDocumentState extension): per-tab
 //     findCaseSensitive.
 //   - Project docs: project-context.md gains the Plain Text Find Bar Rules
@@ -277,7 +277,7 @@ func TestPlainTextViewMarkTestIds(t *testing.T) {
 	}
 	for _, tid := range required {
 		if !strings.Contains(src, tid) {
-			t.Errorf("PlainTextView.tsx must reference data-testid=%q (/ Task 5.3)", tid)
+			t.Errorf("PlainTextView.tsx must reference data-testid=%q (Task 5.3)", tid)
 		}
 	}
 }
@@ -287,7 +287,7 @@ func TestPlainTextViewMarkTestIds(t *testing.T) {
 func TestPlainTextViewGutterMarker(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "plain-text-find-gutter-marker") {
-		t.Errorf("PlainTextView.tsx must reference data-testid=plain-text-find-gutter-marker-{lineNo} (/ Task 5.4)")
+		t.Errorf("PlainTextView.tsx must reference data-testid=plain-text-find-gutter-marker-{lineNo} (Task 5.4)")
 	}
 }
 

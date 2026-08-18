@@ -71,7 +71,7 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 	rootBlockRe := regexp.MustCompile(`(?s):root\s*\{[^}]+\}`)
 	rootBlocks := rootBlockRe.FindAllString(css, -1)
 	if len(rootBlocks) == 0 {
-		t.Fatal("no:root block found in style.css")
+		t.Fatal("no :root block found in style.css")
 	}
 
 	rootContent := strings.Join(rootBlocks, "\n")
@@ -153,7 +153,7 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 	rootBlockRe := regexp.MustCompile(`(?s):root\s*\{[^}]+\}`)
 	rootBlocks := rootBlockRe.FindAllString(css, -1)
 	if len(rootBlocks) == 0 {
-		t.Fatal("no:root block found in style.css")
+		t.Fatal("no :root block found in style.css")
 	}
 
 	rootContent := strings.Join(rootBlocks, "\n")
@@ -211,8 +211,8 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 func TestInterFontAndBodyDefaults(t *testing.T) {
 	css := readStyleCSS(t)
 
-	// Verify font-ui token includes Inter with system-ui fallback Check
-	// :root or @theme for --font-ui definition
+	// Verify font-ui token includes Inter with system-ui fallback.
+	// Check :root or @theme for --font-ui definition.
 	interFontRe := regexp.MustCompile(`--font-ui\s*:\s*['"]?Inter['"]?\s*,\s*system-ui`)
 	if !interFontRe.MatchString(css) {
 		t.Error("--font-ui not configured with Inter and system-ui fallback")
@@ -323,7 +323,7 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 	themeBlockRe := regexp.MustCompile(`(?s)@theme\s*\{[^}]+\}`)
 	themeBlocks := themeBlockRe.FindAllString(css, -1)
 	if len(themeBlocks) == 0 {
-		t.Fatal("no @theme {... } block found in style.css")
+		t.Fatal("no @theme { ... } block found in style.css")
 	}
 
 	themeContent := strings.Join(themeBlocks, "\n")
@@ -418,7 +418,7 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 	themeInlineRe := regexp.MustCompile(`(?s)@theme\s+inline\s*\{[^}]+\}`)
 	inlineBlocks := themeInlineRe.FindAllString(css, -1)
 	if len(inlineBlocks) == 0 {
-		t.Fatal("no @theme inline {... } block found in style.css")
+		t.Fatal("no @theme inline { ... } block found in style.css")
 	}
 
 	inlineContent := strings.Join(inlineBlocks, "\n")

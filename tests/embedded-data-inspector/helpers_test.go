@@ -16,8 +16,6 @@
 // /EmbeddedFile /Subtype is a Name with #2F escapes (/text#2Fxml), not a
 // string literal.
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/embedded-data-inspector && go test -v -count=1 ./...
 package embedded_data_inspector_test
 

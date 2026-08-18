@@ -203,12 +203,12 @@ func TestAppJsxIntegratesEmptyState(t *testing.T) {
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("frontend/src/App.jsx does not exist -- must keep.jsx extension per project convention")
+		t.Fatal("frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
 	}
 
 	// Must NOT have been renamed to .tsx
 	if fileExists(t, "frontend/src/App.tsx") {
-		t.Error("frontend/src/App.tsx exists -- App should remain.jsx per project convention (Wails-generated files keep original extension)")
+		t.Error("frontend/src/App.tsx exists -- App should remain .jsx per project convention (Wails-generated files keep original extension)")
 	}
 }
 
@@ -302,8 +302,8 @@ func TestNoBarrelFilesCreated(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// Platform detection SSR/non-browser guard Edge case:
-// navigator undefined returns "Ctrl" default
+// Platform detection SSR/non-browser guard.
+// Edge case: navigator undefined returns "Ctrl" default
 // ---------------------------------------------------------------------------
 
 func TestPlatformDetectionSSRGuard(t *testing.T) {
@@ -322,8 +322,8 @@ func TestPlatformDetectionSSRGuard(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Platform detection secondary userAgentData check Edge case:
-// userAgentData used as fallback when navigator.platform misses
+// Platform detection secondary userAgentData check.
+// Edge case: userAgentData used as fallback when navigator.platform misses
 // ---------------------------------------------------------------------------
 
 func TestPlatformDetectionUserAgentDataFallback(t *testing.T) {
@@ -341,33 +341,34 @@ func TestPlatformDetectionUserAgentDataFallback(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Timeout cleanup on unmount Edge case: clearTimeout in useEffect cleanup prevents
-// state update after unmount
+// Timeout cleanup on unmount.
+// Edge case: clearTimeout in useEffect cleanup prevents state update after
+// unmount
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Drag counter negative guard Edge case: dragCounter must not go below 0
-// from unpaired dragleave events
+// Drag counter negative guard.
+// Edge case: dragCounter must not go below 0 from unpaired dragleave events
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Case-insensitive PDF extension validation on drop Edge case: dropped
-// file with .PDF or .Pdf extension should be accepted
+// Case-insensitive PDF extension validation on drop.
+// Edge case: dropped file with .PDF or .Pdf extension should be accepted
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Dragover handler must NOT update state or counter Edge case: dragover
-// fires continuously; incrementing counter on it would break the dragleave
-// counter-to-zero pattern
+// Dragover handler must NOT update state or counter.
+// Edge case: dragover fires continuously; incrementing counter on it would
+// break the dragleave counter-to-zero pattern
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// New drag resets stale invalid state from prior drop Edge case:
-// dragging a new file within 2s of a rejected drop should not show error
-// state from the previous rejection
+// New drag resets stale invalid state from prior drop.
+// Edge case: dragging a new file within 2s of a rejected drop should not
+// show error state from the previous rejection
 // ---------------------------------------------------------------------------
 

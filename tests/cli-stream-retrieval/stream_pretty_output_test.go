@@ -2,8 +2,8 @@
 //
 // Black-box: build the CLI, run as a subprocess.
 //
-// Covers in this suite: (--pretty for dump stream; --raw --pretty is a no-op
-// that still emits verbatim bytes, not JSON).
+// Covers in this suite: --pretty for dump stream; --raw --pretty is a no-op
+// that still emits verbatim bytes, not JSON.
 //
 // Run: cd tests/cli-stream-retrieval && go test -v -count=1 ./...
 package cli_stream_retrieval_test

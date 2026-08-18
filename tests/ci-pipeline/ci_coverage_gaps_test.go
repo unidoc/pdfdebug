@@ -48,8 +48,9 @@ func stepIndexByPredicate(t *testing.T, predicate func(map[string]interface{}) b
 }
 
 // ---------------------------------------------------------------------------
-// workflow_dispatch trigger present for manual reruns Covers Task 1.2
-// (workflow_dispatch allows manual re-runs from the GitHub UI)
+// workflow_dispatch trigger present for manual reruns.
+// Covers Task 1.2 (workflow_dispatch allows manual re-runs from the GitHub
+// UI).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowDispatchTrigger(t *testing.T) {
@@ -68,10 +69,10 @@ func TestCIWorkflowDispatchTrigger(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// per-suite loop step-level timeout-minutes == 20 Covers Task 2.2
-// (step-level 20-minute cap so hung per-suite module cannot consume job
-// budget). The existing TestCIWorkflowPerSuiteModuleLoop only asserts the
-// field is present; this asserts the exact 20-minute value.
+// per-suite loop step-level timeout-minutes == 20.
+// Covers Task 2.2 (step-level 20-minute cap so hung per-suite module cannot
+// consume job budget). The existing TestCIWorkflowPerSuiteModuleLoop only
+// asserts the field is present; this asserts the exact 20-minute value.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
@@ -104,8 +105,8 @@ func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// golangci-lint invoked with explicit --timeout flag Covers Task 1.5 step
-// 9 (`golangci-lint run --timeout 5m ./...`)
+// golangci-lint invoked with explicit --timeout flag.
+// Covers Task 1.5 step 9 (`golangci-lint run --timeout 5m ./...`).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
@@ -119,8 +120,8 @@ func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// root `go test ./...` uses explicit -timeout flag
-// Covers Task 1.5 step 10 (`go test ./... -timeout 10m`)
+// root `go test ./...` uses explicit -timeout flag.
+// Covers Task 1.5 step 10 (`go test ./... -timeout 10m`).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
@@ -132,9 +133,10 @@ func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// wails3 generate bindings step present Covers Review #1 critical fix (16
-// frontend files import from ../bindings/... which is gitignored; without this
-// step every frontend CI step fails).
+// wails3 generate bindings step present.
+// Covers Review #1 critical fix (16 frontend files import from
+// ../bindings/... which is gitignored; without this step every frontend CI
+// step fails).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsGenerateBindingsStep(t *testing.T) {
@@ -238,10 +240,10 @@ func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// .golangci.yml excludes `build` path Covers Review #2 fix --
-// `build/ios/app_options_default.go` has an `unused` scaffold, so the
-// `build` directory must be in exclusions.paths to keep golangci-lint exit
-// 0.
+// .golangci.yml excludes `build` path.
+// Covers Review #2 fix -- `build/ios/app_options_default.go` has an `unused`
+// scaffold, so the `build` directory must be in exclusions.paths to keep
+// golangci-lint exit 0.
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintExcludesBuildPath(t *testing.T) {
@@ -322,10 +324,11 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// eslint.config.js ignores test files and test-setup Covers eslint.config.js
-// ignores block: `**/*.test.ts`, `**/*.test.tsx`, `src/test-setup.ts`.
-// tsconfig.json explicitly excludes test files, so without these ignores typed
-// linting throws "file not included in any project".
+// eslint.config.js ignores test files and test-setup.
+// Covers eslint.config.js ignores block: `**/*.test.ts`, `**/*.test.tsx`,
+// `src/test-setup.ts`. tsconfig.json explicitly excludes test files, so
+// without these ignores typed linting throws "file not included in any
+// project".
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigIgnoresTestFiles(t *testing.T) {

@@ -73,7 +73,8 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// LICENSE byte-matches canonical Apache 2.0 text Covers Task 1
+// LICENSE byte-matches canonical Apache 2.0 text.
+// Covers Task 1.
 // ---------------------------------------------------------------------------
 
 // TestLicenseMatchesCanonicalWithSubstitution asserts that LICENSE at repo root
@@ -169,7 +170,8 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// NOTICE has UniDoc + third-party attributions Covers Task 2
+// NOTICE has UniDoc + third-party attributions.
+// Covers Task 2.
 // ---------------------------------------------------------------------------
 
 // TestNoticeHasRequiredAttributions asserts NOTICE contains UniDoc ehf.,
@@ -210,7 +212,8 @@ func TestNoticeHasNoUnicodeCopyright(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Verify-license shell script exists and is wired into CI Covers Task 5
+// Verify-license shell script exists and is wired into CI.
+// Covers Task 5.
 // ---------------------------------------------------------------------------
 
 // TestVerifyLicenseScriptExistsAndExecutable asserts scripts/verify-license.sh

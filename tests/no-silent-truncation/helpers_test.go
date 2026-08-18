@@ -21,8 +21,6 @@
 // covered at the component (Vitest) level in
 // frontend/src/components/DiffView.truncation.test.tsx.
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/no-silent-truncation && go test -v -count=1 ./...
 package no_silent_truncation_test
 

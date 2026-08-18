@@ -9,8 +9,6 @@
 // pin the contract the story names: XMP packet bytes passed VERBATIM, /Info
 // fields surfaced, missing = empty (not error), undecodable /Metadata = empty
 // XMP + warning (never an error that fails the view).
-//
-// Naming: [Px].
 package pdfcore
 
 import (

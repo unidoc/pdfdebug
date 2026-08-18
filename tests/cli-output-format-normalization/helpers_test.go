@@ -14,8 +14,6 @@
 // acceptance. No browser/E2E layer is warranted; the change touches only
 // cmd/cli output presentation and has zero UI surface.
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/cli-output-format-normalization && go test -v -count=1 ./...
 package cli_output_format_normalization_test
 

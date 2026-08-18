@@ -122,7 +122,7 @@ func TestGoModuleDependencies(t *testing.T) {
 	vetCmd.Dir = root
 	vetOutput, err := vetCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go vet./... failed: %v\nOutput:\n%s", err, string(vetOutput))
+		t.Fatalf("go vet ./... failed: %v\nOutput:\n%s", err, string(vetOutput))
 	}
 }
 
@@ -400,7 +400,7 @@ func TestViteConfigIncludesTailwind(t *testing.T) {
 		t.Error("vite.config.ts does not import @tailwindcss/vite plugin")
 	}
 	if !strings.Contains(viteConfig, "tailwindcss()") && !strings.Contains(viteConfig, "tailwindcss(") {
-		t.Error("vite.config.ts does not appear to use the tailwindcss plugin in plugins array")
+		t.Error("vite.config.ts does not appear to use the tailwindcss() plugin in plugins array")
 	}
 }
 

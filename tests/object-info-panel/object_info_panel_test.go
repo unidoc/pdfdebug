@@ -440,7 +440,7 @@ func TestPdfcoreCompilesWithObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go build./internal/pdfcore/... failed:\n%s", string(output))
+		t.Fatalf("go build ./internal/pdfcore/... failed:\n%s", string(output))
 	}
 	_ = output
 }

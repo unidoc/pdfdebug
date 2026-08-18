@@ -177,8 +177,8 @@ describe('ContentStreamViewer empty content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ContentStreamViewer single-line boundary Edge case: content stream
-// with exactly one line renders line number 1.
+// ContentStreamViewer single-line boundary.
+// Edge case: content stream with exactly one line renders line number 1.
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer single-line content', () => {

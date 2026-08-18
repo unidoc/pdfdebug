@@ -13,9 +13,9 @@
 //   - fonts-mixed.pdf   : obj "4 0 R" is a /Type /Font dict;
 //                         obj "1 0 R" is the /Type /Catalog (non-font).
 //
-// Covers: (ref-taking payloads + both ref forms), (image --metadata), (source
-// default JSON vs --raw), (non-error payloads at exit 0 + missing --ref usage
-// error).
+// Covers: ref-taking payloads in both ref forms; image --metadata; source
+// default JSON vs --raw; non-error payloads at exit 0; the missing --ref
+// usage error.
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
 package cli_views_test
@@ -522,14 +522,14 @@ func TestFontDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "font", "--ref", "4 0 R", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] font plain: expected exit 0, got %d", ec)
+		t.Fatalf("font plain: expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.1] font plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("font plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	// A /Type /Font dict (kind detail) -> aligned record naming the base font.
 	if !strings.Contains(stdout, "BaseFont:") {
-		t.Errorf("[13.1] font plain: expected an aligned BaseFont: row\n%s", stdout)
+		t.Errorf("font plain: expected an aligned BaseFont: row\n%s", stdout)
 	}
 }
 
@@ -539,19 +539,19 @@ func TestImageDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "image", "--ref", "4 0 R", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] image plain: expected exit 0, got %d", ec)
+		t.Fatalf("image plain: expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.1] image plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("image plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	for _, key := range []string{"Width:", "Height:", "ColorSpace:"} {
 		if !strings.Contains(stdout, key) {
-			t.Errorf("[13.1] image plain: expected an aligned %q row\n%s", key, stdout)
+			t.Errorf("image plain: expected an aligned %q row\n%s", key, stdout)
 		}
 	}
 	// The base64 payload must NOT flood the plain-text view.
 	if strings.Contains(stdout, "base64") {
-		t.Errorf("[13.1] image plain: plain output should not carry the base64 payload\n%.200s", stdout)
+		t.Errorf("image plain: plain output should not carry the base64 payload\n%.200s", stdout)
 	}
 }
 
@@ -561,14 +561,14 @@ func TestSourceDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "source", "--ref", "4 0 R", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] source plain: expected exit 0, got %d", ec)
+		t.Fatalf("source plain: expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.1] source plain: default output must be the reserialized source, not JSON:\n%.200s", stdout)
+		t.Fatalf("source plain: default output must be the reserialized source, not JSON:\n%.200s", stdout)
 	}
 	// The plain default is the reserialized PDF source: it carries the obj envelope.
 	if !strings.Contains(stdout, "4 0 obj") {
-		t.Errorf("[13.1] source plain: expected the \"4 0 obj\" envelope\n%.200s", stdout)
+		t.Errorf("source plain: expected the \"4 0 obj\" envelope\n%.200s", stdout)
 	}
 }
 
@@ -578,14 +578,14 @@ func TestReverseRefsDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "reverserefs", "--ref", "3 0 R", pdfPath)
 	if ec != 0 {
-		t.Fatalf("[13.1] reverserefs plain: expected exit 0, got %d", ec)
+		t.Fatalf("reverserefs plain: expected exit 0, got %d", ec)
 	}
 	if isJSONObject(stdout) {
-		t.Fatalf("[13.1] reverserefs plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("reverserefs plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	// Aligned table: header row naming the PARENT and PATH columns.
 	if !strings.Contains(stdout, "PARENT") || !strings.Contains(stdout, "PATH") {
-		t.Errorf("[13.1] reverserefs plain: expected a header row with PARENT/PATH columns\n%s", stdout)
+		t.Errorf("reverserefs plain: expected a header row with PARENT/PATH columns\n%s", stdout)
 	}
 }
 

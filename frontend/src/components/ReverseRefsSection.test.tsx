@@ -1,8 +1,8 @@
 /**
  * Object Source View + Reverse References
  *
- * Covers, and the frontend failure-mode banner (Task 6.5 case 1) for the
- * "Referenced by" section. keyboard parity for the row click target is also
+ * Covers the frontend failure-mode banner (Task 6.5 case 1) for the
+ * "Referenced by" section. Keyboard parity for the row click target is also
  * asserted here, mirroring DetailShared's Enter/Space contract.
  *
  * Behavioral focus: the section MUST render three distinct empty states based

@@ -2,9 +2,9 @@
 // rendering picture (geometry + extgstates + xobjects + patterns + shadings +
 // recursive forms). Black-box: build the CLI binary and run it as a subprocess.
 //
-// Covers: (full object), (recursive forms + self-ref termination),
-// (--section enum incl. usage error), (exit codes + empty-arrays),
-// (structural-only guard), (experimental note in help).
+// Covers: the full object; recursive forms with self-ref termination; the
+// --section enum including its usage error; exit codes and empty arrays; the
+// structural-only guard; the experimental note in help.
 //
 // Run: cd tests/cli-page-render && go test -v -count=1 ./...
 package cli_page_render_test
@@ -317,23 +317,23 @@ func TestPageDump_JSON_FullObjectCarriesStabilityMarker(t *testing.T) {
 
 	full, _, ec := runCLI(t, bin, "dump", "page", "--json", "--info", "1", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[13.1] page _stability: full --json exit %d", ec)
+		t.Fatalf("page _stability: full --json exit %d", ec)
 	}
 	var fm map[string]any
 	mustParseJSON(t, full, &fm)
 	if s, _ := fm["_stability"].(string); s != "experimental" {
-		t.Errorf("[13.1] page _stability: full --json object must carry \"_stability\":\"experimental\", got %v", fm["_stability"])
+		t.Errorf("page _stability: full --json object must carry \"_stability\":\"experimental\", got %v", fm["_stability"])
 	}
 
 	// A section-scoped --json view omits the marker (documented decision).
 	sec, _, ecs := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "geometry", renderInfoPDF(t))
 	if ecs != 0 {
-		t.Fatalf("[13.1] page _stability: section --json exit %d", ecs)
+		t.Fatalf("page _stability: section --json exit %d", ecs)
 	}
 	var sm map[string]any
 	mustParseJSON(t, sec, &sm)
 	if _, present := sm["_stability"]; present {
-		t.Errorf("[13.1] page _stability: section-scoped --json view must OMIT _stability, got %v", sm["_stability"])
+		t.Errorf("page _stability: section-scoped --json view must OMIT _stability, got %v", sm["_stability"])
 	}
 }
 
@@ -348,20 +348,20 @@ func TestPageDump_PlainTextDefault(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[13.1] page plain: exit %d", ec)
+		t.Fatalf("page plain: exit %d", ec)
 	}
 	trimmed := strings.TrimSpace(stdout)
 	if strings.HasPrefix(trimmed, "{") && json.Valid([]byte(trimmed)) {
-		t.Fatalf("[13.1] page plain: default output must be plain text, not JSON:\n%.200s", stdout)
+		t.Fatalf("page plain: default output must be plain text, not JSON:\n%.200s", stdout)
 	}
 	for _, heading := range []string{"Geometry:", "XObjects:"} {
 		if !strings.Contains(stdout, heading) {
-			t.Errorf("[13.1] page plain: expected the %q section heading\n%s", heading, stdout)
+			t.Errorf("page plain: expected the %q section heading\n%s", heading, stdout)
 		}
 	}
 	// _stability is a JSON-only marker; it must not appear in plain text.
 	if strings.Contains(stdout, "_stability") {
-		t.Errorf("[13.1] page plain: plain output must not carry the _stability marker\n%s", stdout)
+		t.Errorf("page plain: plain output must not carry the _stability marker\n%s", stdout)
 	}
 }
 
@@ -373,13 +373,13 @@ func TestPageDump_PlainSectionHonored(t *testing.T) {
 
 	stdout, _, ec := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "geometry", renderInfoPDF(t))
 	if ec != 0 {
-		t.Fatalf("[13.1] page plain section: exit %d", ec)
+		t.Fatalf("page plain section: exit %d", ec)
 	}
 	if !strings.Contains(stdout, "Geometry:") {
-		t.Errorf("[13.1] page plain section: --section geometry should show the Geometry block\n%s", stdout)
+		t.Errorf("page plain section: --section geometry should show the Geometry block\n%s", stdout)
 	}
 	if strings.Contains(stdout, "XObjects:") {
-		t.Errorf("[13.1] page plain section: --section geometry must NOT show the XObjects block\n%s", stdout)
+		t.Errorf("page plain section: --section geometry must NOT show the XObjects block\n%s", stdout)
 	}
 }
 
@@ -400,7 +400,7 @@ func TestPageDump_PlainExtGStateAlphaLabels(t *testing.T) {
 	// true PDF semantics regardless of the inverted Go field names).
 	jsonOut, _, ecj := runCLI(t, bin, "dump", "page", "--json", "--info", "1", "--section", "extgstates", renderInfoPDF(t))
 	if ecj != 0 {
-		t.Fatalf("[13.1] extgstate alpha: --json exit %d", ecj)
+		t.Fatalf("extgstate alpha: --json exit %d", ecj)
 	}
 	var jm struct {
 		ExtGStates []struct {
@@ -411,16 +411,16 @@ func TestPageDump_PlainExtGStateAlphaLabels(t *testing.T) {
 	}
 	mustParseJSON(t, jsonOut, &jm)
 	if len(jm.ExtGStates) == 0 {
-		t.Fatalf("[13.1] extgstate alpha: fixture has no ExtGStates in --json output:\n%s", jsonOut)
+		t.Fatalf("extgstate alpha: fixture has no ExtGStates in --json output:\n%s", jsonOut)
 	}
 	gs := jm.ExtGStates[0]
 	if gs.Ca == nil || gs.CA == nil {
-		t.Fatalf("[13.1] extgstate alpha: fixture GS0 must carry both ca and CA in --json (got ca=%v CA=%v) - test needs a both-alphas fixture", gs.Ca, gs.CA)
+		t.Fatalf("extgstate alpha: fixture GS0 must carry both ca and CA in --json (got ca=%v CA=%v) - test needs a both-alphas fixture", gs.Ca, gs.CA)
 	}
 
 	plainOut, _, ecp := runCLI(t, bin, "dump", "page", "--info", "1", "--section", "extgstates", renderInfoPDF(t))
 	if ecp != 0 {
-		t.Fatalf("[13.1] extgstate alpha: plain exit %d", ecp)
+		t.Fatalf("extgstate alpha: plain exit %d", ecp)
 	}
 
 	// Locate the GS0 line and tokenize it.
@@ -432,7 +432,7 @@ func TestPageDump_PlainExtGStateAlphaLabels(t *testing.T) {
 		}
 	}
 	if tokens == nil {
-		t.Fatalf("[13.1] extgstate alpha: plain output has no line for %q:\n%s", gs.Name, plainOut)
+		t.Fatalf("extgstate alpha: plain output has no line for %q:\n%s", gs.Name, plainOut)
 	}
 
 	// labelValue returns the token immediately following an exact-match label.
@@ -447,11 +447,11 @@ func TestPageDump_PlainExtGStateAlphaLabels(t *testing.T) {
 
 	caVal, okCa := labelValue("ca")
 	if !okCa {
-		t.Fatalf("[13.1] extgstate alpha: plain line missing `ca` label: %q", strings.Join(tokens, " "))
+		t.Fatalf("extgstate alpha: plain line missing `ca` label: %q", strings.Join(tokens, " "))
 	}
 	caUpperVal, okCA := labelValue("CA")
 	if !okCA {
-		t.Fatalf("[13.1] extgstate alpha: plain line missing `CA` label: %q", strings.Join(tokens, " "))
+		t.Fatalf("extgstate alpha: plain line missing `CA` label: %q", strings.Join(tokens, " "))
 	}
 
 	// The plain `ca` label must carry the JSON `ca` value, and `CA` the JSON `CA`
@@ -459,15 +459,15 @@ func TestPageDump_PlainExtGStateAlphaLabels(t *testing.T) {
 	wantCa := strconv.FormatFloat(*gs.Ca, 'g', -1, 64)
 	wantCA := strconv.FormatFloat(*gs.CA, 'g', -1, 64)
 	if caVal != wantCa {
-		t.Errorf("[13.1] extgstate alpha: plain `ca` value = %q, want %q (JSON-tag semantics, not Go field name)", caVal, wantCa)
+		t.Errorf("extgstate alpha: plain `ca` value = %q, want %q (JSON-tag semantics, not Go field name)", caVal, wantCa)
 	}
 	if caUpperVal != wantCA {
-		t.Errorf("[13.1] extgstate alpha: plain `CA` value = %q, want %q (JSON-tag semantics, not Go field name)", caUpperVal, wantCA)
+		t.Errorf("extgstate alpha: plain `CA` value = %q, want %q (JSON-tag semantics, not Go field name)", caUpperVal, wantCA)
 	}
 	// Guard against the inversion specifically: ca and CA must not be swapped
 	// when the two values differ (they do in the fixture: 0.5 vs 1).
 	if wantCa != wantCA && caVal == wantCA {
-		t.Errorf("[13.1] extgstate alpha: plain `ca`/`CA` labels are inverted (ca shows the CA value %q)", caVal)
+		t.Errorf("extgstate alpha: plain `ca`/`CA` labels are inverted (ca shows the CA value %q)", caVal)
 	}
 }
 

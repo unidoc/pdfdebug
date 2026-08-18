@@ -35,8 +35,6 @@
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate signal)
 //	2  operational error (missing/unreadable file, unknown profile, view failure)
 //
-// Naming: [Px] per the story Testing Requirements.
-//
 // Run: cd tests/compliance-validation && go test -v -count=1 ./...
 package compliance_validation_test
 

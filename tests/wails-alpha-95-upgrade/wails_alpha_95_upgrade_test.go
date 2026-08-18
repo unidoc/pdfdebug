@@ -19,9 +19,8 @@
 //     boot-smoke pass-through) are EXPLICITLY delegated by the story spec to
 //     "document in Completion Notes" via manual smoke and to existing
 //     acceptance suites (tests/boot-smoke/, tests/file-association-
-//     persistence/, tests/startup-splash-screen/). requires those suites
-//     to PASS post-bump; this story does not author new behavioral tests for
-//     them.
+//     persistence/, tests/startup-splash-screen/). Those suites must PASS
+//     post-bump; this story does not author new behavioral tests for them.
 //
 // What the assertions do NOT pin:
 //
@@ -367,10 +366,10 @@ func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // goEmittedEvents are the events main.go emits to the frontend via
-// `app.Event.Emit("<name>", ...)`. lists each one; a rename in the Wails
-// runtime that propagates to our call sites is a silent break.
+// `app.Event.Emit("<name>", ...)`. This list names each one; a rename in the
+// Wails runtime that propagates to our call sites is a silent break.
 //
-// Note: also lists "document:warning" under Go -> JS, but the current
+// Note: "document:warning" appears under Go -> JS, but the current
 // pre-bump main.go does NOT emit it (the frontend listens via App.jsx but no
 // Go-side Emit exists). The structural assertion only pins what is currently
 // emitted; "document:warning" is covered by the JS-listener assertion in
@@ -408,7 +407,7 @@ func TestGoEventEmitNamesPreserved(t *testing.T) {
 }
 
 // jsConsumedEvents are the events the frontend subscribes to via
-// `Events.On('<name>', ...)`. calls out the common:Window* names
+// `Events.On('<name>', ...)`. This list calls out the common:Window* names
 // explicitly because they are emitted by the Wails runtime itself -- a
 // runtime-side rename in a new alpha would silently break window geometry
 // persistence.
@@ -468,7 +467,7 @@ func TestJsToGoEventContract(t *testing.T) {
 		}
 		goNeedle := fmt.Sprintf(`app.Event.On("%s"`, name)
 		if !strings.Contains(mainSrc, goNeedle) {
-			t.Errorf("main.go must still app.Event.On(%q,...) (JS->Go contract)", name)
+			t.Errorf("main.go must still app.Event.On(%q, ...) (JS->Go contract)", name)
 		}
 	}
 }
@@ -525,11 +524,11 @@ func TestViteConfigQuirks(t *testing.T) {
 	src := readSource(t, "frontend/vite.config.ts")
 	// The IPv4 pin -- the load-bearing line is `host: '127.0.0.1'`.
 	if !strings.Contains(src, "'127.0.0.1'") && !strings.Contains(src, `"127.0.0.1"`) {
-		t.Errorf("vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (/ Task 7.1: the actual motivator is macOS resolving localhost to::1; removing without that fix breaks macOS dev)")
+		t.Errorf("vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (Task 7.1: the actual motivator is macOS resolving localhost to ::1; removing without that fix breaks macOS dev)")
 	}
 	// The lucide-react optimizeDeps entry.
 	if !strings.Contains(src, "lucide-react") {
-		t.Errorf("vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link (/ Task 7.2)")
+		t.Errorf("vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link (Task 7.2)")
 	}
 }
 
@@ -551,7 +550,7 @@ func TestSplashEventTriad(t *testing.T) {
 	}
 	// main.jsx is the dismissal listener.
 	if !strings.Contains(mainJsxSrc, "'splash:dismissed'") && !strings.Contains(mainJsxSrc, `"splash:dismissed"`) {
-		t.Errorf("frontend/src/main.jsx must Events.On('splash:dismissed',...) (splash lifecycle handoff)")
+		t.Errorf("frontend/src/main.jsx must Events.On('splash:dismissed', ...) (splash lifecycle handoff)")
 	}
 }
 

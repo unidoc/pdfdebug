@@ -578,8 +578,8 @@ describe('unknown subtype tolerated', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Defensive: nil FontDescriptor and nil descendant do not crash.
-// nil-safety.
+// Defensive nil-safety: nil FontDescriptor and nil descendant do not
+// crash.
 // ---------------------------------------------------------------------------
 
 describe('nil-safety on optional fields', () => {

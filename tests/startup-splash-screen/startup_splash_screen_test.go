@@ -197,7 +197,7 @@ func TestSplashHTMLContent(t *testing.T) {
 	// says inline the SVG contents of assets/branding/icon.svg.
 	if !regexp.MustCompile(`(?is)<svg[^>]*>`).MatchString(src) &&
 		!regexp.MustCompile(`data:image/(svg\+xml|png);base64,`).MatchString(src) {
-		t.Errorf("splash content must inline the brand icon (either <svg...> or data:image/...;base64,). External /assets/... URLs are forbidden.")
+		t.Errorf("splash content must inline the brand icon (either <svg ...> or data:image/...;base64,). External /assets/... URLs are forbidden.")
 	}
 
 	// Three-dot activity indicator: CSS @keyframes referenced + at least
@@ -402,7 +402,7 @@ func TestSplashIsClosedAfterDismissal(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("splash window must be Close'd or Destroy'd after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
+	t.Errorf("splash window must be Close()'d or Destroy()'d after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
 }
 
 // ---------------------------------------------------------------------------
