@@ -114,9 +114,10 @@ type eventEmitter interface {
 // synchronous-completion contract.
 //
 // The caller MUST call wg.Add(1) BEFORE invoking this function. The
-// goroutine launched here calls wg.Done() on completion. document:load-start is emitted synchronously (before the
-// goroutine is dispatched) so the frontend renders the loading indicator
-// without waiting on the goroutine scheduler.
+// goroutine launched here calls wg.Done() on completion.
+// document:load-start is emitted synchronously (before the goroutine is
+// dispatched) so the frontend renders the loading indicator without
+// waiting on the goroutine scheduler.
 //
 // svc and emitter are narrow interfaces (pdfOpener, eventEmitter) so the
 // latency test can inject a slow-OpenFile stub and a recording emitter.
@@ -641,15 +642,14 @@ func main() {
 	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
 
-	// Startup splash window. Created BEFORE the main
-	// WebviewWindow so the user sees branding during WebView2 cold init
-	// (especially on Windows where the main webview can take 10-30s on
-	// first launch). Lives only in this first-instance bootstrap path --
-	// the OnSecondInstanceLaunch and ApplicationOpenedWithFile callbacks
-	// above are reentrant and MUST NOT spawn additional splash windows
-	// (they are reentrant). The splash is on EVERY launch by design
-	// (consistency is the brand signal); no first-launch persistence
-	// gate.
+	// Startup splash window. Created BEFORE the main WebviewWindow so the
+	// user sees branding during WebView2 cold init (especially on Windows
+	// where the main webview can take 10-30s on first launch). Lives only
+	// in this first-instance bootstrap path -- the OnSecondInstanceLaunch
+	// and ApplicationOpenedWithFile callbacks above can fire more than once
+	// per process, so they MUST NOT spawn additional splash windows. The
+	// splash is on EVERY launch by design (consistency is the brand
+	// signal); no first-launch persistence gate.
 	//
 	// Option B (separate WebviewWindow) was chosen over Option A
 	// (native pre-WebView window) because Wails v3 alpha.85 does not
@@ -659,10 +659,14 @@ func main() {
 	// Wails alpha.85 WebviewWindowOptions does not have separate
 	// Resizable / Minimisable / Closable boolean fields -- the splash
 	// disables resize via DisableResize (the alpha.85 idiom) and
-	// suppresses close/minimise affordances by being Frameless. The
-	// literal field comments below are kept verbatim so the splash
-	// integration tests, which scan this source text for the options,
-	// stay pinned to that wording.
+	// suppresses close/minimise affordances by being Frameless.
+	//
+	// The splash integration tests grep this file for each option as
+	// `Name: value`, so the three options with no field to carry them are
+	// load-bearing as comment text: the `Resizable: false`,
+	// `Minimisable: false` and `Closable: false` spellings below are the
+	// only thing those greps can match. Reword the rationale after the
+	// `--` freely; do not reword those three names or values.
 	//
 	// Splash window options:
 	//   Width: 480 -- logical width
@@ -679,9 +683,9 @@ func main() {
 		Frameless:     true,
 		AlwaysOnTop:   true,
 		DisableResize: true,
-		// "no context menu". Without this the WebView's default
-		// right-click menu (Reload / Inspect Element / etc.) appears on
-		// the splash, especially in dev builds where DevToolsEnabled
+		// The splash shows no context menu. Without this the WebView's
+		// default right-click menu (Reload / Inspect Element / etc.)
+		// appears on it, especially in dev builds where DevToolsEnabled
 		// defaults to true.
 		DefaultContextMenuDisabled: true,
 		BackgroundColour:           application.NewRGB(248, 250, 252),

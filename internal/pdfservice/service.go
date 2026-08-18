@@ -56,10 +56,9 @@ type inspectorAPI interface {
 // frontend. It delegates to the inspector backend for all PDF operations.
 //
 // The inspector field is typed as the inspectorAPI interface (the test seam)
-// rather than the concrete *pdfcore.Inspector; the production
-// constructor injects a *pdfcore.Inspector via pdfcore.NewInspector() and
-// tests inject a stub that panics with a runtime.Error to drive the
-// recoverRuntimePanic path.
+// rather than the concrete *pdfcore.Inspector; the production constructor
+// injects a *pdfcore.Inspector via pdfcore.NewInspector() and tests inject a
+// stub that panics with a runtime.Error to drive the recoverRuntimePanic path.
 type PDFService struct {
 	inspector inspectorAPI
 	app       *application.App
@@ -85,13 +84,12 @@ func NewPDFService(app *application.App) PDFService {
 // test-binary-crash diagnostic for genuine bugs not in the inspector's
 // documented panic surface).
 //
-// Each wrapper invokes the inspector call inside an anonymous
-// closure that owns the deferred recover; the closure writes its result and
-// error into outer locals (via shadow) and the recover overwrites the error
-// local via pointer if a runtime.Error fires. This pattern keeps the method
-// signatures stable (the signature-preservation contract continues to hold,
-// with no named returns) while still letting the
-// recover replace the returned error.
+// Each wrapper invokes the inspector call inside an anonymous closure that
+// owns the deferred recover; the closure writes its result and error into
+// outer locals (via shadow) and the recover overwrites the error local via
+// pointer if a runtime.Error fires. This pattern keeps the method signatures
+// stable -- the signature-preservation contract continues to hold, with no
+// named returns -- while still letting the recover replace the returned error.
 func recoverRuntimePanic(methodName string, errOut *error) {
 	if r := recover(); r != nil {
 		if _, ok := r.(runtime.Error); !ok {

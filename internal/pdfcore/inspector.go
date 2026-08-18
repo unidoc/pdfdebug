@@ -40,9 +40,9 @@ type DocumentState struct {
 	PDFContext *pdfcpu_model.Context
 	PageCount  int
 	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat.
-	// Surfaced by Inspector.GetPlainTextSize directly (no
-	// re-stat) and threaded into readPlainText for the buffer pre-size. If the
-	// underlying file is moved or deleted after Open, this value is unchanged.
+	// Surfaced by Inspector.GetPlainTextSize directly (no re-stat) and threaded
+	// into readPlainText for the buffer pre-size. If the underlying file is
+	// moved or deleted after Open, this value is unchanged.
 	FileSize int64
 
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
@@ -52,9 +52,9 @@ type DocumentState struct {
 	// See lock-ordering note on the struct doc comment.
 	pdfMu sync.Mutex
 
-	// revBuildOnce gates the lazy reverse-refs build. The reverse-ref index is
-	// no longer built at Open time; the first GetReverseRefs call triggers
-	// buildReverseRefsOnce which runs the BFS under pdfMu inside the Once's
+	// revBuildOnce gates the lazy reverse-refs build. Open does not build the
+	// reverse-ref index; the first GetReverseRefs call triggers
+	// buildReverseRefsOnce, which runs the BFS under pdfMu inside the Once's
 	// inner function.
 	revBuildOnce sync.Once
 
@@ -62,11 +62,11 @@ type DocumentState struct {
 	streamCache map[string]*ContentStreamData
 
 	// reverseRefs maps (objNum, gen) -> inbound dict-graph references. Built
-	// lazily on the first GetReverseRefs call via revBuildOnce;
-	// Open does not build it. The trailer's /Root pointer is NOT recorded as
-	// a reverse ref (the catalog is treated as having no
-	// incoming edges by construction). Nil means the build has not yet run OR
-	// the build failed -- check revRefsBuildFailed to distinguish.
+	// lazily on the first GetReverseRefs call via revBuildOnce; Open does not
+	// build it. The trailer's /Root pointer is NOT recorded as a reverse ref
+	// (the catalog is treated as having no incoming edges by construction).
+	// Nil means the build has not yet run OR the build failed -- check
+	// revRefsBuildFailed to distinguish.
 	reverseRefs        map[[2]int][]ReverseRef
 	revRefsBuildFailed bool
 
@@ -398,10 +398,10 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 //     via doc.PDFContext.Dereference (caller MUST hold doc.pdfMu; the only
 //     call site is GetObjectDetail, which acquires pdfMu before invoking).
 //
-// The prior single-arg signature could not reach pdfcpu's
-// Dereference so streams with an indirect /Length whose StreamLength field was
-// left nil (a corner the spec permits and pdfcpu's older reads occasionally
-// expose) reported Length=0 in the inspector UI.
+// doc is threaded in for case 3 alone: without it there is no way to reach
+// pdfcpu's Dereference, and a stream with an indirect /Length whose
+// StreamLength field is left nil (a corner the spec permits and pdfcpu's older
+// reads occasionally expose) would report Length=0 in the inspector UI.
 func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo {
 	var sd pdfcpu_types.StreamDict
 	switch v := obj.(type) {
@@ -491,9 +491,9 @@ func (ins *Inspector) GetAncestorPath(tabID, nodeID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Serialize pdfcpu access for the recursive walk. The recursive
-	// helper getAncestorPathDepth calls into pdfcpu (findPathToObject ->
-	// Dereference); locking once here covers the whole walk.
+	// Serialize pdfcpu access for the recursive walk. The recursive helper
+	// getAncestorPathDepth calls into pdfcpu (findPathToObject -> Dereference);
+	// locking once here covers the whole walk.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 	return ins.getAncestorPathDepth(doc, tabID, nodeID, 0)
@@ -548,9 +548,9 @@ func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error)
 	visited := map[string]bool{"root": true}
 	queue := []queueEntry{{nodeID: "root", obj: rootDict, path: []string{"root"}, depth: 0}}
 
-	// No depth cap. The visited-set already prevents cycles;
-	// the prior depth guard made findPathToObject fail to surface
-	// legitimate-but-deep paths in PDFs with page-tree chains over 32 levels.
+	// No depth cap: the visited-set already prevents cycles, and a depth guard
+	// here would make findPathToObject fail to surface legitimate-but-deep paths
+	// in PDFs with page-tree chains over 32 levels.
 	for len(queue) > 0 {
 		entry := queue[0]
 		queue = queue[1:]
