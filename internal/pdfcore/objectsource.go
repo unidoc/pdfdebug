@@ -178,8 +178,8 @@ func (w *sourceWriter) WriteAlways(s string) {
 }
 
 // snapshot returns the current buffer length so a caller can roll back to it
-// via rollback. Used to keep cap-truncation strictly between top-level entries
-// (Task 1.7 contract: "Truncation never happens mid-entry").
+// via rollback. Used to keep cap-truncation strictly between top-level entries,
+// so truncation never happens mid-entry.
 func (w *sourceWriter) snapshot() int {
 	return w.buf.Len()
 }
@@ -268,8 +268,8 @@ func writeDict(w *sourceWriter, d pdfcpu_types.Dict, depth int) {
 			break
 		}
 		// Snapshot before the entry so we can roll back a partially-written
-		// entry if the cap is hit mid-write. Task 1.7: "Truncation never
-		// happens mid-entry."
+		// entry if the cap is hit mid-write: truncation never happens
+		// mid-entry.
 		mark := w.snapshot()
 		w.WriteString(inner)
 		w.WriteString("/")
@@ -335,8 +335,8 @@ func writeArray(w *sourceWriter, arr pdfcpu_types.Array, depth int) {
 			break
 		}
 		// Snapshot before the element so we can roll back a partially-written
-		// element if the cap is hit mid-write. Task 1.7: "Truncation never
-		// happens mid-entry."
+		// element if the cap is hit mid-write: truncation never happens
+		// mid-entry.
 		mark := w.snapshot()
 		w.WriteString(inner)
 		writeValue(w, elem, depth+1)
