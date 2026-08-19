@@ -2,8 +2,7 @@
 //
 // These are co-located pdfcore UNIT tests (the project's precedent for keystone
 // pdfcore logic; see resolve_ref_atdd_test.go for 11-5). They assert the
-// EXPECTED post-implementation behavior of the NEW diff engine that Task 1.2
-// will land in internal/pdfcore/diff.go:
+// behavior of the diff engine in internal/pdfcore/diff.go:
 //
 //	func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, error)
 //

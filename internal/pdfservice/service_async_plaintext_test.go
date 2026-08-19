@@ -46,7 +46,7 @@ func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
 
 // TestServiceCancelPlainTextCancelsInFlight verifies CancelPlainText cancels
 // an in-flight GetPlainText (mirrors the inspector-level cancel test through
-// the service binding). The story Task 2.2 explicitly requests this test.
+// the service binding).
 //
 // Uses a temporary copy of minimal.pdf padded out to 64 MiB so the chunked
 // read loop has time to observe ctx.Done().

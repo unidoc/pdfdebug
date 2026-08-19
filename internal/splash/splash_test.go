@@ -171,7 +171,7 @@ func TestSplashSchedulerTimeoutFires(t *testing.T) {
 
 // When MainWindowReady fires BEFORE the timeout, the timeout
 // callback does NOT fire even if the clock later crosses the timeout
-// horizon. Guards the success-path race per Task 5.3.
+// horizon. Guards the success-path race.
 func TestSplashSchedulerTimeoutRaceWinsByMainReady(t *testing.T) {
 	clk := newFakeClock(time.Unix(0, 0))
 	var dismissed atomic.Int32
@@ -233,7 +233,7 @@ func TestSplashRenderVersionPrereleaseSuffix(t *testing.T) {
 // prefix to make the build origin obvious.
 func TestSplashRenderVersionDevLiteral(t *testing.T) {
 	if got := RenderVersion("dev"); got != "dev" {
-		t.Errorf("RenderVersion(dev) = %q, want dev (no v-prefix per Task 3.4)", got)
+		t.Errorf("RenderVersion(dev) = %q, want dev (no v-prefix)", got)
 	}
 	if got := RenderVersion(""); got != "dev" {
 		t.Errorf("RenderVersion(\"\") = %q, want dev (empty defaults to dev)", got)

@@ -8,7 +8,7 @@
 //     render layer's job (frontend), so the backend always emits the raw
 //     /Type here.
 //
-//   - Inspector.GetObjectIndex (Task 3): full xref-derived index, with
+//   - Inspector.GetObjectIndex: full xref-derived index, with
 //     per-entry reachability, free-flag, /Type extraction, deterministic
 //     ObjNum-asc / Gen-asc ordering, NodeID round-trip through
 //     GetAncestorPath for reachable entries, and per-DocumentState cache
@@ -170,12 +170,12 @@ func TestTreeNodeObjectRefArrayElement(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Task 3 -- Inspector.GetObjectIndex
+// Inspector.GetObjectIndex
 // ---------------------------------------------------------------------------
 
 // TestGetObjectIndexReturnsAllXRefEntries verifies the index contains an
 // entry for every indirect object the document reports through pdfcpu's
-// XRefTable, with entries sorted by ObjNum ascending. Task 3.3 / 3.5.
+// XRefTable, with entries sorted by ObjNum ascending.
 func TestGetObjectIndexReturnsAllXRefEntries(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	entries, err := ins.GetObjectIndex(tabID)
@@ -203,7 +203,7 @@ func TestGetObjectIndexReturnsAllXRefEntries(t *testing.T) {
 		t.Errorf("catalog.NodeID = %q, want %q or %q", catalog.NodeID, "obj:0:1", "root")
 	}
 
-	// Sort assertion: ObjNum ascending (Task 3.3).
+	// Sort assertion: ObjNum ascending.
 	for i := 1; i < len(entries); i++ {
 		prev, cur := entries[i-1], entries[i]
 		if prev.ObjNum > cur.ObjNum {
@@ -245,7 +245,7 @@ func TestGetObjectIndexTypeExtraction(t *testing.T) {
 
 // TestGetObjectIndexReachableNodeIDRoundTrip verifies that NodeID on a
 // reachable entry round-trips through GetAncestorPath (returns a non-empty
-// path ending in that NodeID). Task 7.1 / Task 3.3.
+// path ending in that NodeID).
 func TestGetObjectIndexReachableNodeIDRoundTrip(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	entries, err := ins.GetObjectIndex(tabID)
@@ -286,7 +286,7 @@ func TestGetObjectIndexUnknownTab(t *testing.T) {
 }
 
 // TestGetObjectIndexCacheStableAcrossCalls verifies repeat calls return the
-// same slice contents (cache hit). Task 3.4: lazy build, then cache per
+// same slice contents (cache hit): lazy build, then cache per
 // DocumentState. We compare by deep equality on the entries.
 func TestGetObjectIndexCacheStableAcrossCalls(t *testing.T) {
 	ins, tabID := openMultipage(t)
@@ -305,7 +305,7 @@ func TestGetObjectIndexCacheStableAcrossCalls(t *testing.T) {
 
 // TestGetObjectIndexInvalidatesOnReopen verifies that closing and re-opening
 // the same tabID rebuilds the index (cache lives on the DocumentState
-// pointer, which is replaced on Open). Task 3.4: invalidation contract.
+// pointer, which is replaced on Open).
 func TestGetObjectIndexInvalidatesOnReopen(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-reopen"
@@ -379,7 +379,7 @@ func TestBuildReachableSetDeepNesting(t *testing.T) {
 
 // TestObjectIndexEntryShape pins the struct's exported field set so a
 // rename/typo at implementation time is caught here, not at the frontend
-// binding layer. Task 3.2.
+// binding layer.
 func TestObjectIndexEntryShape(t *testing.T) {
 	e := ObjectIndexEntry{
 		ObjNum:    1,

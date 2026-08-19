@@ -156,9 +156,9 @@ func TestObjectSourceCatalogRootNodeID(t *testing.T) {
 
 // TestObjectSourceTruncationNoMidEntry verifies the snapshot/rollback
 // contract: when the cap is exhausted mid-entry, the partial entry is rolled
-// back rather than left half-written. Task 1.7: "Truncation never happens
-// mid-entry. This guarantees golden-file determinism and well-formed output
-// even when capped."
+// back rather than left half-written. Truncation never happens mid-entry,
+// which guarantees golden-file determinism and well-formed output even when
+// capped.
 func TestObjectSourceTruncationNoMidEntry(t *testing.T) {
 	// Long-form array of names that are each 8 chars (e.g. "/NameAAA"). Pick
 	// a cap that lands inside writing the third element.

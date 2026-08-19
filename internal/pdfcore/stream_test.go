@@ -56,7 +56,7 @@ func TestGetContentStreamValid(t *testing.T) {
 		t.Errorf("Raw does not contain 'ET': %q", result.Raw)
 	}
 
-	// Task 2.3: Verify tokenizer integration in GetContentStream. Tokenized field must be
+	// Verify tokenizer integration in GetContentStream. Tokenized field must be
 	// non-nil, non-empty, and contain at least BT and ET operators.
 	if result.Tokenized == nil {
 		t.Fatal("Tokenized is nil, want non-nil after tokenizer integration")

@@ -500,8 +500,8 @@ func unsignedSigFieldPDFContent() []byte {
 // OutputIntent, tagged vs untagged) plus the veraPDF-passing clean PDF/A-1b
 // positive fixture. The tests/compliance-validation acceptance suite carries
 // its own self-contained copies of the negative builders; these are the
-// testdata/ equivalents Task 2.0 asks for. The clean fixture is the one the
-// veraPDF oracle clean-case cross-check reads.
+// testdata/ equivalents. The clean fixture is the one the veraPDF oracle
+// clean-case cross-check reads.
 
 // complAssemblePDF stitches a binary-marker header, object bodies, an xref
 // table, and a trailer with /Root 1 0 R plus optional trailerExtra.
