@@ -194,6 +194,6 @@ function tokenizeLine(
   return out;
 }
 
-// Legacy export kept so MainLayout/other test files don't need renaming in
-// this story (Task 5.1 keeps the file path stable).
+// Legacy alias: the component is ObjectSourcePanel now, and this export keeps
+// MainLayout and the existing test files importing the old name from this path.
 export const ObjectInfoPanel = ObjectSourcePanel;

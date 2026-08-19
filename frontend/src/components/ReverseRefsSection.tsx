@@ -45,7 +45,7 @@ function joinGlobalPath(parentPath: string, path: string): string {
 }
 
 /**
- * Renders the Referenced by section. Empty-state priority order (Task 6.5):
+ * Renders the Referenced by section. Empty-state priority order:
  *   1. indexUnavailable=true  -> banner ("Reverse-ref index unavailable...")
  *   2. entries empty + catalog -> "Document root (no incoming references)."
  *   3. entries empty (other)   -> orphan copy with dict-graph qualifier.

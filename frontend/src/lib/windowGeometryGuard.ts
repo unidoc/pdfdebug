@@ -5,8 +5,6 @@
  * Extracted from App.jsx so the math is unit-testable in isolation against
  * synthetic Screens.GetAll() payloads (multi-monitor, monitor-disconnected,
  * empty-array fallback paths).
- *
- * Task 5.2 (off-screen guard) and Task 5.3 (size clamp).
  */
 import type { WindowGeometry } from '../hooks/useWindowPersistence';
 

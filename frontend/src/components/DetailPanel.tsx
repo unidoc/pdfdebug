@@ -32,7 +32,7 @@ import { DiffView } from './DiffView';
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
  * carry trailing dict/arr segments after the obj prefix and must be excluded
- * from the Referenced by section per Task 7.1.
+ * from the Referenced by section.
  */
 const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
 
@@ -390,7 +390,7 @@ function DetailPanelInner() {
           setReverseRefsUnavailable(true);
           setReverseRefsLoaded(true);
         } else {
-          // Task 7.3 case (b): hide the section silently and log.
+          // Any other rejection: hide the section silently and log.
           setReverseRefs([]);
           setReverseRefsUnavailable(false);
           setReverseRefsVisible(false);
