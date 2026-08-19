@@ -2,8 +2,8 @@ name: release
 
 on:
   push:
-    # Task 1.1: glob-match any `v*` tag. The `Resolve version` step rejects
-    # non-SemVer tags at runtime as defense-in-depth.
+    # Glob-match any `v*` tag. The `Resolve version` step rejects non-SemVer
+    # tags at runtime as defense-in-depth.
     tags: ['v*']
   workflow_dispatch:
     inputs:
