@@ -1,12 +1,24 @@
 # Go test/benchmark/fuzz functions deliberately removed from the tree, one per
-# line, as "<FuncName>  # <file> :: <grep target> :: <bucket>".
+# line, as:
 #
-# The inventory gate subtracts the number of entries here from the expected
-# total. Adding an entry is how a deliberate deletion is itemized; a removal
-# that is not listed here fails the gate as an unexplained loss.
+#   <FuncName> [baseline:<digest>]  # <file> :: <grep target> :: <bucket>
+#
+# <FuncName> is the name the function had when it was deleted. Every entry has to
+# resolve to a function the baseline commit actually contained, and there are two
+# ways for it to do so:
+#
+#   * the name appears in go-test-func-baseline.txt, which is the case whenever
+#     the function was already behaviourally named at baseline; or
+#   * the function was renamed out of the ID-shaped half before it was deleted, so
+#     its current name is in neither baseline fixture. Those entries carry
+#     baseline:<digest>, the truncated digest of the name it had at baseline, which
+#     must be listed in go-test-func-baseline-id-shaped-digests.txt.
+#
+# An entry that resolves neither way fails the gate instead of quietly lowering
+# the expected total, and so does an entry whose function is still in the tree.
 #
 # Blank lines and lines starting with '#' are ignored.
 
-TestLatin1DecodeDocCommentRewritten  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: latin1Decode doc-comment block in internal/pdfcore/plaintext.go ("C1 controls", "0x80-0x9F", "verbatim") :: comment-grep
-TestGetPlainTextSizeDocCommentUpdated  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: GetPlainTextSize doc-comment block in internal/pdfcore/plaintext.go ("surfaces the raw os.Stat error", "captured at Open") :: comment-grep
+TestLatin1DecodeDocCommentRewritten baseline:29e5d24d32c7bea7  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: latin1Decode doc-comment block in internal/pdfcore/plaintext.go ("C1 controls", "0x80-0x9F", "verbatim") :: comment-grep
+TestGetPlainTextSizeDocCommentUpdated baseline:fa7eb2d4d7598024  # tests/pdf-parsing-correctness-fixes/correctness_fixes_test.go :: GetPlainTextSize doc-comment block in internal/pdfcore/plaintext.go ("surfaces the raw os.Stat error", "captured at Open") :: comment-grep
 TestReverseRefIndexBuiltAtOpen  # tests/object-source-and-reverse-refs/object_source_and_reverse_refs_test.go :: "buildReverseRefs" in internal/pdfcore/inspector.go, where it now occurs in comments only :: comment-grep

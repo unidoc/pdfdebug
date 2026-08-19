@@ -62,7 +62,12 @@ var (
 	// falls between an underscore and the token that follows it. The ID is not
 	// required to close on an underscore either: a declaration ends its name at
 	// the sequence number, and so does a comment naming that declaration.
-	scenarioIDUnderscore = regexp.MustCompile(`_[0-9]+_[0-9]+_([A-Z0-9]*[A-Z][A-Z0-9]*_[A-Z0-9]+|AC[0-9]+)`)
+	// The bare-kind alternative is the middle one, and it carries a three-character
+	// floor on the kind token that the first alternative does not need. Without the
+	// floor a name like LEVEL_1_2_A reads as an ID; with it, every kind token this
+	// tree uses still resolves, the shortest being three characters.
+	scenarioIDUnderscore = regexp.MustCompile(
+		`_[0-9]+_[0-9]+_([A-Z0-9]*[A-Z][A-Z0-9]*_[A-Z0-9]+|[A-Z0-9]*[A-Z][A-Z0-9]{2,}|AC[0-9]+)`)
 
 	// acceptance-criterion citations, in the bare, hash, spaced, hyphenated,
 	// parenthesised and lettered-sub-criterion spellings. The separator run is
@@ -75,8 +80,12 @@ var (
 	// priority tags, in the bracketed and parenthesised spellings.
 	priorityTag = regexp.MustCompile(`[\[(]P[0-9]+[\])]`)
 
-	// risk IDs, either segment one to three digits wide, either case.
-	riskID = regexp.MustCompile(`(?i)R-[0-9]{1,3}-[0-9]{1,3}`)
+	// risk IDs, either segment one to three digits wide, either case. The leading
+	// guard is what keeps the pattern from reading the tail of any hyphenated
+	// identifier that happens to end in R: without it SENSOR-1-2, PR-12-34 and
+	// CTR-10-20 all match. A real risk ID is always preceded by a space or a
+	// bracket, so the guard costs no match.
+	riskID = regexp.MustCompile(`(?i)(^|[^-0-9A-Za-z])R-[0-9]{1,3}-[0-9]{1,3}`)
 
 	// story and epic number references. The number has to sit directly against
 	// the word, with only separator characters between: that adjacency is the
@@ -388,8 +397,14 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"func Test", "_14_4", "_UNIT_001(t *testing.T) {"}, // ID closes the declared name
 				{"successors are Test", "_12_3", "_INTG_011 (go.sum)"},
 				{"Test", "_14_4", "_", "AC", "5"},
+				{"func TestFoo", "_10_1", "_UNIT(t *testing.T) {"},  // kind token, no sequence number
+				{"func TestFoo", "_10_1", "_UNIT001(t *testing.T)"}, // sequence glued to the kind token
+				{"Test", "_10_1", "_DOC"},                           // shortest kind token in the tree
 			},
-			mustNotMatch: [][]string{{"Test_1_2_3"}, {"LEVEL_1_2_A"}, {"buf_16_32_bytes"}},
+			mustNotMatch: [][]string{
+				{"Test_1_2_3"}, {"LEVEL_1_2_A"}, {"buf_16_32_bytes"},
+				{"Test_1_2_AB"}, {"name_10_20_30"},
+			},
 		},
 		{
 			what: "acceptance-criterion citations",
@@ -433,7 +448,12 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"r-", "14-05"},
 				{"R-", "140-02"},
 			},
-			mustNotMatch: [][]string{{"ISO 32000-1"}, {"2026-08-07"}, {"%PDF-1.7"}, {"12 0 obj"}},
+			mustNotMatch: [][]string{
+				{"ISO 32000-1"}, {"2026-08-07"}, {"%PDF-1.7"}, {"12 0 obj"},
+				// the tail of a hyphenated identifier that happens to end in R
+				{"SENSOR-1-2"}, {"PR-", "12-34"}, {"DIR-3-4"}, {"CTR-", "10-20"},
+				{"FOO-R-", "14-02"},
+			},
 		},
 		{
 			what: "story and epic number references",
