@@ -90,6 +90,18 @@ var (
 	// so adding it would only widen the surface with nothing behind it.
 	storyOrEpicReference = regexp.MustCompile(`(?i)\b(story|epic)[ #_-]*[0-9]+([._-][0-9]+)?`)
 
+	// task number references. Adjacency does more work here than it does for a
+	// story or an epic, because this repo also runs a task runner and discusses
+	// dispatched work: every Taskfile invocation in the tree puts a target name or
+	// an angle bracket where this pattern needs a digit, so none of them is read
+	// as a reference.
+	//
+	// The plural is in the alternation, unlike the story-and-epic pattern. That
+	// one leaves it out because neither plural takes a number anywhere in this
+	// tree; this one has a live plural citation, so leaving it out would be a
+	// blind spot rather than restraint.
+	taskReference = regexp.MustCompile(`(?i)\btasks?[ #_-]*[0-9]+([._-][0-9]+)?`)
+
 	// numbered acceptance-suite directory paths appearing in file contents.
 	// Anchored to the tests/ prefix, in both path separators, so version-bearing
 	// names are not caught; it stops at the number, because a reference that
@@ -110,6 +122,7 @@ func residuePatterns() []*regexp.Regexp {
 		priorityTag,
 		riskID,
 		storyOrEpicReference,
+		taskReference,
 		numberedSuitePath,
 	}
 }
@@ -245,6 +258,24 @@ func TestNoStoryOrEpicNumberReferencesInTree(t *testing.T) {
 			"Release documentation is the one exception and is not scanned here: %s"+
 			"pattern %s matched %s",
 			reportPaths(carvedPaths), storyOrEpicReference, reportHits(hits, 40, 25))
+	}
+}
+
+// TestNoTaskNumberReferencesInTree carries no equivalent of the release-document
+// carve-out the story-and-epic gate makes, deliberately. That ruling turned on a
+// changelog line naming the epic that shipped a feature being the information the
+// reader came for. A task is a work-breakdown item inside one story, it names
+// nothing a reader of a changelog or a contributing guide can act on, and the one
+// occurrence in those files reads correctly with the reference removed. So a task
+// number in release documentation is residue like any other.
+func TestNoTaskNumberReferencesInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, taskReference)
+	if len(hits) > 0 {
+		t.Errorf("task number references must not appear in tracked source, comments, test names or assertion messages.\n"+
+			"State what the case or the code does; a task number is a work-breakdown item and means nothing to a reader\n"+
+			"of the file. Release documentation is not carved out for this class.\n"+
+			"pattern %s matched %s", taskReference, reportHits(hits, 40, 25))
 	}
 }
 
@@ -429,7 +460,32 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"no story or epic numbers in directory names"},
 				{"an epic-story number embedded in a file name"},
 				// a task reference is a class of its own, and is not claimed here
-				{"Story Task 6.1 requires"},
+				{"Story Task ", "6.1 requires"},
+			},
+		},
+		{
+			what: "task number references",
+			re:   taskReference,
+			mustMatch: [][]string{
+				{"// Task ", "1.3: the CLI copies the binary"},
+				{"* Task ", "0.1 reorders the steps"},
+				{"(Task ", "3): full xref-derived index"}, // no minor number
+				{"These cover Task", "s 4 and 5 of the story"},
+				{"per the story's Task ", "8"},
+				{"Task ", "#4"},
+				{"Task ", "6.10"}, // two-digit minor
+			},
+			mustNotMatch: [][]string{
+				// the task runner, which this repo both ships and documents
+				{"Taskfile.yml"}, {"Taskfile.yml:57"}, {"build/darwin/Taskfile.yml"},
+				{"task darwin:package ARCH=arm64"}, {"task linux:build"},
+				{"task <os>:<target>"}, {"task: common:build"}, {"task build"},
+				{"task dev` is a shortcut"}, {"task key (`codesign:adhoc`)"},
+				// prose about dispatched work, and identifiers
+				{"the task body prescribes the order"}, {"cancels the in-flight task"},
+				{"taskID"}, {"taskId := 3"}, {"subtask 3 of the plan"},
+				{"t.TempDir() gives each task its own directory"},
+				{"ISO 32000-1"}, {"2026-08-07"}, {"12 0 obj"},
 			},
 		},
 		{
