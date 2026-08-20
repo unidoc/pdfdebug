@@ -12,9 +12,9 @@
 //   - Backend (model.go field removal, binding removal, ZERO repo-wide
 //     hits for GetPlainTextFull) -> structural assertions on model.go,
 //     service.go, and a recursive grep guard.
-//   - Wails plumbing (Task 2: CancelPlainText + GetPlainTextSize exposed,
+//   - Wails plumbing (CancelPlainText + GetPlainTextSize exposed,
 //     GetPlainTextFull removed) -> structural assertions on service.go.
-//   - IPC shape (Task 1.3: PlainTextDocument retains TabID/Content/TotalBytes
+//   - IPC shape (PlainTextDocument retains TabID/Content/TotalBytes
 //     only) -> structural assertions on model.go.
 //   - Frontend ->
 //     Vitest. Delegated here only via structural checks that the right files /
@@ -224,10 +224,10 @@ func TestServiceDropsGetPlainTextFull(t *testing.T) {
 func TestServiceDeclaresNewMethods(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "CancelPlainText") {
-		t.Errorf("service.go must declare CancelPlainText(tabID string) error (Task 2.1)")
+		t.Errorf("service.go must declare CancelPlainText(tabID string) error")
 	}
 	if !strings.Contains(src, "GetPlainTextSize") {
-		t.Errorf("service.go must declare GetPlainTextSize(tabID string) (int64, error) (Task 2.1)")
+		t.Errorf("service.go must declare GetPlainTextSize(tabID string) (int64, error)")
 	}
 	// Return type assertion for GetPlainTextSize.
 	if !strings.Contains(src, "GetPlainTextSize(tabID string) (int64, error)") {
@@ -257,17 +257,17 @@ func TestInspectorMethodSurface(t *testing.T) {
 func TestDocumentStateCarriesCancelFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "plainTextLoadCancel") {
-		t.Errorf("inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc (Task 1.1)")
+		t.Errorf("inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc")
 	}
 	if !strings.Contains(src, "plainTextCancelMu") {
-		t.Errorf("inspector.go DocumentState must carry plainTextCancelMu sync.Mutex (Task 1.1 / Dev Notes)")
+		t.Errorf("inspector.go DocumentState must carry plainTextCancelMu sync.Mutex")
 	}
-	// The plainTextFullCache + plainTextFullMu fields MUST be deleted (Task 1.3).
+	// The plainTextFullCache + plainTextFullMu fields MUST be deleted.
 	if strings.Contains(src, "plainTextFullCache") {
-		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullCache -- deleted by 10-1 Task 1.3")
+		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullCache -- the field was deleted")
 	}
 	if strings.Contains(src, "plainTextFullMu") {
-		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullMu -- deleted by 10-1 Task 1.3")
+		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullMu -- the field was deleted")
 	}
 }
 
@@ -378,13 +378,13 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 	}
 	src := string(data)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method (Task 2.3)")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method")
 	}
 	if !strings.Contains(src, "export function CancelPlainText") {
-		t.Errorf("pdfservice.js must export CancelPlainText (Task 2.3)")
+		t.Errorf("pdfservice.js must export CancelPlainText")
 	}
 	if !strings.Contains(src, "export function GetPlainTextSize") {
-		t.Errorf("pdfservice.js must export GetPlainTextSize (Task 2.3)")
+		t.Errorf("pdfservice.js must export GetPlainTextSize")
 	}
 }
 
@@ -435,7 +435,7 @@ func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 	}
 	for _, sym := range deleted {
 		if strings.Contains(src, sym) {
-			t.Errorf("PlainTextView.tsx must NOT reference %q -- deleted by 10-1 (Task 3)", sym)
+			t.Errorf("PlainTextView.tsx must NOT reference %q -- the symbol was deleted", sym)
 		}
 	}
 	// The PlainTextDocumentData interface drops truncated + capBytes.
@@ -454,7 +454,7 @@ func TestPlainTextViewImports(t *testing.T) {
 	required := []string{"GetPlainText", "CancelPlainText", "GetPlainTextSize"}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
-			t.Errorf("PlainTextView.tsx must import %q from the pdfservice bindings (Task 3.3)", sym)
+			t.Errorf("PlainTextView.tsx must import %q from the pdfservice bindings", sym)
 		}
 	}
 }
@@ -505,6 +505,6 @@ func TestAsyncTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.async.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/PlainTextView.async.test.tsx must exist (Task 4)")
+		t.Fatalf("frontend/src/components/PlainTextView.async.test.tsx must exist")
 	}
 }
