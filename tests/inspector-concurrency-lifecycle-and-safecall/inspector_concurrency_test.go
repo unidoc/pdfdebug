@@ -511,7 +511,7 @@ func TestGetReverseRefsCallsBuildReverseRefsOnce(t *testing.T) {
 // *sync.WaitGroup parameter and on a `go func(` inside the body.
 func TestOpenFileAndEmitDispatchesGoroutine(t *testing.T) {
 	src := readSource(t, "main.go")
-	// Task 7 gains an extra *sync.WaitGroup parameter.
+	// The signature carries an extra *sync.WaitGroup parameter.
 	sigRe := regexp.MustCompile(`func openFileAndEmitWithWarning\([^)]*\*sync\.WaitGroup[^)]*\)`)
 	if !sigRe.MatchString(src) {
 		t.Errorf("openFileAndEmitWithWarning signature must include a `*sync.WaitGroup` parameter")

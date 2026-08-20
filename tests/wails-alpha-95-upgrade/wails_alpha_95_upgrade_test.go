@@ -12,8 +12,7 @@
 //   - The automatable ACs
 //     reduce to structural assertions over: version pins, the bound-method
 //     surface, IPC type JSON tags, regenerated binding files, the live event
-//     name set, the Vite quirk comments, and the doc-staleness fixes named
-//     in Task 9.
+//     name set, the Vite quirk comments, and the doc-staleness fixes.
 //   - The behavioral ACs (splash + tabs smoke, splash lifecycle
 //     single-instance + file-association, rollback policy
 //     boot-smoke pass-through) are EXPLICITLY delegated by the story spec to
@@ -24,7 +23,7 @@
 //
 // What the assertions do NOT pin:
 //
-//   - The exact target alpha number. + Task 2.1 say "current latest at
+//   - The exact target alpha number. The spec says "current latest at
 //     story pickup, target alpha.95 unless newer". Assertions require strictly
 //     newer than alpha.85 (the current pin) AND parity across go.mod /
 //     package.json / ci.yml / release.yml.
@@ -336,7 +335,7 @@ func TestJSONTagsPreserved(t *testing.T) {
 func TestBindingsExportAll20Methods(t *testing.T) {
 	relPath := "frontend/bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js"
 	if !fileExists(t, relPath) {
-		t.Fatalf("regenerated binding %s must exist (Task 3.1)", relPath)
+		t.Fatalf("regenerated binding %s must exist", relPath)
 	}
 	src := readSource(t, relPath)
 	for _, m := range expectedServiceMethods {
@@ -524,11 +523,11 @@ func TestViteConfigQuirks(t *testing.T) {
 	src := readSource(t, "frontend/vite.config.ts")
 	// The IPv4 pin -- the load-bearing line is `host: '127.0.0.1'`.
 	if !strings.Contains(src, "'127.0.0.1'") && !strings.Contains(src, `"127.0.0.1"`) {
-		t.Errorf("vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (Task 7.1: the actual motivator is macOS resolving localhost to ::1; removing without that fix breaks macOS dev)")
+		t.Errorf("vite.config.ts must retain the IPv4 host pin OR the dev must update this assertion with a Wails CHANGELOG link justifying removal (the actual motivator is macOS resolving localhost to ::1; removing without that fix breaks macOS dev)")
 	}
 	// The lucide-react optimizeDeps entry.
 	if !strings.Contains(src, "lucide-react") {
-		t.Errorf("vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link (Task 7.2)")
+		t.Errorf("vite.config.ts must retain lucide-react in optimizeDeps OR document the removal in Completion Notes with the Vite-side fix link")
 	}
 }
 

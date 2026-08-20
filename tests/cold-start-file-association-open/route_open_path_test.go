@@ -7,7 +7,7 @@
 //
 //	routeOpenPath(q *pendingopen.Queue, path string, open func(string)) bool
 //
-// Returning the ready verdict (caller decides Focus). Task 2.4 this helper is
+// Returning the ready verdict (caller decides Focus). This helper is
 // exercised by a main-package table test (the only sanctioned automated pin on
 // the main.go wiring -- source-grep tests are forbidden by the strict guard,
 // precedent: TestExtractPDFPaths). The behavioural assertion: before Drain the

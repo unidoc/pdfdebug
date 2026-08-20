@@ -109,17 +109,17 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// + Task 1.5: Window configuration (Title, Width, Height, URL)
+// Window configuration (Title, Width, Height, URL)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Task 1.6/1.7: Window styling (no hidden title bar, correct background)
+// Window styling (no hidden title bar, correct background)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Task 1.1: Services field removed from application.Options
+// Services field removed from application.Options
 // ---------------------------------------------------------------------------
 
 

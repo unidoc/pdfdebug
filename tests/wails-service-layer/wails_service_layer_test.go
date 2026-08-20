@@ -478,7 +478,7 @@ func TestPDFServiceOpenFileEncrypted(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Task 4: Verification -- project compiles, vet passes
+// Verification -- project compiles, vet passes
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------

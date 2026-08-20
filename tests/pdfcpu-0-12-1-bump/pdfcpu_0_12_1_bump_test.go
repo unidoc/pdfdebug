@@ -28,9 +28,9 @@
 //     unit/component/E2E tests would be speculative coverage.
 //   - The behavioral ACs (vet/lint baseline diff, parent test pass,
 //     per-suite tests pass, CLI smoke) are EXPLICITLY delegated by
-//     the story spec to "run the existing test surface" via Task 2 (parent
-//     `go test ./...`, per-suite `cd tests/<name> && go test -count=1 ./...`)
-//     and Task 3 (CLI binary smoke). This story does not author parallel
+//     the story spec to "run the existing test surface": the parent
+//     `go test ./...`, the per-suite `cd tests/<name> && go test -count=1 ./...`
+//     and the CLI binary smoke. This story does not author parallel
 //     behavioral tests for them.
 //   - (rollback policy) is a conditional flow; nothing to assert.
 //

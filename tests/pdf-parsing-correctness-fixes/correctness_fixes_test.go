@@ -7,9 +7,8 @@
 // TestBuildReachableSetDeepNesting, TestParseBfrangeCarry, TestLatin1Decode
 // FullRange, TestExtractStreamInfoIndirectLength, TestParseDifferencesOut
 // OfRange, TestGetPlainTextSizeAfterRemove) live alongside the production
-// code in internal/pdfcore/*_test.go per the story's Task 8 -- this suite
-// pins their NAMES so a Dev cannot land the production change without the
-// named test.
+// code in internal/pdfcore/*_test.go -- this suite pins their NAMES so a Dev
+// cannot land the production change without the named test.
 //
 // Run: cd tests/pdf-parsing-correctness-fixes && go test -v -count=1 ./...
 package pdf_parsing_correctness_fixes_test

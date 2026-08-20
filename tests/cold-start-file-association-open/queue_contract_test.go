@@ -20,8 +20,8 @@ package cold_start_file_association_open_test
 import "testing"
 
 // queueHarnessPreamble is the shared import + alias block for the queue
-// harness package. The Queue zero value must be usable (Task 1.1 pins
-// mu/ready/paths private fields with no constructor required).
+// harness package. The Queue zero value must be usable: mu/ready/paths are
+// private fields with no constructor required.
 const queueHarnessPreamble = `package atdd
 
 import (

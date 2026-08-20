@@ -9,9 +9,9 @@
 //   - Integration (Go, source-content scans):
 //     (structural single-instance gating guard)
 //   - NO E2E. Wails alpha.85 splash windows are not Playwright-drivable:
-//     Playwright drives browsers, not native frameless OS windows. Task 7
-//     of the story spec calls out the visual rendering / crossfade /
-//     font-fallback as MANUAL verification across three platforms.
+//     Playwright drives browsers, not native frameless OS windows. The
+//     visual rendering, crossfade and font-fallback are MANUAL verification
+//     across three platforms.
 //     Asserting them in CI is out of scope.
 //
 // Run: cd tests/startup-splash-screen && go test -v -count=1 ./...
@@ -76,7 +76,7 @@ func fileExists(t *testing.T, relPath string) bool {
 //   - main.go
 //   - internal/splash/*.go (if the package was extracted per Dev Notes)
 //   - assets/splash/splash.html (if dev keeps a development source mirror
-//     of the inlined Go string per Task 2.3)
+//     of the inlined Go string)
 //
 // The dev step picks ONE of these locations; the integration assertions
 // search across all of them so the tests survive whichever path dev takes.
@@ -108,9 +108,9 @@ func splashSource(t *testing.T) string {
 // Splash window is created before the main WebviewWindow.
 //
 // A frameless splash window appears within 500ms of main() entry. The
-// actual wall-clock measurement is manual (Task 7.1/7.3); this test only
-// verifies the call to create a splash window exists in main.go and is
-// positioned before app.Window.NewWithOptions for the main window.
+// actual wall-clock measurement is manual; this test only verifies that the
+// call to create a splash window exists in main.go and is positioned before
+// app.Window.NewWithOptions for the main window.
 // ---------------------------------------------------------------------------
 
 func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
@@ -136,7 +136,7 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 	}
 
 	if splashIdx[0] >= mainWinIdx {
-		t.Fatalf("splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder per story Task 2.1.", splashIdx[0], mainWinIdx)
+		t.Fatalf("splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder the two creation sites.", splashIdx[0], mainWinIdx)
 	}
 }
 
@@ -193,22 +193,21 @@ func TestSplashHTMLContent(t *testing.T) {
 		t.Errorf("splash content must contain wordmark 'UniDoc PDF Debugger'")
 	}
 
-	// Inlined SVG icon: <svg ... or base64 PNG fallback. Story Task 3.1
-	// says inline the SVG contents of assets/branding/icon.svg.
+	// Inlined SVG icon: <svg ... or base64 PNG fallback. The SVG contents of
+	// assets/branding/icon.svg are inlined.
 	if !regexp.MustCompile(`(?is)<svg[^>]*>`).MatchString(src) &&
 		!regexp.MustCompile(`data:image/(svg\+xml|png);base64,`).MatchString(src) {
 		t.Errorf("splash content must inline the brand icon (either <svg ...> or data:image/...;base64,). External /assets/... URLs are forbidden.")
 	}
 
 	// Three-dot activity indicator: CSS @keyframes referenced + at least
-	// three elements with staggered animation-delay (0s / 0.4s / 0.8s per
-	// Task 3.3).
+	// three elements with staggered animation-delay (0s / 0.4s / 0.8s).
 	if !regexp.MustCompile(`@keyframes`).MatchString(src) {
-		t.Errorf("splash content must define a CSS @keyframes for the three-dot pulse animation (Task 3.3, 1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
+		t.Errorf("splash content must define a CSS @keyframes for the three-dot pulse animation (1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
 	}
 	if !regexp.MustCompile(`animation-delay:\s*0\.4s`).MatchString(src) ||
 		!regexp.MustCompile(`animation-delay:\s*0\.8s`).MatchString(src) {
-		t.Errorf("splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay (Task 3.3).")
+		t.Errorf("splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay.")
 	}
 
 	// Version string placeholder: dev injects the runtime value of
@@ -289,7 +288,7 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 		// /fonts/Inter-SemiBold.woff2 cannot be reached by the splash
 		// WebView (it lives in the main frontend bundle), so an attempt
 		// to load it would be a bug.
-		{`url\(\s*["']?/fonts/`, "/fonts/* URL forbidden in splash -- splash WebView cannot reach main frontend bundle (Task 3.2)"},
+		{`url\(\s*["']?/fonts/`, "/fonts/* URL forbidden in splash -- splash WebView cannot reach main frontend bundle"},
 		{`fetch\s*\(\s*["']https?://`, "fetch() of external URL forbidden"},
 	}
 
@@ -317,7 +316,7 @@ func TestSplashMinDisplayMsConstant(t *testing.T) {
 	// call with no named constant binding).
 	re := regexp.MustCompile(`splashMinDisplayMs\s*=\s*400\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("a named constant `splashMinDisplayMs = 400` must exist (Task 4.1). Magic 400ms literals inside time.AfterFunc are not sufficient.")
+		t.Fatalf("a named constant `splashMinDisplayMs = 400` must exist. Magic 400ms literals inside time.AfterFunc are not sufficient.")
 	}
 }
 
@@ -332,7 +331,7 @@ func TestSplashTimeoutMsConstant(t *testing.T) {
 
 	re := regexp.MustCompile(`splashTimeoutMs\s*=\s*30000\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("a named constant `splashTimeoutMs = 30000` must exist (Task 5.1).")
+		t.Fatalf("a named constant `splashTimeoutMs = 30000` must exist.")
 	}
 }
 
@@ -521,13 +520,13 @@ func TestSplashTimeoutErrorPaneContent(t *testing.T) {
 	// id/class containing "close", or a button with Close text.
 	if !regexp.MustCompile(`(?is)<button[^>]*>[^<]*Close[^<]*</button>`).MatchString(src) &&
 		!regexp.MustCompile(`(?i)id\s*=\s*["']splashClose["']`).MatchString(src) {
-		t.Errorf("timeout error pane must include a Close button (Task 5.2). Searched for <button>Close</button> and id=splashClose.")
+		t.Errorf("timeout error pane must include a Close button. Searched for <button>Close</button> and id=splashClose.")
 	}
 
 	// Wails event channel that the inline JS listens on for timeout
 	// transition (revised mechanism).
 	if !regexp.MustCompile(`splash:timeout`).MatchString(src) {
-		t.Errorf("backend must emit a `splash:timeout` Wails event for the error-pane handoff (Task 5.2). Event name not found.")
+		t.Errorf("backend must emit a `splash:timeout` Wails event for the error-pane handoff. Event name not found.")
 	}
 }
 
@@ -535,9 +534,8 @@ func TestSplashTimeoutErrorPaneContent(t *testing.T) {
 // Min-display floor + timeout race + version-string passthrough --
 // delegated to internal/splash/splash_test.go.
 //
-// Story Task 6.1 requires extracting a small internal/splash
-// package with an injectable clock interface so the scheduling
-// logic is unit-testable without spinning up Wails.
+// A small internal/splash package with an injectable clock interface keeps
+// the scheduling logic unit-testable without spinning up Wails.
 //
 // This delegation pattern mirrors tests/object-source-and-reverse-refs.
 // The integration test runs `go test -run TestSplashScheduler -v ./...`
@@ -549,7 +547,7 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 	root := projectRoot(t)
 	pkgDir := filepath.Join(root, "internal", "splash")
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
-		t.Fatalf(": internal/splash package missing. Story Task 6.1 requires extracting the splash scheduler + version-render into an importable package with an injectable clock. Expected at %s", pkgDir)
+		t.Fatalf("internal/splash package missing. The splash scheduler and version-render belong in an importable package with an injectable clock. Expected at %s", pkgDir)
 	}
 
 	// Delegate. Run all tests matching the splash unit-test naming
@@ -578,7 +576,7 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 		}
 		// `go test -run <regex>` exits 0 when no tests match. Catch that.
 		if strings.Contains(output, "no tests to run") || strings.Contains(output, "no test files") {
-			t.Errorf("no matching test found for pattern %q in internal/splash. The story Task 6.1 contract requires this test name.", pattern)
+			t.Errorf("no matching test found for pattern %q in internal/splash. The contract requires this test name.", pattern)
 		}
 	}
 }

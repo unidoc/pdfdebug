@@ -457,8 +457,7 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Wails template Inter-Medium.ttf deleted Story task 2.5:
-// Delete frontend/public/Inter-Medium.ttf
+// The Wails template font frontend/public/Inter-Medium.ttf is deleted.
 // ---------------------------------------------------------------------------
 
 func TestWailsTemplateFontDeleted(t *testing.T) {

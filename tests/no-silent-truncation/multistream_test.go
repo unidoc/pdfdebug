@@ -9,7 +9,7 @@ package no_silent_truncation_test
 // both, so decoding only stream 1 and emitting no marker would present an
 // unbalanced partial program as if it were the whole content stream.
 //
-// The GREEN target is path-dependent (Task 0's return-type decision), so each
+// The GREEN target is path-dependent on the return-type decision, so each
 // assertion accepts EITHER outcome and fails only the silent stream-1-only
 // state that is wrong under both:
 //   - preferred: the output covers BOTH streams (a stream-2 operator such as Q
