@@ -14,9 +14,9 @@
 //     transformations need byte-level assertions.
 //   - Backend failure mode (file moved post-open, pdfcpu panic) ->
 //     pdfcore Go unit tests delegated via runPdfcoreTest.
-//   - Wails plumbing (Task 3: GetXRefTable / GetPlainText exposed) ->
+//   - Wails plumbing (GetXRefTable / GetPlainText exposed) ->
 //     structural assertions on service.go.
-//   - IPC shape (Task 1.2 / 2.2: XRefTable, XRefEntry, PlainTextDocument
+//   - IPC shape (XRefTable, XRefEntry, PlainTextDocument
 //     model types with exact JSON tags) -> structural assertions on model.go.
 //   - Frontend
 //     -> Vitest. Delegated here only via structural checks that the right
@@ -148,8 +148,7 @@ func TestXRefTableSkipsObjectZero(t *testing.T) {
 }
 
 // Status strings are the load-bearing IPC contract. Must be exactly "in-use"
-// / "free" / "in-objstm" -- the frontend renders pills off these literals
-// (Task 1.2 godoc warning).
+// / "free" / "in-objstm" -- the frontend renders pills off these literals.
 func TestXRefEntryStatusStrings(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableStatusLiterals")
 }
@@ -372,21 +371,21 @@ func TestModelPlainTextDocumentStruct(t *testing.T) {
 	}
 }
 
-// DocumentState carries the xrefTableCache + plainTextCache fields (Task 1.6 +
-// 2.9). Per-document caching is part of the IPC contract -- without it, two
+// DocumentState carries the xrefTableCache + plainTextCache fields.
+// Per-document caching is part of the IPC contract -- without it, two
 // GetXRefTable / GetPlainText calls on the same document would duplicate work.
 func TestDocumentStateCarriesNewCaches(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "xrefTableCache") {
-		t.Fatalf("inspector.go DocumentState must carry xrefTableCache (Task 1.6)")
+		t.Fatalf("inspector.go DocumentState must carry xrefTableCache")
 	}
 	if !strings.Contains(src, "plainTextCache") {
-		t.Fatalf("inspector.go DocumentState must carry plainTextCache (Task 2.9)")
+		t.Fatalf("inspector.go DocumentState must carry plainTextCache")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Wails service plumbing (Task 3)
+// Wails service plumbing
 // ---------------------------------------------------------------------------
 
 // PDFService.GetXRefTable is exposed with the correct return type. The
@@ -395,7 +394,7 @@ func TestDocumentStateCarriesNewCaches(t *testing.T) {
 func TestServiceExposesGetXRefTable(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetXRefTable") {
-		t.Fatalf("service.go must expose GetXRefTable (Task 3.1)")
+		t.Fatalf("service.go must expose GetXRefTable")
 	}
 	if !strings.Contains(src, "*pdfcore.XRefTable") {
 		t.Fatalf("service.go GetXRefTable must return (*pdfcore.XRefTable, error)")
@@ -406,7 +405,7 @@ func TestServiceExposesGetXRefTable(t *testing.T) {
 func TestServiceExposesGetPlainText(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetPlainText") {
-		t.Fatalf("service.go must expose GetPlainText (Task 3.2)")
+		t.Fatalf("service.go must expose GetPlainText")
 	}
 	if !strings.Contains(src, "*pdfcore.PlainTextDocument") {
 		t.Fatalf("service.go GetPlainText must return (*pdfcore.PlainTextDocument, error)")
@@ -427,7 +426,7 @@ func TestServiceExposesGetPlainText(t *testing.T) {
 func TestDetailPanelImportsRadixTabsManual(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "@radix-ui/react-tabs") {
-		t.Fatalf("DetailPanel.tsx must import from @radix-ui/react-tabs (Task 5.1)")
+		t.Fatalf("DetailPanel.tsx must import from @radix-ui/react-tabs")
 	}
 	if !strings.Contains(src, `activationMode="manual"`) {
 		t.Fatalf("DetailPanel.tsx must configure <Tabs.Root activationMode=\"manual\">")
@@ -468,10 +467,10 @@ func TestDetailPanelTablistAriaLabel(t *testing.T) {
 func TestDetailPanelDetailViewReset(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "detailView") {
-		t.Fatalf("DetailPanel.tsx must declare detailView local state (Task 5.2)")
+		t.Fatalf("DetailPanel.tsx must declare detailView local state")
 	}
 	if !strings.Contains(src, "setDetailView") {
-		t.Fatalf("DetailPanel.tsx must declare setDetailView setter (Task 5.2)")
+		t.Fatalf("DetailPanel.tsx must declare setDetailView setter")
 	}
 	// Reset effect on activeTabId change -- contract.
 	// We do not pin the exact effect spelling; we require both `setDetailView('object')`
@@ -522,7 +521,7 @@ func TestXRefTableViewFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "XRefTableView.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/XRefTableView.tsx must exist (Task 6.1)")
+		t.Fatalf("frontend/src/components/XRefTableView.tsx must exist")
 	}
 	src := readSource(t, "frontend/src/components/XRefTableView.tsx")
 	if !strings.Contains(src, "XRefTableView") {
@@ -537,7 +536,7 @@ func TestXRefTableViewTestIds(t *testing.T) {
 	requiredTestIds := []string{
 		"xref-loading",
 		"xref-error",
-		"xref-empty", // Task 6.8 no-document state
+		"xref-empty", // no-document state
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -602,7 +601,7 @@ func TestPlainTextViewFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "PlainTextView.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/PlainTextView.tsx must exist (Task 7.1)")
+		t.Fatalf("frontend/src/components/PlainTextView.tsx must exist")
 	}
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	if !strings.Contains(src, "PlainTextView") {
@@ -618,7 +617,7 @@ func TestPlainTextViewTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
 	requiredTestIds := []string{
 		"plain-text-error",
-		"plain-text-empty", // Task 7.8 no-document state
+		"plain-text-empty", // no-document state
 	}
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
@@ -664,22 +663,22 @@ func TestDetailPanelTabsTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tabs.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/DetailPanel.tabs.test.tsx must exist (Task 9.1)")
+		t.Fatalf("frontend/src/components/DetailPanel.tabs.test.tsx must exist")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Task 0 -- extractErrorMessage extraction (shared helper)
+// extractErrorMessage extraction (shared helper)
 // ---------------------------------------------------------------------------
 
 // extractErrorMessage is extracted to
 // frontend/src/lib/extractErrorMessage.ts as a shared helper. XRefTableView
-// and PlainTextView import it from the new location (Task 0.1).
+// and PlainTextView import it from the new location.
 func TestExtractErrorMessageExtracted(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "lib", "extractErrorMessage.ts")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/lib/extractErrorMessage.ts must exist (Task 0.1)")
+		t.Fatalf("frontend/src/lib/extractErrorMessage.ts must exist")
 	}
 	src := readSource(t, "frontend/src/lib/extractErrorMessage.ts")
 	if !strings.Contains(src, "extractErrorMessage") {
@@ -690,14 +689,13 @@ func TestExtractErrorMessageExtracted(t *testing.T) {
 	}
 }
 
-// DetailPanel.tsx imports extractErrorMessage from the new lib path
-// (Task 0.1).
+// DetailPanel.tsx imports extractErrorMessage from the new lib path.
 func TestDetailPanelImportsExtractedHelper(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "extractErrorMessage") {
 		t.Fatalf("DetailPanel.tsx must still reference extractErrorMessage (refactor preserves behavior)")
 	}
 	if !strings.Contains(src, "extractErrorMessage") || !strings.Contains(src, "lib/extractErrorMessage") {
-		t.Fatalf("DetailPanel.tsx must import extractErrorMessage from 'lib/extractErrorMessage' (Task 0.1)")
+		t.Fatalf("DetailPanel.tsx must import extractErrorMessage from 'lib/extractErrorMessage'")
 	}
 }

@@ -120,7 +120,7 @@ func TestFontFileExists(t *testing.T) {
 func TestErrNotAFontSentinelDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/errors.go")
 	if !strings.Contains(src, "ErrNotAFont") {
-		t.Fatalf("errors.go must declare ErrNotAFont sentinel (Task 1.3). The frontend keys off this sentinel to fall back to DictView for the /Resources /Font resource-map false-positive case.")
+		t.Fatalf("errors.go must declare ErrNotAFont sentinel. The frontend keys off this sentinel to fall back to DictView for the /Resources /Font resource-map false-positive case.")
 	}
 }
 
@@ -220,7 +220,7 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/model.go")
 
 	if !strings.Contains(src, "type EncodingDifference struct") {
-		t.Errorf("model.go must declare type EncodingDifference struct (Task 1.2)")
+		t.Errorf("model.go must declare type EncodingDifference struct")
 	}
 	for _, tag := range []string{`json:"code"`, `json:"glyphName"`} {
 		if !strings.Contains(src, tag) {
@@ -229,7 +229,7 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 	}
 
 	if !strings.Contains(src, "type ToUnicodeMapping struct") {
-		t.Errorf("model.go must declare type ToUnicodeMapping struct (Task 1.2)")
+		t.Errorf("model.go must declare type ToUnicodeMapping struct")
 	}
 	for _, tag := range []string{`json:"unicode"`, `json:"glyph"`} {
 		if !strings.Contains(src, tag) {
@@ -238,7 +238,7 @@ func TestFontSupportingTypesDeclared(t *testing.T) {
 	}
 
 	if !strings.Contains(src, "type FontDescriptorInfo struct") {
-		t.Errorf("model.go must declare type FontDescriptorInfo struct (Task 1.2)")
+		t.Errorf("model.go must declare type FontDescriptorInfo struct")
 	}
 	requiredFDFields := []string{
 		"FontName",
@@ -485,18 +485,18 @@ func TestFontDetailType0CIDFields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Wails service plumbing (Task 3)
+// Wails service plumbing
 // ---------------------------------------------------------------------------
 
 // PDFService.GetFontDetail is exposed.
 func TestServiceExposesGetFontDetail(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetFontDetail") {
-		t.Fatalf("service.go must expose GetFontDetail (Task 3.1)")
+		t.Fatalf("service.go must expose GetFontDetail")
 	}
 	// Return signature -- the frontend bindings depend on the exact element type.
 	if !strings.Contains(src, "*pdfcore.FontDetail") {
-		t.Fatalf("service.go GetFontDetail must return *pdfcore.FontDetail (Task 3.1)")
+		t.Fatalf("service.go GetFontDetail must return *pdfcore.FontDetail")
 	}
 }
 
@@ -598,17 +598,16 @@ func TestFontPreviewComponentFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "FontPreview.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/FontPreview.tsx must exist (Task 4.1)")
+		t.Fatalf("frontend/src/components/FontPreview.tsx must exist")
 	}
 	src := readSource(t, "frontend/src/components/FontPreview.tsx")
 	if !strings.Contains(src, "FontPreview") {
 		t.Fatalf("FontPreview.tsx must export a FontPreview component")
 	}
-	// Per the story Task 4.1: FontPreview is a pure presentational component
-	// that takes a `detail` prop AND an `onReferenceClick` handler. We pin
-	// both in the source so the frontend tests can drive the click path
-	// through the handler (matching the ImagePreview / ContentStreamViewer
-	// presentational pattern).
+	// FontPreview is a pure presentational component that takes a `detail`
+	// prop AND an `onReferenceClick` handler. We pin both in the source so the
+	// frontend tests can drive the click path through the handler (matching
+	// the ImagePreview / ContentStreamViewer presentational pattern).
 	if !strings.Contains(src, "onReferenceClick") {
 		t.Fatalf("FontPreview.tsx must accept an onReferenceClick prop so DetailPanel threads its handleReferenceClick handler through")
 	}
@@ -623,7 +622,7 @@ func TestFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "FontPreview.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/FontPreview.test.tsx must exist (Task 6.1)")
+		t.Fatalf("frontend/src/components/FontPreview.test.tsx must exist")
 	}
 }
 
@@ -639,7 +638,7 @@ func TestFontPreviewTestFileExists(t *testing.T) {
 func TestDetailPanelMountsFontPreview(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "FontPreview") {
-		t.Fatalf("DetailPanel.tsx must import and render FontPreview (Task 5.1)")
+		t.Fatalf("DetailPanel.tsx must import and render FontPreview")
 	}
 	if !strings.Contains(src, "GetFontView") {
 		t.Fatalf("DetailPanel.tsx must call GetFontView when iconHint==='font' (unified endpoint)")
@@ -660,7 +659,7 @@ func TestDetailPanelFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.fontPreview.test.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/DetailPanel.fontPreview.test.tsx must exist (Task 6.2 integration test)")
+		t.Fatalf("frontend/src/components/DetailPanel.fontPreview.test.tsx must exist (integration test)")
 	}
 }
 
@@ -682,7 +681,7 @@ func TestDetailPanelFontHeaderLabel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Manual verification placeholders (Task 6 manual smoke) -- documented, not
+// Manual verification placeholders (manual smoke) -- documented, not
 // asserted. The dev step opens a real PDF with a Type0 composite font and
 // confirms the descendant section renders, the embedded badge is green when
 // FontFile* is present, the ToUnicode table renders without literal control

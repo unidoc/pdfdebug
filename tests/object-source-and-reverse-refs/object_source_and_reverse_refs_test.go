@@ -201,7 +201,7 @@ func TestDocumentStateCarriesReverseRefsFields(t *testing.T) {
 }
 
 // ErrReverseRefIndexUnavailable sentinel error is declared. The frontend uses
-// it (Task 6.5 case 1) to render the unavailable banner. Empty list MUST mean
+// it to render the unavailable banner. Empty list MUST mean
 // "no incoming refs"; failure mode is signalled by this sentinel, not by an
 // empty slice.
 func TestReverseRefSentinelErrorDeclared(t *testing.T) {
@@ -335,7 +335,7 @@ func TestReverseRefIndexPerDocument(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Wails service plumbing (Task 3)
+// Wails service plumbing
 // ---------------------------------------------------------------------------
 
 // PDFService.GetObjectSource is exposed.
@@ -347,7 +347,7 @@ func TestServiceExposesGetObjectSource(t *testing.T) {
 }
 
 // PDFService.GetReverseRefs is exposed and returns a slice of
-// *pdfcore.ReverseRef (matching Task 3.1).
+// *pdfcore.ReverseRef.
 func TestServiceExposesGetReverseRefs(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if !strings.Contains(src, "GetReverseRefs") {
@@ -370,7 +370,7 @@ func TestServiceExposesGetReverseRefs(t *testing.T) {
 // We assert only that the required files/exports/testids exist so the Vitest
 // suites can target them. The full behavior contract is asserted in Vitest.
 
-// ObjectInfoPanel.tsx still exists (file is NOT renamed per Task 5.1) and now
+// ObjectInfoPanel.tsx still exists (the file is NOT renamed) and now
 // exports ObjectSourcePanel.
 func TestObjectInfoPanelRenamedExport(t *testing.T) {
 	root := projectRoot(t)
@@ -380,11 +380,11 @@ func TestObjectInfoPanelRenamedExport(t *testing.T) {
 	}
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("ObjectInfoPanel.tsx must export ObjectSourcePanel (the renamed component per Task 5.1)")
+		t.Fatalf("ObjectInfoPanel.tsx must export ObjectSourcePanel (the renamed component)")
 	}
 	// The new data-testid replaces the old one.
 	if !strings.Contains(src, `"object-source-panel"`) {
-		t.Fatalf("ObjectInfoPanel.tsx must use data-testid \"object-source-panel\" (Task 5.1)")
+		t.Fatalf("ObjectInfoPanel.tsx must use data-testid \"object-source-panel\"")
 	}
 	if strings.Contains(src, `"object-info-panel"`) {
 		t.Fatalf("ObjectInfoPanel.tsx must NOT keep the old data-testid \"object-info-panel\" -- replace with \"object-source-panel\"")
@@ -396,7 +396,7 @@ func TestObjectInfoPanelRenamedExport(t *testing.T) {
 func TestMainLayoutImportsObjectSourcePanel(t *testing.T) {
 	src := readSource(t, "frontend/src/components/MainLayout.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("MainLayout.tsx must import ObjectSourcePanel (Task 5.1)")
+		t.Fatalf("MainLayout.tsx must import ObjectSourcePanel")
 	}
 }
 
@@ -405,7 +405,7 @@ func TestReverseRefsSectionExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "ReverseRefsSection.tsx")
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("frontend/src/components/ReverseRefsSection.tsx must exist (Task 6.1)")
+		t.Fatalf("frontend/src/components/ReverseRefsSection.tsx must exist")
 	}
 	src := readSource(t, "frontend/src/components/ReverseRefsSection.tsx")
 	if !strings.Contains(src, "export") || !strings.Contains(src, "ReverseRefsSection") {
@@ -414,23 +414,23 @@ func TestReverseRefsSectionExists(t *testing.T) {
 }
 
 // DetailPanel.tsx mounts ReverseRefsSection AFTER the existing parsed view,
-// with a per-selection key (Task 6.3/7.1).
+// with a per-selection key.
 func TestDetailPanelMountsReverseRefsSection(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "ReverseRefsSection") {
-		t.Fatalf("DetailPanel.tsx must mount <ReverseRefsSection> (Task 7.1)")
+		t.Fatalf("DetailPanel.tsx must mount <ReverseRefsSection>")
 	}
 	if !strings.Contains(src, "GetReverseRefs") {
-		t.Fatalf("DetailPanel.tsx must fetch GetReverseRefs on selection change (Task 7.2)")
+		t.Fatalf("DetailPanel.tsx must fetch GetReverseRefs on selection change")
 	}
 	// The remount-on-selection-change contract uses key={selectedNodeId} on
-	// the section element itself (Task 6.3). We do NOT pin the exact text
+	// the section element itself. We do NOT pin the exact text
 	// because dev may write `key={...}` with any expression; we only check
 	// that selectedNodeId flows into the section's key prop.
 	// A loose substring match catches the obvious failure modes (key on a
 	// wrapper, or key omitted entirely).
 	if !strings.Contains(src, "key={selectedNodeId}") {
-		t.Fatalf("DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId} ...> so the section unmounts/remounts on selection change (Task 6.3 reset rule)")
+		t.Fatalf("DetailPanel.tsx must render <ReverseRefsSection key={selectedNodeId} ...> so the section unmounts/remounts on selection change")
 	}
 }
 
@@ -444,7 +444,7 @@ func TestReverseRefsSectionTestFileExists(t *testing.T) {
 }
 
 // ObjectInfoPanel.test.tsx has been rewritten in place to cover the panel
-// rename (Task 8.1). We assert that the new test file references the renamed
+// rename. We assert that the new test file references the renamed
 // component, the new testid, and the obj:gen:num mapping.
 func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ObjectInfoPanel.test.tsx")
@@ -467,16 +467,16 @@ func TestObjectInfoPanelTestFileRewritten(t *testing.T) {
 func TestReferenceNavigationTestUpdated(t *testing.T) {
 	src := readSource(t, "frontend/src/components/ReferenceNavigation.test.tsx")
 	if !strings.Contains(src, "ObjectSourcePanel") {
-		t.Fatalf("ReferenceNavigation.test.tsx must reference ObjectSourcePanel (Task 8.4 rename)")
+		t.Fatalf("ReferenceNavigation.test.tsx must reference ObjectSourcePanel")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Manual verification placeholders (Task 9) -- documented, not asserted.
+// Manual verification placeholders -- documented, not asserted.
 // ---------------------------------------------------------------------------
 //
-// Task 9 requires manual verification against representative PDFs. Those
+// Manual verification against representative PDFs is required. Those
 // criteria (the Postscript Language Reference's redundancy bug being gone,
 // image preview coexisting with the section, etc.) are not automatable from
 // the integration test layer because they require visual confirmation. They
-// are covered by Task 9.1-9.5 in the implementation checklist.
+// are covered by the manual steps in the implementation checklist.
