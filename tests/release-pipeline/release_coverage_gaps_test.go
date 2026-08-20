@@ -4,26 +4,24 @@
 // These tests target concrete behaviors mandated by the release tasks and Review
 // findings that were not asserted by the original 26 acceptance tests:
 //
-//   - actions/download-artifact@v5 uses merge-multiple: true (Task 1.4)
-//   - build-job artifact name pattern `build-${{ matrix.platform }}` (Task 4.4)
-//   - build-job timeout-minutes: 45 budget for macOS notarize (Task 1.2)
-//   - Wails CLI pin matches go.mod direct dependency (Task 1.3 #5)
+//   - actions/download-artifact@v5 uses merge-multiple: true
+//   - build-job artifact name pattern `build-${{ matrix.platform }}`
+//   - build-job timeout-minutes: 45 budget for macOS notarize
+//   - Wails CLI pin matches go.mod direct dependency
 //   - `wails3 generate bindings -clean=true` present BEFORE any frontend build
-//     (Task 1.3 #7; the Review #1 lesson carried forward)
+//     (the Review #1 lesson carried forward)
 //   - Go 1.26.x and Node 20 pins match ci.yml (cross-workflow consistency;
 //     Dev Notes "Reuse Everything from the CI pipeline")
-//   - SemVer validation in Resolve version step (Task 1.3 #8; rejects crafted tags)
+//   - SemVer validation in Resolve version step (rejects crafted tags)
 //   - Apple secret gate idiom (`steps.apple_secrets.outputs.available == 'true'`)
-//     (Task 2.6)
 //   - Platform-specific GUI build steps invoke `wails3 task <os>:build|package`
-//     with ARCH from matrix (Task 3.1, 3.2)
-//   - CLI `--help` smoke-test step per cell (Task 3.4)
+//     with ARCH from matrix
+//   - CLI `--help` smoke-test step per cell
 //   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=6, line-count invariant,
 //     and `shasum -a 256 -c` self-verify (Review #3 Medium)
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
-//     (Task 5.2)
 //   - PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes
-//     (Task 6.3; Review #1 Medium)
+//     (Review #1 Medium)
 //   - workflow_dispatch checkout uses `ref: ${{ inputs.tag || github.ref }}`
 //     (Review #1 Medium; tag-commit source-of-truth on manual dispatch)
 //   - Signing-identity lookup uses `grep -qF` fixed-string match (Review #3 Low;
@@ -73,7 +71,7 @@ func findStepByPredicate(t *testing.T, jobName string, predicate func(map[string
 
 // ---------------------------------------------------------------------------
 // download-artifact uses merge-multiple: true.
-// Covers Task 1.4 (single `dist/` merges all three matrix cells).
+// A single `dist/` merges all three matrix cells.
 // ---------------------------------------------------------------------------
 
 func TestDownloadArtifactMergeMultiple(t *testing.T) {
@@ -90,18 +88,18 @@ func TestDownloadArtifactMergeMultiple(t *testing.T) {
 	}
 	mm, ok := with["merge-multiple"].(bool)
 	if !ok || !mm {
-		t.Errorf("release.yml: download-artifact `with.merge-multiple` must be true (Task 1.4; merges 4 matrix cells into single dist/)")
+		t.Errorf("release.yml: download-artifact `with.merge-multiple` must be true (merges 4 matrix cells into single dist/)")
 	}
 	pattern, _ := with["pattern"].(string)
 	if pattern != "build-*" {
-		t.Errorf("release.yml: download-artifact `with.pattern` must be \"build-*\" (Task 1.4), got %q", pattern)
+		t.Errorf("release.yml: download-artifact `with.pattern` must be \"build-*\", got %q", pattern)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // upload-artifact uses `build-${{ matrix.platform }}` name.
-// Covers Task 4.4 (stable per-cell artifact name consumed by download-
-// artifact pattern: build-*).
+// A stable per-cell artifact name, consumed by the download-artifact
+// pattern build-*.
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactNamePattern(t *testing.T) {
@@ -119,7 +117,7 @@ func TestUploadArtifactNamePattern(t *testing.T) {
 	name, _ := with["name"].(string)
 	// GHA templating leaves the `${{ ... }}` in the raw string.
 	if !strings.Contains(name, "build-") || !strings.Contains(name, "matrix.platform") {
-		t.Errorf("release.yml: upload-artifact `with.name` must be \"build-${{ matrix.platform }}\" (Task 4.4), got %q", name)
+		t.Errorf("release.yml: upload-artifact `with.name` must be \"build-${{ matrix.platform }}\", got %q", name)
 	}
 }
 
@@ -133,7 +131,7 @@ func TestBuildJobTimeoutMinutes(t *testing.T) {
 	job := jobMap(t, "build")
 	timeout, ok := job["timeout-minutes"].(int)
 	if !ok {
-		t.Fatalf("release.yml: jobs.build.timeout-minutes missing or not an int (Task 1.2)")
+		t.Fatalf("release.yml: jobs.build.timeout-minutes missing or not an int")
 	}
 	if timeout < 15 || timeout > 60 {
 		t.Errorf("release.yml: jobs.build.timeout-minutes should be in [15, 60] (build+sign budget, no notarize), got %d", timeout)
@@ -142,7 +140,6 @@ func TestBuildJobTimeoutMinutes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Wails CLI install pin matches the go.mod direct dependency version.
-// Covers Task 1.3 #5 + Dev Notes "Version Pins -- Source of Truth".
 // Divergence is E7-R-002 (Wails v3 alpha cross-platform build) high risk.
 // ---------------------------------------------------------------------------
 
@@ -153,7 +150,7 @@ func TestWailsCLIPinMatchesGoMod(t *testing.T) {
 	wfRe := regexp.MustCompile(`github\.com/wailsapp/wails/v3/cmd/wails3@(v\S+)`)
 	wfMatch := wfRe.FindStringSubmatch(raw)
 	if wfMatch == nil {
-		t.Fatalf("release.yml: `go install github.com/wailsapp/wails/v3/cmd/wails3@<pin>` not found (Task 1.3 #5)")
+		t.Fatalf("release.yml: `go install github.com/wailsapp/wails/v3/cmd/wails3@<pin>` not found")
 	}
 	wfPin := wfMatch[1]
 
@@ -171,15 +168,14 @@ func TestWailsCLIPinMatchesGoMod(t *testing.T) {
 	gmPin := gmMatch[1]
 
 	if wfPin != gmPin {
-		t.Errorf("release.yml Wails CLI pin %q must match go.mod wails/v3 pin %q (Task 1.3 #5; E7-R-002 mitigation)", wfPin, gmPin)
+		t.Errorf("release.yml Wails CLI pin %q must match go.mod wails/v3 pin %q (E7-R-002 mitigation)", wfPin, gmPin)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // `wails3 generate bindings -clean=true` runs BEFORE any frontend/GUI build
 // step.
-// Covers Task 1.3 #7 + the Review #1 carry-forward (frontend/bindings/ is
-// gitignored; all frontend steps fail without it).
+// frontend/bindings/ is gitignored, so every frontend step fails without it.
 // ---------------------------------------------------------------------------
 
 func TestWailsBindingsGeneratedBeforeBuild(t *testing.T) {
@@ -203,7 +199,7 @@ func TestWailsBindingsGeneratedBeforeBuild(t *testing.T) {
 	}
 
 	if bindingsIdx == -1 {
-		t.Errorf("release.yml build job: `wails3 generate bindings -clean=true` step missing (Task 1.3 #7; gitignored bindings would break the build)")
+		t.Errorf("release.yml build job: `wails3 generate bindings -clean=true` step missing (gitignored bindings would break the build)")
 		return
 	}
 	if firstBuildIdx == -1 {
@@ -214,10 +210,10 @@ func TestWailsBindingsGeneratedBeforeBuild(t *testing.T) {
 		t.Errorf("release.yml build job: `wails3 generate bindings` step (idx %d) must run BEFORE the first `wails3 task ...:build` step (idx %d)", bindingsIdx, firstBuildIdx)
 	}
 
-	// Also assert the `-clean=true` flag (Task 1.3 #7 prescribes it exactly).
+	// Also assert the `-clean=true` flag, which is prescribed exactly.
 	run := jobRunBodies(t, "build")
 	if !strings.Contains(run, "wails3 generate bindings -clean=true") {
-		t.Errorf("release.yml build job: `wails3 generate bindings` must pass `-clean=true` (Task 1.3 #7)")
+		t.Errorf("release.yml build job: `wails3 generate bindings` must pass `-clean=true`")
 	}
 }
 
@@ -262,8 +258,8 @@ func TestGoAndNodePinsMatchCIWorkflow(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Resolve version step validates SemVer and refuses non-matching tags.
-// Covers Task 1.3 #8 + Dev Notes injection-hardening (crafted tags otherwise
-// flow into ldflags / PlistBuddy / artifact filenames).
+// Injection hardening: a crafted tag otherwise flows into ldflags,
+// PlistBuddy and artifact filenames.
 // ---------------------------------------------------------------------------
 
 func TestResolveVersionRejectsNonSemVer(t *testing.T) {
@@ -271,11 +267,11 @@ func TestResolveVersionRejectsNonSemVer(t *testing.T) {
 
 	// Must contain SemVer regex anchored to full string.
 	if !regexp.MustCompile(`\^v\[0-9\]\+\\?\.\[0-9\]\+\\?\.\[0-9\]\+`).MatchString(run) {
-		t.Errorf("release.yml build job: Resolve version step must validate tag against SemVer regex `^v[0-9]+\\.[0-9]+\\.[0-9]+...` (Task 1.3 #8; injection hardening)")
+		t.Errorf("release.yml build job: Resolve version step must validate tag against SemVer regex `^v[0-9]+\\.[0-9]+\\.[0-9]+...` (injection hardening)")
 	}
 	// Must explicitly refuse + exit non-zero on mismatch.
 	if !strings.Contains(run, "Refusing to build") {
-		t.Errorf("release.yml build job: Resolve version step must emit `Refusing to build` + `exit 1` on non-SemVer tag (Task 1.3 #8)")
+		t.Errorf("release.yml build job: Resolve version step must emit `Refusing to build` + `exit 1` on non-SemVer tag")
 	}
 	// Same validation must repeat in the release job's Resolve release tag step.
 	relRun := jobRunBodies(t, "release")
@@ -287,7 +283,6 @@ func TestResolveVersionRejectsNonSemVer(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Apple signing steps are gated by `steps.apple_secrets.outputs.available ==
 // 'true'`, enabling the workflow to merge + CI-test without real secrets
-// (Task 2.6).
 // ---------------------------------------------------------------------------
 
 func TestAppleSignGatingOutput(t *testing.T) {
@@ -306,12 +301,12 @@ func TestAppleSignGatingOutput(t *testing.T) {
 		}
 	}
 	if probeStep == nil {
-		t.Fatalf("release.yml build job: step with `id: apple_secrets` missing (Task 2.6 gating idiom)")
+		t.Fatalf("release.yml build job: step with `id: apple_secrets` missing (the gating idiom)")
 	}
 	// Must emit `available=true|false` via GITHUB_OUTPUT.
 	run, _ := probeStep["run"].(string)
 	if !strings.Contains(run, "available=true") || !strings.Contains(run, "available=false") {
-		t.Errorf("release.yml: apple_secrets probe must emit both `available=true` and `available=false` via GITHUB_OUTPUT (Task 2.6)")
+		t.Errorf("release.yml: apple_secrets probe must emit both `available=true` and `available=false` via GITHUB_OUTPUT")
 	}
 
 	// Every codesign step must gate on the output. Notarization is currently
@@ -334,7 +329,7 @@ func TestAppleSignGatingOutput(t *testing.T) {
 			ifClause, _ := m["if"].(string)
 			if !strings.Contains(ifClause, gateExpr) {
 				name, _ := m["name"].(string)
-				t.Errorf("release.yml: step %q runs `%s` but does not gate on `%s` (Task 2.6; unsigned branch would still try to sign)", name, needle, gateExpr)
+				t.Errorf("release.yml: step %q runs `%s` but does not gate on `%s` (unsigned branch would still try to sign)", name, needle, gateExpr)
 			}
 		}
 	}
@@ -342,8 +337,8 @@ func TestAppleSignGatingOutput(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Platform-specific GUI build steps invoke `wails3 task <os>:<target>` with
-// ARCH sourced from matrix.arch (Task 3.1, 3.2; host-only `wails3 build` is
-// the anti-pattern).
+// ARCH sourced from matrix.arch (host-only `wails3 build` is the
+// anti-pattern).
 // ---------------------------------------------------------------------------
 
 func TestPlatformGUIBuildSteps(t *testing.T) {
@@ -359,7 +354,7 @@ func TestPlatformGUIBuildSteps(t *testing.T) {
 	}
 	for _, c := range cases {
 		if !strings.Contains(raw, c.pattern) {
-			t.Errorf("release.yml: %s step must invoke `%s...` (Task 3.1/3.2)", c.desc, c.pattern)
+			t.Errorf("release.yml: %s step must invoke `%s...`", c.desc, c.pattern)
 		}
 	}
 
@@ -371,8 +366,8 @@ func TestPlatformGUIBuildSteps(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // CLI smoke test step is present (per-cell binary launch check).
-// Covers Task 3.4 (risk E7-R-002 mitigation: confirm the produced binary
-// launches before uploading as a release asset).
+// E7-R-002 mitigation: confirm the produced binary launches before it is
+// uploaded as a release asset.
 // ---------------------------------------------------------------------------
 
 func TestCLISmokeTestStep(t *testing.T) {
@@ -383,23 +378,23 @@ func TestCLISmokeTestStep(t *testing.T) {
 		return strings.Contains(strings.ToLower(name), "smoke")
 	})
 	if step == nil {
-		t.Fatalf("release.yml build job: CLI smoke test step missing (Task 3.4; must invoke the produced binary with `--help` or `--version` to confirm launch)")
+		t.Fatalf("release.yml build job: CLI smoke test step missing (must invoke the produced binary with `--help` or `--version` to confirm launch)")
 	}
 	r, _ := step["run"].(string)
 
 	// The step body must reference the CLI binary name AND a harmless invocation flag.
 	if !strings.Contains(r, "pdfdebug") {
-		t.Errorf("release.yml build job: CLI smoke step does not reference `pdfdebug` binary (Task 3.4)")
+		t.Errorf("release.yml build job: CLI smoke step does not reference `pdfdebug` binary")
 	}
 	if !strings.Contains(r, "--help") && !strings.Contains(r, "--version") {
-		t.Errorf("release.yml build job: CLI smoke step must invoke `--help` or `--version` (Task 3.4)")
+		t.Errorf("release.yml build job: CLI smoke step must invoke `--help` or `--version`")
 	}
 
 	// Must run on every cell, not gated to a single matrix.os.
 	ifClause, _ := step["if"].(string)
 	if ifClause != "" {
 		if strings.Contains(ifClause, "matrix.os") && strings.Contains(ifClause, "==") {
-			t.Errorf("release.yml: CLI smoke test step restricts to a single platform via `%s` -- must run on all 4 cells (Task 3.4)", ifClause)
+			t.Errorf("release.yml: CLI smoke test step restricts to a single platform via `%s` -- must run on all 4 cells", ifClause)
 		}
 	}
 }
@@ -432,8 +427,7 @@ func TestSHA256SumsIntegrityGuard(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // action-gh-release publish step uploads `dist/*` (picks up SHA256SUMS.txt)
-// and fails on unmatched files. Covers SHA256SUMS.txt uploaded as 9th asset
-// + Task 5.2.
+// and fails on unmatched files, so SHA256SUMS.txt is uploaded as an asset.
 // ---------------------------------------------------------------------------
 
 func TestReleasePublishFilesGlob(t *testing.T) {
@@ -455,11 +449,10 @@ func TestReleasePublishFilesGlob(t *testing.T) {
 		t.Errorf("release.yml: action-gh-release `with.files` must include `dist/*` so SHA256SUMS.txt is uploaded")
 	}
 	// Re-assert fail_on_unmatched_files: TestGenerateReleaseNotesEnabled already
-	// covers this, but we include it here for the gap-test's explicit traceability
-	// to Task 5.2.
+	// covers it, and this gap test asserts it explicitly as well.
 	fof, _ := with["fail_on_unmatched_files"].(bool)
 	if !fof {
-		t.Errorf("release.yml: action-gh-release `with.fail_on_unmatched_files` must be true (Task 5.2)")
+		t.Errorf("release.yml: action-gh-release `with.fail_on_unmatched_files` must be true")
 	}
 
 	// tag_name and name must be parameterized to the resolved tag output (not
@@ -473,21 +466,21 @@ func TestReleasePublishFilesGlob(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes.
-// Covers Task 6.3 + Review #1 Medium (Apple validators reject non-integer
-// CFBundleShortVersionString / CFBundleVersion).
+// Apple validators reject a non-integer CFBundleShortVersionString or
+// CFBundleVersion (Review #1 Medium).
 // ---------------------------------------------------------------------------
 
 func TestPlistBuddyStripsBothSuffixes(t *testing.T) {
 	run := jobRunBodies(t, "build")
 
 	if !strings.Contains(run, "PlistBuddy") {
-		t.Errorf("release.yml build job: PlistBuddy step missing (Task 6.3)")
+		t.Errorf("release.yml build job: PlistBuddy step missing")
 		return
 	}
 
 	// Pre-release suffix strip: `${VERSION%%-*}`
 	if !strings.Contains(run, "${VERSION%%-*}") {
-		t.Errorf("release.yml: PlistBuddy step must strip SemVer pre-release suffix via `${VERSION%%-*}` (Task 6.3)")
+		t.Errorf("release.yml: PlistBuddy step must strip SemVer pre-release suffix via `${VERSION%%-*}`")
 	}
 	// Build-metadata suffix strip: `${PLIST_VERSION%%+*}` or similar.
 	// Review #1 Medium explicitly required this to handle `1.2.3+build.1`.
@@ -497,7 +490,7 @@ func TestPlistBuddyStripsBothSuffixes(t *testing.T) {
 	// Both plist keys must be set.
 	for _, key := range []string{"CFBundleShortVersionString", "CFBundleVersion"} {
 		if !strings.Contains(run, key) {
-			t.Errorf("release.yml: PlistBuddy step must set %q (Task 6.3)", key)
+			t.Errorf("release.yml: PlistBuddy step must set %q", key)
 		}
 	}
 }
@@ -654,8 +647,8 @@ func TestPrereleaseRegexMatchesAllPrefixes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Workflow_dispatch `tag` input has `required: true` and type `string`.
-// Covers Task 1.1 + Task 1.5 contract (missing input causes immediate
-// failure rather than defaulting to branch HEAD).
+// A missing input causes immediate failure rather than defaulting to branch
+// HEAD.
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchTagInputTyped(t *testing.T) {
@@ -665,10 +658,10 @@ func TestWorkflowDispatchTagInputTyped(t *testing.T) {
 	inputs, _ := wd["inputs"].(map[string]interface{})
 	tag, ok := inputs["tag"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("release.yml: workflow_dispatch.inputs.tag is not a map (Task 1.5)")
+		t.Fatalf("release.yml: workflow_dispatch.inputs.tag is not a map")
 	}
 	if req, _ := tag["required"].(bool); !req {
-		t.Errorf("release.yml: workflow_dispatch.inputs.tag.required must be true (Task 1.5; otherwise an empty dispatch silently falls back to branch HEAD)")
+		t.Errorf("release.yml: workflow_dispatch.inputs.tag.required must be true (otherwise an empty dispatch silently falls back to branch HEAD)")
 	}
 	if ty, _ := tag["type"].(string); ty != "string" {
 		t.Errorf("release.yml: workflow_dispatch.inputs.tag.type must be \"string\", got %q", ty)

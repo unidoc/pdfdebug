@@ -184,7 +184,7 @@ func TestTriggerIsVersionTag(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // workflow_dispatch with `tag` input supported.
-// Covers Task 1.5 (manual re-run against existing tag).
+// A maintainer can re-run manually against an existing tag.
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchSupported(t *testing.T) {
@@ -195,7 +195,7 @@ func TestWorkflowDispatchSupported(t *testing.T) {
 	}
 	wdRaw, ok := on["workflow_dispatch"]
 	if !ok {
-		t.Fatalf("release.yml: on.workflow_dispatch missing (Task 1.5)")
+		t.Fatalf("release.yml: on.workflow_dispatch missing")
 	}
 	wd, ok := wdRaw.(map[string]interface{})
 	if !ok {
@@ -206,20 +206,19 @@ func TestWorkflowDispatchSupported(t *testing.T) {
 		t.Fatalf("release.yml: workflow_dispatch.inputs missing (need `tag` input)")
 	}
 	if _, ok := inputs["tag"]; !ok {
-		t.Errorf("release.yml: workflow_dispatch.inputs.tag missing (Task 1.5: maintainer re-run against existing tag)")
+		t.Errorf("release.yml: workflow_dispatch.inputs.tag missing (maintainer re-run against existing tag)")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Workflow-level permissions: contents: write (required to create Release).
-// Covers Task 1.1.
 // ---------------------------------------------------------------------------
 
 func TestWorkflowPermissionsWrite(t *testing.T) {
 	parsed := parseReleaseWorkflow(t)
 	permsRaw, ok := parsed["permissions"]
 	if !ok {
-		t.Fatalf("release.yml: workflow-level `permissions` block missing (Task 1.1)")
+		t.Fatalf("release.yml: workflow-level `permissions` block missing")
 	}
 	perms, ok := permsRaw.(map[string]interface{})
 	if !ok {
@@ -227,20 +226,20 @@ func TestWorkflowPermissionsWrite(t *testing.T) {
 	}
 	contents, _ := perms["contents"].(string)
 	if contents != "write" {
-		t.Errorf("release.yml: permissions.contents must be \"write\" (Task 1.1 -- required to create Release), got %q", contents)
+		t.Errorf("release.yml: permissions.contents must be \"write\" (required to create Release), got %q", contents)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Concurrency: cancel-in-progress must be FALSE (opposite of ci.yml).
-// Covers Task 1.1 reasoning (cancelling mid-release corrupts assets).
+// Cancelling mid-release corrupts assets.
 // ---------------------------------------------------------------------------
 
 func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 	parsed := parseReleaseWorkflow(t)
 	cRaw, ok := parsed["concurrency"]
 	if !ok {
-		t.Fatalf("release.yml: concurrency block missing (Task 1.1)")
+		t.Fatalf("release.yml: concurrency block missing")
 	}
 	c, ok := cRaw.(map[string]interface{})
 	if !ok {
@@ -254,7 +253,7 @@ func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 	if !ok {
 		t.Errorf("release.yml: concurrency.cancel-in-progress missing")
 	} else if cip {
-		t.Errorf("release.yml: concurrency.cancel-in-progress MUST be false (Task 1.1: cancelling mid-release leaves orphan assets)")
+		t.Errorf("release.yml: concurrency.cancel-in-progress MUST be false (cancelling mid-release leaves orphan assets)")
 	}
 }
 
@@ -460,7 +459,6 @@ func TestAppleSecretsReferenced(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Secrets must never appear as literal environment values outside the ${{
 // secrets.* }} expression form. Verifies no accidental plaintext logging.
-// Covers Task 8.2 final bullet + security hardening.
 // ---------------------------------------------------------------------------
 
 func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
@@ -623,18 +621,18 @@ func TestSHA256SumsStepPresent(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // SHA256SUMS generation excludes itself and is NUL-safe.
-// Covers Task 5.1 (no `$(ls | sort)` anti-pattern).
+// No `$(ls | sort)` anti-pattern.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsExcludesSelf(t *testing.T) {
 	run := jobRunBodies(t, "release")
 
 	if !strings.Contains(run, "! -name SHA256SUMS.txt") {
-		t.Errorf("release.yml release job: SHA256SUMS step must exclude itself from input via `! -name SHA256SUMS.txt` (Task 5.1)")
+		t.Errorf("release.yml release job: SHA256SUMS step must exclude itself from input via `! -name SHA256SUMS.txt`")
 	}
 	// Anti-pattern: ls | sort word-splits and is not NUL-safe.
 	if regexp.MustCompile(`\bls\b[^|]*\|\s*sort`).MatchString(run) {
-		t.Errorf("release.yml release job: `ls | sort` anti-pattern present (Task 5.1: use find -print0 | sort -z)")
+		t.Errorf("release.yml release job: `ls | sort` anti-pattern present (use find -print0 | sort -z)")
 	}
 }
 
@@ -717,10 +715,10 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 		t.Errorf("release.yml: softprops/action-gh-release `with.prerelease` must be a step-output expression, got %q", prerelease)
 	}
 
-	// fail_on_unmatched_files: true (Task 5.2)
+	// fail_on_unmatched_files: true
 	fof, ok := with["fail_on_unmatched_files"].(bool)
 	if !ok || !fof {
-		t.Errorf("release.yml: softprops/action-gh-release `with.fail_on_unmatched_files` must be true (Task 5.2)")
+		t.Errorf("release.yml: softprops/action-gh-release `with.fail_on_unmatched_files` must be true")
 	}
 }
 
@@ -752,7 +750,7 @@ func TestShellBashOnRunSteps(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Artifact staging produces the 6 named artifacts plus SHA256SUMS (3 platforms
 // x 2 archives each: a GUI archive that also embeds the CLI, plus a standalone
-// CLI archive). Covers, Task 4.3 naming contract.
+// CLI archive). Covers the artifact naming contract.
 // ---------------------------------------------------------------------------
 
 func TestArtifactStagingNaming(t *testing.T) {
@@ -786,14 +784,13 @@ func TestArtifactStagingNaming(t *testing.T) {
 
 	// macOS DMG must be built via hdiutil (native macOS disk-image tool).
 	if !strings.Contains(run, "hdiutil create") {
-		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create` (Task 2.3)")
+		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create`")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Supporting file: build/darwin/entitlements.plist exists with Wails-v3
 // baseline entries.
-// Covers Task 6.1.
 // ---------------------------------------------------------------------------
 
 func TestEntitlementsPlistExists(t *testing.T) {
@@ -801,7 +798,7 @@ func TestEntitlementsPlistExists(t *testing.T) {
 	p := filepath.Join(root, "build", "darwin", "entitlements.plist")
 	content, err := os.ReadFile(p)
 	if err != nil {
-		t.Fatalf("build/darwin/entitlements.plist not found: %v (Task 6.1 -- file MUST exist before release.yml fires)", err)
+		t.Fatalf("build/darwin/entitlements.plist not found: %v (the file MUST exist before release.yml fires)", err)
 	}
 	raw := string(content)
 
@@ -810,13 +807,13 @@ func TestEntitlementsPlistExists(t *testing.T) {
 		t.Errorf("build/darwin/entitlements.plist is not a valid plist document")
 	}
 
-	// Wails v3 baseline entitlements (Task 6.1)
+	// Wails v3 baseline entitlements
 	for _, key := range []string{
 		"com.apple.security.cs.allow-unsigned-executable-memory",
 		"com.apple.security.cs.disable-library-validation",
 	} {
 		if !strings.Contains(raw, key) {
-			t.Errorf("build/darwin/entitlements.plist missing required key %q (Task 6.1)", key)
+			t.Errorf("build/darwin/entitlements.plist missing required key %q", key)
 		}
 	}
 }
