@@ -542,9 +542,9 @@ describe('SET_DOCUMENT_ERROR preserves tabs', () => {
 // ---------------------------------------------------------------------------
 // Supplemental: Isolation tests for remaining tab-scoped actions.
 //
-// Task 3.2 in the story spec identifies CLEAR_NAV_TARGET, NAV_ERROR,
-// DISMISS_NAV_ERROR, NAVIGATE_BACK, and NAVIGATE_FORWARD as all filtering
-// by activeTabId. These tests verify that contract at the reducer level.
+// CLEAR_NAV_TARGET, NAV_ERROR, DISMISS_NAV_ERROR, NAVIGATE_BACK and
+// NAVIGATE_FORWARD all filter by activeTabId. These tests verify that
+// contract at the reducer level.
 // ---------------------------------------------------------------------------
 
 describe('4.2 supplemental: CLEAR_NAV_TARGET isolation', () => {

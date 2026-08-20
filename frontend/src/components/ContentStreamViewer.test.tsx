@@ -336,8 +336,7 @@ describe('ContentStreamViewer operator tooltips', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fallback to plain text when tokenized is missing (Task 4.7): Falls
-// back to raw text when tokenized is null/empty.
+// Falls back to raw text when tokenized is null or empty.
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer fallback to plain text', () => {

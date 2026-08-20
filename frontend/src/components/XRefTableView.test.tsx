@@ -587,8 +587,7 @@ describe('keyboard nav crosses the virtualization window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// + Task 6.10: onLoaded fires with the entry count after a successful
-// fetch.
+// onLoaded fires with the entry count after a successful fetch.
 // ---------------------------------------------------------------------------
 
 describe('onLoaded callback', () => {
@@ -607,7 +606,7 @@ describe('onLoaded callback', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 6.8: empty state when no tabId / no document open.
+// Empty state when no tabId / no document open.
 // ---------------------------------------------------------------------------
 
 describe('empty state when no document', () => {

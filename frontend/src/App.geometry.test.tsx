@@ -2,17 +2,17 @@
  * Window Geometry Persistence
  *
  * Integration tests for the App.jsx wiring of window-geometry events and
- * startup restore. These cover Tasks 4 and 5 of the story:
+ * startup restore:
  *
  *   - Subscribe to common:WindowDidMove and common:WindowDidResize
  *   - Handlers read Window.Position()/Window.Size() and call saveWindowGeometry
  *   - On mount, persisted geometry is applied via Window.SetSize then
- *     Window.SetPosition (size-first ordering per Task 5.1)
+ *     Window.SetPosition (size-first ordering)
  *   - Off-screen guard via Screens.GetAll() skips position restore but still
  *     applies size restore
  *   - Restore-feedback loop suppression: events fired during the restore
- *     window do NOT cause a re-save (Task 4.4 / R4)
- *   - Listeners unsubscribe on unmount (Task 4.3)
+ *     window do NOT cause a re-save
+ *   - Listeners unsubscribe on unmount
  *
  * Run: cd frontend && npx vitest run src/App.geometry.test.tsx
  */
@@ -253,7 +253,7 @@ describe('8.4 App.jsx geometry wiring', () => {
 
   /**
    * Startup restore calls Window.SetSize THEN Window.SetPosition with the
-   * persisted values, in that order (Task 5.1 ordering).
+   * persisted values, in that order.
    */
   test('on mount, restore calls SetSize before SetPosition with persisted values', async () => {
     window.localStorage.setItem(
@@ -351,7 +351,7 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * Restore-feedback loop suppression (Task 4.4 / R4).
+   * Restore-feedback loop suppression.
    *
    * After mount, the OS will fire WindowDidMove/Resize as a side effect of
    * SetSize/SetPosition. Those echo events must NOT trigger a re-save of the
@@ -401,7 +401,7 @@ describe('8.4 App.jsx geometry wiring', () => {
   });
 
   /**
-   * Listeners are removed on unmount (Task 4.3).
+   * Listeners are removed on unmount.
    *
    * Important for HMR + unit tests; the production root never unmounts but
    * cleanup must exist.

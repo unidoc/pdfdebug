@@ -12,8 +12,7 @@ import { describe, test, expect } from 'vitest';
 async function loadUseLatest() {
   // The @vite-ignore comment + non-literal specifier stops Vite's
   // import-analysis from resolving (and failing on) the not-yet-created module
-  // at suite-load time. Without it the whole suite errors even while skipped,
-  // which would break DoD gate G1 before Dev implements Task 2.
+  // at suite-load time. Without it the whole suite errors even while skipped.
   const specifier = './useLatest';
   const mod = await import(/* @vite-ignore */ specifier);
   return mod.useLatest as (value: unknown) => { current: unknown };

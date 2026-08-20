@@ -7,7 +7,7 @@
  * wrong navigation.
  *
  * The original test file is replaced. The file path stays
- * the same to minimise import churn elsewhere (Task 5.1).
+ * the same to minimise import churn elsewhere.
  *
  * Run: cd frontend && npx vitest run src/components/ObjectInfoPanel.test.tsx
  */
@@ -339,7 +339,7 @@ describe('indirect-ref click mapping', () => {
     renderPanel('obj:0:4');
     await waitFor(() => {
       const span = screen.getByText('5 0 R');
-      // Per Task 5.5 styling: cursor-pointer, hover underline, type-reference color.
+      // Styling: cursor-pointer, hover underline, type-reference color.
       expect(span.className).toMatch(/cursor-pointer/);
       expect(span.className).toMatch(/hover:underline/);
       expect(span.className).toMatch(/text-type-reference/);
@@ -407,7 +407,7 @@ describe('header label', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 5.7: error state on fetch failure
+// Error state on fetch failure
 // ---------------------------------------------------------------------------
 
 describe('fetch error inline message', () => {

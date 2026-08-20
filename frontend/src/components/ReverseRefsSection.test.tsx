@@ -1,14 +1,14 @@
 /**
  * Object Source View + Reverse References
  *
- * Covers the frontend failure-mode banner (Task 6.5 case 1) for the
- * "Referenced by" section. Keyboard parity for the row click target is also
- * asserted here, mirroring DetailShared's Enter/Space contract.
+ * Covers the frontend failure-mode banner for the "Referenced by" section.
+ * Keyboard parity for the row click target is also asserted here, mirroring
+ * DetailShared's Enter/Space contract.
  *
  * Behavioral focus: the section MUST render three distinct empty states based
  * on props (index-unavailable / catalog / orphan) and MUST default-expand or
  * default-collapse based on entries.length <= 5. Toggle resets on remount
- * because DetailPanel passes key={selectedNodeId} (Task 6.3).
+ * because DetailPanel passes key={selectedNodeId}.
  *
  * Run: cd frontend && npx vitest run src/components/ReverseRefsSection.test.tsx
  */
@@ -293,7 +293,7 @@ describe('index-unavailable banner', () => {
 
   test('indexUnavailable banner is shown even if entries are somehow provided', () => {
     // Defensive: backend should not return entries alongside the sentinel,
-    // but the priority order in Task 6.5 puts unavailable first regardless.
+    // but the empty-state priority order puts unavailable first regardless.
     renderSection({ entries: fiveEntries, selectedIconHint: 'page', indexUnavailable: true });
     expect(
       screen.getByText('Reverse-ref index unavailable for this document.')
@@ -315,7 +315,7 @@ describe('section header count', () => {
 
   test('header omits the count parenthesis for empty entries (no count shown)', () => {
     renderSection({ entries: [], selectedIconHint: 'page' });
-    // Either there's no header at all (acceptable per Task 6.5 emptylist UI)
+    // Either there's no header at all (acceptable for the empty-list UI)
     // or the header omits a number-in-parens. We assert NOTHING matches "(0)".
     expect(screen.queryByText(/Referenced by \(0\)/)).not.toBeInTheDocument();
   });

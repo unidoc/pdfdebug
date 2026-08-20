@@ -9,10 +9,10 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { FontPreview } from './FontPreview';
 
 // ---------------------------------------------------------------------------
-// Test fixtures -- FontDetail shapes mirroring the backend FontDetail struct
-// (Task 1.2). These literals MUST stay in sync with model.go's JSON tags so
-// the IPC contract is exercised against the same shape the frontend will
-// actually receive from Wails bindings at runtime.
+// Test fixtures -- FontDetail shapes mirroring the backend FontDetail struct.
+// These literals MUST stay in sync with model.go's JSON tags so the IPC
+// contract is exercised against the same shape the frontend will actually
+// receive from Wails bindings at runtime.
 // ---------------------------------------------------------------------------
 
 type FontDescriptorInfoFixture = {

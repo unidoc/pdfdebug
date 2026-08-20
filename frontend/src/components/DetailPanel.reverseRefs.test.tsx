@@ -190,7 +190,7 @@ describe('section mounts after parsed view for indirect objects', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 7.1: section is NOT mounted for inline-value nodes. nodeID
+// The section is NOT mounted for inline-value nodes. nodeID
 // `dict:obj:0:3:Type` is inline; the section MUST NOT appear.
 // ---------------------------------------------------------------------------
 
@@ -267,7 +267,7 @@ describe('catalog selection -- Document root copy', () => {
 
 // ---------------------------------------------------------------------------
 // Failure mode: backend rejection with the index- unavailable sentinel
-// surfaces the unavailable banner. Task 7.3 case (a).
+// surfaces the unavailable banner.
 // ---------------------------------------------------------------------------
 
 describe('index-unavailable sentinel surfaces the banner', () => {
@@ -292,7 +292,7 @@ describe('index-unavailable sentinel surfaces the banner', () => {
     expect(screen.queryByText(/possible orphan/i)).not.toBeInTheDocument();
   });
 
-  test('non-sentinel rejection hides the section silently (Task 7.3 case b)', async () => {
+  test('non-sentinel rejection hides the section silently', async () => {
     mockGetReverseRefs.mockRejectedValue(new Error('some other error'));
     renderDetailPanelFor('obj:0:3', 'page');
     // Wait for the parsed view first so the fetch has had a chance to run.

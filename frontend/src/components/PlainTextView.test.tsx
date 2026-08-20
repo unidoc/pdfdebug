@@ -153,7 +153,7 @@ describe('lazy fetch gated by active prop', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 7.8: empty state when no tabId / no document.
+// Empty state when no tabId / no document.
 // ---------------------------------------------------------------------------
 
 describe('empty state when no document', () => {
@@ -169,7 +169,7 @@ describe('empty state when no document', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 7.5: virtualization performance smoke test.
+// Virtualization performance smoke test.
 // ---------------------------------------------------------------------------
 
 describe('virtualization keeps DOM small', () => {
