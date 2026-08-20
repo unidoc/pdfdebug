@@ -4,10 +4,10 @@
 // These tests target concrete behaviors mandated by the CI tasks and Review
 // findings that were not asserted by the original 26 ATDD tests:
 //
-//   - workflow_dispatch trigger (Task 1.2)
-//   - per-suite loop step-level timeout-minutes value (Task 2.2)
-//   - golangci-lint --timeout 5m invocation flag (Task 1.5 step 9)
-//   - root go test -timeout 10m invocation flag (Task 1.5 step 10)
+//   - workflow_dispatch trigger
+//   - per-suite loop step-level timeout-minutes value
+//   - golangci-lint --timeout 5m invocation flag
+//   - root go test -timeout 10m invocation flag
 //   - wails3 generate bindings step (Review #1 critical fix)
 //   - bindings generation ordering before frontend steps (Review #1 ordering)
 //   - .golangci.yml exclusion paths fully populated (Review #2 build path fix)
@@ -49,8 +49,6 @@ func stepIndexByPredicate(t *testing.T, predicate func(map[string]interface{}) b
 
 // ---------------------------------------------------------------------------
 // workflow_dispatch trigger present for manual reruns.
-// Covers Task 1.2 (workflow_dispatch allows manual re-runs from the GitHub
-// UI).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowDispatchTrigger(t *testing.T) {
@@ -64,15 +62,15 @@ func TestCIWorkflowDispatchTrigger(t *testing.T) {
 		t.Fatalf("ci.yml: `on:` is not a map")
 	}
 	if _, ok := onMap["workflow_dispatch"]; !ok {
-		t.Errorf("ci.yml: `on.workflow_dispatch` trigger missing (Task 1.2 requires manual rerun support)")
+		t.Errorf("ci.yml: `on.workflow_dispatch` trigger missing (required for manual rerun support)")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // per-suite loop step-level timeout-minutes == 20.
-// Covers Task 2.2 (step-level 20-minute cap so hung per-suite module cannot
-// consume job budget). The existing TestCIWorkflowPerSuiteModuleLoop only
-// asserts the field is present; this asserts the exact 20-minute value.
+// A step-level 20-minute cap, so a hung per-suite module cannot consume the
+// job budget. The existing TestCIWorkflowPerSuiteModuleLoop only asserts the
+// field is present; this asserts the exact 20-minute value.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
@@ -93,20 +91,20 @@ func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
 	}
 	tRaw, ok := loopStep["timeout-minutes"]
 	if !ok {
-		t.Fatalf("ci.yml: per-suite loop missing timeout-minutes (Task 2.2)")
+		t.Fatalf("ci.yml: per-suite loop missing timeout-minutes")
 	}
 	tVal, ok := tRaw.(int)
 	if !ok {
 		t.Fatalf("ci.yml: per-suite loop timeout-minutes not an int, got %T", tRaw)
 	}
 	if tVal != 20 {
-		t.Errorf("ci.yml: per-suite loop timeout-minutes must be 20 (Task 2.2), got %d", tVal)
+		t.Errorf("ci.yml: per-suite loop timeout-minutes must be 20, got %d", tVal)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // golangci-lint invoked with explicit --timeout flag.
-// Covers Task 1.5 step 9 (`golangci-lint run --timeout 5m ./...`).
+// The invocation is `golangci-lint run --timeout 5m ./...`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
@@ -115,20 +113,20 @@ func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
 	// invocation without any --timeout flag.
 	re := regexp.MustCompile(`golangci-lint\s+run[^\n]*--timeout\s+\d+[ms]`)
 	if !re.MatchString(run) {
-		t.Errorf("ci.yml: `golangci-lint run` must pass an explicit `--timeout` (Task 1.5 step 9)")
+		t.Errorf("ci.yml: `golangci-lint run` must pass an explicit `--timeout`")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // root `go test ./...` uses explicit -timeout flag.
-// Covers Task 1.5 step 10 (`go test ./... -timeout 10m`).
+// The invocation is `go test ./... -timeout 10m`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
 	run := stepRunBodies(t)
 	re := regexp.MustCompile(`go test \./\.\.\.[^\n]*-timeout\s+\d+[ms]`)
 	if !re.MatchString(run) {
-		t.Errorf("ci.yml: root `go test ./...` must pass explicit `-timeout` (Task 1.5 step 10)")
+		t.Errorf("ci.yml: root `go test ./...` must pass explicit `-timeout`")
 	}
 }
 
@@ -270,7 +268,7 @@ func TestGolangciLintExcludesBuildPath(t *testing.T) {
 			found[s] = true
 		}
 	}
-	// Review #2 adds `build`; the other five are from Task 4.1 baseline.
+	// Review #2 adds `build`; the other five are the baseline.
 	required := []string{"bindings", "frontend", "dist", "bin", "node_modules", "build"}
 	for _, r := range required {
 		if !found[r] {
@@ -353,7 +351,7 @@ func TestESLintConfigNoConsoleWarn(t *testing.T) {
 	// Accept single or double quotes around keys/values.
 	re := regexp.MustCompile(`['"]no-console['"]\s*:\s*['"]warn['"]`)
 	if !re.MatchString(content) {
-		t.Errorf("frontend/eslint.config.js: `no-console: warn` rule missing (Task 3.4 Dev Notes)")
+		t.Errorf("frontend/eslint.config.js: `no-console: warn` rule missing")
 	}
 }
 

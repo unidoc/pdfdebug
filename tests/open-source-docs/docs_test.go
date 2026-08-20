@@ -74,7 +74,6 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 
 // ---------------------------------------------------------------------------
 // LICENSE byte-matches canonical Apache 2.0 text.
-// Covers Task 1.
 // ---------------------------------------------------------------------------
 
 // TestLicenseMatchesCanonicalWithSubstitution asserts that LICENSE at repo root
@@ -161,7 +160,7 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 	content := readFileAtRoot(t, "LICENSE")
 
 	if !strings.Contains(content, "Copyright 2026 UniDoc ehf.") {
-		t.Errorf("LICENSE missing `Copyright 2026 UniDoc ehf.` substitution (Task 1.2)")
+		t.Errorf("LICENSE missing `Copyright 2026 UniDoc ehf.` substitution")
 	}
 	// The unmodified placeholder MUST be gone (otherwise the substitution was not applied).
 	if strings.Contains(content, "Copyright [yyyy] [name of copyright owner]") {
@@ -171,7 +170,6 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // NOTICE has UniDoc + third-party attributions.
-// Covers Task 2.
 // ---------------------------------------------------------------------------
 
 // TestNoticeHasRequiredAttributions asserts NOTICE contains UniDoc ehf.,
@@ -213,7 +211,6 @@ func TestNoticeHasNoUnicodeCopyright(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Verify-license shell script exists and is wired into CI.
-// Covers Task 5.
 // ---------------------------------------------------------------------------
 
 // TestVerifyLicenseScriptExistsAndExecutable asserts scripts/verify-license.sh
@@ -256,9 +253,9 @@ func TestCIWorkflowReferencesVerifyScript(t *testing.T) {
 		t.Errorf(".github/workflows/ci.yml does not reference `scripts/verify-license.sh` -- " +
 			"the `Verify open-source docs` step is not wired in")
 	}
-	// The step should also be labelled per Task 5.3.
+	// The step must also carry its label.
 	if !strings.Contains(content, "Verify open-source docs") {
-		t.Errorf(".github/workflows/ci.yml does not contain the `Verify open-source docs` step label (Task 5.3)")
+		t.Errorf(".github/workflows/ci.yml does not contain the `Verify open-source docs` step label")
 	}
 }
 
@@ -279,9 +276,9 @@ func TestReadmeHasNoBmadOutputLinks(t *testing.T) {
 
 // TestNoticeEntriesDeclareCompatibleLicense asserts each of the mandated
 // third-party attributions explicitly states a license compatible with
-// Apache 2.0 (i.e. MIT or Apache 2.0). This is the NOTICE-side mirror of
-// Task 2.3's license-compatibility audit and a regression guard against a
-// future maintainer dropping a license tag or adding a GPL/LGPL/AGPL dep.
+// Apache 2.0 (i.e. MIT or Apache 2.0). This is the NOTICE-side mirror of the
+// license-compatibility audit and a regression guard against a future
+// maintainer dropping a license tag or adding a GPL/LGPL/AGPL dep.
 func TestNoticeEntriesDeclareCompatibleLicense(t *testing.T) {
 	content := readFileAtRoot(t, "NOTICE")
 
@@ -305,7 +302,7 @@ func TestNoticeEntriesDeclareCompatibleLicense(t *testing.T) {
 }
 
 // TestVerifyLicenseScriptUsesStrictMode asserts scripts/verify-license.sh
-// declares `set -euo pipefail` (Task 5.1 contract: "any failure aborts"). A
+// declares `set -euo pipefail`, so any failure aborts the script. A
 // missing strict-mode pragma would let a silent failure mid-script pass CI
 // even though a downstream grep failed.
 func TestVerifyLicenseScriptUsesStrictMode(t *testing.T) {
@@ -315,6 +312,6 @@ func TestVerifyLicenseScriptUsesStrictMode(t *testing.T) {
 		t.Fatalf("scripts/verify-license.sh not readable: %v", err)
 	}
 	if !strings.Contains(string(content), "set -euo pipefail") {
-		t.Errorf("scripts/verify-license.sh missing `set -euo pipefail` strict-mode pragma (Task 5.1)")
+		t.Errorf("scripts/verify-license.sh missing `set -euo pipefail` strict-mode pragma")
 	}
 }

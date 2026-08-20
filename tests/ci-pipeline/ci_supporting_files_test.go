@@ -30,8 +30,7 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// frontend/eslint.config.js exists and is flat config.
-// Covers Task 3.4 (ESLint 9 flat config).
+// frontend/eslint.config.js exists and is an ESLint 9 flat config.
 // ---------------------------------------------------------------------------
 
 func TestESLintFlatConfigExists(t *testing.T) {
@@ -43,9 +42,9 @@ func TestESLintFlatConfigExists(t *testing.T) {
 		t.Errorf("frontend/eslint.config.js must export a flat config array (ESLint 9 form)")
 	}
 
-	// typescript-eslint meta-package must be imported (Task 3.4)
+	// typescript-eslint meta-package must be imported
 	if !strings.Contains(content, "typescript-eslint") {
-		t.Errorf("frontend/eslint.config.js must import `typescript-eslint` meta-package (Task 3.4)")
+		t.Errorf("frontend/eslint.config.js must import `typescript-eslint` meta-package")
 	}
 
 	// React + React Hooks plugins required
@@ -56,12 +55,12 @@ func TestESLintFlatConfigExists(t *testing.T) {
 		t.Errorf("frontend/eslint.config.js must import eslint-plugin-react-hooks")
 	}
 
-	// Must use projectService (not legacy `project: './tsconfig.json'`) per Task 3.4
+	// Must use projectService, not the legacy `project: './tsconfig.json'` form
 	if !strings.Contains(content, "projectService") {
-		t.Errorf("frontend/eslint.config.js must use `projectService: true` instead of legacy `project:` form (Task 3.4 rationale: repo tsconfig excludes test files)")
+		t.Errorf("frontend/eslint.config.js must use `projectService: true` instead of legacy `project:` form (the repo tsconfig excludes test files)")
 	}
 
-	// Strict rules that MUST be present (Task 3.4 + Dev Notes absolute rules)
+	// Strict rules that MUST be present
 	if !strings.Contains(content, "no-explicit-any") {
 		t.Errorf("frontend/eslint.config.js must enforce @typescript-eslint/no-explicit-any (absolute rule)")
 	}
@@ -69,9 +68,9 @@ func TestESLintFlatConfigExists(t *testing.T) {
 		t.Errorf("frontend/eslint.config.js must enforce @typescript-eslint/no-unused-vars")
 	}
 
-	// Ignores block is required (Task 3.4 bulletpoint)
+	// Ignores block is required
 	if !strings.Contains(content, "ignores") {
-		t.Errorf("frontend/eslint.config.js must include an `ignores` entry (Task 3.4)")
+		t.Errorf("frontend/eslint.config.js must include an `ignores` entry")
 	}
 	for _, ignore := range []string{"dist", "bindings", "wailsjs", "node_modules"} {
 		if !strings.Contains(content, ignore) {
@@ -82,7 +81,6 @@ func TestESLintFlatConfigExists(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // frontend/package.json has lint + typecheck scripts.
-// Covers Task 3.3.
 // ---------------------------------------------------------------------------
 
 func TestFrontendPackageScripts(t *testing.T) {
@@ -98,19 +96,19 @@ func TestFrontendPackageScripts(t *testing.T) {
 
 	lint, ok := pkg.Scripts["lint"]
 	if !ok {
-		t.Errorf("frontend/package.json: scripts.lint missing (Task 3.3)")
+		t.Errorf("frontend/package.json: scripts.lint missing")
 	} else {
 		if !strings.Contains(lint, "eslint") {
 			t.Errorf("scripts.lint must invoke eslint, got %q", lint)
 		}
 		if !strings.Contains(lint, "--max-warnings 0") {
-			t.Errorf("scripts.lint must include `--max-warnings 0` (Task 3.3)")
+			t.Errorf("scripts.lint must include `--max-warnings 0`")
 		}
 	}
 
 	tc, ok := pkg.Scripts["typecheck"]
 	if !ok {
-		t.Errorf("frontend/package.json: scripts.typecheck missing (Task 3.3)")
+		t.Errorf("frontend/package.json: scripts.typecheck missing")
 	} else if !strings.Contains(tc, "tsc --noEmit") {
 		t.Errorf("scripts.typecheck must invoke `tsc --noEmit`, got %q", tc)
 	}
@@ -118,7 +116,7 @@ func TestFrontendPackageScripts(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // frontend/package.json has required ESLint devDependencies.
-// Covers Task 3.2 (flat-config compatible versions).
+// The versions have to be flat-config compatible.
 // ---------------------------------------------------------------------------
 
 func TestFrontendESLintDevDependencies(t *testing.T) {
@@ -132,7 +130,7 @@ func TestFrontendESLintDevDependencies(t *testing.T) {
 	}
 
 	// Required deps with minimum major versions (flat-config compat).
-	// Values here are regex matching the minimum-major constraint from Task 3.2.
+	// Values here are regex matching the minimum-major constraint.
 	required := map[string]*regexp.Regexp{
 		"eslint":                    regexp.MustCompile(`\^?(9|[1-9][0-9])\b`),
 		"typescript-eslint":         regexp.MustCompile(`\^?(8|9|[1-9][0-9])\b`),
@@ -144,18 +142,17 @@ func TestFrontendESLintDevDependencies(t *testing.T) {
 	for dep, re := range required {
 		ver, ok := pkg.DevDependencies[dep]
 		if !ok {
-			t.Errorf("frontend/package.json devDependencies missing %q (Task 3.2)", dep)
+			t.Errorf("frontend/package.json devDependencies missing %q", dep)
 			continue
 		}
 		if !re.MatchString(ver) {
-			t.Errorf("frontend/package.json devDependencies[%q] = %q does not satisfy flat-config minimum (Task 3.2)", dep, ver)
+			t.Errorf("frontend/package.json devDependencies[%q] = %q does not satisfy flat-config minimum", dep, ver)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
 // .golangci.yml uses v2 schema with required linters.
-// Covers Task 4.1.
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintV2Config(t *testing.T) {
@@ -185,7 +182,7 @@ func TestGolangciLintV2Config(t *testing.T) {
 		t.Fatalf(".golangci.yml: linters block missing")
 	}
 	if d, ok := linters["default"].(string); !ok || d != "none" {
-		t.Errorf(".golangci.yml: linters.default must be \"none\" (Task 4.1), got %q", d)
+		t.Errorf(".golangci.yml: linters.default must be \"none\", got %q", d)
 	}
 	enabledRaw, _ := linters["enable"].([]interface{})
 	enabled := map[string]bool{}
@@ -196,7 +193,7 @@ func TestGolangciLintV2Config(t *testing.T) {
 	}
 	for _, req := range []string{"errcheck", "govet", "ineffassign", "staticcheck", "unused"} {
 		if !enabled[req] {
-			t.Errorf(".golangci.yml: linters.enable must include %q (Task 4.1)", req)
+			t.Errorf(".golangci.yml: linters.enable must include %q", req)
 		}
 	}
 
@@ -221,7 +218,7 @@ func yamlInt(i int) string {
 
 // ---------------------------------------------------------------------------
 // .gitattributes normalizes line endings.
-// Covers Task 6.1 (risk mitigation E7-R-005).
+// Risk mitigation E7-R-005.
 // ---------------------------------------------------------------------------
 
 func TestGitattributesLineEndings(t *testing.T) {
@@ -229,19 +226,19 @@ func TestGitattributesLineEndings(t *testing.T) {
 	content := readFileAtRoot(t, ".gitattributes")
 
 	if !strings.Contains(content, "* text=auto eol=lf") {
-		t.Errorf(".gitattributes: must contain `* text=auto eol=lf` (Task 6.1)")
+		t.Errorf(".gitattributes: must contain `* text=auto eol=lf`")
 	}
 
 	// Bash shell scripts must be LF
 	if !strings.Contains(content, "*.sh text eol=lf") {
-		t.Errorf(".gitattributes: must force LF for *.sh (Task 6.1)")
+		t.Errorf(".gitattributes: must force LF for *.sh")
 	}
 
 	// Windows batch files must be CRLF
 	if !strings.Contains(content, "*.bat text eol=crlf") {
-		t.Errorf(".gitattributes: must force CRLF for *.bat (Task 6.1)")
+		t.Errorf(".gitattributes: must force CRLF for *.bat")
 	}
 	if !strings.Contains(content, "*.cmd text eol=crlf") {
-		t.Errorf(".gitattributes: must force CRLF for *.cmd (Task 6.1)")
+		t.Errorf(".gitattributes: must force CRLF for *.cmd")
 	}
 }

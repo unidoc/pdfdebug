@@ -306,7 +306,7 @@ func TestCIWorkflowJobTimeout(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // workflow-level `permissions: contents: read`.
-// Covers security hardening in Dev Notes + Task 1.2.
+// Security hardening.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPermissionsReadOnly(t *testing.T) {
@@ -554,7 +554,6 @@ func TestCIWorkflowWailsCLIPinMatchesGoMod(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // golangci-lint v2 module path pinned (not @latest).
-// Covers Task 1.5 step 6 rationale and linting.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintV2Pinned(t *testing.T) {
@@ -631,19 +630,19 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 
 	// Must have a step-level timeout
 	if _, ok := loopStep["timeout-minutes"]; !ok {
-		t.Errorf("ci.yml: per-suite loop step must set step-level `timeout-minutes` (Task 2.2 requires 20m)")
+		t.Errorf("ci.yml: per-suite loop step must set step-level `timeout-minutes` (20m)")
 	}
 
 	run := loopStep["run"].(string)
 
-	// Must skip e2e and support Task 2.3
+	// Must skip e2e and support
 	if !strings.Contains(run, "e2e") || !strings.Contains(run, "support") {
-		t.Errorf("ci.yml: per-suite loop must skip tests/e2e and tests/support (Task 2.3)")
+		t.Errorf("ci.yml: per-suite loop must skip tests/e2e and tests/support")
 	}
 
 	// Must fail when no modules found (count guard)
 	if !strings.Contains(run, "exit 1") {
-		t.Errorf("ci.yml: per-suite loop must fail-fast when zero modules found (Task 2.2 count guard)")
+		t.Errorf("ci.yml: per-suite loop must fail-fast when zero modules found")
 	}
 
 	// Must run go test inside each module dir
@@ -736,20 +735,18 @@ func TestCIWorkflowWailsBuildStep(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // CLI sanity build (go build ./cmd/cli/).
-// Covers Task 1.5 step 16 (CLI compile check).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowCLIBuildStep(t *testing.T) {
 
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "go build") || !strings.Contains(run, "cmd/cli") {
-		t.Errorf("ci.yml: `go build -o bin/pdfdebug ./cmd/cli/` sanity build missing (Task 1.5 step 16)")
+		t.Errorf("ci.yml: `go build -o bin/pdfdebug ./cmd/cli/` sanity build missing")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // checkout@v5 is the first action step.
-// Covers Task 1.5 step 1 (ordering requirement).
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowCheckoutIsFirst(t *testing.T) {
