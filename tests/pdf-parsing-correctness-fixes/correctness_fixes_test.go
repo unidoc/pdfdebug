@@ -532,7 +532,7 @@ func TestOpenPopulatesFileSize(t *testing.T) {
 	}
 	literal := body[openStart:end]
 	if !strings.Contains(literal, "FileSize:") {
-		t.Errorf("Inspector.Open must include `FileSize: fileSize` inside the `doc:= &DocumentState{...}` literal (stat-at-Open value cached on DocumentState). Got literal:\n%s", literal)
+		t.Errorf("Inspector.Open must set a `FileSize:` key inside the `doc := &DocumentState{...}` literal (stat-at-Open value cached on DocumentState). Got literal:\n%s", literal)
 	}
 	// And the value MUST be the local `fileSize` variable, not a fresh stat.
 	if !strings.Contains(literal, "FileSize: fileSize") && !strings.Contains(literal, "FileSize:  fileSize") {
