@@ -3,10 +3,12 @@
 // Scenario: the REGENERATED frontend/bindings/ must still export every
 // PDFService method the frontend actually imports. This gates on the CONTRACT,
 // NOT on the informational 29-method / 38-model counts (a legitimate refactor
-// can move those; the brittle-count pin was dropped at 12-3 per
-// project_struct_grep_tests_brittle). A `wails3 generate bindings -clean=true`
-// that drops or renames a consumer method under the alpha2.117 bump fails loud
-// here; an unrelated surface change does not.
+// can move those; the exact-count pin was dropped because whole-file
+// strings.Contains greps over source fail on unrelated refactors and
+// sibling-struct changes, so the consumer-driven presence contract replaced
+// it). A `wails3 generate bindings -clean=true` that drops or renames a
+// consumer method under the alpha2.117 bump fails loud here; an unrelated
+// surface change does not.
 //
 // This is a STANDING regression net: it passes on the current tree (the binding
 // already exports these) and re-passes after the bump + regen (the zero-diff /
