@@ -22,7 +22,8 @@ import (
 )
 
 // projectRoot walks up from cwd until it finds the project go.mod (module
-// unidoc-pdf-debugger). Mirrors the pattern from the 10-5 sibling suite.
+// unidoc-pdf-debugger). Mirrors the pattern in
+// tests/inspector-concurrency-lifecycle-and-safecall/.
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
