@@ -15,7 +15,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// WITHOUT --resolve, `dump tree` output is byte-for- byte today's behavior (no
+// WITHOUT --resolve, `dump tree` output is byte-for-byte today's behavior (no
 // regression). Captured twice (with/without the flag absent) to pin
 // determinism; the real assertion is that adding NOTHING leaves the bytes
 // identical to a second identical invocation, and that --resolve is strictly

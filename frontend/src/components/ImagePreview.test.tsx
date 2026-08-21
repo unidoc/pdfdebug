@@ -1,8 +1,6 @@
 /**
  * Image Preview in Detail Panel -- ImagePreview Component Tests
  *
- * Test IDs:
- *           (Vitest)
  * Run: cd frontend && npx vitest run src/components/ImagePreview.test.tsx
  */
 import { render, screen } from '@testing-library/react';

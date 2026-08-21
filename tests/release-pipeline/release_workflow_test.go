@@ -259,7 +259,7 @@ func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // matrix contains exactly 4 include cells covering every required {os, arch,
-// goos, platform} combination Covers
+// goos, platform} combination.
 // ---------------------------------------------------------------------------
 
 func TestMatrixContainsAllFourPlatforms(t *testing.T) {
@@ -637,7 +637,7 @@ func TestSHA256SumsExcludesSelf(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// release publication step uses softprops/action-gh-release@v3 Covers
+// release publication step uses softprops/action-gh-release@v3.
 // ---------------------------------------------------------------------------
 
 func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {

@@ -1,7 +1,6 @@
 /**
  * E2E Acceptance Tests for Close Document and Tab Management
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/close-document.spec.ts
  *
  * This test validates the full close-to-empty-state path: opening a PDF,

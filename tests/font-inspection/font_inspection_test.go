@@ -93,7 +93,7 @@ func readSource(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// (backend half) + -- font.go exists, GetFontDetail declared,
+// Backend half -- font.go exists, GetFontDetail declared,
 // ErrNotAFont sentinel declared, resolveNodeObject reused.
 // ---------------------------------------------------------------------------
 

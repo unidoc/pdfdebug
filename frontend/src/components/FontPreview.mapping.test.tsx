@@ -234,7 +234,8 @@ describe('virtualization', () => {
 // payload that carries a malformed ToUnicode signal (toUnicodeError set)
 // alongside whatever partial mappingRows / health the backend could still
 // assemble. This is the frontend render path for the "malformed ToUnicode
-// stream ... never a crash" clause; the backend assembly side is covered by.
+// stream ... never a crash" clause; the backend assembly side is covered by
+// TestFontMapping_MalformedToUnicode_DegradesNotCrash in internal/pdfcore.
 // The DetailPanel-level 'neither' (fallback DictView) and real-'error' (inline
 // message) paths are already covered in DetailPanel.fontPreview.test.tsx, so
 // they are NOT duplicated here.
@@ -259,7 +260,8 @@ describe('degradation renders without crashing', () => {
         encodingWithoutToUnicodeCodes: [32, 33],
       },
     };
-    // The render itself must not throw -- the crash guard for.
+    // The render itself must not throw -- the crash guard for the degraded
+    // malformed-ToUnicode payload.
     expect(() => renderFont(detail)).not.toThrow();
 
     // The malformed-ToUnicode signal surfaces (existing ToUnicode error panel).

@@ -184,7 +184,7 @@ func TestXRefEntryOffsetSentinel(t *testing.T) {
 
 // GetXRefTable wraps the build in safeCall. A pdfcpu panic on a malformed xref
 // must NOT propagate. Verified by calling against the malformed fixture and
-// asserting we get either a result or a wrapPDFError- wrapped error -- never a
+// asserting we get either a result or a wrapPDFError-wrapped error -- never a
 // panic.
 func TestXRefTableSafeCallOnMalformed(t *testing.T) {
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
@@ -261,7 +261,7 @@ func TestPlainTextWhitespaceBytesPreserved(t *testing.T) {
 // Encrypted streams (file with /Filter /Crypt) pass through as raw on-disk
 // bytes. The backend MUST NOT attempt to decode or decrypt. Verified by
 // feeding a controlled byte pattern through the decoder and asserting it
-// survives the transform unchanged (modulo the control- byte normalization).
+// survives the transform unchanged (modulo the control-byte normalization).
 func TestPlainTextNoDecryptOrDecode(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextNoDecryptOrDecode")
 }
@@ -504,7 +504,8 @@ func TestDetailPanelObjectPaneHeaderNested(t *testing.T) {
 
 // All three Tabs.Content panes mount simultaneously via forceMount
 // (Radix). This preserves scroll position across tab switches.
-// Confirming forceMount is in the source is the structural surface for.
+// Confirming forceMount is in the source is the structural surface for that
+// scroll-preservation guarantee.
 func TestDetailPanelForceMountForScrollPreservation(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "forceMount") {

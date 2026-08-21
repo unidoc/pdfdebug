@@ -266,7 +266,7 @@ describe('catalog selection -- Document root copy', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Failure mode: backend rejection with the index- unavailable sentinel
+// Failure mode: backend rejection with the index-unavailable sentinel
 // surfaces the unavailable banner.
 // ---------------------------------------------------------------------------
 

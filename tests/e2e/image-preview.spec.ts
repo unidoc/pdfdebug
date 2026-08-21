@@ -6,7 +6,6 @@
  * frontend/src/components/ImagePreview.test.tsx and
  * frontend/src/components/DetailPanel.test.tsx.
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/image-preview.spec.ts
  */
 import { test, expect } from '../support/fixtures';

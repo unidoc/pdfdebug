@@ -357,7 +357,6 @@ describe('4.1 TabBar Component Tests', () => {
   /**
    * Supplemental: clicking close button dispatches CLOSE_DOCUMENT and calls
    * backend CloseDocument.
-   * // Also covers
    */
   test('close button dispatches CLOSE_DOCUMENT and calls backend', () => {
     render(
@@ -388,7 +387,6 @@ describe('4.1 TabBar Component Tests', () => {
 
   /**
    * Supplemental: Ctrl+W closes the active tab.
-   * // Also covers
    */
   test('Ctrl+W closes the active tab', () => {
     render(

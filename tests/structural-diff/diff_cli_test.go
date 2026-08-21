@@ -260,7 +260,7 @@ func TestDiff_FullIncludesUnchanged(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The CLI-level ALIGNMENT GUARDRAIL. A renumbered-but- structurally-identical
+// The CLI-level ALIGNMENT GUARDRAIL. A renumbered-but-structurally-identical
 // pair is reported as identical -> exit 0 and a zero-delta --json summary.
 // Proves path-alignment beats object-number alignment end-to-end.
 // ---------------------------------------------------------------------------

@@ -5,7 +5,6 @@
  * component/state/ARIA/loading tests are handled by Vitest in
  * frontend/src/components/TreePanel.test.tsx.
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/tree-panel-lazy.spec.ts
  */
 import { test, expect } from '../support/fixtures';

@@ -32,7 +32,7 @@
 //     `go test ./...`, the per-suite `cd tests/<name> && go test -count=1 ./...`
 //     and the CLI binary smoke. This story does not author parallel
 //     behavioral tests for them.
-//   - (rollback policy) is a conditional flow; nothing to assert.
+//   - The rollback policy is a conditional flow; nothing to assert.
 //
 // Run: cd tests/pdfcpu-0-12-1-bump && go test -v -count=1 ./...
 package pdfcpu_0_12_1_bump_test

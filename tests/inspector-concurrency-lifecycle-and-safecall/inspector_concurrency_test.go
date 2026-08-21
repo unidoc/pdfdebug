@@ -406,8 +406,8 @@ func extractPDFServiceMethodBody(t *testing.T, src, name string) string {
 // ---------------------------------------------------------------------------
 
 // safeCallContractTests is the verbatim list of test names in
-// errors_test.go that MUST continue to exist post-implementation. A rename
-// or deletion is the contract violation forbids.
+// errors_test.go that MUST continue to exist post-implementation. Renaming or
+// deleting any of them is the contract violation this guard forbids.
 var safeCallContractTests = []string{
 	"TestSafeCallSuccess",
 	"TestSafeCallReturnsError",

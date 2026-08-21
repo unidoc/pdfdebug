@@ -8,7 +8,6 @@
  * structure and source-level validation is handled by Go integration tests
  * in tests/empty-state/empty_state_test.go.
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/empty-state.spec.ts
  */
 import { test, expect } from '../support/fixtures';

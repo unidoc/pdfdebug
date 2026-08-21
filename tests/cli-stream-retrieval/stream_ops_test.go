@@ -386,8 +386,9 @@ func otherSubtypeDoPDF() []byte {
 // A `Do` op whose operand resolves to an XObject whose /Subtype is neither
 // /Image nor /Form (here: absent) is emitted WITHOUT a resourceType key and
 // does not crash. Guards classifyDo's switch-default branch -- distinct from
-// the unresolved-name (`!ok`) branch covered by. The spec requires this case
-// be decided AND tested.
+// the unresolved-name (`!ok`) branch covered by
+// TestStreamOps_DoUnknownName_EmitsWithoutResourceType. The spec requires this
+// case be decided AND tested.
 // ---------------------------------------------------------------------------
 
 func TestStreamOps_DoOtherSubtype_EmitsWithoutResourceType(t *testing.T) {

@@ -575,15 +575,13 @@ describe('DetailPanel stream rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// DetailPanel is exported via React.memo AC: architecture requirement --
-// wrapped in React.memo to prevent re-renders
-//     when switching tabs.
+// DetailPanel is exported via React.memo: the component is wrapped in
+// React.memo to prevent re-renders when switching tabs.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// DetailPanel cancels stale fetch on rapid node change -#5: When
-// selectedNodeId changes, previous in-flight fetch results
-//          must not overwrite the new result.
+// DetailPanel cancels stale fetch on rapid node change: when selectedNodeId
+// changes, previous in-flight fetch results must not overwrite the new result.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel stale fetch cancellation', () => {
@@ -1486,7 +1484,7 @@ describe('DetailPanel clears image on node switch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Navigating back to an image node restores image preview AC:
+// Navigating back to an image node restores the image preview:
 // NavHistoryEntry.iconHint is preserved and restored on NAVIGATE_BACK.
 // ---------------------------------------------------------------------------
 

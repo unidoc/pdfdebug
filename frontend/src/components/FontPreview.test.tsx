@@ -1,7 +1,6 @@
 /**
  * Font Inspection View -- FontPreview Component Tests
  *
- * Test IDs follow the convention where NNN groups by AC.
  * Run: cd frontend && npx vitest run src/components/FontPreview.test.tsx
  */
 import { render, screen, fireEvent } from '@testing-library/react';

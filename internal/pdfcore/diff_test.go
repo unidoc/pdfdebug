@@ -454,7 +454,7 @@ func TestDiff_SelfIsZeroDelta(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The ALIGNMENT GUARDRAIL. A renumbered-but- structurally-identical pair
+// The ALIGNMENT GUARDRAIL. A renumbered-but-structurally-identical pair
 // must produce ZERO delta. If this shows a large delta the diff is aligning
 // by object number, not by structural path.
 // ---------------------------------------------------------------------------

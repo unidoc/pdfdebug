@@ -77,8 +77,7 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// Native menu bar with File menu (Open, Close, Quit) Test
-// IDs: through
+// Native menu bar with File menu (Open, Close, Quit)
 // ---------------------------------------------------------------------------
 
 // main.go template boilerplate removed prerequisite:
@@ -104,7 +103,7 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 // build matrix and at first manual smoke).
 
 // ---------------------------------------------------------------------------
-// Window minimum size 800x600 Test ID:
+// Window minimum size 800x600
 // ---------------------------------------------------------------------------
 
 
@@ -124,8 +123,7 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// AppProvider with React Context + useReducer Test
-// IDs: through
+// AppProvider with React Context + useReducer
 // ---------------------------------------------------------------------------
 
 // useDocumentState.tsx exists with required exports
@@ -255,7 +253,7 @@ func TestTwoSeparateContexts(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// MainLayout component with allotment two-column layout Test IDs: through
+// MainLayout component with allotment two-column layout
 // ---------------------------------------------------------------------------
 
 // MainLayout.tsx exists
@@ -289,8 +287,7 @@ func TestMainLayoutFileExists(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// App.jsx integrates AppProvider, MainLayout, and EmptyState Test
-// IDs: through
+// App.jsx integrates AppProvider, MainLayout, and EmptyState
 // ---------------------------------------------------------------------------
 
 // App.jsx wraps content in AppProvider

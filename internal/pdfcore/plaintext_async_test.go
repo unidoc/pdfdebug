@@ -488,7 +488,7 @@ func TestGetPlainTextErrUnsupportedPDFPreserved(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncErrWrappingPreservesCanceled verifies error- wrapping
+// TestGetPlainTextAsyncErrWrappingPreservesCanceled verifies the error-wrapping
 // rule + Dev Notes: GetPlainText MUST NOT route context.Canceled through
 // wrapPDFError (which would mask the Canceled identity behind an
 // ErrMalformedPDF wrap). The structural guard test in the acceptance suite

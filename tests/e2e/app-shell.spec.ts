@@ -9,7 +9,6 @@
  * MainLayout. Source-level validation (menu bar setup, file structure, imports)
  * is handled by Go integration tests in tests/app-shell/app_shell_test.go.
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/app-shell.spec.ts
  */
 import { test, expect } from '../support/fixtures';

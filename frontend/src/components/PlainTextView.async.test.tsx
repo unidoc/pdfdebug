@@ -377,7 +377,7 @@ describe('error state shows Retry with shared CTA testid', () => {
 });
 
 // ---------------------------------------------------------------------------
-// document-tab switch mid-load triggers the stale- fetch guard; the previous
+// document-tab switch mid-load triggers the stale-fetch guard; the previous
 // load's resolve does not mutate state on the new doc.
 // ---------------------------------------------------------------------------
 

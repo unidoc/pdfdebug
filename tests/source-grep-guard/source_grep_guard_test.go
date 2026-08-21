@@ -19,9 +19,9 @@
 // source-grep, remove its entry from `grandfatheredAllowlist`. The test fails
 // if the allowlist contains a stale entry, so pruning is mechanical.
 //
-// This test partially fulfills the deferred CI-lint follow-up tracked in
-// docs/_bmad-output/implementation-artifacts/deferred-work.md under
-// "Deferred from" note.
+// This test partially fulfills the deferred follow-up tracked in
+// docs/_bmad-output/implementation-artifacts/deferred-work.md as "CI lint to
+// prevent re-introduction of source-grep assertions".
 //
 // Run: cd tests/source-grep-guard && go test -count=1 ./...
 package source_grep_guard_test
@@ -61,7 +61,7 @@ var readFunctionNames = map[string]bool{
 //     the production-source layout, not of runtime behavior, and is not
 //     reproducible via Vitest, Playwright, or boot-smoke because the
 //     splash WebView is a frameless OS-native window outside Playwright's
-//     reach. See.
+//     reach. TestSplashWindowCreatedBeforeMainWindow below is the entry.
 //
 //  2. Structural regression guards on reentrant callbacks (e.g. the
 //     splash MUST NOT be created inside OnSecondInstanceLaunch). Same

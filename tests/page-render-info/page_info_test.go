@@ -294,7 +294,7 @@ func TestPageInfo_PatternsShadingsStructuralOnly(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // STRUCTURAL-ONLY guard. The entire output must contain NO computed-color
-// output field. Assert that none of the forbidden rendered- color keys appear
+// output field. Assert that none of the forbidden rendered-color keys appear
 // anywhere in the JSON (no rgb/cmyk/composited results).
 // ---------------------------------------------------------------------------
 

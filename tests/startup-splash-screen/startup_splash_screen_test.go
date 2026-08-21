@@ -675,12 +675,13 @@ func TestMainWindowFirstPaintIsTransparent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Build-time -ldflags wiring preserves the full semver for.
+// Build-time -ldflags wiring preserves the full semver, prerelease suffix
+// included: the splash must show `v0.2.0-rc1`, not the stripped `v0.2.0`.
 //
 // Contingent on `VERSION` being set to the full semver by the
-// upstream CI / release pipeline. The story explicitly says: "If
-// VERSION itself is stripped upstream, that fix is a prerequisite and
-// not scope-creep for this story."
+// upstream CI / release pipeline. A VERSION that is already stripped
+// upstream is a prerequisite fix outside what this test covers; the
+// requirement here is only that the build files do not strip it further.
 //
 // This test scans build/{darwin,linux,windows}/Taskfile.yml for the
 // -X main.version={{.VERSION}} substitution and asserts no strip is

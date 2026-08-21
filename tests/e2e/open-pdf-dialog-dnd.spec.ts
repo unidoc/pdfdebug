@@ -5,7 +5,6 @@
  * structural/state/error tests are handled by Go integration tests in
  * tests/open-pdf-dialog-dnd/open_pdf_dialog_dnd_test.go.
  *
- * Test IDs:
  * Run: npx playwright test tests/e2e/open-pdf-dialog-dnd.spec.ts
  */
 import { test, expect } from '../support/fixtures';
