@@ -107,6 +107,10 @@ if [ -z "$OUTDIR" ]; then
 	OUTDIR="$(mktemp -d)" || die "mktemp failed"
 fi
 mkdir -p "$OUTDIR" || die "cannot create $OUTDIR"
+# Absolutize: the baseline build runs `go build -o "$BIN_HEAD.tmp"` from inside
+# the worktree, so a relative OUTDIR would resolve against the worktree instead
+# of here and the following mv would not find the binary.
+OUTDIR="$(cd "$OUTDIR" && pwd)" || die "cannot resolve $OUTDIR"
 
 WORKTREE="$OUTDIR/baseline-worktree"
 BIN_BASE="$OUTDIR/pdfdebug-baseline"
