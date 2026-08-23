@@ -1,13 +1,13 @@
 /**
- * @file Validate view -- document-level STRUCTURAL conformance panel (Story
- * 13.5). A "Run checks" action with a profile selector runs the bounded
- * PDF/A-1b or PDF/UA-1-structural rule set and renders the returned problems
- * grouped by severity. Clicking an object-scoped problem jumps TreePanel to the
- * offending object via the existing NAVIGATE_TO_REF wiring; a problem with no
- * object node id is shown but not clickable, while a non-empty-but-unresolvable
- * id degrades gracefully through the reducer's navigation-error path (never a
- * broken jump). The not-authoritative disclaimer is ALWAYS visible and the
- * panel NEVER states an authoritative conformance verdict.
+ * @file Validate view -- document-level STRUCTURAL conformance panel. A "Run
+ * checks" action with a profile selector runs the bounded PDF/A-1b or
+ * PDF/UA-1-structural rule set and renders the returned problems grouped by
+ * severity. Clicking an object-scoped problem jumps TreePanel to the offending
+ * object via the existing NAVIGATE_TO_REF wiring; a problem with no object node
+ * id is shown but not clickable, while a non-empty-but-unresolvable id degrades
+ * gracefully through the reducer's navigation-error path (never a broken jump).
+ * The not-authoritative disclaimer is ALWAYS visible and the panel NEVER states
+ * an authoritative conformance verdict.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Validate } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';

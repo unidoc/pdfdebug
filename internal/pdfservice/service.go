@@ -447,8 +447,7 @@ func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, erro
 
 // Validate runs the bounded structural conformance rule set for profile
 // against the document in tabID and returns the problem list, tally, and
-// disclaimer. Structural checks only - not authoritative conformance. Story
-// 13.5.
+// disclaimer. Structural checks only - not authoritative conformance.
 func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult, error) {
 	var result *pdfcore.ValidationResult
 	var err error

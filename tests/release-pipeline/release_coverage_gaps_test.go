@@ -695,11 +695,10 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Linux native runtime deps are installed in the build job. Covers Story
-// 8-5: the Linux artifact must be runnable, which depends on `libgtk-3` and
-// `libwebkit2gtk-4.1` being present on the runner. The install step at
-// release.yml lines 62-63 is also the README's source of truth for the
-// runtime-deps note end users follow.
+// Linux native runtime deps are installed in the build job: the Linux artifact
+// must be runnable, which depends on `libgtk-3` and `libwebkit2gtk-4.1` being
+// present on the runner. The install step at release.yml lines 62-63 is also
+// the README's source of truth for the runtime-deps note end users follow.
 // ---------------------------------------------------------------------------
 
 func TestLinuxRuntimeDepsInstalled(t *testing.T) {

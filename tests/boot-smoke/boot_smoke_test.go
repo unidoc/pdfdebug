@@ -92,8 +92,8 @@ func platformLaunchDeadline() time.Duration {
 // and icon preprocessing); falls back to `go build -tags production` if
 // wails3 is not on PATH.
 //
-// wails3 alpha.74 writes to `bin/<APP_NAME>` with no -o flag (R3 in story
-// 4-5). We copy that artifact into t.TempDir() to keep the test hermetic.
+// wails3 alpha.74 ignores -o and always writes to `bin/<APP_NAME>`. We copy
+// that artifact into t.TempDir() to keep the test hermetic.
 func buildSmokeBinary(t *testing.T) string {
 	t.Helper()
 	root := projectRoot(t)

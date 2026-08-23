@@ -73,8 +73,7 @@ export interface TabState {
   recentJumps: RecentJump[];
   /**
    * Plain Text find-bar case-sensitivity toggle. Persists across find-bar
-   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT (Story
-   * 10-2).
+   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT.
    */
   findCaseSensitive: boolean;
 }

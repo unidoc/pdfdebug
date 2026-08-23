@@ -98,13 +98,14 @@ type ResolveOpts struct {
 
 // ResolvedNode is the dedicated result tree of Inspector.ResolveRef. It is a
 // deliberate alternative to TreeNode/ObjectDetail (which are display-oriented:
-// string Display fields, IObject placeholders) because consumers like Story
-// 11-6 need to read the raw pdfcpu value to classify /Subtype, read /MediaBox
-// arrays, and walk /Resources sub-dicts. Value carries that raw object for Go
-// callers; it is excluded from JSON (the GUI/CLI read the typed fields).
+// string Display fields, IObject placeholders) because consumers like
+// Inspector.PageRenderInfo need to read the raw pdfcpu value to classify
+// /Subtype, read /MediaBox arrays, and walk /Resources sub-dicts. Value carries
+// that raw object for Go callers; it is excluded from JSON (the GUI/CLI read
+// the typed fields).
 //
 // The JSON shape (objectRef, cyclic, truncated, children, ...) is a stable
-// contract for 11-6 and the GUI, pinned by a test.
+// contract for PageRenderInfo and the GUI, pinned by a test.
 type ResolvedNode struct {
 	// Value is the raw resolved pdfcpu object (a Dict, StreamDict, Array, scalar,
 	// or - for an unfollowed ref marker - the IndirectRef itself). Excluded from
@@ -394,12 +395,11 @@ type FontDetail struct {
 	Health *FontHealth `json:"health"`
 }
 
-// FontMappingRow is one assembled row in the per-code font mapping table (Story
-// 13.3). It is the JOIN of an /Encoding /Differences entry (GlyphName) and a
-// /ToUnicode CMap entry (Unicode, UnicodeText) keyed by character code. Either
-// side may be empty when a code is declared in only one of the two sources. There
-// is no single existing type spanning these fields, so this row type is defined
-// explicitly.
+// FontMappingRow is one assembled row in the per-code font mapping table. It is
+// the JOIN of an /Encoding /Differences entry (GlyphName) and a /ToUnicode CMap
+// entry (Unicode, UnicodeText) keyed by character code. Either side may be empty
+// when a code is declared in only one of the two sources. There is no single
+// existing type spanning these fields, so this row type is defined explicitly.
 type FontMappingRow struct {
 	Code        int    `json:"code"`        // character code
 	CodeHex     string `json:"codeHex"`     // "0x41" form

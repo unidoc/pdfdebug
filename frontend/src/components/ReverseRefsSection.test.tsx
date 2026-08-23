@@ -269,8 +269,7 @@ describe('orphan empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// index-unavailable banner has priority over the other empty states. Task
-// 6.5 case 1.
+// index-unavailable banner has priority over the other empty states.
 // ---------------------------------------------------------------------------
 
 describe('index-unavailable banner', () => {

@@ -194,8 +194,7 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 // has no Contents entry -- it is a bare page with no drawing commands.
 // Verify exit code 0, verify JSON output has `error` field containing
 // "page has no content stream", verify `raw` is empty. This tests the "no
-// Contents entry at all" case (the CLI's empty-page branch from Task
-// 3.4).
+// Contents entry at all" case (the CLI's empty-page branch).
 // Given a page with no content stream (empty page), When the CLI is
 //       executed, Then the JSON output includes an empty `raw` string
 //       and/or a non-fatal `error` field explaining the page has no stream
