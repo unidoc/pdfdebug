@@ -67,9 +67,8 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns correct key-value pairs for dictionary node
 // with type-preserved values: Given a dictionary node is selected in the
-// tree, When the
-//       ObjectInfoPanel updates, Then it displays a key-value table with
-//       each PDF dictionary key and its value, And values are typed.
+// tree, When the ObjectInfoPanel updates, Then it displays a key-value table
+// with each PDF dictionary key and its value, And values are typed.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailDict(t *testing.T) {

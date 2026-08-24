@@ -396,7 +396,7 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 // ticking, Cancel click -> CancelPlainText invocation, cancelled state CTA,
 // stale-fetch guard on document tab switch, fast-path under-debounce) are
 // asserted in PlainTextView.async.test.tsx. We assert here only that the
-// wiring points referenced by.. exist in source.
+// wiring points those component tests rely on exist in source.
 
 // TestPlainTextViewLoadingCardTestIds asserts PlainTextView carries the
 // load-bearing data-testids for the async loading card flow.

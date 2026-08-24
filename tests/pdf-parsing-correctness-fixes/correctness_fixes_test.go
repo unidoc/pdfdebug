@@ -494,9 +494,9 @@ func TestDocumentStateHasFileSize(t *testing.T) {
 	}
 }
 
-// TestOpenPopulatesFileSize asserts Inspector.Open sets FileSize inside the `doc
-// := &DocumentState{...}` literal, not only inside the DocumentInfo literal. The
-// value is already captured as `fileSize := fi.Size()`.
+// TestOpenPopulatesFileSize asserts Inspector.Open sets FileSize inside the
+// `doc := &DocumentState{...}` literal, not only inside the DocumentInfo
+// literal. The value is already captured as `fileSize := fi.Size()`.
 func TestOpenPopulatesFileSize(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	body := extractFunctionBody(t, src, "Open")

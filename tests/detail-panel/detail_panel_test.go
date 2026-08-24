@@ -82,8 +82,7 @@ func TestDetailPanelExport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DetailPanel.tsx uses React.memo AC: Architecture
-// requirement -- wrapped in React.memo.
+// DetailPanel.tsx wraps its export in React.memo, an architecture requirement.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelUsesMemo(t *testing.T) {

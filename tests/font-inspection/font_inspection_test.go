@@ -7,10 +7,10 @@
 //     FontDescriptor + composite descendant) -> pdfcore Go unit tests
 //     delegated via runPdfcoreTest. Pure-function font analysis is best
 //     verified in-process with hand-crafted fixtures.
-//   - Backend ErrNotAFont sentinel, (resolved-dict drives view) ->
+//   - Backend ErrNotAFont sentinel and the resolved dict driving the view ->
 //     pdfcore Go unit tests asserting the sentinel + resolveNodeObject reuse.
 //   - Wails plumbing -> structural assertions on service.go.
-//   - Frontend swap, badge.. section behavior, keyboard,
+//   - Frontend view swap, badge, section behavior, keyboard,
 //     loading debounce, header label, a11y -> Vitest. Delegated
 //     here only via structural checks that the FontPreview component file and
 //     test file exist; full behavior contracts live in
@@ -616,8 +616,8 @@ func TestFontPreviewComponentFileExists(t *testing.T) {
 	}
 }
 
-// FontPreview.test.tsx exists. The behavior contract for every.. rendering
-// rule lives there.
+// FontPreview.test.tsx exists. The behavior contract for every section's
+// rendering rules lives there.
 func TestFontPreviewTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "FontPreview.test.tsx")

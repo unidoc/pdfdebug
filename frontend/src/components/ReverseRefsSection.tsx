@@ -4,7 +4,8 @@
  * expanded for <=5 entries, collapsed otherwise. Toggle resets on selection
  * change via React's key-based remount (DetailPanel passes key={selectedNodeId}).
  *
- * Renders the inbound-edge list plus the index-unavailable banner (case 1).
+ * Renders the inbound-edge list, plus the banner shown when the reverse-ref
+ * index is unavailable, which takes precedence over the other empty states.
  */
 import { useState } from 'react';
 import { useAppDispatch } from '../hooks/useDocumentState';

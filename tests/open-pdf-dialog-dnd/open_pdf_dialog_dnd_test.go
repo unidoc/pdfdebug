@@ -5,7 +5,7 @@
 // File Dialog and Drag-and-Drop.
 //
 // Test Levels: Integration (Go) -- source file content parsing, structural validation.
-// Frontend state/UI tests are Vitest (/002/003) or E2E.
+// Frontend state/UI tests are Vitest or E2E.
 //
 // Run: cd tests/open-pdf-dialog-dnd && go test -v -count=1 ./...
 package open_pdf_dialog_dnd_test
@@ -532,7 +532,7 @@ func TestTypeScriptCompiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Pdfcore still has zero Wails imports (regression check) AC: Architecture
+// Pdfcore still has zero Wails imports (regression check): architecture
 // compliance carried forward.
 // ---------------------------------------------------------------------------
 

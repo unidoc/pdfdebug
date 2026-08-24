@@ -96,8 +96,8 @@ func TestGreetServiceFileDeleted(t *testing.T) {
 // TestNativeMenuBarCreated, TestPlatformConditionalQuit, and
 // TestMainGoSetupOrdering were source-grep assertions on main.go.
 // TestNativeMenuBarCreated and TestMainGoSetupOrdering are replaced by
-// tests/boot-smoke (boot path runs to
-// the event loop without panic). TestPlatformConditionalQuit is delete-only;
+// tests/boot-smoke (boot path runs to the event loop without panic).
+// TestPlatformConditionalQuit is delete-only;
 // macOS Quit-in-AppMenu duplicate-prevention is not separately covered after
 // deletion (regression risk accepted; structural breakage would surface in the
 // build matrix and at first manual smoke).

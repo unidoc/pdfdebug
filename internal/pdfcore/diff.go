@@ -489,8 +489,7 @@ func countDelta(n *DiffNode, s *DiffSummary) {
 		return
 	}
 	// A depth-capped node is counted regardless of its shallow-summary status:
-	// its subtree was not walked, so a matching summary does not prove equality
-	// walked.
+	// its subtree was not walked, so a matching summary does not prove equality.
 	if n.Truncated {
 		s.TruncatedSubtrees++
 	}

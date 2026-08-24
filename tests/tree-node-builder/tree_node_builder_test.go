@@ -438,9 +438,9 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// All tree-related pdfcore tests pass: Unit tests cover tree root
-// building, child enumeration for
-//       dicts/arrays/scalars/refs, error node creation, and semantic labeling.
+// All tree-related pdfcore tests pass: unit tests cover tree root building,
+// child enumeration for dicts/arrays/scalars/refs, error node creation, and
+// semantic labeling.
 // ---------------------------------------------------------------------------
 
 func TestAllTreeTestsPass(t *testing.T) {

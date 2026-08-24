@@ -1,7 +1,6 @@
 /**
  * Tree Panel with Lazy-Loading Navigation
  *
- * Test IDs: through
  * Run: cd frontend && npx vitest run src/components/TreePanel.test.tsx
  */
 import { render, screen, act, within, waitFor } from '@testing-library/react';

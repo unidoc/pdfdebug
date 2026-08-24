@@ -132,7 +132,7 @@ func TestFindMatchesTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// .. -- useFindBar hook surface.
+// useFindBar hook surface.
 // ---------------------------------------------------------------------------
 
 // TestUseFindBarHookExists asserts frontend/src/hooks/useFindBar.ts exists.

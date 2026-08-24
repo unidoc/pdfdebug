@@ -905,9 +905,9 @@ describe('DetailPanel does not fetch content stream for non-stream nodes', () =>
 });
 
 // ---------------------------------------------------------------------------
-// Stale content stream fetch cancelled on node change AC: Content stream
-// fetch uses stale-fetch guard; changing node discards
-//     the previous in-flight content stream response.
+// Stale content stream fetch cancelled on node change: the content stream
+// fetch uses the stale-fetch guard, so changing node discards the previous
+// in-flight content stream response.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel stale content stream cancellation', () => {
@@ -1619,9 +1619,9 @@ describe('DetailPanel image data IPC rejection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Stale image fetch cancelled on node change AC: Image data fetch
-// uses stale-fetch guard; changing node discards
-//     the previous in-flight image response.
+// Stale image fetch cancelled on node change: the image data fetch uses the
+// stale-fetch guard, so changing node discards the previous in-flight image
+// response.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel stale image fetch cancellation', () => {

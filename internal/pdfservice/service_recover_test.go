@@ -14,9 +14,9 @@ import (
 )
 
 // panickingInspector simulates a pdfcore.Inspector that panics with a
-// runtime.Error from its bound methods. Used by to exercise the
-// pdfservice top-level recover that converts runtime.Error to
-// ErrMalformedPDF: internal error.
+// runtime.Error from its bound methods. Used to exercise the pdfservice
+// top-level recover that converts runtime.Error to ErrMalformedPDF: internal
+// error.
 //
 // The stub only needs to implement the method PDFService calls in the test
 // path -- GetTreeRoot in this case. The full inspectorAPI interface that Dev

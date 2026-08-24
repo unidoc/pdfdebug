@@ -182,8 +182,8 @@ describe('ImagePreview large image dimensions', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ImagePreview handles missing/partial metadata AC: No crash when
-// metadata fields are zero/empty.
+// ImagePreview handles missing/partial metadata: no crash when metadata
+// fields are zero/empty.
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview missing metadata', () => {

@@ -82,8 +82,7 @@ Post-fix both entries are skipped silently; only the `/space` entry at code
 
 ## leading-plus.pdf
 
-Single-page PDF whose content stream carries leading-`+` signed operands
-(F1):
+Single-page PDF whose content stream carries leading-`+` signed operands:
 
 ```
 obj 4: << /Length 16 >> stream
@@ -101,7 +100,7 @@ operator `+5` and `Format()` mis-groups the transform. Post-fix each `+5` is a
 ## comment-and-dangling.pdf
 
 Single-page PDF whose content stream contains a `%` comment line and a trailing
-dangling operand run with no terminating operator (F2):
+dangling operand run with no terminating operator:
 
 ```
 obj 4: << /Length 40 >> stream
