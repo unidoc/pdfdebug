@@ -209,8 +209,8 @@ describe('ImagePreview missing metadata', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Warning display: Warning text shown above metadata: When ImageData.warning
-// is non-empty, an amber-colored notice is shown.
+// Warning display: when ImageData.warning is non-empty, an amber-coloured
+// notice is shown above the metadata.
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview warning display', () => {

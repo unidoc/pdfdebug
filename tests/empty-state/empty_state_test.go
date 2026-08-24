@@ -80,14 +80,13 @@ func fileExists(t *testing.T, relPath string) bool {
 
 
 // ---------------------------------------------------------------------------
-// EmptyState data-testid attributes present -5: All required
-// data-testid attributes for test automation
+// EmptyState carries every data-testid attribute the automation needs
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Drop zone accessibility attributes: Drop zone has role="region"
-// and aria-label="File drop zone": Drag hint has aria-live="polite"
+// Drop zone accessibility attributes: the drop zone has role="region" and
+// aria-label="File drop zone", and the drag hint has aria-live="polite"
 // ---------------------------------------------------------------------------
 
 

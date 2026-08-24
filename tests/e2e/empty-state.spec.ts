@@ -15,10 +15,11 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
 test.describe('Empty State with Drag-and-Drop Zone', () => {
   // ---------------------------------------------------------------------------
-  // Application launches and displays empty state: Centered empty
-  // state with title and subtitle: Drop zone with "Drop a PDF file
-  // here" text: "Open File..." button visible: Platform-aware
-  // shortcut hint displayed
+  // Application launches and displays the empty state, which shows:
+  //   - a centered block with title and subtitle
+  //   - a drop zone reading "Drop a PDF file here"
+  //   - an "Open File..." button
+  //   - a platform-aware shortcut hint
   // ---------------------------------------------------------------------------
   test('should display empty state with all elements on launch', async ({ appPage }) => {
     await waitForWailsReady(appPage);
