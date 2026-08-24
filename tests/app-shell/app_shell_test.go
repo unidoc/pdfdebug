@@ -428,8 +428,8 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 
 
 // ---------------------------------------------------------------------------
-// useDocumentState initial state is correct Verify
-// initialState has empty tabs and null activeTabId
+// useDocumentState initial state is correct.
+// Verify initialState has empty tabs and null activeTabId.
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateInitialState(t *testing.T) {
