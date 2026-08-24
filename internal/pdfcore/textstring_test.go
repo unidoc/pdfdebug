@@ -33,7 +33,7 @@ const (
 	rawCheckSumHex = "DEADBEEFCAFEF00D0011223344556677"
 )
 
-// --- fixture builders (uniquely named; the package already has 13-2 builders) -
+// --- fixture builders (uniquely named; the package already has embedded-data builders) -
 
 // textStringEmbeddedStreamObj returns an /EmbeddedFile stream whose /Params
 // carries a hex-literal /CheckSum, so the binary boundary can be asserted on the

@@ -83,7 +83,7 @@ vi.mock(
     GetObjectDetail: vi.fn(),
     GetContentStream: vi.fn(),
     GetAncestorPath: vi.fn(),
-    // Close the pre-existing 12-1 harness gap: without this stub the cold-start
+    // Close the pre-existing cold-start harness gap: without this stub the cold-start
     // drain rejects, emitting unhandled errors ("ideally close the
     // pre-existing" clause).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),

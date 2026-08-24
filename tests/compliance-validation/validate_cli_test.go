@@ -11,7 +11,7 @@ import (
 // ---------------------------------------------------------------------------
 // Fixture sanity: every hand-assembled fixture must parse through the EXISTING
 // open path (dump objects, exit 0). This test passes TODAY and guards the suite
-// against an eternally-red fixture (13-4 precedent).
+// against an eternally-red fixture (signature-decomposition precedent).
 // ---------------------------------------------------------------------------
 
 func TestValidate_FixturesParseThroughOpenPath(t *testing.T) {
@@ -185,7 +185,7 @@ func TestValidate_HonestyGuardrail(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13-1 contract: the plain-text default is ASCII-only and ends with a
+// Plain-text-default contract: the plain-text default is ASCII-only and ends with a
 // trailing newline.
 // ---------------------------------------------------------------------------
 

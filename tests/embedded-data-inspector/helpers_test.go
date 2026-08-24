@@ -4,7 +4,7 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
 // surface at RUNTIME (unknown resource / wrong output shape / wrong exit code),
 // not at compile time, so the main `unidoc-pdf-debugger` module keeps building
-// green (mirrors 13-1 / 11-6).
+// green (mirrors the cli-output-format-normalization and page-render-info suites).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established level for CLI
@@ -135,7 +135,7 @@ func parsesAsJSON(s string) bool {
 }
 
 // assertNotJSON fails when out is a top-level JSON object/array document. The
-// plain-text default must NOT parse as a JSON document (13-1 contract).
+// plain-text default must NOT parse as a JSON document (plain-text-default contract).
 func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
@@ -147,7 +147,7 @@ func assertNotJSON(t *testing.T, out string) {
 	}
 }
 
-// assertASCII fails when out contains a non-ASCII byte (13-1 plain-text contract).
+// assertASCII fails when out contains a non-ASCII byte (plain-text contract).
 func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
@@ -158,7 +158,7 @@ func assertASCII(t *testing.T, out string) {
 	}
 }
 
-// assertTrailingNewline fails when out does not end in a newline (13-1 contract).
+// assertTrailingNewline fails when out does not end in a newline (plain-text-default contract).
 func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {

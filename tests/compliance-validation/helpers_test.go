@@ -5,18 +5,19 @@
 // Black-box: build the pdfdebug CLI binary and run it as a subprocess. Failures
 // surface at RUNTIME (unknown command -> exit 1 / wrong output shape / wrong
 // exit code), not at compile time, so the main `unidoc-pdf-debugger` module
-// keeps building green (mirrors 13-2 / 13-3 / 13-4).
+// keeps building green (mirrors the embedded-data-inspector, font-cmap-glyph
+// and signature-decomposition suites).
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established acceptance level
-// for the CLI surface (10-x, 13-1..13-4). The Validate GUI panel and its
+// for the CLI surface (as in the sibling CLI suites). The Validate GUI panel and its
 // jump-to-object wiring are covered at the component (Vitest) level in
 // frontend/src/components/ValidateView.test.tsx; the veraPDF oracle
 // cross-check lives in oracle_verapdf_test.go (skipped when veraPDF is
 // absent). No browser/E2E layer is warranted.
 //
 // JSON wire contract pinned by this suite (camelCase per the IPC rules,
-// matching the 13-2/13-3/13-4 precedent):
+// matching the sibling CLI suites' precedent):
 //
 //	validate --json => top-level OBJECT:
 //	  profile   string                selected profile ("pdfa-1b" | "pdfua-1-structural")
@@ -158,7 +159,7 @@ func parsesAsJSON(s string) bool {
 }
 
 // assertNotJSON fails when out is a top-level JSON object/array document. The
-// plain-text default must NOT parse as a JSON document (13-1 contract).
+// plain-text default must NOT parse as a JSON document (plain-text-default contract).
 func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
@@ -170,7 +171,7 @@ func assertNotJSON(t *testing.T, out string) {
 	}
 }
 
-// assertASCII fails when out contains a non-ASCII byte (13-1 plain-text contract).
+// assertASCII fails when out contains a non-ASCII byte (plain-text contract).
 func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
@@ -181,7 +182,7 @@ func assertASCII(t *testing.T, out string) {
 	}
 }
 
-// assertTrailingNewline fails when out does not end in a newline (13-1 contract).
+// assertTrailingNewline fails when out does not end in a newline (plain-text-default contract).
 func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
@@ -322,7 +323,7 @@ func pad10(n int) string {
 }
 
 // assemblePDF stitches a header, object bodies (object i+1), an xref table, and
-// a trailer with /Root 1 0 R. Mirrors the 13-4 fixture assembler.
+// a trailer with /Root 1 0 R. Mirrors the signature-decomposition fixture assembler.
 func assemblePDF(objs []string) []byte {
 	body := "%PDF-1.7\n"
 	offsets := make([]int, len(objs))

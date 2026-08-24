@@ -19,7 +19,7 @@ import (
 // names the forms THEY declare (the own-resources gotcha) while keeping the
 // artifact bounded; depth 1 lists the page's direct forms without classifying
 // their resources. It is a THIRD recursion axis, distinct from `dump tree`'s
-// --depth (tree-walk) and 11-5's --resolve-depth (ref-following).
+// --depth (tree-walk) and --resolve-depth (ref-following).
 const defaultFormsDepth = 2
 
 // pageSections is the exact, closed enum of --section values. patterns/shadings

@@ -20,7 +20,7 @@
 //   - Frontend reducer (useDocumentState extension): per-tab
 //     findCaseSensitive.
 //   - Project docs: project-context.md gains the Plain Text Find Bar Rules
-//     section; deferred-work.md marks the 9-12 "Search within Plain Text
+//     section; deferred-work.md marks the "Search within Plain Text
 //     payload" entry as RESOLVED and records new deferrals.
 //
 // This Go harness pins structural invariants only: file existence, required

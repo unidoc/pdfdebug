@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, test, expect } from 'vitest';
 import { ContentStreamViewer } from './ContentStreamViewer';
 
-// 9-6: see ContentStreamViewer.test.tsx for the rationale; this helper wraps
+// See ContentStreamViewer.test.tsx for the rationale; this helper wraps
 // a flat token fixture into a single FormattedLine so per-token highlight
 // assertions survive the prop rename without re-deriving operator boundaries.
 type TokFixture = ReadonlyArray<{ type: string; value: string; line: number; col: number }>;

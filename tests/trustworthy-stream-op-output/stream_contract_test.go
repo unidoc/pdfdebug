@@ -38,8 +38,8 @@ type opsRecord struct {
 // ---------------------------------------------------------------------------
 // Fixture sanity: the hand-authored corpus fixtures must
 // parse through the EXISTING open path (dump objects, exit 0). Passes TODAY;
-// guards the suite against a broken fixture (13-4/13-5/13-6
-// precedent).
+// guards the suite against a broken fixture (signature-decomposition,
+// compliance-validation and structural-diff precedent).
 // ---------------------------------------------------------------------------
 
 func TestStream_FixturesParseThroughOpenPath(t *testing.T) {

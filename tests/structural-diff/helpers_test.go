@@ -7,18 +7,18 @@
 // command). They fail at RUNTIME (unknown
 // command -> exit 1 / wrong output shape / wrong exit code), not at compile
 // time, so the main `unidoc-pdf-debugger` module keeps building green (mirrors
-// 13-2 / 13-3 / 13-4 / 13-5). This module has its own go.mod and is not part of
+// the sibling CLI suites). This module has its own go.mod and is not part of
 // the main build.
 //
 // Test pyramid: every case here is a Go integration-level black-box test
 // against the built CLI binary -- the project's established acceptance level
-// for the CLI surface (10-x, 13-1..13-5). The path-alignment ENGINE is unit-
+// for the CLI surface (as in the sibling CLI suites). The path-alignment ENGINE is unit-
 // tested co-located in internal/pdfcore/diff_test.go; the GUI side-by-side view
 // is covered at the component (Vitest) level in
 // frontend/src/components/DiffView.test.tsx. No browser/E2E layer is warranted.
 //
 // JSON wire contract pinned by this suite (camelCase per the IPC rules,
-// matching the 13-2..13-5 precedent):
+// matching the sibling CLI suites' precedent):
 //
 //	diff --json  =>  top-level OBJECT:
 //	  summary  { added:int, removed:int, changed:int,
@@ -156,7 +156,7 @@ func parsesAsJSON(s string) bool {
 }
 
 // assertNotJSON fails when out is a top-level JSON object/array document. The
-// plain-text default must NOT parse as a JSON document (13-1 contract).
+// plain-text default must NOT parse as a JSON document (plain-text-default contract).
 func assertNotJSON(t *testing.T, out string) {
 	t.Helper()
 	trimmed := strings.TrimSpace(out)
@@ -168,7 +168,7 @@ func assertNotJSON(t *testing.T, out string) {
 	}
 }
 
-// assertASCII fails when out contains a non-ASCII byte (13-1 plain-text contract).
+// assertASCII fails when out contains a non-ASCII byte (plain-text contract).
 func assertASCII(t *testing.T, out string) {
 	t.Helper()
 	for i := 0; i < len(out); i++ {
@@ -179,7 +179,7 @@ func assertASCII(t *testing.T, out string) {
 	}
 }
 
-// assertTrailingNewline fails when out does not end in a newline (13-1 contract).
+// assertTrailingNewline fails when out does not end in a newline (plain-text-default contract).
 func assertTrailingNewline(t *testing.T, out string) {
 	t.Helper()
 	if out == "" {
@@ -231,7 +231,7 @@ func getStr(m map[string]any, key string) string {
 // Every fixture is a minimal hand-assembled PDF built to parse through the
 // existing open path while exercising a specific structural
 // relationship. They are not in testdata/; this suite is self-contained
-// (13-4 / 13-5 precedent).
+// (signature-decomposition / compliance-validation precedent).
 
 func itoa(n int) string {
 	if n == 0 {

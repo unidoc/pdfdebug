@@ -101,7 +101,7 @@ func printMetadataPlain(out io.Writer, md *pdfcore.DocumentMetadata) error {
 	if xmp == "" {
 		xmp = "(none)"
 	}
-	// Ensure a trailing newline so the plain-text 13-1 contract holds even when
+	// Ensure a trailing newline so the plain-text-default contract holds even when
 	// the XMP packet does not end in one.
 	if len(xmp) == 0 || xmp[len(xmp)-1] != '\n' {
 		xmp += "\n"

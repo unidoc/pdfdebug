@@ -10,7 +10,8 @@ import (
 // ---------------------------------------------------------------------------
 // Fixture sanity: every hand-assembled fixture must parse through the
 // EXISTING open path (dump objects, exit 0). This test passes TODAY and
-// guards the suite against an eternally-red fixture (13-4/13-5).
+// guards the suite against an eternally-red fixture (signature-decomposition
+// and compliance-validation precedent).
 // ---------------------------------------------------------------------------
 
 func TestDiff_FixturesParseThroughOpenPath(t *testing.T) {
@@ -166,7 +167,7 @@ func TestDiff_JSONEnvelope(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// + 13-1 contract: the plain-text default is NOT JSON, is ASCII-only, and
+// + Plain-text-default contract: the plain-text default is NOT JSON, is ASCII-only, and
 // ends with a trailing newline.
 // ---------------------------------------------------------------------------
 

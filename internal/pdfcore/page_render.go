@@ -26,7 +26,7 @@ const maxFormWalkDepth = 32
 // parse the content stream itself. This can over-report a form that is declared
 // in /Resources but never actually invoked by a Do; that is a benign superset.
 //
-// It is an assembled view built ON TOP of the 11-5 ResolveRef keystone /
+// It is an assembled view built ON TOP of the ResolveRef keystone /
 // GetXObjectResources: it composes those for per-level dict/ref resolution and
 // adds the NEW semantic readers (geometry inheritance, ExtGState/SMask resolver,
 // colorspace classifier, recursive form walk). STRUCTURAL ONLY - no rendering
@@ -496,7 +496,7 @@ func classifyShading(doc *DocumentState, name string, val pdfcpu_types.Object) S
 // XObjects declared in that /Resources/XObject dict (the forms its content may
 // Do; the walk reads the resource dict, not the content stream). onPath is the
 // per-path form-object-ref visited set that terminates a self-referential form
-// chain (the 11-5 ResolveRef cycle guard covers dict/array ref chains, NOT this
+// chain (the ResolveRef cycle guard covers dict/array ref chains, NOT this
 // form-XObject recursion - it is the NEW guard the story calls for). Caller
 // holds doc.pdfMu.
 //

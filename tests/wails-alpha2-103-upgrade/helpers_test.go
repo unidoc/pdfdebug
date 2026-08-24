@@ -233,7 +233,7 @@ func scanRepoFor(t *testing.T, needle string) bool {
 
 // loadOwnTestSources concatenates every *_test.go file in THIS test module's
 // directory, EXCLUDING the files named in skip. Used by the anti-brittleness
-// meta-guard to prove no exact method-count pin was re-introduced into the 12-3
+// meta-guard to prove no exact method-count pin was re-introduced into this
 // suite; the guard's own file is skipped because it necessarily contains the
 // forbidden-pattern literals as its detection strings.
 func loadOwnTestSources(t *testing.T, skip ...string) string {

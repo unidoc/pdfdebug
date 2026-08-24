@@ -2,7 +2,7 @@ package font_cmap_glyph_test
 
 // Font CMap and Glyph-Mapping Inspection -- CLI acceptance suite.
 //
-// Contract under test (13-1: plain text is the DEFAULT; --json is the stable
+// Contract under test (plain text is the DEFAULT; --json is the stable
 // surface):
 //   - `dump font --ref "N G R" <file>`            : plain summary (row count +
 //                                                    health signals), NOT JSON.

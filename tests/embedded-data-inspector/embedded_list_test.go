@@ -69,7 +69,7 @@ func TestEmbeddedList_JSONIsStructuredArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// + 13-1 contract: the plain-text list is ASCII-only and ends with a trailing
+// + Plain-text-default contract: the plain-text list is ASCII-only and ends with a trailing
 // newline.
 // ---------------------------------------------------------------------------
 

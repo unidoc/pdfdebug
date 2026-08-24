@@ -181,7 +181,7 @@ func TestSignatures_DirectVDecomposesWithEmptyRef(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13-1 contract: the plain-text default is ASCII-only and ends with a
+// Plain-text-default contract: the plain-text default is ASCII-only and ends with a
 // trailing newline.
 // ---------------------------------------------------------------------------
 

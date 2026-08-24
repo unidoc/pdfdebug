@@ -84,7 +84,7 @@ func TestBindingsDoNotResurrectGetPlainTextFull(t *testing.T) {
 	}
 	src := readSource(t, bindingRelPath)
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- 10-1 removed the Go method; a stale (`-clean=false`) regen re-introduces a dead binding")
+		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- the async-load work removed the Go method; a stale (`-clean=false`) regen re-introduces a dead binding")
 	}
 }
 

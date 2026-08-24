@@ -533,7 +533,7 @@ func checkXMPMetadata(doc *DocumentState) []ruleHit {
 			continue // XMP counterpart absent/unextractable/ambiguous: not a mismatch
 		}
 		if infoVal != xmpVal {
-			// QuoteToASCII keeps the message ASCII-only (13-1 plain-text
+			// QuoteToASCII keeps the message ASCII-only (plain-text
 			// contract) even when the decoded values carry non-ASCII text.
 			hits = append(hits, ruleHit{
 				message: fmt.Sprintf("/Info /%s (%s) differs from XMP %s (%s)",

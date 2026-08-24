@@ -10,7 +10,7 @@
  *
  * The new bound method (GetSignatures) is stubbed in the binding mock here so
  * DetailPanel's new tab does not widen the App.test.tsx vi.mock gap (mirrors
- * the 13-2 DetailPanel.embeddedMetadata.test.tsx playbook).
+ * the DetailPanel.embeddedMetadata.test.tsx playbook).
  *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.signatures.test.tsx
  */

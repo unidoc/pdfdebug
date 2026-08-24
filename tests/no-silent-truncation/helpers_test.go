@@ -13,7 +13,7 @@
 //
 // Test pyramid: every case here is a Go integration-level black-box test against
 // the built CLI binary -- the project's established acceptance level for the CLI
-// machine contract (10-x, 13-1..13-6, 14-1). The diff depth-cap count (the intent)
+// machine contract (as in the sibling CLI suites). The diff depth-cap count (the intent)
 // is asserted through the `diff --json` summary.truncatedSubtrees field rather than
 // a co-located internal/pdfcore unit test: that field/`DiffNode.Truncated` do not
 // exist yet, so a co-located test would break the main module's compile (and `go

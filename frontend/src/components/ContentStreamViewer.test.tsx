@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi } from 'vitest';
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
-// 9-6: tests previously passed flat token arrays via the old `tokenized` prop;
+// Tests previously passed flat token arrays via the old `tokenized` prop;
 // the component now consumes pre-grouped FormattedLine[] from the Go formatter.
 // toFormatted wraps a token fixture into a single formatted row so the
 // per-token highlighting/tooltip assertions still hold without re-deriving

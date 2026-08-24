@@ -29,7 +29,7 @@ vi.mock(
   })
 );
 
-/** A decomposed, indirect-/V signature entry per the 13-4 JSON contract. */
+/** A decomposed, indirect-/V signature entry per the signatures JSON contract. */
 const signedEntry = {
   fieldName: 'Sig1',
   signed: true,

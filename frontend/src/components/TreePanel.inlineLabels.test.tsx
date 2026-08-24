@@ -72,7 +72,7 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-// --- Fixtures: TreeNodes the backend emits for 9-8. `objectRef` and
+// --- Fixtures: TreeNodes the backend emits with inline labels. `objectRef` and
 // `typeName` are the added fields; cast through unknown so the fixtures
 // compile whichever way the TreeNode TS type is widened. ---
 

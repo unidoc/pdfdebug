@@ -155,7 +155,7 @@ func TestReverseRefsDump_ReferencedObject_OutputsNonEmptyArray(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // ref-taking commands accept BOTH the "N G R" and obj:G:N forms (reusing
-// 11-3's liberal parseObjectRef). For obj 4 0, the obj:G:N id is "obj:0:4"
+// the shared liberal parseObjectRef). For obj 4 0, the obj:G:N id is "obj:0:4"
 // (gen first, num second). Output must be equivalent JSON regardless of the
 // input form.
 // ---------------------------------------------------------------------------

@@ -242,7 +242,7 @@ func TestResolveRef_NegativeMaxDepthRejectedOrClamped(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ResolvedNode JSON shape is a stable contract for 11-6 and the GUI: it
+// ResolvedNode JSON shape is a stable contract for page-render-info and the GUI: it
 // must marshal and expose objectRef, cyclic, and truncated keys (the
 // load-bearing markers).
 // ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ func TestMultiStream_OpsNotSilentStreamOne(t *testing.T) {
 			continue
 		}
 		// A record with no "op" key is the floor meta marker; it must carry the
-		// truncation state and NOT masquerade as an operator (14-1 contract).
+		// truncation state and NOT masquerade as an operator (stream-op contract).
 		if _, ok := rec["streamCount"]; ok {
 			hasMetaMarker = true
 			if jsonInt(rec["streamCount"]) != 2 {

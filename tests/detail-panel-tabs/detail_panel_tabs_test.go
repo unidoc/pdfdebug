@@ -136,7 +136,7 @@ func TestXRefTableBasicShape(t *testing.T) {
 }
 
 // Rows are sorted by (ObjNum asc, Gen asc) -- pdfcpu map iteration order is
-// non-deterministic; sort on egress is mandatory. Same lesson as 9-9 / 9-10.
+// non-deterministic; sort on egress is mandatory.
 func TestXRefTableSorted(t *testing.T) {
 	runPdfcoreTest(t, "TestGetXRefTableSortedByObjNumThenGen")
 }
@@ -628,7 +628,7 @@ func TestPlainTextViewTestIds(t *testing.T) {
 }
 
 // Retired: the truncation banner that read capBytes +
-// totalBytes from the payload no longer exists. The 10-1 loading card
+// totalBytes from the payload no longer exists. The async-load loading card
 // surfaces totalBytes via GetPlainTextSize instead.
 
 // The line-break regex collapses CRLF / lone CR / lone LF to one logical

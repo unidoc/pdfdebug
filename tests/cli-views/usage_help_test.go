@@ -109,7 +109,7 @@ func TestUnknownResource_ShowsUsageWithNewCommands(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // cross-cutting: JSON commands default to compact single-line and honor
-// --pretty (the 11-3 emit helper). Verified on a document-level command
+// --pretty (the shared emit helper). Verified on a document-level command
 // (dump objects) to keep the parity contract uniform.
 // ---------------------------------------------------------------------------
 

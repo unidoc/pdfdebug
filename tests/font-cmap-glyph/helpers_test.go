@@ -111,7 +111,7 @@ func mustParseJSON(t *testing.T, s string, target any) {
 }
 
 // isJSONObject reports whether the trimmed string begins with '{' (a JSON
-// object). Used to assert the 13-1 plain-text-default contract negatively.
+// object). Used to assert the plain-text-default contract negatively.
 func isJSONObject(s string) bool {
 	t := strings.TrimSpace(s)
 	return strings.HasPrefix(t, "{")
