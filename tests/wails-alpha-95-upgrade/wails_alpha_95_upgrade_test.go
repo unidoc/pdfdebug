@@ -248,7 +248,7 @@ func TestPDFServiceMethodSurface(t *testing.T) {
 // reads on Wails-bound payloads. Any rename here silently produces undefined
 // field access in TypeScript (`payload.somerenamed` -> `undefined`). The
 // regenerated bindings carry the new tag names; the assertion catches the
-// drift at story time.
+// drift.
 //
 // Tags listed are the LOAD-BEARING tags on actively-consumed types. The list
 // is intentionally narrower than "every json tag in pdfcore": the contract is

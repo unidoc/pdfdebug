@@ -67,7 +67,7 @@ func TestWebview2NotHandPinned(t *testing.T) {
 		return
 	}
 	if !strings.Contains(webview2Line, "// indirect") {
-		t.Errorf("go.mod webview2 line %q must stay `// indirect` -- the story says let `go mod tidy` resolve it, do NOT hand-pin/promote it", strings.TrimSpace(webview2Line))
+		t.Errorf("go.mod webview2 line %q must stay `// indirect` -- let `go mod tidy` resolve it, do NOT hand-pin/promote it", strings.TrimSpace(webview2Line))
 	}
 }
 
