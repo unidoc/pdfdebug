@@ -85,7 +85,12 @@ var (
 	// identifier that happens to end in R: without it SENSOR-1-2, PR-12-34 and
 	// CTR-10-20 all match. A real risk ID is always preceded by a space or a
 	// bracket, so the guard costs no match.
-	riskID = regexp.MustCompile(`(?i)(^|[^-0-9A-Za-z])R-[0-9]{1,3}-[0-9]{1,3}`)
+	// The epic-prefixed spelling is a separate alternative rather than an optional
+	// prefix, because the two carry different tails: the epic-prefixed form ends on
+	// one sequence number, the bare form on two. Folding them into one alternative
+	// would mean making the second number group optional, which matches a bare R-
+	// and a single number anywhere in a hyphenated identifier.
+	riskID = regexp.MustCompile(`(?i)(^|[^-0-9A-Za-z])(E[0-9]+-R-[0-9]{1,3}|R-[0-9]{1,3}-[0-9]{1,3})`)
 
 	// story and epic number references. The number has to sit directly against
 	// the word, with only separator characters between: that adjacency is the
@@ -111,6 +116,16 @@ var (
 	// blind spot rather than restraint.
 	taskReference = regexp.MustCompile(`(?i)\btasks?[ #_-]*[0-9]+([._-][0-9]+)?`)
 
+	// an epic-story number used as a title prefix, with no kind token after it -
+	// the spelling a spec title uses. It is anchored to the start of the string it
+	// is applied to, which is the title itself in the spec-title check and a line
+	// in the tree scan, and that anchor is doing most of the work: a byte size, a
+	// PDF clause reference and a licence version all put the same number pair
+	// mid-sentence. The three-letter floor on the following word is the rest of it,
+	// and is what separates a title from a quoted byte size, whose unit is one or
+	// two letters and nothing else.
+	titleNumberPrefix = regexp.MustCompile("(^|[\"'`])[0-9]{1,2}\\.[0-9]{1,2} [A-Za-z]{3,}")
+
 	// numbered acceptance-suite directory paths appearing in file contents.
 	// Anchored to the tests/ prefix, in both path separators, so version-bearing
 	// names are not caught; it stops at the number, because a reference that
@@ -132,6 +147,7 @@ func residuePatterns() []*regexp.Regexp {
 		riskID,
 		storyOrEpicReference,
 		taskReference,
+		titleNumberPrefix,
 		numberedSuitePath,
 	}
 }
@@ -285,6 +301,16 @@ func TestNoTaskNumberReferencesInTree(t *testing.T) {
 			"State what the case or the code does; a task number is a work-breakdown item and means nothing to a reader\n"+
 			"of the file. Release documentation is not carved out for this class.\n"+
 			"pattern %s matched %s", taskReference, reportHits(hits, 40, 25))
+	}
+}
+
+func TestNoTitleNumberPrefixesInTree(t *testing.T) {
+	root := projectRoot(t)
+	hits := scanTree(t, root, titleNumberPrefix)
+	if len(hits) > 0 {
+		t.Errorf("an epic-story number must not prefix a test title. This spelling carries no kind token, so none of the\n"+
+			"scenario-ID patterns can see it; rewrite the title to name the component or the behaviour it covers.\n"+
+			"pattern %s matched %s", titleNumberPrefix, reportHits(hits, 40, 25))
 	}
 }
 
@@ -447,12 +473,42 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"R-", "14-2"}, // single-digit segment
 				{"r-", "14-05"},
 				{"R-", "140-02"},
+				{"E7-R-", "005"},         // epic-prefixed, one sequence number
+				{"(risk E5-R-", "001)."}, //
+				{"Divergence is E7-R-", "002"},
 			},
 			mustNotMatch: [][]string{
 				{"ISO 32000-1"}, {"2026-08-07"}, {"%PDF-1.7"}, {"12 0 obj"},
 				// the tail of a hyphenated identifier that happens to end in R
 				{"SENSOR-1-2"}, {"PR-", "12-34"}, {"DIR-3-4"}, {"CTR-", "10-20"},
 				{"FOO-R-", "14-02"},
+				// Tailwind utility classes, which the epic-prefixed alternative
+				// brought within reach of the leading guard
+				{"amber-100 border-2 mr-1"}, {"text-error-2 fdir-6"},
+			},
+		},
+		{
+			what: "epic-story numbers used as a title prefix",
+			re:   titleNumberPrefix,
+			mustMatch: [][]string{
+				{"describe('", "8.4", " App.jsx geometry wiring', () => {"},
+				{"describe('", "4.1", " TabBar Component Tests', () => {"},
+				{"describe('", "4.3", " supplemental: Tree cache cleanup', () => {"}, // lowercase word
+				{"describe('", "4.1", " Multi-Tab Reducer Tests', () => {"},
+				{"", "8.4", " App.jsx geometry wiring"}, // the extracted title, with no quote
+			},
+			mustNotMatch: [][]string{
+				// byte sizes, whose unit is one or two letters and then the quote
+				{"1024:    \"1.0 KB\","}, {"1048576: \"1.0 MB\","},
+				{"either \"14592\" (bytes) or \"14.6 KB\""}, {"\"1024.0 KB\" -> \"1.0 MB\""},
+				// a PDF content-stream operator, a clause reference and a licence
+				{"tokenizeContentStream(\"1.5 0.75 Td\")"},
+				{"standard operators from PDF spec 1.7 Table A.1"},
+				{"PDF 1.7 spec 9.8.2 Table 123: 1-indexed bit"},
+				{"per PDF 1.7 Appendix D. When /Encoding is"},
+				{"enforces Apache 2.0 LICENSE + NOTICE compliance"},
+				{"ISO 32000-1"}, {"v3.0.0-alpha2.117"}, {"pdfcpu 0.12.1"},
+				{"describe('renders the tree', () => {"},
 			},
 		},
 		{
@@ -480,7 +536,7 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 				{"no story or epic numbers in directory names"},
 				{"an epic-story number embedded in a file name"},
 				// a task reference is a class of its own, and is not claimed here
-				{"Story Task ", "6.1 requires"},
+				{"Story Task ", "6.1", " requires"},
 			},
 		},
 		{
@@ -488,7 +544,7 @@ func TestResiduePatternsSeeTheSpellingsTheTreeContains(t *testing.T) {
 			re:   taskReference,
 			mustMatch: [][]string{
 				{"// Task ", "1.3: the CLI copies the binary"},
-				{"* Task ", "0.1 reorders the steps"},
+				{"* Task ", "0.1", " reorders the steps"},
 				{"(Task ", "3): full xref-derived index"}, // no minor number
 				{"These cover Task", "s 4 and 5 of the story"},
 				{"per the story's Task ", "8"},

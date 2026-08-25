@@ -12,9 +12,8 @@ var (
 	// a leading epic-story number on an acceptance-suite directory name.
 	numberedDirName = regexp.MustCompile(`^[0-9]+-[0-9]+-`)
 
-	// an epic-story number embedded in a Go test file name. Anchored to the
-	// _test.go tail so version-bearing file names are not caught.
-	numberedTestFileName = regexp.MustCompile(`_[0-9]+_[0-9]+_test\.go$`)
+	// an underscore-separated all-digit token in a file name.
+	nameNumberToken = regexp.MustCompile(`^[0-9]+$`)
 
 	// a story-number prefix on an acceptance-suite module line. The trailing
 	// -test / -tests suffix drift is a separate, unruled inconsistency.
@@ -40,17 +39,82 @@ func TestNoNumberedSuiteDirectories(t *testing.T) {
 	}
 }
 
-func TestNoNumberedTestFileNames(t *testing.T) {
+// hasEpicStoryNumberPair reports whether an underscore-separated file name
+// carries an epic-story number pair in any position.
+//
+// The test is on the run, not on a position: an earlier version anchored to the
+// _test.go tail, which let 12_3_wire_shape_test.go and wire_12_3_shape_test.go
+// through. A version is what makes the run rather than the position the thing to
+// look at, since pdfcpu_0_12_1_bump_test.go has to stay legal - so a run has to be
+// exactly two numbers long to count, and each of them at most two digits wide.
+// That keeps a three-part version out by length, a single build number out by
+// length, and a four-digit standard number such as iso_8859_1 out by width.
+func hasEpicStoryNumberPair(name string) bool {
+	tokens := strings.Split(name, "_")
+	run := 0
+	shortRun := true
+	for i := 0; i <= len(tokens); i++ {
+		if i < len(tokens) && nameNumberToken.MatchString(tokens[i]) {
+			run++
+			if len(tokens[i]) > 2 {
+				shortRun = false
+			}
+			continue
+		}
+		if run == 2 && shortRun {
+			return true
+		}
+		run, shortRun = 0, true
+	}
+	return false
+}
+
+// TestFileNameNumberPairDetection pins the file-name rule against the names it has
+// to accept as well as the ones it has to reject. The reject list is the point: an
+// earlier expression anchored to the _test.go tail and let every leading and middle
+// position through, and the accept list is what stops the obvious repair - matching
+// any number pair anywhere - from outlawing a version.
+func TestFileNameNumberPairDetection(t *testing.T) {
+	numbered := []string{
+		"12_3_wire_shape_test.go",
+		"wire_12_3_shape_test.go",
+		"wire_shape_12_3_test.go",
+		"12_3_test.go",
+		"5_1_helpers_test.go",
+	}
+	clean := []string{
+		"pdfcpu_0_12_1_bump_test.go", // three-number version run
+		"wails_alpha_95_upgrade_test.go",
+		"wails_alpha2_117_upgrade_test.go",
+		"iso_8859_1_test.go", // four-digit standard number
+		"utf_16_be_test.go",
+		"helpers_test.go",
+		"object_source_and_reverse_refs_test.go",
+		"main.go",
+	}
+	for _, name := range numbered {
+		if !hasEpicStoryNumberPair(name) {
+			t.Errorf("%q carries an epic-story number pair and the rule does not see it", name)
+		}
+	}
+	for _, name := range clean {
+		if hasEpicStoryNumberPair(name) {
+			t.Errorf("%q is a legal name and the rule rejects it", name)
+		}
+	}
+}
+
+func TestNoNumberedFileNames(t *testing.T) {
 	root := projectRoot(t)
 	var numbered []string
 	for _, p := range trackedFiles(t, root) {
-		if numberedTestFileName.MatchString(p) {
+		if hasEpicStoryNumberPair(filepath.Base(p)) {
 			numbered = append(numbered, p)
 		}
 	}
 	if len(numbered) > 0 {
-		t.Errorf("test file names must carry no epic or story number. These sit inside already-unnumbered suites,\n"+
-			"which is why a clean directory name is not evidence of a clean suite.\n"+
+		t.Errorf("file names must carry no epic or story number, in any position. These sit inside already-unnumbered\n"+
+			"suites, which is why a clean directory name is not evidence of a clean suite.\n"+
 			"numbered files: %s", reportPaths(numbered))
 	}
 }
