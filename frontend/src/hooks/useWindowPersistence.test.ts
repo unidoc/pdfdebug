@@ -32,7 +32,7 @@ function clearStorage() {
   }
 }
 
-describe('4.4 useWindowPersistence', () => {
+describe('useWindowPersistence (panel sizes)', () => {
   beforeEach(() => {
     clearStorage();
     vi.useFakeTimers();
@@ -294,7 +294,7 @@ describe('4.4 useWindowPersistence', () => {
  *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.test.ts
  */
-describe('8.4 useWindowPersistence (window geometry)', () => {
+describe('useWindowPersistence (window geometry)', () => {
   beforeEach(() => {
     clearStorage();
     vi.useFakeTimers();

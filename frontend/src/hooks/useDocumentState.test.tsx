@@ -547,7 +547,7 @@ describe('SET_DOCUMENT_ERROR preserves tabs', () => {
 // contract at the reducer level.
 // ---------------------------------------------------------------------------
 
-describe('4.2 supplemental: CLEAR_NAV_TARGET isolation', () => {
+describe('CLEAR_NAV_TARGET per-tab isolation', () => {
   test('clears pendingNavTarget only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -590,7 +590,7 @@ describe('4.2 supplemental: CLEAR_NAV_TARGET isolation', () => {
   });
 });
 
-describe('4.2 supplemental: NAV_ERROR isolation', () => {
+describe('NAV_ERROR per-tab isolation', () => {
   test('sets navError only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -629,7 +629,7 @@ describe('4.2 supplemental: NAV_ERROR isolation', () => {
   });
 });
 
-describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
+describe('DISMISS_NAV_ERROR per-tab isolation', () => {
   test('clears navError only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -993,7 +993,7 @@ describe('Closing middle active tab prefers next', () => {
 // Reducer logic: documentError: closingActive ? null : state.documentError
 // ---------------------------------------------------------------------------
 
-describe('4.3 supplemental: CLOSE_DOCUMENT clears documentError conditionally', () => {
+describe('CLOSE_DOCUMENT clears documentError conditionally', () => {
   test('closing active tab clears documentError; closing non-active preserves it', () => {
     function Inspector() {
       const state = useAppState();
@@ -1036,7 +1036,7 @@ describe('4.3 supplemental: CLOSE_DOCUMENT clears documentError conditionally', 
   });
 });
 
-describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
+describe('NAVIGATE_BACK/FORWARD per-tab isolation', () => {
   test('history navigation only affects active tab', () => {
     function Inspector() {
       const state = useAppState();

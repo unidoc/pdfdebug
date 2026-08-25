@@ -118,7 +118,7 @@ afterEach(() => {
   delete (globalThis as Record<string, unknown>).ResizeObserver;
 });
 
-describe('4.4 MainLayout Panel Persistence', () => {
+describe('MainLayout panel persistence', () => {
   /**
    * MainLayout passes persisted treeWidth as the left pane's preferredSize.
    *

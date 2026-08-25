@@ -1370,7 +1370,7 @@ describe('Tree expansion state preserved across tab switches', () => {
 // (only root expanded) rather than inheriting tab-1's expanded state.
 // ---------------------------------------------------------------------------
 
-describe('4.3 supplemental: Tree cache cleanup on tab close', () => {
+describe('Tree cache cleanup on tab close', () => {
   test('closed tab cache is evicted; new tab starts with fresh tree state', async () => {
     const TreePanel = await importTreePanel();
     const user = userEvent.setup();

@@ -209,7 +209,7 @@ function MultiTabInspector() {
   );
 }
 
-describe('4.1 Multi-Tab Reducer Tests', () => {
+describe('Multi-tab reducer', () => {
   /**
    * OPEN_DOCUMENT appends new tab to tabs array (does not replace).
    */

@@ -121,7 +121,7 @@ function openTabs(count: number) {
   }
 }
 
-describe('4.1 TabBar Component Tests', () => {
+describe('TabBar component', () => {
   /**
    * TabBar renders one tab per open document with correct file names.
    */

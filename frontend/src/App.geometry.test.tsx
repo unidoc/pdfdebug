@@ -162,7 +162,7 @@ afterEach(() => {
 // App subscribes to common:WindowDidMove + WindowDidResize
 // ---------------------------------------------------------------------------
 
-describe('8.4 App.jsx geometry wiring', () => {
+describe('App.jsx geometry wiring', () => {
   test('subscribes to common:WindowDidMove and common:WindowDidResize on mount', async () => {
     const { default: App } = await import('./App');
 
