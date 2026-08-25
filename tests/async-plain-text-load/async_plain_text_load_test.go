@@ -389,7 +389,7 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// . -- PlainTextView component (structural)
+// PlainTextView component (structural)
 // ---------------------------------------------------------------------------
 //
 // Behavior contracts (loading card mount + 200ms debounce, elapsed-counter

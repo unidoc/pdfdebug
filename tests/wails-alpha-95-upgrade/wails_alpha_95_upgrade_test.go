@@ -252,9 +252,10 @@ func TestPDFServiceMethodSurface(t *testing.T) {
 // drift at story time.
 //
 // Tags listed are the LOAD-BEARING tags on actively-consumed types. The list
-// is intentionally narrower than "every json tag in pdfcore" -- says "JSON
-// tag names unchanged on each IPC type", and the contract surfaces are the
-// structs returned by the bound methods listed in expectedServiceMethods.
+// is intentionally narrower than "every json tag in pdfcore": the contract is
+// that JSON tag names stay unchanged on each IPC type, and the contract
+// surfaces are the structs returned by the bound methods listed in
+// expectedServiceMethods.
 var expectedJSONTags = map[string][]string{
 	"internal/pdfcore/model.go": {
 		// TreeNode

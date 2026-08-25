@@ -191,7 +191,7 @@ func TestSafeCallRePanicsRuntimeError(t *testing.T) {
 
 // safeCallNamedTests is the mandated test name list. Each must exist in
 // errors_test.go post-bump. A renamed test that drifts from this list is a
-// silent contract loss; says these specific tests MUST pass.
+// silent contract loss: these specific tests must keep passing.
 var safeCallNamedTests = []string{
 	"TestSafeCallPropagatesRuntimeError",
 	"TestSafeCallSuccess",

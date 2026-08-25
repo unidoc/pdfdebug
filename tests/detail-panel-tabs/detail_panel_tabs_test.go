@@ -514,7 +514,7 @@ func TestDetailPanelForceMountForScrollPreservation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// . -- XRefTableView component (structural)
+// XRefTableView component (structural)
 // ---------------------------------------------------------------------------
 
 // XRefTableView.tsx exists and exports XRefTableView.
@@ -658,8 +658,8 @@ func TestPlainTextViewTestFileExists(t *testing.T) {
 // DetailPanel.tabs.test.tsx -- integration test for the tab bar
 // ---------------------------------------------------------------------------
 
-// DetailPanel.tabs.test.tsx exists. The Vitest suite covers -- the
-// behavior is best asserted at the component layer.
+// DetailPanel.tabs.test.tsx exists. The Vitest suite covers the tab-bar
+// behavior, which is best asserted at the component layer.
 func TestDetailPanelTabsTestFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tabs.test.tsx")

@@ -63,7 +63,8 @@ func TestMetadata_JSONShape(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// + Plain-text-default contract: plain default is ASCII-only with a trailing newline.
+// Plain-text-default contract: plain default is ASCII-only with a trailing
+// newline.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PlainIsASCIIWithTrailingNewline(t *testing.T) {
@@ -106,9 +107,9 @@ func TestMetadata_MissingIsEmptyExitZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// + Plain-text-default contract: `dump metadata --json --pretty` indents the JSON (the
-// pretty branch, cmd_metadata.go). The output still parses to the same
-// {info, xmp} shape and is multi-line.
+// Plain-text-default contract: `dump metadata --json --pretty` indents the
+// JSON (the pretty branch in cmd_metadata.go). The output still parses to
+// the same {info, xmp} shape and is multi-line.
 // ---------------------------------------------------------------------------
 
 func TestMetadata_PrettyJSONIsIndented(t *testing.T) {

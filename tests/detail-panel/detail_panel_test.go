@@ -38,8 +38,7 @@ func projectRoot(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// DetailPanel.tsx exists -#7: The DetailPanel
-// component file must exist.
+// DetailPanel.tsx exists: the component file must be present.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelFileExists(t *testing.T) {
@@ -51,8 +50,8 @@ func TestDetailPanelFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DetailShared.tsx exists -#5: Shared rendering components extracted
-// to DetailShared.tsx.
+// DetailShared.tsx exists: the shared rendering components are extracted
+// into it.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedFileExists(t *testing.T) {
@@ -64,8 +63,7 @@ func TestDetailSharedFileExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DetailPanel.tsx exports DetailPanel -#7: The component
-// must be a named export.
+// DetailPanel.tsx exports DetailPanel as a named export.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelExport(t *testing.T) {
@@ -99,8 +97,7 @@ func TestDetailPanelUsesMemo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DetailPanel.tsx has data-testid attributes -#6: Required
-// data-testid attributes for testing.
+// DetailPanel.tsx carries the data-testid attributes the tests select on.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelTestIds(t *testing.T) {
@@ -214,8 +211,8 @@ func TestTabStateHasSelectedNodeRawKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DetailShared.tsx exports shared types and components -#5: Shared
-// rendering logic available for both panels.
+// DetailShared.tsx exports the shared types and components, so the rendering
+// logic is available to both panels.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedExports(t *testing.T) {

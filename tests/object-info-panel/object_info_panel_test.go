@@ -391,8 +391,8 @@ func TestInspectorNoWailsImports(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// All pdfcore tests pass after GetObjectDetail addition -#6: Unit tests
-// cover all object detail scenarios.
+// All pdfcore tests pass after the GetObjectDetail addition: unit tests cover
+// every object-detail scenario.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfcoreTestsPass(t *testing.T) {

@@ -303,8 +303,8 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 // Min-display floor constant exists and equals 400ms.
 //
 // splashMinDisplayMs = 400. Constant must be declared as a named
-// constant (not a magic number buried in a literal) so the unit-test
-// delegation in can pin it.
+// constant (not a magic number buried in a literal) so the delegated
+// internal/splash unit test can pin it.
 // ---------------------------------------------------------------------------
 
 func TestSplashMinDisplayMsConstant(t *testing.T) {

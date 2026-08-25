@@ -843,10 +843,10 @@ func diffInfoProducer(producer string) []byte {
 // ---------------------------------------------------------------------------
 // A trailer /Info-only difference is surfaced as InfoChanged WITHOUT bumping the
 // node counts, proving /Info is read from the DocumentState trailer (off the
-// catalog walk) as requires. This is the exact fact that makes the CLI's
-// exit-1-on-flags-only-change contract necessary (the counts stay 0/0/0). The
-// /Producer strings are the SAME length so the only possible source of a delta
-// is the /Info comparison, not an object size change.
+// catalog walk), not from the object graph. This is the exact fact that makes
+// the CLI's exit-1-on-flags-only-change contract necessary (the counts stay
+// 0/0/0). The /Producer strings are the SAME length so the only possible
+// source of a delta is the /Info comparison, not an object size change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryInfoChange(t *testing.T) {

@@ -249,7 +249,7 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// / Review #1 regression guard: the `--metadata` projection must preserve
+// Regression guard: the `--metadata` projection must preserve
 // every surviving (non-base64) field byte-for-byte against the full form. The
 // metadata output must equal the full output with only the `base64` key
 // deleted. This locks the Review #1 fix (the projection uses

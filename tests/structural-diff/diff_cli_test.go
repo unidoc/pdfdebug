@@ -167,8 +167,8 @@ func TestDiff_JSONEnvelope(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// + Plain-text-default contract: the plain-text default is NOT JSON, is ASCII-only, and
-// ends with a trailing newline.
+// Plain-text-default contract: the plain-text default is NOT JSON, is
+// ASCII-only, and ends with a trailing newline.
 // ---------------------------------------------------------------------------
 
 func TestDiff_PlainTextContract(t *testing.T) {

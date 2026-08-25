@@ -603,7 +603,7 @@ func TestEntitlementsPlistNotGitignored(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Prerelease detection regex matches both `-rcN`, `-alphaN`, and `-betaN`.
-// Covers and verifies the exact contract via simulated shell-regex match
+// Verifies the exact contract via a simulated shell-regex match
 // (the existing TestPrereleaseDetectionLogic only asserts the regex STRING
 // is present; this asserts the matching behavior across all three prefixes).
 // ---------------------------------------------------------------------------
