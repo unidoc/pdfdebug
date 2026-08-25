@@ -31,15 +31,27 @@ import (
 // pattern matches, so they are scanned like any other file.
 const thisSuite = "tests/naming-and-comment-hygiene"
 
-// scanSkipPrefixes are the directory prefixes outside the residue scan:
-// generated output, vendored dependencies, build artifacts, and the docs tree
-// (which belongs to the separate docs repo and is not governed by these rules).
+// scanSkipPrefixes are the directory prefixes outside the residue scan. The list
+// is short because the scan reads git's index, which already excludes every
+// untracked build artifact, so a prefix earns its place only by naming tracked
+// content that genuinely must not be read:
+//
+//   - frontend/bindings/ holds the Wails bindings, regenerated from Go source on
+//     every build. Residue there is a symptom of residue in the Go declarations,
+//     which the scan reads directly, so reporting the generated copy would name a
+//     file nobody edits.
+//   - frontend/node_modules/ and node_modules/ hold third-party code, which this
+//     project does not author and may not rewrite.
+//
+// Four entries were removed as either dead or harmful. bin/ and frontend/dist/
+// name build output that is untracked, so they matched nothing and only implied a
+// rule that was not there. build/ holds ten tracked files - the Taskfiles, the
+// Info.plist, the desktop entry - which are hand-written configuration and carried
+// real residue that the gates certified as clean without ever opening. docs/ is
+// this repository's own documentation; CLAUDE.md names ../docs/ as the separate
+// docs repo, and that path is outside this tree anyway.
 var scanSkipPrefixes = []string{
-	"bin/",
-	"build/",
-	"docs/",
 	"frontend/bindings/",
-	"frontend/dist/",
 	"frontend/node_modules/",
 	"node_modules/",
 }
@@ -76,6 +88,9 @@ func projectRoot(t *testing.T) string {
 // trackedFiles returns every tracked repo-relative path, forward-slashed.
 // The rules govern what is committed, so git's index is the authority rather
 // than a directory walk, which would pick up local build output and caches.
+//
+// The consequence worth knowing: a newly created file is not scanned until it is
+// staged, so a gate can be green over a file that already exists on disk.
 func trackedFiles(t *testing.T, root string) []string {
 	t.Helper()
 	cmd := exec.Command("git", "-C", root, "ls-files", "-z")
