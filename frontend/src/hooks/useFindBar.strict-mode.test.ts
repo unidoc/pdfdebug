@@ -7,8 +7,7 @@
  * supplemental regression guard.
  *
  * StrictMode CANNOT be enabled globally in test-setup.ts (that file renders
- * nothing). It is enabled per-test via renderHook(fn, { reactStrictMode: true })
- * per Dev Notes.
+ * nothing). It is enabled per-test via renderHook(fn, { reactStrictMode: true }).
  *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.strict-mode.test.ts
  */
@@ -90,7 +89,7 @@ describe('useFindBar is StrictMode-idempotent', () => {
   });
 
   test('a no-op render (none of the keyed deps change) does not stale prevDepsRef and the next case-toggle still preserves by start', () => {
-    // Dev Notes call-out: after moving the snapshot into useLayoutEffect, a
+    // After moving the snapshot into useLayoutEffect, a
     // render where none of [deferredQuery, caseSensitive, matches] changed must
     // NOT leave prevDepsRef stale in a way that breaks the next case-toggle.
     const corpus = 'foo X FOO Y foo Z FOO W foo';

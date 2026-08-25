@@ -63,7 +63,7 @@ func TestGetPlainTextAsyncHappyPath(t *testing.T) {
 // check becomes the only safety net.
 func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 	// Make a large enough file that the chunked-read loop has time to observe
-	// ctx.Done() between chunks. The story spec pins chunkSize = 1 MiB. A
+	// ctx.Done() between chunks. chunkSize is pinned at 1 MiB. A
 	// 64 MiB fixture means ~64 chunk iterations -- plenty of cancel opportunities.
 	path := makeOversizedPDF(t, 64*1024*1024)
 	defer func() { _ = os.Remove(path) }()
@@ -527,7 +527,7 @@ func TestGetPlainTextAsyncErrWrappingPreservesCanceled(t *testing.T) {
 			t.Errorf("err = %v, want errors.Is(..., context.Canceled)", r.err)
 		}
 		if errors.Is(r.err, ErrMalformedPDF) {
-			t.Errorf("err = %v, must NOT satisfy errors.Is(..., ErrMalformedPDF) -- bypass wrapPDFError for cancel (Dev Notes)", r.err)
+			t.Errorf("err = %v, must NOT satisfy errors.Is(..., ErrMalformedPDF) -- bypass wrapPDFError for cancel", r.err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("cancelled load did not return within 5s")

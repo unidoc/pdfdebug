@@ -1,7 +1,7 @@
 // Package startup_splash_screen_test provides acceptance tests for Startup
 // Splash Screen.
 //
-// Test Pyramid placement per story spec:
+// Test pyramid placement:
 //   - Unit (Go, internal/splash): min-display floor, timeout race,
 //     version-string passthrough -- delegated via subprocess to
 //     internal/splash/splash_test.go to keep pdfcore-style delegation
@@ -74,7 +74,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // splashSource returns the concatenated source of every file that could
 // legitimately host the inline splash HTML / window-creation call:
 //   - main.go
-//   - internal/splash/*.go (if the package was extracted per Dev Notes)
+//   - internal/splash/*.go (if the package was extracted)
 //   - assets/splash/splash.html (if dev keeps a development source mirror
 //     of the inlined Go string)
 //
@@ -162,7 +162,7 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 		// alpha.85 may name these Minimisable / Closable; tolerate either spelling
 		{`(Minimisable|Minimizable):\s*false`, "splash must not be minimisable"},
 		{`Closable:\s*false`, "splash must have no close button"},
-		// Pins Code Review #2 M-1 fix: WebView's default context menu must be
+		// WebView's default context menu must be
 		// disabled so right-click on the splash does not expose Reload / Inspect /
 		// Back / Forward entries that would violate the "no context menu".
 		{`DefaultContextMenuDisabled:\s*true`, "splash must disable the WebView default context menu"},
@@ -359,9 +359,9 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 	// Crossfade hook: transition: opacity Xms in the splash HTML, OR a SetAlpha
 	// call on the splash window, OR an EvaluateJS that toggles an
 	// opacity-transition class. The instantaneous-swap fallback is allowed BUT
-	// requires a Dev Notes entry explaining why. We assert the
+	// requires a documented reason. We assert the
 	// crossfade-hook here; if dev falls back to instantaneous swap, dev must
-	// edit this test to a `t.Skip` with a Dev Notes link per the fallback
+	// edit this test to a `t.Skip` with a documented reason per the fallback
 	// clause.
 	fadePatterns := []string{
 		`transition\s*:\s*opacity\b`,
@@ -377,7 +377,7 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 	}
 	if !matched {
 		t.Errorf("splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
-			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a Dev Notes reference.")
+			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a documented reasoes reference.")
 	}
 }
 
@@ -551,7 +551,7 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 	}
 
 	// Delegate. Run all tests matching the splash unit-test naming
-	// convention agreed in the ATDD checklist: TestSplashScheduler*,
+	// convention: TestSplashScheduler*,
 	// TestSplashTimeout*, TestSplashRenderVersion*. If any are missing,
 	// `go test -run` will report `no tests to run` and we treat that as
 	// a fail (the checklist names every required pattern).
