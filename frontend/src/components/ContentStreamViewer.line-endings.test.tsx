@@ -11,8 +11,6 @@
  * <div> inside data-testid="content-stream-content"; the gutter renders one
  * <div>{i+1}</div> per line inside data-testid="content-stream-gutter".
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.line-endings.test.tsx
  */
 import { render, screen } from '@testing-library/react';

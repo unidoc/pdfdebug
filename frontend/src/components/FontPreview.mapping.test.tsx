@@ -191,7 +191,7 @@ describe('health banner', () => {
 });
 
 // ---------------------------------------------------------------------------
-// / NFR5: virtualization -- thousands of rows must NOT all render to the DOM.
+// Virtualization -- thousands of rows must NOT all render to the DOM.
 // A CID font with 5,000 mapping rows must render far fewer table-body rows
 // than the data length (windowed), keeping the panel interactive.
 // ---------------------------------------------------------------------------

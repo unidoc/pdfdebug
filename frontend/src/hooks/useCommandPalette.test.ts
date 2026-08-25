@@ -8,8 +8,6 @@
  * The hook reads tabActivationVersion from useAppState, so renderHook is wrapped
  * in AppProvider.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useCommandPalette.test.ts
  */
 import { renderHook, act } from '@testing-library/react';

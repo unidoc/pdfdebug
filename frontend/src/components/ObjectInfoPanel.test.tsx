@@ -66,7 +66,7 @@ const catalogNode = {
   error: '',
 };
 
-// Example source strings matching.
+// Example source strings for the array, dict and stream cases below.
 const shortArraySource = `38109 0 obj
 [ 38110 0 R 38111 0 R 38112 0 R ]
 endobj`;

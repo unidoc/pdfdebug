@@ -2,8 +2,6 @@
  * Find Bar in Plain Text View -- reducer suite for
  * per-tab `findCaseSensitive` field + SET_FIND_CASE_SENSITIVE action.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useDocumentState.find.test.tsx
  */
 import { render, screen, act } from '@testing-library/react';

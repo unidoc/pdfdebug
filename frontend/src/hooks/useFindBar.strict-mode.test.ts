@@ -10,8 +10,6 @@
  * nothing). It is enabled per-test via renderHook(fn, { reactStrictMode: true })
  * per Dev Notes.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.strict-mode.test.ts
  */
 import { renderHook, act } from '@testing-library/react';

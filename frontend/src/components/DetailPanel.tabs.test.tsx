@@ -471,9 +471,9 @@ describe('no stale cross-document content frame', () => {
         <DetailPanel />
       </AppProvider>
     );
-    // The Object pane is active on the new doc, so doc1's "15" value
-    // should NOT be visible. forbids the stale-frame leak even before the
-    // activeTab reset.
+    // The Object pane is active on the new doc, so doc1's "15" value should
+    // NOT be visible: no stale frame may leak across a document switch, even
+    // before the activeTab reset.
     expect(screen.queryByText('15')).not.toBeInTheDocument();
     expect(screen.queryByText('120')).not.toBeInTheDocument();
   });

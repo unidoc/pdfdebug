@@ -542,7 +542,7 @@ describe('row list is virtualized', () => {
 });
 
 // ---------------------------------------------------------------------------
-// + virtualization: ArrowDown past the rendered window scrolls the next row
+// Virtualization: ArrowDown past the rendered window scrolls the next row
 // into view and focuses it. DOM-sibling focus cannot work here because
 // off-window rows are unmounted; the handler walks the index.
 // ---------------------------------------------------------------------------

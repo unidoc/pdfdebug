@@ -20,8 +20,6 @@
  * - Esc scope: a sibling window-level keydown listener does NOT fire
  *   when Esc closes the FindBar (the handler is scoped to the FindBar root).
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.find.test.tsx
  */
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
@@ -526,7 +524,8 @@ describe('auto-scroll on Next when match is below the viewport', () => {
     fireEvent.click(screen.getByTestId('plain-text-find-next'));
 
     // Either scrollTo was called (smooth path) or scrollTop was set directly
-    // (reduced-motion fallback / try-catch fallback). Both satisfy.
+    // (reduced-motion fallback / try-catch fallback). Both satisfy the
+    // auto-scroll requirement.
     const scrolled =
       scrollToSpy.mock.calls.length > 0 || scroll.scrollTop !== scrollTopBefore;
     expect(scrolled).toBe(true);

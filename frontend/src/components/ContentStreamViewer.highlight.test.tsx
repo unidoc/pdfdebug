@@ -1,7 +1,6 @@
 /**
  * Content Stream Tokenizer with Syntax Highlighting (V1)
  *
- * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.highlight.test.tsx
  */
 import { render, screen } from '@testing-library/react';

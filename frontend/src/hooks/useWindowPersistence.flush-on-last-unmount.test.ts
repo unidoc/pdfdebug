@@ -15,8 +15,6 @@
  * unmount so the count returns to 0 between tests; each test starts from a
  * clean count because the prior test unmounted its last consumer.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.flush-on-last-unmount.test.ts
  */
 import { renderHook, act } from '@testing-library/react';

@@ -1,9 +1,6 @@
 /**
  * Async Plain Text Load with Cancel -- Vitest suite.
  *
- * Test IDs follow the convention. Each test maps to one or more ACs in
- * the story spec.
- *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.async.test.tsx
  */
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
@@ -628,7 +625,7 @@ describe('cancellation rejection substring contract', () => {
 // ---------------------------------------------------------------------------
 // Terminal states (cancelled / error) must NOT auto-refetch on an inner-tab
 // active toggle. The user-visible CTA is the explicit retry surface; a silent
-// re-fetch on tab toggle defeats.
+// re-fetch on tab toggle defeats it.
 // ---------------------------------------------------------------------------
 
 describe('terminal states do not auto-refetch on active toggle', () => {

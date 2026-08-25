@@ -289,9 +289,6 @@ describe('useWindowPersistence (panel sizes)', () => {
 /**
  * Window Geometry Persistence
  *
- *   .006
- *   .008
- *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.test.ts
  */
 describe('useWindowPersistence (window geometry)', () => {

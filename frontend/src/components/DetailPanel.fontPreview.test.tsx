@@ -196,7 +196,7 @@ describe('iconHint=font swaps DictView -> FontPreview', () => {
     });
     // The generic DictView's `/Type` row MUST NOT render -- it would
     // indicate the swap did not happen (DictView is rendered instead of /
-    // alongside FontPreview, which contradicts).
+    // alongside FontPreview, which contradicts the swap contract).
     expect(screen.queryByText('/Type')).not.toBeInTheDocument();
   });
 });
@@ -510,8 +510,8 @@ describe('indirect-ref-chain / ObjStm transparent', () => {
     await waitFor(() => {
       expect(mockGetFontView).toHaveBeenCalledTimes(1);
     });
-    // No retry, no second fetch. is satisfied entirely at the backend
-    // through resolveNodeObject -- the frontend MUST stay dumb.
+    // No retry, no second fetch. Indirect-ref resolution is satisfied entirely
+    // at the backend through resolveNodeObject -- the frontend MUST stay dumb.
     expect(mockGetFontView).toHaveBeenCalledWith('tab-1', 'obj:0:5');
   });
 });

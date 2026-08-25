@@ -1,7 +1,6 @@
 /**
  * Content Stream Viewer -- Raw Text Display (Prototype)
  *
- * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.test.tsx
  */
 import { render, screen, waitFor } from '@testing-library/react';

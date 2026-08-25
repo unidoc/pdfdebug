@@ -1,7 +1,6 @@
 /**
  * Detail Panel -- Context-Sensitive Content Display
  *
- * Test IDs: through (Vitest)
  * Run: cd frontend && npx vitest run src/components/DetailPanel.test.tsx
  */
 import { render, screen, waitFor, act } from '@testing-library/react';
@@ -665,8 +664,7 @@ describe('DetailPanel keeps previous detail during load', () => {
 });
 
 // ---------------------------------------------------------------------------
-// DetailPanel edge cases for empty data -#5: Edge cases for
-// empty properties, elements, filters.
+// DetailPanel edge cases for empty data: empty properties, elements, filters.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel edge cases', () => {

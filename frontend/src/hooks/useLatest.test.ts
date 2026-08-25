@@ -2,8 +2,6 @@
  * Frontend Hook and Render-Path Correctness
  * (finding #28) -- useLatest ref-mirror consolidation hook.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useLatest.test.ts
  */
 import { renderHook } from '@testing-library/react';

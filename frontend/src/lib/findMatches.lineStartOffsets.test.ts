@@ -7,8 +7,6 @@
  * already exported. A developer activates them by removing `.skip` after the
  * params are added.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/lib/findMatches.lineStartOffsets.test.ts
  */
 import { describe, test, expect, vi, afterEach } from 'vitest';

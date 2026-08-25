@@ -1,7 +1,6 @@
 /**
  * Clickable Reference Navigation
  *
- * Test IDs: (Vitest)
  * Run: cd frontend && npx vitest run src/components/ReferenceNavigation.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';

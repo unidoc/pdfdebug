@@ -6,8 +6,6 @@
  *   non-Latin-1 detection, performance budget.
  * - buildLineStartOffsets(content): number[] -- memoizable line table.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/lib/findMatches.test.ts
  */
 import { describe, test, expect } from 'vitest';

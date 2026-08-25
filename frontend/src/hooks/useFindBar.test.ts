@@ -14,8 +14,6 @@
  * - isInTextField focus guard
  * - nonLatin1 derived flag
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.test.ts
  */
 import { renderHook, act } from '@testing-library/react';

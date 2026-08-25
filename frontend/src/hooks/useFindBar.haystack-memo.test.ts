@@ -13,8 +13,6 @@
  * on a string of corpus length (>= 1 MB). Asserting "toLowerCase called once"
  * globally would fail because the needle is lowercased every keystroke.
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.haystack-memo.test.ts
  */
 import { renderHook, act } from '@testing-library/react';

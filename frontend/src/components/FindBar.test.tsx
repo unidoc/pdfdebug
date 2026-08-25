@@ -12,8 +12,6 @@
  * - Wrap-status testid mounts only when wrapped !== null
  * - aria-live="polite" on count + wrap-status
  *
- * Test IDs follow the convention.
- *
  * Run: cd frontend && npx vitest run src/components/FindBar.test.tsx
  */
 import { render, screen, fireEvent } from '@testing-library/react';
