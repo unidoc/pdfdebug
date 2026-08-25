@@ -43,7 +43,10 @@
 
 set -uo pipefail
 
-BASELINE_REF="${1:-5c3e6b3}"
+# Default to the integration branch. An earlier version defaulted to a specific
+# commit, which was meaningful only while that commit was the merge base and
+# silently meaningless afterwards.
+BASELINE_REF="${1:-origin/dev}"
 OUTDIR="${2:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -120,10 +123,14 @@ ART_HEAD="$OUTDIR/head.json.txt"
 ART_BASE_TXT="$OUTDIR/baseline.plain.txt"
 ART_HEAD_TXT="$OUTDIR/head.plain.txt"
 
+TMP_OUT="$OUTDIR/.stdout"
+TMP_ERR="$OUTDIR/.stderr"
+
 cleanup() {
 	if [ -d "$WORKTREE" ]; then
 		git worktree remove --force "$WORKTREE" >/dev/null 2>&1
 	fi
+	rm -f "$TMP_OUT" "$TMP_ERR"
 }
 trap cleanup EXIT
 
@@ -175,12 +182,23 @@ TXT_INVOCATIONS=0
 run_one() {
 	art="$1"; shift
 	bin="$1"; shift
+	# stdout and stderr are captured to separate files and emitted with `cat`,
+	# not through command substitution. `$(...)` strips every trailing newline,
+	# so a regression that drops the CLI's final newline would have compared
+	# equal; and `2>&1` merges the streams, so output written to the wrong one
+	# would also have compared equal. Byte counts are recorded per stream so a
+	# length change fails the diff even where the visible text is identical.
+	"$bin" "$@" >"$TMP_OUT" 2>"$TMP_ERR"
+	code=$?
 	{
 		printf '===== %s\n' "$*"
-		out="$("$bin" "$@" 2>&1)"
-		code=$?
 		printf 'exit=%d\n' "$code"
-		printf '%s\n' "$out"
+		printf 'stdout-bytes=%s\n' "$(wc -c <"$TMP_OUT" | tr -d ' ')"
+		printf 'stderr-bytes=%s\n' "$(wc -c <"$TMP_ERR" | tr -d ' ')"
+		printf -- '----- stdout\n'
+		cat "$TMP_OUT"
+		printf -- '----- stderr\n'
+		cat "$TMP_ERR"
 	} >> "$art"
 }
 
