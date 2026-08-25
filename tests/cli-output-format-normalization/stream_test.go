@@ -14,7 +14,7 @@ func streamArgs(extra ...string) []string {
 
 // ---------------------------------------------------------------------------
 // Default (no flag) emits a human-readable operator listing (plain text,
-// NOT JSON). (operator sequence). One operator per line, operands before
+// NOT JSON): an operator sequence, one operator per line, operands before
 // operator.
 // ---------------------------------------------------------------------------
 

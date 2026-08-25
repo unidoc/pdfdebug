@@ -96,7 +96,7 @@ func execDiff(leftPath, rightPath string, jsonOut, pretty, full bool) (exitCode 
 // encryption-only change would wrongly report "identical" (exit 0).
 func diffIsIdentical(s pdfcore.DiffSummary) bool {
 	// A depth-capped walk (TruncatedSubtrees > 0) left a subtree unexplored, so
-	// the pair cannot be certified identical even with zero visible deltas
+	// the pair cannot be certified identical even with zero visible deltas.
 	// Exit 1 ("not provably identical") is the honest signal.
 	return s.Added == 0 && s.Removed == 0 && s.Changed == 0 &&
 		!s.VersionChanged && !s.EncryptionChanged && !s.InfoChanged && !s.XMPChanged &&

@@ -1286,9 +1286,8 @@ describe('Go to Page dialog state', () => {
 
 // ---------------------------------------------------------------------------
 // PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
-// Lowest-viable-layer coverage for (LRU max-5 eviction + dedup) and (per-tab
-// recents isolation). These close the three low-severity gaps identified by
-// traceability-report-9-8.md.
+// Lowest-viable-layer coverage for LRU max-5 eviction with dedup, and for
+// per-tab recents isolation.
 // ---------------------------------------------------------------------------
 
 function makeJump(objNum: number) {

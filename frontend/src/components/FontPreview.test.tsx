@@ -208,7 +208,7 @@ const fontWithToUnicodeError: FontDetailFixture = {
 describe('metadata header', () => {
   test('shows Subtype, BaseFont, FirstChar, LastChar', () => {
     render(<FontPreview detail={baseTrueTypeFont} onReferenceClick={() => {}} />);
-    // BaseFont (load-bearing for header label too -)
+    // BaseFont (load-bearing for the header label too)
     expect(screen.getByText('/Helvetica-Bold')).toBeInTheDocument();
     // Subtype rendered verbatim (regression guard)
     expect(screen.getByText('TrueType')).toBeInTheDocument();

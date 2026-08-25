@@ -190,7 +190,7 @@ func TestFindPathToObjectNoDepthCap(t *testing.T) {
 func TestTreeMaxRefDepthRetained(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/tree.go")
 	if !strings.Contains(src, "maxRefDepth = 32") {
-		t.Errorf("internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (tree.go semantics unchanged by this story)")
+		t.Errorf("internal/pdfcore/tree.go must retain `maxRefDepth = 32` for the page-tree caller (tree.go semantics are not affected by the bfrange fix)")
 	}
 }
 
@@ -667,7 +667,7 @@ func TestSafeCallContractTestsPreserved(t *testing.T) {
 	for _, name := range required {
 		needle := "func " + name + "(t *testing.T)"
 		if !strings.Contains(src, needle) {
-			t.Errorf("internal/pdfcore/errors_test.go must still declare %s (baseline invariant: safeCall contract unchanged by this story)", name)
+			t.Errorf("internal/pdfcore/errors_test.go must still declare %s (baseline invariant: the safeCall contract must not change)", name)
 		}
 	}
 }

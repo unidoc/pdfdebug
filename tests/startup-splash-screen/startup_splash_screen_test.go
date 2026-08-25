@@ -214,7 +214,7 @@ func TestSplashHTMLContent(t *testing.T) {
 	// main.version. Either {{.Version}} (templated) or a string-format
 	// placeholder like %s, or a JS variable substitution.
 	if !regexp.MustCompile(`\{\{\.?[Vv]ersion\}\}|%s|__VERSION__|window\.__VERSION__|\$\{version\}|<!--VERSION-->`).MatchString(src) {
-		t.Errorf(": splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
+		t.Errorf("splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
 	}
 
 	// Forbidden content: no progress bar / percent / "Loading..." text
@@ -497,7 +497,7 @@ func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
 	}
 	for _, p := range forbidden {
 		if regexp.MustCompile(p).MatchString(src) {
-			t.Errorf("splash must show on every launch. Found a first-launch/warm-launch gate matching %q. + 2026-05-19 design decision, no such branch is allowed.", p)
+			t.Errorf("splash must show on every launch. Found a first-launch/warm-launch gate matching %q. Per the 2026-05-19 design decision, no such branch is allowed.", p)
 		}
 	}
 }

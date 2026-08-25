@@ -129,8 +129,9 @@ func TestUnknownTabSentinels(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextAsyncUnknownTabSentinels")
 }
 
-// TestGetPlainTextSize asserts the happy path returns a size matching os.Stat, and
-// that a moved file returns an error.
+// TestGetPlainTextSize asserts the happy path returns a size matching os.Stat,
+// and that a file moved after Open still returns the size cached at Open,
+// without an error and without a re-stat.
 func TestGetPlainTextSize(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextAsyncGetPlainTextSize")
 }

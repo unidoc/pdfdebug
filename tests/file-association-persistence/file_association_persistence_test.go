@@ -137,7 +137,8 @@ func TestLinuxDesktopFileAssociation(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Vitest tests for useWindowPersistence exist and pass.
 //
-// Frontend panel persistence tests (through).
+// Frontend panel persistence is covered by the useWindowPersistence Vitest
+// suite.
 // ---------------------------------------------------------------------------
 
 func TestVitestWindowPersistenceTests(t *testing.T) {

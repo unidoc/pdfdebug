@@ -1,9 +1,9 @@
 /**
  * Object Source View + Reverse References
  *
- * Covers the frontend failure-mode banner for the "Referenced by" section.
- * Keyboard parity for the row click target is also asserted here, mirroring
- * DetailShared's Enter/Space contract.
+ * Covers the "Referenced by" section: its three empty states, the
+ * index-unavailable failure banner, and keyboard parity for the row click
+ * target, mirroring DetailShared's Enter/Space contract.
  *
  * Behavioral focus: the section MUST render three distinct empty states based
  * on props (index-unavailable / catalog / orphan) and MUST default-expand or

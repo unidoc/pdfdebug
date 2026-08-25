@@ -85,7 +85,7 @@ const catalogNode: AnyNode = {
 };
 
 // Indirect object with semantic label "Pages" already encoding /Type /Pages
-// -- /T:Pages must be suppressed dedup rule.
+// -- /T:Pages must be suppressed by the dedup rule.
 const pagesIndirect: AnyNode = {
   id: 'obj:0:2', label: 'Pages', rawKey: '/Pages', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 2, iconHint: 'pages',
@@ -93,7 +93,7 @@ const pagesIndirect: AnyNode = {
 };
 
 // Indirect object with /Type /Font and BaseFont -- semantic label is
-// "Font: Helvetica"; /T:Font is suppressed dedup rule.
+// "Font: Helvetica"; /T:Font is suppressed by the dedup rule.
 const fontIndirect: AnyNode = {
   id: 'obj:0:5', label: 'Font: Helvetica', rawKey: '/F1', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 5, iconHint: 'font',

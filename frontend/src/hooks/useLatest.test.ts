@@ -8,9 +8,9 @@ import { renderHook } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 
 async function loadUseLatest() {
-  // The @vite-ignore comment + non-literal specifier stops Vite's
-  // import-analysis from resolving (and failing on) the not-yet-created module
-  // at suite-load time. Without it the whole suite errors even while skipped.
+  // The @vite-ignore comment plus a non-literal specifier keeps Vite's
+  // import analysis from statically resolving the module, so the import is
+  // deferred to call time rather than suite-load time.
   const specifier = './useLatest';
   const mod = await import(/* @vite-ignore */ specifier);
   return mod.useLatest as (value: unknown) => { current: unknown };

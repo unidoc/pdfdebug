@@ -82,7 +82,7 @@ describe('useFindBar is StrictMode-idempotent', () => {
   test('StrictMode double-invoke yields the same activeIndex/matches as non-strict', () => {
     const nonStrict = driveSequence(false);
     const strict = driveSequence(true);
-    // A: under StrictMode the double-invoke must not corrupt state.
+    // Under StrictMode the double-invoke must not corrupt state.
     expect(strict.afterToggle.activeIndex).toBe(nonStrict.afterToggle.activeIndex);
     expect(strict.afterToggle.starts).toEqual(nonStrict.afterToggle.starts);
     expect(strict.afterQueryChange.activeIndex).toBe(nonStrict.afterQueryChange.activeIndex);

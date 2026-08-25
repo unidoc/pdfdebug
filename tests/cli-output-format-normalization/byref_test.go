@@ -7,7 +7,7 @@ import (
 
 // ---------------------------------------------------------------------------
 // FONT single-record plain shape: aligned key: value block.
-// (Single record). Structural: a "key: value" line is present and the
+// Single-record shape. Structural: a "key: value" line is present and the
 // font-view kind is surfaced in plain text.
 // ---------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ func TestFont_PlainShapeIsKeyValueBlock(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // IMAGE single-record plain shape: aligned key: value block with the metadata
-// fields (width/height). (Single record). --metadata is an orthogonal payload
+// fields (width/height), still a single record. --metadata is an orthogonal payload
 // selector and is unchanged; here it just keeps output small while still
 // exercising the plain presenter.
 // ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ func TestSource_RawAndJSONRejected(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // REVERSEREFS tabular plain shape: header row + one row per inbound ref.
-// (Uniform repeated records). Row count cross-checked vs JSON.
+// Uniform repeated records. Row count cross-checked vs JSON.
 // ---------------------------------------------------------------------------
 
 func TestReverseRefs_PlainShapeIsTableWithHeader(t *testing.T) {

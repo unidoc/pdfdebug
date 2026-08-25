@@ -174,6 +174,10 @@ describe('TabBar component', () => {
 
   /**
    * TabBar tab has close button visible on hover.
+   *
+   * Hover visibility is CSS-only (opacity-0 -> opacity-100 on group-hover), so
+   * this verifies the button exists in the DOM with the right test ID and
+   * aria-label rather than asserting on the hover transition.
    */
   test('tab has close button with correct aria-label', () => {
     render(
@@ -253,9 +257,8 @@ describe('TabBar component', () => {
    * TabBar uses Radix UI Tabs with proper ARIA roles (tablist, tab,
    * aria-selected).
    *
-   * Note: Per story, do NOT assert role="tabpanel" -- we don't use
-   * Tabs.Content. The test design doc lists "tabpanel" for this test ID
-   * but that is a spec error for our architecture.
+   * Do NOT assert role="tabpanel": this TabBar does not render Tabs.Content,
+   * so no tabpanel exists to query.
    */
   test('uses Radix UI Tabs with proper ARIA roles', () => {
     render(
@@ -340,6 +343,9 @@ describe('TabBar component', () => {
 
   /**
    * Tab bar scrolls horizontally when too many tabs to fit.
+   *
+   * This is a CSS behaviour, so the assertion is that the overflow class is
+   * present on the tab list element.
    */
   test('tab list has horizontal scroll overflow class', () => {
     render(

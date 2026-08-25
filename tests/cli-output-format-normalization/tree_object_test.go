@@ -7,7 +7,7 @@ import (
 
 // ---------------------------------------------------------------------------
 // TREE plain shape: hierarchical, two-space indents, key as the spine.
-// (Hierarchical). Structural: assert at least one indented child line under a
+// Hierarchical shape. Structural: assert at least one indented child line under a
 // less-indented parent, and node labels present.
 // ---------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ func TestObject_PlainShapeIsKeyValueBlock(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // XREF tabular plain shape: header row + N aligned data rows.
-// (Uniform repeated records). Structural: a header line naming the columns, then
+// Uniform repeated records. Structural: a header line naming the columns, then
 // one data row per xref entry. Row count cross-checked against --json.
 // ---------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ func TestXRef_PlainShapeIsTableWithHeader(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // OBJECTS (plural) tabular plain shape: header row + one row per object-index
-// entry. (Uniform repeated records).
+// entry, as uniform repeated records.
 // ---------------------------------------------------------------------------
 
 func TestObjects_PlainShapeIsTableWithHeader(t *testing.T) {

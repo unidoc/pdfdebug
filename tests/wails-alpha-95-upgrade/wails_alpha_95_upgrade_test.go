@@ -225,7 +225,7 @@ var expectedServiceMethods = []struct {
 // No exact method count is asserted. A `count == N` pin churned 20 -> 22 across
 // bumps and tested the wrong invariant ("the surface is exactly N methods")
 // instead of the one that matters ("the methods callers depend on still exist with
-// their shape"); per project_struct_grep_tests_brittle.md the magic number is out.
+// their shape"), so the magic number is gone.
 // The consumer-driven presence contract against the regenerated binding artifact
 // lives in TestBindingsExportConsumerMethods in the alpha2.103 suite. What is left
 // here is the per-signature substring check, which tolerates adding NEW methods
@@ -330,7 +330,9 @@ func TestJSONTagsPreserved(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestBindingsExportAll20Methods asserts the regenerated frontend Wails binding
-// exports each of the 20 PDFService methods. A failed regen step leaves stale
+// exports every method in expectedServiceMethods. It is a presence check over
+// that list, not a count pin: adding a method is fine, dropping or renaming a
+// listed one is not. A failed regen step leaves stale
 // bindings, so this fails loud when `wails3 generate bindings -clean=true` was not
 // run after a bump.
 func TestBindingsExportAll20Methods(t *testing.T) {

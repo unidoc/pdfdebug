@@ -52,9 +52,8 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// On macOS (modifier === 'Cmd'), Ctrl+K is a no-op. The current `metaKey ||
-// ctrlKey` implementation OPENS on Ctrl+K, so this FAILS until the
-// platform-aware check lands.
+// On macOS (modifier === 'Cmd'), Ctrl+K is a no-op: the handler reads
+// e.metaKey only, so the control key never opens the palette there.
 // ---------------------------------------------------------------------------
 describe('macOS - Ctrl+K does not open the palette', () => {
   test('Ctrl+K is a no-op on macOS', () => {
@@ -119,9 +118,8 @@ describe('Linux/Windows - Ctrl+K opens the palette', () => {
 });
 
 // ---------------------------------------------------------------------------
-// On Linux/Windows, Cmd+K does nothing (no metaKey to
-// register in normal use). The current OR-based code would open on metaKey;
-// after the fix the non-mac branch reads e.ctrlKey only.
+// On Linux/Windows, Cmd+K does nothing: the non-mac branch reads e.ctrlKey
+// only, so a metaKey press never opens the palette.
 // ---------------------------------------------------------------------------
 describe('Linux/Windows - Cmd+K is a no-op', () => {
   test('Cmd+K does not open on non-mac platforms', () => {

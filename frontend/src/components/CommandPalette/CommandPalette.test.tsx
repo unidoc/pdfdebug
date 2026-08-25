@@ -1,7 +1,8 @@
 /**
  * Command Palette (Cmd+K) -- inline labels + jump-to-object.
  *
- * Covers palette-side wiring.
+ * Covers the palette-side wiring: opening and filtering the overlay, and
+ * dispatching a jump that lands in the reducer's pendingNavTarget.
  *
  * Approach: mock the Wails binding so GetObjectIndex returns a deterministic
  * fixture. Render <App-shell-equivalent> with AppProvider and assert against

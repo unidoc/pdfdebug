@@ -465,7 +465,7 @@ func TestGetPlainTextAsyncMaxAllocCeiling(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextErrUnsupportedPDFPreserved verifies + sentinel identity: an
+// TestGetPlainTextErrUnsupportedPDFPreserved verifies sentinel identity: an
 // oversize-file error from readPlainText must remain errors.Is(err,
 // ErrUnsupportedPDF) at the GetPlainText boundary. wrapPDFError without a
 // bypass would re-classify it as ErrMalformedPDF (the wrapper's "%w: %v"
@@ -489,7 +489,7 @@ func TestGetPlainTextErrUnsupportedPDFPreserved(t *testing.T) {
 }
 
 // TestGetPlainTextAsyncErrWrappingPreservesCanceled verifies the error-wrapping
-// rule + Dev Notes: GetPlainText MUST NOT route context.Canceled through
+// rule: GetPlainText MUST NOT route context.Canceled through
 // wrapPDFError (which would mask the Canceled identity behind an
 // ErrMalformedPDF wrap). The structural guard test in the acceptance suite
 // checks for the early-return source pattern; this test verifies the runtime
