@@ -173,7 +173,7 @@ func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
 			continue
 		}
 		if idx <= bindingsIdx {
-			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d) ordering requirement", pat, idx, bindingsIdx)
+			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d)", pat, idx, bindingsIdx)
 		}
 	}
 }

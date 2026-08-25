@@ -377,7 +377,7 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 	}
 	if !matched {
 		t.Errorf("splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
-			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a documented reasoes reference.")
+			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a documented reason.")
 	}
 }
 
