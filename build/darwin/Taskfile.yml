@@ -199,7 +199,7 @@ tasks:
     summary: Creates an `.app` bundle
     deps:
       # Build the CLI so it can be embedded in Contents/Resources. Self-sufficient:
-      # does NOT assume a pre-existing bin/pdfdebug (Story 11-1, AC #6, Task 1.1).
+      # does NOT assume a pre-existing bin/pdfdebug.
       # Forward ARCH / CLI_UNIVERSAL so the embedded CLI's arch matches the GUI
       # binary rather than silently defaulting to the runner's native arch.
       - task: build:cli
@@ -219,7 +219,7 @@ tasks:
       # Embed the CLI as a bundle resource (invoked externally, not launched by
       # the bundle -- matches VS Code's Contents/Resources/.../bin/code). Must
       # precede the codesign dispatch below so the ad-hoc/Developer ID signature
-      # covers this nested Mach-O (Story 11-1, AC #1).
+      # covers this nested Mach-O.
       - cp "{{.BIN_DIR}}/pdfdebug" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug"
       - chmod +x "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/pdfdebug"
       - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
