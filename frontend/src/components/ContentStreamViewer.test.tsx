@@ -33,7 +33,7 @@ const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 // ContentStreamViewer renders decoded text in monospace font with line
 // numbers.
 // Content stream displayed as decoded plain text in monospace font,
-//       line numbers shown in left gutter.
+// line numbers shown in left gutter.
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer line numbers and content', () => {
@@ -431,8 +431,8 @@ describe('Tooltip map completeness', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Syntax highlighting edge cases Token spacing
-// reconstruction and blank line preservation.
+// Syntax highlighting edge cases: token spacing reconstruction and blank line
+// preservation.
 // ---------------------------------------------------------------------------
 
 describe('ContentStreamViewer edge cases', () => {

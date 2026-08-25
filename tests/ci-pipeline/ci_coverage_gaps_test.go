@@ -341,9 +341,9 @@ func TestESLintConfigIgnoresTestFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// eslint.config.js enforces `no-console: warn` Dev Notes: "already
-// de-facto convention; keep as warn not error to avoid churn". Guards
-// against accidental downgrade/removal.
+// eslint.config.js enforces `no-console: warn`. It stays a warning rather than
+// an error because the rule is already de-facto convention and promoting it
+// would create churn; this guards against an accidental downgrade or removal.
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigNoConsoleWarn(t *testing.T) {
@@ -356,8 +356,8 @@ func TestESLintConfigNoConsoleWarn(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// .gitattributes marks binary asset extensions as binary Prevents git from
-// mangling PDF fixtures (used by every acceptance test suite under tests/)
+// .gitattributes marks binary asset extensions as binary, which prevents git
+// from mangling PDF fixtures (used by every acceptance suite under tests/)
 // when users clone on Windows. Implementation adds pdf/png/jpg/
 // jpeg/gif/ico/icns/ttf/otf/woff/woff2/eot -- assert the critical ones used by
 // test fixtures (pdf, png).

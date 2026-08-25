@@ -233,8 +233,8 @@ function renderWithState(
 // ---------------------------------------------------------------------------
 // DetailPanel renders PropertyTable for dictionary node: Given a
 // dictionary node is selected, When the DetailPanel updates,
-//       Then it displays a full PropertyTable with all key-value pairs and
-//       type-colored values, And the panel header shows a context label.
+// Then it displays a full PropertyTable with all key-value pairs and
+// type-colored values, And the panel header shows a context label.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel dictionary rendering', () => {
@@ -321,7 +321,7 @@ describe('DetailPanel dictionary rendering', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel renders ArrayViewer for array node: Given an array node
 // is selected, When the DetailPanel updates,
-//       Then it displays an ArrayViewer with ordered elements and indices.
+// Then it displays an ArrayViewer with ordered elements and indices.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel array rendering', () => {
@@ -379,8 +379,8 @@ describe('DetailPanel array rendering', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel shows placeholder when no node selected: Given no tree node is
 // selected, When the user views the DetailPanel,
-//       Then it shows "Select a node in the tree to view details" in muted
-//       text, centered vertically and horizontally.
+// Then it shows "Select a node in the tree to view details" in muted
+// text, centered vertically and horizontally.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel empty state', () => {
@@ -426,8 +426,8 @@ describe('DetailPanel empty state', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel error display: Given an error node is selected OR
 // GetObjectDetail returns an error,
-//       When the DetailPanel updates, Then it displays the error message in
-//       text-error styling.
+// When the DetailPanel updates, Then it displays the error message in
+// text-error styling.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel error display', () => {
@@ -466,8 +466,8 @@ describe('DetailPanel error display', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel aria-live for screen reader announcements: Given the detail
 // panel content is updated, When a screen reader is
-//       active, Then the content change is announced via aria-live="polite"
-//       on the detail panel container.
+// active, Then the content change is announced via aria-live="polite"
+// on the detail panel container.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel accessibility', () => {
@@ -482,8 +482,8 @@ describe('DetailPanel accessibility', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel scalar rendering: Given a scalar/leaf node is selected, When
 // the DetailPanel updates,
-//       Then it displays a ScalarViewer showing the value with its type
-//       indication.
+// Then it displays a ScalarViewer showing the value with its type
+// indication.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel scalar rendering', () => {
@@ -530,8 +530,8 @@ describe('DetailPanel scalar rendering', () => {
 // ---------------------------------------------------------------------------
 // DetailPanel stream rendering: Given a stream node is selected, When
 // the DetailPanel updates,
-//       Then it displays the stream dictionary properties as a PropertyTable,
-//       And stream metadata (length, filters) below the properties.
+// Then it displays the stream dictionary properties as a PropertyTable,
+// And stream metadata (length, filters) below the properties.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel stream rendering', () => {
@@ -626,9 +626,8 @@ describe('DetailPanel stale fetch cancellation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// DetailPanel keeps previous detail visible during load Previous detail
-// stays visible until the new fetch resolves, avoiding a flash of
-// empty/error state during tab switches.
+// DetailPanel keeps the previous detail visible during load: it stays until the
+// new fetch resolves, avoiding a flash of empty/error state on tab switches.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel keeps previous detail during load', () => {
@@ -773,7 +772,7 @@ const contentStreamErrorData = {
 // ---------------------------------------------------------------------------
 // DetailPanel renders ContentStreamViewer for stream nodes: When a stream
 // node is selected AND GetContentStream returns raw text,
-//       ContentStreamViewer renders with line numbers and content.
+// ContentStreamViewer renders with line numbers and content.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel content stream integration', () => {
@@ -1073,7 +1072,7 @@ describe('DetailPanel content stream loading indicator', () => {
 // ---------------------------------------------------------------------------
 // GetContentStream IPC rejection renders error: When the IPC call
 // itself rejects (not a struct-level error),
-//       the error is wrapped and displayed via ContentStreamViewer.
+// the error is wrapped and displayed via ContentStreamViewer.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel content stream IPC rejection', () => {
@@ -1141,7 +1140,7 @@ const contentStreamDataWithTokens = {
 // DetailPanel passes tokenized data to ContentStreamViewer and renders
 // syntax-highlighted tokens.
 // When stream node selected with tokenized data, operator tokens have
-//       text-token-operator class.
+// text-token-operator class.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel syntax highlighting integration', () => {
@@ -1252,7 +1251,7 @@ const mockImageDataResponse = {
 // DetailPanel renders ImagePreview when selected node has iconHint
 // "image".
 // When an XObject image node is selected, the DetailPanel switches to
-//       image preview mode showing the rendered image.
+// image preview mode showing the rendered image.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel image preview mode', () => {
@@ -1336,7 +1335,7 @@ describe('DetailPanel image preview header', () => {
 // ---------------------------------------------------------------------------
 // Loading state shown while image data is being fetched: When fetch takes
 // longer than 200ms, a "Loading image..." indicator
-//       appears (same debounce pattern as content stream loading).
+// appears (same debounce pattern as content stream loading).
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel image loading state', () => {
@@ -1426,7 +1425,7 @@ describe('DetailPanel image loading state', () => {
 // Switching from image node to dict node clears image preview and shows
 // the appropriate view.
 // When a non-image node is selected after an image node, the image
-//       preview is cleared and the dict/array/scalar/stream view is shown.
+// preview is cleared and the dict/array/scalar/stream view is shown.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel clears image on node switch', () => {
@@ -1586,7 +1585,7 @@ describe('DetailPanel navigate back restores image', () => {
 // ---------------------------------------------------------------------------
 // GetImageData IPC rejection renders error in ImagePreview: When
 // GetImageData promise rejects (IPC-level failure), the error is
-//       wrapped and displayed via ImagePreview's error state.
+// wrapped and displayed via ImagePreview's error state.
 // ---------------------------------------------------------------------------
 
 describe('DetailPanel image data IPC rejection', () => {

@@ -1,5 +1,5 @@
 // 4-5: deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
-//      console.log fallback; real behaviour covered by Playwright E2E).
+// console.log fallback; real behaviour covered by Playwright E2E).
 
 // Package empty_state_test provides acceptance tests for Empty State with
 // Drag-and-Drop Zone.
@@ -69,13 +69,13 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// EmptyState component renders title, subtitle, drop zone,
-//                     and Open File button
-// Centered empty state with "UniDoc PDF Debugger" title and
-//       "Inspect PDF internal structure" subtitle
-// Dashed-border drop zone with "Drop a PDF file here" text: "or" divider +
-// "Open File..." primary button (blue bg, white text): Design system fonts
-// and colors used
+// EmptyState renders title, subtitle, drop zone and Open File button:
+//   - centered, with the "UniDoc PDF Debugger" title and the
+//     "Inspect PDF internal structure" subtitle
+//   - a dashed-border drop zone reading "Drop a PDF file here"
+//   - an "or" divider plus an "Open File..." primary button (blue bg,
+//     white text)
+//   - design system fonts and colors throughout
 // ---------------------------------------------------------------------------
 
 
@@ -135,14 +135,12 @@ func TestPlatformDetectionUtilityExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Shortcut hint rendered in EmptyState: Keyboard shortcut
-// hint shows "Cmd+O" or "Ctrl+O"
+// Shortcut hint rendered in EmptyState: it shows "Cmd+O" or "Ctrl+O".
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// hasDocument=true hides empty state: Component not
-// rendered when hasDocument is true
+// hasDocument=true hides the empty state: the component is not rendered.
 // ---------------------------------------------------------------------------
 
 
@@ -196,8 +194,8 @@ func TestAppJsxIntegratesEmptyState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// App.jsx keeps .jsx extension (not renamed to .tsx) Per project
-// convention: Wails-generated files keep .jsx extension
+// App.jsx keeps its .jsx extension and is not renamed to .tsx: Wails-generated
+// files keep .jsx by project convention.
 // ---------------------------------------------------------------------------
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
@@ -212,33 +210,32 @@ func TestAppJsxExtensionPreserved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Drag-and-drop event handlers on outermost container: Drag handlers on
-// entire empty state wrapper, not just drop zone
+// Drag-and-drop event handlers sit on the outermost container: the whole
+// empty-state wrapper, not just the drop zone.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Drop zone visual feedback classes: Blue border and
-// highlight background on valid drag: "PDF files only"
-// error text for invalid files
+// Drop zone visual feedback classes: a blue border and highlight background on
+// a valid drag, and "PDF files only" error text for invalid files.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Non-PDF drop rejection with 2-second timeout: After non-PDF
-// drop, show error for 2 seconds then reset
+// Non-PDF drop rejection with a 2-second timeout: after a non-PDF drop the
+// error shows for 2 seconds, then resets.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// EmptyState centering layout: Layout vertically and horizontally
-// centered using design system
+// EmptyState centering layout: vertically and horizontally centered using the
+// design system.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// CSS height rule for full-height centering: html, body, #root must
-// have height: 100% for h-full to work
+// CSS height rule for full-height centering: html, body and #root must have
+// height: 100% for h-full to work.
 // ---------------------------------------------------------------------------
 
 func TestCSSHeightRuleForCentering(t *testing.T) {
@@ -263,8 +260,7 @@ func TestCSSHeightRuleForCentering(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// No barrel files created Project rule: barrel files
-// (index.ts) are forbidden
+// No barrel files: index.ts barrel files are forbidden by project rule.
 // ---------------------------------------------------------------------------
 
 func TestNoBarrelFilesCreated(t *testing.T) {
@@ -289,14 +285,13 @@ func TestNoBarrelFilesCreated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// EmptyState uses flex-col for vertical stacking: Elements stacked vertically (title,
-// subtitle, drop zone, divider, button, hint)
+// EmptyState uses flex-col so elements stack vertically: title, subtitle, drop
+// zone, divider, button, hint.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// drop-zone-hint data-testid: data-testid on hint
-// text inside drop zone
+// drop-zone-hint data-testid sits on the hint text inside the drop zone.
 // ---------------------------------------------------------------------------
 
 

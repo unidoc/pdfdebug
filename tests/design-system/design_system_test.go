@@ -58,10 +58,10 @@ func readStyleCSS(t *testing.T) string {
 // ---------------------------------------------------------------------------
 // CSS custom properties for design tokens defined on :root: --color-bg,
 // --color-surface, --color-surface-hover,
-//       --color-surface-selected, --color-text, --color-text-secondary,
-//       --color-text-muted, --color-border, --color-border-focus,
-//       --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
-//       --panel-padding, --tree-indent
+// --color-surface-selected, --color-text, --color-text-secondary,
+// --color-text-muted, --color-border, --color-border-focus,
+// --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
+// --panel-padding, --tree-indent
 // ---------------------------------------------------------------------------
 
 func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
@@ -140,11 +140,11 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDF value type color custom properties defined: --color-type-name
 // (teal), --color-type-string (amber),
-//       --color-type-number (blue), --color-type-reference (violet),
-//       --color-type-boolean (pink), --color-type-null (gray),
-//       --color-type-stream (emerald)
-//       AND semantic colors: --color-error (red), --color-warning (amber),
-//       --color-success (green), --color-info (blue)
+// --color-type-number (blue), --color-type-reference (violet),
+// --color-type-boolean (pink), --color-type-null (gray),
+// --color-type-stream (emerald)
+// AND semantic colors: --color-error (red), --color-warning (amber),
+// --color-success (green), --color-info (blue)
 // ---------------------------------------------------------------------------
 
 func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
@@ -203,9 +203,8 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Inter font configured as UI font with system-ui fallback: Light theme
-// defaults applied (body uses --color-bg and --color-text): Inter font
-// configured with system-ui fallback
+// Inter is configured as the UI font with a system-ui fallback, and the light
+// theme defaults are applied (body uses --color-bg and --color-text).
 // ---------------------------------------------------------------------------
 
 func TestInterFontAndBodyDefaults(t *testing.T) {
@@ -268,7 +267,7 @@ func TestJetBrainsMonoFontConfigured(t *testing.T) {
 // ---------------------------------------------------------------------------
 // prefers-reduced-motion disables CSS transitions: All CSS
 // transitions and animations disabled when OS-level
-//       prefers-reduced-motion is enabled
+// prefers-reduced-motion is enabled
 // ---------------------------------------------------------------------------
 
 func TestReducedMotionSupport(t *testing.T) {
@@ -402,8 +401,8 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// @theme inline registers color tokens for Tailwind utilities (part): Colors
-// registered via @theme inline so var() references work
+// @theme inline registers the color tokens for Tailwind utilities, so var()
+// references resolve.
 // ---------------------------------------------------------------------------
 
 func TestTailwindThemeInlineColors(t *testing.T) {

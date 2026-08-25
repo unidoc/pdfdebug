@@ -1,5 +1,5 @@
 // 4-5: deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
-//      duplicate-prevention not separately covered, accept regression risk).
+// duplicate-prevention not separately covered, accept regression risk).
 
 // Package app_shell_test provides acceptance tests for Native Menu Bar and
 // Application Shell.
@@ -80,12 +80,11 @@ func fileExists(t *testing.T, relPath string) bool {
 // Native menu bar with File menu (Open, Close, Quit)
 // ---------------------------------------------------------------------------
 
-// main.go template boilerplate removed prerequisite:
-// GreetService, time ticker, init() removed
+// main.go template boilerplate removed: GreetService, the time ticker and
+// init() are gone.
 
 
-// greetservice.go deleted prerequisite: Template
-// leftover file removed
+// greetservice.go deleted: the template leftover file is removed.
 
 func TestGreetServiceFileDeleted(t *testing.T) {
 	if fileExists(t, "greetservice.go") {
@@ -368,8 +367,8 @@ func TestAppJsxUsesAppStateHook(t *testing.T) {
 	}
 }
 
-// AppContent wrapper component exists inside App.jsx Hooks must be called
-// inside AppProvider, so a wrapper component is needed
+// AppContent wrapper component exists inside App.jsx: hooks must be called
+// inside AppProvider, so a wrapper component is needed.
 
 func TestAppContentWrapperComponent(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -410,20 +409,20 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Platform-aware shortcut hint renders correctly (related):
-// EmptyState uses getShortcutHint from platform.ts
+// Platform-aware shortcut hint renders correctly: EmptyState uses
+// getShortcutHint from platform.ts.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Focus indicator applied to interactive elements (related):
-// Accessibility focus-visible ring on buttons
+// Focus indicator applied to interactive elements: an accessibility
+// focus-visible ring on buttons.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// ErrorBoundary wraps Allotment in MainLayout Defensive:
-// ErrorBoundary catches render errors in split panels
+// ErrorBoundary wraps Allotment in MainLayout, defensively, so it catches
+// render errors in the split panels.
 // ---------------------------------------------------------------------------
 
 
@@ -458,8 +457,8 @@ func TestUseDocumentStateInitialState(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// useDocumentState context null guards Hooks throw meaningful
-// errors when used outside AppProvider
+// useDocumentState context null guards: the hooks throw meaningful errors when
+// used outside AppProvider.
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateContextNullGuards(t *testing.T) {
