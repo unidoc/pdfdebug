@@ -140,7 +140,7 @@ func TestBuildJobTimeoutMinutes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Wails CLI install pin matches the go.mod direct dependency version.
-// Divergence is E7-R-002 (Wails v3 alpha cross-platform build) high risk.
+// Divergence is a high risk for the Wails v3 alpha cross-platform build.
 // ---------------------------------------------------------------------------
 
 func TestWailsCLIPinMatchesGoMod(t *testing.T) {
@@ -168,7 +168,7 @@ func TestWailsCLIPinMatchesGoMod(t *testing.T) {
 	gmPin := gmMatch[1]
 
 	if wfPin != gmPin {
-		t.Errorf("release.yml Wails CLI pin %q must match go.mod wails/v3 pin %q (E7-R-002 mitigation)", wfPin, gmPin)
+		t.Errorf("release.yml Wails CLI pin %q must match go.mod wails/v3 pin %q", wfPin, gmPin)
 	}
 }
 
@@ -218,8 +218,8 @@ func TestWailsBindingsGeneratedBeforeBuild(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Go + Node pins in release.yml match ci.yml (Dev Notes "Reuse Everything").
-// Divergence between the two workflows is E7-R-005 (CI matrix divergence).
+// Go + Node pins in release.yml match ci.yml: the two workflows must not
+// drift apart, or the release build runs on a different toolchain than CI.
 // ---------------------------------------------------------------------------
 
 func TestGoAndNodePinsMatchCIWorkflow(t *testing.T) {
@@ -241,7 +241,7 @@ func TestGoAndNodePinsMatchCIWorkflow(t *testing.T) {
 		t.Fatalf("release.yml: setup-go go-version not found")
 	}
 	if ciGo[1] != relGo[1] {
-		t.Errorf("release.yml setup-go pin %q must match ci.yml pin %q (E7-R-005 mitigation)", relGo[1], ciGo[1])
+		t.Errorf("release.yml setup-go pin %q must match ci.yml pin %q", relGo[1], ciGo[1])
 	}
 
 	// setup-node node-version pin
@@ -252,7 +252,7 @@ func TestGoAndNodePinsMatchCIWorkflow(t *testing.T) {
 		t.Fatalf("setup-node node-version not found in one of the workflows (ci=%v release=%v)", ciNode != nil, relNode != nil)
 	}
 	if ciNode[1] != relNode[1] {
-		t.Errorf("release.yml setup-node pin %q must match ci.yml pin %q (E7-R-005 mitigation)", relNode[1], ciNode[1])
+		t.Errorf("release.yml setup-node pin %q must match ci.yml pin %q", relNode[1], ciNode[1])
 	}
 }
 
@@ -366,8 +366,8 @@ func TestPlatformGUIBuildSteps(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // CLI smoke test step is present (per-cell binary launch check).
-// E7-R-002 mitigation: confirm the produced binary launches before it is
-// uploaded as a release asset.
+// Confirms the produced binary launches before it is uploaded as a release
+// asset.
 // ---------------------------------------------------------------------------
 
 func TestCLISmokeTestStep(t *testing.T) {

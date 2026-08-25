@@ -217,8 +217,8 @@ func yamlInt(i int) string {
 }
 
 // ---------------------------------------------------------------------------
-// .gitattributes normalizes line endings.
-// Risk mitigation E7-R-005.
+// .gitattributes normalizes line endings, so the Windows checkout does not
+// differ from Linux and macOS and the CI matrix stays consistent.
 // ---------------------------------------------------------------------------
 
 func TestGitattributesLineEndings(t *testing.T) {

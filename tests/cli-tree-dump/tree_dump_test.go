@@ -389,7 +389,7 @@ func TestCLI_NoWailsImports(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Tree dump of testdata/multipage.pdf completes in under 5 seconds.
-// Performance guard for recursive tree traversal (risk E5-R-001).
+// Performance guard for recursive tree traversal.
 // Recursive tree traversal completes in reasonable time.
 // ---------------------------------------------------------------------------
 
