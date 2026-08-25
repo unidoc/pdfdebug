@@ -594,7 +594,7 @@ describe('tab label row count', () => {
 // mount, this test fails.
 //
 // Object pane is chosen because Plain Text intentionally resets scrollTop on
-// activation (test 108) and XREF has its own internal scroll container;
+// activation and XREF has its own internal scroll container;
 // The Object Tabs.Content is the cleanest surface for the contract.
 // ---------------------------------------------------------------------------
 

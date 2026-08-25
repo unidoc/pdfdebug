@@ -31,7 +31,7 @@
 // decomposition is covered black-box by the acceptance suite, which generates
 // a genuinely signed fixture. Layouts here are byte-identical (modulo the
 // /Contents capacity) to fixtures validated against pdfcpu default validation
-// during ATDD authoring.
+// when the suite was written.
 package pdfcore
 
 import (

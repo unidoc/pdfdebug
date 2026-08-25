@@ -1,7 +1,7 @@
 /**
  * ValidateView component tests.
  *
- * Component contract (from the story):
+ * Component contract:
  *  - Document-level Validate panel with a "Run checks" action
  *    (data-testid="validate-run") and a profile selector
  *    (data-testid="validate-profile"): pdfa-1b (default) and

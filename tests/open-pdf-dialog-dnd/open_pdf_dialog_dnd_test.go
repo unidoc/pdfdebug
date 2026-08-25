@@ -1,4 +1,4 @@
-// 4-5: deleted TestAppShellNoRegression (meta-test that subprocess-ran the
+// Deleted TestAppShellNoRegression (meta-test that subprocess-ran the
 // app-shell suite; CI already runs that suite -- pure overhead).
 
 // Package open_pdf_dialog_dnd_test provides acceptance tests for Open PDF via

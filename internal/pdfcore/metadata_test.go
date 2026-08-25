@@ -158,8 +158,8 @@ func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
 // contract is therefore asserted directly against decodeXMPStream, the pure
 // decode/classify branch collectXMP delegates to: a /FlateDecode StreamDict
 // over non-zlib bytes whose Decode() fails must yield ("", warning), never an
-// error. (Original ATDD fixture revised during the green phase: it could not
-// parse under pdfcpu.)
+// error. The fixture is hand-assembled because a generated one could not parse
+// under pdfcpu.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
@@ -188,7 +188,7 @@ func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
 // ---------------------------------------------------------------------------
 // An UNFILTERED /Metadata stream (no /Filter) passes its Raw bytes through
 // VERBATIM as the XMP packet with NO warning -- the happy counterpart to
-// UNIT-024's undecodable path (metadata.go:119-123).
+// the undecodable-stream path (metadata.go:119-123).
 // ---------------------------------------------------------------------------
 
 func TestDecodeXMPStream_UnfilteredVerbatimNoWarning(t *testing.T) {

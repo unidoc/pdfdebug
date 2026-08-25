@@ -306,7 +306,7 @@ func TestPageDump_HelpDocumentsExperimental(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: the full-object --json output carries a top-level
+// Plain-text-default contract: the full-object --json output carries a top-level
 // "_stability":"experimental" marker so a machine reader sees the instability
 // in the payload. The DECISION (documented): the marker attaches to the full
 // object only; a section-scoped --json view OMITS it.
@@ -338,7 +338,8 @@ func TestPageDump_JSON_FullObjectCarriesStabilityMarker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: the default (no --json) page --info output is human-readable PLAIN
+// Plain-text-default contract: the default (no --json) page --info output is
+// human-readable PLAIN
 // TEXT with aligned key/value sections (Geometry/ExtGStates/XObjects),
 // honoring --section, and is NOT JSON. STRUCTURAL assertions only.
 // ---------------------------------------------------------------------------
@@ -384,7 +385,7 @@ func TestPageDump_PlainSectionHonored(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: the plain-text ExtGState summary labels the transparency alphas `ca`
+// Plain-text-default contract: the plain-text ExtGState summary labels the transparency alphas `ca`
 // (non-stroking, PDF /ca) and `CA` (stroking, PDF /CA) with the SAME values
 // the --json output carries under its `ca`/`CA` keys. This pins the
 // label->semantics mapping to the JSON-tag contract, NOT to the (deliberately

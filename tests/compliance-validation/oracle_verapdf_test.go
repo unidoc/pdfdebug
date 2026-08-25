@@ -10,7 +10,7 @@ package compliance_validation_test
 // SKIPS CLEANLY when veraPDF is absent so CI without veraPDF stays green
 // (t.Skip, never t.Fatal). Override the binary path with VERAPDF=/path env; the
 // machine-readable flag is `--format json` on veraPDF 1.30.x (confirmed during
-// ATDD authoring -- CLAUDE.md warns flags drift, so re-confirm on version bump).
+// suite authoring -- CLAUDE.md warns flags drift, so re-confirm on version bump).
 //
 // veraPDF 1.30.x JSON shape (confirmed):
 //	report.jobs[0].validationResult[0].compliant           bool

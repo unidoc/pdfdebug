@@ -18,9 +18,9 @@ import (
 //
 // Beyond the compile-time symbol assertion, the test independently re-derives
 // the expected text/template output and asserts Render's bytes are identical
-// for the three Version inputs named in ("dev", "v0.2.0", "v0.2.0-rc1").
-// The html.EscapeString(RenderVersion(version)) pre-escaping (Dev Notes for
-// #27: text/template does NOT HTML-escape, so the explicit escape must remain)
+// for the three Version inputs "dev", "v0.2.0" and "v0.2.0-rc1".
+// The html.EscapeString(RenderVersion(version)) pre-escaping (text/template
+// does NOT HTML-escape, so the explicit escape must remain)
 // is reproduced here so the parity check is exact.
 func TestRenderUsesTextTemplate(t *testing.T) {
 	// Reference the package-scope splashTmpl Render is backed by.

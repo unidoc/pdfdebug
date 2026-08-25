@@ -19,7 +19,7 @@
 // ByteRange digest with encoding/asn1, RSA-signed for real -- spliced into a
 // hand-rolled PDF whose ByteRange is computed against the true /Contents hole.
 // Malformed / not-covers / hole-mismatch variants derive from the same
-// builder. Every fixture was VALIDATED during ATDD authoring to parse through
+// builder. Every fixture was VALIDATED to parse through
 // the current CLI's open path (pdfcpu default validation, the exact
 // Inspector.Open route) and the CMS blob round-trips through strict stdlib DER
 // parsing with non-positional signer identification (the CA cert is FIRST in
@@ -320,7 +320,7 @@ func getBool(m map[string]any, key string) bool {
 	return b
 }
 
-// --- fixture generation (validated during ATDD authoring) --------------------
+// --- fixture generation (validated when they were written) --------------------
 //
 // One CA + one leaf signer cert are generated once per test process; each
 // fixture assembles its own PDF around the shared PKI.

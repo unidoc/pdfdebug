@@ -307,7 +307,7 @@ func assertNoComplianceVerdict(t *testing.T, id, out string) {
 	}
 }
 
-// --- fixture builders (validated during ATDD authoring) ----------------------
+// --- fixture builders (validated when they were written) ----------------------
 //
 // Every fixture is a minimal hand-assembled PDF built to PARSE through the
 // existing Inspector.Open path while deliberately tripping (or

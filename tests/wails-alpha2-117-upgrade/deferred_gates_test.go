@@ -1,10 +1,10 @@
 // Deferred / non-unit-automatable gate scenarios, encoded as documented
 // skipped-with-reason placeholders rather than fabricated automation. These
-// exist so the story's full gate is TRACEABLE in the suite (every 14.2 scenario
-// has a home) without pretending a headless Go test can close a check that needs
+// exist so every gate scenario has a home in the suite, without pretending a
+// headless Go test can close a check that needs
 // the wails3 toolchain, a git working tree, or real desktop hardware.
 //
-// Per the ATDD directive: follow the test pyramid, do NOT create E2E/browser
+// Following the test pyramid: do NOT create E2E/browser
 // tests for criteria that need full desktop/WebView interaction, and encode the
 // bindings zero-diff check as a documented integration check (not a grep).
 package wails_alpha2_117_upgrade_test

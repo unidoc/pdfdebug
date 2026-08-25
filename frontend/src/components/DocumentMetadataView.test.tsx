@@ -1,7 +1,7 @@
 /**
  * DocumentMetadataView component tests.
  *
- * Component contract (from the story):
+ * Component contract:
  *  - Fed by GetDocumentMetadata(tabId) -> { info: {...}, xmp: "...", warning }.
  *  - /Info fields rendered as a key/value block.
  *  - XMP packet rendered in a read-only, scrollable, bounded region.

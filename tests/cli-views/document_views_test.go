@@ -207,7 +207,7 @@ func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: plain-text default siblings. WITHOUT --json, dump xref / dump objects
+// Plain-text-default contract: siblings. WITHOUT --json, dump xref / dump objects
 // emit a human-readable aligned table (header row + data rows), NOT JSON.
 // Assertions are STRUCTURAL (header tokens + row count >= 1), never whole-dump
 // equality.

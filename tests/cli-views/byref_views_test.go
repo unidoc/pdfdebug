@@ -252,10 +252,10 @@ func TestImageDump_MetadataFlag_OmitsBase64(t *testing.T) {
 // Regression guard: the `--metadata` projection must preserve
 // every surviving (non-base64) field byte-for-byte against the full form. The
 // metadata output must equal the full output with only the `base64` key
-// deleted. This locks the Review #1 fix (the projection uses
+// deleted. This locks the fix (the projection uses
 // map[string]json.RawMessage, NOT map[string]any -- the latter would relabel
 // every integer field, e.g. width/height/bitsPerComponent, as a float64 and
-// silently diverge from the full form). Key-presence alone (INTG-006) does
+// silently diverge from the full form). Key-presence alone does
 // not catch that numeric-laundering regression.
 // ---------------------------------------------------------------------------
 
@@ -510,7 +510,7 @@ func TestByRef_MalformedRef_UsageError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: plain-text default siblings for the ref-taking commands. WITHOUT
+// Plain-text-default contract: siblings for the ref-taking commands. WITHOUT
 // --json the output is human-readable (aligned key/value for font/image,
 // reserialized source for source, an aligned table for reverserefs) and must
 // NOT be JSON. Assertions are STRUCTURAL.

@@ -97,7 +97,8 @@ func TestNoExactMethodCountPin(t *testing.T) {
 	// Skip this guard's own file: it holds the forbidden patterns as detection
 	// literals, which would otherwise self-trip the scan.
 	own := loadOwnTestSources(t, "bindings_contract_test.go")
-	// The exact brittle pattern STRUCT-010 used: counting receiver lines.
+	// The exact brittle pattern the retired count test used: counting receiver
+	// lines.
 	if strings.Contains(own, `Count(`) && strings.Contains(own, `func (s *PDFService)`) {
 		t.Errorf("this suite must NOT count `func (s *PDFService)` receiver lines -- the exact-count pin is dropped entirely (project_struct_grep_tests_brittle.md). Use the consumer-driven presence contract in TestBindingsExportConsumerMethods instead.")
 	}

@@ -6,7 +6,7 @@ import (
 
 // Format groups operands with their operator and emits one FormattedLine
 // per logical PDF operation. Test cases cover the six canonical fixtures
-// the story spec calls out.
+// the format contract calls out.
 
 func TestFormatBaseline_OperatorPerLine(t *testing.T) {
 	// Each operator on its own source line; baseline that should round-trip

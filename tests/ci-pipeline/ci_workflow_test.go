@@ -330,7 +330,7 @@ func TestCIWorkflowPermissionsReadOnly(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // workflow-level concurrency.cancel-in-progress is true.
-// Covers Dev Notes "Concurrency" rationale.
+// Covers the concurrency rationale.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowConcurrency(t *testing.T) {

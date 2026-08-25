@@ -17,8 +17,7 @@
 //     - image.go still calls the two pdfcpu_render functions
 //     - stream.go still wraps sd.Decode() in safeCall
 //     - stream_test.go still carries TestTokenizeInlineImagePayloadOpaque
-//     - pdfcore/doc.go retains the blank import that pins pdfcpu (Dev Notes:
-//       "pdfcpu dependency is pinned via blank import")
+//     - pdfcore/doc.go retains the blank import that pins pdfcpu in go.mod
 //
 // Test pyramid for this story (per the user directive to favour API/integration
 // over E2E and to keep unit tests for business logic only):
@@ -26,9 +25,8 @@
 //   - Pure structural / source-grep assertions only. Patch bumps introduce
 //     ZERO new business logic, ZERO new component, ZERO new hook. Adding
 //     unit/component/E2E tests would be speculative coverage.
-//   - The behavioral ACs (vet/lint baseline diff, parent test pass,
-//     per-suite tests pass, CLI smoke) are EXPLICITLY delegated by
-//     the story spec to "run the existing test surface": the parent
+//   - The behavioural checks (vet/lint baseline diff, parent test pass,
+//     per-suite tests pass, CLI smoke) are EXPLICITLY delegated to "run the existing test surface": the parent
 //     `go test ./...`, the per-suite `cd tests/<name> && go test -count=1 ./...`
 //     and the CLI binary smoke. This story does not author parallel
 //     behavioral tests for them.
@@ -314,7 +312,7 @@ func TestInlineImagePayloadTestExists(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// pdfcpu blank-import pin preserved (Dev Notes invariant)
+// pdfcpu blank-import pin preserved (standing invariant)
 // ---------------------------------------------------------------------------
 
 // TestPdfcpuBlankImportPinPreserved asserts internal/pdfcore/doc.go retains the
@@ -324,7 +322,7 @@ func TestInlineImagePayloadTestExists(t *testing.T) {
 func TestPdfcpuBlankImportPinPreserved(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/doc.go")
 	if !strings.Contains(src, `import _ "github.com/pdfcpu/pdfcpu/pkg/api"`) {
-		t.Errorf("internal/pdfcore/doc.go must retain the blank import `import _ \"github.com/pdfcpu/pdfcpu/pkg/api\"` (Dev Notes: prevents `go mod tidy` from removing pdfcpu when all call sites use sub-packages)")
+		t.Errorf("internal/pdfcore/doc.go must retain the blank import `import _ \"github.com/pdfcpu/pdfcpu/pkg/api\"` (prevents `go mod tidy` from removing pdfcpu when all call sites use sub-packages)")
 	}
 }
 

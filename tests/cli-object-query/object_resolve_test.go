@@ -1,4 +1,4 @@
-// Acceptance tests for `dump object --resolve` (item 4).
+// Acceptance tests for `dump object --resolve`.
 // Black-box: build the CLI and run it as a subprocess.
 //
 // The regression test PINS the no-flag output.

@@ -445,7 +445,7 @@ func TestPageInfo_PrettyVsCompactParity(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: the full-object --json output carries a top-level
+// Plain-text-default contract: the full-object --json output carries a top-level
 // "_stability":"experimental" marker (machine-visible instability). A
 // section-scoped --json view omits it (documented decision: full object only).
 // ---------------------------------------------------------------------------
@@ -476,7 +476,8 @@ func TestPageInfo_JSONStabilityMarker(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 13.1: the default (no --json) output is human-readable PLAIN TEXT with
+// Plain-text-default contract: the default (no --json) output is human-readable
+// PLAIN TEXT with
 // aligned key/value sections, NOT JSON. STRUCTURAL assertions only.
 // ---------------------------------------------------------------------------
 

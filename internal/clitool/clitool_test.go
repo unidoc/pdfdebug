@@ -3,8 +3,9 @@
 // Homebrew prefix), and offers an "Add it for me" shell-profile edit
 // when ~/.local/bin is not on $PATH.
 //
-// Scope: all install business logic is pure Go and OS-filesystem, so every AC
-// except the native-menu wiring and the unsigned-build quarantine smoke is
+// Scope: all install business logic is pure Go and OS-filesystem, so every
+// requirement except the native-menu wiring and the unsigned-build quarantine
+// smoke is
 // covered here at UNIT level. There is NO E2E (the macOS-native menu item
 // cannot be reached by Playwright; main.go is source-grep-guarded and verified
 // manually); only the LABEL string is unit-asserted here via the exported
@@ -566,7 +567,8 @@ func TestUninstallCLIRemovesOnlyOurSymlink(t *testing.T) {
 // containing `export PATH=`. The double-quoting is the special-char invariant
 // applied to the guidance: a `~/.local/bin`-style dir whose path contains a space
 // (or `$`) would silently break an UNQUOTED export line the user pastes into
-// their shell profile. UNIT-008 only asserts the `contains "export PATH="`
+// their shell profile. The existing export-line test only asserts the
+// `contains "export PATH="`
 // substring, so the exact quoted shape is unpinned.
 // ---------------------------------------------------------------------------
 
@@ -604,8 +606,7 @@ func TestInstallCLINeedsPathHelpExportLineIsQuoted(t *testing.T) {
 // (e.g. the user already uninstalled, or trashed the app and removed the
 // dangling link). It returns nil, not an error. The implementation has an
 // explicit `absent -> nil` branch (clitool.go) but no test pinned it; the
-// foreign-entry test (UNIT-018) and the our-symlink test (UNIT-017) leave this
-// branch uncovered.
+// foreign-entry and our-symlink tests leave this branch uncovered.
 // ---------------------------------------------------------------------------
 
 func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
@@ -624,8 +625,8 @@ func TestUninstallCLIIdempotentWhenAbsent(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Coverage expansion: the explicit Overwrite flag replaces a
-// FOREIGN-SHAPED SYMLINK (not just a regular file) with OUR symlink. UNIT-014
-// confirms the overwrite-a-regular-file path; the symlink case exercises a
+// FOREIGN-SHAPED SYMLINK (not just a regular file) with OUR symlink. The
+// overwrite-a-regular-file path is already covered; the symlink case exercises a
 // structurally different clobber branch (lstat reports a symlink, linkInto
 // must os.Remove the symlink before re-creating it), and was only covered for
 // the REFUSE case (UNIT-013), never the confirmed-overwrite case.
@@ -664,7 +665,7 @@ func TestInstallCLIOverwriteFlagReplacesForeignSymlink(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // The PRODUCTION default install dir is exactly ~/.local/bin and is NEVER a
-// Homebrew-managed prefix. This pins the core 12.1 contract: we must not squat
+// Homebrew-managed prefix. This pins the core contract: we must not squat
 // on /opt/homebrew/bin or /usr/local/bin (a future official pdfdebug Homebrew
 // formula would collide there at `brew link`).
 // ---------------------------------------------------------------------------

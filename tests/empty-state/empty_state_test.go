@@ -1,4 +1,4 @@
-// 4-5: deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
+// Deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
 // console.log fallback; real behaviour covered by Playwright E2E).
 
 // Package empty_state_test provides acceptance tests for Empty State with

@@ -59,7 +59,7 @@ func (ins *Inspector) GetObjectSource(tabID, nodeID string) (string, error) {
 	// The catalog tree node uses sentinel ID "root" but IS a real indirect
 	// object. Map "root" to the catalog's indirect identity (via the trailer's
 	// /Root pointer) so its Object Source renders instead of falling through
-	// to the inline empty state. Dev Notes: the catalog is a real indirect
+	// to the inline empty state. the catalog is a real indirect
 	// object in the graph; only the trailer->catalog edge is excluded from
 	// reverse-refs, not the catalog itself from Object Source.
 	var (

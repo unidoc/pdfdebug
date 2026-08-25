@@ -1,7 +1,7 @@
 /**
  * EmbeddedDataView component tests.
  *
- * Component contract (from the story):
+ * Component contract:
  *  - Document-level view fed by GetEmbeddedFiles(tabId) -> EmbeddedFileList.
  *  - Table of rows (name, relationship, MIME, size).
  *  - Selecting a row shows its /Filespec details + "Reveal in tree" + "Save...".

@@ -55,7 +55,7 @@ describe('useWindowPersistence (panel sizes)', () => {
       result.current.savePanelSizes({ treeWidth: 400, subPanelHeight: 200 });
     });
 
-    // Flush the debounce timer (500ms per story spec)
+    // Flush the debounce timer (500ms)
     act(() => {
       vi.advanceTimersByTime(500);
     });
@@ -494,7 +494,7 @@ describe('useWindowPersistence (window geometry)', () => {
    * Loader returns windowGeometry: null but a valid panelSizes when the
    * persisted geometry is corrupt (forward/backward compat).
    *
-   * Mirrors UNIT-004 from the inverse direction (corrupt geometry +
+   * Mirrors the valid-geometry case from the inverse direction (corrupt geometry +
    * valid panelSizes still loads panelSizes); this case validates
    * that the panelSizes load path is unaffected by the geometry path.
    */

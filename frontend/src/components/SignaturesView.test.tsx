@@ -1,7 +1,7 @@
 /**
  * SignaturesView component tests.
  *
- * Component contract (from the story):
+ * Component contract:
  *  - Document-level view fed by GetSignatures(tabId) -> signature list.
  *  - One key/value card per signature (data-testid="signature-card"): signer,
  *    issuer, validity window, algorithms, SubFilter, signing time, ByteRange

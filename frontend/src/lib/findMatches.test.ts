@@ -252,7 +252,7 @@ describe('match end aligns with start + query.length', () => {
 // completes well under the CI ceiling.
 //
 // The CI assertion uses 500 ms to accommodate slow GHA runners; local dev
-// typically sees <50 ms (documented in Dev Notes). This test is the only
+// typically sees <50 ms (documented). This test is the only
 // place the perf budget is asserted -- if it fails, look for an algorithmic
 // regression (overlapping search, accidental regex, missed Latin-1 fast path).
 // ---------------------------------------------------------------------------

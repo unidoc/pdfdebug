@@ -216,7 +216,7 @@ func TestModelPlainTextDocumentSlim(t *testing.T) {
 func TestServiceDropsGetPlainTextFull(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Fatalf("service.go must NOT declare GetPlainTextFull -- removed by 10-1")
+		t.Fatalf("service.go must NOT declare GetPlainTextFull -- the sync full-read entry point is gone")
 	}
 }
 
@@ -242,7 +242,7 @@ func TestServiceDeclaresNewMethods(t *testing.T) {
 func TestInspectorMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if strings.Contains(src, "GetPlainTextFull") {
-		t.Errorf("plaintext.go must NOT declare GetPlainTextFull -- removed by 10-1")
+		t.Errorf("plaintext.go must NOT declare GetPlainTextFull -- the sync full-read entry point is gone")
 	}
 	if !strings.Contains(src, "CancelPlainText") {
 		t.Errorf("plaintext.go must declare Inspector.CancelPlainText")
@@ -307,13 +307,13 @@ func TestGetPlainTextBypassesWrapForCanceled(t *testing.T) {
 	}
 	// The early-return pattern must appear: errors.Is(err, context.Canceled).
 	if !strings.Contains(src, "errors.Is(err, context.Canceled)") {
-		t.Errorf("plaintext.go must early-return on errors.Is(err, context.Canceled) BEFORE wrapPDFError (story Dev Notes 'Why bypass wrapPDFError')")
+		t.Errorf("plaintext.go must early-return on errors.Is(err, context.Canceled) BEFORE wrapPDFError, so the Canceled identity survives")
 	}
 }
 
 // TestRepoWideGrepGetPlainTextFull scans the working tree for the GetPlainTextFull
 // symbol and counts a hit when it appears in production source. Excluded paths: the
-// story spec, retrospective documents, test artifacts, deferred-work notes and the
+// specs, retrospective documents, test artifacts, deferred-work notes and the
 // docs repo symlink target.
 func TestRepoWideGrepGetPlainTextFull(t *testing.T) {
 	root := projectRoot(t)

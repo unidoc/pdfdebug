@@ -1,18 +1,18 @@
 // Package ci_pipeline_test: additional static-validation tests closing coverage
 // gaps in the CI pipeline.
 //
-// These tests target concrete behaviors mandated by the CI tasks and Review
-// findings that were not asserted by the original 26 ATDD tests:
+// These tests target concrete CI behaviours that the original acceptance suite
+// did not assert:
 //
 //   - workflow_dispatch trigger
 //   - per-suite loop step-level timeout-minutes value
 //   - golangci-lint --timeout 5m invocation flag
 //   - root go test -timeout 10m invocation flag
-//   - wails3 generate bindings step (Review #1 critical fix)
-//   - bindings generation ordering before frontend steps (Review #1 ordering)
-//   - .golangci.yml exclusion paths fully populated (Review #2 build path fix)
-//   - .golangci.yml staticcheck.checks tuning (Review #2 QF disables)
-//   - frontend/eslint.config.js ignores include test files (Review #2 fix)
+//   - wails3 generate bindings step
+//   - bindings generation ordering before frontend steps
+//   - .golangci.yml exclusion paths fully populated
+//   - .golangci.yml staticcheck.checks tuning
+//   - frontend/eslint.config.js ignores include test files
 //
 // All tests stay at integration/Go level (lowest viable layer for
 // infrastructure-as-code), per test pyramid and the caller's directive to avoid
@@ -132,21 +132,20 @@ func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // wails3 generate bindings step present.
-// Covers Review #1 critical fix (16 frontend files import from
-// ../bindings/... which is gitignored; without this step every frontend CI
-// step fails).
+// 16 frontend files import from ../bindings/..., which is gitignored, so
+// without this step every frontend CI step fails.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsGenerateBindingsStep(t *testing.T) {
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "wails3 generate bindings") {
-		t.Errorf("ci.yml: `wails3 generate bindings` step missing (Review #1: frontend imports would fail without generated bindings)")
+		t.Errorf("ci.yml: `wails3 generate bindings` step missing (frontend imports would fail without generated bindings)")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Bindings generation must run before frontend typecheck, lint, and test.
-// Review #1 finding: otherwise unresolved-import errors block the first
+// Otherwise unresolved-import errors block the first
 // frontend step on every CI run.
 // ---------------------------------------------------------------------------
 
@@ -174,7 +173,7 @@ func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
 			continue
 		}
 		if idx <= bindingsIdx {
-			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d) -- Review #1 ordering requirement", pat, idx, bindingsIdx)
+			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d) ordering requirement", pat, idx, bindingsIdx)
 		}
 	}
 }
@@ -239,7 +238,7 @@ func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // .golangci.yml excludes `build` path.
-// Covers Review #2 fix -- `build/ios/app_options_default.go` has an `unused`
+// Covers `build/ios/app_options_default.go` has an `unused`
 // scaffold, so the `build` directory must be in exclusions.paths to keep
 // golangci-lint exit 0.
 // ---------------------------------------------------------------------------
@@ -268,7 +267,7 @@ func TestGolangciLintExcludesBuildPath(t *testing.T) {
 			found[s] = true
 		}
 	}
-	// Review #2 adds `build`; the other five are the baseline.
+	// `build` was added later; the other five are the baseline.
 	required := []string{"bindings", "frontend", "dist", "bin", "node_modules", "build"}
 	for _, r := range required {
 		if !found[r] {
@@ -295,7 +294,7 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 	}
 	settings, _ := linters["settings"].(map[string]interface{})
 	if settings == nil {
-		t.Fatalf(".golangci.yml: linters.settings missing (Review #2 requires staticcheck tuning)")
+		t.Fatalf(".golangci.yml: linters.settings missing (staticcheck tuning is required)")
 	}
 	sc, _ := settings["staticcheck"].(map[string]interface{})
 	if sc == nil {
@@ -316,7 +315,7 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 	}
 	for _, disabled := range []string{"-QF1003", "-QF1008"} {
 		if !found[disabled] {
-			t.Errorf(".golangci.yml: staticcheck.checks must disable %q (Review #2 pre-existing style patterns)", disabled)
+			t.Errorf(".golangci.yml: staticcheck.checks must disable %q (pre-existing style patterns)", disabled)
 		}
 	}
 }

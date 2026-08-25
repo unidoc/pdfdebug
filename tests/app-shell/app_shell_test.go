@@ -1,4 +1,4 @@
-// 4-5: deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
+// Deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
 // duplicate-prevention not separately covered, accept regression risk).
 
 // Package app_shell_test provides acceptance tests for Native Menu Bar and

@@ -198,7 +198,7 @@ func TestDarwinBundleCopiesCLIIntoResources(t *testing.T) {
 	raw := readDarwinTaskfile(t)
 
 	// A cmd must copy pdfdebug into the bundle's Contents/Resources. The exact
-	// destination is Contents/Resources/pdfdebug (Dev Notes "Bundle location
+	// destination is Contents/Resources/pdfdebug ("Bundle location
 	// rationale"); accept either an explicit `/pdfdebug` filename or a copy
 	// targeting the Resources directory with pdfdebug as the source.
 	hasResourcesPdfdebug := regexp.MustCompile(`Contents/Resources/pdfdebug`).MatchString(raw)

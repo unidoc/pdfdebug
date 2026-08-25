@@ -53,7 +53,7 @@ func TestStream_FixturesParseThroughOpenPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Fixture F1: `dump stream --json` on leading-plus.pdf (content
+// Fixture: `dump stream --json` on leading-plus.pdf (content
 // stream "+5 0 0 +5 0 0 cm").
 //
 // Each "+5" is a "number" token, "cm" is the sole operator, and no
@@ -106,7 +106,7 @@ func TestStream_LeadingPlusJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Fixture F2: `dump stream --ops` on comment-and-dangling.pdf (a "%
+// Fixture: `dump stream --ops` on comment-and-dangling.pdf (a "%
 // comment" line plus a trailing dangling operand run with no operator).
 //
 // Zero records carry op == "" -- every emitted record has a non-empty op --

@@ -1,7 +1,7 @@
 /**
  * DiffView side-by-side comparison component tests.
  *
- * Component contract (from the story):
+ * Component contract:
  *  - On mount (active), DiffView fetches DiffDocuments(leftTabId, rightTabId)
  *    and renders a summary header (data-testid="diff-summary") with the
  *    added/removed/changed counts and the high-signal facts (page-count change).

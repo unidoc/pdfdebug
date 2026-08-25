@@ -9,28 +9,28 @@
 //   - build-job timeout-minutes: 45 budget for macOS notarize
 //   - Wails CLI pin matches go.mod direct dependency
 //   - `wails3 generate bindings -clean=true` present BEFORE any frontend build
-//     (the Review #1 lesson carried forward)
+//     (the lesson carried forward)
 //   - Go 1.26.x and Node 20 pins match ci.yml (cross-workflow consistency;
-//     Dev Notes "Reuse Everything from the CI pipeline")
+//     the CI pipeline is the source of these pins)
 //   - SemVer validation in Resolve version step (rejects crafted tags)
 //   - Apple secret gate idiom (`steps.apple_secrets.outputs.available == 'true'`)
 //   - Platform-specific GUI build steps invoke `wails3 task <os>:build|package`
 //     with ARCH from matrix
 //   - CLI `--help` smoke-test step per cell
 //   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=6, line-count invariant,
-//     and `shasum -a 256 -c` self-verify (Review #3 Medium)
+//     and `shasum -a 256 -c` self-verify
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
 //   - PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes
-//     (Review #1 Medium)
+//
 //   - workflow_dispatch checkout uses `ref: ${{ inputs.tag || github.ref }}`
-//     (Review #1 Medium; tag-commit source-of-truth on manual dispatch)
-//   - Signing-identity lookup uses `grep -qF` fixed-string match (Review #3 Low;
-//     Apple Developer ID strings contain regex metachars `.` and `()`)
-//   - KEYCHAIN_PASS is NOT exported to $GITHUB_ENV (Review #2 Medium; GHA does
+//     (tag-commit source-of-truth on manual dispatch)
+//   - Signing-identity lookup uses `grep -qF` fixed-string match (Apple
+//     Developer ID strings contain the regex metacharacters `.` and `()`)
+//   - KEYCHAIN_PASS is NOT exported to $GITHUB_ENV (GHA does
 //     not auto-mask non-secrets env values)
 //   - Pre-release tag detection regex covers -rc, -alpha, -beta (cross-check
 //     with TestPrereleaseDetectionLogic; this asserts BOTH branches match)
-//   - Entitlements plist is tracked (not gitignored) per Review #1 Critical
+//   - Entitlements plist is tracked (not gitignored) as required
 //
 // All tests stay at integration/Go level (lowest viable layer for
 // infrastructure-as-code), per the caller's directive:
@@ -358,7 +358,7 @@ func TestPlatformGUIBuildSteps(t *testing.T) {
 		}
 	}
 
-	// Anti-pattern: bare `wails3 build` (host-only smoke; Dev Notes #6 from 7-1).
+	// Anti-pattern: bare `wails3 build` (host-only smoke, not arch-specific).
 	if regexp.MustCompile(`(?m)^\s*wails3 build(\s|$)`).MatchString(raw) {
 		t.Errorf("release.yml: bare `wails3 build` is forbidden (host-only smoke, not arch-specific). Use `wails3 task <os>:<target>`.")
 	}
@@ -401,7 +401,7 @@ func TestCLISmokeTestStep(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // SHA256SUMS integrity guard: asserts EXPECTED_FILES=6, line-count invariant,
-// and `shasum -a 256 -c` self-verify. Covers Review #3 Medium ("all 6 assets
+// and `shasum -a 256 -c` self-verify. This enforces the "all 6 assets
 // MUST be attached" invariant: 3 platforms x 2 archives each -- a GUI archive
 // that also embeds the CLI, plus a standalone CLI archive; the bundled-in CLI
 // is not a separate counted file).
@@ -416,7 +416,7 @@ func TestSHA256SumsIntegrityGuard(t *testing.T) {
 	}
 	// Line-count vs file-count consistency check.
 	if !regexp.MustCompile(`\$FILES.*!=.*\$LINES|\$LINES.*!=.*\$FILES`).MatchString(run) {
-		t.Errorf("release.yml release job: SHA256SUMS step must compare FILES vs LINES and fail on mismatch (Review #3 Medium)")
+		t.Errorf("release.yml release job: SHA256SUMS step must compare FILES vs LINES and fail on mismatch")
 	}
 	// Self-verify with `shasum -a 256 -c` so a corrupted manifest fails
 	// before publication, not silently post-upload.
@@ -460,14 +460,14 @@ func TestReleasePublishFilesGlob(t *testing.T) {
 	// workflow_dispatch).
 	tagName, _ := with["tag_name"].(string)
 	if !strings.Contains(tagName, "steps.tag.outputs.tag") {
-		t.Errorf("release.yml: action-gh-release `with.tag_name` must reference `steps.tag.outputs.tag` (Review #1 Medium; workflow_dispatch safety), got %q", tagName)
+		t.Errorf("release.yml: action-gh-release `with.tag_name` must reference `steps.tag.outputs.tag` (workflow_dispatch safety), got %q", tagName)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes.
 // Apple validators reject a non-integer CFBundleShortVersionString or
-// CFBundleVersion (Review #1 Medium).
+// CFBundleVersion.
 // ---------------------------------------------------------------------------
 
 func TestPlistBuddyStripsBothSuffixes(t *testing.T) {
@@ -483,9 +483,9 @@ func TestPlistBuddyStripsBothSuffixes(t *testing.T) {
 		t.Errorf("release.yml: PlistBuddy step must strip SemVer pre-release suffix via `${VERSION%%-*}`")
 	}
 	// Build-metadata suffix strip: `${PLIST_VERSION%%+*}` or similar.
-	// Review #1 Medium explicitly required this to handle `1.2.3+build.1`.
+	// This is required to handle `1.2.3+build.1`.
 	if !regexp.MustCompile(`\$\{[A-Z_]+%%\+\*\}`).MatchString(run) {
-		t.Errorf("release.yml: PlistBuddy step must also strip SemVer build-metadata suffix via `${VAR%%+*}` (Review #1 Medium: Apple validators reject `+build.N`)")
+		t.Errorf("release.yml: PlistBuddy step must also strip SemVer build-metadata suffix via `${VAR%%+*}` (Apple validators reject `+build.N`)")
 	}
 	// Both plist keys must be set.
 	for _, key := range []string{"CFBundleShortVersionString", "CFBundleVersion"} {
@@ -497,7 +497,7 @@ func TestPlistBuddyStripsBothSuffixes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // workflow_dispatch checkout uses the requested tag ref (not branch HEAD).
-// Covers Review #1 Medium (workflow_dispatch otherwise builds wrong commit).
+// Without it, workflow_dispatch builds the wrong commit.
 // ---------------------------------------------------------------------------
 
 func TestCheckoutUsesTagRefOnDispatch(t *testing.T) {
@@ -515,15 +515,14 @@ func TestCheckoutUsesTagRefOnDispatch(t *testing.T) {
 	ref, _ := with["ref"].(string)
 	// Expected: `${{ inputs.tag || github.ref }}`
 	if !strings.Contains(ref, "inputs.tag") || !strings.Contains(ref, "github.ref") {
-		t.Errorf("release.yml build job: checkout `with.ref` must be `${{ inputs.tag || github.ref }}` (Review #1 Medium; otherwise workflow_dispatch builds branch HEAD, not the requested tag commit), got %q", ref)
+		t.Errorf("release.yml build job: checkout `with.ref` must be `${{ inputs.tag || github.ref }}` (otherwise workflow_dispatch builds branch HEAD, not the requested tag commit), got %q", ref)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Signing-identity lookup uses `grep -qF` (fixed-string), not `grep -q`.
-// Covers Review #3 Low (Apple Developer ID strings contain `.` and `()`
-// which are BRE regex metacharacters; `grep -q` could accept a near-miss
-// identity).
+// Apple Developer ID strings contain `.` and `()`, which are BRE regex
+// metacharacters, so `grep -q` could accept a near-miss identity.
 // ---------------------------------------------------------------------------
 
 func TestSigningIdentityGrepFixedString(t *testing.T) {
@@ -532,19 +531,19 @@ func TestSigningIdentityGrepFixedString(t *testing.T) {
 	// Anti-pattern: plain `grep -q "$IDENTITY"` in the signing identity check.
 	// The check should use `grep -qF` or `grep -F -q`.
 	if regexp.MustCompile(`find-identity[^|]*\|\s*grep\s+-q\s+"\$IDENTITY"`).MatchString(run) {
-		t.Errorf("release.yml build job: signing-identity check must use `grep -qF` (fixed-string), not `grep -q` (Review #3 Low; Apple identity strings contain regex metachars `.` and `()`)")
+		t.Errorf("release.yml build job: signing-identity check must use `grep -qF` (fixed-string), not `grep -q` (Apple identity strings contain regex metachars `.` and `()`)")
 	}
 	// Positive: the `-F` flag must appear in the find-identity pipeline.
 	// Accept any of: grep -qF / grep -Fq / grep -F -q / grep -q -F
 	if !regexp.MustCompile(`find-identity[^|]*\|\s*grep\s+(-qF|-Fq|-q -F|-F -q)`).MatchString(run) {
-		t.Errorf("release.yml build job: signing-identity check must pipe through `grep -qF` (Review #3 Low)")
+		t.Errorf("release.yml build job: signing-identity check must pipe through `grep -qF`")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // KEYCHAIN_PASS is NOT exported to $GITHUB_ENV.
-// Covers Review #2 Medium (values written to $GITHUB_ENV are visible to all
-// downstream steps AND are NOT auto-masked by GHA).
+// Values written to $GITHUB_ENV are visible to every downstream step and are
+// NOT auto-masked by GHA.
 // ---------------------------------------------------------------------------
 
 func TestKeychainPassNotInGithubEnv(t *testing.T) {
@@ -553,18 +552,18 @@ func TestKeychainPassNotInGithubEnv(t *testing.T) {
 	// Anti-pattern: any line that writes KEYCHAIN_PASS to $GITHUB_ENV.
 	// Allow KEYCHAIN=... to $GITHUB_ENV (the path is not sensitive), but never the password.
 	if regexp.MustCompile(`KEYCHAIN_PASS\s*=.*>>\s*"?\$GITHUB_ENV"?`).MatchString(run) {
-		t.Errorf("release.yml build job: KEYCHAIN_PASS must NOT be exported to $GITHUB_ENV (Review #2 Medium; GHA does not auto-mask env values not written by ${{ secrets.* }}, and every downstream step would inherit the ephemeral password)")
+		t.Errorf("release.yml build job: KEYCHAIN_PASS must NOT be exported to $GITHUB_ENV (GHA does not auto-mask env values not written by ${{ secrets.* }}, and every downstream step would inherit the ephemeral password)")
 	}
 	// Also defend against `echo "KEYCHAIN_PASS=..."` patterns targeting GITHUB_ENV.
 	if regexp.MustCompile(`echo\s+"KEYCHAIN_PASS=[^"]*"\s*>>\s*"?\$GITHUB_ENV"?`).MatchString(run) {
-		t.Errorf("release.yml build job: `echo \"KEYCHAIN_PASS=...\" >> $GITHUB_ENV` pattern detected (Review #2 Medium)")
+		t.Errorf("release.yml build job: `echo \"KEYCHAIN_PASS=...\" >> $GITHUB_ENV` pattern detected")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Entitlements plist is tracked (not gitignored).
-// Covers Review #1 Critical (initial version had the file un-committable
-// because `.gitignore` matched `build/*/entitlements.plist`).
+// An earlier version of the ignore rules made the file un-committable because
+// `.gitignore` matched `build/*/entitlements.plist`.
 // ---------------------------------------------------------------------------
 
 func TestEntitlementsPlistNotGitignored(t *testing.T) {
@@ -589,15 +588,15 @@ func TestEntitlementsPlistNotGitignored(t *testing.T) {
 	//   !**/entitlements.plist
 	//   !entitlements.plist
 	// Absence of ANY rule that would match the file is also fine -- but the
-	// repo's .gitignore intentionally ignores `build/<os>/*.plist` (Review #1
-	// Critical documents this), so we require the explicit negation line.
+	// repo's .gitignore intentionally ignores `build/<os>/*.plist`, so we require
+	// the explicit negation line.
 	hasIgnoreRule := regexp.MustCompile(`(?m)^\s*build/.*\.plist\s*$|^\s*\*\.plist\s*$|^\s*entitlements\.plist\s*$`).MatchString(gi)
 	hasNegation := strings.Contains(gi, "!build/darwin/entitlements.plist") ||
 		strings.Contains(gi, "!**/entitlements.plist") ||
 		strings.Contains(gi, "!entitlements.plist")
 
 	if hasIgnoreRule && !hasNegation {
-		t.Errorf(".gitignore: ignores build/*.plist but missing `!build/darwin/entitlements.plist` negation (Review #1 Critical; workflow would fail with 'entitlements file not found')")
+		t.Errorf(".gitignore: ignores build/*.plist but missing `!build/darwin/entitlements.plist` negation (workflow would fail with 'entitlements file not found')")
 	}
 }
 

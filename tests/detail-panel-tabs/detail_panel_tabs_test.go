@@ -285,7 +285,7 @@ func TestPlainTextCacheStable(t *testing.T) {
 func TestPlainTextSafeCallWraps(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if !strings.Contains(src, "safeCall") {
-		t.Fatalf("plaintext.go must wrap I/O + decode in safeCall (R3 of story risks list)")
+		t.Fatalf("plaintext.go must wrap I/O + decode in safeCall (the panic-on-decode risk)")
 	}
 }
 

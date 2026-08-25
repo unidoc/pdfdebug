@@ -1,5 +1,5 @@
 // Acceptance tests for `dump stream --xobject NAME` and
-// `dump stream --ref REF` (item 3).
+// `dump stream --ref REF`.
 //
 // Black-box: build the CLI binary and run it as a subprocess.
 //

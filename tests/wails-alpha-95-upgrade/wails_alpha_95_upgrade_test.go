@@ -13,9 +13,9 @@
 //     reduce to structural assertions over: version pins, the bound-method
 //     surface, IPC type JSON tags, regenerated binding files, the live event
 //     name set, the Vite quirk comments, and the doc-staleness fixes.
-//   - The behavioral ACs (splash + tabs smoke, splash lifecycle
+//   - The behavioural checks (splash + tabs smoke, splash lifecycle
 //     single-instance + file-association, rollback policy
-//     boot-smoke pass-through) are EXPLICITLY delegated by the story spec to
+//     boot-smoke pass-through) are EXPLICITLY delegated to
 //     "document in Completion Notes" via manual smoke and to existing
 //     acceptance suites (tests/boot-smoke/, tests/file-association-
 //     persistence/, tests/startup-splash-screen/). Those suites must PASS
@@ -43,17 +43,16 @@ import (
 	"testing"
 )
 
-// NOTE: the alpha.95-scheme version-pin tests (STRUCT-001..004,
-// 080, 090) and their helpers (goAlphaRe/jsAlphaRe/extractAlpha/extractAllAlphas
-// and the goSidePreBumpAlpha/jsSidePreBumpAlpha constants) were retired from this
-// suite. Their `v3\.0\.0-alpha\.(\d+)` regex cannot match the new alpha2.103
+// NOTE: the alpha.95-scheme version-pin tests and their helpers
+// (goAlphaRe/jsAlphaRe/extractAlpha/extractAllAlphas and the
+// goSidePreBumpAlpha/jsSidePreBumpAlpha constants) were retired from this
+// suite. Their `v3\.0\.0-alpha\.(\d+)` regex cannot match the alpha2.103
 // scheme, and re-pinning a scheme here would just re-create the brittleness the
-// 12.3 story set out to remove. The version-pin responsibility migrated to the
-// scheme-aware tests/wails-alpha2-103-upgrade/ suite (INTG-010/011/020/021/
-// 022/030/031), which uses a unified alpha-ordinal that spans both schemes and
-// the alpha.102 fallback. The structural guards below (STRUCT-010/011/020/021/
-// 030..033/040/041/050/060) are scheme-independent and remain as standing
-// regression nets.
+// move away from exact pins was meant to remove. Version-pin responsibility
+// now sits in the scheme-aware tests/wails-alpha2-103-upgrade/ suite, which
+// uses a unified alpha-ordinal spanning both schemes and the alpha.102
+// fallback. The structural guards below are scheme-independent and remain as
+// standing regression nets.
 
 // projectRoot walks up from the working directory until it finds the project
 // go.mod (module unidoc-pdf-debugger), and returns its absolute path.
@@ -326,7 +325,7 @@ func TestJSONTagsPreserved(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Regenerated bindings carry the post-10-1 method surface
+// Regenerated bindings carry the async-plaintext method surface
 // ---------------------------------------------------------------------------
 
 // TestBindingsExportAll20Methods asserts the regenerated frontend Wails binding
@@ -518,7 +517,7 @@ func TestWindowGeometryGuardWorkAreaField(t *testing.T) {
 
 // TestViteConfigQuirks asserts vite.config.ts retains the IPv4 host pin and the
 // lucide-react optimizeDeps include, with their explanatory comments. The
-// alternative the story spec allows -- explicit removal with a Wails-CHANGELOG
+// documented alternative -- explicit removal with a Wails-CHANGELOG
 // link recorded in the doc trail -- is not enforceable from here, so removing
 // either quirk fails this test and the assertion must be updated in the same
 // commit. That forced edit is the audit signal.

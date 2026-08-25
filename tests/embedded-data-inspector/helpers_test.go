@@ -12,7 +12,7 @@
 //
 // Fixtures are hand-rolled raw PDF bytes written to a temp file (same technique
 // as testdata/generate_test.go). The fixtures must parse under pdfcpu default
-// validation -- verified locally during ATDD authoring -- which is why the
+// validation -- verified locally when the suite was written -- which is why the
 // /EmbeddedFile /Subtype is a Name with #2F escapes (/text#2Fxml), not a
 // string literal.
 //

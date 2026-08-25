@@ -442,7 +442,7 @@ func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
 // ---------------------------------------------------------------------------
 // A DIRECT (inline, non-indirect) /Filespec inside the /Names/EmbeddedFiles
 // NAME TREE is kept with an empty filespec ref -- never silently dropped (the
-// name-tree analogue of UNIT-003, guarding the review patch at
+// name-tree analogue of the direct-/Filespec array case, guarding the patch at
 // embedded.go:268-270).
 // ---------------------------------------------------------------------------
 

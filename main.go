@@ -654,7 +654,7 @@ func main() {
 	// Option B (separate WebviewWindow) was chosen over Option A
 	// (native pre-WebView window) because Wails v3 alpha.85 does not
 	// expose a pre-WebView native primitive on Windows. The Windows
-	// perception trade-off is documented in the story Dev Notes.
+	// perception trade-off is documented in deferred-work.md.
 	//
 	// Wails alpha.85 WebviewWindowOptions does not have separate
 	// Resizable / Minimisable / Closable boolean fields -- the splash

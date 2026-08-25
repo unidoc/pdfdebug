@@ -1,4 +1,4 @@
-// Acceptance tests for `dump stream --ops` (item 2) and the
+// Acceptance tests for `dump stream --ops` and the
 // Do -> resourceType lookup.
 //
 // Black-box: build the CLI binary and run it as a subprocess. Failures surface
@@ -540,7 +540,7 @@ func findDoOp(objs []map[string]any, name string) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
-// 006: --json is mutually exclusive with the payload selectors --raw and
+// --json is mutually exclusive with the payload selectors --raw and
 // --ops. Passing them together is a usage error (exit 1) with empty stdout --
 // NET-NEW validation: before the flip --json was a no-op that combined
 // silently. Do NOT retrofit --ops under --json.

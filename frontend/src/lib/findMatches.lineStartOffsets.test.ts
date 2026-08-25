@@ -98,9 +98,10 @@ describe('findMatches uses a supplied haystack', () => {
     expect(matches.map((m) => m.start)).toEqual([0, 6]);
   });
 
-  // Gap (automate): the load-bearing invariant is that toLowerCase is
+  // The load-bearing invariant is that toLowerCase is
   // length-preserving for the FULL Latin-1 range (U+00C0..U+00FF), not just
-  // ASCII. UNIT-003 only uses ASCII. Supply a haystack lowercased from accented
+  // ASCII. The existing offsets test only uses ASCII. Supply a haystack
+  // lowercased from accented
   // uppercase (E-acute U+00C9 -> e-acute U+00E9) and assert offsets still index
   // identically into content and haystack.
   test('accented Latin-1 haystack stays length-aligned with content so offsets are valid', () => {

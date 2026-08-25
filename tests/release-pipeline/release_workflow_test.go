@@ -724,7 +724,7 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Every run: step must set shell: bash (Windows defaults to PowerShell).
-// Covers Dev Notes lesson #3.
+// Covers the host-only-smoke lesson.
 // ---------------------------------------------------------------------------
 
 func TestShellBashOnRunSteps(t *testing.T) {

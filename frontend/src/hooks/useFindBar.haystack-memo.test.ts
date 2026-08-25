@@ -33,7 +33,7 @@ function forceMacPlatform() {
 }
 
 // 10 MB Latin-1 corpus -- the smallest size where the toLowerCase win is
-// measurable in CI without flaking (Dev Notes). Contains "needle" tokens so
+// measurable in CI without flaking. Contains "needle" tokens so
 // the search does real work.
 const CORPUS = ('the quick brown FOX jumps over needle padding bytes here\n').repeat(
   Math.ceil((10 * 1024 * 1024) / 56),

@@ -13,7 +13,7 @@
 // estimate past the 3-point budget and added platform-CGO surface area
 // orthogonal to the v0.2.0 release. The Windows perception trade-off (the
 // splash itself pays WebView2 cold-init tax on a clean Win11 install) is
-// documented in the story Dev Notes. See deferred-work.md for the
+// documented in deferred-work.md; see it for the
 // follow-up to revisit when Wails exposes a true pre-WebView splash API.
 package splash
 
