@@ -1,5 +1,5 @@
 /**
- * Frontend Hook and Render-Path Correctness (finding #20) --
+ * Frontend Hook and Render-Path Correctness --
  * useFindBar memoizes the corpus-wide toLowerCase().
  *
  * useFindBar memoizes `haystack = useMemo(() => caseSensitive ? content :

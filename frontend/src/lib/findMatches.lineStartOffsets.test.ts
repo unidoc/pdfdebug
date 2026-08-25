@@ -1,7 +1,7 @@
 /**
- * Frontend Hook and Render-Path Correctness (finding #8) --
+ * Frontend Hook and Render-Path Correctness --
  * findMatches accepts a pre-built lineStartOffsets table.
- * (finding #20) -- findMatches accepts a pre-built haystack string.
+ * findMatches accepts a pre-built haystack string.
  *
  * These tests import buildLineStartOffsets to wrap it with a spy; that name is
  * already exported. A developer activates them by removing `.skip` after the

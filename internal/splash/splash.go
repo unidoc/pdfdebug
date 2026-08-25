@@ -6,11 +6,10 @@
 // dependency, so the min-display floor, the timeout race and the version
 // render are unit-testable in isolation.
 //
-// Picked Option B (separate WebviewWindow as the splash) over
-// Option A (native pre-WebView window) because Wails v3 alpha.85 does not
-// expose a pre-WebView native window primitive on Windows; rolling our own
-// Win32 CreateWindowEx + NSWindow + GtkWindow trio would have ballooned the
-// estimate past the 3-point budget and added platform-CGO surface area
+// The splash is a separate WebviewWindow rather than a native pre-WebView
+// window: Wails v3 does not expose a pre-WebView native window primitive on
+// Windows, and hand-rolling a Win32 CreateWindowEx + NSWindow + GtkWindow trio
+// would add platform-CGO surface area
 // orthogonal to the v0.2.0 release. The Windows perception trade-off (the
 // splash itself pays WebView2 cold-init tax on a clean Win11 install) is
 // documented in deferred-work.md; see it for the

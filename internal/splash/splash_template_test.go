@@ -9,7 +9,7 @@ import (
 )
 
 // TestRenderUsesTextTemplate is the contract for the splash.Render
-// text/template migration (finding #27).
+// text/template migration.
 //
 // It references the package-scope splashTmpl template variable, so Render must
 // be backed by:

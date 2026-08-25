@@ -8,7 +8,7 @@ import (
 
 // These unit tests exercise the colorspace-family CLASSIFIER and blend-mode
 // reader branches that the end-to-end render-info.pdf fixture does not reach (it
-// carries only ICCBased + DeviceRGB/DeviceGray). explicitly call out
+// carries only ICCBased + DeviceRGB/DeviceGray). They cover
 // Separation/DeviceN tint-transform function TYPE, Indexed hival, and the
 // structural-only constraint. All inputs here are DIRECT (inline) objects, so
 // classifyColorSpace never dereferences and a nil *DocumentState is safe.

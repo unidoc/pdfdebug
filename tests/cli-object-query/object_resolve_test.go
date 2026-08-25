@@ -14,9 +14,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// WITHOUT --resolve, `dump object --ref REF` output is byte-for-byte today's
-// behavior (no regression). Pinned via determinism: two identical invocations
-// must produce identical bytes.
+// WITHOUT --resolve, `dump object --ref REF` must not carry a `resolved` key.
+// This checks two things: repeated invocations agree, and the key is absent.
+// It does not compare against a stored baseline -- byte-for-byte equality with
+// a previous build is what scripts/verify-cli-output-parity.sh covers.
 // ---------------------------------------------------------------------------
 
 func TestObjectResolve_OffIsUnchanged(t *testing.T) {

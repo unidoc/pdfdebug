@@ -190,10 +190,10 @@ describe('MainLayout tree content', () => {
 /**
  * MainLayout pane structure.
  *
- * Replaces the deleted source-grep test `TestMainLayoutTwoColumnStructure`,
- * which asserted the literal string `preferredSize={300}` in MainLayout.tsx.
- * That literal is conditional -- `{...(panelSizes ? {} : { preferredSize: 300 })}`
- * -- so the grep broke even though behaviour was preserved.
+ * Asserted through rendering rather than by grepping MainLayout.tsx for
+ * `preferredSize={300}`: that literal is conditional,
+ * `{...(panelSizes ? {} : { preferredSize: 300 })}`, so a source grep reports a
+ * failure whenever the shape changes and behaviour does not.
  *
  * Known limitation: Allotment is mocked above as plain `<div>` because its
  * real implementation requires browser layout APIs not available in jsdom.

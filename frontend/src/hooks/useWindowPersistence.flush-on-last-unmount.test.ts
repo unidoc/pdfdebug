@@ -1,5 +1,5 @@
 /**
- * Frontend Hook and Render-Path Correctness (finding #9) --
+ * Frontend Hook and Render-Path Correctness --
  * useWindowPersistence flushes pending writes on the last unmount instead of
  * discarding them.
  *
@@ -51,7 +51,7 @@ describe('useWindowPersistence flushes on last unmount', () => {
     // Pending write is buffered; debounce timer has NOT fired.
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    // Last consumer unmounts. this must flush() synchronously.
+    // Last consumer unmounts. This must flush() synchronously.
     unmount();
 
     // No fake-timer advance. If the write is present, the flush was synchronous.

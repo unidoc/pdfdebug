@@ -107,8 +107,8 @@ func TestReverseRefsInlineNodeReturnsEmpty(t *testing.T) {
 
 // TestReverseRefIndexBuildPanicSurfacesSentinel verifies a panicked build
 // flips the failure flag and queries return the sentinel error rather than
-// an empty list. forbidden-failure-mode guard. Name pinned by integration
-// test.
+// an empty list. A build panic must not be reported as a document with no
+// inbound edges.
 func TestReverseRefIndexBuildPanicSurfacesSentinel(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-rr-fail"
