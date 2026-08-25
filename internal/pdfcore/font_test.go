@@ -147,7 +147,7 @@ func TestGetFontDetail_Type0CIDSystemInfoFields(t *testing.T) {
 	}
 	cid := detail.Descendant.CIDSystemInfo
 	if cid == nil {
-		t.Fatal("expected Descendant.CIDSystemInfo to be populated (AC7)")
+		t.Fatal("expected Descendant.CIDSystemInfo to be populated")
 	}
 	if cid.Registry != "Adobe" {
 		t.Errorf("Registry = %q, want Adobe", cid.Registry)
@@ -159,10 +159,10 @@ func TestGetFontDetail_Type0CIDSystemInfoFields(t *testing.T) {
 		t.Errorf("Supplement = %d, want 0", cid.Supplement)
 	}
 	if detail.Descendant.CIDToGIDMap != "Identity" {
-		t.Errorf("CIDToGIDMap = %q, want Identity (AC7)", detail.Descendant.CIDToGIDMap)
+		t.Errorf("CIDToGIDMap = %q, want Identity", detail.Descendant.CIDToGIDMap)
 	}
 	if detail.Descendant.DefaultWidth != 1000 {
-		t.Errorf("DefaultWidth = %d, want 1000 (AC7)", detail.Descendant.DefaultWidth)
+		t.Errorf("DefaultWidth = %d, want 1000", detail.Descendant.DefaultWidth)
 	}
 }
 
@@ -489,15 +489,15 @@ func TestParseDifferences(t *testing.T) {
 	}
 }
 
-// --- Aliases bridging story 9-9 acceptance test name expectations to the
+// --- Aliases bridging the acceptance-suite test name expectations to the
 // implementation tests above. The tests/font-inspection acceptance suite uses
 // exact `-run` patterns; renaming the implementation tests would break the
 // vitest-style readability, so we keep the original tests and add focused
 // alias tests under the expected names.
 
 func TestGetFontDetail_NotAFontSentinel(t *testing.T) {
-	// AC1 sentinel guard -- same coverage as TestGetFontDetail_NotAFont with
-	// the name the acceptance suite (9.9-INTG-007) expects.
+	// Sentinel guard -- same coverage as TestGetFontDetail_NotAFont with the
+	// name the acceptance suite expects.
 	ins, tabID := openFontsPDF(t)
 	_, err := ins.GetFontDetail(tabID, "obj:0:3")
 	if !errors.Is(err, ErrNotAFont) {
@@ -506,10 +506,10 @@ func TestGetFontDetail_NotAFontSentinel(t *testing.T) {
 }
 
 func TestGetFontDetail_PanicRecovery(t *testing.T) {
-	// AC9: GetFontDetail on a non-existent obj number resolves through
-	// safeCall + wrapPDFError without panicking. Real malformed-dict panic
-	// triggers from pdfcpu are tested via the malformed.pdf fixtures
-	// elsewhere; here we just pin the error path stays panic-free.
+	// GetFontDetail on a non-existent obj number resolves through safeCall
+	// + wrapPDFError without panicking. Real malformed-dict panic triggers
+	// from pdfcpu are tested via the malformed.pdf fixtures elsewhere;
+	// here we just pin the error path stays panic-free.
 	ins, tabID := openFontsPDF(t)
 	_, err := ins.GetFontDetail(tabID, "obj:0:99")
 	if err == nil {
@@ -518,14 +518,14 @@ func TestGetFontDetail_PanicRecovery(t *testing.T) {
 }
 
 func TestGetFontDetail_SimpleType1WithNamedEncoding(t *testing.T) {
-	// Alias for 9.9-INTG-011. Delegates to the implementation test.
+	// Alias for. Delegates to the implementation test.
 	TestGetFontDetail_SimpleType1NamedEncoding(t)
 }
 
 func TestGetFontDetail_EmbeddedFlagReflectsFontFile(t *testing.T) {
-	// 9.9-INTG-012 -- Embedded reflects FontDescriptor.FontFile* presence
-	// for non-Type0 fonts. Object 7 has FontFile2 -> embedded; Object 4
-	// has no FontDescriptor at all -> not embedded.
+	// Embedded reflects FontDescriptor.FontFile* presence for non-Type0
+	// fonts. Object 7 has FontFile2 -> embedded; Object 4 has no
+	// FontDescriptor at all -> not embedded.
 	ins, tabID := openFontsPDF(t)
 	d7, err := ins.GetFontDetail(tabID, "obj:0:7")
 	if err != nil || !d7.Embedded {
@@ -538,7 +538,7 @@ func TestGetFontDetail_EmbeddedFlagReflectsFontFile(t *testing.T) {
 }
 
 func TestGetFontDetail_UnembeddedFontReportsNoFile(t *testing.T) {
-	// 9.9-INTG-013 -- unembedded font reports Embedded=false AND
+	// Unembedded font reports Embedded=false AND
 	// FontDescriptor.FontFileFormat == "". Object 5 has FontDescriptor 8
 	// without any FontFile.
 	ins, tabID := openFontsPDF(t)
@@ -558,10 +558,10 @@ func TestGetFontDetail_UnembeddedFontReportsNoFile(t *testing.T) {
 }
 
 func TestGetFontDetail_UnknownOrMissingSubtype(t *testing.T) {
-	// 9.9-INTG-014 -- decodeFontFlags has no Subtype dependence; running
-	// flag decode on an unknown subtype's flags is a no-op. We assert at
-	// the unit level via decodeFontFlags. The end-to-end shape check is
-	// covered by the frontend FontPreview Type3/MMType1 tests.
+	// decodeFontFlags has no Subtype dependence; running flag decode on
+	// an unknown subtype's flags is a no-op. We assert at the unit level
+	// via decodeFontFlags. The end-to-end shape check is covered by the
+	// frontend FontPreview Type3/MMType1 tests.
 	got := decodeFontFlags(0)
 	if len(got) != 0 {
 		t.Errorf("decodeFontFlags(0) = %v, want []", got)
@@ -569,58 +569,58 @@ func TestGetFontDetail_UnknownOrMissingSubtype(t *testing.T) {
 }
 
 func TestGetFontDetail_EncodingNameOnly(t *testing.T) {
-	// 9.9-INTG-015 alias.
+	// Alias.
 	TestGetFontDetail_SimpleType1NamedEncoding(t)
 }
 
 func TestGetFontDetail_DifferencesArrayParsing(t *testing.T) {
-	// 9.9-INTG-016 alias.
+	// Alias.
 	TestParseDifferences(t)
 }
 
 func TestGetFontDetail_NoEncodingEntry(t *testing.T) {
-	// 9.9-INTG-017 alias.
+	// Alias.
 	TestGetFontDetail_MissingEncoding(t)
 }
 
 func TestGetFontDetail_BfcharBlockParsing(t *testing.T) {
-	// 9.9-INTG-018 alias.
+	// Alias.
 	TestParseToUnicodeCMap_Bfchar(t)
 }
 
 func TestGetFontDetail_BfrangeBlockParsing(t *testing.T) {
-	// 9.9-INTG-019 alias.
+	// Alias.
 	TestParseToUnicodeCMap_BfrangeSequential(t)
 }
 
 func TestGetFontDetail_MultiCodepointLigature(t *testing.T) {
-	// 9.9-INTG-020 alias.
+	// Alias.
 	TestParseToUnicodeCMap_LigatureMultiCodepoint(t)
 }
 
 func TestGetFontDetail_SurrogateGlyphBlanked(t *testing.T) {
-	// 9.9-INTG-021 alias.
+	// Alias.
 	TestParseToUnicodeCMap_UnpairedSurrogateBlanked(t)
 }
 
 func TestGetFontDetail_PrivateUseAreaGlyphBlanked(t *testing.T) {
-	// 9.9-INTG-022 alias.
+	// Alias.
 	TestParseToUnicodeCMap_PUACodepointBlanked(t)
 }
 
 func TestGetFontDetail_ControlGlyphBlanked(t *testing.T) {
-	// 9.9-INTG-023 alias.
+	// Alias.
 	TestParseToUnicodeCMap_ControlCodepointBlanked(t)
 }
 
 func TestGetFontDetail_UnparseableCMapPopulatesError(t *testing.T) {
-	// 9.9-INTG-024 alias.
+	// Alias.
 	TestParseToUnicodeCMap_MalformedReportsError(t)
 }
 
 func TestGetFontDetail_FontDescriptorMetricsPopulated(t *testing.T) {
-	// 9.9-INTG-025 -- FontDescriptor metric fields surface for an embedded
-	// TrueType. Object 7 -> FontDescriptor 11.
+	// FontDescriptor metric fields surface for an embedded TrueType.
+	// Object 7 -> FontDescriptor 11.
 	ins, tabID := openFontsPDF(t)
 	d, err := ins.GetFontDetail(tabID, "obj:0:7")
 	if err != nil {
@@ -639,13 +639,13 @@ func TestGetFontDetail_FontDescriptorMetricsPopulated(t *testing.T) {
 }
 
 func TestGetFontDetail_FlagsBitDecoded(t *testing.T) {
-	// 9.9-INTG-026 alias.
+	// Alias.
 	TestDecodeFontFlags(t)
 }
 
 func TestGetFontDetail_FontFileFormatAndSize(t *testing.T) {
-	// 9.9-INTG-027 -- FontFile2 surfaces as Format="TrueType" with non-zero
-	// size. Object 7's FontDescriptor 11 -> FontFile2 13.
+	// FontFile2 surfaces as Format="TrueType" with non-zero size. Object
+	// 7's FontDescriptor 11 -> FontFile2 13.
 	ins, tabID := openFontsPDF(t)
 	d, err := ins.GetFontDetail(tabID, "obj:0:7")
 	if err != nil {
@@ -663,12 +663,12 @@ func TestGetFontDetail_FontFileFormatAndSize(t *testing.T) {
 }
 
 func TestGetFontDetail_Type0DescendantPopulated(t *testing.T) {
-	// 9.9-INTG-028 alias.
+	// Alias.
 	TestGetFontDetail_Type0Composite(t)
 }
 
 func TestGetFontDetail_Type0EmbeddedReflectsDescendant(t *testing.T) {
-	// 9.9-INTG-029 -- Type0 parent (object 6) has no own FontDescriptor;
+	// Type0 parent (object 6) has no own FontDescriptor;
 	// Embedded reflects the descendant's FontFile2.
 	ins, tabID := openFontsPDF(t)
 	d, err := ins.GetFontDetail(tabID, "obj:0:6")
@@ -684,11 +684,11 @@ func TestGetFontDetail_Type0EmbeddedReflectsDescendant(t *testing.T) {
 }
 
 func TestGetFontDetail_IndirectRefChainResolved(t *testing.T) {
-	// 9.9-INTG-032 -- resolveNodeObject transparently dereferences indirect
-	// refs; calling GetFontDetail with the obj-form nodeID for a font in
-	// the testdata returns the same shape. The fixture stores fonts as
-	// indirect objects so this is the default path; the test pins the
-	// behavior so a future regression would surface.
+	// resolveNodeObject transparently dereferences indirect refs; calling
+	// GetFontDetail with the obj-form nodeID for a font in the testdata
+	// returns the same shape. The fixture stores fonts as indirect objects
+	// so this is the default path; the test pins the behavior so a future
+	// regression would surface.
 	ins, tabID := openFontsPDF(t)
 	d, err := ins.GetFontDetail(tabID, "obj:0:4")
 	if err != nil {
@@ -700,7 +700,7 @@ func TestGetFontDetail_IndirectRefChainResolved(t *testing.T) {
 }
 
 func TestGetFontDetail_ObjStmPackagedFont(t *testing.T) {
-	// 9.9-INTG-033 -- resolveNodeObject's ObjStm path is shared. The
+	// resolveNodeObject's ObjStm path is shared. The
 	// fontsMixedPDFContent fixture does not pack fonts in an ObjStm, but
 	// the shared infrastructure (used by Image / ContentStream tests) is
 	// covered there. We pin the indirect-ref equivalence here since the
@@ -716,11 +716,11 @@ func TestGetFontDetail_ObjStmPackagedFont(t *testing.T) {
 }
 
 func TestGetFontDetail_Type3FontNoPanic(t *testing.T) {
-	// 9.9-INTG-034 -- a Type3 font dict (procedural) is rare and the
-	// fixture does not include one, but the code path for unknown subtypes
-	// is exercised: parseDifferences / populateToUnicode / FontDescriptor
-	// lookup tolerate absence. We re-run the missing-encoding test (which
-	// hits the same defensive paths) under the expected name.
+	// A Type3 font dict (procedural) is rare and the fixture does not
+	// include one, but the code path for unknown subtypes is exercised:
+	// parseDifferences / populateToUnicode / FontDescriptor lookup
+	// tolerate absence. We re-run the missing-encoding test (which hits
+	// the same defensive paths) under the expected name.
 	TestGetFontDetail_MissingEncoding(t)
 }
 
@@ -1277,7 +1277,7 @@ func TestStringField_NameRejected(t *testing.T) {
 }
 
 func TestGetFontDetail_ErrorNodeIDReturnsSentinel(t *testing.T) {
-	// Story 9-9: nodes that resolved to error sentinels in the tree must
+	// Nodes that resolved to error sentinels in the tree must
 	// not crash GetFontDetail; the helper returns ErrNotAFont so the
 	// frontend falls back to DictView rather than rendering a broken view.
 	ins, tabID := openFontsPDF(t)
@@ -1287,12 +1287,12 @@ func TestGetFontDetail_ErrorNodeIDReturnsSentinel(t *testing.T) {
 	}
 }
 
-// TestParseDifferencesOutOfRange verifies the AC5 bounds guard at
+// TestParseDifferencesOutOfRange verifies the bounds guard at
 // internal/pdfcore/font.go: integers outside 0..255 in a /Differences array
 // (e.g. typos or merge-conflict residue) cause subsequent Name entries to
 // be skipped silently rather than leaking rows into the encoding table.
 func TestParseDifferencesOutOfRange(t *testing.T) {
-	// Synthesized /Differences array per AC5: [-1 /a 999 /b 32 /space 65 /A].
+	// Synthesized /Differences array: [-1 /a 999 /b 32 /space 65 /A].
 	// Pre-fix: /a leaks at code -1, /b leaks at code 999, /space lands at 32,
 	// /A lands at 65. Post-fix: only /space at 32 and /A at 65 survive.
 	arr := pdfcpu_types.Array{
@@ -1315,7 +1315,7 @@ func TestParseDifferencesOutOfRange(t *testing.T) {
 	}
 	for _, d := range out {
 		if d.Code < 0 || d.Code > 255 {
-			t.Errorf("parseDifferences leaked out-of-range code %d (AC5: skip silently)", d.Code)
+			t.Errorf("parseDifferences leaked out-of-range code %d (skip silently)", d.Code)
 		}
 		if got, ok := want[d.Code]; !ok || got != d.GlyphName {
 			t.Errorf("parseDifferences code=%d glyph=%q, want code=%d glyph=%q", d.Code, d.GlyphName, d.Code, got)
@@ -1323,7 +1323,7 @@ func TestParseDifferencesOutOfRange(t *testing.T) {
 	}
 }
 
-// TestParseBfrangeCarry verifies the AC6 carry implementation across three
+// TestParseBfrangeCarry verifies the carry implementation across three
 // cases: (a) trailing-unit carry propagates into a higher UTF-16 unit;
 // (b) single-unit base whose leading unit overflows stops the loop without
 // wraparound; (c) the existing pre-loop span-cap rejection still returns an

@@ -1,8 +1,8 @@
 /**
  * @file Right-hand detail panel. Shows the full object detail for the
- * selected tree node, with a contextual header label. Story 9-11 adds a tab
- * bar at the top with three tabs: Object (per-selection), XREF (document-level
- * xref table), Plain Text (document-level Latin-1 bytes).
+ * selected tree node, with a contextual header label. A tab bar at the top
+ * carries Object (per-selection), XREF (document-level xref table) and Plain
+ * Text (document-level Latin-1 bytes).
  */
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -32,7 +32,7 @@ import { DiffView } from './DiffView';
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
  * carry trailing dict/arr segments after the obj prefix and must be excluded
- * from the Referenced by section per Task 7.1.
+ * from the Referenced by section.
  */
 const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
 
@@ -64,11 +64,11 @@ type FontFetchState =
   | { kind: 'error'; message: string }
   | null;
 
-/** Which of the seven DetailPanel tabs is currently active. Story 13.2 adds
- *  'embedded' (attachments/associated files) and 'metadata' (Info + XMP);
- *  Story 13.4 adds 'signatures' (shown only when signature fields exist);
- *  Story 13.5 adds 'validate' (structural conformance checks); Story 13.6 adds
- *  'diff' (side-by-side structural diff against a second PDF). */
+/** Which of the seven DetailPanel tabs is currently active. 'embedded' is
+ *  attachments/associated files and 'metadata' is Info + XMP; 'signatures' is
+ *  shown only when signature fields exist; 'validate' runs the structural
+ *  conformance checks; 'diff' is the side-by-side structural diff against a
+ *  second PDF. */
 type DetailView = 'object' | 'xref' | 'plaintext' | 'embedded' | 'metadata' | 'validate' | 'signatures' | 'diff';
 
 /** Inner (un-memoized) detail panel that fetches and renders object detail. */
@@ -99,7 +99,7 @@ function DetailPanelInner() {
   const [fontState, setFontState] = useState<FontFetchState>(null);
   const [showFontLoading, setShowFontLoading] = useState(false);
 
-  // Story 9-10: reverse-refs are fetched per-selection. The backend has the
+  // Reverse-refs are fetched per-selection. The backend has the
   // document-level index so the call is O(1); no client cache is needed.
   // reverseRefsLoaded gates the section render until the fetch resolves so an
   // in-flight selection does not flash the orphan empty state for objects that
@@ -109,21 +109,21 @@ function DetailPanelInner() {
   const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
-  // Story 9-11: per-document local state for the active DetailPanel tab.
+  // per-document local state for the active DetailPanel tab.
   // Resets to 'object' on activeTabId change so a fresh document opens on the
-  // per-selection view (AC11). Mirrors the streamViewMode pattern.
+  // per-selection view. Mirrors the streamViewMode pattern.
   const [detailView, setDetailView] = useState<DetailView>('object');
-  // Entry count from the XREF tab, used in the "XREF (N)" tab label per AC2.
+  // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
-  // label (Story 13.2, mirrors the XREF count pattern).
+  // label (mirrors the XREF count pattern).
   const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
-  // Story 13.4: the signature list drives the Signatures tab visibility. ONE
+  // The signature list drives the Signatures tab visibility. ONE
   // GetSignatures fetch per document tab, made on mount and cached here (no
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
-  // Story 13.6: the second (comparison) document's tab ID for the Diff tab, and
+  // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
   const [diffRightTabId, setDiffRightTabId] = useState<string | null>(null);
@@ -156,7 +156,7 @@ function DetailPanelInner() {
     setDiffError(null);
   }, [activeTabId]);
 
-  // Story 13.6: the comparison document is opened backend-only (not an app tab),
+  // The comparison document is opened backend-only (not an app tab),
   // so close it when it is replaced, cleared on document switch, or the panel
   // unmounts - otherwise every diff leaks a parsed document in the Go backend.
   useEffect(() => {
@@ -168,9 +168,9 @@ function DetailPanelInner() {
     };
   }, [diffRightTabId]);
 
-  // Story 13.4 AC6: one signature fetch per document tab. The result is
-  // passed down to SignaturesView via the data prop so the view never issues
-  // a second fetch. A fetch failure hides the tab (empty list) and logs.
+  // One signature fetch per document tab. The result is passed
+  // down to SignaturesView via the data prop so the view never issues a
+  // second fetch. A fetch failure hides the tab (empty list) and logs.
   useEffect(() => {
     if (!activeTabId) return;
     let cancelled = false;
@@ -299,7 +299,7 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [imageLoading]);
 
-  // Story 9-9: fetch the unified FontView when detail resolves to a dict node
+  // Fetch the unified FontView when detail resolves to a dict node
   // tagged iconHint='font'. The backend disambiguates the three outcomes
   // ("detail" / "roster" / "neither") in one call so the binding layer never
   // logs ERR on the iconHint='font' false positive. .catch fires only on
@@ -330,8 +330,8 @@ function DetailPanelInner() {
     return () => { cancelled = true; };
   }, [detail, detailTabId, selectedNodeIconHint]);
 
-  // 200ms-debounced loading indicator timer for the font fetch (AC9). Keyed
-  // on selectedNodeId + iconHint so it starts as soon as the user clicks a
+  // 200ms-debounced loading indicator timer for the font fetch. Keyed on
+  // selectedNodeId + iconHint so it starts as soon as the user clicks a
   // font node -- before detail resolves. This avoids a microtask-ordering
   // gap where the timer would otherwise be unscheduled until detail settled
   // (visible only under tests that use sync vi.advanceTimersByTime; real
@@ -349,11 +349,11 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [selectedNodeId, selectedNodeIconHint]);
 
-  // Story 9-10: fetch reverse refs for indirect-object selections only. The
+  // Fetch reverse refs for indirect-object selections only. The
   // catalog (nodeId='root') is also treated as indirect because in real PDFs
-  // it lives in the indirect-object graph and AC#10 requires the section to
-  // render the "Document root..." empty state for it. Inline-value nodes
-  // never mount the section. Stale-fetch guard matches existing patterns.
+  // it lives in the indirect-object graph and the section must render the
+  // "Document root..." empty state for it. Inline-value nodes never
+  // mount the section. Stale-fetch guard matches existing patterns.
   useEffect(() => {
     const isIndirect = !!selectedNodeId &&
       (INDIRECT_NODE_RE.test(selectedNodeId) || selectedNodeId === 'root');
@@ -385,12 +385,12 @@ function DetailPanelInner() {
         if (cancelled) return;
         const msg = extractErrorMessage(err);
         if (msg.toLowerCase().includes(REV_REFS_UNAVAILABLE_MARKER)) {
-          // AC#6 failure mode: surface the unavailable banner.
+          // Failure mode: surface the unavailable banner.
           setReverseRefs([]);
           setReverseRefsUnavailable(true);
           setReverseRefsLoaded(true);
         } else {
-          // Task 7.3 case (b): hide the section silently and log.
+          // Any other rejection: hide the section silently and log.
           setReverseRefs([]);
           setReverseRefsUnavailable(false);
           setReverseRefsVisible(false);
@@ -427,9 +427,9 @@ function DetailPanelInner() {
   }, [dispatch]);
 
   /**
-   * XREF row click handler. Per AC14, switches the active tab to Object
-   * BEFORE dispatching navigation so React batches both updates in one render
-   * and the user never sees a flash of "XREF active + new selection".
+   * XREF row click handler. Switches the active tab to Object BEFORE
+   * dispatching navigation so React batches both updates in one render and
+   * the user never sees a flash of "XREF active + new selection".
    */
   const handleXRefNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -439,7 +439,7 @@ function DetailPanelInner() {
   /**
    * Embedded "Reveal in tree" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the /EmbeddedFile stream object
-   * in one render (mirrors handleXRefNavigate). Story 13.2.
+   * in one render (mirrors handleXRefNavigate).
    */
   const handleEmbeddedNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -449,7 +449,7 @@ function DetailPanelInner() {
   /**
    * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the /V signature dict (or the
-   * field node fallback) in one render. Story 13.4.
+   * field node fallback) in one render.
    */
   const handleSignaturesNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -459,7 +459,7 @@ function DetailPanelInner() {
   /**
    * Validate "jump to object" handler: switches to the Object tab BEFORE
    * dispatching navigation so the user lands on the offending object in one
-   * render (mirrors handleSignaturesNavigate). Story 13.5.
+   * render (mirrors handleSignaturesNavigate).
    */
   const handleValidateNavigate = useCallback((nodeId: string) => {
     setDetailView('object');
@@ -467,7 +467,7 @@ function DetailPanelInner() {
   }, [dispatch]);
 
   /**
-   * Story 13.6: pick a second PDF to diff against the active document. Opens a
+   * Pick a second PDF to diff against the active document. Opens a
    * native file dialog, loads the chosen file into the shared inspector as a new
    * tab, and stores its tab ID as the diff's right-hand side. A cancelled dialog
    * (empty selection) is a no-op.
@@ -497,14 +497,14 @@ function DetailPanelInner() {
       .catch((err: unknown) => setDiffError(extractErrorMessage(err)));
   }, [activeTabId]);
 
-  // AC6: the Signatures tab exists only when the document has >= 1 signature
+  // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
   const showSignaturesTab = (signatures?.length ?? 0) > 0;
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
-  // fetch resolved to a detail payload (not fallback / error). AC11 header
-  // contract: "Font - <BaseFont>" (with BaseFont falling back to "" -> just
+  // fetch resolved to a detail payload (not fallback / error). The header
+  // contract is "Font - <BaseFont>" (with BaseFont falling back to "" -> just
   // "Font"); preempts the generic TYPE_LABEL_MAP "Properties" entry.
   const fontActive = selectedNodeIconHint === 'font'
     && detail?.type === 'dict'

@@ -1,5 +1,5 @@
 /**
- * 2.4-UNIT-002 [P1]: EmptyState drop zone highlights on drag-over with PDF file.
+ * EmptyState drop zone highlights on drag-over with PDF file.
  *
  * Tests visual feedback for drag-and-drop interactions and the presence of
  * data-file-drop-target attribute required by Wails.
@@ -43,7 +43,7 @@ function makeDragEvent(type: string, mimeType?: string) {
   };
 }
 
-describe('2.4-UNIT-002: EmptyState drop zone', () => {
+describe('EmptyState drop zone', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -75,18 +75,14 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Story 10.8 AC1 (RED PHASE): the per-file invalid flash is REMOVED. The drop
-  // zone must NEVER claim pre-drop knowledge it does not have. For ANY drag
-  // combination (PDF-only, mixed, non-PDF-only) the hint stays the constant
-  // "Drop a PDF file here" in text-text-muted, and the error styling
-  // ("PDF files only" / text-error) is never applied.
-  //
-  // These assertions FAIL against the current EmptyState.tsx because the
-  // dragenter/drop handlers still call setIsInvalidFile and the derived
-  // hintText/hintColor still branch on it.
+  // The drop zone carries no per-file invalid flash: it must never claim
+  // pre-drop knowledge it does not have. For ANY drag combination (PDF-only,
+  // mixed, non-PDF-only) the hint stays the constant "Drop a PDF file here"
+  // in text-text-muted, and the error styling ("PDF files only" /
+  // text-error) is never applied.
   // ---------------------------------------------------------------------------
 
-  test('10-8-UNIT-001 [P1] AC1: non-PDF drag does NOT show error flash', () => {
+  test('non-PDF drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -104,7 +100,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-002 [P1] AC1: mixed-file drag does NOT show error flash', () => {
+  test('mixed-file drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -125,7 +121,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-003 [P1] AC1: PDF-only drag keeps the standard hint (no error)', () => {
+  test('PDF-only drag keeps the standard hint (no error)', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -140,7 +136,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).not.toContain('text-error');
   });
 
-  test('10-8-UNIT-004 [P1] AC1: dropping a non-PDF file shows no error flash', () => {
+  test('dropping a non-PDF file shows no error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 

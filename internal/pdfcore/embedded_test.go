@@ -1,5 +1,5 @@
-// Story 13-2 RED-PHASE co-located unit tests for embedded-file enumeration and
-// extraction (AC 1, 2, 8).
+// Co-located unit tests for embedded-file enumeration and
+// extraction.
 //
 // These exercise the NEW pdfcore surface:
 //
@@ -7,18 +7,11 @@
 //	(ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 //	types EmbeddedFile, EmbeddedFileList
 //
-// None of those exist yet, so this file does NOT compile against the current
-// tree -- that is the intended RED state for a co-located unit suite (the
-// package fails to build until Task 1 lands the embedded.go surface). Once the
-// surface exists these assert the real behavior.
-//
 // Fixtures are hand-rolled raw PDF bytes assembled via the existing assemblexref
 // helper (resolve_ref_atdd_test.go) and opened through writeTempPDF, which uses
 // the SAME Inspector.Open path the app uses (pdfcpu_api.ReadContextFile under
 // default validation). The embedded-file Subtype MUST be a Name with #2F
 // hex-escapes (/text#2Fxml) or pdfcpu's default validator rejects the document.
-//
-// Naming: 13.2-UNIT-NNN [Px].
 package pdfcore
 
 import (
@@ -32,7 +25,7 @@ import (
 
 // embeddedStreamObj returns an /EmbeddedFile stream object body carrying payload
 // as its (unfiltered) stream bytes plus a /Params dict with /Size, /CheckSum,
-// /ModDate so AC1's Params surfacing can be asserted.
+// /ModDate so the Params surfacing can be asserted.
 func embeddedStreamObj(num int, payload string) string {
 	return strconv.Itoa(num) + " 0 obj\n" +
 		"<< /Type /EmbeddedFile /Subtype /text#2Fxml /Length " + strconv.Itoa(len(payload)) +
@@ -52,8 +45,8 @@ func filespecObj(num, efNum int, displayName, afRel string) string {
 
 // zugferdSharedFilespec builds a ZUGFeRD/Factur-X-style PDF where ONE /Filespec
 // (object 6) is reachable from BOTH the catalog /AF array and the
-// /Names/EmbeddedFiles name tree (object 7). AC1: it must appear ONCE after
-// dedupe by the /Filespec indirect ref. The XML stream is object 4.
+// /Names/EmbeddedFiles name tree (object 7). it must appear ONCE after dedupe
+// by the /Filespec indirect ref. The XML stream is object 4.
 //
 // Object map: 1 Catalog, 2 Pages, 3 Page, 4 EmbeddedFile(XML), 5 null,
 // 6 Filespec, 7 EmbeddedFiles name-tree node.
@@ -71,8 +64,8 @@ func zugferdSharedFilespec(xml string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-001 [P0] AC1: enumeration finds the embedded file from BOTH the
-// catalog /AF array and the /Names/EmbeddedFiles name tree.
+// Enumeration finds the embedded file from BOTH the catalog /AF array and
+// the /Names/EmbeddedFiles name tree.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_FindsFromBothSources(t *testing.T) {
@@ -80,16 +73,16 @@ func TestGetEmbeddedFiles_FindsFromBothSources(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-001: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if list == nil || len(list.Files) == 0 {
-		t.Fatalf("[P0] 13.2-UNIT-001: expected at least one embedded file, got %+v", list)
+		t.Fatalf("expected at least one embedded file, got %+v", list)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-002 [P0] AC1: a /Filespec reachable from BOTH /AF and the name tree
-// (same indirect object) is merged and de-duplicated -> appears exactly ONCE.
+// A /Filespec reachable from BOTH /AF and the name tree (same indirect object)
+// is merged and de-duplicated -> appears exactly ONCE.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DedupesSharedFilespec(t *testing.T) {
@@ -97,7 +90,7 @@ func TestGetEmbeddedFiles_DedupesSharedFilespec(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-002: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	// Object 6 is the single shared /Filespec; it must collapse to one entry.
 	count := 0
@@ -107,13 +100,13 @@ func TestGetEmbeddedFiles_DedupesSharedFilespec(t *testing.T) {
 		}
 	}
 	if count != 1 {
-		t.Errorf("[P0] 13.2-UNIT-002: shared /Filespec must dedupe to 1 entry, got %d:\n%+v", count, list.Files)
+		t.Errorf("shared /Filespec must dedupe to 1 entry, got %d:\n%+v", count, list.Files)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-003 [P1] AC1: a DIRECT (non-indirect, inline) /Filespec is kept as
-// a distinct entry with an empty filespec ref -- never silently dropped.
+// A DIRECT (non-indirect, inline) /Filespec is kept as a distinct entry with
+// an empty filespec ref -- never silently dropped.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DirectFilespecKeptWithEmptyRef(t *testing.T) {
@@ -131,7 +124,7 @@ func TestGetEmbeddedFiles_DirectFilespecKeptWithEmptyRef(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-003: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	var found *EmbeddedFile
 	for i := range list.Files {
@@ -140,17 +133,17 @@ func TestGetEmbeddedFiles_DirectFilespecKeptWithEmptyRef(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P1] 13.2-UNIT-003: direct (inline) /Filespec was dropped; expected a distinct entry:\n%+v", list.Files)
+		t.Fatalf("direct (inline) /Filespec was dropped; expected a distinct entry:\n%+v", list.Files)
 	}
 	if found.FilespecRef != "" {
-		t.Errorf("[P1] 13.2-UNIT-003: direct /Filespec must carry an EMPTY filespec ref, got %q", found.FilespecRef)
+		t.Errorf("direct /Filespec must carry an EMPTY filespec ref, got %q", found.FilespecRef)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-004 [P0] AC1: each entry carries the discriminating fields --
-// display name (/UF preferred), AFRelationship, Subtype MIME, decoded size,
-// and the EmbeddedFile stream ref.
+// Each entry carries the discriminating fields -- display name (/UF
+// preferred), AFRelationship, Subtype MIME, decoded size, and the
+// EmbeddedFile stream ref.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_EntryCarriesDiscriminatingFields(t *testing.T) {
@@ -159,33 +152,32 @@ func TestGetEmbeddedFiles_EntryCarriesDiscriminatingFields(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-004: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) == 0 {
-		t.Fatalf("[P0] 13.2-UNIT-004: no entries")
+		t.Fatalf("GetEmbeddedFiles returned no entries")
 	}
 	f := list.Files[0]
 	if f.Name != "factur-x.xml" {
-		t.Errorf("[P0] 13.2-UNIT-004: Name = %q, want factur-x.xml (/UF preferred)", f.Name)
+		t.Errorf("Name = %q, want factur-x.xml (/UF preferred)", f.Name)
 	}
 	if f.AFRelationship != "Data" {
-		t.Errorf("[P0] 13.2-UNIT-004: AFRelationship = %q, want Data (the ZUGFeRD discriminator)", f.AFRelationship)
+		t.Errorf("AFRelationship = %q, want Data (the ZUGFeRD discriminator)", f.AFRelationship)
 	}
 	// /text#2Fxml decodes to the MIME text/xml.
 	if f.Subtype != "text/xml" {
-		t.Errorf("[P0] 13.2-UNIT-004: Subtype = %q, want text/xml (the #2F-escaped Name decoded)", f.Subtype)
+		t.Errorf("Subtype = %q, want text/xml (the #2F-escaped Name decoded)", f.Subtype)
 	}
 	if f.Size != int64(len(xml)) {
-		t.Errorf("[P0] 13.2-UNIT-004: decoded Size = %d, want %d", f.Size, len(xml))
+		t.Errorf("decoded Size = %d, want %d", f.Size, len(xml))
 	}
 	if f.EmbeddedFileRef == "" {
-		t.Errorf("[P0] 13.2-UNIT-004: EmbeddedFileRef must be set (object 4)")
+		t.Errorf("EmbeddedFileRef must be set (object 4)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-005 [P1] AC1: /Params CheckSum/ModDate/Size are surfaced when
-// present.
+// /Params CheckSum/ModDate/Size are surfaced when present.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_SurfacesParams(t *testing.T) {
@@ -193,20 +185,20 @@ func TestGetEmbeddedFiles_SurfacesParams(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-005: error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	f := list.Files[0]
 	if f.CheckSum == "" {
-		t.Errorf("[P1] 13.2-UNIT-005: /Params /CheckSum not surfaced")
+		t.Errorf("Params /CheckSum not surfaced")
 	}
 	if f.ModDate == "" {
-		t.Errorf("[P1] 13.2-UNIT-005: /Params /ModDate not surfaced")
+		t.Errorf("Params /ModDate not surfaced")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-006 [P1] AC1: a document with NO embedded files returns an empty
-// list and NO error (normal empty state).
+// A document with NO embedded files returns an empty list and NO error
+// (normal empty state).
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_NoneIsEmptyNotError(t *testing.T) {
@@ -220,20 +212,20 @@ func TestGetEmbeddedFiles_NoneIsEmptyNotError(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-006: expected nil error for no-attachments doc, got %v", err)
+		t.Fatalf("expected nil error for no-attachments doc, got %v", err)
 	}
 	if list == nil {
-		t.Fatalf("[P1] 13.2-UNIT-006: expected non-nil empty list")
+		t.Fatalf("expected non-nil empty list")
 	}
 	if len(list.Files) != 0 {
-		t.Errorf("[P1] 13.2-UNIT-006: expected 0 files, got %d", len(list.Files))
+		t.Errorf("expected 0 files, got %d", len(list.Files))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-010 [P0] AC2: GetEmbeddedFileBytes returns the decoded bytes of one
-// embedded file, addressed by the obj:G:N nodeID of its /EmbeddedFile stream
-// (same nodeID convention as GetImageData). Round-trip.
+// GetEmbeddedFileBytes returns the decoded bytes of one embedded file,
+// addressed by the obj:G:N nodeID of its /EmbeddedFile stream (same nodeID
+// convention as GetImageData). Round-trip.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_RoundTrip(t *testing.T) {
@@ -243,17 +235,17 @@ func TestGetEmbeddedFileBytes_RoundTrip(t *testing.T) {
 	// Object 4 is the /EmbeddedFile stream -> nodeID obj:0:4.
 	data, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-010: GetEmbeddedFileBytes error: %v", err)
+		t.Fatalf("GetEmbeddedFileBytes error: %v", err)
 	}
 	if string(data) != payload {
-		t.Errorf("[P0] 13.2-UNIT-010: round-trip mismatch\n got: %q\nwant: %q", string(data), payload)
+		t.Errorf("round-trip mismatch\n got: %q\nwant: %q", string(data), payload)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-011 [P0] AC2: a stream whose DECODED size exceeds the image.go
-// ceiling discipline (maxImageBytes order of magnitude, NOT the 4 GiB plaintext
-// cap) returns ErrUnsupportedPDF rather than OOMing.
+// A stream whose DECODED size exceeds the image.go ceiling discipline
+// (maxImageBytes order of magnitude, NOT the 4 GiB plaintext cap) returns
+// ErrUnsupportedPDF rather than OOMing.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_OverCeilingReturnsUnsupported(t *testing.T) {
@@ -274,13 +266,13 @@ func TestGetEmbeddedFileBytes_OverCeilingReturnsUnsupported(t *testing.T) {
 
 	_, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
 	if !errors.Is(err, ErrUnsupportedPDF) {
-		t.Errorf("[P0] 13.2-UNIT-011: over-ceiling payload must return ErrUnsupportedPDF, got %v", err)
+		t.Errorf("over-ceiling payload must return ErrUnsupportedPDF, got %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-012 [P1] AC2/8: an empty, malformed, or non-stream nodeID returns an
-// error (or a non-crashing sentinel), never a panic.
+// An empty, malformed, or non-stream nodeID returns an error (or a non-crashing
+// sentinel), never a panic.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_BadNodeIDErrors(t *testing.T) {
@@ -292,15 +284,15 @@ func TestGetEmbeddedFileBytes_BadNodeIDErrors(t *testing.T) {
 		t.Run(nid, func(t *testing.T) {
 			_, err := ins.GetEmbeddedFileBytes(tabID, nid)
 			if err == nil {
-				t.Errorf("[P1] 13.2-UNIT-012: nodeID %q must yield an error, got nil", nid)
+				t.Errorf("nodeID %q must yield an error, got nil", nid)
 			}
 		})
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-013 [P0] AC8: a /Filespec with no /EF (or no /EmbeddedFile) produces
-// a per-entry empty/warning state, NOT a crash or a failed whole-document load.
+// A /Filespec with no /EF (or no /EmbeddedFile) produces a per-entry
+// empty/warning state, NOT a crash or a failed whole-document load.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_FilespecWithoutEFDegradesPerEntry(t *testing.T) {
@@ -318,7 +310,7 @@ func TestGetEmbeddedFiles_FilespecWithoutEFDegradesPerEntry(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-013: missing /EF must NOT fail the whole view, got error: %v", err)
+		t.Fatalf("missing /EF must NOT fail the whole view, got error: %v", err)
 	}
 	// The entry is still listed (so the user sees it), but with no stream ref.
 	var found *EmbeddedFile
@@ -328,17 +320,16 @@ func TestGetEmbeddedFiles_FilespecWithoutEFDegradesPerEntry(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P0] 13.2-UNIT-013: filespec without /EF should still appear as an entry:\n%+v", list.Files)
+		t.Fatalf("filespec without /EF should still appear as an entry:\n%+v", list.Files)
 	}
 	if found.EmbeddedFileRef != "" {
-		t.Errorf("[P0] 13.2-UNIT-013: entry without /EF must carry an empty EmbeddedFileRef, got %q", found.EmbeddedFileRef)
+		t.Errorf("entry without /EF must carry an empty EmbeddedFileRef, got %q", found.EmbeddedFileRef)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-014 [P1] AC8: a malformed /Names/EmbeddedFiles tree degrades (the
-// /AF source still yields its entries) and the whole-document view does not
-// fail.
+// A malformed /Names/EmbeddedFiles tree degrades (the /AF source still yields
+// its entries) and the whole-document view does not fail.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_BrokenNameTreeDegrades(t *testing.T) {
@@ -356,10 +347,10 @@ func TestGetEmbeddedFiles_BrokenNameTreeDegrades(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-014: broken name tree must NOT fail the view, got error: %v", err)
+		t.Fatalf("broken name tree must NOT fail the view, got error: %v", err)
 	}
 	if len(list.Files) == 0 {
-		t.Errorf("[P1] 13.2-UNIT-014: /AF source should still yield its entry despite the broken name tree")
+		t.Errorf("AF source should still yield its entry despite the broken name tree")
 	}
 }
 
@@ -377,8 +368,8 @@ func embeddedStreamNoParams(num int, payload string) string {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-007 [P1] AC1: when /Params /Size is absent, the decoded size falls
-// back to the resolved stream length (/Length), not zero.
+// When /Params /Size is absent, the decoded size falls back to the resolved
+// stream length (/Length), not zero.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_SizeFallsBackToStreamLength(t *testing.T) {
@@ -396,24 +387,23 @@ func TestGetEmbeddedFiles_SizeFallsBackToStreamLength(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-007: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	if len(list.Files) == 0 {
-		t.Fatalf("[P1] 13.2-UNIT-007: no entries")
+		t.Fatalf("GetEmbeddedFiles returned no entries")
 	}
 	f := list.Files[0]
 	if f.Size != int64(len(payload)) {
-		t.Errorf("[P1] 13.2-UNIT-007: Size = %d, want %d (length fallback when /Params /Size absent)", f.Size, len(payload))
+		t.Errorf("Size = %d, want %d (length fallback when /Params /Size absent)", f.Size, len(payload))
 	}
 	if f.CheckSum != "" || f.ModDate != "" {
-		t.Errorf("[P1] 13.2-UNIT-007: absent /Params must leave CheckSum/ModDate empty, got %q/%q", f.CheckSum, f.ModDate)
+		t.Errorf("absent /Params must leave CheckSum/ModDate empty, got %q/%q", f.CheckSum, f.ModDate)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-008 [P1] AC1: the name-tree walk recurses through /Kids
-// intermediate nodes (not just a flat /Names leaf). The filespec lives in a
-// child node reached via /Kids.
+// The name-tree walk recurses through /Kids intermediate nodes (not just a
+// flat /Names leaf). The filespec lives in a child node reached via /Kids.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
@@ -436,7 +426,7 @@ func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-008: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	var found bool
 	for _, f := range list.Files {
@@ -445,15 +435,15 @@ func TestGetEmbeddedFiles_WalksNameTreeKids(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("[P1] 13.2-UNIT-008: filespec under a /Kids intermediate node was not found:\n%+v", list.Files)
+		t.Errorf("filespec under a /Kids intermediate node was not found:\n%+v", list.Files)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-009 [P0] AC1: a DIRECT (inline, non-indirect) /Filespec inside the
-// /Names/EmbeddedFiles NAME TREE is kept with an empty filespec ref -- never
-// silently dropped (the name-tree analogue of UNIT-003, guarding the review
-// patch at embedded.go:268-270).
+// A DIRECT (inline, non-indirect) /Filespec inside the /Names/EmbeddedFiles
+// NAME TREE is kept with an empty filespec ref -- never silently dropped (the
+// name-tree analogue of the direct-/Filespec array case, guarding the patch at
+// embedded.go:268-270).
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {
@@ -474,7 +464,7 @@ func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {
 
 	list, err := ins.GetEmbeddedFiles(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-009: GetEmbeddedFiles error: %v", err)
+		t.Fatalf("GetEmbeddedFiles error: %v", err)
 	}
 	var found *EmbeddedFile
 	for i := range list.Files {
@@ -483,9 +473,9 @@ func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P0] 13.2-UNIT-009: direct filespec in the name tree was dropped:\n%+v", list.Files)
+		t.Fatalf("direct filespec in the name tree was dropped:\n%+v", list.Files)
 	}
 	if found.FilespecRef != "" {
-		t.Errorf("[P0] 13.2-UNIT-009: direct filespec must carry an EMPTY ref, got %q", found.FilespecRef)
+		t.Errorf("direct filespec must carry an EMPTY ref, got %q", found.FilespecRef)
 	}
 }

@@ -1,40 +1,27 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC3 (finding #28) -- useLatest ref-mirror consolidation hook.
- *
- * TDD RED PHASE: every test below is emitted as `test()`. The hook does
- * not exist yet (Task 2 creates frontend/src/hooks/useLatest.ts). To keep the
- * suite loadable in CI while skipped, the module is imported LAZILY inside each
- * test via a dynamic import rather than a top-level static import (a static
- * import of a non-existent module fails at suite-load and would break DoD gate
- * G1 before Dev starts). A developer activates these by removing `.skip` after
- * the file lands.
- *
- * Test IDs follow the 10-7-HOOK-NNN convention.
+ * Frontend Hook and Render-Path Correctness
+ * useLatest ref-mirror consolidation hook.
  *
  * Run: cd frontend && npx vitest run src/hooks/useLatest.test.ts
  */
 import { renderHook } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 
-// RED PHASE: resolved lazily so the suite loads while skipped. Fails until
-// frontend/src/hooks/useLatest.ts exists.
 async function loadUseLatest() {
-  // The @vite-ignore comment + non-literal specifier stops Vite's
-  // import-analysis from resolving (and failing on) the not-yet-created module
-  // at suite-load time. Without it the whole suite errors even while skipped,
-  // which would break DoD gate G1 before Dev implements Task 2.
+  // The @vite-ignore comment plus a non-literal specifier keeps Vite's
+  // import analysis from statically resolving the module, so the import is
+  // deferred to call time rather than suite-load time.
   const specifier = './useLatest';
   const mod = await import(/* @vite-ignore */ specifier);
   return mod.useLatest as (value: unknown) => { current: unknown };
 }
 
 // ---------------------------------------------------------------------------
-// 10-7-HOOK-001 [P1] AC3: useLatest returns a ref whose .current reflects the
-// latest render's value across rerenders.
+// useLatest returns a ref whose .current reflects the latest render's value
+// across rerenders.
 // ---------------------------------------------------------------------------
 
-describe('10-7-HOOK-001: useLatest reflects the latest value', () => {
+describe('useLatest reflects the latest value', () => {
   test('ref.current equals the initial value on first render', async () => {
     const useLatest = await loadUseLatest();
     const { result } = renderHook(({ value }: { value: number }) => useLatest(value), {

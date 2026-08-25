@@ -1,18 +1,15 @@
 /**
- * Story 9-8: Command Palette (Cmd+K) -- inline labels + jump-to-object.
+ * Command Palette (Cmd+K) -- inline labels + jump-to-object.
  *
- * TDD RED PHASE: This file imports the not-yet-implemented CommandPalette
- * component and the useCommandPalette hook. The imports themselves fail
- * until Task 4 / Task 5 land.
- *
- * Covers AC4, AC5 (palette-side wiring), AC6, AC7, AC8, AC9, AC10.
+ * Covers the palette-side wiring: opening and filtering the overlay, and
+ * dispatching a jump that lands in the reducer's pendingNavTarget.
  *
  * Approach: mock the Wails binding so GetObjectIndex returns a deterministic
  * fixture. Render <App-shell-equivalent> with AppProvider and assert against
  * the rendered palette overlay and the reducer's pendingNavTarget state.
  *
  * Run: cd frontend && npx vitest run \
- *      src/components/CommandPalette/CommandPalette.test.tsx
+ * src/components/CommandPalette/CommandPalette.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -24,8 +21,6 @@ import {
   type AppAction,
 } from '../../hooks/useDocumentState';
 
-// --- RED imports: the modules below do not exist yet. Each one fails the
-// test file until the corresponding task lands. ---
 import { CommandPalette } from './CommandPalette';
 import { useCommandPalette } from '../../hooks/useCommandPalette';
 
@@ -34,9 +29,9 @@ import { useCommandPalette } from '../../hooks/useCommandPalette';
 const mockGetObjectIndex = vi.hoisted(() => vi.fn());
 const mockGetAncestorPath = vi.hoisted(() => vi.fn());
 
-// Story 10.8 AC2: the palette open shortcut is now platform-aware (Cmd on
-// macOS, Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below
-// open the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
+// The palette open shortcut is now platform-aware (Cmd on macOS,
+// Ctrl elsewhere). Default the mock to 'Cmd' so the Meta+K cases below open
+// the palette; the dedicated Ctrl+K test overrides it to 'Ctrl'.
 const mockGetPlatformModifier = vi.hoisted(() => vi.fn(() => 'Cmd'));
 vi.mock('../../lib/platform', () => ({
   getPlatformModifier: () => mockGetPlatformModifier(),
@@ -141,10 +136,10 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC4 -- Cmd+K opens, Esc closes, click-outside closes, focus trap/restore
+// Cmd+K opens, Esc closes, click-outside closes, focus trap/restore
 // ---------------------------------------------------------------------------
 
-describe('AC4: open/close lifecycle', () => {
+describe('open/close lifecycle', () => {
   test('Cmd+K opens the palette overlay', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -180,10 +175,10 @@ describe('AC4: open/close lifecycle', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC5 / AC6 / AC9 -- numeric query, single-match Enter, navigation dispatch
+// Numeric query, single-match Enter, navigation dispatch
 // ---------------------------------------------------------------------------
 
-describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
+describe('numeric query Enter -> NAVIGATE_TO_REF', () => {
   test('single-match Enter dispatches NAVIGATE_TO_REF and closes palette', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -193,7 +188,7 @@ describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
     const input = await screen.findByTestId('command-palette-input');
     await user.type(input, '3');
 
-    // AC6: 50ms idle gate. Pause longer than that before Enter.
+    // 50ms idle gate. Pause longer than that before Enter.
     await new Promise((r) => setTimeout(r, 80));
     await user.keyboard('{Enter}');
 
@@ -208,8 +203,7 @@ describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
     // 50ms with userEvent, so this test fires Enter with NO intermediate
     // idle pause -- userEvent.type queues keystrokes back-to-back, so the
     // last keystroke and the Enter are dispatched within the same
-    // microtask. Implementations that respect the AC6 gate will not
-    // commit.
+    // microtask. Implementations that respect the gate will not commit.
     const user = userEvent.setup();
     renderHarness();
     act(() => screen.getByTestId('bootstrap-open').click());
@@ -241,10 +235,10 @@ describe('AC5/AC6/AC9: numeric query Enter -> NAVIGATE_TO_REF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC6 -- multi-match: arrow keys + Enter
+// multi-match: arrow keys + Enter
 // ---------------------------------------------------------------------------
 
-describe('AC6: multi-match arrow navigation', () => {
+describe('multi-match arrow navigation', () => {
   test('prefix "Font" yields multi-match list; ArrowDown + Enter commits second row', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -269,10 +263,10 @@ describe('AC6: multi-match arrow navigation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC7 -- empty input shows per-tab recents (max 5)
+// Empty input shows per-tab recents (max 5)
 // ---------------------------------------------------------------------------
 
-describe('AC7: recent jumps', () => {
+describe('recent jumps', () => {
   test('first-time empty input shows grammar hint and no Recent header', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -308,10 +302,10 @@ describe('AC7: recent jumps', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC8 -- free/orphan rows render but are non-navigable
+// free/orphan rows render but are non-navigable
 // ---------------------------------------------------------------------------
 
-describe('AC8: free/orphan rows', () => {
+describe('free/orphan rows', () => {
   test('typing a free object number shows the row tagged (free) and Enter is a no-op', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -336,10 +330,10 @@ describe('AC8: free/orphan rows', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC10 -- tab switch closes the palette; recents are per-tab
+// Tab switch closes the palette; recents are per-tab
 // ---------------------------------------------------------------------------
 
-describe('AC10: tab switching', () => {
+describe('tab switching', () => {
   test('switching tabs while palette is open closes it', async () => {
     const user = userEvent.setup();
     renderHarness({ initialTabs: 2 });

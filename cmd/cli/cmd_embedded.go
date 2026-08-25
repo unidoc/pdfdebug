@@ -73,7 +73,7 @@ func execEmbeddedList(filePath string, jsonOut bool) (exitCode int) {
 	}
 
 	if jsonOut {
-		// Emit the slice directly so the top-level shape is a JSON array (AC4).
+		// Emit the slice directly so the top-level shape is a JSON array.
 		if err := emit(os.Stdout, list.Files, false); err != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 			return 2

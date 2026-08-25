@@ -1,11 +1,11 @@
 /**
  * @file Signatures view -- document-level decomposition of every digital
- * signature field (Story 13.4). One key/value card per signature: signer,
+ * signature field. One key/value card per signature: signer,
  * issuer, validity window, algorithms, SubFilter, signing time, and the
  * ByteRange coverage facts, plus an expandable certificate chain and a
  * "Reveal in tree" jump. Structural decomposition ONLY: the view never makes
- * a trust claim (AC4) -- the expiry cue is a certificate DATE fact and every
- * card carries the explicit "trust not verified" note.
+ * a trust claim -- the expiry cue is a certificate DATE fact and every card
+ * carries the explicit "trust not verified" note.
  */
 import { useEffect, useState } from 'react';
 import { GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
@@ -122,7 +122,7 @@ function ExpiryCue({ signer }: { signer: SignatureCertInfo }) {
 function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNavigate: (nodeId: string) => void }) {
   const [chainOpen, setChainOpen] = useState(false);
   // Reveal target: the /V dict node for an indirect ref, the field node for a
-  // direct /V; the button is omitted when neither resolves (AC6).
+  // direct /V; the button is omitted when neither resolves.
   const revealTarget = entry.signatureNodeId || entry.fieldNodeId;
   // Defend the IPC trust boundary: entry crosses Wails as `unknown` and is
   // cast without per-field validation, so treat notes/certificates as possibly

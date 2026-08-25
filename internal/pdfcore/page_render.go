@@ -14,7 +14,7 @@ import (
 // per-path visited set (onPath) is the primary cycle guard.
 const maxFormWalkDepth = 32
 
-// PageRenderInfo assembles the complete per-page rendering picture (Story 11-6):
+// PageRenderInfo assembles the complete per-page rendering picture:
 // resolved geometry (with /Pages inheritance), every ExtGState's blend/alpha/
 // SMask, every XObject classified (Form vs Image + colorspace family), and -
 // when opts.FormsRecursive is set - each Form XObject walked recursively against
@@ -26,7 +26,7 @@ const maxFormWalkDepth = 32
 // parse the content stream itself. This can over-report a form that is declared
 // in /Resources but never actually invoked by a Do; that is a benign superset.
 //
-// It is an assembled view built ON TOP of the 11-5 ResolveRef keystone /
+// It is an assembled view built ON TOP of the ResolveRef keystone /
 // GetXObjectResources: it composes those for per-level dict/ref resolution and
 // adds the NEW semantic readers (geometry inheritance, ExtGState/SMask resolver,
 // colorspace classifier, recursive form walk). STRUCTURAL ONLY - no rendering
@@ -53,7 +53,7 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 
 	// PageDict resolves the page dict AND its inherited attributes (MediaBox,
 	// CropBox, Rotate, Resources) walking up /Pages ancestors - the classic
-	// inheritance gotcha is handled by pdfcpu here (AC1).
+	// inheritance gotcha is handled by pdfcpu here.
 	var pageDict pdfcpu_types.Dict
 	var indRef *pdfcpu_types.IndirectRef
 	var inh *pdfcpu_model.InheritedPageAttrs
@@ -64,7 +64,7 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 	})
 	if err != nil {
 		// pdfcpu's "page not found" surfaces here for out-of-range pages; keep the
-		// "not found" wording so the CLI exit-code mapping (AC6) is stable.
+		// "not found" wording so the CLI exit-code mapping is stable.
 		return nil, fmt.Errorf("page %d not found: %w", pageNum, err)
 	}
 	if pageDict == nil || indRef == nil {
@@ -87,7 +87,7 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 	info.Patterns = res.patterns
 	info.Shadings = res.shadings
 
-	// Optional recursive form walk (AC4). Seed the path-visited set with the page
+	// Optional recursive form walk. Seed the path-visited set with the page
 	// object so a form that references back to the page (degenerate) terminates.
 	if opts.FormsRecursive {
 		depth := opts.FormsDepth
@@ -130,7 +130,7 @@ type formRef struct {
 
 // classifyResources reads a (resolved) /Resources dict and classifies its
 // ExtGState / XObject / Pattern / Shading sub-dictionaries into the emitted
-// shapes. A nil resources dict yields empty (non-nil) slices (AC6: an absent
+// shapes. A nil resources dict yields empty (non-nil) slices (an absent
 // resource is a valid empty result, not an error). Caller must hold doc.pdfMu.
 func classifyResources(doc *DocumentState, resources pdfcpu_types.Dict) resourceSummary {
 	out := resourceSummary{
@@ -176,7 +176,7 @@ func classifyResources(doc *DocumentState, resources pdfcpu_types.Dict) resource
 
 // classifyExtGState resolves one /Resources/ExtGState entry into an
 // ExtGStateInfo: BM (blend mode), ca/CA (alphas), and SMask (None vs a resolved
-// soft-mask descriptor). STRUCTURAL ONLY (AC2/AC7). Caller holds doc.pdfMu.
+// soft-mask descriptor). STRUCTURAL ONLY. Caller holds doc.pdfMu.
 func classifyExtGState(doc *DocumentState, name string, val pdfcpu_types.Object) ExtGStateInfo {
 	info := ExtGStateInfo{Name: name}
 	resolved := val
@@ -224,9 +224,8 @@ func blendModeName(bm pdfcpu_types.Object) string {
 
 // classifySMask resolves an ExtGState /SMask value: the literal /None yields the
 // string "None"; a soft-mask dict yields a resolved *SMaskDescriptor (emitted
-// inline as the SMask value, AC2). STRUCTURAL ONLY - the mask is described,
-// never composited (AC2/AC7). Returns nil for an unresolvable value. Caller
-// holds doc.pdfMu.
+// inline as the SMask value). STRUCTURAL ONLY - the mask is described, never
+// composited. Returns nil for an unresolvable value. Caller holds doc.pdfMu.
 func classifySMask(doc *DocumentState, sm pdfcpu_types.Object) any {
 	resolved := sm
 	if ref, ok := sm.(pdfcpu_types.IndirectRef); ok {
@@ -255,7 +254,7 @@ func classifySMask(doc *DocumentState, sm pdfcpu_types.Object) any {
 	return desc
 }
 
-// classifyXObject classifies one /Resources/XObject entry (AC3). Returns the
+// classifyXObject classifies one /Resources/XObject entry. Returns the
 // XObjectRenderInfo and, for a Form XObject, a non-nil formRef so the caller can
 // recurse into the form's own resources. Caller holds doc.pdfMu.
 func classifyXObject(doc *DocumentState, name string, val pdfcpu_types.Object) (XObjectRenderInfo, *formRef) {
@@ -299,9 +298,9 @@ func classifyXObject(doc *DocumentState, name string, val pdfcpu_types.Object) (
 	return xi, nil
 }
 
-// classifyGroup reads a Form XObject's /Group (transparency group) attributes
-// (AC3): /S, /CS (classified family), /I, /K. STRUCTURAL ONLY. Caller holds
-// doc.pdfMu.
+// classifyGroup reads a Form XObject's /Group (transparency group)
+// attributes: /S, /CS (classified family), /I, /K. STRUCTURAL ONLY. Caller
+// holds doc.pdfMu.
 func classifyGroup(doc *DocumentState, val pdfcpu_types.Object) *GroupInfo {
 	resolved := val
 	if ref, ok := val.(pdfcpu_types.IndirectRef); ok {
@@ -335,11 +334,11 @@ func classifyGroup(doc *DocumentState, val pdfcpu_types.Object) *GroupInfo {
 // execPageDump recover() cannot catch).
 const maxColorSpaceDepth = 16
 
-// classifyColorSpace classifies (does NOT evaluate, AC7) a colorspace value into
-// a ColorSpaceInfo. Reuses the Name-or-array-head deref pattern from image.go.
+// classifyColorSpace classifies (does NOT evaluate) a colorspace value into a
+// ColorSpaceInfo. Reuses the Name-or-array-head deref pattern from image.go.
 // Families: Device{RGB,Gray,CMYK}, CalRGB/CalGray/Lab, ICCBased (with /N +
-// profile size), Indexed (with hival), Separation/DeviceN (with alternate
-// family + tint-transform function type), Pattern. Caller holds doc.pdfMu.
+// profile size), Indexed (with hival), Separation/DeviceN (with alternate family
+// + tint-transform function type), Pattern. Caller holds doc.pdfMu.
 func classifyColorSpace(doc *DocumentState, val pdfcpu_types.Object) *ColorSpaceInfo {
 	return classifyColorSpaceDepth(doc, val, maxColorSpaceDepth)
 }
@@ -439,7 +438,7 @@ func classifyICCBased(doc *DocumentState, cs pdfcpu_types.Array, info *ColorSpac
 
 // functionType returns a PDF function's /FunctionType integer (0 sampled, 2
 // exponential, 3 stitching, 4 PostScript). It reads STRUCTURE only - the
-// function is never evaluated (AC7). Caller holds doc.pdfMu.
+// function is never evaluated. Caller holds doc.pdfMu.
 func functionType(doc *DocumentState, val pdfcpu_types.Object) int {
 	resolved := val
 	if ref, ok := val.(pdfcpu_types.IndirectRef); ok {
@@ -456,8 +455,8 @@ func functionType(doc *DocumentState, val pdfcpu_types.Object) int {
 }
 
 // classifyPattern reads a /Resources/Pattern entry: name, ref, /PatternType.
-// STRUCTURAL ONLY - no tiling-content walk, no shading-function evaluation
-// (AC7). Caller holds doc.pdfMu.
+// STRUCTURAL ONLY - no tiling-content walk, no shading-function evaluation.
+// Caller holds doc.pdfMu.
 func classifyPattern(doc *DocumentState, name string, val pdfcpu_types.Object) PatternInfo {
 	pi := PatternInfo{Name: name}
 	resolved := val
@@ -476,8 +475,7 @@ func classifyPattern(doc *DocumentState, name string, val pdfcpu_types.Object) P
 }
 
 // classifyShading reads a /Resources/Shading entry: name, ref, /ShadingType.
-// STRUCTURAL ONLY - no shading-function evaluation (AC7). Caller holds
-// doc.pdfMu.
+// STRUCTURAL ONLY - no shading-function evaluation. Caller holds doc.pdfMu.
 func classifyShading(doc *DocumentState, name string, val pdfcpu_types.Object) ShadingInfo {
 	si := ShadingInfo{Name: name}
 	resolved := val
@@ -494,22 +492,22 @@ func classifyShading(doc *DocumentState, name string, val pdfcpu_types.Object) S
 }
 
 // walkForms recursively walks a slice of Form XObjects, resolving each one's OWN
-// /Resources (the inner-Fm0-resources gotcha, AC4) and recursing into the Form
+// /Resources (the inner-Fm0-resources gotcha) and recursing into the Form
 // XObjects declared in that /Resources/XObject dict (the forms its content may
 // Do; the walk reads the resource dict, not the content stream). onPath is the
 // per-path form-object-ref visited set that terminates a self-referential form
-// chain (the 11-5 ResolveRef cycle guard covers dict/array ref chains, NOT this
+// chain (the ResolveRef cycle guard covers dict/array ref chains, NOT this
 // form-XObject recursion - it is the NEW guard the story calls for). Caller
 // holds doc.pdfMu.
 //
-// depth is the number of form LEVELS to fully expand (classify resources + walk
+// Depth is the number of form LEVELS to fully expand (classify resources + walk
 // nested forms), where the page's direct forms are level 1. A form reached at
 // depth <= 1 is LISTED (name + ref) but its /Resources are NOT classified and
 // its nested forms are NOT walked - it is marked Truncated. This keeps a form
-// below the --forms-depth cap entirely out of the picture (AC4-004: the deeper
-// form's ref must not appear at all), while a form AT the cap is fully expanded
-// (its own resources, including the names of the forms it calls, are surfaced -
-// AC4-002, the own-resources gotcha).
+// below the --forms-depth cap entirely out of the picture (the deeper form's
+// ref must not appear at all), while a form AT the cap is fully expanded (its
+// own resources, including the names of the forms it calls, are surfaced, the
+// own-resources gotcha).
 func walkForms(doc *DocumentState, forms []formRef, depth int, onPath map[string]bool) []FormRenderInfo {
 	if len(forms) == 0 || depth <= 0 {
 		return nil

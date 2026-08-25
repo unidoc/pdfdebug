@@ -1,6 +1,6 @@
 /**
  * @file Embedded Data view -- document-level list of embedded/associated files
- * (attachments, ZUGFeRD/Factur-X invoice XML). Story 13.2. Lists every embedded
+ * (attachments, ZUGFeRD/Factur-X invoice XML). Lists every embedded
  * file from the catalog /AF array and the /Names/EmbeddedFiles name tree
  * (merged + deduped server-side). Selecting a row shows its /Filespec detail
  * with "Reveal in tree" (reuses NAVIGATE_TO_REF wiring via onNavigate) and a

@@ -1,7 +1,7 @@
-// Package source_grep_guard_test enforces the AC#7 anti-recurrence clause
-// from Story 4-5 ("Replace Source-Grep Tests with Behavioral Coverage").
+// Package source_grep_guard_test enforces the anti-recurrence clause
+// from "Replace Source-Grep Tests with Behavioral Coverage".
 //
-// AC#7 states: future contributors MUST NOT add NEW `strings.Contains` /
+// The rule: future contributors MUST NOT add NEW `strings.Contains` /
 // `regexp.Match` / file-content assertions in tests under `tests/` that read
 // `main.go`, `frontend/src/components/MainLayout.tsx`, or
 // `frontend/src/components/EmptyState.tsx`. Pre-existing structural greps are
@@ -12,16 +12,16 @@
 // a guarded file if its body contains BOTH a string literal whose path
 // basename equals one of the guarded files AND a call to a content-reading
 // function (`readFile`, `os.ReadFile`, `ReadFile`). Pure existence checks
-// (e.g. `fileExists(t, "main.go")`) are NOT source-greps and are NOT flagged
-// (AC#7 forbids file-content assertions specifically).
+// (e.g. `fileExists(t, "main.go")`) are NOT source-greps and are NOT flagged;
+// the rule forbids file-content assertions specifically.
 //
 // Maintenance: when a grandfathered test is deleted or refactored to no longer
 // source-grep, remove its entry from `grandfatheredAllowlist`. The test fails
 // if the allowlist contains a stale entry, so pruning is mechanical.
 //
-// This test partially fulfills the deferred CI-lint follow-up tracked in
-// docs/_bmad-output/implementation-artifacts/deferred-work.md under
-// "Deferred from: story 4-5".
+// This test partially fulfills the deferred follow-up tracked in
+// docs/_bmad-output/implementation-artifacts/deferred-work.md as "CI lint to
+// prevent re-introduction of source-grep assertions".
 //
 // Run: cd tests/source-grep-guard && go test -count=1 ./...
 package source_grep_guard_test
@@ -37,8 +37,7 @@ import (
 	"testing"
 )
 
-// guardedBasenames are the production source files that AC#7 forbids future
-// tests from grepping.
+// guardedBasenames are the production source files future tests must not grep.
 var guardedBasenames = map[string]bool{
 	"main.go":         true,
 	"MainLayout.tsx":  true,
@@ -54,7 +53,7 @@ var readFunctionNames = map[string]bool{
 	"ReadFile": true,
 }
 
-// grandfatheredAllowlist tracks the small set of source-grep tests AC#7
+// grandfatheredAllowlist tracks the small set of source-grep tests the rule
 // admits as legitimate. Two narrow categories qualify:
 //
 //  1. Structural guarantees about main.go's window-creation ORDER (e.g.
@@ -62,7 +61,7 @@ var readFunctionNames = map[string]bool{
 //     the production-source layout, not of runtime behavior, and is not
 //     reproducible via Vitest, Playwright, or boot-smoke because the
 //     splash WebView is a frameless OS-native window outside Playwright's
-//     reach. See story 9-13.
+//     reach. TestSplashWindowCreatedBeforeMainWindow below is the entry.
 //
 //  2. Structural regression guards on reentrant callbacks (e.g. the
 //     splash MUST NOT be created inside OnSecondInstanceLaunch). Same
@@ -72,13 +71,13 @@ var readFunctionNames = map[string]bool{
 // New entries require a story-spec justification. If a behavioral
 // alternative is feasible, prefer it.
 //
-// Story 9-2 (2026-05-07) deleted every pre-existing source-grep test from
-// the suite. Story 9-13 (2026-05-20) added the two splash entries below.
+// Every pre-existing source-grep test was deleted from the suite on
+// 2026-05-07; the two splash entries below were added on 2026-05-20.
 var grandfatheredAllowlist = []string{
-	// Story 9-13 AC1 -- splash window must be created before the main
+	// Splash window must be created before the main
 	// WebviewWindow so the user sees branding during WebView2 cold init.
 	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashWindowCreatedBeforeMainWindow",
-	// Story 9-13 AC8 -- structural regression guard: splash creation
+	// Structural regression guard: splash creation
 	// must NOT appear inside OnSecondInstanceLaunch or
 	// ApplicationOpenedWithFile callback bodies.
 	"tests/startup-splash-screen/startup_splash_screen_test.go::TestSplashNotCreatedInsideSecondInstanceCallback",
@@ -231,7 +230,7 @@ func TestExistenceOnly(t *testing.T) {
 	}
 }
 
-// TestNoNewSourceGrepTests enforces AC#7 by scanning every test file under
+// TestNoNewSourceGrepTests enforces the rule by scanning every test file under
 // tests/ and asserting that no Test* function reads `main.go`,
 // `MainLayout.tsx`, or `EmptyState.tsx` outside the grandfathered allowlist.
 //
@@ -269,7 +268,7 @@ func TestNoNewSourceGrepTests(t *testing.T) {
 	}
 
 	if len(newGreps) > 0 {
-		t.Errorf("AC#7 violation: %d NEW source-grep test(s) detected.\n"+
+		t.Errorf("%d NEW source-grep test(s) detected.\n"+
 			"These tests read main.go / MainLayout.tsx / EmptyState.tsx with a content-reading helper.\n"+
 			"Convert each to a behavioural test (Vitest, Playwright, or boot-smoke). See CONTRIBUTING.md.\n\n%s",
 			len(newGreps), strings.Join(newGreps, "\n"))

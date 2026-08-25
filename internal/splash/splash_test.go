@@ -82,8 +82,8 @@ func shortTimings() (min, to time.Duration) {
 	return 400 * time.Microsecond, 30_000 * time.Microsecond
 }
 
-// 9.13-UNIT-001: Min-display floor defers dismissal when MainWindowReady
-// fires earlier than splashMinDisplayMs.
+// Min-display floor defers dismissal when MainWindowReady fires earlier
+// than splashMinDisplayMs.
 func TestSplashSchedulerMinDisplayFloorDefersDismissal(t *testing.T) {
 	clk := newFakeClock(time.Unix(0, 0))
 	var dismissed atomic.Int32
@@ -120,8 +120,8 @@ func TestSplashSchedulerMinDisplayFloorDefersDismissal(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-002: When MainWindowReady fires AFTER min-display, dismissal
-// runs immediately (no deferred AfterFunc).
+// When MainWindowReady fires AFTER min-display, dismissal runs
+// immediately (no deferred AfterFunc).
 func TestSplashSchedulerMinDisplayFloorPassthrough(t *testing.T) {
 	clk := newFakeClock(time.Unix(0, 0))
 	var dismissed atomic.Int32
@@ -145,8 +145,8 @@ func TestSplashSchedulerMinDisplayFloorPassthrough(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-003: After splashTimeoutMs elapses without MainWindowReady,
-// onTimeout is called exactly once.
+// After splashTimeoutMs elapses without MainWindowReady, onTimeout is
+// called exactly once.
 func TestSplashSchedulerTimeoutFires(t *testing.T) {
 	clk := newFakeClock(time.Unix(0, 0))
 	var dismissed atomic.Int32
@@ -169,9 +169,9 @@ func TestSplashSchedulerTimeoutFires(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-004: When MainWindowReady fires BEFORE the timeout, the
-// timeout callback does NOT fire even if the clock later crosses the
-// timeout horizon. Guards the success-path race per Task 5.3.
+// When MainWindowReady fires BEFORE the timeout, the timeout
+// callback does NOT fire even if the clock later crosses the timeout
+// horizon. Guards the success-path race.
 func TestSplashSchedulerTimeoutRaceWinsByMainReady(t *testing.T) {
 	clk := newFakeClock(time.Unix(0, 0))
 	var dismissed atomic.Int32
@@ -201,7 +201,7 @@ func TestSplashSchedulerTimeoutRaceWinsByMainReady(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-005: AC12 -- full semver renders verbatim with `v` prefix.
+// Full semver renders verbatim with `v` prefix.
 func TestSplashRenderVersionFullSemver(t *testing.T) {
 	if got := RenderVersion("0.2.0"); got != "v0.2.0" {
 		t.Errorf("RenderVersion(0.2.0) = %q, want v0.2.0", got)
@@ -211,8 +211,7 @@ func TestSplashRenderVersionFullSemver(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-006: AC12 -- prerelease suffix MUST be preserved (no
-// stripping the -rc1).
+// Prerelease suffix MUST be preserved (no stripping the -rc1).
 func TestSplashRenderVersionPrereleaseSuffix(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"0.2.0-rc1", "v0.2.0-rc1"},
@@ -222,7 +221,7 @@ func TestSplashRenderVersionPrereleaseSuffix(t *testing.T) {
 	for _, c := range cases {
 		got := RenderVersion(c.in)
 		if got != c.want {
-			t.Errorf("RenderVersion(%q) = %q, want %q (AC12: full semver, no strip)", c.in, got, c.want)
+			t.Errorf("RenderVersion(%q) = %q, want %q (full semver, no strip)", c.in, got, c.want)
 		}
 		if strings.HasSuffix(c.in, "-rc1") && !strings.Contains(got, "-rc1") {
 			t.Errorf("RenderVersion(%q) dropped the -rc1 suffix: got %q", c.in, got)
@@ -230,11 +229,11 @@ func TestSplashRenderVersionPrereleaseSuffix(t *testing.T) {
 	}
 }
 
-// 9.13-UNIT-007: AC12 -- the literal `dev` (untagged local build)
-// renders as `dev` with NO `v` prefix to make the build origin obvious.
+// The literal `dev` (untagged local build) renders as `dev` with NO `v`
+// prefix to make the build origin obvious.
 func TestSplashRenderVersionDevLiteral(t *testing.T) {
 	if got := RenderVersion("dev"); got != "dev" {
-		t.Errorf("RenderVersion(dev) = %q, want dev (no v-prefix per Task 3.4)", got)
+		t.Errorf("RenderVersion(dev) = %q, want dev (no v-prefix)", got)
 	}
 	if got := RenderVersion(""); got != "dev" {
 		t.Errorf("RenderVersion(\"\") = %q, want dev (empty defaults to dev)", got)
@@ -281,19 +280,17 @@ func TestSplashMinDisplayAndTimeoutConstants(t *testing.T) {
 	}
 }
 
-// 10.8-UNIT-007 [P2] AC5: the runtime-ready ping give-up branch must emit a
-// single diagnostic console.warn before clearInterval. The test layer cannot
-// execute the inline JS, so it grep-asserts the diagnostic SOURCE is present
-// in Render() output: the warn message fragment and the wailsShape payload key.
+// The runtime-ready ping give-up branch must emit a single diagnostic
+// console.warn before clearInterval. The test layer cannot execute the inline
+// JS, so it grep-asserts the diagnostic SOURCE is present in Render() output:
+// the warn message fragment and the wailsShape payload key.
 //
-// RED PHASE: fails against the current splash.go give-up branch (the
-// `else if (tries > 50)` block) which only calls clearInterval(iv) with no
-// console.warn. Once the diagnostic is added, both fragments appear in the
-// rendered HTML template.
+// The give-up branch is the `else if (tries > 50)` block; both fragments
+// appear in the rendered HTML template.
 func TestSplashRuntimeReadyGiveUpEmitsDiagnostic(t *testing.T) {
 	html := Render("0.0.0")
 
-	// The give-up warn message. AC5 specifies the rendered text fragment.
+	// The give-up warn message. specifies the rendered text fragment.
 	if !strings.Contains(html, "runtime-ready ping gave up after") {
 		t.Errorf("Render() output missing the give-up console.warn message fragment %q", "runtime-ready ping gave up after")
 	}

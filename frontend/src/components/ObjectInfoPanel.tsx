@@ -5,17 +5,17 @@
  * Enter/Space dispatches NAVIGATE_TO_REF.
  *
  * Component is named ObjectSourcePanel (the file keeps the legacy name to
- * minimize cross-test churn -- see Story 9-10 Task 5.1).
+ * minimize cross-test churn).
  */
 import { useState, useEffect, Fragment } from 'react';
 import { GetObjectSource } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 
 /**
- * Indirect-ref scanner. Capture 1 is num, capture 2 is gen.
- * Load-bearing mapping: dispatched nodeID is `obj:${gen}:${num}`, matching
+ * Indirect-ref scanner. Capture 1 is num, capture 2 is gen. Load-bearing
+ * mapping: dispatched nodeID is `obj:${gen}:${num}`, matching
  * `inspector.go:objectRefFromNodeID` (parentID=gen, lastPart=num). Inverting
- * the mapping yields silently wrong navigation -- 9.10-UNIT-104 guards it.
+ * the mapping yields silently wrong navigation, so it is covered by tests.
  */
 const REF_REGEX = /\b(\d+)\s+(\d+)\s+R\b/g;
 
@@ -194,6 +194,6 @@ function tokenizeLine(
   return out;
 }
 
-// Legacy export kept so MainLayout/other test files don't need renaming in
-// this story (Task 5.1 keeps the file path stable).
+// Legacy alias: the component is ObjectSourcePanel now, and this export keeps
+// MainLayout and the existing test files importing the old name from this path.
 export const ObjectInfoPanel = ObjectSourcePanel;

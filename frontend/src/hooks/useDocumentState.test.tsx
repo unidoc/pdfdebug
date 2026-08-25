@@ -1,6 +1,6 @@
 /**
- * 2.4-UNIT-001 [P1]: useDocumentState reducer handles OPEN_DOCUMENT action,
- * transitions from empty to loaded state.
+ * useDocumentState reducer handles OPEN_DOCUMENT action, transitions from
+ * empty to loaded state.
  *
  * Also covers CLOSE_DOCUMENT, SET_DOCUMENT_ERROR, DISMISS_ERROR for completeness
  * since these are pure reducer logic at the lowest viable test layer.
@@ -62,7 +62,7 @@ const childNodes = [
   },
 ];
 
-describe('2.4-UNIT-001: appReducer', () => {
+describe('appReducer', () => {
   test('initial state has no tabs, no activeTabId, no error', () => {
     render(
       <AppProvider>
@@ -260,7 +260,7 @@ describe('2.4-UNIT-001: appReducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.2: Multi-Document State Isolation
+// Multi-Document State Isolation
 //
 // These tests verify tab-scoped reducer actions serve as regression guards.
 // ---------------------------------------------------------------------------
@@ -290,9 +290,9 @@ const catalogNodeB = {
 };
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-001 [P0]: SELECT_NODE only modifies the active tab's state;
+// SELECT_NODE only modifies the active tab's state;
 // other tabs remain unchanged.
-// AC#3: Each TabState is independent with its own selectedNodeId.
+// Each TabState is independent with its own selectedNodeId.
 //
 // Given two tabs are open with tab-1 active,
 // When SELECT_NODE is dispatched selecting node "obj:0:5" in tab-1,
@@ -302,7 +302,7 @@ const catalogNodeB = {
 // And tab-2's selectedNodeId is "obj:0:10".
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-001: SELECT_NODE isolation', () => {
+describe('SELECT_NODE isolation', () => {
   test('selecting a node in one tab does not affect another tab', () => {
     function MultiTabInspector() {
       const state = useAppState();
@@ -379,9 +379,9 @@ describe('4.2-UNIT-001: SELECT_NODE isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-002 [P0]: NAVIGATE_TO_REF only modifies the active tab's
-// pendingNavTarget; other tabs remain unchanged.
-// AC#3: Each TabState has independent pendingNavTarget.
+// NAVIGATE_TO_REF only modifies the active tab's pendingNavTarget;
+// other tabs remain unchanged.
+// Each TabState has independent pendingNavTarget.
 //
 // Given two tabs are open with tab-1 active,
 // When NAVIGATE_TO_REF is dispatched with targetNodeId "obj:0:7",
@@ -389,7 +389,7 @@ describe('4.2-UNIT-001: SELECT_NODE isolation', () => {
 // And tab-2's pendingNavTarget remains null.
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-002: NAVIGATE_TO_REF isolation', () => {
+describe('NAVIGATE_TO_REF isolation', () => {
   test('reference navigation only affects active tab', () => {
     function NavInspector() {
       const state = useAppState();
@@ -449,8 +449,8 @@ describe('4.2-UNIT-002: NAVIGATE_TO_REF isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-003 [P0]: SET_DOCUMENT_ERROR does not destroy other tabs' state.
-// AC#1: Errors are global banners that do not destroy other tabs' state.
+// SET_DOCUMENT_ERROR does not destroy other tabs' state.
+// Errors are global banners that do not destroy other tabs' state.
 //
 // Given two tabs are open with nodes selected in each,
 // When SET_DOCUMENT_ERROR is dispatched,
@@ -459,7 +459,7 @@ describe('4.2-UNIT-002: NAVIGATE_TO_REF isolation', () => {
 // And each tab's selectedNodeId is preserved.
 // ---------------------------------------------------------------------------
 
-describe('4.2-UNIT-003: SET_DOCUMENT_ERROR preserves tabs', () => {
+describe('SET_DOCUMENT_ERROR preserves tabs', () => {
   test('error does not clear existing tabs or their state', () => {
     function ErrorInspector() {
       const state = useAppState();
@@ -540,14 +540,14 @@ describe('4.2-UNIT-003: SET_DOCUMENT_ERROR preserves tabs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.2 supplemental: Isolation tests for remaining tab-scoped actions.
+// Supplemental: Isolation tests for remaining tab-scoped actions.
 //
-// Task 3.2 in the story spec identifies CLEAR_NAV_TARGET, NAV_ERROR,
-// DISMISS_NAV_ERROR, NAVIGATE_BACK, and NAVIGATE_FORWARD as all filtering
-// by activeTabId. These tests verify that contract at the reducer level.
+// CLEAR_NAV_TARGET, NAV_ERROR, DISMISS_NAV_ERROR, NAVIGATE_BACK and
+// NAVIGATE_FORWARD all filter by activeTabId. These tests verify that
+// contract at the reducer level.
 // ---------------------------------------------------------------------------
 
-describe('4.2 supplemental: CLEAR_NAV_TARGET isolation', () => {
+describe('CLEAR_NAV_TARGET per-tab isolation', () => {
   test('clears pendingNavTarget only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -590,7 +590,7 @@ describe('4.2 supplemental: CLEAR_NAV_TARGET isolation', () => {
   });
 });
 
-describe('4.2 supplemental: NAV_ERROR isolation', () => {
+describe('NAV_ERROR per-tab isolation', () => {
   test('sets navError only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -629,7 +629,7 @@ describe('4.2 supplemental: NAV_ERROR isolation', () => {
   });
 });
 
-describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
+describe('DISMISS_NAV_ERROR per-tab isolation', () => {
   test('clears navError only on active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -673,17 +673,16 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 4.3: Close Document and Tab Management
+// Close Document and Tab Management
 //
 // These tests verify CLOSE_DOCUMENT reducer behavior with 3+ tabs, focus
 // transfer logic, and return-to-empty-state. The reducer is already
-// implemented (story 4-1). These tests are verification-only.
+// implemented. These tests are verification-only.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-001 [P0]: CLOSE_DOCUMENT removes only the target tab; other
-// tabs remain.
-// AC#1: Document is closed, tab is removed, other tabs unaffected.
+// CLOSE_DOCUMENT removes only the target tab; other tabs remain.
+// Document is closed, tab is removed, other tabs unaffected.
 //
 // Given 3 tabs are open (tab-1, tab-2, tab-3) with tab-3 active,
 // When CLOSE_DOCUMENT is dispatched for tab-2 (non-active),
@@ -692,7 +691,7 @@ describe('4.2 supplemental: DISMISS_NAV_ERROR isolation', () => {
 // And tab-2 is gone.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-001: CLOSE_DOCUMENT removes only the target tab', () => {
+describe('CLOSE_DOCUMENT removes only the target tab', () => {
   test('closing a tab leaves other tabs intact', () => {
     function Inspector() {
       const state = useAppState();
@@ -728,16 +727,16 @@ describe('4.3-UNIT-001: CLOSE_DOCUMENT removes only the target tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-002 [P0]: Closing active tab moves activeTabId to the next tab
-// (or previous if last).
-// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
-//       was the last one).
+// Closing active tab moves activeTabId to the next tab (or previous if
+// last).
+// Focus moves to the next tab (or the previous tab if the closed tab
+// was the last one).
 //
 // (a) Close the last-in-array tab (tab-3): activeTabId -> tab-2 (previous).
 // (b) Close the first-in-array tab (tab-1): activeTabId -> tab-2 (next).
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
+describe('Closing active tab transfers focus correctly', () => {
   test('(a) closing last-in-array active tab falls back to previous', () => {
     function Inspector() {
       const state = useAppState();
@@ -806,8 +805,8 @@ describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-003 [P0]: Closing the last tab sets activeTabId to null (empty state).
-// AC#2: When no documents remain open, the empty state is shown again.
+// Closing the last tab sets activeTabId to null (empty state).
+// When no documents remain open, the empty state is shown again.
 //
 // Given 1 tab is open,
 // When CLOSE_DOCUMENT is dispatched for that tab,
@@ -815,7 +814,7 @@ describe('4.3-UNIT-002: Closing active tab transfers focus correctly', () => {
 // And state.activeTabId === null.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
+describe('Closing last tab returns to empty state', () => {
   test('closing the only tab sets activeTabId to null', () => {
     function Inspector() {
       const state = useAppState();
@@ -844,8 +843,8 @@ describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-007 [P2]: Closing a non-active tab does not change the active tab.
-// AC#1: Tab is removed, focus stays on the current active tab.
+// Closing a non-active tab does not change the active tab.
+// Tab is removed, focus stays on the current active tab.
 //
 // Given 3 tabs are open with tab-3 active,
 // When CLOSE_DOCUMENT is dispatched for tab-1 (non-active),
@@ -853,7 +852,7 @@ describe('4.3-UNIT-003: Closing last tab returns to empty state', () => {
 // And state.tabs.length === 2.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
+describe('Closing non-active tab preserves activeTabId', () => {
   test('closing a background tab does not change active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -885,8 +884,8 @@ describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-008 [P2]: Rapidly closing multiple tabs does not corrupt state.
-// AC#1: Tab management handles rapid sequential closes gracefully.
+// Rapidly closing multiple tabs does not corrupt state.
+// Tab management handles rapid sequential closes gracefully.
 //
 // Given 4 tabs are open (tab-1..tab-4, tab-4 active),
 // When CLOSE_DOCUMENT is dispatched for tab-2, tab-3, tab-4 in rapid
@@ -895,7 +894,7 @@ describe('4.3-UNIT-007: Closing non-active tab preserves activeTabId', () => {
 // And activeTabId === 'tab-1'.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
+describe('Rapid sequential closes do not corrupt state', () => {
   test('closing 3 of 4 tabs in rapid succession leaves correct state', () => {
     function Inspector() {
       const state = useAppState();
@@ -940,9 +939,9 @@ describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3-UNIT-002 supplemental: Closing middle active tab prefers the next tab.
-// AC#1: Focus moves to the next tab (or the previous tab if the closed tab
-//       was the last one).
+// Supplemental: Closing middle active tab prefers the next tab.
+// Focus moves to the next tab (or the previous tab if the closed tab
+// was the last one).
 //
 // Given 3 tabs are open with tab-2 active (middle),
 // When CLOSE_DOCUMENT is dispatched for tab-2,
@@ -950,7 +949,7 @@ describe('4.3-UNIT-008: Rapid sequential closes do not corrupt state', () => {
 // Reducer: closedIndex=1, filtered=[tab-1,tab-3], Math.min(1,1)=1 -> tab-3.
 // ---------------------------------------------------------------------------
 
-describe('4.3-UNIT-002 supplemental: Closing middle active tab prefers next', () => {
+describe('Closing middle active tab prefers next', () => {
   test('closing middle active tab activates the next tab to the right', () => {
     function Inspector() {
       const state = useAppState();
@@ -989,12 +988,12 @@ describe('4.3-UNIT-002 supplemental: Closing middle active tab prefers next', ()
 // ---------------------------------------------------------------------------
 // 4.3 supplemental: CLOSE_DOCUMENT clears documentError only when closing
 // the active tab. When closing a non-active tab, documentError is preserved.
-// AC#1: Resources are freed; state cleanup is correct.
+// Resources are freed; state cleanup is correct.
 //
 // Reducer logic: documentError: closingActive ? null : state.documentError
 // ---------------------------------------------------------------------------
 
-describe('4.3 supplemental: CLOSE_DOCUMENT clears documentError conditionally', () => {
+describe('CLOSE_DOCUMENT clears documentError conditionally', () => {
   test('closing active tab clears documentError; closing non-active preserves it', () => {
     function Inspector() {
       const state = useAppState();
@@ -1037,7 +1036,7 @@ describe('4.3 supplemental: CLOSE_DOCUMENT clears documentError conditionally', 
   });
 });
 
-describe('4.2 supplemental: NAVIGATE_BACK/FORWARD isolation', () => {
+describe('NAVIGATE_BACK/FORWARD per-tab isolation', () => {
   test('history navigation only affects active tab', () => {
     function Inspector() {
       const state = useAppState();
@@ -1210,7 +1209,7 @@ describe('multi-PDF drop: reducer integrates with backend events', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.4-UNIT-001: OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
+// OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
 // ---------------------------------------------------------------------------
 
 function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openAction: AppAction }) {
@@ -1228,7 +1227,7 @@ function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openA
   );
 }
 
-describe('9.4-UNIT-001: Go to Page dialog state', () => {
+describe('Go to Page dialog state', () => {
   test('initial state has goToPageOpen = false', () => {
     render(
       <AppProvider>
@@ -1286,10 +1285,9 @@ describe('9.4-UNIT-001: Go to Page dialog state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 9.8: PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
-// Lowest-viable-layer coverage for AC7 (LRU max-5 eviction + dedup) and AC10
-// (per-tab recents isolation). These close the three low-severity gaps
-// identified by traceability-report-9-8.md.
+// PUSH_RECENT_JUMP reducer behavior (trace gaps backfill).
+// Lowest-viable-layer coverage for LRU max-5 eviction with dedup, and for
+// per-tab recents isolation.
 // ---------------------------------------------------------------------------
 
 function makeJump(objNum: number) {
@@ -1301,8 +1299,8 @@ function makeJump(objNum: number) {
   };
 }
 
-describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
-  test('AC7: pushing >5 entries evicts the oldest; newest is at index 0', () => {
+describe('PUSH_RECENT_JUMP LRU cap', () => {
+  test('pushing >5 entries evicts the oldest; newest is at index 0', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1333,7 +1331,7 @@ describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
     );
   });
 
-  test('AC7: re-jumping to an existing nodeId dedups and moves it to the front', () => {
+  test('re-jumping to an existing nodeId dedups and moves it to the front', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1364,8 +1362,8 @@ describe('9.8-UNIT-001: PUSH_RECENT_JUMP LRU cap', () => {
   });
 });
 
-describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
-  test('AC10: pushing to tab-1 does not modify tab-2 recents', () => {
+describe('PUSH_RECENT_JUMP per-tab isolation', () => {
+  test('pushing to tab-1 does not modify tab-2 recents', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1398,7 +1396,7 @@ describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
     expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
   });
 
-  test('AC10: CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
+  test('CLOSE_DOCUMENT drops the closed tab’s recents but preserves others', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();
@@ -1429,7 +1427,7 @@ describe('9.8-UNIT-002: PUSH_RECENT_JUMP per-tab isolation', () => {
     expect(screen.getByTestId('t2-ids').textContent).toBe('obj:0:20');
   });
 
-  test('AC7: PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
+  test('PUSH_RECENT_JUMP for an unknown tabId is a no-op', () => {
     function Inspector() {
       const state = useAppState();
       const dispatch = useAppDispatch();

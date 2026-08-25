@@ -1,6 +1,5 @@
 /**
- * 2.9-UNIT: useDocumentState warning reducer tests.
- * TDD RED PHASE -- these tests MUST fail until Story 2-9 is implemented.
+ * useDocumentState warning reducer tests.
  *
  * Tests SET_DOCUMENT_WARNING, DISMISS_WARNING actions and documentWarning state.
  */
@@ -89,8 +88,8 @@ function WarningInspector() {
   );
 }
 
-describe('2.9-UNIT: appReducer warning state', () => {
-  test('[P0] SET_DOCUMENT_WARNING sets documentWarning on state', () => {
+describe('appReducer warning state', () => {
+  test('SET_DOCUMENT_WARNING sets documentWarning on state', () => {
     render(
       <AppProvider>
         <WarningInspector />
@@ -106,7 +105,7 @@ describe('2.9-UNIT: appReducer warning state', () => {
     );
   });
 
-  test('[P0] SET_DOCUMENT_WARNING does NOT wipe tabs or activeTabId', () => {
+  test('SET_DOCUMENT_WARNING does NOT wipe tabs or activeTabId', () => {
     render(
       <AppProvider>
         <WarningInspector />
@@ -128,7 +127,7 @@ describe('2.9-UNIT: appReducer warning state', () => {
     expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-1');
   });
 
-  test('[P0] DISMISS_WARNING clears documentWarning', () => {
+  test('DISMISS_WARNING clears documentWarning', () => {
     render(
       <AppProvider>
         <WarningInspector />
@@ -144,7 +143,7 @@ describe('2.9-UNIT: appReducer warning state', () => {
     expect(screen.getByTestId('document-warning').textContent).toBe('null');
   });
 
-  test('[P1] OPEN_DOCUMENT clears previous documentWarning', () => {
+  test('OPEN_DOCUMENT clears previous documentWarning', () => {
     render(
       <AppProvider>
         <WarningInspector />
@@ -160,7 +159,7 @@ describe('2.9-UNIT: appReducer warning state', () => {
     expect(screen.getByTestId('document-warning').textContent).toBe('null');
   });
 
-  test('[P1] SET_DOCUMENT_ERROR clears documentWarning', () => {
+  test('SET_DOCUMENT_ERROR clears documentWarning', () => {
     render(
       <AppProvider>
         <WarningInspector />
@@ -179,7 +178,7 @@ describe('2.9-UNIT: appReducer warning state', () => {
     expect(screen.getByTestId('document-warning').textContent).toBe('null');
   });
 
-  test('[P1] CLOSE_DOCUMENT clears documentWarning', () => {
+  test('CLOSE_DOCUMENT clears documentWarning', () => {
     render(
       <AppProvider>
         <WarningInspector />

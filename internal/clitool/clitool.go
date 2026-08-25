@@ -1,6 +1,6 @@
 // Package clitool installs (and uninstalls) the bundled `pdfdebug` CLI onto the
-// user's PATH on macOS by creating an unprivileged symlink. Story 11.2, revised
-// in 12.1 to target only ~/.local/bin.
+// user's PATH on macOS by creating an unprivileged symlink, targeting only
+// ~/.local/bin.
 //
 // Design invariants (see the story's Security section):
 //   - No shell, no root escalation: the symlink is created with os.Symlink into
@@ -29,7 +29,7 @@ import (
 const MenuItemLabel = "Install 'pdfdebug' Command in PATH..."
 
 // UninstallMenuItemLabel is the label the menu item flips to once the CLI is
-// installed (optional uninstall affordance, AC #6).
+// installed (optional uninstall affordance).
 const UninstallMenuItemLabel = "Uninstall 'pdfdebug' Command"
 
 // cliName is the basename of both the bundled CLI and the installed symlink.

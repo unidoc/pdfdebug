@@ -9,9 +9,9 @@
  *
  * The debounce timer and pending-write buffers live at module scope so that
  * multiple consumers (e.g. App.jsx for window geometry, MainLayout.tsx for
- * panel sizes) coalesce into a single write per AC#4 of story 8-4. If the
- * refs were per-instance, each consumer would maintain its own timer and a
- * panel save + a geometry save within 500ms would produce two writes.
+ * panel sizes) coalesce into a single write. If the refs were
+ * per-instance, each consumer would maintain its own timer and a panel save
+ * + a geometry save within 500ms would produce two writes.
  */
 import { useState, useCallback, useEffect } from 'react';
 
@@ -111,8 +111,8 @@ function loadPersistedState(): { panelSizes: PanelSizes | null; windowGeometry: 
 }
 
 // Module-scoped shared state. All hook instances share one timer + pending
-// buffers so the AC#4 single-write coalescing holds across multiple
-// consumers (App.jsx + MainLayout.tsx).
+// buffers so the single-write coalescing holds across multiple consumers
+// (App.jsx + MainLayout.tsx).
 let sharedTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingPanelSizes: PanelSizes | null = null;
 let pendingGeometry: WindowGeometry | null = null;

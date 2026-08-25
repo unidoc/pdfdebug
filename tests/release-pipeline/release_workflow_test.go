@@ -1,5 +1,5 @@
-// Package release_pipeline_test provides acceptance tests for Story 7.2:
-// Release Build Pipeline and Distribution.
+// Package release_pipeline_test provides acceptance tests for Release Build
+// Pipeline and Distribution.
 //
 // These tests verify that .github/workflows/release.yml is structured per the
 // acceptance criteria: tag-triggered workflow, 4-platform matrix (macOS arm64,
@@ -9,41 +9,14 @@
 // softprops/action-gh-release@v3 publication with prerelease detection, and
 // the Apple Developer ID keychain import + cleanup pattern.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.2 is
-// implemented. No t.Skip() sentinels (per story 7-1 dev-story outcome: the
-// repo ships TDD-red tests directly).
-//
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks. No
-// browser or HTTP surface. Per Epic 7 test design, the single E2E AC (#10,
-// 7.2-E2E-001) is a manual RC-tag smoke test that cannot be exercised from a
-// local Go test; it is not automated here.
+// browser or HTTP surface. Per the epic test design the single end-to-end
+// case is a manual RC-tag smoke test that cannot be exercised from a local Go
+// test; it is not automated here. Notarization is currently disabled, so the
+// macOS flow is asserted as codesign + verify only.
 //
-// Trace:
-//   AC #1  -> TestReleaseWorkflowFileExistsAndParses, TestTriggerIsVersionTag,
-//              TestWorkflowDispatchSupported (7.2-STATIC-001)
-//   AC #2  -> TestMatrixContainsAllFourPlatforms, TestArtifactStagingNaming
-//              (7.2-STATIC-002)
-//   AC #3  -> TestMatrixContainsAllFourPlatforms, TestMatrixFailFastFalse
-//              (7.2-STATIC-002)
-//   AC #4  -> TestCodesignStepPresent, TestMacOSVerificationCommands
-//              (7.2-STATIC-003) -- notarization currently disabled.
-//   AC #5  -> TestAppleKeychainImport, TestKeychainCleanupAlways,
-//              TestAppleSecretsReferenced (7.2-STATIC-003)
-//   AC #6  -> TestCLIBuildUsesTrimpathAndLdflags,
-//              TestCLIBuildGOOSGOARCHFromMatrix (7.2-STATIC-002)
-//   AC #7  -> TestReleasePublishStepUsesActionGhRelease,
-//              TestPrereleaseDetectionLogic, TestGenerateReleaseNotesEnabled
-//              (7.2-STATIC-006)
-//   AC #8  -> TestSHA256SumsStepPresent, TestSHA256SumsExcludesSelf
-//              (7.2-STATIC-005)
-//   AC #9  -> TestTwoJobsBuildAndRelease, TestUploadArtifactAndDownloadArtifactV4
-//              (7.2-STATIC-004)
-//   Cross  -> TestSecretsNotLoggedOutsideSecretsExpr,
-//              TestConcurrencyCancelInProgressFalse,
-//              TestWorkflowPermissionsWrite, TestShellBashOnRunSteps
-//
-// Supporting files:
-//   AC #4  -> TestEntitlementsPlistExists (Task 6.1)
+// Each test function below names the workflow property it checks, so there is
+// no mapping table to keep in sync.
 //
 // Run: cd tests/release-pipeline && go test -v -count=1 ./...
 package release_pipeline_test
@@ -166,8 +139,8 @@ func jobUses(t *testing.T, jobName string) []string {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): release.yml exists and parses
-// Covers AC #1 (workflow defined in .github/workflows/release.yml)
+// release.yml exists and parses.
+// Covers workflow defined in .github/workflows/release.yml.
 // ---------------------------------------------------------------------------
 
 func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
@@ -175,8 +148,8 @@ func TestReleaseWorkflowFileExistsAndParses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): on.push.tags contains 'v*'
-// Covers AC #1 (tag push triggers release)
+// on.push.tags contains 'v*'.
+// Covers that a tag push triggers the release.
 // ---------------------------------------------------------------------------
 
 func TestTriggerIsVersionTag(t *testing.T) {
@@ -191,11 +164,11 @@ func TestTriggerIsVersionTag(t *testing.T) {
 	}
 	push, ok := onMap["push"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("release.yml: on.push block missing or wrong type (AC #1)")
+		t.Fatalf("release.yml: on.push block missing or wrong type")
 	}
 	tagsRaw, ok := push["tags"].([]interface{})
 	if !ok {
-		t.Fatalf("release.yml: on.push.tags is not a list (AC #1)")
+		t.Fatalf("release.yml: on.push.tags is not a list")
 	}
 	found := false
 	for _, v := range tagsRaw {
@@ -205,13 +178,13 @@ func TestTriggerIsVersionTag(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("release.yml: on.push.tags must include 'v*' (AC #1)")
+		t.Errorf("release.yml: on.push.tags must include 'v*'")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-001 (P0): workflow_dispatch with `tag` input supported
-// Covers AC #1 + Task 1.5 (manual re-run against existing tag)
+// workflow_dispatch with `tag` input supported.
+// A maintainer can re-run manually against an existing tag.
 // ---------------------------------------------------------------------------
 
 func TestWorkflowDispatchSupported(t *testing.T) {
@@ -222,7 +195,7 @@ func TestWorkflowDispatchSupported(t *testing.T) {
 	}
 	wdRaw, ok := on["workflow_dispatch"]
 	if !ok {
-		t.Fatalf("release.yml: on.workflow_dispatch missing (Task 1.5)")
+		t.Fatalf("release.yml: on.workflow_dispatch missing")
 	}
 	wd, ok := wdRaw.(map[string]interface{})
 	if !ok {
@@ -233,20 +206,19 @@ func TestWorkflowDispatchSupported(t *testing.T) {
 		t.Fatalf("release.yml: workflow_dispatch.inputs missing (need `tag` input)")
 	}
 	if _, ok := inputs["tag"]; !ok {
-		t.Errorf("release.yml: workflow_dispatch.inputs.tag missing (Task 1.5: maintainer re-run against existing tag)")
+		t.Errorf("release.yml: workflow_dispatch.inputs.tag missing (maintainer re-run against existing tag)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Workflow-level permissions: contents: write (required to create Release)
-// Covers Task 1.1
+// Workflow-level permissions: contents: write (required to create Release).
 // ---------------------------------------------------------------------------
 
 func TestWorkflowPermissionsWrite(t *testing.T) {
 	parsed := parseReleaseWorkflow(t)
 	permsRaw, ok := parsed["permissions"]
 	if !ok {
-		t.Fatalf("release.yml: workflow-level `permissions` block missing (Task 1.1)")
+		t.Fatalf("release.yml: workflow-level `permissions` block missing")
 	}
 	perms, ok := permsRaw.(map[string]interface{})
 	if !ok {
@@ -254,20 +226,20 @@ func TestWorkflowPermissionsWrite(t *testing.T) {
 	}
 	contents, _ := perms["contents"].(string)
 	if contents != "write" {
-		t.Errorf("release.yml: permissions.contents must be \"write\" (Task 1.1 -- required to create Release), got %q", contents)
+		t.Errorf("release.yml: permissions.contents must be \"write\" (required to create Release), got %q", contents)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Concurrency: cancel-in-progress must be FALSE (opposite of ci.yml)
-// Covers Task 1.1 reasoning (cancelling mid-release corrupts assets)
+// Concurrency: cancel-in-progress must be FALSE (opposite of ci.yml).
+// Cancelling mid-release corrupts assets.
 // ---------------------------------------------------------------------------
 
 func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 	parsed := parseReleaseWorkflow(t)
 	cRaw, ok := parsed["concurrency"]
 	if !ok {
-		t.Fatalf("release.yml: concurrency block missing (Task 1.1)")
+		t.Fatalf("release.yml: concurrency block missing")
 	}
 	c, ok := cRaw.(map[string]interface{})
 	if !ok {
@@ -281,14 +253,13 @@ func TestConcurrencyCancelInProgressFalse(t *testing.T) {
 	if !ok {
 		t.Errorf("release.yml: concurrency.cancel-in-progress missing")
 	} else if cip {
-		t.Errorf("release.yml: concurrency.cancel-in-progress MUST be false (Task 1.1: cancelling mid-release leaves orphan assets)")
+		t.Errorf("release.yml: concurrency.cancel-in-progress MUST be false (cancelling mid-release leaves orphan assets)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): matrix contains exactly 4 include cells covering every
-// required {os, arch, goos, platform} combination
-// Covers AC #2, AC #3, AC #6
+// matrix contains exactly 4 include cells covering every required {os, arch,
+// goos, platform} combination.
 // ---------------------------------------------------------------------------
 
 func TestMatrixContainsAllFourPlatforms(t *testing.T) {
@@ -304,7 +275,7 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 	}
 	includeRaw, ok := matrix["include"].([]interface{})
 	if !ok {
-		t.Fatalf("release.yml: matrix.include is not a list (AC #3 requires include-only matrix)")
+		t.Fatalf("release.yml: matrix.include is not a list (requires include-only matrix)")
 	}
 	if len(includeRaw) != 3 {
 		t.Errorf("release.yml: matrix.include must have exactly 3 cells, got %d", len(includeRaw))
@@ -340,23 +311,23 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 			continue
 		}
 		if goos != exp.goos {
-			t.Errorf("release.yml: matrix.include[%s].goos must be %q, got %q (AC #2)", key, exp.goos, goos)
+			t.Errorf("release.yml: matrix.include[%s].goos must be %q, got %q", key, exp.goos, goos)
 		}
 		if platform != exp.platform {
-			t.Errorf("release.yml: matrix.include[%s].platform must be %q, got %q (AC #2)", key, exp.platform, platform)
+			t.Errorf("release.yml: matrix.include[%s].platform must be %q, got %q", key, exp.platform, platform)
 		}
 		seen[key] = true
 	}
 	for k := range expected {
 		if !seen[k] {
-			t.Errorf("release.yml: matrix.include missing required cell %q (AC #3)", k)
+			t.Errorf("release.yml: matrix.include missing required cell %q", k)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): strategy.fail-fast is false
-// Covers AC #3 (one platform failure must not mask others)
+// strategy.fail-fast is false.
+// Covers that one platform failure must not mask others.
 // ---------------------------------------------------------------------------
 
 func TestMatrixFailFastFalse(t *testing.T) {
@@ -367,16 +338,16 @@ func TestMatrixFailFastFalse(t *testing.T) {
 	}
 	ff, ok := strat["fail-fast"].(bool)
 	if !ok {
-		t.Errorf("release.yml: jobs.build.strategy.fail-fast not set (AC #3)")
+		t.Errorf("release.yml: jobs.build.strategy.fail-fast not set")
 	} else if ff {
-		t.Errorf("release.yml: jobs.build.strategy.fail-fast must be false (AC #3), got true")
+		t.Errorf("release.yml: jobs.build.strategy.fail-fast must be false, got true")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): codesign step present with required flags
-// Covers AC #4 (codesign with --force --deep --options runtime --entitlements
-// build/darwin/entitlements.plist --timestamp --sign)
+// Codesign step present with required flags.
+// Covers codesign with --force --deep --options runtime --entitlements
+// build/darwin/entitlements.plist --timestamp --sign.
 // ---------------------------------------------------------------------------
 
 func TestCodesignStepPresent(t *testing.T) {
@@ -392,28 +363,28 @@ func TestCodesignStepPresent(t *testing.T) {
 		"--sign",
 	} {
 		if !strings.Contains(run, needle) {
-			t.Errorf("release.yml build job: codesign flag/token %q missing (AC #4)", needle)
+			t.Errorf("release.yml build job: codesign flag/token %q missing", needle)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): codesign --verify runs after the sign step.
-// Covers AC #4 (signed bundle is verified). Notarization is currently
-// disabled, so notarytool/stapler/spctl assertions are not required.
+// Codesign --verify runs after the sign step. Covers signed bundle is
+// verified. Notarization is currently disabled, so
+// notarytool/stapler/spctl assertions are not required.
 // ---------------------------------------------------------------------------
 
 func TestMacOSVerificationCommands(t *testing.T) {
 	run := jobRunBodies(t, "build")
 
 	if !strings.Contains(run, "codesign --verify --deep --strict") {
-		t.Errorf("release.yml build job: `codesign --verify --deep --strict` missing (AC #4)")
+		t.Errorf("release.yml build job: `codesign --verify --deep --strict` missing")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): macOS Developer ID keychain is imported at job start
-// Covers AC #5 (security create-keychain + import + set-key-partition-list)
+// macOS Developer ID keychain is imported at job start.
+// Covers security create-keychain + import + set-key-partition-list.
 // ---------------------------------------------------------------------------
 
 func TestAppleKeychainImport(t *testing.T) {
@@ -426,14 +397,14 @@ func TestAppleKeychainImport(t *testing.T) {
 		"security unlock-keychain",
 	} {
 		if !strings.Contains(run, needle) {
-			t.Errorf("release.yml build job: keychain import command %q missing (AC #5)", needle)
+			t.Errorf("release.yml build job: keychain import command %q missing", needle)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): keychain cleanup runs under if: always()
-// Covers AC #5 (secrets never linger on runner)
+// Keychain cleanup runs under if: always().
+// Covers that secrets never linger on the runner.
 // ---------------------------------------------------------------------------
 
 func TestKeychainCleanupAlways(t *testing.T) {
@@ -450,20 +421,20 @@ func TestKeychainCleanupAlways(t *testing.T) {
 		if strings.Contains(run, "security delete-keychain") {
 			found = true
 			if !strings.Contains(ifClause, "always()") {
-				t.Errorf("release.yml: keychain cleanup step must use `if: always()` (AC #5), got %q", ifClause)
+				t.Errorf("release.yml: keychain cleanup step must use `if: always()`, got %q", ifClause)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Errorf("release.yml: no step invokes `security delete-keychain` (AC #5 cleanup requirement)")
+		t.Errorf("release.yml: no step invokes `security delete-keychain` (cleanup requirement)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-003 (P0): all required Apple secrets are referenced via
-// ${{ secrets.* }} expressions in the workflow
-// Covers AC #5 (explicit secret list)
+// All required Apple secrets are referenced via ${{ secrets.* }} expressions
+// in the workflow.
+// Covers explicit secret list.
 // ---------------------------------------------------------------------------
 
 func TestAppleSecretsReferenced(t *testing.T) {
@@ -480,15 +451,14 @@ func TestAppleSecretsReferenced(t *testing.T) {
 	for _, name := range required {
 		expr := "secrets." + name
 		if !strings.Contains(raw, expr) {
-			t.Errorf("release.yml: must reference secret via `${{ secrets.%s }}` (AC #5)", name)
+			t.Errorf("release.yml: must reference secret via `${{ secrets.%s }}`", name)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Secrets must never appear as literal environment values outside the
-// ${{ secrets.* }} expression form. Verifies no accidental plaintext logging.
-// Covers Task 8.2 final bullet + security hardening
+// Secrets must never appear as literal environment values outside the ${{
+// secrets.* }} expression form. Verifies no accidental plaintext logging.
 // ---------------------------------------------------------------------------
 
 func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
@@ -517,31 +487,31 @@ func TestSecretsNotLoggedOutsideSecretsExpr(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): CLI build uses -trimpath + -ldflags with version
-// Covers AC #6 (go build -trimpath -ldflags="-s -w -X main.version=<version>")
+// CLI build uses -trimpath + -ldflags with version.
+// Covers go build -trimpath -ldflags="-s -w -X main.version=<version>".
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildUsesTrimpathAndLdflags(t *testing.T) {
 	run := jobRunBodies(t, "build")
 
 	if !strings.Contains(run, "go build") {
-		t.Fatalf("release.yml build job: `go build` for CLI not found (AC #6)")
+		t.Fatalf("release.yml build job: `go build` for CLI not found")
 	}
 	if !strings.Contains(run, "-trimpath") {
-		t.Errorf("release.yml build job: CLI build missing `-trimpath` (AC #6)")
+		t.Errorf("release.yml build job: CLI build missing `-trimpath`")
 	}
 	// ldflags must strip symbols and embed version.
 	if !regexp.MustCompile(`-ldflags="?-s -w -X main\.version=`).MatchString(run) {
-		t.Errorf("release.yml build job: CLI build must pass `-ldflags=\"-s -w -X main.version=<version>\"` (AC #6)")
+		t.Errorf("release.yml build job: CLI build must pass `-ldflags=\"-s -w -X main.version=<version>\"`")
 	}
 	if !strings.Contains(run, "./cmd/cli") {
-		t.Errorf("release.yml build job: CLI build must target `./cmd/cli` (AC #6)")
+		t.Errorf("release.yml build job: CLI build must target `./cmd/cli`")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-002 (P0): CLI build reads GOOS/GOARCH from matrix keys
-// Covers AC #6 (GOOS/GOARCH per matrix cell)
+// CLI build reads GOOS/GOARCH from matrix keys.
+// Covers GOOS/GOARCH per matrix cell.
 // ---------------------------------------------------------------------------
 
 func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
@@ -550,16 +520,16 @@ func TestCLIBuildGOOSGOARCHFromMatrix(t *testing.T) {
 	// Either `GOOS: ${{ matrix.goos }}` env binding, or explicit inline
 	// `GOOS=${{ matrix.goos }}` -- require the matrix binding.
 	if !regexp.MustCompile(`GOOS:\s*\$\{\{\s*matrix\.goos\s*\}\}`).MatchString(raw) {
-		t.Errorf("release.yml: CLI build step must set `GOOS: ${{ matrix.goos }}` (AC #6)")
+		t.Errorf("release.yml: CLI build step must set `GOOS: ${{ matrix.goos }}`")
 	}
 	if !regexp.MustCompile(`GOARCH:\s*\$\{\{\s*matrix\.arch\s*\}\}`).MatchString(raw) {
-		t.Errorf("release.yml: CLI build step must set `GOARCH: ${{ matrix.arch }}` (AC #6)")
+		t.Errorf("release.yml: CLI build step must set `GOARCH: ${{ matrix.arch }}`")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): two jobs -- build and release, with release needing build
-// Covers AC #9 (parallel build matrix then single release job)
+// Two jobs -- build and release, with release needing build.
+// Covers parallel build matrix then single release job.
 // ---------------------------------------------------------------------------
 
 func TestTwoJobsBuildAndRelease(t *testing.T) {
@@ -569,16 +539,16 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 		t.Fatalf("release.yml: jobs block missing")
 	}
 	if _, ok := jobs["build"]; !ok {
-		t.Errorf("release.yml: jobs.build missing (AC #9)")
+		t.Errorf("release.yml: jobs.build missing")
 	}
 	rel, ok := jobs["release"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("release.yml: jobs.release missing (AC #9)")
+		t.Fatalf("release.yml: jobs.release missing")
 	}
 	// needs: build  -- may be string or list.
 	needs, ok := rel["needs"]
 	if !ok {
-		t.Fatalf("release.yml: jobs.release.needs missing (AC #9 requires needs: build)")
+		t.Fatalf("release.yml: jobs.release.needs missing (requires needs: build)")
 	}
 	switch n := needs.(type) {
 	case string:
@@ -598,16 +568,16 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 	default:
 		t.Errorf("release.yml: jobs.release.needs has unexpected type %T", needs)
 	}
-	// release job must run on ubuntu-latest (AC #8 requires shasum on ubuntu)
+	// release job must run on ubuntu-latest (requires shasum on ubuntu)
 	runsOn, _ := rel["runs-on"].(string)
 	if runsOn != "ubuntu-latest" {
-		t.Errorf("release.yml: jobs.release.runs-on must be \"ubuntu-latest\" (AC #8), got %q", runsOn)
+		t.Errorf("release.yml: jobs.release.runs-on must be \"ubuntu-latest\", got %q", runsOn)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-004 (P1): upload-artifact@v5 in build, download-artifact@v5 in release
-// Covers AC #9 (artifact staging via v4 actions)
+// upload-artifact@v5 in build, download-artifact@v5 in release.
+// Covers artifact staging via v5 actions.
 // ---------------------------------------------------------------------------
 
 func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
@@ -626,49 +596,48 @@ func TestUploadArtifactAndDownloadArtifactV4(t *testing.T) {
 		}
 	}
 	if !hasUpload {
-		t.Errorf("release.yml: jobs.build must use actions/upload-artifact@v5 (AC #9)")
+		t.Errorf("release.yml: jobs.build must use actions/upload-artifact@v5")
 	}
 	if !hasDownload {
-		t.Errorf("release.yml: jobs.release must use actions/download-artifact@v5 (AC #9)")
+		t.Errorf("release.yml: jobs.release must use actions/download-artifact@v5")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-005 (P1): SHA256SUMS computed via shasum -a 256 in release job
-// Covers AC #8 (single sha256 computation in the release job)
+// SHA256SUMS computed via shasum -a 256 in release job.
+// Covers single sha256 computation in the release job.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsStepPresent(t *testing.T) {
 	run := jobRunBodies(t, "release")
 
 	if !strings.Contains(run, "shasum -a 256") {
-		t.Errorf("release.yml release job: `shasum -a 256` missing (AC #8)")
+		t.Errorf("release.yml release job: `shasum -a 256` missing")
 	}
 	if !strings.Contains(run, "SHA256SUMS.txt") {
-		t.Errorf("release.yml release job: output file `SHA256SUMS.txt` missing (AC #8)")
+		t.Errorf("release.yml release job: output file `SHA256SUMS.txt` missing")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-005 (P1): SHA256SUMS generation excludes itself and is NUL-safe
-// Covers AC #8 + Task 5.1 (no `$(ls | sort)` anti-pattern)
+// SHA256SUMS generation excludes itself and is NUL-safe.
+// No `$(ls | sort)` anti-pattern.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsExcludesSelf(t *testing.T) {
 	run := jobRunBodies(t, "release")
 
 	if !strings.Contains(run, "! -name SHA256SUMS.txt") {
-		t.Errorf("release.yml release job: SHA256SUMS step must exclude itself from input via `! -name SHA256SUMS.txt` (Task 5.1)")
+		t.Errorf("release.yml release job: SHA256SUMS step must exclude itself from input via `! -name SHA256SUMS.txt`")
 	}
 	// Anti-pattern: ls | sort word-splits and is not NUL-safe.
 	if regexp.MustCompile(`\bls\b[^|]*\|\s*sort`).MatchString(run) {
-		t.Errorf("release.yml release job: `ls | sort` anti-pattern present (Task 5.1: use find -print0 | sort -z)")
+		t.Errorf("release.yml release job: `ls | sort` anti-pattern present (use find -print0 | sort -z)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): release publication step uses softprops/action-gh-release@v3
-// Covers AC #7
+// release publication step uses softprops/action-gh-release@v3.
 // ---------------------------------------------------------------------------
 
 func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
@@ -681,13 +650,13 @@ func TestReleasePublishStepUsesActionGhRelease(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("release.yml: jobs.release must use softprops/action-gh-release@v3 (AC #7)")
+		t.Errorf("release.yml: jobs.release must use softprops/action-gh-release@v3")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): prerelease flag set for v*-rc* / -alpha* / -beta*
-// Covers AC #7 (pre-release detection logic)
+// prerelease flag set for v*-rc* / -alpha* / -beta*.
+// Covers pre-release detection logic.
 // ---------------------------------------------------------------------------
 
 func TestPrereleaseDetectionLogic(t *testing.T) {
@@ -696,19 +665,19 @@ func TestPrereleaseDetectionLogic(t *testing.T) {
 	// The task body prescribes the regex `=~ -(rc|alpha|beta)`.
 	re := regexp.MustCompile(`-\(rc\|alpha\|beta\)`)
 	if !re.MatchString(run) {
-		t.Errorf("release.yml release job: prerelease detection regex `-(rc|alpha|beta)` missing (AC #7)")
+		t.Errorf("release.yml release job: prerelease detection regex `-(rc|alpha|beta)` missing")
 	}
 	if !strings.Contains(run, "prerelease=true") {
-		t.Errorf("release.yml release job: must emit `prerelease=true` for matching tags (AC #7)")
+		t.Errorf("release.yml release job: must emit `prerelease=true` for matching tags")
 	}
 	if !strings.Contains(run, "prerelease=false") {
-		t.Errorf("release.yml release job: must emit `prerelease=false` for non-matching tags (AC #7)")
+		t.Errorf("release.yml release job: must emit `prerelease=false` for non-matching tags")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.2-STATIC-006 (P2): action-gh-release `generate_release_notes: true`
-// Covers AC #7 (Release description populated from commits since previous tag)
+// action-gh-release `generate_release_notes: true`.
+// Covers Release description populated from commits since previous tag.
 // ---------------------------------------------------------------------------
 
 func TestGenerateReleaseNotesEnabled(t *testing.T) {
@@ -735,27 +704,27 @@ func TestGenerateReleaseNotesEnabled(t *testing.T) {
 
 	grn, ok := with["generate_release_notes"].(bool)
 	if !ok {
-		t.Errorf("release.yml: softprops/action-gh-release `with.generate_release_notes` must be set (AC #7)")
+		t.Errorf("release.yml: softprops/action-gh-release `with.generate_release_notes` must be set")
 	} else if !grn {
-		t.Errorf("release.yml: softprops/action-gh-release `with.generate_release_notes` must be true (AC #7)")
+		t.Errorf("release.yml: softprops/action-gh-release `with.generate_release_notes` must be true")
 	}
 
-	// prerelease must be parameterized (AC #7: toggled by tag pattern)
+	// prerelease must be parameterized (toggled by tag pattern)
 	prerelease, _ := with["prerelease"].(string)
 	if !strings.Contains(prerelease, "${{") {
-		t.Errorf("release.yml: softprops/action-gh-release `with.prerelease` must be a step-output expression, got %q (AC #7)", prerelease)
+		t.Errorf("release.yml: softprops/action-gh-release `with.prerelease` must be a step-output expression, got %q", prerelease)
 	}
 
-	// fail_on_unmatched_files: true (Task 5.2)
+	// fail_on_unmatched_files: true
 	fof, ok := with["fail_on_unmatched_files"].(bool)
 	if !ok || !fof {
-		t.Errorf("release.yml: softprops/action-gh-release `with.fail_on_unmatched_files` must be true (Task 5.2)")
+		t.Errorf("release.yml: softprops/action-gh-release `with.fail_on_unmatched_files` must be true")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Every run: step must set shell: bash (Windows defaults to PowerShell)
-// Covers Dev Notes lesson #3 from story 7-1
+// Every run: step must set shell: bash (Windows defaults to PowerShell).
+// Covers the host-only-smoke lesson.
 // ---------------------------------------------------------------------------
 
 func TestShellBashOnRunSteps(t *testing.T) {
@@ -779,9 +748,9 @@ func TestShellBashOnRunSteps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Artifact staging produces the 6 named artifacts plus SHA256SUMS
-// (3 platforms x 2 archives each: a GUI archive that also embeds the CLI, plus
-// a standalone CLI archive). Covers AC #2, Task 4.3 naming contract.
+// Artifact staging produces the 6 named artifacts plus SHA256SUMS (3 platforms
+// x 2 archives each: a GUI archive that also embeds the CLI, plus a standalone
+// CLI archive). Covers the artifact naming contract.
 // ---------------------------------------------------------------------------
 
 func TestArtifactStagingNaming(t *testing.T) {
@@ -800,7 +769,7 @@ func TestArtifactStagingNaming(t *testing.T) {
 	for _, tok := range tokens {
 		// Either the literal token, or matrix.platform expansion covers darwin-*/windows-*/linux-*
 		if !strings.Contains(run, tok) && !strings.Contains(run, "matrix.platform") && !strings.Contains(run, "${PLATFORM}") {
-			t.Errorf("release.yml build job: staging step missing naming token %q (AC #2, Task 4.3)", tok)
+			t.Errorf("release.yml build job: staging step missing naming token %q", tok)
 		}
 	}
 
@@ -809,20 +778,19 @@ func TestArtifactStagingNaming(t *testing.T) {
 	// shipped artifact extension is .zip.
 	for _, needle := range []string{".dmg", ".zip", ".tar.gz"} {
 		if !strings.Contains(run, needle) {
-			t.Errorf("release.yml build job: artifact extension %q missing (AC #2, Task 4.3)", needle)
+			t.Errorf("release.yml build job: artifact extension %q missing", needle)
 		}
 	}
 
 	// macOS DMG must be built via hdiutil (native macOS disk-image tool).
 	if !strings.Contains(run, "hdiutil create") {
-		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create` (Task 2.3)")
+		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create`")
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Supporting file: build/darwin/entitlements.plist exists with Wails-v3
-// baseline entries
-// Covers AC #4 + Task 6.1
+// baseline entries.
 // ---------------------------------------------------------------------------
 
 func TestEntitlementsPlistExists(t *testing.T) {
@@ -830,7 +798,7 @@ func TestEntitlementsPlistExists(t *testing.T) {
 	p := filepath.Join(root, "build", "darwin", "entitlements.plist")
 	content, err := os.ReadFile(p)
 	if err != nil {
-		t.Fatalf("build/darwin/entitlements.plist not found: %v (Task 6.1 -- file MUST exist before release.yml fires)", err)
+		t.Fatalf("build/darwin/entitlements.plist not found: %v (the file MUST exist before release.yml fires)", err)
 	}
 	raw := string(content)
 
@@ -839,13 +807,13 @@ func TestEntitlementsPlistExists(t *testing.T) {
 		t.Errorf("build/darwin/entitlements.plist is not a valid plist document")
 	}
 
-	// Wails v3 baseline entitlements (Task 6.1)
+	// Wails v3 baseline entitlements
 	for _, key := range []string{
 		"com.apple.security.cs.allow-unsigned-executable-memory",
 		"com.apple.security.cs.disable-library-validation",
 	} {
 		if !strings.Contains(raw, key) {
-			t.Errorf("build/darwin/entitlements.plist missing required key %q (Task 6.1)", key)
+			t.Errorf("build/darwin/entitlements.plist missing required key %q", key)
 		}
 	}
 }

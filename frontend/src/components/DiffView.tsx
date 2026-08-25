@@ -1,5 +1,5 @@
 /**
- * @file Structural diff side-by-side view (Story 13.6). Given two open document
+ * @file Structural diff side-by-side view. Given two open document
  * tab IDs it fetches the path-aligned DiffDocuments delta and renders it as two
  * synchronized tree panes (left/right) with added/removed/changed nodes
  * color-coded, a summary header, and next/prev-change navigation. Unchanged
@@ -20,7 +20,7 @@ export interface DiffNodeData {
   leftSummary: string;
   rightSummary: string;
   children?: DiffNodeData[];
-  /** True when this ref was left unwalked at the depth cap (Story 14.3 AC1). */
+  /** True when this ref was left unwalked at the depth cap. */
   truncated?: boolean;
 }
 
@@ -35,7 +35,7 @@ export interface DiffSummaryData {
   encryptionChanged: boolean;
   infoChanged: boolean;
   xmpChanged: boolean;
-  /** Count of subtrees compared only to the depth cap (Story 14.3 AC2); when
+  /** Count of subtrees compared only to the depth cap; when
    *  > 0 the walk was bounded and identity cannot be claimed. */
   truncatedSubtrees: number;
 }
@@ -245,10 +245,10 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
   const s = result.summary;
   // Mirror Go's diffIsIdentical: node counts alone miss document-level deltas
   // (encryption, /Version, /Info, XMP) that live off the catalog walk, so a
-  // flags-only change must not report "No structural differences".
-  // A depth-capped walk (truncatedSubtrees > 0) left a subtree unexplored, so
-  // identity cannot be claimed even with zero visible deltas (Story 14.3 AC2/
-  // 14.3-COMP-001), mirroring Go's diffIsIdentical.
+  // flags-only change must not report "No structural differences". A
+  // depth-capped walk (truncatedSubtrees > 0) left a subtree unexplored, so
+  // identity cannot be claimed even with zero visible deltas,
+  // mirroring Go's diffIsIdentical.
   const identical =
     s.added === 0 &&
     s.removed === 0 &&

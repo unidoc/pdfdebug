@@ -235,7 +235,7 @@ func TestGetAncestorPathUnknown(t *testing.T) {
 	}
 }
 
-// --- GetContentStream tests (Story 3-1) ---
+// --- GetContentStream tests ---
 
 func TestGetContentStreamValid(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -302,7 +302,7 @@ func TestGetContentStreamUnknown(t *testing.T) {
 	}
 }
 
-// --- GetImageData tests (Story 6-1) ---
+// --- GetImageData tests ---
 
 func TestGetImageData(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -372,7 +372,7 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 	}
 }
 
-// --- GetFontDetail tests (Story 9-9) ---
+// --- GetFontDetail tests ---
 
 func TestGetFontDetail(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -458,7 +458,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// 9.4-UNIT-001: GoToPage exposes the pdfcore page-content-stream resolver to
+// GoToPage exposes the pdfcore page-content-stream resolver to
 // the Wails service layer. Valid page resolves to a non-empty node ID;
 // out-of-range and unknown-tab paths surface as errors that map to user-facing
 // error messages on the frontend.
@@ -504,7 +504,7 @@ func TestGoToPageUnknownTab(t *testing.T) {
 	}
 }
 
-// --- GetXRefTable + GetPlainText tests (Story 9-11) ---
+// --- GetXRefTable + GetPlainText tests ---
 
 func TestGetXRefTableValid(t *testing.T) {
 	svc := NewPDFService(nil)

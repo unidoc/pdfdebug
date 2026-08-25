@@ -1,7 +1,7 @@
-// Story 9-11 / 10-1: Plain Text view tests.
+// Plain Text view tests.
 //
 // Test names are referenced by the runPdfcoreTest patterns in
-// tests/detail-panel-tabs/ and tests/10-1-async-plain-text-load/.
+// tests/detail-panel-tabs/ and tests/async-plain-text-load/.
 
 package pdfcore
 
@@ -16,7 +16,7 @@ import (
 
 // TestGetPlainTextLatin1HeaderAndSize verifies the %PDF- header appears at the
 // start of Content and TotalBytes matches the on-disk file size for a
-// well-formed minimal PDF. 9.11-INTG-021.
+// well-formed minimal PDF.
 func TestGetPlainTextLatin1HeaderAndSize(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	got, err := ins.GetPlainText(tabID)
@@ -45,8 +45,8 @@ func TestGetPlainTextLatin1HeaderAndSize(t *testing.T) {
 }
 
 // TestGetPlainTextLatin1FullByteRange verifies every byte 0x00..0xFF
-// round-trips per AC6: permitted whitespace (\t \n \r) plus 0x20..0xFF except
-// 0x7F survive; everything else maps to U+FFFD. 9.11-INTG-022.
+// round-trips: permitted whitespace (\t \n \r) plus 0x20..0xFF except 0x7F
+// survive; everything else maps to U+FFFD.
 func TestGetPlainTextLatin1FullByteRange(t *testing.T) {
 	bytes := make([]byte, 256)
 	for i := range bytes {
@@ -76,8 +76,7 @@ func TestGetPlainTextLatin1FullByteRange(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextFormFeedReplaced pins the AC6 form-feed (0x0C) replacement.
-// 9.11-INTG-023.
+// TestGetPlainTextFormFeedReplaced pins the form-feed (0x0C) replacement.
 func TestGetPlainTextFormFeedReplaced(t *testing.T) {
 	got := latin1Decode([]byte{0x0C})
 	if got != "�" {
@@ -86,7 +85,7 @@ func TestGetPlainTextFormFeedReplaced(t *testing.T) {
 }
 
 // TestGetPlainTextWhitespaceBytesPreserved verifies \t \n \r survive. CRLF
-// remains two characters in the output. 9.11-INTG-024.
+// remains two characters in the output.
 func TestGetPlainTextWhitespaceBytesPreserved(t *testing.T) {
 	got := latin1Decode([]byte{0x09, 0x0A, 0x0D})
 	if got != "\t\n\r" {
@@ -136,8 +135,7 @@ func makeOversizedPDF(t *testing.T, totalSize int64) string {
 }
 
 // TestGetPlainTextNoDecryptOrDecode verifies the decoder feeds a controlled
-// byte pattern through unchanged (modulo the AC6 control-byte replacement).
-// 9.11-INTG-027.
+// byte pattern through unchanged (modulo the control-byte replacement).
 func TestGetPlainTextNoDecryptOrDecode(t *testing.T) {
 	input := []byte{'s', 't', 'r', 'e', 'a', 'm', '\n', 0x80, 0xAB, 0xCD, 0xEF, 0xFF, '\n', 'e', 'n', 'd'}
 	got := latin1Decode(input)
@@ -148,7 +146,7 @@ func TestGetPlainTextNoDecryptOrDecode(t *testing.T) {
 }
 
 // TestGetPlainTextFileMovedReturnsError verifies an os.IsNotExist-class error
-// surfaces when the file is removed post-open. 9.11-INTG-028.
+// surfaces when the file is removed post-open.
 func TestGetPlainTextFileMovedReturnsError(t *testing.T) {
 	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
 	src, err := os.ReadFile(srcPath)
@@ -185,7 +183,7 @@ func TestGetPlainTextFileMovedReturnsError(t *testing.T) {
 
 // TestGetPlainTextCacheReturnsSamePointer verifies the cache returns the same
 // pointer across calls, dropping it forces a rebuild, and the rebuild has
-// equal contents. 9.11-INTG-029.
+// equal contents.
 func TestGetPlainTextCacheReturnsSamePointer(t *testing.T) {
 	ins, tabID, doc := openWithFixture(t, "minimal.pdf")
 
@@ -253,7 +251,7 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 }
 
 // TestLatin1DecodeFullRange pins the byte-for-codepoint contract of
-// latin1Decode for every byte 0x00..0xFF (Story 10.6 AC4). C1 controls
+// latin1Decode for every byte 0x00..0xFF. C1 controls
 // (0x80-0x9F) and the rest of the Latin-1 supplement (0xA0-0xFF) map verbatim
 // via rune(b). Replacement to U+FFFD is applied ONLY to bytes < 0x20 (except
 // TAB / LF / CR; form-feed IS replaced) and to 0x7F (DEL). Direct call -- no
@@ -286,7 +284,7 @@ func TestLatin1DecodeFullRange(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextSizeAfterRemove verifies the AC7 contract change: after
+// TestGetPlainTextSizeAfterRemove verifies the contract change: after
 // Inspector.Open captures FileSize once via os.Stat, removing the file does
 // not invalidate the size. GetPlainTextSize returns the cached value without
 // error.
@@ -320,14 +318,14 @@ func TestGetPlainTextSizeAfterRemove(t *testing.T) {
 	}
 	got, err := ins.GetPlainTextSize(tabID)
 	if err != nil {
-		t.Fatalf("GetPlainTextSize after remove: expected nil error (AC7), got %v", err)
+		t.Fatalf("GetPlainTextSize after remove: expected nil error, got %v", err)
 	}
 	if got != wantSize {
 		t.Errorf("GetPlainTextSize after remove = %d, want cached %d", got, wantSize)
 	}
 }
 
-// TestGetPlainTextLatin1C1 is the AC4 integration test: open the
+// TestGetPlainTextLatin1C1 is the integration test: open the
 // testdata/correctness/latin1-c1.pdf fixture (content stream = 32 C1-control
 // bytes 0x80..0x9F) and assert the C1 region maps verbatim in GetPlainText.
 func TestGetPlainTextLatin1C1(t *testing.T) {
@@ -358,6 +356,6 @@ func TestGetPlainTextLatin1C1(t *testing.T) {
 		// like 0x00..0x1F that the fixture author did not include. Locate
 		// the offending byte.
 		idx := strings.IndexRune(pt.Content, '�')
-		t.Errorf("plain-text view contains U+FFFD at offset %d (AC4: C1 region must map verbatim, not via the replacement table)", idx)
+		t.Errorf("plain-text view contains U+FFFD at offset %d (C1 region must map verbatim, not via the replacement table)", idx)
 	}
 }

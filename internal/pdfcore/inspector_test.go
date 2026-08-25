@@ -751,7 +751,7 @@ func TestObjectRefFromNodeID(t *testing.T) {
 	}
 }
 
-// --- Partial open / error node tests (Story 2-9) ---
+// --- Partial open / error node tests ---
 
 func TestOpenPartialSuccess(t *testing.T) {
 	// Verify that Open() on a valid PDF returns no warning.
@@ -898,9 +898,9 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 	}
 }
 
-// --- Story 4.2: Multi-Document State Isolation ---
+// --- Multi-Document State Isolation ---
 
-// 4.2-INTG-001 [P0]: Two independent DocumentState entries.
+// Two independent DocumentState entries.
 func TestTwoDocumentStatesIndependent(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "minimal.pdf"))
@@ -948,7 +948,7 @@ func TestTwoDocumentStatesIndependent(t *testing.T) {
 	}
 }
 
-// 4.2-INTG-002 [P0]: Close removes only the specified tabID.
+// Close removes only the specified tabID.
 func TestCloseRemovesOnlyTargetTab(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "minimal.pdf"))
@@ -982,7 +982,7 @@ func TestCloseRemovesOnlyTargetTab(t *testing.T) {
 	}
 }
 
-// 4.2-INTG-003 [P1]: Malformed PDF in one tab does not affect other tab.
+// Malformed PDF in one tab does not affect other tab.
 func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "multipage.pdf"))
@@ -1006,7 +1006,7 @@ func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
 	}
 }
 
-// 4.2-INTG-004 [P1]: Encrypted PDF failure does not affect other tabs.
+// Encrypted PDF failure does not affect other tabs.
 func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "multipage.pdf"))
@@ -1041,7 +1041,7 @@ func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
 	}
 }
 
-// 4.2-UNIT-006 [P2]: Content stream cache isolation after closing another tab.
+// Content stream cache isolation after closing another tab.
 func TestStreamCacheIsolationAfterClose(t *testing.T) {
 	ins := NewInspector()
 	_, err := ins.Open("tab-1", filepath.Join(testdataDir(t), "content-stream.pdf"))
@@ -1085,8 +1085,8 @@ func TestStreamCacheIsolationAfterClose(t *testing.T) {
 }
 
 // TestFindPathToObjectDeepNesting verifies findPathToObject (the
-// orphan-detection BFS in inspector.go) no longer caps the walk at depth 32
-// (Story 10.6 AC2). With the deep-nesting fixture (page-tree chain of 53
+// orphan-detection BFS in inspector.go) does not cap the walk at depth 32.
+// With the deep-nesting fixture (page-tree chain of 53
 // objects), GetAncestorPath to the deepest leaf MUST return a path that
 // starts at "root" and threads through every intermediate Pages node.
 func TestFindPathToObjectDeepNesting(t *testing.T) {
@@ -1104,7 +1104,7 @@ func TestFindPathToObjectDeepNesting(t *testing.T) {
 		t.Fatalf("GetAncestorPath(obj:0:53): %v", err)
 	}
 	if len(got) < 33 {
-		t.Errorf("ancestor path length = %d, want >= 33 (depth cap was 32; AC2 removes it)", len(got))
+		t.Errorf("ancestor path length = %d, want >= 33 -- the path must not be truncated at a depth cap", len(got))
 	}
 	if got[0] != "root" {
 		t.Errorf("ancestor path[0] = %q, want %q", got[0], "root")
@@ -1114,17 +1114,17 @@ func TestFindPathToObjectDeepNesting(t *testing.T) {
 	}
 }
 
-// TestExtractStreamInfoIndirectLength verifies the AC3 fallback path:
-// when sd.StreamLength is nil but sd.Dict["Length"] carries an IndirectRef,
+// TestExtractStreamInfoIndirectLength verifies the fallback path: when
+// sd.StreamLength is nil but sd.Dict["Length"] carries an IndirectRef,
 // extractStreamInfo resolves the integer via doc.PDFContext.Dereference.
 // Exercised against a synthesized StreamDict whose StreamLength is nil
 // (pdfcpu's reader normally populates it during ReadContextFile -- the
 // fallback path covers malformed PDFs and any future pdfcpu read-path change).
-// See testdata/correctness/README.md for the AC3 fixture note.
+// See testdata/correctness/README.md for the fixture note.
 func TestExtractStreamInfoIndirectLength(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-10-6-streamlen"
-	// Open the AC3 fixture so we have a real PDFContext with obj 5 (Integer
+	// Open the fixture so we have a real PDFContext with obj 5 (Integer
 	// 37) registered.
 	fixture := filepath.Join(testdataDir(t), "correctness", "stream-length-indirect.pdf")
 	if _, err := ins.Open(tabID, fixture); err != nil {

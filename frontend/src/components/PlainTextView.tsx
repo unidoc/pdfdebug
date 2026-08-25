@@ -1,8 +1,8 @@
 /**
  * @file Plain Text view -- document-level Latin-1-decoded file bytes with a
- * 1-based line-number gutter and viewport virtualization. Story 9-11
- * (initial); Story 10-1 (single uncapped lazy load + cancellable read +
- * loading card with size disclosure and Cancel button).
+ * 1-based line-number gutter and viewport virtualization. A single uncapped
+ * lazy load feeds it, with a cancellable read and a loading card carrying the
+ * size disclosure and a Cancel button.
  *
  * Lines are split on /\r\n?|\n/ so CRLF / lone CR / lone LF all collapse to
  * one logical row.
@@ -45,7 +45,7 @@ const ROW_HEIGHT = 20;
 /** Number of rows to render above/below the viewport for smooth scrolling. */
 const OVERSCAN = 20;
 
-/** Per-component load lifecycle. Story 10-1. */
+/** Per-component load lifecycle. */
 type LoadState = 'idle' | 'loading' | 'ready' | 'cancelled' | 'error';
 
 /**
@@ -73,7 +73,7 @@ export function formatBytes(n: number): string {
 
 /**
  * Document-level Plain Text view. Lazy-fetches on first activation; renders
- * a virtualized scroll container once the payload is ready. Story 10-1.
+ * a virtualized scroll container once the payload is ready.
  */
 export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [data, setData] = useState<PlainTextDocumentData | null>(null);
@@ -85,7 +85,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
-  // Per-tab case-sensitivity toggle on TabState (Story 10-2 AC10 / AC14).
+  // Per-tab case-sensitivity toggle on TabState.
   const appState = useAppState();
   const dispatch = useAppDispatch();
   const findCaseSensitive =
@@ -101,7 +101,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const inFlightRef = useRef(false);
   // tabId mirrored during render via useLatest (#28); the resolve/reject
   // branches capture tabId at call time and compare against this ref before
-  // mutating state on a stale fetch (AC8). The imperative write in the reset
+  // mutating state on a stale fetch. The imperative write in the reset
   // effect is retained for clarity but is now redundant with useLatest.
   const tabIdRef = useLatest(tabId);
   // Mirrors loadState for the lazy-fetch effect's guard so a terminal state
@@ -113,7 +113,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   // effect to keep the two in sync.
   const loadStateRef = useRef<LoadState>('idle');
 
-  // Reset state on document change (AC17).
+  // Reset state on document change.
   useEffect(() => {
     tabIdRef.current = tabId;
     setData(null);
@@ -130,7 +130,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     // listed to satisfy exhaustive-deps without a disable.
   }, [tabId, dataRef, tabIdRef]);
 
-  /** Kicks the GetPlainText + GetPlainTextSize pair. Story 10-1 AC1, AC2, AC6, AC7. */
+  /** Kicks the GetPlainText + GetPlainTextSize pair. */
   const handleLoad = useCallback(() => {
     if (!tabId) return;
     if (inFlightRef.current) return;
@@ -175,9 +175,9 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
         inFlightRef.current = false;
         const msg = extractErrorMessage(err);
         // Cancellation contract: extractErrorMessage substring 'cancel'
-        // (case-insensitive) routes to the cancelled state per AC4. The
-        // backend errors.Is(err, context.Canceled) identity is the
-        // authoritative Go-side contract; this is the frontend matching path.
+        // (case-insensitive) routes to the cancelled state. The backend
+        // errors.Is(err, context.Canceled) identity is the authoritative
+        // Go-side contract; this is the frontend matching path.
         if (/cancel/i.test(msg)) {
           loadStateRef.current = 'cancelled';
           setLoadState('cancelled');
@@ -192,15 +192,15 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     // exhaustive-deps without a disable.
   }, [tabId, dataRef, tabIdRef]);
 
-  // Lazy fetch gated on `active`. Story 10-1 AC1. handleLoad is omitted from
-  // deps (and loadState is too via the ref) because handleLoad already guards
-  // via inFlightRef; re-running this effect on every loadState transition
-  // would race the trigger conditions.
+  // Lazy fetch gated on `active`. handleLoad is omitted from deps
+  // (and loadState is too via the ref) because handleLoad already guards via
+  // inFlightRef; re-running this effect on every loadState transition would
+  // race the trigger conditions.
   //
   // loadStateRef gates auto-fetch to the first activation of an idle component
   // only. Once the load has produced a terminal state (`cancelled` or
-  // `error`), the user must click the explicit CTA (AC5 / AC7) -- toggling
-  // the Plain Text inner tab away and back must NOT silently re-fetch.
+  // `error`), the user must click the explicit CTA -- toggling the Plain Text
+  // inner tab away and back must NOT silently re-fetch.
   useEffect(() => {
     if (!tabId) return;
     if (!active) return;
@@ -212,7 +212,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   }, [tabId, active]);
 
   // 200ms loading-card debounce. Avoids flash-of-loading for the fast path
-  // (OS page-cache-warm reads complete under 200ms). Story 10-1 AC20.
+  // (OS page-cache-warm reads complete under 200ms).
   useEffect(() => {
     if (loadState !== 'loading') {
       setShowLoadingCard(false);
@@ -244,7 +244,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     return () => ro.disconnect();
   }, [data]);
 
-  /** Memoized line split: CRLF / CR / LF all collapse to one row each. AC21
+  /** Memoized line split: CRLF / CR / LF all collapse to one row each.
    * zero-byte case renders an empty list (no synthetic single empty row). */
   const lines = useMemo(() => {
     if (!data) return [] as string[];
@@ -253,8 +253,8 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     return content.split(/\r\n?|\n/);
   }, [data]);
 
-  // Story 10-2: find-bar hook. content is the raw payload when load is ready;
-  // null otherwise so Cmd+F preventDefault-only (AC13).
+  // find-bar hook. content is the raw payload when load is ready;
+  // Null otherwise so Cmd+F preventDefault-only.
   const findBar = useFindBar({
     tabId,
     content: data ? data.content : null,
@@ -283,10 +283,10 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     });
   }, [dispatch, tabId, findCaseSensitive]);
 
-  // AC3: on Esc close, restore focus to the scroll container so subsequent F3 /
-  // Shift+F3 keystrokes still reach the window-level navigation handler
-  // (and so the input-focus check in App.jsx's Cmd+G handler does not erroneously
-  // see a stale FindBar input as the active text field).
+  // On Esc close, restore focus to the scroll container so subsequent F3 /
+  // Shift+F3 keystrokes still reach the window-level navigation handler (and so
+  // the input-focus check in App.jsx's Cmd+G handler does not erroneously see a
+  // stale FindBar input as the active text field).
   const handleFindClose = useCallback(() => {
     closeFindBar();
     const el = scrollRef.current;
@@ -301,7 +301,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     }
   }, [closeFindBar]);
 
-  /** Lines that contain at least one match, for the gutter density marker (AC6). */
+  /** Lines that contain at least one match, for the gutter density marker. */
   const matchedLineSet = useMemo(() => {
     const s = new Set<number>();
     for (const m of findMatchesList) s.add(m.line);
@@ -311,7 +311,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   /**
    * Per-row matches table. Index by 1-based line number. Each entry is the
    * subset of findMatchesList whose start offset falls in that row's byte
-   * range. AC17: O(M) bucketing, single pass, computed once per matches list.
+   * range. O(M) bucketing, single pass, computed once per matches list.
    */
   const matchesByLine = useMemo(() => {
     const map = new Map<number, Match[]>();
@@ -324,7 +324,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   }, [findMatchesList]);
 
   // Cache the prefers-reduced-motion media query and subscribe to OS-level
-  // changes so a mid-session toggle is honored. AC7 scrollBehavior path.
+  // changes so a mid-session toggle is honored. Read on the scroll path.
   const reducedMotionRef = useRef<boolean>(false);
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
@@ -350,11 +350,11 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
-  // Auto-scroll on active-match change (AC7 / AC15). Centers the line on
-  // change when not already visible; uses smooth scroll unless
-  // prefers-reduced-motion is set. Also best-effort adjusts scrollLeft so the
-  // match's start sits at least 8 columns inside the visible horizontal
-  // viewport (AC7 horizontal scroll requirement).
+  // Auto-scroll on active-match change. Centers the line on change when not
+  // already visible; uses smooth scroll unless prefers-reduced-motion is set.
+  // Also best-effort adjusts scrollLeft so the match's start sits at least 8
+  // columns inside the visible horizontal viewport (horizontal scroll
+  // requirement).
   useEffect(() => {
     if (!findOpen && findMatchesList.length === 0) return;
     const el = scrollRef.current;
@@ -390,7 +390,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
         const matchLeftPx = col * charWidth;
         const visibleLeft = el.scrollLeft;
         const visibleRight = visibleLeft + el.clientWidth;
-        const inset = 8 * charWidth; // "at least 8 columns inside" (AC7)
+        const inset = 8 * charWidth; // "at least 8 columns inside"
         if (matchLeftPx < visibleLeft + inset) {
           horizontalTarget = Math.max(0, matchLeftPx - inset);
         } else if (matchLeftPx > visibleRight - inset) {
@@ -420,7 +420,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   }, [findActiveIndex, findMatchesList, findOpen, findLineStarts]);
 
   /** Fire-and-forget Cancel. The original GetPlainText promise rejects with
-   * context.Canceled; the .catch branch flips to 'cancelled'. Story 10-1 AC4. */
+   * context.Canceled; the .catch branch flips to 'cancelled'. */
   const handleCancel = useCallback(() => {
     if (cancelling) return;
     setCancelling(true);
@@ -560,7 +560,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
                 const cell = (
                   <div style={{ height: ROW_HEIGHT, lineHeight: `${ROW_HEIGHT}px` }}>{lineNo}</div>
                 );
-                // AC6: gutter density marker on lines with at least one match.
+                // Gutter density marker on lines with at least one match.
                 if (matchedLineSet.has(lineNo)) {
                   return (
                     <div
@@ -579,7 +579,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
             <div className="flex-1 pl-2 text-text whitespace-pre">
               {rowsToRender.map((line, i) => {
                 const lineNo = firstVisible + i + 1;
-                // AC5: per-row mark slicing. The row's offset range is
+                // Per-row mark slicing. The row's offset range is
                 // [findLineStarts[lineNo - 1], findLineStarts[lineNo - 1] + line.length).
                 const rowMatches = matchesByLine.get(lineNo);
                 let content: React.ReactNode = line;
@@ -613,8 +613,8 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
 
 /**
  * Render a single content row, wrapping matched substrings in `<mark>` tags.
- * The concatenated text content of the returned fragment equals the raw line
- * (AC5). The active match (matches[activeIndex]) gets the
+ * The concatenated text content of the returned fragment equals the raw
+ * line. The active match (matches[activeIndex]) gets the
  * `plain-text-find-active-match` testid + bg-find-active class; non-active
  * matches get `plain-text-find-match` + bg-find-match.
  */

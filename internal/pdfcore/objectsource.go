@@ -35,7 +35,7 @@ const streamPlaceholderMarker = "\u200b!"
 
 // GetObjectSource returns a reserialized PDF-syntax representation of the
 // indirect object identified by nodeID. Inline-node IDs (dict:* / arr:*)
-// return ("", nil) -- the frontend renders the AC3 empty state. Stream
+// return ("", nil) -- the frontend renders the empty state. Stream
 // objects render the dict plus a stream/endstream envelope with a byte-count
 // placeholder; the placeholder line is marked so the frontend's ref scanner
 // skips it.
@@ -51,17 +51,17 @@ func (ins *Inspector) GetObjectSource(tabID, nodeID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// AC1: serialize pdfcpu access. resolveNodeObject + the writeDict/writeArray
-	// walk dereference indirect refs through pdfcpu.
+	// Serialize pdfcpu access. resolveNodeObject + the writeDict/writeArray walk
+	// dereference indirect refs through pdfcpu.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
 	// The catalog tree node uses sentinel ID "root" but IS a real indirect
 	// object. Map "root" to the catalog's indirect identity (via the trailer's
 	// /Root pointer) so its Object Source renders instead of falling through
-	// to the AC3 inline empty state. Per AC10 / Dev Notes: the catalog is a
-	// real indirect object in the graph; only the trailer->catalog edge is
-	// excluded from reverse-refs, not the catalog itself from Object Source.
+	// to the inline empty state. the catalog is a real indirect
+	// object in the graph; only the trailer->catalog edge is excluded from
+	// reverse-refs, not the catalog itself from Object Source.
 	var (
 		num, gen     int
 		resolveID    = nodeID
@@ -178,8 +178,8 @@ func (w *sourceWriter) WriteAlways(s string) {
 }
 
 // snapshot returns the current buffer length so a caller can roll back to it
-// via rollback. Used to keep cap-truncation strictly between top-level entries
-// (Task 1.7 contract: "Truncation never happens mid-entry").
+// via rollback. Used to keep cap-truncation strictly between top-level entries,
+// so truncation never happens mid-entry.
 func (w *sourceWriter) snapshot() int {
 	return w.buf.Len()
 }
@@ -268,8 +268,8 @@ func writeDict(w *sourceWriter, d pdfcpu_types.Dict, depth int) {
 			break
 		}
 		// Snapshot before the entry so we can roll back a partially-written
-		// entry if the cap is hit mid-write. Task 1.7: "Truncation never
-		// happens mid-entry."
+		// entry if the cap is hit mid-write: truncation never happens
+		// mid-entry.
 		mark := w.snapshot()
 		w.WriteString(inner)
 		w.WriteString("/")
@@ -297,7 +297,7 @@ func writeDict(w *sourceWriter, d pdfcpu_types.Dict, depth int) {
 
 // writeArray serializes an array. Short arrays (length <= threshold, all
 // simple elements) render on one line: `[ V V V ]`. Long arrays render one
-// element per line with hanging indentation, matching the AC1 example.
+// element per line with hanging indentation, matching the example.
 func writeArray(w *sourceWriter, arr pdfcpu_types.Array, depth int) {
 	if isShortSimpleArray(arr) {
 		// F4 (known, near-unreachable gap): unlike the long-array path, the short
@@ -335,8 +335,8 @@ func writeArray(w *sourceWriter, arr pdfcpu_types.Array, depth int) {
 			break
 		}
 		// Snapshot before the element so we can roll back a partially-written
-		// element if the cap is hit mid-write. Task 1.7: "Truncation never
-		// happens mid-entry."
+		// element if the cap is hit mid-write: truncation never happens
+		// mid-entry.
 		mark := w.snapshot()
 		w.WriteString(inner)
 		writeValue(w, elem, depth+1)

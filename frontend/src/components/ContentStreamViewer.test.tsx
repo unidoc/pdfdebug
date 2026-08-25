@@ -1,18 +1,14 @@
 /**
- * Story 3.2: Content Stream Viewer -- Raw Text Display (Prototype)
+ * Content Stream Viewer -- Raw Text Display (Prototype)
  *
- * TDD RED PHASE: Tests MUST fail until ContentStreamViewer.tsx is implemented.
- *
- * Test IDs: 3.2-UNIT-001 through 3.2-UNIT-005 (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.test.tsx
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi } from 'vitest';
-// RED PHASE: This import will fail until ContentStreamViewer.tsx is created.
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 
-// 9-6: tests previously passed flat token arrays via the old `tokenized` prop;
+// Tests previously passed flat token arrays via the old `tokenized` prop;
 // the component now consumes pre-grouped FormattedLine[] from the Go formatter.
 // toFormatted wraps a token fixture into a single formatted row so the
 // per-token highlighting/tooltip assertions still hold without re-deriving
@@ -34,13 +30,13 @@ function toFormatted(toks: TokFixture | null | undefined) {
 const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-001 [P0]: ContentStreamViewer renders decoded text in monospace
-// font with line numbers.
-// AC#1: Content stream displayed as decoded plain text in monospace font,
-//       line numbers shown in left gutter.
+// ContentStreamViewer renders decoded text in monospace font with line
+// numbers.
+// Content stream displayed as decoded plain text in monospace font,
+// line numbers shown in left gutter.
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-001: ContentStreamViewer line numbers and content', () => {
+describe('ContentStreamViewer line numbers and content', () => {
   test('renders line numbers starting at 1 for multi-line content', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
@@ -81,11 +77,11 @@ describe('3.2-UNIT-001: ContentStreamViewer line numbers and content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-002 [P0]: ContentStreamViewer shows error message when error set.
-// AC#3: DetailPanel shows an error message explaining the decode failure.
+// ContentStreamViewer shows error message when error set.
+// DetailPanel shows an error message explaining the decode failure.
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-002: ContentStreamViewer error display', () => {
+describe('ContentStreamViewer error display', () => {
   test('renders error message when error prop is set', () => {
     render(<ContentStreamViewer raw="" error="failed to decode stream" />);
 
@@ -112,11 +108,11 @@ describe('3.2-UNIT-002: ContentStreamViewer error display', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-003 [P1]: ContentStreamViewer gutter non-selectable.
-// AC#1: Line numbers are non-selectable (user-select: none).
+// ContentStreamViewer gutter non-selectable.
+// Line numbers are non-selectable (user-select: none).
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-003: ContentStreamViewer gutter styling', () => {
+describe('ContentStreamViewer gutter styling', () => {
   test('gutter text is not user-selectable (has select-none class)', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
@@ -140,11 +136,11 @@ describe('3.2-UNIT-003: ContentStreamViewer gutter styling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-004 [P1]: ContentStreamViewer scrollable container.
-// AC#1: Content is scrollable for long streams.
+// ContentStreamViewer scrollable container.
+// Content is scrollable for long streams.
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-004: ContentStreamViewer scrollable container', () => {
+describe('ContentStreamViewer scrollable container', () => {
   test('content area has overflow-auto for scrollability', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
@@ -164,11 +160,11 @@ describe('3.2-UNIT-004: ContentStreamViewer scrollable container', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-005 [P2]: ContentStreamViewer empty raw string.
-// Edge case: empty content stream renders no content lines.
+// ContentStreamViewer empty raw string. Edge case: empty
+// content stream renders no content lines.
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-005: ContentStreamViewer empty content', () => {
+describe('ContentStreamViewer empty content', () => {
   test('empty raw string renders viewer with no content lines', () => {
     render(<ContentStreamViewer raw="" />);
 
@@ -180,11 +176,11 @@ describe('3.2-UNIT-005: ContentStreamViewer empty content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-UNIT-006 [P2]: ContentStreamViewer single-line boundary
+// ContentStreamViewer single-line boundary.
 // Edge case: content stream with exactly one line renders line number 1.
 // ---------------------------------------------------------------------------
 
-describe('3.2-UNIT-006: ContentStreamViewer single-line content', () => {
+describe('ContentStreamViewer single-line content', () => {
   test('single-line raw string renders exactly one line number', () => {
     render(<ContentStreamViewer raw="q 0 0 612 792 re W n" />);
 
@@ -203,7 +199,7 @@ describe('3.2-UNIT-006: ContentStreamViewer single-line content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.3: Syntax highlighting unit tests
+// Syntax highlighting unit tests
 // ---------------------------------------------------------------------------
 
 const tokenizedFixture = [
@@ -225,11 +221,11 @@ const commentTokenFixture = [
 ];
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-001 [P0]: Syntax-highlighted tokens render with type-based CSS
-// AC#1: Operators visually distinct from operands via CSS classes.
+// Syntax-highlighted tokens render with type-based CSS: Operators
+// visually distinct from operands via CSS classes.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-001: ContentStreamViewer syntax highlighting', () => {
+describe('ContentStreamViewer syntax highlighting', () => {
   test('operator tokens have text-token-operator class', () => {
     render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
@@ -272,11 +268,11 @@ describe('3.3-UNIT-001: ContentStreamViewer syntax highlighting', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-002 [P0]: Non-color differentiation for accessibility
-// AC#3: Operators use font-semibold, comments use italic.
+// Non-color differentiation for accessibility: Operators use
+// font-semibold, comments use italic.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-002: ContentStreamViewer non-color differentiation', () => {
+describe('ContentStreamViewer non-color differentiation', () => {
   test('operator tokens have font-semibold class', () => {
     render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
@@ -298,11 +294,11 @@ describe('3.3-UNIT-002: ContentStreamViewer non-color differentiation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-003 [P1]: Tooltip on operator tokens
-// AC#2: Hovering over an operator shows a tooltip with description.
+// Tooltip on operator tokens: Hovering over an operator shows a
+// tooltip with description.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
+describe('ContentStreamViewer operator tooltips', () => {
   test('operator with description renders a tooltip trigger', () => {
     render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(tokenizedFixture)} />);
 
@@ -339,11 +335,10 @@ describe('3.3-UNIT-003: ContentStreamViewer operator tooltips', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-004 [P1]: Fallback to plain text when tokenized is missing
-// AC#1 (Task 4.7): Falls back to raw text when tokenized is null/empty.
+// Falls back to raw text when tokenized is null or empty.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-004: ContentStreamViewer fallback to plain text', () => {
+describe('ContentStreamViewer fallback to plain text', () => {
   test('falls back to plain text when tokenized is null', () => {
     render(<ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(null)} />);
 
@@ -371,12 +366,12 @@ describe('3.3-UNIT-004: ContentStreamViewer fallback to plain text', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-005 [P1]: Line numbers correct with tokenized data
-// AC#1: Line number gutter is consistent with tokenized rendering.
+// Line numbers correct with tokenized data: Line number gutter is
+// consistent with tokenized rendering.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-005: ContentStreamViewer line numbers with tokens', () => {
-  test('renders one gutter row per formatted line (story 9-6 semantics)', () => {
+describe('ContentStreamViewer line numbers with tokens', () => {
+  test('renders one gutter row per formatted line', () => {
     // 5-row formatted fixture: BT, Tf, Td, Tj, ET -- one logical operation each.
     const fiveRows = [
       { tokens: [{ type: 'operator', value: 'BT', line: 1, col: 1 }], indent: 0, operator: 'BT', srcLineStart: 1, srcLineEnd: 1 },
@@ -395,11 +390,11 @@ describe('3.3-UNIT-005: ContentStreamViewer line numbers with tokens', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-014 [P3]: Tooltip map covers all 62 standard PDF operators.
-// Validates OPERATOR_DESCRIPTIONS completeness against spec Table A.1.
+// Tooltip map covers all 62 standard PDF operators. Validates
+// OPERATOR_DESCRIPTIONS completeness against spec Table A.1.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-014: Tooltip map completeness', () => {
+describe('Tooltip map completeness', () => {
   // All 62 standard operators from PDF spec 1.7 Table A.1
   const pdfSpecOperators = [
     'BT', 'ET', 'Tf', 'Td', 'TD', 'Tm', 'Tj', 'TJ', 'T*',
@@ -436,12 +431,12 @@ describe('3.3-UNIT-014: Tooltip map completeness', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-EDGE [P2]: Syntax highlighting edge cases
-// Token spacing reconstruction and blank line preservation.
+// Syntax highlighting edge cases: token spacing reconstruction and blank line
+// preservation.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-EDGE: ContentStreamViewer edge cases', () => {
-  // Story 9-6: in formatted view the gutter is keyed by formatted-row index,
+describe('ContentStreamViewer edge cases', () => {
+  // In formatted view the gutter is keyed by formatted-row index,
   // not source line, so blank source lines no longer map to a gutter row.
   // The Raw view (which is byte-faithful) preserves source-line semantics
   // including blanks; assert there.
@@ -465,7 +460,7 @@ describe('3.3-UNIT-EDGE: ContentStreamViewer edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.4: View mode toggle unit tests
+// View mode toggle unit tests
 // ---------------------------------------------------------------------------
 
 // Helper to render with controlled view mode. Accepts a flat token fixture
@@ -493,11 +488,11 @@ function renderWithToggle(
 }
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-001 [P0]: Segmented control renders with Formatted and Raw options
-// AC#1: Segmented control appears above stream content.
+// Segmented control renders with Formatted and Raw options: Segmented control
+// appears above stream content.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-001: View mode segmented control rendering', () => {
+describe('View mode segmented control rendering', () => {
   test('renders Formatted and Raw buttons when onViewModeChange is provided', () => {
     renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
@@ -529,11 +524,11 @@ describe('3.4-UNIT-001: View mode segmented control rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-002 [P0]: Default view mode is Formatted
-// AC#1: Default selection is "Formatted" when tokenized data is available.
+// Default view mode is Formatted: Default selection is "Formatted" when
+// tokenized data is available.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-002: Default view mode is Formatted', () => {
+describe('Default view mode is Formatted', () => {
   test('Formatted is selected by default when tokens available', () => {
     renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
 
@@ -545,11 +540,11 @@ describe('3.4-UNIT-002: Default view mode is Formatted', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-003 [P0]: Clicking Raw switches to plain text rendering
-// AC#2: Stream content switches to plain text with no syntax highlighting.
+// Clicking Raw switches to plain text rendering: Stream content switches
+// to plain text with no syntax highlighting.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-003: Switching to Raw mode', () => {
+describe('Switching to Raw mode', () => {
   test('clicking Raw calls onViewModeChange with "raw"', async () => {
     const user = userEvent.setup();
     const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture as TokFixture });
@@ -585,11 +580,11 @@ describe('3.4-UNIT-003: Switching to Raw mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-004 [P0]: Clicking Formatted switches back to highlighted view
-// AC#2: Toggling back restores syntax highlighting.
+// Clicking Formatted switches back to highlighted view: Toggling back
+// restores syntax highlighting.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-004: Switching back to Formatted mode', () => {
+describe('Switching back to Formatted mode', () => {
   test('clicking Formatted calls onViewModeChange with "formatted"', async () => {
     const user = userEvent.setup();
     const { onViewModeChange } = renderWithToggle({ raw: multiLineRaw, tokenized: tokenizedFixture, viewMode: 'raw' });
@@ -607,11 +602,11 @@ describe('3.4-UNIT-004: Switching back to Formatted mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-005 [P1]: Formatted disabled when tokenized data is unavailable
-// AC#4: Formatted option is disabled, defaults to Raw.
+// Formatted disabled when tokenized data is unavailable: Formatted option
+// is disabled, defaults to Raw.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-005: Formatted disabled when no tokens', () => {
+describe('Formatted disabled when no tokens', () => {
   test('Formatted button is disabled when tokenized is null', () => {
     renderWithToggle({ raw: multiLineRaw, tokenized: null });
 
@@ -637,11 +632,11 @@ describe('3.4-UNIT-005: Formatted disabled when no tokens', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.4-UNIT-006 [P1]: Error state takes priority over view mode
-// AC#5: Error display shown regardless of view mode.
+// Error state takes priority over view mode: Error display
+// shown regardless of view mode.
 // ---------------------------------------------------------------------------
 
-describe('3.4-UNIT-006: Error state priority over view mode', () => {
+describe('Error state priority over view mode', () => {
   test('error renders error display, no segmented control', () => {
     renderWithToggle({ raw: '', error: 'decode failed' });
 

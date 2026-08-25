@@ -57,7 +57,7 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 	}
 
 	if f.metadata {
-		// Project to a map and drop the base64 key entirely (AC2). Decode into
+		// Project to a map and drop the base64 key entirely. Decode into
 		// json.RawMessage (not any) so the surviving fields re-emit byte-for-byte
 		// -- decoding into map[string]any would relabel every number as float64.
 		b, err := json.Marshal(img)

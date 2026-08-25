@@ -1,7 +1,5 @@
 /**
- * Story 4.4: OS File Association, Single Instance, and Window Persistence
- *
- * TDD RED PHASE: Tests MUST fail until story 4-4 is implemented.
+ * OS File Association, Single Instance, and Window Persistence
  *
  * Integration tests for panel size persistence in MainLayout:
  *   - MainLayout reads persisted panel sizes from useWindowPersistence
@@ -120,11 +118,11 @@ afterEach(() => {
   delete (globalThis as Record<string, unknown>).ResizeObserver;
 });
 
-describe('4.4 MainLayout Panel Persistence', () => {
+describe('MainLayout panel persistence', () => {
   /**
    * MainLayout passes persisted treeWidth as the left pane's preferredSize.
    *
-   * AC#3: Panel sizes restored from localStorage on app start.
+   * Panel sizes restored from localStorage on app start.
    */
   test('passes persisted treeWidth as preferredSize on left horizontal pane', () => {
     mockPanelSizes = { treeWidth: 400, subPanelHeight: 200 };
@@ -143,7 +141,7 @@ describe('4.4 MainLayout Panel Persistence', () => {
   /**
    * MainLayout passes persisted subPanelHeight as the bottom vertical pane's preferredSize.
    *
-   * AC#3: Sub-panel height is restored.
+   * Sub-panel height is restored.
    */
   test('passes persisted subPanelHeight as preferredSize on bottom vertical pane', () => {
     mockPanelSizes = { treeWidth: 400, subPanelHeight: 200 };
@@ -163,7 +161,7 @@ describe('4.4 MainLayout Panel Persistence', () => {
   /**
    * MainLayout uses fallback preferredSize values when no persisted state exists.
    *
-   * AC#3: Falls back to default panel sizes (300px tree, 30% sub-panel).
+   * Falls back to default panel sizes (300px tree, 30% sub-panel).
    */
   test('uses fallback preferredSize when panelSizes is null', () => {
     mockPanelSizes = null;
@@ -183,7 +181,7 @@ describe('4.4 MainLayout Panel Persistence', () => {
   /**
    * MainLayout calls savePanelSizes when horizontal Allotment onChange fires.
    *
-   * AC#3: Panel sizes are saved on resize.
+   * Panel sizes are saved on resize.
    */
   test('calls savePanelSizes when horizontal Allotment onChange fires', () => {
     mockPanelSizes = { treeWidth: 300, subPanelHeight: 150 };
@@ -210,7 +208,7 @@ describe('4.4 MainLayout Panel Persistence', () => {
   /**
    * MainLayout calls savePanelSizes when vertical Allotment onChange fires.
    *
-   * AC#3: Sub-panel height is saved on resize.
+   * Sub-panel height is saved on resize.
    */
   test('calls savePanelSizes when vertical Allotment onChange fires', () => {
     mockPanelSizes = { treeWidth: 300, subPanelHeight: 150 };
@@ -237,7 +235,7 @@ describe('4.4 MainLayout Panel Persistence', () => {
   /**
    * MainLayout renders without error when useWindowPersistence returns null.
    *
-   * AC#3: No error on empty/corrupt localStorage.
+   * No error on empty/corrupt localStorage.
    */
   test('renders successfully with null panelSizes', () => {
     mockPanelSizes = null;

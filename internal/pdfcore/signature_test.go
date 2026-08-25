@@ -1,19 +1,14 @@
-// Story 13-4 RED-PHASE co-located unit tests for digital-signature
-// decomposition (AC 1, 2, 3, 7, 8).
+// Co-located unit tests for digital-signature decomposition.
 //
 // These exercise the NEW pdfcore surface:
 //
 //	(ins *Inspector) GetSignatures(tabID string) (*SignatureList, error)
 //	types SignatureField, SignatureList, CertInfo
 //
-// None of those exist yet, so this file does NOT compile against the current
-// tree -- that is the intended RED state for a co-located unit suite (the
-// package fails to build until Task 1 lands the signature.go surface). Once
-// the surface exists these assert the real behavior. Mirrors the Story 13-2
-// embedded_test.go playbook.
+// Mirrors the embedded_test.go playbook.
 //
 // Go field contract pinned here (JSON tags are pinned by the CLI acceptance
-// suite in tests/13-4-signature-decomposition/):
+// suite in tests/signature-decomposition/):
 //
 //	SignatureList{ Signatures []SignatureField }
 //	SignatureField{
@@ -36,9 +31,7 @@
 // decomposition is covered black-box by the acceptance suite, which generates
 // a genuinely signed fixture. Layouts here are byte-identical (modulo the
 // /Contents capacity) to fixtures validated against pdfcpu default validation
-// during ATDD authoring.
-//
-// Naming: 13.4-UNIT-NNN [Px].
+// when the suite was written.
 package pdfcore
 
 import (
@@ -225,108 +218,107 @@ func sigUnitCertHex(t *testing.T) string {
 }
 
 // oneSigField asserts the list holds exactly one signature and returns it.
-func oneSigField(t *testing.T, id string, list *SignatureList, err error) SignatureField {
+func oneSigField(t *testing.T, list *SignatureList, err error) SignatureField {
 	t.Helper()
 	if err != nil {
-		t.Fatalf("[%s] GetSignatures error: %v", id, err)
+		t.Fatalf("GetSignatures error: %v", err)
 	}
 	if list == nil || len(list.Signatures) != 1 {
-		t.Fatalf("[%s] expected exactly 1 signature field, got %+v", id, list)
+		t.Fatalf("expected exactly 1 signature field, got %+v", list)
 	}
 	return list.Signatures[0]
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-001 [P0] AC1: a /FT /Sig field reachable from /AcroForm /Fields
-// is enumerated with its name, signed flag, /V ref, and /SubFilter.
+// A /FT /Sig field reachable from /AcroForm /Fields is enumerated with its
+// name, signed flag, /V ref, and /SubFilter.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_EnumeratesSigField(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-001", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "Sig1" {
-		t.Errorf("[P0] 13.4-UNIT-001: FieldName = %q, want Sig1", f.FieldName)
+		t.Errorf("FieldName = %q, want Sig1", f.FieldName)
 	}
 	if !f.Signed {
-		t.Errorf("[P0] 13.4-UNIT-001: Signed = false, want true")
+		t.Errorf("Signed = false, want true")
 	}
 	if f.SignatureRef != "5 0 R" {
-		t.Errorf("[P0] 13.4-UNIT-001: SignatureRef = %q, want \"5 0 R\"", f.SignatureRef)
+		t.Errorf("SignatureRef = %q, want \"5 0 R\"", f.SignatureRef)
 	}
 	if f.SubFilter != "adbe.pkcs7.detached" {
-		t.Errorf("[P0] 13.4-UNIT-001: SubFilter = %q, want adbe.pkcs7.detached", f.SubFilter)
+		t.Errorf("SubFilter = %q, want adbe.pkcs7.detached", f.SubFilter)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-002 [P0] AC1: /FT is INHERITABLE -- a terminal widget with no own
-// /FT that inherits /Sig via /Parent counts, and the fully qualified name
-// joins the parent /T chain with ".".
+// /FT is INHERITABLE -- a terminal widget with no own /FT that inherits /Sig
+// via /Parent counts, and the fully qualified name joins the parent /T chain
+// with ".".
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_InheritedFTAndFQName(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-kids.pdf", sigUnitPDF(t, sigUnitOpt{kids: true}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-002", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "Parent.Child1" {
-		t.Errorf("[P0] 13.4-UNIT-002: FieldName = %q, want Parent.Child1", f.FieldName)
+		t.Errorf("FieldName = %q, want Parent.Child1", f.FieldName)
 	}
 	if !f.Signed {
-		t.Errorf("[P0] 13.4-UNIT-002: Signed = false, want true")
+		t.Errorf("Signed = false, want true")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-003 [P0] AC1: a /FT /Sig field with NO /V is listed as
-// Signed=false with no decomposition and no error.
+// A /FT /Sig field with NO /V is listed as Signed=false with no
+// decomposition and no error.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_UnsignedPlaceholder(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "unsigned.pdf", sigUnitUnsignedPDF())
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-003", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "EmptySig" {
-		t.Errorf("[P0] 13.4-UNIT-003: FieldName = %q, want EmptySig", f.FieldName)
+		t.Errorf("FieldName = %q, want EmptySig", f.FieldName)
 	}
 	if f.Signed {
-		t.Errorf("[P0] 13.4-UNIT-003: Signed = true for a /V-less placeholder, want false")
+		t.Errorf("Signed = true for a /V-less placeholder, want false")
 	}
 	if f.SignatureRef != "" {
-		t.Errorf("[P0] 13.4-UNIT-003: SignatureRef = %q, want empty", f.SignatureRef)
+		t.Errorf("SignatureRef = %q, want empty", f.SignatureRef)
 	}
 	if f.DecomposeError != "" {
-		t.Errorf("[P0] 13.4-UNIT-003: DecomposeError = %q, want empty (no /V is not an error)", f.DecomposeError)
+		t.Errorf("DecomposeError = %q, want empty (no /V is not an error)", f.DecomposeError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-004 [P1] AC1: a DIRECT (inline dict) /V is legal -- listed with
-// an empty SignatureRef, never dropped.
+// A DIRECT (inline dict) /V is legal -- listed with an empty SignatureRef,
+// never dropped.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_DirectVEmptyRef(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-directv.pdf", sigUnitPDF(t, sigUnitOpt{directV: true}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-004", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "SigDirect" {
-		t.Errorf("[P1] 13.4-UNIT-004: FieldName = %q, want SigDirect", f.FieldName)
+		t.Errorf("FieldName = %q, want SigDirect", f.FieldName)
 	}
 	if !f.Signed {
-		t.Errorf("[P1] 13.4-UNIT-004: Signed = false, want true (a direct /V is still a /V)")
+		t.Errorf("Signed = false, want true (a direct /V is still a /V)")
 	}
 	if f.SignatureRef != "" {
-		t.Errorf("[P1] 13.4-UNIT-004: SignatureRef = %q for a direct /V, want empty", f.SignatureRef)
+		t.Errorf("SignatureRef = %q for a direct /V, want empty", f.SignatureRef)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-005 [P1] AC1: output order is deterministic -- the document
-// /Fields walk order.
+// Output order is deterministic -- the document /Fields walk order.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_DeterministicFieldsOrder(t *testing.T) {
@@ -334,99 +326,97 @@ func TestGetSignatures_DeterministicFieldsOrder(t *testing.T) {
 
 	list, err := ins.GetSignatures(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.4-UNIT-005: GetSignatures error: %v", err)
+		t.Fatalf("GetSignatures error: %v", err)
 	}
 	if len(list.Signatures) != 2 {
-		t.Fatalf("[P1] 13.4-UNIT-005: expected 2 signature fields, got %d", len(list.Signatures))
+		t.Fatalf("expected 2 signature fields, got %d", len(list.Signatures))
 	}
 	if list.Signatures[0].FieldName != "SigA" || list.Signatures[1].FieldName != "SigB" {
-		t.Errorf("[P1] 13.4-UNIT-005: order = [%q, %q], want [SigA, SigB] (/Fields walk order)",
+		t.Errorf("order = [%q, %q], want [SigA, SigB] (/Fields walk order)",
 			list.Signatures[0].FieldName, list.Signatures[1].FieldName)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-006 [P0] AC3: a /ByteRange covering the whole file except the
-// exact /Contents hole -> CoversWholeFile true, HoleMatchesContents true.
+// A /ByteRange covering the whole file except the exact /Contents hole ->
+// CoversWholeFile true, HoleMatchesContents true.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageCoversWholeFile(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-006", list, err)
+	f := oneSigField(t, list, err)
 	if !f.CoversWholeFile {
-		t.Errorf("[P0] 13.4-UNIT-006: CoversWholeFile = false, want true")
+		t.Errorf("CoversWholeFile = false, want true")
 	}
 	if f.TrailingGap != 0 {
-		t.Errorf("[P0] 13.4-UNIT-006: TrailingGap = %d, want 0", f.TrailingGap)
+		t.Errorf("TrailingGap = %d, want 0", f.TrailingGap)
 	}
 	if !f.HoleMatchesContents {
-		t.Errorf("[P0] 13.4-UNIT-006: HoleMatchesContents = false, want true")
+		t.Errorf("HoleMatchesContents = false, want true")
 	}
 	if f.CoverageError != "" {
-		t.Errorf("[P0] 13.4-UNIT-006: CoverageError = %q, want empty", f.CoverageError)
+		t.Errorf("CoverageError = %q, want empty", f.CoverageError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-007 [P0] AC3: a range stopping 100 bytes short of EOF (the
-// earlier-revision case) -> CoversWholeFile false with the trailing gap
-// reported as a fact.
+// A range stopping 100 bytes short of EOF (the earlier-revision case)
+// -> CoversWholeFile false with the trailing gap reported as a fact.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageTrailingGap(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-short.pdf", sigUnitPDF(t, sigUnitOpt{shortfall: 100}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-007", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoversWholeFile {
-		t.Errorf("[P0] 13.4-UNIT-007: CoversWholeFile = true, want false")
+		t.Errorf("CoversWholeFile = true, want false")
 	}
 	if f.TrailingGap != 100 {
-		t.Errorf("[P0] 13.4-UNIT-007: TrailingGap = %d, want 100", f.TrailingGap)
+		t.Errorf("TrailingGap = %d, want 100", f.TrailingGap)
 	}
 	if !f.HoleMatchesContents {
-		t.Errorf("[P0] 13.4-UNIT-007: HoleMatchesContents = false, want true (only the tail is short)")
+		t.Errorf("HoleMatchesContents = false, want true (only the tail is short)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-008 [P1] AC3: an excluded span that does not exactly equal the
-// /Contents extent -> HoleMatchesContents false (a distinct structural fact).
+// An excluded span that does not exactly equal the /Contents extent ->
+// HoleMatchesContents false (a distinct structural fact).
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_CoverageHoleMismatch(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-shift.pdf", sigUnitPDF(t, sigUnitOpt{holeShift: 4}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-008", list, err)
+	f := oneSigField(t, list, err)
 	if f.HoleMatchesContents {
-		t.Errorf("[P1] 13.4-UNIT-008: HoleMatchesContents = true, want false (hole shifted +4)")
+		t.Errorf("HoleMatchesContents = true, want false (hole shifted +4)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-009 [P0] AC3/AC7: a malformed /ByteRange (odd-length) degrades to
-// a per-signature CoverageError -- the list call still succeeds.
+// A malformed /ByteRange (odd-length) degrades to a per-signature
+// CoverageError -- the list call still succeeds.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_MalformedByteRangeDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "bad-br.pdf", sigUnitMalformedBRPDF())
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-009", list, err)
+	f := oneSigField(t, list, err)
 	if f.FieldName != "BadBR" {
-		t.Errorf("[P0] 13.4-UNIT-009: FieldName = %q, want BadBR", f.FieldName)
+		t.Errorf("FieldName = %q, want BadBR", f.FieldName)
 	}
 	if f.CoverageError == "" {
-		t.Errorf("[P0] 13.4-UNIT-009: CoverageError empty, want the malformed-/ByteRange fact")
+		t.Errorf("CoverageError empty, want the malformed-/ByteRange fact")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-010 [P0] AC7: a document with NO AcroForm yields an empty list
-// and no error.
+// A document with NO AcroForm yields an empty list and no error.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_NoAcroFormEmptyList(t *testing.T) {
@@ -434,52 +424,51 @@ func TestGetSignatures_NoAcroFormEmptyList(t *testing.T) {
 
 	list, err := ins.GetSignatures(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.4-UNIT-010: GetSignatures error: %v (want empty list, nil error)", err)
+		t.Fatalf("GetSignatures error: %v (want empty list, nil error)", err)
 	}
 	if list == nil || len(list.Signatures) != 0 {
-		t.Errorf("[P0] 13.4-UNIT-010: expected empty signature list, got %+v", list)
+		t.Errorf("expected empty signature list, got %+v", list)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-011 [P1] AC2/AC7: a non-CMS /Contents blob yields a per-signature
-// DecomposeError -- the field is still listed with its structural facts.
+// A non-CMS /Contents blob yields a per-signature DecomposeError -- the field
+// is still listed with its structural facts.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_BadContentsPerSignatureError(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-011", list, err)
+	f := oneSigField(t, list, err)
 	if f.DecomposeError == "" {
-		t.Errorf("[P1] 13.4-UNIT-011: DecomposeError empty, want the CMS parse failure (fixture /Contents is fake hex)")
+		t.Errorf("DecomposeError empty, want the CMS parse failure (fixture /Contents is fake hex)")
 	}
 	if f.FieldName != "Sig1" || !f.Signed {
-		t.Errorf("[P1] 13.4-UNIT-011: structural facts must survive the parse failure, got %+v", f)
+		t.Errorf("structural facts must survive the parse failure, got %+v", f)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-012 [P1] AC1: /M surfaces both the raw PDF date string and the
-// parsed ISO 8601 form.
+// /M surfaces both the raw PDF date string and the parsed ISO 8601 form.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_SigningTimeRawAndISO(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed.pdf", sigUnitPDF(t, sigUnitOpt{}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-012", list, err)
+	f := oneSigField(t, list, err)
 	if f.SigningTimeRaw != "D:20260101120000+00'00'" {
-		t.Errorf("[P1] 13.4-UNIT-012: SigningTimeRaw = %q, want the raw D: string", f.SigningTimeRaw)
+		t.Errorf("SigningTimeRaw = %q, want the raw D: string", f.SigningTimeRaw)
 	}
 	if !strings.HasPrefix(f.SigningTime, "2026-01-01T12:00:00") {
-		t.Errorf("[P1] 13.4-UNIT-012: SigningTime = %q, want ISO 8601 2026-01-01T12:00:00...", f.SigningTime)
+		t.Errorf("SigningTime = %q, want ISO 8601 2026-01-01T12:00:00...", f.SigningTime)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-013 [P2] AC2: adbe.x509.rsa_sha1 -- /Contents is PKCS#1, so the
-// cert chain is read from the field's /Cert entry instead.
+// adbe.x509.rsa_sha1 -- /Contents is PKCS#1, so the cert chain is read from
+// the field's /Cert entry instead.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_X509RSASHA1CertFromCertEntry(t *testing.T) {
@@ -487,18 +476,18 @@ func TestGetSignatures_X509RSASHA1CertFromCertEntry(t *testing.T) {
 		subFilter: "adbe.x509.rsa_sha1", certHex: sigUnitCertHex(t)}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-013", list, err)
+	f := oneSigField(t, list, err)
 	if len(f.Certificates) == 0 {
-		t.Fatalf("[P2] 13.4-UNIT-013: Certificates empty, want the /Cert chain")
+		t.Fatalf("Certificates empty, want the /Cert chain")
 	}
 	if !strings.Contains(f.Certificates[0].Subject, "ATDD Unit Cert") {
-		t.Errorf("[P2] 13.4-UNIT-013: Certificates[0].Subject = %q, want the /Cert CN", f.Certificates[0].Subject)
+		t.Errorf("Certificates[0].Subject = %q, want the /Cert CN", f.Certificates[0].Subject)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-014 [P2] AC2/AC7: an unknown SubFilter degrades to a labeled
-// "not decomposed" note -- never an error, never a crash.
+// An unknown SubFilter degrades to a labeled "not decomposed" note --
+// never an error, never a crash.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_UnknownSubFilterNote(t *testing.T) {
@@ -506,19 +495,19 @@ func TestGetSignatures_UnknownSubFilterNote(t *testing.T) {
 		subFilter: "acme.custom.sig"}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-014", list, err)
+	f := oneSigField(t, list, err)
 	if f.SubFilter != "acme.custom.sig" {
-		t.Errorf("[P2] 13.4-UNIT-014: SubFilter = %q, want acme.custom.sig", f.SubFilter)
+		t.Errorf("SubFilter = %q, want acme.custom.sig", f.SubFilter)
 	}
 	if !strings.Contains(strings.ToLower(strings.Join(f.Notes, " ")), "not decomposed") {
-		t.Errorf("[P2] 13.4-UNIT-014: Notes = %v, want a \"subFilter not decomposed\" label", f.Notes)
+		t.Errorf("Notes = %v, want a \"subFilter not decomposed\" label", f.Notes)
 	}
 }
 
 // sigUnitBRVariantPDF builds a signed field whose /Sig dict carries the given
 // raw /ByteRange fragment verbatim (e.g. "/ByteRange [0 100 -50 100] "), plus a
 // tiny fake /Contents. Passing an empty fragment omits /ByteRange entirely.
-// Used for the AC3 malformed-/ByteRange degradation branches.
+// Used for the malformed-/ByteRange degradation branches.
 func sigUnitBRVariantPDF(byteRange string) []byte {
 	return assemblexref("%PDF-1.7\n",
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",
@@ -530,85 +519,85 @@ func sigUnitBRVariantPDF(byteRange string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-015 [P1] AC3/AC7: a /ByteRange with a non-integer entry (a real
-// number) degrades to a per-signature CoverageError -- the list call succeeds.
+// A /ByteRange with a non-integer entry (a real number) degrades to a
+// per-signature CoverageError -- the list call succeeds.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeNonIntegerDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-noninteger.pdf", sigUnitBRVariantPDF("/ByteRange [0 100 200 3.5] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-015", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
-		t.Errorf("[P1] 13.4-UNIT-015: CoverageError empty, want the non-integer /ByteRange fact")
+		t.Errorf("CoverageError empty, want the non-integer /ByteRange fact")
 	}
 	if !strings.Contains(strings.ToLower(f.CoverageError), "non-integer") {
-		t.Errorf("[P1] 13.4-UNIT-015: CoverageError = %q, want a non-integer fact", f.CoverageError)
+		t.Errorf("CoverageError = %q, want a non-integer fact", f.CoverageError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-016 [P1] AC3/AC7: a /ByteRange with a negative offset degrades to
-// a per-signature CoverageError.
+// A /ByteRange with a negative offset degrades to a per-signature
+// CoverageError.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeNegativeDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-negative.pdf", sigUnitBRVariantPDF("/ByteRange [0 100 -50 100] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-016", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
-		t.Errorf("[P1] 13.4-UNIT-016: CoverageError empty, want the negative-value /ByteRange fact")
+		t.Errorf("CoverageError empty, want the negative-value /ByteRange fact")
 	}
 	if !strings.Contains(strings.ToLower(f.CoverageError), "negative") {
-		t.Errorf("[P1] 13.4-UNIT-016: CoverageError = %q, want a negative-value fact", f.CoverageError)
+		t.Errorf("CoverageError = %q, want a negative-value fact", f.CoverageError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-017 [P1] AC3/AC7: overlapping /ByteRange ranges (the second range
-// starts inside the first) degrade to a per-signature CoverageError.
+// Overlapping /ByteRange ranges (the second range starts inside the first)
+// degrade to a per-signature CoverageError.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeOverlapDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-overlap.pdf", sigUnitBRVariantPDF("/ByteRange [0 50 20 10] "))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-017", list, err)
+	f := oneSigField(t, list, err)
 	if f.CoverageError == "" {
-		t.Errorf("[P1] 13.4-UNIT-017: CoverageError empty, want the overlapping-range fact")
+		t.Errorf("CoverageError empty, want the overlapping-range fact")
 	}
 	if !strings.Contains(strings.ToLower(f.CoverageError), "overlap") {
-		t.Errorf("[P1] 13.4-UNIT-017: CoverageError = %q, want an overlap fact", f.CoverageError)
+		t.Errorf("CoverageError = %q, want an overlap fact", f.CoverageError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-018 [P1] AC3/AC7: a signed field whose /Sig dict has NO /ByteRange
-// at all degrades to a per-signature CoverageError -- the field is still
-// enumerated with its structural facts.
+// A signed field whose /Sig dict has NO /ByteRange at all degrades to a
+// per-signature CoverageError -- the field is still enumerated with its
+// structural facts.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_ByteRangeMissingDegrades(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "br-missing.pdf", sigUnitBRVariantPDF(""))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-018", list, err)
+	f := oneSigField(t, list, err)
 	if !f.Signed {
-		t.Errorf("[P1] 13.4-UNIT-018: Signed = false, want true (a /V exists)")
+		t.Errorf("Signed = false, want true (a /V exists)")
 	}
 	if f.CoverageError == "" {
-		t.Errorf("[P1] 13.4-UNIT-018: CoverageError empty, want the missing-/ByteRange fact")
+		t.Errorf("CoverageError empty, want the missing-/ByteRange fact")
 	}
 	if !strings.Contains(strings.ToLower(f.CoverageError), "missing") {
-		t.Errorf("[P1] 13.4-UNIT-018: CoverageError = %q, want a missing fact", f.CoverageError)
+		t.Errorf("CoverageError = %q, want a missing fact", f.CoverageError)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.4-UNIT-019 [P2] AC2/AC7: adbe.x509.rsa_sha1 whose /Cert entry holds an
-// unreadable (non-DER) blob degrades to a per-signature DecomposeError -- the
-// field is still listed, no crash.
+// adbe.x509.rsa_sha1 whose /Cert entry holds an unreadable (non-DER) blob
+// degrades to a per-signature DecomposeError -- the field is still listed, no
+// crash.
 // ---------------------------------------------------------------------------
 
 func TestGetSignatures_X509UnreadableCertDegrades(t *testing.T) {
@@ -616,11 +605,11 @@ func TestGetSignatures_X509UnreadableCertDegrades(t *testing.T) {
 		subFilter: "adbe.x509.rsa_sha1", certHex: "00"}))
 
 	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, "13.4-UNIT-019", list, err)
+	f := oneSigField(t, list, err)
 	if len(f.Certificates) != 0 {
-		t.Errorf("[P2] 13.4-UNIT-019: Certificates = %v, want none (the /Cert blob is unreadable)", f.Certificates)
+		t.Errorf("Certificates = %v, want none (the /Cert blob is unreadable)", f.Certificates)
 	}
 	if f.DecomposeError == "" {
-		t.Errorf("[P2] 13.4-UNIT-019: DecomposeError empty, want the unreadable-/Cert fact")
+		t.Errorf("DecomposeError empty, want the unreadable-/Cert fact")
 	}
 }

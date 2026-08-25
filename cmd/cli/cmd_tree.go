@@ -27,7 +27,7 @@ type treeNodeOutput struct {
 	// Resolved is the inline ref-following expansion produced by --resolve via
 	// pdfcore.ResolveRef. Populated only for indirect-object nodes (id prefix
 	// "obj:") when --resolve is set; nil (omitted) otherwise. Strictly additive:
-	// without --resolve the field is absent, preserving today's bytes (AC6).
+	// without --resolve the field is absent, preserving today's bytes.
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
@@ -229,7 +229,7 @@ func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, dep
 // convertNode maps a pdfcore.TreeNode to the CLI output struct. pdfRef is
 // surfaced only for indirect-object nodes (id prefix "obj:"); the synthetic
 // catalog "root" node carries an ObjectRef internally but is not addressable as
-// "N G R", so AC1 requires it to omit pdfRef.
+// "N G R", so pdfRef is omitted for it.
 func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 	pdfRef := ""
 	if strings.HasPrefix(n.ID, "obj:") {

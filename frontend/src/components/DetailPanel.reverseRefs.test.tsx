@@ -1,13 +1,10 @@
 /**
- * Story 9.10: Object Source View + Reverse References
+ * Object Source View + Reverse References
  *
- * TDD RED PHASE: Tests MUST fail until Task 7 wires ReverseRefsSection into
- * DetailPanel and adds the GetReverseRefs fetch with stale-fetch guard.
- *
- * Covers AC#6 frontend banner trigger, AC#7 section mount-after-parsed-view,
- * AC#9 orphan empty state propagation, AC#10 catalog copy, AC#11 per-document
- * isolation, and AC#12 redundancy fix (DetailPanel keeps DictView/ArrayView/
- * ScalarView intact -- the section appears in addition).
+ * Covers frontend banner trigger, section mount-after-parsed-view, orphan
+ * empty state propagation, catalog copy, per-document isolation, and
+ * redundancy fix (DetailPanel keeps DictView/ArrayView/ ScalarView intact --
+ * the section appears in addition).
  *
  * The behavior surface of ReverseRefsSection itself is asserted in
  * ReverseRefsSection.test.tsx. This file asserts the integration: DetailPanel
@@ -56,7 +53,7 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),
@@ -159,11 +156,11 @@ function renderDetailPanelFor(
 }
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-201 [P0] AC#7 + AC#12: section mounts AFTER the parsed view for
-// indirect-object selections; parsed view stays intact.
+// Section mounts AFTER the parsed view for indirect-object selections;
+// parsed view stays intact.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-201: section mounts after parsed view for indirect objects', () => {
+describe('section mounts after parsed view for indirect objects', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -172,12 +169,12 @@ describe('9.10-UNIT-201: section mounts after parsed view for indirect objects',
 
   test('parsed view (DictView /Type row) and Referenced by section both render', async () => {
     renderDetailPanelFor('obj:0:3');
-    // Parsed view still here (AC#12)
+    // Parsed view still here
     await waitFor(() => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
       expect(screen.getByText('/Page')).toBeInTheDocument();
     });
-    // Section appears with the reverse-ref entry (AC#7)
+    // Section appears with the reverse-ref entry
     await waitFor(() => {
       expect(screen.getByText('2 0 R')).toBeInTheDocument();
       expect(screen.getByText('/Kids[0]')).toBeInTheDocument();
@@ -193,11 +190,11 @@ describe('9.10-UNIT-201: section mounts after parsed view for indirect objects',
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-202 [P0] Task 7.1: section is NOT mounted for inline-value nodes.
-// nodeID `dict:obj:0:3:Type` is inline; the section MUST NOT appear.
+// The section is NOT mounted for inline-value nodes. nodeID
+// `dict:obj:0:3:Type` is inline; the section MUST NOT appear.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-202: section suppressed for inline-value nodes', () => {
+describe('section suppressed for inline-value nodes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(inlineScalarDetail);
@@ -225,11 +222,11 @@ describe('9.10-UNIT-202: section suppressed for inline-value nodes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-203 [P0] AC#9: orphan empty state propagates from the backend.
-// Empty list + non-catalog selection -> orphan copy with "dict-graph" qualifier.
+// Orphan empty state propagates from the backend. Empty list + non-catalog
+// selection -> orphan copy with "dict-graph" qualifier.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-203: orphan empty-state path', () => {
+describe('orphan empty-state path', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -247,10 +244,10 @@ describe('9.10-UNIT-203: orphan empty-state path', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-204 [P0] AC#10: catalog selection renders "Document root..."
+// Catalog selection renders "Document root..."
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-204: catalog selection -- Document root copy', () => {
+describe('catalog selection -- Document root copy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(catalogDetail);
@@ -269,11 +266,11 @@ describe('9.10-UNIT-204: catalog selection -- Document root copy', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-205 [P0] AC#6 failure mode: backend rejection with the index-
-// unavailable sentinel surfaces the unavailable banner. Task 7.3 case (a).
+// Failure mode: backend rejection with the index-unavailable sentinel
+// surfaces the unavailable banner.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-205: index-unavailable sentinel surfaces the banner', () => {
+describe('index-unavailable sentinel surfaces the banner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -290,12 +287,12 @@ describe('9.10-UNIT-205: index-unavailable sentinel surfaces the banner', () => 
         screen.getByText('Reverse-ref index unavailable for this document.')
       ).toBeInTheDocument();
     });
-    // Crucially: the orphan copy MUST NOT show (AC#6 forbids silent
+    // Crucially: the orphan copy MUST NOT show (forbids silent
     // mislabelling-as-orphan when the index is unavailable).
     expect(screen.queryByText(/possible orphan/i)).not.toBeInTheDocument();
   });
 
-  test('non-sentinel rejection hides the section silently (Task 7.3 case b)', async () => {
+  test('non-sentinel rejection hides the section silently', async () => {
     mockGetReverseRefs.mockRejectedValue(new Error('some other error'));
     renderDetailPanelFor('obj:0:3', 'page');
     // Wait for the parsed view first so the fetch has had a chance to run.
@@ -309,10 +306,10 @@ describe('9.10-UNIT-205: index-unavailable sentinel surfaces the banner', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-206 [P1] AC#11: tab switch re-fetches with the active tabId.
+// Tab switch re-fetches with the active tabId.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-206: tab switch refetches reverse refs', () => {
+describe('tab switch refetches reverse refs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);
@@ -370,13 +367,13 @@ describe('9.10-UNIT-206: tab switch refetches reverse refs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.10-UNIT-207 [P1] Regression guard: the section MUST NOT flash the orphan
-// empty state while the GetReverseRefs fetch is still in flight. Before the
-// fix, an in-flight selection rendered "No incoming dict-graph references
-// (possible orphan)" momentarily because reverseRefs=[] + visible=true.
+// Regression guard: the section MUST NOT flash the orphan empty state while
+// the GetReverseRefs fetch is still in flight. Before the fix, an in-flight
+// selection rendered "No incoming dict-graph references (possible orphan)"
+// momentarily because reverseRefs=[] + visible=true.
 // ---------------------------------------------------------------------------
 
-describe('9.10-UNIT-207: no orphan flash before fetch resolves', () => {
+describe('no orphan flash before fetch resolves', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(pageDetail);

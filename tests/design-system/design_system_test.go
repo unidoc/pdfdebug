@@ -1,5 +1,5 @@
-// Package design_system_test provides acceptance tests for Story 1.2:
-// Design System Foundation and Theme Setup.
+// Package design_system_test provides acceptance tests for Design System
+// Foundation and Theme Setup.
 //
 // These tests verify that CSS custom properties, font configuration,
 // Tailwind v4 theme extension, and accessibility features are configured
@@ -56,12 +56,12 @@ func readStyleCSS(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-001 (P1): CSS custom properties for design tokens defined on :root
-// AC#1: --color-bg, --color-surface, --color-surface-hover,
-//       --color-surface-selected, --color-text, --color-text-secondary,
-//       --color-text-muted, --color-border, --color-border-focus,
-//       --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
-//       --panel-padding, --tree-indent
+// CSS custom properties for design tokens defined on :root: --color-bg,
+// --color-surface, --color-surface-hover,
+// --color-surface-selected, --color-text, --color-text-secondary,
+// --color-text-muted, --color-border, --color-border-focus,
+// --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
+// --panel-padding, --tree-indent
 // ---------------------------------------------------------------------------
 
 func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
@@ -71,7 +71,7 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 	rootBlockRe := regexp.MustCompile(`(?s):root\s*\{[^}]+\}`)
 	rootBlocks := rootBlockRe.FindAllString(css, -1)
 	if len(rootBlocks) == 0 {
-		t.Fatal("[P1] no :root block found in style.css")
+		t.Fatal("no :root block found in style.css")
 	}
 
 	rootContent := strings.Join(rootBlocks, "\n")
@@ -83,9 +83,9 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 	themeBlocks := themeBlockRe.FindAllString(css, -1)
 	rootOrThemeContent := rootContent + "\n" + strings.Join(themeBlocks, "\n")
 
-	// All design tokens that must be defined on :root (AC#1)
-	// Tokens with checkTheme=true may be defined in @theme instead of :root
-	// (Tailwind v4 @theme generates :root-level CSS vars at build time)
+	// All design tokens that must be defined on :root Tokens with
+	// checkTheme=true may be defined in @theme instead of :root (Tailwind
+	// v4 @theme generates :root-level CSS vars at build time)
 	type tokenCheck struct {
 		property   string
 		value      string // expected hex or value (empty = just check existence)
@@ -122,7 +122,7 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 			if token.checkTheme {
 				location = ":root or @theme"
 			}
-			t.Errorf("[P1] %s missing CSS custom property: %s", location, token.property)
+			t.Errorf("%s missing CSS custom property: %s", location, token.property)
 			continue
 		}
 		if token.value != "" {
@@ -131,20 +131,20 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 			escapedVal := regexp.QuoteMeta(token.value)
 			valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 			if !valueRe.MatchString(searchContent) {
-				t.Errorf("[P1] :root property %s does not have expected value %s", token.property, token.value)
+				t.Errorf("root property %s does not have expected value %s", token.property, token.value)
 			}
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-002 (P1): PDF value type color custom properties defined
-// AC#2: --color-type-name (teal), --color-type-string (amber),
-//       --color-type-number (blue), --color-type-reference (violet),
-//       --color-type-boolean (pink), --color-type-null (gray),
-//       --color-type-stream (emerald)
-//       AND semantic colors: --color-error (red), --color-warning (amber),
-//       --color-success (green), --color-info (blue)
+// PDF value type color custom properties defined: --color-type-name
+// (teal), --color-type-string (amber),
+// --color-type-number (blue), --color-type-reference (violet),
+// --color-type-boolean (pink), --color-type-null (gray),
+// --color-type-stream (emerald)
+// AND semantic colors: --color-error (red), --color-warning (amber),
+// --color-success (green), --color-info (blue)
 // ---------------------------------------------------------------------------
 
 func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
@@ -153,12 +153,12 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 	rootBlockRe := regexp.MustCompile(`(?s):root\s*\{[^}]+\}`)
 	rootBlocks := rootBlockRe.FindAllString(css, -1)
 	if len(rootBlocks) == 0 {
-		t.Fatal("[P1] no :root block found in style.css")
+		t.Fatal("no :root block found in style.css")
 	}
 
 	rootContent := strings.Join(rootBlocks, "\n")
 
-	// PDF value type colors (AC#2 first part)
+	// PDF value type colors (first part)
 	pdfTypeTokens := []struct {
 		property string
 		value    string
@@ -177,11 +177,11 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 		escapedVal := regexp.QuoteMeta(token.value)
 		valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 		if !valueRe.MatchString(rootContent) {
-			t.Errorf("[P1] :root missing or incorrect PDF type color: %s expected %s", token.property, token.value)
+			t.Errorf("root missing or incorrect PDF type color: %s expected %s", token.property, token.value)
 		}
 	}
 
-	// Semantic colors (AC#2 second part)
+	// Semantic colors (second part)
 	semanticTokens := []struct {
 		property string
 		value    string
@@ -197,62 +197,61 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 		escapedVal := regexp.QuoteMeta(token.value)
 		valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 		if !valueRe.MatchString(rootContent) {
-			t.Errorf("[P1] :root missing or incorrect semantic color: %s expected %s", token.property, token.value)
+			t.Errorf("root missing or incorrect semantic color: %s expected %s", token.property, token.value)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-003 (P1): Inter font configured as UI font with system-ui fallback
-// AC#3: Light theme defaults applied (body uses --color-bg and --color-text)
-// AC#4: Inter font configured with system-ui fallback
+// Inter is configured as the UI font with a system-ui fallback, and the light
+// theme defaults are applied (body uses --color-bg and --color-text).
 // ---------------------------------------------------------------------------
 
 func TestInterFontAndBodyDefaults(t *testing.T) {
 	css := readStyleCSS(t)
 
-	// AC#4: Verify font-ui token includes Inter with system-ui fallback
-	// Check :root or @theme for --font-ui definition
+	// Verify font-ui token includes Inter with system-ui fallback.
+	// Check :root or @theme for --font-ui definition.
 	interFontRe := regexp.MustCompile(`--font-ui\s*:\s*['"]?Inter['"]?\s*,\s*system-ui`)
 	if !interFontRe.MatchString(css) {
-		t.Error("[P1] --font-ui not configured with Inter and system-ui fallback")
+		t.Error("--font-ui not configured with Inter and system-ui fallback")
 	}
 
-	// AC#3: Verify body uses design token variables for light theme defaults
+	// Verify body uses design token variables for light theme defaults
 	bodyBlockRe := regexp.MustCompile(`(?s)body\s*\{[^}]+\}`)
 	bodyBlocks := bodyBlockRe.FindAllString(css, -1)
 	if len(bodyBlocks) == 0 {
-		t.Fatal("[P1] no body style block found in style.css")
+		t.Fatal("no body style block found in style.css")
 	}
 
 	bodyContent := strings.Join(bodyBlocks, "\n")
 
 	// body must use font-family: var(--font-ui)
 	if !strings.Contains(bodyContent, "font-family") || !strings.Contains(bodyContent, "var(--font-ui)") {
-		t.Error("[P1] body does not set font-family: var(--font-ui)")
+		t.Error("body does not set font-family: var(--font-ui)")
 	}
 
 	// body must set background-color: var(--color-bg)
 	if !strings.Contains(bodyContent, "background-color") || !strings.Contains(bodyContent, "var(--color-bg)") {
-		t.Error("[P1] body does not set background-color: var(--color-bg)")
+		t.Error("body does not set background-color: var(--color-bg)")
 	}
 
 	// body must set color: var(--color-text)
 	// Note: the precise regex check below supersedes this, but keep the guard correct.
 	if !strings.Contains(bodyContent, "color") || !strings.Contains(bodyContent, "var(--color-text)") {
-		t.Error("[P1] body does not set color: var(--color-text)")
+		t.Error("body does not set color: var(--color-text)")
 	}
 
 	// More precise check: color: var(--color-text) must appear
 	colorTextRe := regexp.MustCompile(`(?m)^\s*color\s*:\s*var\(--color-text\)`)
 	if !colorTextRe.MatchString(bodyContent) {
-		t.Error("[P1] body block missing 'color: var(--color-text)' declaration")
+		t.Error("body block missing 'color: var(--color-text)' declaration")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-004 (P1): JetBrains Mono configured as mono font
-// AC#5: JetBrains Mono with ui-monospace fallback
+// JetBrains Mono configured as mono font: JetBrains Mono
+// with ui-monospace fallback
 // ---------------------------------------------------------------------------
 
 func TestJetBrainsMonoFontConfigured(t *testing.T) {
@@ -261,14 +260,14 @@ func TestJetBrainsMonoFontConfigured(t *testing.T) {
 	// Verify --font-mono includes JetBrains Mono with ui-monospace fallback
 	monoFontRe := regexp.MustCompile(`--font-mono\s*:\s*['"]?JetBrains Mono['"]?\s*,\s*ui-monospace`)
 	if !monoFontRe.MatchString(css) {
-		t.Error("[P1] --font-mono not configured with JetBrains Mono and ui-monospace fallback")
+		t.Error("--font-mono not configured with JetBrains Mono and ui-monospace fallback")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-UNIT-005 (P2): prefers-reduced-motion disables CSS transitions
-// AC#7: All CSS transitions and animations disabled when OS-level
-//       prefers-reduced-motion is enabled
+// prefers-reduced-motion disables CSS transitions: All CSS
+// transitions and animations disabled when OS-level
+// prefers-reduced-motion is enabled
 // ---------------------------------------------------------------------------
 
 func TestReducedMotionSupport(t *testing.T) {
@@ -276,14 +275,14 @@ func TestReducedMotionSupport(t *testing.T) {
 
 	// Verify @media (prefers-reduced-motion: reduce) block exists
 	if !strings.Contains(css, "prefers-reduced-motion") {
-		t.Fatal("[P2] no prefers-reduced-motion media query found in style.css")
+		t.Fatal("no prefers-reduced-motion media query found in style.css")
 	}
 
 	// Extract the reduced-motion block
 	reducedMotionRe := regexp.MustCompile(`(?s)@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{.+?\}[\s]*\}`)
 	match := reducedMotionRe.FindString(css)
 	if match == "" {
-		t.Fatal("[P2] @media (prefers-reduced-motion: reduce) block not found or malformed")
+		t.Fatal("@media (prefers-reduced-motion: reduce) block not found or malformed")
 	}
 
 	// Verify the block disables animations and transitions
@@ -296,19 +295,19 @@ func TestReducedMotionSupport(t *testing.T) {
 
 	for _, decl := range requiredDeclarations {
 		if !strings.Contains(match, decl) {
-			t.Errorf("[P2] prefers-reduced-motion block missing declaration: %s", decl)
+			t.Errorf("prefers-reduced-motion block missing declaration: %s", decl)
 		}
 	}
 
 	// Verify !important is used (to override any inline or specific styles)
 	if !strings.Contains(match, "!important") {
-		t.Error("[P2] prefers-reduced-motion declarations should use !important")
+		t.Error("prefers-reduced-motion declarations should use !important")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-001 (P1): Tailwind v4 @theme directive extends theme
-// AC#6: Tailwind config extends default theme with custom spacing and fonts
+// Tailwind v4 @theme directive extends theme: Tailwind config extends
+// default theme with custom spacing and fonts
 // ---------------------------------------------------------------------------
 
 func TestTailwindV4ThemeDirective(t *testing.T) {
@@ -316,24 +315,24 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 
 	// Verify @theme directive exists (Tailwind v4 CSS-based config)
 	if !strings.Contains(css, "@theme") {
-		t.Fatal("[P1] no @theme directive found in style.css -- Tailwind v4 requires @theme for theme customization")
+		t.Fatal("no @theme directive found in style.css -- Tailwind v4 requires @theme for theme customization")
 	}
 
 	// Verify @theme block contains font registration
 	themeBlockRe := regexp.MustCompile(`(?s)@theme\s*\{[^}]+\}`)
 	themeBlocks := themeBlockRe.FindAllString(css, -1)
 	if len(themeBlocks) == 0 {
-		t.Fatal("[P1] no @theme { ... } block found in style.css")
+		t.Fatal("no @theme { ... } block found in style.css")
 	}
 
 	themeContent := strings.Join(themeBlocks, "\n")
 
 	// Font families must be registered in @theme for utility class generation
 	if !strings.Contains(themeContent, "--font-ui") {
-		t.Error("[P1] @theme block missing --font-ui registration")
+		t.Error("@theme block missing --font-ui registration")
 	}
 	if !strings.Contains(themeContent, "--font-mono") {
-		t.Error("[P1] @theme block missing --font-mono registration")
+		t.Error("@theme block missing --font-mono registration")
 	}
 
 	// Custom spacing scale (4px base) must be registered in @theme
@@ -354,7 +353,7 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 		escapedVal := regexp.QuoteMeta(token.value)
 		spacingRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 		if !spacingRe.MatchString(themeContent) {
-			t.Errorf("[P1] @theme block missing or incorrect spacing token: %s expected %s", token.property, token.value)
+			t.Errorf("@theme block missing or incorrect spacing token: %s expected %s", token.property, token.value)
 		}
 	}
 
@@ -375,7 +374,7 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 		escapedVal := regexp.QuoteMeta(token.value)
 		typeRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 		if !typeRe.MatchString(themeContent) {
-			t.Errorf("[P1] @theme block missing or incorrect type scale: %s expected %s", token.property, token.value)
+			t.Errorf("@theme block missing or incorrect type scale: %s expected %s", token.property, token.value)
 		}
 	}
 
@@ -396,14 +395,14 @@ func TestTailwindV4ThemeDirective(t *testing.T) {
 		escapedVal := regexp.QuoteMeta(token.value)
 		lhRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
 		if !lhRe.MatchString(themeContent) {
-			t.Errorf("[P1] @theme block missing or incorrect line height: %s expected %s", token.property, token.value)
+			t.Errorf("@theme block missing or incorrect line height: %s expected %s", token.property, token.value)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-002 (P1): @theme inline registers color tokens for Tailwind utilities
-// AC#6 (part): Colors registered via @theme inline so var() references work
+// @theme inline registers the color tokens for Tailwind utilities, so var()
+// references resolve.
 // ---------------------------------------------------------------------------
 
 func TestTailwindThemeInlineColors(t *testing.T) {
@@ -411,14 +410,14 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 
 	// Verify @theme inline directive exists
 	if !strings.Contains(css, "@theme inline") {
-		t.Fatal("[P1] no @theme inline directive found in style.css -- required for color token registration")
+		t.Fatal("no @theme inline directive found in style.css -- required for color token registration")
 	}
 
 	// Extract @theme inline block
 	themeInlineRe := regexp.MustCompile(`(?s)@theme\s+inline\s*\{[^}]+\}`)
 	inlineBlocks := themeInlineRe.FindAllString(css, -1)
 	if len(inlineBlocks) == 0 {
-		t.Fatal("[P1] no @theme inline { ... } block found in style.css")
+		t.Fatal("no @theme inline { ... } block found in style.css")
 	}
 
 	inlineContent := strings.Join(inlineBlocks, "\n")
@@ -451,14 +450,13 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 
 	for _, token := range colorTokens {
 		if !strings.Contains(inlineContent, token) {
-			t.Errorf("[P1] @theme inline block missing color token: %s", token)
+			t.Errorf("@theme inline block missing color token: %s", token)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-004 (P2): Wails template Inter-Medium.ttf deleted
-// Story task 2.5: Delete frontend/public/Inter-Medium.ttf
+// The Wails template font frontend/public/Inter-Medium.ttf is deleted.
 // ---------------------------------------------------------------------------
 
 func TestWailsTemplateFontDeleted(t *testing.T) {
@@ -466,22 +464,21 @@ func TestWailsTemplateFontDeleted(t *testing.T) {
 	fontPath := filepath.Join(root, "frontend", "public", "Inter-Medium.ttf")
 
 	if _, err := os.Stat(fontPath); err == nil {
-		t.Error("[P2] frontend/public/Inter-Medium.ttf still exists -- should be deleted per Story 1.2 task 2.5 (replaced by Google Fonts CDN import)")
+		t.Error("frontend/public/Inter-Medium.ttf still exists -- it is replaced by the Google Fonts CDN import and must be deleted")
 	} else if !os.IsNotExist(err) {
-		t.Errorf("[P2] unexpected error checking font file: %v", err)
+		t.Errorf("unexpected error checking font file: %v", err)
 	}
 	// If os.Stat returns os.ErrNotExist, test passes (file correctly deleted)
 }
 
 // ---------------------------------------------------------------------------
-// 1.2-INTG-005 (P0): style.css retains Tailwind import
-// Verify the file still imports Tailwind (from Story 1.1) -- regression guard
+// style.css retains its Tailwind import -- regression guard.
 // ---------------------------------------------------------------------------
 
 func TestTailwindImportRetained(t *testing.T) {
 	css := readStyleCSS(t)
 
 	if !strings.Contains(css, `@import "tailwindcss"`) && !strings.Contains(css, `@import 'tailwindcss'`) {
-		t.Fatal("[P0] style.css missing @import \"tailwindcss\" -- Tailwind CSS must remain imported")
+		t.Fatal("style.css missing @import \"tailwindcss\" -- Tailwind CSS must remain imported")
 	}
 }

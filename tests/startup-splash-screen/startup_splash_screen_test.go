@@ -1,27 +1,17 @@
-// Package startup_splash_screen_test provides acceptance tests for Story 9.13:
-// Startup Splash Screen.
+// Package startup_splash_screen_test provides acceptance tests for Startup
+// Splash Screen.
 //
-// TDD RED PHASE: every assertion below FAILS until Story 9-13 is implemented.
-// The dev step turns these green by:
-//   - introducing splash window creation in main.go (or internal/splash) per
-//     the story's Tasks 2-5
-//   - authoring the inline splash HTML (Option B) or platform-native
-//     primitives (Option A)
-//   - creating the internal/splash package with an injectable-clock scheduler
-//     so AC4 (min-display floor), AC7 (timeout), and AC12 (version render)
-//     are unit-testable from pure Go (no Wails dependency)
-//
-// Test Pyramid placement per story spec:
-//   - Unit (Go, internal/splash): AC4 min-display floor, AC7 timeout race,
-//     AC12 version-string passthrough -- delegated via subprocess to
+// Test pyramid placement:
+//   - Unit (Go, internal/splash): min-display floor, timeout race,
+//     version-string passthrough -- delegated via subprocess to
 //     internal/splash/splash_test.go to keep pdfcore-style delegation
 //     consistent with tests/object-source-and-reverse-refs
-//   - Integration (Go, source-content scans): AC1, AC2, AC3, AC5, AC6,
-//     AC8 (structural single-instance gating guard), AC9, AC10, AC11
+//   - Integration (Go, source-content scans):
+//     (structural single-instance gating guard)
 //   - NO E2E. Wails alpha.85 splash windows are not Playwright-drivable:
-//     Playwright drives browsers, not native frameless OS windows. Task 7
-//     of the story spec calls out the visual rendering / crossfade /
-//     font-fallback as MANUAL verification across three platforms.
+//     Playwright drives browsers, not native frameless OS windows. The
+//     visual rendering, crossfade and font-fallback are MANUAL verification
+//     across three platforms.
 //     Asserting them in CI is out of scope.
 //
 // Run: cd tests/startup-splash-screen && go test -v -count=1 ./...
@@ -84,9 +74,9 @@ func fileExists(t *testing.T, relPath string) bool {
 // splashSource returns the concatenated source of every file that could
 // legitimately host the inline splash HTML / window-creation call:
 //   - main.go
-//   - internal/splash/*.go (if the package was extracted per Dev Notes)
+//   - internal/splash/*.go (if the package was extracted)
 //   - assets/splash/splash.html (if dev keeps a development source mirror
-//     of the inlined Go string per Task 2.3)
+//     of the inlined Go string)
 //
 // The dev step picks ONE of these locations; the integration assertions
 // search across all of them so the tests survive whichever path dev takes.
@@ -115,12 +105,12 @@ func splashSource(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-001 [P0]: Splash window is created before the main WebviewWindow.
+// Splash window is created before the main WebviewWindow.
 //
-// AC#1: a frameless splash window appears within 500ms of main() entry.
-// The actual wall-clock measurement is manual (Task 7.1/7.3); this test
-// only verifies the call to create a splash window exists in main.go and
-// is positioned before app.Window.NewWithOptions for the main window.
+// A frameless splash window appears within 500ms of main() entry. The
+// actual wall-clock measurement is manual; this test only verifies that the
+// call to create a splash window exists in main.go and is positioned before
+// app.Window.NewWithOptions for the main window.
 // ---------------------------------------------------------------------------
 
 func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
@@ -135,27 +125,26 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 		splashIdx = regexp.MustCompile(`(?i)(createSplash|newSplash|showSplash|splashWindow|splash\s*:=)`).FindStringIndex(src)
 	}
 	if splashIdx == nil {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): no splash window creation found in main.go. " +
+		t.Fatalf("no splash window creation found in main.go. " +
 			"Expected something like `splash := app.Window.NewWithOptions(...)` or " +
-			"`splash := createSplash(...)` per story Task 2.1.")
+			"`splash := createSplash(...)`.")
 	}
 
 	mainWinIdx := strings.Index(src, "app.Window.NewWithOptions(application.WebviewWindowOptions{")
 	if mainWinIdx == -1 {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): expected main WebviewWindow creation site (`app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
+		t.Fatalf("expected main WebviewWindow creation site (`app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
 	}
 
 	if splashIdx[0] >= mainWinIdx {
-		t.Fatalf("[P0] 9.13-INTG-001 (AC1): splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder per story Task 2.1.", splashIdx[0], mainWinIdx)
+		t.Fatalf("splash creation (at byte %d) must occur BEFORE main window creation (at byte %d) so the splash is visible during WebView2 cold init. Reorder the two creation sites.", splashIdx[0], mainWinIdx)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-002 [P0]: Splash window options match AC3 (size, framing,
-// non-interactivity).
+// Splash window options match (size, framing, non-interactivity).
 //
-// AC#3: 480x320 logical pixels, frameless, no close/resize/minimise.
-// AC#1 (partial): frameless.
+// 480x320 logical pixels, frameless, no close/resize/minimise.
+// Partial: frameless.
 // ---------------------------------------------------------------------------
 
 func TestSplashWindowOptionsMatchSpec(t *testing.T) {
@@ -165,35 +154,35 @@ func TestSplashWindowOptionsMatchSpec(t *testing.T) {
 		pattern string
 		why     string
 	}{
-		{`Width:\s*480`, "AC3: splash width must be 480"},
-		{`Height:\s*320`, "AC3: splash height must be 320"},
-		{`Frameless:\s*true`, "AC1/AC3: splash must be frameless (no title bar / chrome)"},
-		{`AlwaysOnTop:\s*true`, "AC3: splash must be AlwaysOnTop until dismissal (cleared per AC5)"},
-		{`Resizable:\s*false`, "AC3: splash must not be resizable"},
+		{`Width:\s*480`, "splash width must be 480"},
+		{`Height:\s*320`, "splash height must be 320"},
+		{`Frameless:\s*true`, "splash must be frameless (no title bar / chrome)"},
+		{`AlwaysOnTop:\s*true`, "splash must be AlwaysOnTop until dismissal, then cleared before the crossfade"},
+		{`Resizable:\s*false`, "splash must not be resizable"},
 		// alpha.85 may name these Minimisable / Closable; tolerate either spelling
-		{`(Minimisable|Minimizable):\s*false`, "AC3: splash must not be minimisable"},
-		{`Closable:\s*false`, "AC3: splash must have no close button"},
-		// Pins Code Review #2 M-1 fix: WebView's default context menu must be
+		{`(Minimisable|Minimizable):\s*false`, "splash must not be minimisable"},
+		{`Closable:\s*false`, "splash must have no close button"},
+		// WebView's default context menu must be
 		// disabled so right-click on the splash does not expose Reload / Inspect /
-		// Back / Forward entries that would violate AC3's "no context menu".
-		{`DefaultContextMenuDisabled:\s*true`, "AC3: splash must disable WebView default context menu"},
+		// Back / Forward entries that would violate the "no context menu".
+		{`DefaultContextMenuDisabled:\s*true`, "splash must disable the WebView default context menu"},
 	}
 
 	for _, f := range requiredFields {
 		if !regexp.MustCompile(f.pattern).MatchString(src) {
-			t.Errorf("[P0] 9.13-INTG-002 (AC1/AC3): splash window option %q not found. %s. "+
+			t.Errorf("splash window option %q not found. %s. "+
 				"Searched: main.go and internal/splash/*.go.", f.pattern, f.why)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-003 [P0]: Splash HTML content matches AC2 (icon, wordmark,
-// activity indicator, version string).
+// Splash HTML content matches (icon, wordmark, activity indicator,
+// version string).
 //
-// AC#2: shows icon + wordmark + three pulsing dots + literal version
+// Shows icon + wordmark + three pulsing dots + literal version
 // string. NO progress bar, NO percentage, NO "Loading..." text.
-// AC#10: HTML is bundled inline -- no external assets, no fetch over IPC.
+// HTML is bundled inline -- no external assets, no fetch over IPC.
 // ---------------------------------------------------------------------------
 
 func TestSplashHTMLContent(t *testing.T) {
@@ -201,35 +190,34 @@ func TestSplashHTMLContent(t *testing.T) {
 
 	// Wordmark literal text
 	if !strings.Contains(src, "UniDoc PDF Debugger") {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.b): splash content must contain wordmark 'UniDoc PDF Debugger'")
+		t.Errorf("splash content must contain wordmark 'UniDoc PDF Debugger'")
 	}
 
-	// Inlined SVG icon: <svg ... or base64 PNG fallback. Story Task 3.1
-	// says inline the SVG contents of assets/branding/icon.svg.
+	// Inlined SVG icon: <svg ... or base64 PNG fallback. The SVG contents of
+	// assets/branding/icon.svg are inlined.
 	if !regexp.MustCompile(`(?is)<svg[^>]*>`).MatchString(src) &&
 		!regexp.MustCompile(`data:image/(svg\+xml|png);base64,`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.a): splash content must inline the brand icon (either <svg ...> or data:image/...;base64,). External /assets/... URLs are forbidden per AC10.")
+		t.Errorf("splash content must inline the brand icon (either <svg ...> or data:image/...;base64,). External /assets/... URLs are forbidden.")
 	}
 
 	// Three-dot activity indicator: CSS @keyframes referenced + at least
-	// three elements with staggered animation-delay (0s / 0.4s / 0.8s per
-	// Task 3.3).
+	// three elements with staggered animation-delay (0s / 0.4s / 0.8s).
 	if !regexp.MustCompile(`@keyframes`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.c): splash content must define a CSS @keyframes for the three-dot pulse animation (Task 3.3, 1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
+		t.Errorf("splash content must define a CSS @keyframes for the three-dot pulse animation (1.2s cycle, opacity 0.3 -> 1 -> 0.3).")
 	}
 	if !regexp.MustCompile(`animation-delay:\s*0\.4s`).MatchString(src) ||
 		!regexp.MustCompile(`animation-delay:\s*0\.8s`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.c): splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay (Task 3.3).")
+		t.Errorf("splash three-dot indicator must use 0s / 0.4s / 0.8s animation-delay.")
 	}
 
 	// Version string placeholder: dev injects the runtime value of
 	// main.version. Either {{.Version}} (templated) or a string-format
 	// placeholder like %s, or a JS variable substitution.
 	if !regexp.MustCompile(`\{\{\.?[Vv]ersion\}\}|%s|__VERSION__|window\.__VERSION__|\$\{version\}|<!--VERSION-->`).MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-003 (AC2.d / AC12): splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
+		t.Errorf("splash must contain a version-string placeholder bound to the Go main.version variable. Searched for {{.Version}}, %%s, __VERSION__, ${version}, <!--VERSION-->.")
 	}
 
-	// Forbidden content per AC2: no progress bar / percent / "Loading..." text
+	// Forbidden content: no progress bar / percent / "Loading..." text
 	forbidden := []string{
 		"Loading...",
 		"<progress",
@@ -239,16 +227,16 @@ func TestSplashHTMLContent(t *testing.T) {
 	}
 	for _, bad := range forbidden {
 		if strings.Contains(src, bad) {
-			t.Errorf("[P0] 9.13-INTG-003 (AC2): splash must NOT contain %q (no progress bar, no percentage, no 'Loading...' text per AC2).", bad)
+			t.Errorf("splash must NOT contain %q (no progress bar, no percentage, no 'Loading...' text).", bad)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-004 [P0]: Splash background matches the main window's RGB.
+// Splash background matches the main window's RGB.
 //
-// AC#9: background MUST match #f8fafc (the literal RGB(248, 250, 252) set
-// on the main window at main.go:348). No dark-mode handling in this story.
+// Background MUST match #f8fafc (the literal RGB(248, 250, 252) set on the
+// main window at main.go:348). No dark-mode handling in this story.
 // ---------------------------------------------------------------------------
 
 func TestSplashBackgroundColorLiteral(t *testing.T) {
@@ -267,15 +255,15 @@ func TestSplashBackgroundColorLiteral(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-004 (AC9): splash background must use literal #f8fafc (rgb 248,250,252) to match main window's main.go:348. None of [NewRGB(248,250,252) / #f8fafc / rgb(248,250,252)] were found.")
+	t.Errorf("splash background must use literal #f8fafc (rgb 248,250,252) to match main window's main.go:348. None of [NewRGB(248,250,252) / #f8fafc / rgb(248,250,252)] were found.")
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-005 [P0]: Splash HTML is bundled inline -- no external fetches.
+// Splash HTML is bundled inline -- no external fetches.
 //
-// AC#10: no external assets, no fetch over IPC. The inline HTML may
-// reference data:image, system fonts, or base64 woff2, but must NOT load
-// any http(s):// URL, /fonts/*, /assets/*, or anything else the splash
+// No external assets, no fetch over IPC. The inline HTML may reference
+// data:image, system fonts, or base64 woff2, but must NOT load any
+// http(s):// URL, /fonts/*, /assets/*, or anything else the splash
 // WebView cannot reach without a server roundtrip.
 // ---------------------------------------------------------------------------
 
@@ -293,30 +281,30 @@ func TestSplashHTMLHasNoExternalResources(t *testing.T) {
 		pattern string
 		why     string
 	}{
-		{`<link[^>]+href\s*=\s*["']https?://`, "external stylesheet URL forbidden (AC10)"},
-		{`<script[^>]+src\s*=\s*["']https?://`, "external script URL forbidden (AC10)"},
-		{`<img[^>]+src\s*=\s*["']/`, "absolute-path image src forbidden -- splash WebView cannot fetch /assets/* per AC10"},
-		{`@import\s+url\(\s*["']?https?://`, "CSS @import of external URL forbidden (AC10)"},
+		{`<link[^>]+href\s*=\s*["']https?://`, "external stylesheet URL forbidden"},
+		{`<script[^>]+src\s*=\s*["']https?://`, "external script URL forbidden"},
+		{`<img[^>]+src\s*=\s*["']/`, "absolute-path image src forbidden -- the splash WebView cannot fetch /assets/*"},
+		{`@import\s+url\(\s*["']?https?://`, "CSS @import of external URL forbidden"},
 		// /fonts/Inter-SemiBold.woff2 cannot be reached by the splash
 		// WebView (it lives in the main frontend bundle), so an attempt
 		// to load it would be a bug.
-		{`url\(\s*["']?/fonts/`, "/fonts/* URL forbidden in splash -- splash WebView cannot reach main frontend bundle (Task 3.2)"},
-		{`fetch\s*\(\s*["']https?://`, "fetch() of external URL forbidden (AC10)"},
+		{`url\(\s*["']?/fonts/`, "/fonts/* URL forbidden in splash -- splash WebView cannot reach main frontend bundle"},
+		{`fetch\s*\(\s*["']https?://`, "fetch() of external URL forbidden"},
 	}
 
 	for _, f := range forbidden {
 		if re := regexp.MustCompile(f.pattern); re.MatchString(src) {
-			t.Errorf("[P0] 9.13-INTG-005 (AC10): splash HTML contains forbidden external resource pattern %q. %s", f.pattern, f.why)
+			t.Errorf("splash HTML contains forbidden external resource pattern %q. %s", f.pattern, f.why)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-006 [P0]: Min-display floor constant exists and equals 400ms.
+// Min-display floor constant exists and equals 400ms.
 //
-// AC#4: splashMinDisplayMs = 400. Constant must be declared as a named
-// constant (not a magic number buried in a literal) so the unit-test
-// delegation in 9.13-UNIT-004 can pin it.
+// splashMinDisplayMs = 400. Constant must be declared as a named
+// constant (not a magic number buried in a literal) so the delegated
+// internal/splash unit test can pin it.
 // ---------------------------------------------------------------------------
 
 func TestSplashMinDisplayMsConstant(t *testing.T) {
@@ -328,14 +316,14 @@ func TestSplashMinDisplayMsConstant(t *testing.T) {
 	// call with no named constant binding).
 	re := regexp.MustCompile(`splashMinDisplayMs\s*=\s*400\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("[P0] 9.13-INTG-006 (AC4): a named constant `splashMinDisplayMs = 400` must exist (Task 4.1). Magic 400ms literals inside time.AfterFunc are not sufficient.")
+		t.Fatalf("a named constant `splashMinDisplayMs = 400` must exist. Magic 400ms literals inside time.AfterFunc are not sufficient.")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-007 [P0]: Timeout constant exists and equals 30000ms.
+// Timeout constant exists and equals 30000ms.
 //
-// AC#7: splashTimeoutMs = 30000.
+// splashTimeoutMs = 30000.
 // ---------------------------------------------------------------------------
 
 func TestSplashTimeoutMsConstant(t *testing.T) {
@@ -343,17 +331,16 @@ func TestSplashTimeoutMsConstant(t *testing.T) {
 
 	re := regexp.MustCompile(`splashTimeoutMs\s*=\s*30000\b`)
 	if !re.MatchString(src) {
-		t.Fatalf("[P0] 9.13-INTG-007 (AC7): a named constant `splashTimeoutMs = 30000` must exist (Task 5.1).")
+		t.Fatalf("a named constant `splashTimeoutMs = 30000` must exist.")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-008 [P0]: Dismissal path clears AlwaysOnTop and triggers
-// crossfade.
+// Dismissal path clears AlwaysOnTop and triggers crossfade.
 //
-// AC#5: Before dismissal begins, the splash's AlwaysOnTop flag MUST be
-// cleared so the main window can render above it. Crossfade is preferred
-// but instantaneous swap is acceptable per AC5; we therefore require the
+// Before dismissal begins, the splash's AlwaysOnTop flag MUST be cleared
+// so the main window can render above it. Crossfade is preferred but
+// instantaneous swap is acceptable; we therefore require the
 // AlwaysOnTop-clear assertion AND require some opacity/transition hook
 // in the splash HTML or a SetAlpha call on the splash window.
 // ---------------------------------------------------------------------------
@@ -365,17 +352,17 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 	// or whatever alpha.85 spells it. Be permissive.
 	clearPattern := regexp.MustCompile(`(?i)(SetAlwaysOnTop\s*\(\s*false\s*\)|AlwaysOnTop\s*=\s*false)`)
 	if !clearPattern.MatchString(src) {
-		t.Errorf("[P0] 9.13-INTG-008 (AC5): splash dismissal must clear AlwaysOnTop before crossfade. " +
+		t.Errorf("splash dismissal must clear AlwaysOnTop before crossfade. " +
 			"Searched for SetAlwaysOnTop(false) and AlwaysOnTop = false; neither found.")
 	}
 
-	// Crossfade hook: transition: opacity Xms in the splash HTML, OR
-	// a SetAlpha call on the splash window, OR an EvaluateJS that toggles
-	// an opacity-transition class. AC5 explicitly allows the instantaneous-swap
-	// fallback BUT requires a Dev Notes entry explaining why. We assert the
-	// crossfade-hook here; if dev falls back to instantaneous swap, dev
-	// must edit this test to a `t.Skip` with a Dev Notes link per the AC5
-	// fallback clause.
+	// Crossfade hook: transition: opacity Xms in the splash HTML, OR a SetAlpha
+	// call on the splash window, OR an EvaluateJS that toggles an
+	// opacity-transition class. The instantaneous-swap fallback is allowed BUT
+	// requires a documented reason. We assert the
+	// crossfade-hook here; if dev falls back to instantaneous swap, dev must
+	// edit this test to a `t.Skip` with a documented reason per the fallback
+	// clause.
 	fadePatterns := []string{
 		`transition\s*:\s*opacity\b`,
 		`SetAlpha\s*\(`,
@@ -389,15 +376,15 @@ func TestSplashDismissalClearsAlwaysOnTopAndFades(t *testing.T) {
 		}
 	}
 	if !matched {
-		t.Errorf("[P0] 9.13-INTG-008 (AC5): splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
-			"If instantaneous swap is being shipped per the AC5 fallback, this test must be t.Skip'd with a Dev Notes reference.")
+		t.Errorf("splash dismissal must implement crossfade (transition: opacity / SetAlpha / opacity-transition CSS). Found none. " +
+			"If instantaneous swap is being shipped instead, this test must be t.Skip'd with a documented reason.")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-009 [P0]: Splash is fully unmounted after dismissal.
+// Splash is fully unmounted after dismissal.
 //
-// AC#6: splash MUST be fully unmounted (not just hidden behind the main
+// Splash MUST be fully unmounted (not just hidden behind the main
 // window). Verify the dismissal path calls Close() / Destroy() on the
 // splash window, not just SetVisible(false) or similar.
 // ---------------------------------------------------------------------------
@@ -414,14 +401,14 @@ func TestSplashIsClosedAfterDismissal(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-009 (AC6): splash window must be Close()'d or Destroy()'d after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
+	t.Errorf("splash window must be Close()'d or Destroy()'d after dismissal -- hiding alone leaves it in the OS window list. Searched for splash*.Close(...) and splash*.Destroy(...).")
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-010 [P0]: Splash creation does NOT appear inside
-// OnSecondInstanceLaunch or ApplicationOpenedWithFile callbacks.
+// Splash creation does NOT appear inside OnSecondInstanceLaunch
+// or ApplicationOpenedWithFile callbacks.
 //
-// AC#8: structural regression guard. Splash MUST live in the
+// Structural regression guard. Splash MUST live in the
 // first-instance bootstrap path (top of main()), never inside the
 // reentrant single-instance / file-association handlers.
 // ---------------------------------------------------------------------------
@@ -436,8 +423,8 @@ func TestSplashNotCreatedInsideSecondInstanceCallback(t *testing.T) {
 		startMarker string
 		why         string
 	}{
-		{"OnSecondInstanceLaunch:", "AC8: single-instance second launches must NOT spawn a splash"},
-		{"ApplicationOpenedWithFile", "AC8: file-association open must NOT spawn a splash (file goes to existing window)"},
+		{"OnSecondInstanceLaunch:", "single-instance second launches must NOT spawn a splash"},
+		{"ApplicationOpenedWithFile", "file-association open must NOT spawn a splash (the file goes to the existing window)"},
 	}
 
 	for _, region := range checkRegions {
@@ -470,7 +457,7 @@ func TestSplashNotCreatedInsideSecondInstanceCallback(t *testing.T) {
 
 		forbidden := regexp.MustCompile(`(?i)(splash|createSplash|newSplash|showSplash|splashWindow)`)
 		if forbidden.MatchString(body) {
-			t.Errorf("[P0] 9.13-INTG-010 (AC8): callback at marker %q contains a splash reference. %s. "+
+			t.Errorf("callback at marker %q contains a splash reference. %s. "+
 				"Body excerpt: %s", region.startMarker, region.why, snippet(body, 200))
 		}
 	}
@@ -487,11 +474,10 @@ func snippet(s string, n int) string {
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-011 [P1]: No first-ever-launch persistence branch around
-// splash creation.
+// No first-ever-launch persistence branch around splash creation.
 //
-// AC#11: the splash is shown on every launch by design -- consistency
-// is the brand signal. No "first-ever-launch only" gating.
+// The splash is shown on every launch by design -- consistency is the
+// brand signal. No "first-ever-launch only" gating.
 // ---------------------------------------------------------------------------
 
 func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
@@ -511,46 +497,45 @@ func TestSplashHasNoFirstLaunchPersistenceGate(t *testing.T) {
 	}
 	for _, p := range forbidden {
 		if regexp.MustCompile(p).MatchString(src) {
-			t.Errorf("[P1] 9.13-INTG-011 (AC11): splash must show on every launch. Found a first-launch/warm-launch gate matching %q. Per AC11 + 2026-05-19 design decision, no such branch is allowed.", p)
+			t.Errorf("splash must show on every launch. Found a first-launch/warm-launch gate matching %q. Per the 2026-05-19 design decision, no such branch is allowed.", p)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-012 [P1]: Splash timeout error pane content per AC7.
+// Splash timeout error pane content.
 //
-// AC#7: pre-bundled error pane reads "Could not start. Please reinstall."
-// with a Close button. The platform-specific install URL is OUT of scope.
+// pre-bundled error pane reads "Could not start. Please reinstall." with
+// a Close button. The platform-specific install URL is OUT of scope.
 // ---------------------------------------------------------------------------
 
 func TestSplashTimeoutErrorPaneContent(t *testing.T) {
 	src := splashSource(t)
 
 	if !strings.Contains(src, "Could not start. Please reinstall.") {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): timeout error pane must contain the exact literal 'Could not start. Please reinstall.' (Task 5.2 / AC7).")
+		t.Errorf("timeout error pane must contain the exact literal 'Could not start. Please reinstall.'.")
 	}
 
 	// Close button: either a <button>Close</button>, or a button with
 	// id/class containing "close", or a button with Close text.
 	if !regexp.MustCompile(`(?is)<button[^>]*>[^<]*Close[^<]*</button>`).MatchString(src) &&
 		!regexp.MustCompile(`(?i)id\s*=\s*["']splashClose["']`).MatchString(src) {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): timeout error pane must include a Close button (Task 5.2). Searched for <button>Close</button> and id=splashClose.")
+		t.Errorf("timeout error pane must include a Close button. Searched for <button>Close</button> and id=splashClose.")
 	}
 
 	// Wails event channel that the inline JS listens on for timeout
-	// transition (per AC7 revised mechanism).
+	// transition (revised mechanism).
 	if !regexp.MustCompile(`splash:timeout`).MatchString(src) {
-		t.Errorf("[P1] 9.13-INTG-012 (AC7): backend must emit a `splash:timeout` Wails event for the error-pane handoff (Task 5.2). Event name not found.")
+		t.Errorf("backend must emit a `splash:timeout` Wails event for the error-pane handoff. Event name not found.")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-UNIT-001 [P0]: Min-display floor + timeout race + version-string
-// passthrough -- delegated to internal/splash/splash_test.go.
+// Min-display floor + timeout race + version-string passthrough --
+// delegated to internal/splash/splash_test.go.
 //
-// AC#4, AC#7, AC#12. Story Task 6.1 requires extracting a small
-// internal/splash package with an injectable clock interface so the
-// scheduling logic is unit-testable without spinning up Wails.
+// A small internal/splash package with an injectable clock interface keeps
+// the scheduling logic unit-testable without spinning up Wails.
 //
 // This delegation pattern mirrors tests/object-source-and-reverse-refs.
 // The integration test runs `go test -run TestSplashScheduler -v ./...`
@@ -562,11 +547,11 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 	root := projectRoot(t)
 	pkgDir := filepath.Join(root, "internal", "splash")
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
-		t.Fatalf("[P0] 9.13-UNIT-001 (AC4/AC7/AC12): internal/splash package missing. Story Task 6.1 requires extracting the splash scheduler + version-render into an importable package with an injectable clock. Expected at %s", pkgDir)
+		t.Fatalf("internal/splash package missing. The splash scheduler and version-render belong in an importable package with an injectable clock. Expected at %s", pkgDir)
 	}
 
 	// Delegate. Run all tests matching the splash unit-test naming
-	// convention agreed in the ATDD checklist: TestSplashScheduler*,
+	// convention: TestSplashScheduler*,
 	// TestSplashTimeout*, TestSplashRenderVersion*. If any are missing,
 	// `go test -run` will report `no tests to run` and we treat that as
 	// a fail (the checklist names every required pattern).
@@ -586,26 +571,26 @@ func TestDelegated_SplashSchedulerAndVersionRender(t *testing.T) {
 		out, err := cmd.CombinedOutput()
 		output := string(out)
 		if err != nil {
-			t.Errorf("[P0] 9.13-UNIT-001: delegated unit test %s failed in internal/splash:\n%s\nerr: %v", pattern, output, err)
+			t.Errorf("delegated unit test %s failed in internal/splash:\n%s\nerr: %v", pattern, output, err)
 			continue
 		}
 		// `go test -run <regex>` exits 0 when no tests match. Catch that.
 		if strings.Contains(output, "no tests to run") || strings.Contains(output, "no test files") {
-			t.Errorf("[P0] 9.13-UNIT-001: no matching test found for pattern %q in internal/splash. The story Task 6.1 contract requires this test name.", pattern)
+			t.Errorf("no matching test found for pattern %q in internal/splash. The contract requires this test name.", pattern)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-013 [P1]: Version string is rendered verbatim, not stripped.
+// Version string is rendered verbatim, not stripped.
 //
-// AC#12: full semver appears (`v0.2.0-rc1`), NOT the stripped `0.2.0`.
+// Full semver appears (`v0.2.0-rc1`), NOT the stripped `0.2.0`.
 // Static-analysis check: the splash content path must NOT call any
 // version-stripping helper (e.g. SemVer.Major(), strings.Split on '-').
-// The pure-logic assertion is delegated to internal/splash (see
-// 9.13-UNIT-001 patterns TestSplashRenderVersion*); this integration
-// test guards against a regression where someone wires the stripped
-// form into the splash by accident.
+// The pure-logic assertion is delegated to internal/splash (patterns
+// TestSplashRenderVersion*); this integration test guards against a
+// regression where someone wires the stripped form into the splash by
+// accident.
 // ---------------------------------------------------------------------------
 
 func TestSplashVersionRenderIsNotStripped(t *testing.T) {
@@ -617,8 +602,8 @@ func TestSplashVersionRenderIsNotStripped(t *testing.T) {
 	// that reference.
 	if !regexp.MustCompile(`(?i)version`).MatchString(src) {
 		// The version string injection must exist somewhere; if it
-		// doesn't, AC12 has not been wired and the dedicated content
-		// test (9.13-INTG-003) already fails. No need to double-fail.
+		// doesn't, has not been wired and the dedicated content test
+		// already fails. No need to double-fail.
 		return
 	}
 
@@ -629,16 +614,16 @@ func TestSplashVersionRenderIsNotStripped(t *testing.T) {
 	}
 	for _, p := range antiPatterns {
 		if regexp.MustCompile(p).MatchString(src) {
-			t.Errorf("[P1] 9.13-INTG-013 (AC12): version stripping pattern detected (%q). Per AC12 the FULL semver including prerelease suffix MUST be rendered.", p)
+			t.Errorf("version stripping pattern detected (%q). the FULL semver including prerelease suffix MUST be rendered.", p)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-014 [P0]: Main window is created with body opacity 0 so it
-// crossfades up cleanly.
+// Main window is created with body opacity 0 so it crossfades up
+// cleanly.
 //
-// AC#5: "The main window MUST be created with its body at opacity 0 (or
+// "The main window MUST be created with its body at opacity 0 (or
 // hidden) and fade up only at dismissal -- otherwise the first paint
 // shows a fully opaque main window for a frame before its transition
 // starts, defeating the crossfade."
@@ -686,17 +671,17 @@ func TestMainWindowFirstPaintIsTransparent(t *testing.T) {
 			return
 		}
 	}
-	t.Errorf("[P0] 9.13-INTG-014 (AC5): main window must start invisible (body/html/#root opacity 0, or wait on a splash:dismissed event) so the crossfade is not defeated by an opaque first paint. None of the expected patterns found in %d candidate files.", len(candidates))
+	t.Errorf("main window must start invisible (body/html/#root opacity 0, or wait on a splash:dismissed event) so the crossfade is not defeated by an opaque first paint. None of the expected patterns found in %d candidate files.", len(candidates))
 }
 
 // ---------------------------------------------------------------------------
-// 9.13-INTG-015 [P1]: Build-time -ldflags wiring preserves the full
-// semver for AC12.
+// Build-time -ldflags wiring preserves the full semver, prerelease suffix
+// included: the splash must show `v0.2.0-rc1`, not the stripped `v0.2.0`.
 //
-// AC#12: contingent on `VERSION` being set to the full semver by the
-// upstream CI / release pipeline. The story explicitly says: "If
-// VERSION itself is stripped upstream, that fix is a prerequisite and
-// not scope-creep for this story."
+// Contingent on `VERSION` being set to the full semver by the
+// upstream CI / release pipeline. A VERSION that is already stripped
+// upstream is a prerequisite fix outside what this test covers; the
+// requirement here is only that the build files do not strip it further.
 //
 // This test scans build/{darwin,linux,windows}/Taskfile.yml for the
 // -X main.version={{.VERSION}} substitution and asserts no strip is
@@ -715,7 +700,7 @@ func TestVersionLDFlagsPreserveFullSemver(t *testing.T) {
 
 		// -X main.version=... must appear, bound to the unstripped VERSION.
 		if !regexp.MustCompile(`-X\s+main\.version=`).MatchString(content) {
-			t.Errorf("[P1] 9.13-INTG-015 (AC12): build/%s/Taskfile.yml does not contain `-X main.version=...` ldflag binding. The splash version-render depends on it.", platform)
+			t.Errorf("build/%s/Taskfile.yml does not contain `-X main.version=...` ldflag binding. The splash version-render depends on it.", platform)
 			continue
 		}
 
@@ -730,7 +715,7 @@ func TestVersionLDFlagsPreserveFullSemver(t *testing.T) {
 		}
 		for _, p := range stripPatterns {
 			if regexp.MustCompile(p).MatchString(content) {
-				t.Errorf("[P1] 9.13-INTG-015 (AC12): build/%s/Taskfile.yml strips the version (%q) before reaching the Go binary. Per AC12 the prerelease suffix must be preserved.", platform, p)
+				t.Errorf("build/%s/Taskfile.yml strips the version (%q) before reaching the Go binary. the prerelease suffix must be preserved.", platform, p)
 			}
 		}
 	}

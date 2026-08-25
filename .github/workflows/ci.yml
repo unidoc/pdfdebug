@@ -123,19 +123,28 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           win_subset=(
-            11-6-page-render-info
-            13-1-cli-output-format-normalization
-            13-2-embedded-data-inspector
-            13-3-font-cmap-glyph
-            13-4-signature-decomposition
-            13-5-compliance-validation
-            13-6-structural-diff
+            page-render-info
+            cli-output-format-normalization
+            embedded-data-inspector
+            font-cmap-glyph
+            signature-decomposition
+            compliance-validation
+            structural-diff
             cli-object-query
             cli-page-render
             cli-stream-retrieval
             cli-tree-dump
             cli-views
           )
+          # A win_subset entry that names no suite does not fail to match, it
+          # silently fails in_subset and the Windows leg prints a skip line and
+          # stays green with less coverage. Fail hard instead, on every runner.
+          missing=()
+          for s in "${win_subset[@]}"; do [[ -d "tests/$s" ]] || missing+=("$s"); done
+          if (( ${#missing[@]} > 0 )); then
+            echo "win_subset entries with no tests/<name>/ directory: ${missing[*]}"
+            exit 1
+          fi
           in_subset() {
             local n="$1"
             for s in "${win_subset[@]}"; do [[ "$s" == "$n" ]] && return 0; done

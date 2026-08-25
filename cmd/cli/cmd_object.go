@@ -51,7 +51,7 @@ func runObjectDump(args []string) int {
 
 // objectDumpOutput wraps an ObjectDetail with the optional --resolve inline
 // expansion. Without --resolve the Resolved field is absent (omitempty), so the
-// default output is byte-for-byte the bare ObjectDetail (AC6 no-regression).
+// default output is byte-for-byte the bare ObjectDetail (no-regression).
 type objectDumpOutput struct {
 	*pdfcore.ObjectDetail
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
@@ -59,7 +59,7 @@ type objectDumpOutput struct {
 
 // refFormatHint is the canonical error/usage text naming both accepted --ref
 // forms and pointing at dump tree's pdfRef field. Kept coherent regardless of
-// which form the user attempted (AC2/AC4).
+// which form the user attempted.
 const refFormatHint = `invalid reference format: expected "N G R" (e.g., "5 0 R"); ` +
 	`the obj:G:N id form (e.g. "obj:0:5") is also accepted; ` +
 	`tip: dump tree emits a ready-to-paste pdfRef per node`

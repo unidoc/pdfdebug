@@ -1,14 +1,7 @@
 /**
- * Story 13.6: DiffView side-by-side comparison component tests (AC 5, 6).
+ * DiffView side-by-side comparison component tests.
  *
- * RED PHASE: the `./DiffView` import below is the failing seam -- the component
- * does not exist yet, so this file fails to collect until Task 4.1 lands it
- * (mirrors the 13.4 SignaturesView / 13.5 ValidateView red-phase precedent).
- * Test files are excluded from the app build/typecheck via the tsconfig
- * `exclude` test glob, so this red file never breaks `npm run build` or
- * `npm run typecheck`; only `vitest run` shows it red.
- *
- * Component contract (from the story AC5):
+ * Component contract:
  *  - On mount (active), DiffView fetches DiffDocuments(leftTabId, rightTabId)
  *    and renders a summary header (data-testid="diff-summary") with the
  *    added/removed/changed counts and the high-signal facts (page-count change).
@@ -27,7 +20,6 @@
  *    (data-testid="diff-detail") listing the changed keys and left-vs-right
  *    values.
  *
- * Naming: 13.6-UNIT-2NN [Px].
  * Run: cd frontend && npx vitest run src/components/DiffView.test.tsx
  */
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
@@ -163,10 +155,10 @@ beforeEach(() => {
   mockDiffDocuments.mockResolvedValue(diffResult);
 });
 
-describe('DiffView (Story 13.6)', () => {
-  // 13.6-UNIT-201 [P0] AC5: DiffView fetches DiffDocuments(left, right) and
-  // renders a summary header with the added/removed/changed counts.
-  test('13.6-UNIT-201 fetches the diff and renders the summary counts', async () => {
+describe('DiffView', () => {
+  // DiffView fetches DiffDocuments(left, right) and renders a summary
+  // header with the added/removed/changed counts.
+  test('fetches the diff and renders the summary counts', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await waitFor(() => expect(mockDiffDocuments).toHaveBeenCalledWith('left', 'right'));
@@ -180,8 +172,8 @@ describe('DiffView (Story 13.6)', () => {
     expect(summary.textContent).toMatch(/\b2\b/);
   });
 
-  // 13.6-UNIT-202 [P0] AC5: two synchronized tree panes are rendered.
-  test('13.6-UNIT-202 renders synchronized left and right tree panes', async () => {
+  // Two synchronized tree panes are rendered.
+  test('renders synchronized left and right tree panes', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-tree-left');
@@ -189,9 +181,9 @@ describe('DiffView (Story 13.6)', () => {
     expect(screen.getByTestId('diff-tree-right')).toBeInTheDocument();
   });
 
-  // 13.6-UNIT-203 [P0] AC5: nodes carry their status via data-status for
-  // color-coding; added and changed statuses are both present.
-  test('13.6-UNIT-203 nodes expose data-status for color-coding', async () => {
+  // Nodes carry their status via data-status for color-coding; added and
+  // changed statuses are both present.
+  test('nodes expose data-status for color-coding', async () => {
     const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-summary');
@@ -202,10 +194,10 @@ describe('DiffView (Story 13.6)', () => {
     expect(statuses).toContain('changed');
   });
 
-  // 13.6-UNIT-204 [P0] AC5: unchanged subtrees collapse by default, but the path
-  // to a change is auto-expanded (the changed leaf value is visible; the
-  // unchanged-only branch's unique leaf is not).
-  test('13.6-UNIT-204 unchanged subtrees collapse; change paths auto-expand', async () => {
+  // Unchanged subtrees collapse by default, but the path to a change is
+  // auto-expanded (the changed leaf value is visible; the unchanged-only
+  // branch's unique leaf is not).
+  test('unchanged subtrees collapse; change paths auto-expand', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-summary');
@@ -215,9 +207,9 @@ describe('DiffView (Story 13.6)', () => {
     expect(screen.queryByText(/GoToUnchanged/)).toBeNull();
   });
 
-  // 13.6-UNIT-205 [P1] AC5: "next change" navigation selects a non-unchanged
-  // node; the selected node carries data-selected="true".
-  test('13.6-UNIT-205 next-change selects the next changed node', async () => {
+  // "next change" navigation selects a non-unchanged node; the selected node
+  // carries data-selected="true".
+  test('next-change selects the next changed node', async () => {
     const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-next-change');
@@ -230,9 +222,9 @@ describe('DiffView (Story 13.6)', () => {
     });
   });
 
-  // 13.6-UNIT-206 [P1] AC5: selecting a changed node shows the per-key/value
-  // detail (changed key name + left-vs-right values).
-  test('13.6-UNIT-206 selecting a changed node shows key/value detail', async () => {
+  // Selecting a changed node shows the per-key/value detail (changed key
+  // name + left-vs-right values).
+  test('selecting a changed node shows key/value detail', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-next-change');
@@ -248,9 +240,8 @@ describe('DiffView (Story 13.6)', () => {
     expect(text).toBeTypeOf('function');
   });
 
-  // 13.6-UNIT-207 [P1] AC3/AC6: the summary header surfaces the page-count
-  // change (1 -> 2).
-  test('13.6-UNIT-207 summary surfaces the page-count change', async () => {
+  // The summary header surfaces the page-count change (1 -> 2).
+  test('summary surfaces the page-count change', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     const summary = await screen.findByTestId('diff-summary');
@@ -260,9 +251,9 @@ describe('DiffView (Story 13.6)', () => {
     expect(summary.textContent).toMatch(/2/);
   });
 
-  // 13.6-UNIT-208 [P2] AC6: an identical (zero-delta) diff renders an explicit
-  // "no differences" state rather than an empty view.
-  test('13.6-UNIT-208 identical documents show a zero-delta state', async () => {
+  // An identical (zero-delta) diff renders an explicit "no differences" state
+  // rather than an empty view.
+  test('identical documents show a zero-delta state', async () => {
     mockDiffDocuments.mockResolvedValue(identicalResult);
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
@@ -270,11 +261,10 @@ describe('DiffView (Story 13.6)', () => {
     expect(summary.textContent?.toLowerCase()).toMatch(/no differ|identical|0 added/);
   });
 
-  // 13.6-UNIT-209 [P1] AC6: a failed DiffDocuments (parse failure on the
-  // comparison file) surfaces a clear error state, not a stuck spinner or a
-  // crash - the isolation contract that a broken second file does not take down
-  // the view.
-  test('13.6-UNIT-209 a failed diff surfaces the error state', async () => {
+  // A failed DiffDocuments (parse failure on the comparison file) surfaces a
+  // clear error state, not a stuck spinner or a crash - the isolation contract
+  // that a broken second file does not take down the view.
+  test('a failed diff surfaces the error state', async () => {
     mockDiffDocuments.mockRejectedValue(new Error('could not parse comparison file'));
     render(<DiffView leftTabId="left" rightTabId="right" active />);
 
@@ -284,10 +274,10 @@ describe('DiffView (Story 13.6)', () => {
     expect(screen.queryByTestId('diff-loading')).toBeNull();
   });
 
-  // 13.6-UNIT-210 [P1] AC5: "prev change" navigation (the mirror of next-change)
-  // selects a non-unchanged node. With nothing selected yet, prev wraps to the
-  // LAST change - exercising navChange(-1)'s distinct index/wrap path.
-  test('13.6-UNIT-210 prev-change selects a changed node', async () => {
+  // "prev change" navigation (the mirror of next-change) selects a non-unchanged
+  // node. With nothing selected yet, prev wraps to the LAST change - exercising
+  // navChange(-1)'s distinct index/wrap path.
+  test('prev-change selects a changed node', async () => {
     const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
 
     await screen.findByTestId('diff-prev-change');

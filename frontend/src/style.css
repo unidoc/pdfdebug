@@ -136,7 +136,7 @@
   --color-token-name: #0f766e;
   --color-token-comment: #64748b;
 
-  /* Plain Text find-bar match highlight colors (Story 10-2) */
+  /* Plain Text find-bar match highlight colors */
   --color-find-match: #fef08a;
   --color-find-match-fg: #1e293b;
   --color-find-active: #f59e0b;

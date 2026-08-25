@@ -4,14 +4,14 @@
   runtime -- the splash WebviewWindow loads the Go string constant directly
   (HTML field on WebviewWindowOptions) so the WebView's first paint is
   bounded only by WebView2 cold-init time, not by filesystem or IPC
-  latency (AC10).
+  latency.
 
   When editing the splash visuals, edit this file first, paste the body
   into the `splashHTMLTemplate` constant in internal/splash/splash.go, and
   re-run `go test ./...` from the project root.
 
   The string "{{.Version}}" is the placeholder substituted at runtime by
-  Render(version string). AC12 requires the FULL semver (including any
+  Render(version string). The label carries the FULL semver (including any
   prerelease suffix like -rc1) -- no stripping.
 -->
 <!DOCTYPE html>
@@ -20,7 +20,7 @@
 <meta charset="UTF-8">
 <title>UniDoc PDF Debugger</title>
 <style>
-  /* AC9: literal #f8fafc matches application.NewRGB(248, 250, 252) on the
+  /* The literal #f8fafc matches application.NewRGB(248, 250, 252) on the
      main window. No system-dark-mode handling in this story. */
   html, body {
     margin: 0;
@@ -29,20 +29,20 @@
     height: 100%;
     background: #f8fafc;
     background-color: #f8fafc;
-    /* AC5: splash <body> starts opaque; fades out (opacity 0) on
+    /* The splash <body> starts opaque; fades out (opacity 0) on
        dismissal via the splash:dismiss event handler below. */
     opacity: 1;
     transition: opacity 200ms ease-out;
     overflow: hidden;
-    /* AC3: splash is non-interactive (clicks pass through where the OS
+    /* The splash is non-interactive (clicks pass through where the OS
        allows; no draggable region; no context menu). */
     user-select: none;
     -webkit-user-select: none;
     cursor: default;
   }
   body.splash-dismissing { opacity: 0; }
-  /* AC2: Inter Semibold preferred but unreachable from the splash
-     WebView; system sans fallback is acceptable per Task 3.2. */
+  /* Inter Semibold preferred but unreachable from the splash
+     WebView; system sans fallback is acceptable. */
   body {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
                  'Segoe UI', Roboto, sans-serif;
@@ -63,9 +63,9 @@
     box-sizing: border-box;
     position: relative;
   }
-  /* AC2.a: 128x128 icon, centered horizontally, upper third vertically. */
+  /* 128x128 icon, centered horizontally, upper third vertically. */
   .splash-icon { width: 128px; height: 128px; display: block; }
-  /* AC2.b: wordmark, 18-20px, semibold. */
+  /* Wordmark, 18-20px, semibold. */
   .splash-wordmark {
     margin: 20px 0 0 0;
     font-size: 19px;
@@ -74,7 +74,7 @@
     color: #0f172a;
     line-height: 1.2;
   }
-  /* AC2.c: three pulsing dots, 1.2s cycle, opacity 0.3 -> 1 -> 0.3.
+  /* Three pulsing dots, 1.2s cycle, opacity 0.3 -> 1 -> 0.3.
      Color #3b82f6 matches --color-info from frontend/src/style.css. */
   .splash-dots {
     margin-top: 32px;
@@ -98,7 +98,7 @@
     50%  { opacity: 1; }
     100% { opacity: 0.3; }
   }
-  /* AC2.d / AC12: version pinned bottom-centered, muted, full semver.
+  /* Version pinned bottom-centered, muted, full semver.
      If main.version is the literal "dev", we render "dev" without the
      "v" prefix; otherwise we render "v" + semver. */
   .splash-version {
@@ -111,7 +111,7 @@
     font-size: 12px;
     line-height: 1;
   }
-  /* AC7: hidden error pane revealed on splash:timeout. */
+  /* Hidden error pane revealed on splash:timeout. */
   .splash-error {
     display: none;
     position: absolute;
@@ -149,7 +149,7 @@
 </head>
 <body>
 <div class="splash-stack">
-  <!-- AC2.a: inlined brand icon SVG from assets/branding/icon.svg.
+  <!-- Inlined brand icon SVG from assets/branding/icon.svg.
        Width/height attrs removed; CSS sizes it to 128x128. -->
   <svg class="splash-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UniDoc PDF Debugger icon">
     <rect width="1024" height="1024" rx="200" fill="#7F1D1D"/>
@@ -186,8 +186,8 @@
   // window._wails to an object but does NOT define dispatchWailsEvent
   // (that lives in @wailsio/runtime/src/events.ts which is never loaded
   // for HTML-loaded windows). We define our own dispatchWailsEvent stub
-  // below so splash:dismiss (AC5 fade) and splash:timeout (AC7 error
-  // pane reveal) reach the splash. See review #3 in story 9-13 for the
+  // below so splash:dismiss (fade) and splash:timeout (error pane
+  // reveal) reach the splash. See the splash review notes for the
   // full analysis.
   //
   // The Close button on the error pane cannot Events.Emit back to Go

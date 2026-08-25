@@ -209,7 +209,7 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 	t.Logf("malformed.pdf GetImageData result: error=%q", mResult.Error)
 }
 
-// 6.1-UNIT-006 / 6.1-UNIT-007: DCTDecode image returns "image/jpeg" MIME type.
+// DCTDecode image returns "image/jpeg" MIME type.
 func TestGetImageData_DCTDecodeJPEG(t *testing.T) {
 	ins, tabID := openImagePDF(t)
 
@@ -234,8 +234,8 @@ func TestGetImageData_DCTDecodeJPEG(t *testing.T) {
 	}
 }
 
-// 6.1-UNIT-011: Form XObject (Subtype=Form) is NOT treated as image.
-// Tests the code path where the object IS a StreamDict but Subtype != Image.
+// Form XObject (Subtype=Form) is NOT treated as image. Tests the code path
+// where the object IS a StreamDict but Subtype != Image.
 func TestGetImageData_StreamDictNonImage(t *testing.T) {
 	ins, tabID := openContentStream(t)
 
@@ -258,7 +258,7 @@ func TestGetImageData_StreamDictNonImage(t *testing.T) {
 	}
 }
 
-// 6.1-UNIT-012: GetImageData returns consistent results across multiple calls.
+// GetImageData returns consistent results across multiple calls.
 func TestGetImageData_Idempotency(t *testing.T) {
 	ins, tabID := openImagePDF(t)
 

@@ -33,7 +33,7 @@ type CertInfo struct {
 // SignatureField is one signature field decomposed into structural facts:
 // field identity, signature-dictionary entries, the PKCS#7/CMS certificate
 // facts, and the /ByteRange coverage measurement. It NEVER carries a trust
-// verdict - decompose-and-display only (Story 13-4 AC4).
+// verdict - decompose-and-display only.
 type SignatureField struct {
 	// FieldName is the fully qualified field name (parent /T chain joined
 	// with ".").
@@ -79,7 +79,7 @@ type SignatureField struct {
 	// Notes carries labeled facts, including the mandatory trust note.
 	Notes []string `json:"notes"`
 	// DecomposeError is the per-signature CMS parse failure; the field is
-	// still listed with its structural facts (AC7).
+	// still listed with its structural facts.
 	DecomposeError string `json:"decomposeError"`
 	// ByteRange is the raw /ByteRange integers (nil when absent/non-integer).
 	ByteRange []int64 `json:"byteRange"`
@@ -103,7 +103,7 @@ type SignatureList struct {
 	Signatures []SignatureField `json:"signatures"`
 }
 
-// trustNote is the mandatory AC4 non-verdict note attached to every signed
+// trustNote is the mandatory non-verdict note attached to every signed
 // entry. The output never claims "valid"/"trusted"/"verified".
 const trustNote = "trust not verified - structural decomposition only"
 
@@ -217,7 +217,7 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 
 	vObj, hasV := field["V"]
 	if !hasV {
-		// AC1: an unsigned placeholder is listed with no decomposition and no
+		// An unsigned placeholder is listed with no decomposition and no
 		// error.
 		return f
 	}
@@ -231,7 +231,7 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 		f.SignatureNodeID = nodeIDFromRef(ref)
 	} else {
 		// A direct (inline) /V dict is legal and must still decompose, with
-		// the ref fields empty (AC1).
+		// the ref fields empty.
 		sig = asDict(vObj)
 		if sig == nil {
 			return f
@@ -289,7 +289,7 @@ func isCMSSubFilter(sub string) bool {
 // to surface certificates, the signer identity, and the SignerInfo algorithms.
 // encoding/asn1 is strict DER: BER indefinite-length blobs (some CAdES
 // signers) degrade to the per-signature DecomposeError, which is acceptable
-// decompose-and-display behavior (Story 13-4 Dev Notes).
+// decompose-and-display behavior.
 
 // oidCMSSignedData is id-signedData (1.2.840.113549.1.7.2).
 var oidCMSSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
@@ -360,7 +360,7 @@ func algorithmName(oid asn1.ObjectIdentifier) string {
 
 // decomposeCMS parses the /Contents CMS blob and surfaces the certificate set,
 // the identified signer, and the SignerInfo algorithms. Failures set the
-// per-signature DecomposeError and leave the structural facts intact (AC7).
+// per-signature DecomposeError and leave the structural facts intact.
 func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
 	raw, err := pdfStringBytes(doc, sig["Contents"])
 	if err != nil {
@@ -390,7 +390,7 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 	f.DigestAlgorithm = algorithmName(si.DigestAlgorithm.Algorithm)
 	f.SignatureAlgorithm = algorithmName(si.SignatureAlgorithm.Algorithm)
 
-	// AC2: the certificate set is unordered - the signer is IDENTIFIED from
+	// The certificate set is unordered - the signer is IDENTIFIED from
 	// SignerInfo, never assumed to be certificates[0].
 	if signer := matchSignerCert(si, certs); signer != nil {
 		ci := certInfoFrom(signer)
@@ -549,8 +549,8 @@ func stripPDFWhitespace(s string) string {
 
 // computeByteRangeCoverage measures /ByteRange against the file: whole-file
 // coverage, the trailing gap, and whether the excluded hole exactly equals the
-// /Contents hex-string extent. Malformed arrays degrade to CoverageError
-// (AC3). This is explicitly a measurement, never a validity verdict.
+// /Contents hex-string extent. Malformed arrays degrade to CoverageError. This
+// is explicitly a measurement, never a validity verdict.
 func computeByteRangeCoverage(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
 	brObj, ok := sig["ByteRange"]
 	if !ok {

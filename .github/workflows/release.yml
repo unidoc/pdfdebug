@@ -2,8 +2,8 @@ name: release
 
 on:
   push:
-    # Per AC #1 / Task 1.1: glob-match any `v*` tag. The `Resolve version` step
-    # rejects non-SemVer tags at runtime as defense-in-depth.
+    # Glob-match any `v*` tag. The `Resolve version` step rejects non-SemVer
+    # tags at runtime as defense-in-depth.
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -213,7 +213,7 @@ jobs:
       - name: Build macOS GUI
         # Build CLI runs first so darwin:package (create:app:bundle) can embed
         # bin/pdfdebug into Contents/Resources before the bundle is assembled and
-        # before the conditional Sign step (Story 11-1, Task 0/AC #1).
+        # before the conditional Sign step.
         if: startsWith(matrix.os, 'macos')
         shell: bash
         env:
@@ -319,8 +319,8 @@ jobs:
               GUI_STAGE="$RUNNER_TEMP/win-gui-stage"
               rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
               cp "bin/unidoc-pdf-debugger.exe" "$GUI_STAGE/UniDoc PDF Debugger.exe"
-              # Bundle the CLI alongside the GUI (Story 11-1, AC #3). PATH is left
-              # to the user; the standalone CLI zip below is retained for headless use.
+              # Bundle the CLI alongside the GUI. PATH is left to the
+              # user; the standalone CLI zip below is retained for headless use.
               cp "bin/pdfdebug.exe" "$GUI_STAGE/"
               cp LICENSE NOTICE "$GUI_STAGE/"
               ( cd "$GUI_STAGE" && 7z a -tzip -bd \
@@ -338,8 +338,8 @@ jobs:
               GUI_STAGE="$RUNNER_TEMP/linux-gui-stage"
               rm -rf "$GUI_STAGE" && mkdir -p "$GUI_STAGE"
               cp "bin/unidoc-pdf-debugger" "$GUI_STAGE/"
-              # Bundle the CLI alongside the GUI (Story 11-1, AC #4). PATH is left
-              # to the user; the standalone CLI tar.gz below is retained for headless use.
+              # Bundle the CLI alongside the GUI. PATH is left to the user;
+              # the standalone CLI tar.gz below is retained for headless use.
               cp "bin/pdfdebug" "$GUI_STAGE/"
               cp LICENSE NOTICE "$GUI_STAGE/"
               tar -czf "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.tar.gz" \
@@ -374,9 +374,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     outputs:
-      # Exposed for the downstream `homebrew` job (see AC #5): the homebrew
-      # job gates its execution on `needs.release.outputs.prerelease == 'false'`
-      # and reuses `tag` without re-parsing $GITHUB_REF_NAME.
+      # Exposed for the downstream `homebrew` job: the homebrew job gates its
+      # execution on `needs.release.outputs.prerelease == 'false'` and reuses
+      # `tag` without re-parsing $GITHUB_REF_NAME.
       prerelease: ${{ steps.prerelease.outputs.prerelease }}
       tag:        ${{ steps.tag.outputs.tag }}
     steps:
@@ -457,8 +457,8 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          # Per AC #7: mark as pre-release when the tag carries an rc/alpha/beta
-          # suffix; otherwise promote to "latest".
+          # Mark as pre-release when the tag carries an rc/alpha/beta suffix;
+          # otherwise promote to "latest".
           if [[ "$TAG" =~ -(rc|alpha|beta) ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else

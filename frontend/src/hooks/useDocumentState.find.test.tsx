@@ -1,13 +1,6 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- reducer red-phase suite for
+ * Find Bar in Plain Text View -- reducer suite for
  * per-tab `findCaseSensitive` field + SET_FIND_CASE_SENSITIVE action.
- *
- * TDD RED PHASE: every test below fails until Task 1 of Story 10-2 is
- * implemented (TabState gains findCaseSensitive: boolean, AppAction gains
- * SET_FIND_CASE_SENSITIVE, OPEN_DOCUMENT defaults the field to false,
- * CLOSE_DOCUMENT drops it with the tab).
- *
- * Test IDs follow the 10-2-REDU-NNN convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useDocumentState.find.test.tsx
  */
@@ -56,11 +49,10 @@ function Inspector({ actions }: { actions: AppAction[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-001 [P0] AC#10, AC#14: OPEN_DOCUMENT seeds findCaseSensitive=false
-// on the new TabState.
+// OPEN_DOCUMENT seeds findCaseSensitive=false on the new TabState.
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-001: OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
+describe('OPEN_DOCUMENT defaults findCaseSensitive to false', () => {
   test('a freshly opened tab has findCaseSensitive=false', () => {
     const actions: AppAction[] = [
       {
@@ -88,11 +80,11 @@ describe('10-2-REDU-001: OPEN_DOCUMENT defaults findCaseSensitive to false', () 
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-002 [P0] AC#10: SET_FIND_CASE_SENSITIVE flips the targeted tab's
-// flag without touching other tabs.
+// SET_FIND_CASE_SENSITIVE flips the targeted tab's flag without touching
+// other tabs.
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-002: SET_FIND_CASE_SENSITIVE updates one tab', () => {
+describe('SET_FIND_CASE_SENSITIVE updates one tab', () => {
   test('dispatching flip on tab-1 updates only tab-1', () => {
     const actions: AppAction[] = [
       {
@@ -196,11 +188,11 @@ describe('10-2-REDU-002: SET_FIND_CASE_SENSITIVE updates one tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-003 [P0] AC#11: CLOSE_DOCUMENT drops the findCaseSensitive field
-// with the rest of TabState (covered by tab-count dropping).
+// CLOSE_DOCUMENT drops the findCaseSensitive field with the rest of TabState
+// (covered by tab-count dropping).
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-003: CLOSE_DOCUMENT drops the field with the tab', () => {
+describe('CLOSE_DOCUMENT drops the field with the tab', () => {
   test('closing the only tab leaves tabs[] empty (the field dies with the tab)', () => {
     const actions: AppAction[] = [
       {
@@ -233,11 +225,11 @@ describe('10-2-REDU-003: CLOSE_DOCUMENT drops the field with the tab', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-REDU-004 [P0] AC#10: SET_FIND_CASE_SENSITIVE on an unknown tabId is a
-// no-op (does not throw, does not corrupt other tabs).
+// SET_FIND_CASE_SENSITIVE on an unknown tabId is a no-op (does not throw,
+// does not corrupt other tabs).
 // ---------------------------------------------------------------------------
 
-describe('10-2-REDU-004: SET_FIND_CASE_SENSITIVE on unknown tabId is a no-op', () => {
+describe('SET_FIND_CASE_SENSITIVE on unknown tabId is a no-op', () => {
   test('dispatching to non-existent tabId leaves existing tabs unchanged', () => {
     const actions: AppAction[] = [
       {

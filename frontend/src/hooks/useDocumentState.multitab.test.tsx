@@ -1,13 +1,11 @@
 /**
- * Story 4.1: Tab Bar Component for Multi-Document Management
- *
- * TDD RED PHASE: Tests MUST fail until story 4-1 is implemented.
+ * Tab Bar Component for Multi-Document Management
  *
  * Reducer-level acceptance tests for multi-tab state management:
- *   4.1-UNIT-001 [P0]: OPEN_DOCUMENT appends new tab (does not replace)
- *   4.1-UNIT-002 [P0]: OPEN_DOCUMENT sets activeTabId to the new tab
- *   4.1-UNIT-003 [P0]: ACTIVATE_TAB sets activeTabId without modifying tab state
- *   4.1-UNIT-010 [P2]: Duplicate filePath focuses existing tab instead of opening new
+ *   OPEN_DOCUMENT appends new tab (does not replace)
+ *   OPEN_DOCUMENT sets activeTabId to the new tab
+ *   ACTIVATE_TAB sets activeTabId without modifying tab state
+ *   Duplicate filePath focuses existing tab instead of opening new
  *
  * Run: cd frontend && npx vitest run src/hooks/useDocumentState.multitab.test.tsx
  */
@@ -211,14 +209,11 @@ function MultiTabInspector() {
   );
 }
 
-describe('4.1 Multi-Tab Reducer Tests', () => {
+describe('Multi-tab reducer', () => {
   /**
-   * 4.1-UNIT-001 [P0]: OPEN_DOCUMENT appends new tab to tabs array (does not replace).
-   *
-   * RED PHASE: Currently OPEN_DOCUMENT replaces all tabs with `tabs: [newTab]`.
-   * After implementation, it must append: `tabs: [...state.tabs, newTab]`.
+   * OPEN_DOCUMENT appends new tab to tabs array (does not replace).
    */
-  test('4.1-UNIT-001 [P0]: OPEN_DOCUMENT appends new tab to tabs array', () => {
+  test('OPEN_DOCUMENT appends new tab to tabs array', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -241,12 +236,9 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-002 [P0]: OPEN_DOCUMENT sets activeTabId to the new tab.
-   *
-   * RED PHASE: This already works for single-tab mode, but must continue
-   * to work when appending (activeTabId = newly opened tab).
+   * OPEN_DOCUMENT sets activeTabId to the new tab.
    */
-  test('4.1-UNIT-002 [P0]: OPEN_DOCUMENT sets activeTabId to the new tab', () => {
+  test('OPEN_DOCUMENT sets activeTabId to the new tab', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -261,15 +253,10 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-003 [P0]: ACTIVATE_TAB sets activeTabId without modifying
-   * any tab's internal state.
-   *
-   * RED PHASE: ACTIVATE_TAB action does not exist yet in AppAction union.
-   * The test dispatches it via `as AppAction` cast. The reducer's exhaustive
-   * switch will throw or the cast will fail at compile time once strict
-   * checking is enforced.
+   * ACTIVATE_TAB sets activeTabId without modifying any tab's internal
+   * state.
    */
-  test('4.1-UNIT-003 [P0]: ACTIVATE_TAB sets activeTabId without modifying tab state', () => {
+  test('ACTIVATE_TAB sets activeTabId without modifying tab state', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -301,9 +288,9 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-003 supplemental: ACTIVATE_TAB with nonexistent tabId is a no-op.
+   * Supplemental: ACTIVATE_TAB with nonexistent tabId is a no-op.
    */
-  test('4.1-UNIT-003 supplemental: ACTIVATE_TAB with invalid tabId is a no-op', () => {
+  test('ACTIVATE_TAB with invalid tabId is a no-op', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -320,14 +307,10 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-010 [P2]: Opening a PDF that is already open in a tab focuses
-   * that tab instead of opening a duplicate.
-   *
-   * RED PHASE: No duplicate detection exists. OPEN_DOCUMENT always creates
-   * a new tab. After implementation, filePath-based dedup must prevent
-   * duplicate tabs and focus the existing one.
+   * Opening a PDF that is already open in a tab focuses that tab instead
+   * of opening a duplicate.
    */
-  test('4.1-UNIT-010 [P2]: duplicate filePath focuses existing tab instead of opening new', () => {
+  test('duplicate filePath focuses existing tab instead of opening new', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -353,11 +336,9 @@ describe('4.1 Multi-Tab Reducer Tests', () => {
   });
 
   /**
-   * 4.1-UNIT-001 supplemental: filePath is stored in TabState.
-   *
-   * RED PHASE: TabState does not have filePath field yet.
+   * Supplemental: filePath is stored in TabState.
    */
-  test('4.1-UNIT-001 supplemental: OPEN_DOCUMENT stores filePath in TabState', () => {
+  test('OPEN_DOCUMENT stores filePath in TabState', () => {
     render(
       <AppProvider>
         <MultiTabInspector />

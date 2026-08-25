@@ -186,13 +186,13 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.
 //
-// Story 10-5 AC3: streamMu is held for the ENTIRE resolve+decode+write path,
-// not dropped between cache check and write. The previous "drop lock for
-// decode, reacquire to write" pattern let two concurrent first-time callers
-// both decode and both clobber the cache, so each received a different
-// *ContentStreamData pointer. Holding the lock for the duration collapses
-// concurrent same-node calls to one decode pass; the second caller blocks,
-// then observes the populated cache and returns the same pointer.
+// streamMu is held for the ENTIRE resolve+decode+write path, not dropped
+// between cache check and write. Dropping it for the decode and reacquiring to
+// write would let two concurrent first-time callers both decode and both
+// clobber the cache, so each would receive a different *ContentStreamData
+// pointer. Holding the lock for the duration collapses concurrent same-node
+// calls to one decode pass; the second caller blocks, then observes the
+// populated cache and returns the same pointer.
 //
 // Lock order: pdfMu (outer) -> streamMu (inner). pdfcpu's Dereference inside
 // resolveNodeObject is guarded by pdfMu; streamMu guards the streamCache map.
@@ -212,11 +212,11 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Outer lock.
+	// Serialize pdfcpu access. Outer lock.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
-	// AC3: hold streamMu for the entire critical section (resolve+decode+write).
-	// No drop-and-reacquire between cache miss and cache write.
+	// Hold streamMu for the entire critical section (resolve+decode+write). No
+	// drop-and-reacquire between cache miss and cache write.
 	doc.streamMu.Lock()
 	defer doc.streamMu.Unlock()
 

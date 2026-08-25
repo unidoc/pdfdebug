@@ -32,7 +32,7 @@ const (
 // the CLI to report an unknown profile and by callers to enumerate choices.
 var ValidProfiles = []string{ProfilePDFA1B, ProfilePDFUA1Structural}
 
-// DisclaimerText is the always-visible honesty guardrail (AC5). It states
+// DisclaimerText is the always-visible honesty guardrail. It states
 // plainly that the checks are structural only and defers authoritative
 // conformance to veraPDF. It is carried on every ValidationResult so JSON
 // consumers never have to infer it.
@@ -89,7 +89,7 @@ type ValidationResult struct {
 	Summary ValidationSummary `json:"summary"`
 	// Problems is every finding, rule order. Non-nil (empty on a clean run).
 	Problems []Problem `json:"problems"`
-	// Disclaimer is the not-authoritative note (AC5), always populated.
+	// Disclaimer is the not-authoritative note, always populated.
 	Disclaimer string `json:"disclaimer"`
 }
 
@@ -102,8 +102,8 @@ type ruleHit struct {
 }
 
 // rule is one entry in the bounded, documented rule registry. Adding a rule is
-// a code change, not a config change (AC1). Severity is a fixed property of the
-// rule here, not computed per run.
+// a code change, not a config change. Severity is a fixed property of the rule
+// here, not computed per run.
 type rule struct {
 	id       string
 	profile  string
@@ -117,7 +117,7 @@ type rule struct {
 // structural rules are all "warning" (informational, never gating).
 //
 // RULE DELTA (veraPDF checks we deliberately do NOT implement - the structural
-// firewall, cross-referenced from tests/13-5-compliance-validation/
+// firewall, cross-referenced from tests/compliance-validation/
 // oracle_verapdf_test.go): transparency / blend-mode rules (PDF/A-1 6.2.4,
 // 6.4), annotation-flag rules (6.5.3), action restrictions beyond JavaScript /
 // Launch (6.6.1), the full XMP-property schema (6.7.x beyond packet presence +
@@ -185,8 +185,7 @@ func ProfileGates(profile string) bool {
 // empty profile defaults to pdfa-1b; an unrecognized profile returns
 // ErrUnknownProfile (the CLI maps it to the operational exit). Runs under
 // doc.pdfMu; each rule is safeCall-wrapped so a rule that panics internally
-// degrades to one info-severity problem rather than failing the whole run
-// (AC1).
+// degrades to one info-severity problem rather than failing the whole run.
 func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error) {
 	if profile == "" {
 		profile = ProfilePDFA1B
@@ -215,7 +214,7 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 		}
 		hits, ruleErr := runRule(doc, r)
 		if ruleErr != nil {
-			// AC1: a rule that errors internally degrades to a single info
+			// A rule that errors internally degrades to a single info
 			// problem, never a whole-run failure. This catches ANY panic,
 			// including a runtime.Error (nil deref, bad type assertion) that
 			// safeCall deliberately re-panics -- a bug in one rule must not
@@ -257,7 +256,7 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 // runRule runs one rule's check and returns its hits, converting ANY panic
 // (including a runtime.Error that safeCall re-panics) into an error so the
 // caller can degrade the rule to an info problem rather than crashing the whole
-// run (AC1). This is a deliberate exception to the project-wide "runtime.Error
+// run. This is a deliberate exception to the project-wide "runtime.Error
 // surfaces loudly" rule: a read-only inspector over arbitrary PDFs must keep
 // evaluating the remaining rules when one rule trips on malformed input.
 func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
@@ -273,9 +272,9 @@ func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
 
 // EncryptedResult builds a single-problem ValidationResult reporting that the
 // document is encrypted, for the reconciliation path where the Inspector
-// refused to open the file with ErrEncryptedPDF (AC1). PDF/A forbids
-// encryption, so this is an error-severity problem (exit 1), not a bare
-// operational open failure.
+// refused to open the file with ErrEncryptedPDF. PDF/A forbids encryption, so
+// this is an error-severity problem (exit 1), not a bare operational open
+// failure.
 func EncryptedResult(profile string) *ValidationResult {
 	if profile == "" {
 		profile = ProfilePDFA1B
@@ -534,7 +533,7 @@ func checkXMPMetadata(doc *DocumentState) []ruleHit {
 			continue // XMP counterpart absent/unextractable/ambiguous: not a mismatch
 		}
 		if infoVal != xmpVal {
-			// QuoteToASCII keeps the message ASCII-only (13-1 plain-text
+			// QuoteToASCII keeps the message ASCII-only (plain-text
 			// contract) even when the decoded values carry non-ASCII text.
 			hits = append(hits, ruleHit{
 				message: fmt.Sprintf("/Info /%s (%s) differs from XMP %s (%s)",

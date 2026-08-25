@@ -4,7 +4,8 @@
  * expanded for <=5 entries, collapsed otherwise. Toggle resets on selection
  * change via React's key-based remount (DetailPanel passes key={selectedNodeId}).
  *
- * Story 9-10 AC#7-#10 + AC#6 failure-mode banner (case 1).
+ * Renders the inbound-edge list, plus the banner shown when the reverse-ref
+ * index is unavailable, which takes precedence over the other empty states.
  */
 import { useState } from 'react';
 import { useAppDispatch } from '../hooks/useDocumentState';
@@ -45,7 +46,7 @@ function joinGlobalPath(parentPath: string, path: string): string {
 }
 
 /**
- * Renders the Referenced by section. Empty-state priority order (Task 6.5):
+ * Renders the Referenced by section. Empty-state priority order:
  *   1. indexUnavailable=true  -> banner ("Reverse-ref index unavailable...")
  *   2. entries empty + catalog -> "Document root (no incoming references)."
  *   3. entries empty (other)   -> orphan copy with dict-graph qualifier.

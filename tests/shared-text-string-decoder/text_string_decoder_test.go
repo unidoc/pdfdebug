@@ -147,7 +147,7 @@ func TestMetadataPlain_NonASCIIValueIsASCIIEscaped(t *testing.T) {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 
-	// The 13-1 plain-text contract: ASCII only across the Info block. The XMP
+	// The plain-text contract: ASCII only across the Info block. The XMP
 	// packet is a documented verbatim-UTF-8 exemption, so cut there.
 	// Cut on the whole heading LINE, not a bare substring: an /Info value that
 	// happened to contain "XMP:" would otherwise truncate infoBlock to "Info:\n"

@@ -1,6 +1,6 @@
 /**
  * @file Command-palette result ranker. Pure function operating on a parsed
- * query and the in-memory object index. Story 9-8 AC5/AC6/AC8.
+ * query and the in-memory object index.
  */
 import type { ObjectIndexEntry } from '../../types/palette';
 import type { PaletteQuery } from './parseQuery';
@@ -12,7 +12,7 @@ const MAX_RESULTS = 8;
  *
  * Numeric: match by ObjNum (and Gen when supplied), order Gen asc.
  * Type: exact match when query.exact, otherwise case-insensitive prefix
- *       match; exact-tier rows sort before prefix-tier rows.
+ * match; exact-tier rows sort before prefix-tier rows.
  * Within any match tier: reachable rows sort before free/orphan rows.
  *
  * Returns [] for empty/invalid queries and for numeric misses (no soft

@@ -3,7 +3,7 @@
  * from App.jsx so it can be tested in isolation against synthetic
  * Screens.GetAll() payloads.
  *
- * Story 8-4 traceability follow-up: closes the AC#2 PARTIAL coverage gap
+ * Traceability follow-up: closes the PARTIAL coverage gap
  * (WorkArea intersection logic had no unit test).
  *
  * Run: cd frontend && npx vitest run src/lib/windowGeometryGuard.test.ts
@@ -21,7 +21,7 @@ const SECONDARY_RIGHT: ScreenLike = screen({ X: 1920, Y: 0, Width: 2560, Height:
 const SECONDARY_LEFT: ScreenLike = screen({ X: -1920, Y: 0, Width: 1920, Height: 1040 });
 
 describe('computeRestorePlan', () => {
-  describe('AC#2 multi-monitor primary path', () => {
+  describe('multi-monitor primary path', () => {
     test('on-screen geometry on primary display: positionAllowed = true', () => {
       const plan = computeRestorePlan(
         { x: 100, y: 100, width: 1280, height: 800 },
@@ -97,7 +97,7 @@ describe('computeRestorePlan', () => {
     });
   });
 
-  describe('AC#2 size-clamp behavior', () => {
+  describe('size-clamp behavior', () => {
     test('width and height clamped DOWN to the largest WorkArea', () => {
       const plan = computeRestorePlan(
         { x: 0, y: 0, width: 5000, height: 4000 },
@@ -121,7 +121,7 @@ describe('computeRestorePlan', () => {
     });
   });
 
-  describe('AC#2 fallback path: empty / null Screens', () => {
+  describe('fallback path: empty / null Screens', () => {
     test('empty screens array uses fallback: on-screen geometry allowed', () => {
       const plan = computeRestorePlan(
         { x: 100, y: 100, width: 1024, height: 768 },
@@ -194,7 +194,7 @@ describe('computeRestorePlan', () => {
     });
   });
 
-  describe('AC#2 degenerate inputs', () => {
+  describe('degenerate inputs', () => {
     test('all WorkArea fields non-finite: falls through to fallback', () => {
       const corruptScreens: ScreenLike[] = [
         { WorkArea: { X: NaN, Y: 0, Width: 1920, Height: 1040 } },

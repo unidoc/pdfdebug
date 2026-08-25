@@ -1,26 +1,23 @@
 /**
- * E2E Acceptance Tests for Story 2.5: Tree Panel with Lazy-Loading Navigation
+ * E2E Acceptance Tests for the Tree Panel with Lazy-Loading Navigation
  *
- * TDD RED PHASE: Tests MUST fail until Story 2-5 is implemented.
- *
- * Only the critical full-stack happy path (2.5-E2E-001) is tested at E2E level.
- * All component/state/ARIA/loading tests are handled by Vitest in
+ * Only the critical full-stack happy path is tested at E2E level. All
+ * component/state/ARIA/loading tests are handled by Vitest in
  * frontend/src/components/TreePanel.test.tsx.
  *
- * Test IDs: 2.5-E2E-001
  * Run: npx playwright test tests/e2e/tree-panel-lazy.spec.ts
  */
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 2.5: Tree Panel with Lazy-Loading Navigation (ATDD)', () => {
+test.describe('Tree Panel with Lazy-Loading Navigation', () => {
   // ---------------------------------------------------------------------------
-  // 2.5-E2E-001 [P0]: User expands tree node, children appear, selects node,
-  //                    detail panel shows properties
-  // AC#1: Expand arrow loads children on demand from Go backend.
-  // AC#4: Selection dispatches SELECT_NODE, selected node has highlight.
+  // User expands tree node, children appear, selects node,
+  // detail panel shows properties
+  // Expand arrow loads children on demand from Go backend.
+  // Selection dispatches SELECT_NODE, selected node has highlight.
   // ---------------------------------------------------------------------------
-  test('[P0] should expand tree node, show children, and select node', async ({ appPage }) => {
+  test('should expand tree node, show children, and select node', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Given: application shows empty state

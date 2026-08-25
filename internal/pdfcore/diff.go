@@ -56,12 +56,12 @@ type DiffNode struct {
 	// single-sided (added/removed) nodes, and depth-capped refs.
 	Children []*DiffNode `json:"children,omitempty"`
 	// Truncated is true ONLY when this node is a ref left unwalked at the
-	// maxResolveDepth depth cap and compared by shallow summary (Story 14.3
-	// AC1). It is NOT set for back-edge (cycle) cuts or the visitedPairs
-	// cross-path dedup, both of which hide nothing (the target is fully
-	// accounted for elsewhere). A truncated node's shallow summaries can match
-	// while a deeper difference is hidden, so the run must not be called
-	// identical; see DiffSummary.TruncatedSubtrees.
+	// maxResolveDepth depth cap and compared by shallow summary.
+	// It is NOT set for back-edge (cycle) cuts or the visitedPairs cross-path
+	// dedup, both of which hide nothing (the target is fully accounted for
+	// elsewhere). A truncated node's shallow summaries can match while a
+	// deeper difference is hidden, so the run must not be called identical;
+	// see DiffSummary.TruncatedSubtrees.
 	Truncated bool `json:"truncated,omitempty"`
 	// capRefPair is the "numL:genL|numR:genR" key of a depth-capped ref pair,
 	// recorded so reconcileTruncation can clear Truncated when the SAME pair is
@@ -91,7 +91,7 @@ type DiffSummary struct {
 	XMPChanged        bool `json:"xmpChanged"`        // catalog /Metadata XMP packet
 	// TruncatedSubtrees counts the nodes cut at the maxResolveDepth depth cap
 	// (DiffNode.Truncated) - subtrees compared only by shallow summary, whose
-	// deeper contents were not walked (Story 14.3 AC2). When > 0 the walk was
+	// deeper contents were not walked. When > 0 the walk was
 	// bounded, so the pair CANNOT be certified identical: the CLI withholds
 	// exit 0 and the "structurally identical" claim. Not omitempty so the
 	// honest count is always present in the JSON contract.
@@ -363,14 +363,14 @@ func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth 
 	// current path (e.g. a page's /Parent). The target is fully accounted for
 	// by its first visit, so the shallow-summary comparison hides nothing - this
 	// is NOT truncation and must not be marked (marking it would flip every real
-	// multi-page PDF to a false non-identical; Story 14.3 "Only the depth cap is
-	// truncation").
+	// multi-page PDF to a false non-identical). Only the depth cap is
+	// truncation.
 	if leftCycle || rightCycle {
 		return scalarLeaf(path, "ref", lres, rres)
 	}
 	// Depth cap: the subtree below maxResolveDepth is ABANDONED unwalked, so the
-	// shallow summary can hide a deeper difference. Mark it truncated (AC1) so
-	// the run cannot claim "identical" while a difference was left unexplored.
+	// shallow summary can hide a deeper difference. Mark it truncated so the run
+	// cannot claim "identical" while a difference was left unexplored.
 	if nextDepth > maxResolveDepth {
 		leaf := scalarLeaf(path, "ref", lres, rres)
 		leaf.Truncated = true
@@ -489,8 +489,7 @@ func countDelta(n *DiffNode, s *DiffSummary) {
 		return
 	}
 	// A depth-capped node is counted regardless of its shallow-summary status:
-	// its subtree was not walked, so a matching summary does not prove equality
-	// (Story 14.3 AC2).
+	// its subtree was not walked, so a matching summary does not prove equality.
 	if n.Truncated {
 		s.TruncatedSubtrees++
 	}

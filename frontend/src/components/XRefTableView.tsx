@@ -1,5 +1,5 @@
 /**
- * @file XREF Table view -- document-level cross-reference table. Story 9-11.
+ * @file XREF Table view -- document-level cross-reference table.
  * Renders one row per xref entry sorted by object number. In-use and
  * in-objstm rows navigate via `onNavigate` when clicked or Entered; free
  * rows are focusable but not clickable.
@@ -91,7 +91,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   useEffect(() => { onLoadedRef.current = onLoaded; }, [onLoaded]);
 
   // Reset everything when the document changes so the new document never
-  // renders the previous document's rows (AC17).
+  // renders the previous document's rows.
   useEffect(() => {
     setData(null);
     setError(null);
@@ -233,7 +233,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   );
 
   /**
-   * Keyboard handler per AC4: ArrowDown / ArrowUp move row focus (no wrap);
+   * Keyboard handler: ArrowDown / ArrowUp move row focus (no wrap);
    * Enter / Space activate non-free rows. `index` is the row's absolute position
    * in the full entry list. Because the table is virtualized, moving focus walks
    * the index (not DOM siblings, which would hit spacer rows or unmounted rows):

@@ -54,15 +54,15 @@ type EmbeddedFileList struct {
 // the /Filespec indirect-object reference. Direct (inline) filespecs are kept
 // as distinct entries with an empty FilespecRef. A document with no embedded
 // files returns a non-nil empty list and no error. A broken name tree or a
-// filespec without /EF degrades per-entry rather than failing the whole view
-// (AC8). The whole sequence runs under doc.pdfMu and inside safeCall.
+// filespec without /EF degrades per-entry rather than failing the whole view.
+// The whole sequence runs under doc.pdfMu and inside safeCall.
 func (ins *Inspector) GetEmbeddedFiles(tabID string) (*EmbeddedFileList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. The walk dereferences /AF, the name tree,
-	// and each /Filespec's /EF stream, all of which touch pdfcpu's XRefTable.
+	// Serialize pdfcpu access. The walk dereferences /AF, the name tree, and
+	// each /Filespec's /EF stream, all of which touch pdfcpu's XRefTable.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
@@ -125,7 +125,7 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 	}
 
 	// Source 2: /Names/EmbeddedFiles name tree. A broken tree degrades to no
-	// entries from this source; /AF entries above are unaffected (AC8/UNIT-014).
+	// entries from this source; /AF entries above are unaffected.
 	if namesObj, ok := cat["Names"]; ok {
 		namesDict := asDict(dereference(doc, namesObj))
 		if namesDict != nil {
@@ -242,9 +242,9 @@ func embeddedFileStreamRef(doc *DocumentState, fs pdfcpu_types.Dict) (pdfcpu_typ
 // walkNameTree traverses a PDF name-tree node (/Kids intermediate nodes or
 // /Names leaf pairs), invoking visit for each /Filespec value. visit receives
 // the resolved filespec object and its "N G R" ref ("" for a direct, inline
-// filespec - rare but legal, kept per AC1). A malformed node (unresolvable ref,
-// wrong shape) degrades silently so the rest of the enumeration proceeds (AC8).
-// depth guards against pathological nesting.
+// filespec - rare but legal, kept). A malformed node (unresolvable ref, wrong
+// shape) degrades silently so the rest of the enumeration proceeds. depth
+// guards against pathological nesting.
 func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit func(resolved pdfcpu_types.Object, fsRef string)) {
 	if depth > maxNodeIDDepth {
 		return
@@ -256,7 +256,7 @@ func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit
 
 	// Leaf: /Names is a flat [key value key value ...] array; values at odd
 	// indices are filespec refs (normally indirect, but a direct filespec dict
-	// is legal and must be kept with an empty ref, never dropped - AC1).
+	// is legal and must be kept with an empty ref, never dropped).
 	if namesObj, ok := d["Names"]; ok {
 		arr := dereferenceArray(doc, namesObj)
 		for i := 1; i < len(arr); i += 2 {
@@ -353,7 +353,7 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	// AC2: serialize pdfcpu access for resolve + decode.
+	// Serialize pdfcpu access for resolve + decode.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 

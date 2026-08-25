@@ -1,9 +1,6 @@
 /**
- * Story 2.8: Clickable Reference Navigation
+ * Clickable Reference Navigation
  *
- * TDD RED PHASE: Tests MUST fail until Story 2-8 is implemented.
- *
- * Test IDs: 2.8-UNIT-001, 2.8-UNIT-002, 2.8-UNIT-003 (Vitest)
  * Run: cd frontend && npx vitest run src/components/ReferenceNavigation.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
@@ -52,7 +49,7 @@ vi.mock(
     GetObjectSource: (...args: unknown[]) => mockGetObjectSource(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),
@@ -249,14 +246,14 @@ function renderObjectInfoPanelWithState(selectedNodeId: string | null) {
 }
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-001 [P1]: Reference values rendered as clickable links
-// AC#1: Given a property value is an indirect reference (e.g., "5 0 R"),
-//       When the reference is displayed in the DetailPanel or ObjectInfoPanel,
-//       Then it appears as a clickable link (purple/violet, underlined,
-//       cursor-pointer, role="button").
+// Reference values rendered as clickable links: Given a property value
+// is an indirect reference (e.g., "5 0 R"),
+// When the reference is displayed in the DetailPanel or ObjectInfoPanel,
+// Then it appears as a clickable link (purple/violet, underlined,
+// cursor-pointer, role="button").
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
+describe('Reference values rendered as clickable links', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -317,7 +314,7 @@ describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
   });
 
   test('reference value in ObjectSourcePanel also has clickable styling', async () => {
-    // Story 9-10: ObjectInfoPanel was rewritten as ObjectSourcePanel. The
+    // ObjectInfoPanel was rewritten as ObjectSourcePanel. The
     // bottom-left panel now renders reserialized PDF text; ref clickability
     // is driven by a regex over that text. Drive it via the GetObjectSource
     // mock returning a source string containing "2 0 R".
@@ -350,12 +347,12 @@ describe('2.8-UNIT-001: Reference values rendered as clickable links', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-001b [P1]: Reference keyboard activation (Enter and Space)
-// AC#1: References must be activatable via keyboard (Enter/Space) for a11y.
-// Review finding: keyboard activation was patched in DetailShared.tsx.
+// Reference keyboard activation (Enter and Space): References must be
+// activatable via keyboard (Enter/Space) for a11y. Review finding: keyboard
+// activation was patched in DetailShared.tsx.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-001b: Reference keyboard activation', () => {
+describe('Reference keyboard activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -428,12 +425,12 @@ describe('2.8-UNIT-001b: Reference keyboard activation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-002 [P2]: Clicking reference dispatches navigation action
-// AC#2: Given a clickable reference is displayed, When the user clicks it,
-//       Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
+// Clicking reference dispatches navigation action: Given a clickable
+// reference is displayed, When the user clicks it,
+// Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
+describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetailWithRef);
@@ -468,7 +465,7 @@ describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
   });
 
   test('clicking reference in ObjectSourcePanel dispatches NAVIGATE_TO_REF', async () => {
-    // Story 9-10: ObjectInfoPanel was rewritten. Drive via GetObjectSource.
+    // ObjectInfoPanel was rewritten. Drive via GetObjectSource.
     mockGetObjectSource.mockResolvedValueOnce('1 0 obj\n<< /Pages 2 0 R >>\nendobj');
     const user = userEvent.setup();
 
@@ -552,12 +549,12 @@ describe('2.8-UNIT-002: Clicking reference dispatches NAVIGATE_TO_REF', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-003 [P3]: Target node flash animation (100ms highlight pulse)
-// AC#3: Given a reference is clicked, When the tree navigates to the target,
-//       Then the target node briefly flashes (100ms highlight pulse).
+// Target node flash animation (100ms highlight pulse): Given a reference is
+// clicked, When the tree navigates to the target,
+// Then the target node briefly flashes (100ms highlight pulse).
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-003: Target node flash animation', () => {
+describe('Target node flash animation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
@@ -602,12 +599,12 @@ describe('2.8-UNIT-003: Target node flash animation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-004 [P1]: NAVIGATE_TO_REF reducer sets pendingNavTarget
-// AC#2: The reducer must set pendingNavTarget on the active tab and clear
-//       navError when NAVIGATE_TO_REF is dispatched.
+// NAVIGATE_TO_REF reducer sets pendingNavTarget: The reducer must set
+// pendingNavTarget on the active tab and clear
+// navError when NAVIGATE_TO_REF is dispatched.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-004: NAVIGATE_TO_REF reducer', () => {
+describe('NAVIGATE_TO_REF reducer', () => {
   test('NAVIGATE_TO_REF sets pendingNavTarget on active tab', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -723,11 +720,11 @@ describe('2.8-UNIT-004: NAVIGATE_TO_REF reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-005 [P1]: CLEAR_NAV_TARGET reducer clears pendingNavTarget
-// AC#2: After navigation completes, CLEAR_NAV_TARGET resets pendingNavTarget.
+// CLEAR_NAV_TARGET reducer clears pendingNavTarget: After navigation
+// completes, CLEAR_NAV_TARGET resets pendingNavTarget.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-005: CLEAR_NAV_TARGET reducer', () => {
+describe('CLEAR_NAV_TARGET reducer', () => {
   test('CLEAR_NAV_TARGET sets pendingNavTarget to null', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -777,12 +774,12 @@ describe('2.8-UNIT-005: CLEAR_NAV_TARGET reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-006 [P1]: NAV_ERROR reducer sets navError and clears target
-// AC#5: When a dangling reference is clicked and GetAncestorPath fails,
-//       NAV_ERROR sets navError and clears pendingNavTarget.
+// NAV_ERROR reducer sets navError and clears target: When a dangling
+// reference is clicked and GetAncestorPath fails,
+// NAV_ERROR sets navError and clears pendingNavTarget.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-006: NAV_ERROR reducer', () => {
+describe('NAV_ERROR reducer', () => {
   test('NAV_ERROR sets navError message on active tab', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -869,11 +866,11 @@ describe('2.8-UNIT-006: NAV_ERROR reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-007 [P1]: DISMISS_NAV_ERROR reducer clears navError
-// AC#5: The transient error toast is dismissable.
+// DISMISS_NAV_ERROR reducer clears navError: The transient
+// error toast is dismissable.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-007: DISMISS_NAV_ERROR reducer', () => {
+describe('DISMISS_NAV_ERROR reducer', () => {
   test('DISMISS_NAV_ERROR sets navError to null', async () => {
     function NavDispatcher() {
       const dispatch = useAppDispatch();
@@ -923,11 +920,11 @@ describe('2.8-UNIT-007: DISMISS_NAV_ERROR reducer', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-008 [P1]: OPEN_DOCUMENT initializes pendingNavTarget and navError
-// AC#2, #5: New tabs must have pendingNavTarget and navError initialized to null.
+// OPEN_DOCUMENT initializes pendingNavTarget and navError: New tabs must have
+// pendingNavTarget and navError initialized to null.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-008: OPEN_DOCUMENT initializes nav state', () => {
+describe('OPEN_DOCUMENT initializes nav state', () => {
   test('pendingNavTarget is null after OPEN_DOCUMENT', () => {
     render(
       <AppProvider>
@@ -952,11 +949,11 @@ describe('2.8-UNIT-008: OPEN_DOCUMENT initializes nav state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.8-UNIT-009 [P1]: Nav error toast renders in TreePanel
-// AC#5: When navError is set, TreePanel renders a transient error toast.
+// Nav error toast renders in TreePanel: When navError is set, TreePanel
+// renders a transient error toast.
 // ---------------------------------------------------------------------------
 
-describe('2.8-UNIT-009: Nav error toast renders in TreePanel', () => {
+describe('Nav error toast renders in TreePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;

@@ -1,9 +1,6 @@
 /**
- * Story 2.7: Detail Panel -- Context-Sensitive Content Display
+ * Detail Panel -- Context-Sensitive Content Display
  *
- * TDD RED PHASE: Tests MUST fail until DetailPanel.tsx is implemented.
- *
- * Test IDs: 2.7-UNIT-001 through 2.7-UNIT-005 (Vitest)
  * Run: cd frontend && npx vitest run src/components/DetailPanel.test.tsx
  */
 import { render, screen, waitFor, act } from '@testing-library/react';
@@ -13,7 +10,6 @@ import {
   useAppDispatch,
   type AppAction,
 } from '../hooks/useDocumentState';
-// RED PHASE: This import will fail until DetailPanel.tsx is created.
 import { DetailPanel } from './DetailPanel';
 
 // Mock allotment -- jsdom has no layout APIs
@@ -48,7 +44,7 @@ vi.mock(
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw on the new
     // exports.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
@@ -56,7 +52,7 @@ vi.mock(
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),
-    // Story 13.6: the Diff tab imports DiffDocuments; stub so the factory never
+    // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   })
@@ -235,13 +231,13 @@ function renderWithState(
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-001 [P1]: DetailPanel renders PropertyTable for dictionary node
-// AC#2: Given a dictionary node is selected, When the DetailPanel updates,
-//       Then it displays a full PropertyTable with all key-value pairs and
-//       type-colored values, And the panel header shows a context label.
+// DetailPanel renders PropertyTable for dictionary node: Given a
+// dictionary node is selected, When the DetailPanel updates,
+// Then it displays a full PropertyTable with all key-value pairs and
+// type-colored values, And the panel header shows a context label.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-001: DetailPanel dictionary rendering', () => {
+describe('DetailPanel dictionary rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetail);
@@ -323,12 +319,12 @@ describe('2.7-UNIT-001: DetailPanel dictionary rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-002 [P1]: DetailPanel renders ArrayViewer for array node
-// AC#3: Given an array node is selected, When the DetailPanel updates,
-//       Then it displays an ArrayViewer with ordered elements and indices.
+// DetailPanel renders ArrayViewer for array node: Given an array node
+// is selected, When the DetailPanel updates,
+// Then it displays an ArrayViewer with ordered elements and indices.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-002: DetailPanel array rendering', () => {
+describe('DetailPanel array rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(arrayDetail);
@@ -381,13 +377,13 @@ describe('2.7-UNIT-002: DetailPanel array rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-003 [P1]: DetailPanel shows placeholder when no node selected
-// AC#1: Given no tree node is selected, When the user views the DetailPanel,
-//       Then it shows "Select a node in the tree to view details" in muted
-//       text, centered vertically and horizontally.
+// DetailPanel shows placeholder when no node selected: Given no tree node is
+// selected, When the user views the DetailPanel,
+// Then it shows "Select a node in the tree to view details" in muted
+// text, centered vertically and horizontally.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-003: DetailPanel empty state', () => {
+describe('DetailPanel empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -428,13 +424,13 @@ describe('2.7-UNIT-003: DetailPanel empty state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-004 [P2]: DetailPanel error display
-// AC#6: Given an error node is selected OR GetObjectDetail returns an error,
-//       When the DetailPanel updates, Then it displays the error message in
-//       text-error styling.
+// DetailPanel error display: Given an error node is selected OR
+// GetObjectDetail returns an error,
+// When the DetailPanel updates, Then it displays the error message in
+// text-error styling.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-004: DetailPanel error display', () => {
+describe('DetailPanel error display', () => {
   test('shows error message when GetObjectDetail rejects', async () => {
     mockGetObjectDetail.mockRejectedValue(
       new Error('document not found: tab "tab-1"')
@@ -468,13 +464,13 @@ describe('2.7-UNIT-004: DetailPanel error display', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-005 [P2]: DetailPanel aria-live for screen reader announcements
-// AC#7: Given the detail panel content is updated, When a screen reader is
-//       active, Then the content change is announced via aria-live="polite"
-//       on the detail panel container.
+// DetailPanel aria-live for screen reader announcements: Given the detail
+// panel content is updated, When a screen reader is
+// active, Then the content change is announced via aria-live="polite"
+// on the detail panel container.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-005: DetailPanel accessibility', () => {
+describe('DetailPanel accessibility', () => {
   test('content container has aria-live="polite"', () => {
     renderWithState(null);
 
@@ -484,13 +480,13 @@ describe('2.7-UNIT-005: DetailPanel accessibility', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-006 [P1]: DetailPanel scalar rendering
-// AC#4: Given a scalar/leaf node is selected, When the DetailPanel updates,
-//       Then it displays a ScalarViewer showing the value with its type
-//       indication.
+// DetailPanel scalar rendering: Given a scalar/leaf node is selected, When
+// the DetailPanel updates,
+// Then it displays a ScalarViewer showing the value with its type
+// indication.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-006: DetailPanel scalar rendering', () => {
+describe('DetailPanel scalar rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(scalarDetail);
@@ -532,13 +528,13 @@ describe('2.7-UNIT-006: DetailPanel scalar rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-007 [P1]: DetailPanel stream rendering
-// AC#5: Given a stream node is selected, When the DetailPanel updates,
-//       Then it displays the stream dictionary properties as a PropertyTable,
-//       And stream metadata (length, filters) below the properties.
+// DetailPanel stream rendering: Given a stream node is selected, When
+// the DetailPanel updates,
+// Then it displays the stream dictionary properties as a PropertyTable,
+// And stream metadata (length, filters) below the properties.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
+describe('DetailPanel stream rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
@@ -578,18 +574,16 @@ describe('2.7-UNIT-007: DetailPanel stream rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-008 [P1]: DetailPanel is exported via React.memo
-// AC: architecture requirement -- wrapped in React.memo to prevent re-renders
-//     when switching tabs.
+// DetailPanel is exported via React.memo: the component is wrapped in
+// React.memo to prevent re-renders when switching tabs.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-009 [P1]: DetailPanel cancels stale fetch on rapid node change
-// AC#2-#5: When selectedNodeId changes, previous in-flight fetch results
-//          must not overwrite the new result.
+// DetailPanel cancels stale fetch on rapid node change: when selectedNodeId
+// changes, previous in-flight fetch results must not overwrite the new result.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-009: DetailPanel stale fetch cancellation', () => {
+describe('DetailPanel stale fetch cancellation', () => {
   test('does not render stale data when node changes rapidly', async () => {
     // First call resolves slowly with dict, second resolves with array
     let resolveFirst: (v: unknown) => void;
@@ -632,12 +626,11 @@ describe('2.7-UNIT-009: DetailPanel stale fetch cancellation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-010 [P1]: DetailPanel keeps previous detail visible during load
-// Previous detail stays visible until the new fetch resolves, avoiding a
-// flash of empty/error state during tab switches.
+// DetailPanel keeps the previous detail visible during load: it stays until the
+// new fetch resolves, avoiding a flash of empty/error state on tab switches.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-010: DetailPanel keeps previous detail during load', () => {
+describe('DetailPanel keeps previous detail during load', () => {
   test('previous detail remains visible while new node loads', async () => {
     // First call resolves immediately
     mockGetObjectDetail.mockResolvedValueOnce(dictDetail);
@@ -670,11 +663,10 @@ describe('2.7-UNIT-010: DetailPanel keeps previous detail during load', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7-UNIT-011 [P2]: DetailPanel edge cases for empty data
-// AC#2-#5: Edge cases for empty properties, elements, filters.
+// DetailPanel edge cases for empty data: empty properties, elements, filters.
 // ---------------------------------------------------------------------------
 
-describe('2.7-UNIT-011: DetailPanel edge cases', () => {
+describe('DetailPanel edge cases', () => {
   test('renders "Empty dictionary" for dict with no properties', async () => {
     const emptyDict = { ...dictDetail, properties: [] };
     mockGetObjectDetail.mockResolvedValue(emptyDict);
@@ -746,7 +738,7 @@ describe('2.7-UNIT-011: DetailPanel edge cases', () => {
   });
 });
 
-describe('2.7-UNIT-008: DetailPanel React.memo export', () => {
+describe('DetailPanel React.memo export', () => {
   test('DetailPanel is a memoized component', () => {
     // React.memo wraps the component and sets $$typeof and type properties.
     // The display name should contain "DetailPanel".
@@ -758,7 +750,7 @@ describe('2.7-UNIT-008: DetailPanel React.memo export', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.2: Content Stream Viewer integration tests
+// Content Stream Viewer integration tests
 // ---------------------------------------------------------------------------
 
 const contentStreamData = {
@@ -778,12 +770,12 @@ const contentStreamErrorData = {
 };
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-001 [P1]: DetailPanel renders ContentStreamViewer for stream nodes
-// AC#1: When a stream node is selected AND GetContentStream returns raw text,
-//       ContentStreamViewer renders with line numbers and content.
+// DetailPanel renders ContentStreamViewer for stream nodes: When a stream
+// node is selected AND GetContentStream returns raw text,
+// ContentStreamViewer renders with line numbers and content.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-001: DetailPanel content stream integration', () => {
+describe('DetailPanel content stream integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
@@ -835,11 +827,11 @@ describe('3.2-INTG-001: DetailPanel content stream integration', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-002 [P1]: DetailPanel shows content stream error
-// AC#3: When GetContentStream returns an error, the error is displayed.
+// DetailPanel shows content stream error: When GetContentStream returns
+// an error, the error is displayed.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-002: DetailPanel content stream error', () => {
+describe('DetailPanel content stream error', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
@@ -867,11 +859,11 @@ describe('3.2-INTG-002: DetailPanel content stream error', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-003 [P1]: GetContentStream NOT called for non-stream nodes
-// AC#1: Content stream fetch is only triggered for stream-type nodes.
+// GetContentStream NOT called for non-stream nodes: Content stream
+// fetch is only triggered for stream-type nodes.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-003: DetailPanel does not fetch content stream for non-stream nodes', () => {
+describe('DetailPanel does not fetch content stream for non-stream nodes', () => {
   test('GetContentStream is not called when a dict node is selected', async () => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(dictDetail);
@@ -910,12 +902,12 @@ describe('3.2-INTG-003: DetailPanel does not fetch content stream for non-stream
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-004 [P1]: Stale content stream fetch cancelled on node change
-// AC: Content stream fetch uses stale-fetch guard; changing node discards
-//     the previous in-flight content stream response.
+// Stale content stream fetch cancelled on node change: the content stream
+// fetch uses the stale-fetch guard, so changing node discards the previous
+// in-flight content stream response.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-004: DetailPanel stale content stream cancellation', () => {
+describe('DetailPanel stale content stream cancellation', () => {
   test('stale content stream result is discarded when node changes', async () => {
     vi.clearAllMocks();
 
@@ -978,11 +970,11 @@ describe('3.2-INTG-004: DetailPanel stale content stream cancellation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-005 [P2]: Loading indicator appears after 200ms delay
-// AC#2: When loading takes more than 200ms, a subtle loading indicator appears.
+// Loading indicator appears after 200ms delay: When loading takes more than
+// 200ms, a subtle loading indicator appears.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-005: DetailPanel content stream loading indicator', () => {
+describe('DetailPanel content stream loading indicator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -1078,12 +1070,12 @@ describe('3.2-INTG-005: DetailPanel content stream loading indicator', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.2-INTG-006 [P1]: GetContentStream IPC rejection renders error
-// AC#3: When the IPC call itself rejects (not a struct-level error),
-//       the error is wrapped and displayed via ContentStreamViewer.
+// GetContentStream IPC rejection renders error: When the IPC call
+// itself rejects (not a struct-level error),
+// the error is wrapped and displayed via ContentStreamViewer.
 // ---------------------------------------------------------------------------
 
-describe('3.2-INTG-006: DetailPanel content stream IPC rejection', () => {
+describe('DetailPanel content stream IPC rejection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
@@ -1111,7 +1103,7 @@ describe('3.2-INTG-006: DetailPanel content stream IPC rejection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 3.3: Syntax highlighting integration tests
+// Syntax highlighting integration tests
 // ---------------------------------------------------------------------------
 
 const sampleTokens = [
@@ -1131,7 +1123,7 @@ const contentStreamDataWithTokens = {
   nodeId: 'obj:0:10',
   raw: 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET',
   tokenized: sampleTokens,
-  // Story 9-6: the Go formatter pre-groups tokens into FormattedLine[]; here
+  // The Go formatter pre-groups tokens into FormattedLine[]; here
   // we wrap all sample tokens into a single row for the integration test
   // since the per-token highlight assertions don't depend on row structure.
   formatted: [{
@@ -1145,13 +1137,13 @@ const contentStreamDataWithTokens = {
 };
 
 // ---------------------------------------------------------------------------
-// 3.3-INTG-001 [P1]: DetailPanel passes tokenized data to ContentStreamViewer
-// and renders syntax-highlighted tokens.
-// AC#1: When stream node selected with tokenized data, operator tokens have
-//       text-token-operator class.
+// DetailPanel passes tokenized data to ContentStreamViewer and renders
+// syntax-highlighted tokens.
+// When stream node selected with tokenized data, operator tokens have
+// text-token-operator class.
 // ---------------------------------------------------------------------------
 
-describe('3.3-INTG-001: DetailPanel syntax highlighting integration', () => {
+describe('DetailPanel syntax highlighting integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(streamDetail);
@@ -1211,7 +1203,7 @@ describe('3.3-INTG-001: DetailPanel syntax highlighting integration', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Story 6.2: Image Preview in Detail Panel -- Integration Tests
+// Image Preview in Detail Panel -- Integration Tests
 // ---------------------------------------------------------------------------
 
 // Minimal 1x1 PNG for test rendering
@@ -1256,13 +1248,13 @@ const mockImageDataResponse = {
 };
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-004 [P1]: DetailPanel renders ImagePreview when selected node
-// has iconHint "image".
-// AC#1: When an XObject image node is selected, the DetailPanel switches to
-//       image preview mode showing the rendered image.
+// DetailPanel renders ImagePreview when selected node has iconHint
+// "image".
+// When an XObject image node is selected, the DetailPanel switches to
+// image preview mode showing the rendered image.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-004: DetailPanel image preview mode', () => {
+describe('DetailPanel image preview mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
@@ -1300,12 +1292,12 @@ describe('6.2-UNIT-004: DetailPanel image preview mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-005 [P1]: DetailPanel header shows "Image Preview" with
-// object reference for image nodes.
-// AC#1: The panel header shows "Image Preview" with the object reference.
+// DetailPanel header shows "Image Preview" with object reference
+// for image nodes.
+// The panel header shows "Image Preview" with the object reference.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-005: DetailPanel image preview header', () => {
+describe('DetailPanel image preview header', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
@@ -1341,12 +1333,12 @@ describe('6.2-UNIT-005: DetailPanel image preview header', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-008 [P1]: Loading state shown while image data is being fetched
-// AC#5: When fetch takes longer than 200ms, a "Loading image..." indicator
-//       appears (same debounce pattern as content stream loading).
+// Loading state shown while image data is being fetched: When fetch takes
+// longer than 200ms, a "Loading image..." indicator
+// appears (same debounce pattern as content stream loading).
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-008: DetailPanel image loading state', () => {
+describe('DetailPanel image loading state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -1430,13 +1422,13 @@ describe('6.2-UNIT-008: DetailPanel image loading state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-009 [P2]: Switching from image node to dict node clears image
-// preview and shows the appropriate view.
-// AC#6: When a non-image node is selected after an image node, the image
-//       preview is cleared and the dict/array/scalar/stream view is shown.
+// Switching from image node to dict node clears image preview and shows
+// the appropriate view.
+// When a non-image node is selected after an image node, the image
+// preview is cleared and the dict/array/scalar/stream view is shown.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-009: DetailPanel clears image on node switch', () => {
+describe('DetailPanel clears image on node switch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -1489,11 +1481,11 @@ describe('6.2-UNIT-009: DetailPanel clears image on node switch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-011 [P2]: Navigating back to an image node restores image preview
-// AC: NavHistoryEntry.iconHint is preserved and restored on NAVIGATE_BACK.
+// Navigating back to an image node restores the image preview:
+// NavHistoryEntry.iconHint is preserved and restored on NAVIGATE_BACK.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-011: DetailPanel navigate back restores image', () => {
+describe('DetailPanel navigate back restores image', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -1591,12 +1583,12 @@ describe('6.2-UNIT-011: DetailPanel navigate back restores image', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-013: GetImageData IPC rejection renders error in ImagePreview
-// AC#3: When GetImageData promise rejects (IPC-level failure), the error is
-//       wrapped and displayed via ImagePreview's error state.
+// GetImageData IPC rejection renders error in ImagePreview: When
+// GetImageData promise rejects (IPC-level failure), the error is
+// wrapped and displayed via ImagePreview's error state.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-013: DetailPanel image data IPC rejection', () => {
+describe('DetailPanel image data IPC rejection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
@@ -1624,12 +1616,12 @@ describe('6.2-UNIT-013: DetailPanel image data IPC rejection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-014: Stale image fetch cancelled on node change
-// AC: Image data fetch uses stale-fetch guard; changing node discards
-//     the previous in-flight image response.
+// Stale image fetch cancelled on node change: the image data fetch uses the
+// stale-fetch guard, so changing node discards the previous in-flight image
+// response.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-014: DetailPanel stale image fetch cancellation', () => {
+describe('DetailPanel stale image fetch cancellation', () => {
   test('stale image data result is discarded when node changes', async () => {
     vi.clearAllMocks();
 

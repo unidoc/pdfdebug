@@ -1,22 +1,16 @@
 /**
- * Story 9-8: Command palette result ranker.
+ * Command palette result ranker.
  *
- * TDD RED PHASE: This test imports `./rankResults` which does not exist yet.
- * The module must fail to resolve until Task 4.3 lands.
- *
- * Ordering contract (AC5/AC6/AC8):
+ * Ordering contract:
  *   - Numeric: exact ObjNum match first, then gen-asc disambiguation
  *   - Type-filter: exact /Type match before prefix match (case-insensitive)
  *   - Within a match tier, free/orphan entries (Reachable=false) sort last
- *   - Result list capped at 8 entries (AC6)
+ *   - Result list capped at 8 entries
  *
  * Run: cd frontend && npx vitest run src/lib/palette/rankResults.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED: this import fails until rankResults.ts exists.
 import { rankResults } from './rankResults';
-// RED: type-only import from the same place as palette types -- both files
-// need to land before this test compiles.
 import type { ObjectIndexEntry } from '../../types/palette';
 import { parseQuery } from './parseQuery';
 
@@ -45,7 +39,7 @@ const fixture: ObjectIndexEntry[] = [
   entry({ objNum: 9, gen: 2, typeName: '', nodeId: 'obj:2:9' }),
 ];
 
-describe('rankResults (AC5 / AC6 / AC8)', () => {
+describe('rankResults', () => {
   test('numeric query returns the matching ObjNum first, gen-asc on ties', () => {
     const ranked = rankResults(parseQuery('9'), fixture);
     expect(ranked.length).toBeGreaterThanOrEqual(2);
@@ -95,7 +89,7 @@ describe('rankResults (AC5 / AC6 / AC8)', () => {
     expect(ranked[0].reachable).toBe(false);
   });
 
-  test('result list is capped at 8 entries (AC6)', () => {
+  test('result list is capped at 8 entries', () => {
     const many: ObjectIndexEntry[] = [];
     for (let i = 1; i <= 20; i++) {
       many.push(entry({ objNum: i, gen: 0, typeName: 'Page', nodeId: `obj:0:${i}` }));

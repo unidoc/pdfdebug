@@ -34,7 +34,7 @@ func (ins *Inspector) GetFontResourceMap(tabID, nodeID string) (*FontResourceMap
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. buildFontRoster dereferences each entry.
+	// Serialize pdfcpu access. buildFontRoster dereferences each entry.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 

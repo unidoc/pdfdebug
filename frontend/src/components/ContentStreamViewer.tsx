@@ -16,7 +16,7 @@ interface TokenData {
 
 /**
  * Shape of one formatted row from the backend (Go-side `FormattedLine`).
- * Story 9-6: the Go formatter groups operands with their operator and emits
+ * The Go formatter groups operands with their operator and emits
  * one row per logical PDF operation, so the frontend just iterates and renders.
  */
 interface FormattedLineData {
@@ -274,9 +274,9 @@ export function ContentStreamViewer({ raw, formatted, error, viewMode: controlle
                       );
                     }
                   }
-                  // title shows the source-byte-line range so users can correlate
+                  // Title shows the source-byte-line range so users can correlate
                   // a formatted row with its origin in the Raw view (load-bearing
-                  // for cross-view scroll-sync per AC #6).
+                  // for cross-view scroll-sync).
                   const rangeTitle = row.srcLineStart === row.srcLineEnd
                     ? `Source line ${row.srcLineStart}`
                     : `Source lines ${row.srcLineStart}-${row.srcLineEnd}`;

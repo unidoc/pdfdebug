@@ -1,7 +1,5 @@
-// Package tree_node_builder_test provides acceptance tests for Story 2.2:
-// Tree Node Builder -- PDF Object Graph to Tree Nodes.
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-2 is implemented.
+// Package tree_node_builder_test provides acceptance tests for Tree Node
+// Builder -- PDF Object Graph to Tree Nodes.
 //
 // Test Levels: Unit (Go) -- pdfcore tree builder API validation.
 // No browser interaction required; all criteria are Go package validation.
@@ -48,7 +46,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -56,29 +54,29 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-001 [P0]: GetTreeRoot() returns TreeNode with correct fields
-// AC#1: Given a parsed PDF document, When GetTreeRoot(tabID) is called,
-//       Then it returns a TreeNode with id="root", label="Catalog",
-//       hasChildren=true, iconHint="catalog", nodeType="dict",
-//       And childCount reflects the number of top-level catalog entries.
+// GetTreeRoot() returns TreeNode with correct fields: Given a parsed
+// PDF document, When GetTreeRoot(tabID) is called,
+// Then it returns a TreeNode with id="root", label="Catalog",
+// hasChildren=true, iconHint="catalog", nodeType="dict",
+// And childCount reflects the number of top-level catalog entries.
 // ---------------------------------------------------------------------------
 
 func TestGetTreeRootValidPDF(t *testing.T) {
 	// Verify testdata/minimal.pdf exists (prerequisite)
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetTreeRoot
@@ -92,20 +90,20 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 	// - Assert TreeNode.IconHint == "catalog"
 	// - Assert TreeNode.ChildCount > 0 (catalog has entries)
 	// - Assert no error returned
-	runPdfcoreTest(t, "2.2-UNIT-001 P0", "TestGetTreeRoot$")
+	runPdfcoreTest(t, "TestGetTreeRoot$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-002 [P0]: GetChildren("root") returns children with obj: IDs
-// AC#2: Given the root node, When GetChildren(tabID, "root") is called,
-//       Then it returns a slice of TreeNode for immediate catalog entries,
-//       And indirect ref values produce child IDs in "obj:{gen}:{num}" format.
+// GetChildren("root") returns children with obj: IDs
+// Given the root node, When GetChildren(tabID, "root") is called,
+// Then it returns a slice of TreeNode for immediate catalog entries,
+// And indirect ref values produce child IDs in "obj:{gen}:{num}" format.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenRoot(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenRoot
@@ -115,20 +113,20 @@ func TestGetChildrenRoot(t *testing.T) {
 	// - Assert at least one child has ID starting with "obj:" (indirect ref)
 	// - Assert children include entries for /Type and /Pages (from catalog)
 	// - Assert each child has a non-empty Label, NodeType, and IconHint
-	runPdfcoreTest(t, "2.2-UNIT-002 P0", "TestGetChildrenRoot$")
+	runPdfcoreTest(t, "TestGetChildrenRoot$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-003 [P0]: GetChildren() for dict node returns dict:{parent}:{key} IDs
-// AC#2: Given a tree node ID for a dictionary, When GetChildren is called,
-//       Then children that are direct dict entries (non-IndirectRef values)
-//       have IDs in "dict:{parent_id}:{key}" format with bare keys (no slash).
+// GetChildren() for dict node returns dict:{parent}:{key} IDs: Given a tree node
+// ID for a dictionary, When GetChildren is called,
+// Then children that are direct dict entries (non-IndirectRef values)
+// have IDs in "dict:{parent_id}:{key}" format with bare keys (no slash).
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenDictNode(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenDictNode
@@ -138,20 +136,20 @@ func TestGetChildrenDictNode(t *testing.T) {
 	// - Assert at least one child has ID starting with "dict:"
 	// - Assert the dict key in the ID is bare (no leading slash)
 	// - Assert each child has RawKey prefixed with "/" for dict entries
-	runPdfcoreTest(t, "2.2-UNIT-003 P0", "TestGetChildrenDictNode$")
+	runPdfcoreTest(t, "TestGetChildrenDictNode$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-004 [P0]: GetChildren() for array node returns arr:{parent}:{index} IDs
-// AC#2: Given a tree node ID for an array, When GetChildren is called,
-//       Then children have IDs in "arr:{parent_id}:{index}" format.
+// GetChildren() for array node returns arr:{parent}:{index} IDs: Given a tree node
+// ID for an array, When GetChildren is called,
+// Then children have IDs in "arr:{parent_id}:{index}" format.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenArrayNode(t *testing.T) {
 	// multipage.pdf has /Pages with /Kids array containing multiple page refs
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenArrayNode
@@ -160,15 +158,14 @@ func TestGetChildrenArrayNode(t *testing.T) {
 	// - Call GetChildren on the array node
 	// - Assert children have IDs starting with "arr:" or "obj:" (if elements are IndirectRefs)
 	// - Assert array element children have RawKey like "[0]", "[1]", etc.
-	runPdfcoreTest(t, "2.2-UNIT-004 P0", "TestGetChildrenArrayNode$")
+	runPdfcoreTest(t, "TestGetChildrenArrayNode$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-005 [P0]: Malformed object produces error node, siblings unaffected
-// AC#3: Given a tree node for a malformed object, When GetChildren()
-//       encounters a parsing error, Then it returns an error node with Error
-//       field populated and Label="Error: {message}", And other sibling
-//       nodes are still returned.
+// Malformed object produces error node, siblings unaffected: Given a tree node
+// for a malformed object, When GetChildren() encounters a parsing error, Then
+// it returns an error node with Error field populated and
+// Label="Error: {message}", And other sibling nodes are still returned.
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeCreation(t *testing.T) {
@@ -179,19 +176,19 @@ func TestErrorNodeCreation(t *testing.T) {
 	// - Assert the error node Label starts with "Error:"
 	// - Assert the error node NodeType is "scalar" (error nodes are leaves)
 	// - Assert sibling nodes are still returned when one child errors
-	runPdfcoreTest(t, "2.2-UNIT-005 P0", "TestErrorNode")
+	runPdfcoreTest(t, "TestErrorNode")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-006 [P1]: /Pages shows "Pages" with iconHint "page"
-// AC#4: Given tree builder, When building nodes for /Pages,
-//       Then Label is "Pages" and iconHint is "page".
+// /Pages shows "Pages" with iconHint "page": Given tree
+// builder, When building nodes for /Pages,
+// Then Label is "Pages" and iconHint is "page".
 // ---------------------------------------------------------------------------
 
 func TestSemanticLabelPages(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestSemanticLabelPages
@@ -200,20 +197,20 @@ func TestSemanticLabelPages(t *testing.T) {
 	// - Find the child for /Pages
 	// - Assert Label == "Pages"
 	// - Assert IconHint == "page"
-	runPdfcoreTest(t, "2.2-UNIT-006 P1", "TestSemanticLabelPages$")
+	runPdfcoreTest(t, "TestSemanticLabelPages$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-007 [P1]: /Font entries show "Font: {name}" with iconHint "font"
-// AC#4: Given tree builder, When building nodes for /Font entries,
-//       Then Label follows "Font: {BaseFont}" pattern and iconHint is "font".
+// /Font entries show "Font: {name}" with iconHint "font": Given tree
+// builder, When building nodes for /Font entries,
+// Then Label follows "Font: {BaseFont}" pattern and iconHint is "font".
 // ---------------------------------------------------------------------------
 
 func TestSemanticLabelFont(t *testing.T) {
 	// content-stream.pdf or multipage.pdf should have font resources
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestSemanticLabelFont
@@ -222,18 +219,18 @@ func TestSemanticLabelFont(t *testing.T) {
 	// - Navigate to a font dict entry
 	// - Assert Label matches "Font: {name}" or "Font" pattern
 	// - Assert IconHint == "font"
-	runPdfcoreTest(t, "2.2-UNIT-007 P1", "TestSemanticLabelFont$")
+	runPdfcoreTest(t, "TestSemanticLabelFont$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-008 [P1]: Node types correctly assigned
-// AC#2: Each child has correct nodeType (dict, array, stream, ref, scalar).
+// Node types correctly assigned: Each child has correct nodeType (dict,
+// array, stream, ref, scalar).
 // ---------------------------------------------------------------------------
 
 func TestNodeTypeAssignment(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestNodeTypeAssignment
@@ -243,13 +240,13 @@ func TestNodeTypeAssignment(t *testing.T) {
 	// - Assert scalar leaf nodes have NodeType "scalar"
 	// - Assert indirect ref children have NodeType reflecting the resolved type or "ref"
 	// - Assert all NodeType values are one of: "dict", "array", "stream", "ref", "scalar"
-	runPdfcoreTest(t, "2.2-UNIT-008 P1", "TestNodeTypeAssignment$")
+	runPdfcoreTest(t, "TestNodeTypeAssignment$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-009 [P1]: Node ID round-trip: encode then decode produces
-//                     original components
-// AC#2: Node IDs follow the scheme and can be parsed back to their components.
+// Node ID round-trip: encode then decode produces
+// original components
+// Node IDs follow the scheme and can be parsed back to their components.
 // ---------------------------------------------------------------------------
 
 func TestNodeIDRoundTrip(t *testing.T) {
@@ -260,12 +257,12 @@ func TestNodeIDRoundTrip(t *testing.T) {
 	// - Test parseNodeID("dict:root:Pages") returns kind="dict", parentID="root", key="Pages"
 	// - Test parseNodeID("dict:obj:0:5:Type") returns kind="dict", parentID="obj:0:5", key="Type"
 	// - Test parseNodeID("arr:obj:0:12:3") returns kind="arr", parentID="obj:0:12", index="3"
-	runPdfcoreTest(t, "2.2-UNIT-009 P1", "TestNodeIDRoundTrip$")
+	runPdfcoreTest(t, "TestNodeIDRoundTrip$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-010 [P2]: XObject image entries get iconHint "image"
-// AC#4: /XObject image entries show with iconHint "image".
+// XObject image entries get iconHint "image": /XObject image
+// entries show with iconHint "image".
 // ---------------------------------------------------------------------------
 
 func TestIconHintXObjectImage(t *testing.T) {
@@ -273,12 +270,12 @@ func TestIconHintXObjectImage(t *testing.T) {
 	// which must:
 	// - Test that an XObject with Subtype=Image gets iconHint "image"
 	// - Can use a real PDF with images or a unit test with mock pdfcpu objects
-	runPdfcoreTest(t, "2.2-UNIT-010 P2", "TestIconHintXObjectImage$")
+	runPdfcoreTest(t, "TestIconHintXObjectImage$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-011 [P2]: Empty dictionary returns empty slice, not nil
-// AC#2 (edge case): GetChildren on a dict with no entries returns []*TreeNode{}.
+// Empty dictionary returns empty slice, not nil (edge case): GetChildren on a
+// dict with no entries returns []*TreeNode{}.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenEmptyDict(t *testing.T) {
@@ -287,12 +284,12 @@ func TestGetChildrenEmptyDict(t *testing.T) {
 	// - Create or navigate to a dict with zero entries
 	// - Call GetChildren
 	// - Assert result is non-nil empty slice (not nil)
-	runPdfcoreTest(t, "2.2-UNIT-011 P2", "TestGetChildrenEmptyDict$")
+	runPdfcoreTest(t, "TestGetChildrenEmptyDict$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-012 [P2]: Empty array returns empty slice, not nil
-// AC#2 (edge case): GetChildren on an array with no elements returns []*TreeNode{}.
+// Empty array returns empty slice, not nil (edge case): GetChildren on an array
+// with no elements returns []*TreeNode{}.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenEmptyArray(t *testing.T) {
@@ -301,13 +298,13 @@ func TestGetChildrenEmptyArray(t *testing.T) {
 	// - Create or navigate to an array with zero elements
 	// - Call GetChildren
 	// - Assert result is non-nil empty slice (not nil)
-	runPdfcoreTest(t, "2.2-UNIT-012 P2", "TestGetChildrenEmptyArray$")
+	runPdfcoreTest(t, "TestGetChildrenEmptyArray$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-013 [P0]: GetTreeRoot with unknown tabID returns error
-// AC#1 (negative): Given an unknown tabID, When GetTreeRoot is called,
-//                  Then it returns ErrDocumentNotFound.
+// GetTreeRoot with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetTreeRoot is called,
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetTreeRootUnknownTabID(t *testing.T) {
@@ -316,13 +313,13 @@ func TestGetTreeRootUnknownTabID(t *testing.T) {
 	// - Call GetTreeRoot with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.2-UNIT-013 P0", "TestGetTreeRootUnknownTabID$")
+	runPdfcoreTest(t, "TestGetTreeRootUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-014 [P0]: GetChildren with unknown tabID returns error
-// AC#2 (negative): Given an unknown tabID, When GetChildren is called,
-//                  Then it returns ErrDocumentNotFound.
+// GetChildren with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetChildren is called,
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenUnknownTabID(t *testing.T) {
@@ -331,19 +328,19 @@ func TestGetChildrenUnknownTabID(t *testing.T) {
 	// - Call GetChildren with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.2-UNIT-014 P0", "TestGetChildrenUnknownTabID$")
+	runPdfcoreTest(t, "TestGetChildrenUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-015 [P1]: GetChildren with invalid nodeID format returns error
-// AC#2 (negative): Given a malformed nodeID, When GetChildren is called,
-//                  Then it returns an error (not panic).
+// GetChildren with invalid nodeID format returns error (negative): Given
+// a malformed nodeID, When GetChildren is called,
+// Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenInvalidNodeID(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetChildrenInvalidNodeID
@@ -352,18 +349,18 @@ func TestGetChildrenInvalidNodeID(t *testing.T) {
 	// - Call GetChildren with an invalid nodeID (e.g., "bogus", "obj:", "obj:abc:def")
 	// - Assert error is returned
 	// - Assert no panic occurs
-	runPdfcoreTest(t, "2.2-UNIT-015 P1", "TestGetChildrenInvalidNodeID$")
+	runPdfcoreTest(t, "TestGetChildrenInvalidNodeID$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-016 [P1]: Scalar leaf nodes have HasChildren=false and valueType set
-// AC#2: Scalar values (Name, String, Integer, etc.) are leaf nodes.
+// Scalar leaf nodes have HasChildren=false and valueType set: Scalar values
+// (Name, String, Integer, etc.) are leaf nodes.
 // ---------------------------------------------------------------------------
 
 func TestScalarLeafNodes(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestScalarLeafNodes
@@ -373,29 +370,29 @@ func TestScalarLeafNodes(t *testing.T) {
 	// - Assert HasChildren == false
 	// - Assert ValueType is set (e.g., "name" for Name objects)
 	// - Assert NodeType == "scalar"
-	runPdfcoreTest(t, "2.2-UNIT-016 P1", "TestScalarLeafNodes$")
+	runPdfcoreTest(t, "TestScalarLeafNodes$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-017 [P1]: Root iconHint is "catalog"
-// AC#4: Root catalog node has iconHint "catalog".
+// Root iconHint is "catalog": Root catalog node has
+// iconHint "catalog".
 // ---------------------------------------------------------------------------
 
 func TestIconHintCatalog(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/tree_test.go::TestGetTreeRoot
 	// The root node test already covers iconHint="catalog" but we verify
 	// explicitly via the tree_test.go root test.
-	runPdfcoreTest(t, "2.2-UNIT-017 P1", "TestGetTreeRoot$")
+	runPdfcoreTest(t, "TestGetTreeRoot$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-018 [P1]: tree.go file exists with required method signatures
-// AC#1, #2: GetTreeRoot and GetChildren methods exist on Inspector.
+// tree.go file exists with required method signatures: GetTreeRoot and
+// GetChildren methods exist on Inspector.
 // ---------------------------------------------------------------------------
 
 func TestTreeFileAndMethodsExist(t *testing.T) {
@@ -404,19 +401,19 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 	treePath := filepath.Join(root, "internal", "pdfcore", "tree.go")
 	content, err := os.ReadFile(treePath)
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-018: internal/pdfcore/tree.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/tree.go does not exist: %v", err)
 	}
 
 	treeContent := string(content)
 
 	// Verify GetTreeRoot method signature
 	if !strings.Contains(treeContent, "func (ins *Inspector) GetTreeRoot(") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go missing GetTreeRoot method on Inspector")
+		t.Error("tree.go missing GetTreeRoot method on Inspector")
 	}
 
 	// Verify GetChildren method signature
 	if !strings.Contains(treeContent, "func (ins *Inspector) GetChildren(") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go missing GetChildren method on Inspector")
+		t.Error("tree.go missing GetChildren method on Inspector")
 	}
 
 	// Verify unexported helpers exist
@@ -429,20 +426,20 @@ func TestTreeFileAndMethodsExist(t *testing.T) {
 	}
 	for _, h := range helpers {
 		if !strings.Contains(treeContent, h) {
-			t.Errorf("[P1] 2.2-UNIT-018: tree.go missing helper: %s", h)
+			t.Errorf("tree.go missing helper: %s", h)
 		}
 	}
 
 	// Verify no Wails imports
 	if strings.Contains(treeContent, "wailsapp") {
-		t.Error("[P1] 2.2-UNIT-018: tree.go imports Wails -- pdfcore must have zero Wails dependencies")
+		t.Error("tree.go imports Wails -- pdfcore must have zero Wails dependencies")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-019 [P1]: All tree-related pdfcore tests pass
-// AC#4: Unit tests cover tree root building, child enumeration for
-//       dicts/arrays/scalars/refs, error node creation, and semantic labeling.
+// All tree-related pdfcore tests pass: unit tests cover tree root building,
+// child enumeration for dicts/arrays/scalars/refs, error node creation, and
+// semantic labeling.
 // ---------------------------------------------------------------------------
 
 func TestAllTreeTestsPass(t *testing.T) {
@@ -453,17 +450,17 @@ func TestAllTreeTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-019: pdfcore test suite failed:\n%s", string(output))
+		t.Fatalf("pdfcore test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.2-UNIT-019: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-020 [P1]: go vet passes on pdfcore with tree.go
-// AC#4: No vet warnings after adding tree.go.
+// go vet passes on pdfcore with tree.go: No vet warnings
+// after adding tree.go.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVetWithTree(t *testing.T) {
@@ -473,14 +470,14 @@ func TestPdfcoreGoVetWithTree(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-020: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 	_ = output
 }
 
 // ---------------------------------------------------------------------------
-// 2.2-UNIT-021 [P1]: Project compiles with tree.go added
-// AC#4: go build ./... succeeds.
+// Project compiles with tree.go added: go build ./...
+// succeeds.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreCompiles(t *testing.T) {
@@ -491,7 +488,7 @@ func TestPdfcoreCompiles(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.2-UNIT-021: go build ./internal/pdfcore/... failed:\n%s", string(output))
+		t.Fatalf("go build ./internal/pdfcore/... failed:\n%s", string(output))
 	}
 	_ = output
 }

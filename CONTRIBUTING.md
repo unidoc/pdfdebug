@@ -79,7 +79,7 @@ Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, e
 4. CI must pass on all three runners: `build-and-test (macos-latest)`, `build-and-test (windows-latest)`, and `build-and-test (ubuntu-latest)`.
 5. At least one maintainer review plus green CI are required before merge.
 
-**Maintainers**: configure required status checks on the `master` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs. This replaces the one-line deferred note from story 7-1 Task 7.5.
+**Maintainers**: configure required status checks on the `master` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs. This replaces the one-line deferred note from story 7-1.
 
 ## Release Process
 

@@ -1,7 +1,5 @@
-// Package object_info_panel_test provides acceptance tests for Story 2.6:
-// Object Info Panel -- Property Display for Selected Nodes.
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-6 is implemented.
+// Package object_info_panel_test provides acceptance tests for Object Info
+// Panel -- Property Display for Selected Nodes.
 //
 // Test Levels: Unit (Go) -- pdfcore GetObjectDetail API validation.
 // No browser interaction required; all criteria are Go package validation.
@@ -48,7 +46,7 @@ func testdataDir(t *testing.T) string {
 
 // runPdfcoreTest runs a named test pattern in internal/pdfcore/... and fails if
 // the test does not pass or does not exist.
-func runPdfcoreTest(t *testing.T, testID, runPattern string) {
+func runPdfcoreTest(t *testing.T, runPattern string) {
 	t.Helper()
 	root := projectRoot(t)
 	cmd := exec.Command("go", "test", "-v", "-run", runPattern, "-count=1", "./internal/pdfcore/...")
@@ -56,28 +54,27 @@ func runPdfcoreTest(t *testing.T, testID, runPattern string) {
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 	if err != nil {
-		t.Fatalf("[%s] pdfcore test failed:\n%s", testID, outStr)
+		t.Fatalf("pdfcore test failed:\n%s", outStr)
 	}
 	if strings.Contains(outStr, "no tests to run") {
-		t.Fatalf("[%s] no matching test found for pattern %q -- unit test not implemented yet:\n%s", testID, runPattern, outStr)
+		t.Fatalf("no matching test found for pattern %q -- unit test not implemented yet:\n%s", runPattern, outStr)
 	}
 	if !strings.Contains(outStr, "PASS") {
-		t.Fatalf("[%s] expected PASS in output but got:\n%s", testID, outStr)
+		t.Fatalf("expected PASS in output but got:\n%s", outStr)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-001 [P0]: GetObjectDetail() returns correct key-value pairs for
-// dictionary node with type-preserved values
-// AC#2: Given a dictionary node is selected in the tree, When the
-//       ObjectInfoPanel updates, Then it displays a key-value table with
-//       each PDF dictionary key and its value, And values are typed.
+// GetObjectDetail() returns correct key-value pairs for dictionary node
+// with type-preserved values: Given a dictionary node is selected in the
+// tree, When the ObjectInfoPanel updates, Then it displays a key-value table
+// with each PDF dictionary key and its value, And values are typed.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailDict(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailDict
@@ -94,20 +91,20 @@ func TestGetObjectDetailDict(t *testing.T) {
 	// - Assert Properties are sorted alphabetically by Key
 	// - Assert the /Type property has Value.Type == "name" and
 	//   Value.Display == "/Catalog"
-	runPdfcoreTest(t, "2.6-UNIT-001 P0", "TestGetObjectDetailDict$")
+	runPdfcoreTest(t, "TestGetObjectDetailDict$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-002 [P0]: GetObjectDetail() returns correct elements for array node
-// AC#3: Given an array node is selected, When the ObjectInfoPanel updates,
-//       Then it displays an indexed list of array elements with type-colored
-//       values.
+// GetObjectDetail() returns correct elements for array node: Given an array
+// node is selected, When the ObjectInfoPanel updates,
+// Then it displays an indexed list of array elements with type-colored
+// values.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailArray(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailArray
@@ -120,19 +117,19 @@ func TestGetObjectDetailArray(t *testing.T) {
 	// - Assert each ValueEntry has Type, Display, and Raw fields set
 	// - Assert IndirectRef elements have Type == "reference" and RefTarget
 	//   in "obj:{gen}:{num}" format
-	runPdfcoreTest(t, "2.6-UNIT-002 P0", "TestGetObjectDetailArray$")
+	runPdfcoreTest(t, "TestGetObjectDetailArray$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-003 [P0]: GetObjectDetail() returns correct value for scalar node
-// AC#4: Given a scalar node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the single value with its type label.
+// GetObjectDetail() returns correct value for scalar node: Given a scalar
+// node is selected, When the ObjectInfoPanel updates,
+// Then it displays the single value with its type label.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailScalar(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailScalar
@@ -144,22 +141,22 @@ func TestGetObjectDetailScalar(t *testing.T) {
 	// - Assert ObjectDetail.ScalarValue is non-nil
 	// - Assert ScalarValue.Type is set (e.g., "name")
 	// - Assert ScalarValue.Display is set (e.g., "/Catalog")
-	runPdfcoreTest(t, "2.6-UNIT-003 P0", "TestGetObjectDetailScalar$")
+	runPdfcoreTest(t, "TestGetObjectDetailScalar$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-004 [P0]: GetObjectDetail() returns stream properties and metadata
-// AC#6: Given a stream node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the stream's dictionary properties as a key-value
-//       table, And it displays stream metadata (length and filter names)
-//       below the properties.
+// GetObjectDetail() returns stream properties and metadata: Given a stream
+// node is selected, When the ObjectInfoPanel updates,
+// Then it displays the stream's dictionary properties as a key-value
+// table, And it displays stream metadata (length and filter names)
+// below the properties.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailStream(t *testing.T) {
 	// content-stream.pdf or multipage.pdf should have stream objects
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	if _, err := os.Stat(multipagePDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/multipage.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/multipage.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailStream
@@ -172,18 +169,18 @@ func TestGetObjectDetailStream(t *testing.T) {
 	// - Assert ObjectDetail.StreamInfo is non-nil
 	// - Assert StreamInfo.Length >= 0
 	// - Assert StreamInfo.Filters is non-nil (possibly empty []string{})
-	runPdfcoreTest(t, "2.6-UNIT-004 P0", "TestGetObjectDetailStream$")
+	runPdfcoreTest(t, "TestGetObjectDetailStream$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-005 [P0]: GetObjectDetail() populates ObjectRef for indirect objects
-// AC#2: The object reference (e.g., "4 0 R") is displayed in the panel header.
+// GetObjectDetail() populates ObjectRef for indirect objects: The object
+// reference (e.g., "4 0 R") is displayed in the panel header.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailObjectRef(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P0] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailObjectRef
@@ -193,13 +190,13 @@ func TestGetObjectDetailObjectRef(t *testing.T) {
 	// - Assert ObjectDetail.ObjectRef matches "{num} {gen} R" format
 	// - Also test with "root" nodeID and assert ObjectRef is empty
 	//   (root is not an indirect object)
-	runPdfcoreTest(t, "2.6-UNIT-005 P0", "TestGetObjectDetailObjectRef$")
+	runPdfcoreTest(t, "TestGetObjectDetailObjectRef$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-006 [P0]: GetObjectDetail() returns empty properties for empty dict
-// AC#5: Given an empty dictionary is selected, When the ObjectInfoPanel
-//       updates, Then it shows "Empty dictionary" in muted text.
+// GetObjectDetail() returns empty properties for empty dict: Given an empty
+// dictionary is selected, When the ObjectInfoPanel
+// updates, Then it shows "Empty dictionary" in muted text.
 // (Backend: returns ObjectDetail.Type == "dict" with Properties == [])
 // ---------------------------------------------------------------------------
 
@@ -210,13 +207,13 @@ func TestGetObjectDetailEmptyDict(t *testing.T) {
 	// - Call GetObjectDetail
 	// - Assert ObjectDetail.Type == "dict"
 	// - Assert ObjectDetail.Properties is non-nil and len == 0
-	runPdfcoreTest(t, "2.6-UNIT-006 P0", "TestGetObjectDetailEmptyDict$")
+	runPdfcoreTest(t, "TestGetObjectDetailEmptyDict$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-007 [P0]: GetObjectDetail() returns empty elements for empty array
-// AC#5: Given an empty array is selected, When the ObjectInfoPanel updates,
-//       Then it shows "Empty array" in muted text.
+// GetObjectDetail() returns empty elements for empty array: Given an empty
+// array is selected, When the ObjectInfoPanel updates,
+// Then it shows "Empty array" in muted text.
 // (Backend: returns ObjectDetail.Type == "array" with Elements == [])
 // ---------------------------------------------------------------------------
 
@@ -227,13 +224,13 @@ func TestGetObjectDetailEmptyArray(t *testing.T) {
 	// - Call GetObjectDetail
 	// - Assert ObjectDetail.Type == "array"
 	// - Assert ObjectDetail.Elements is non-nil and len == 0
-	runPdfcoreTest(t, "2.6-UNIT-007 P0", "TestGetObjectDetailEmptyArray$")
+	runPdfcoreTest(t, "TestGetObjectDetailEmptyArray$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-008 [P1]: GetObjectDetail() with unknown tabID returns error
-// AC#2 (negative): Given an unknown tabID, When GetObjectDetail is called,
-//                  Then it returns ErrDocumentNotFound.
+// GetObjectDetail() with unknown tabID returns error (negative): Given an
+// unknown tabID, When GetObjectDetail is called,
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailUnknownTabID(t *testing.T) {
@@ -242,19 +239,19 @@ func TestGetObjectDetailUnknownTabID(t *testing.T) {
 	// - Call GetObjectDetail with a tabID that was never opened
 	// - Assert error is returned
 	// - Assert error wraps ErrDocumentNotFound
-	runPdfcoreTest(t, "2.6-UNIT-008 P1", "TestGetObjectDetailUnknownTabID$")
+	runPdfcoreTest(t, "TestGetObjectDetailUnknownTabID$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-009 [P1]: GetObjectDetail() with invalid nodeID returns error
-// AC#2 (negative): Given an invalid nodeID, When GetObjectDetail is called,
-//                  Then it returns an error (not panic).
+// GetObjectDetail() with invalid nodeID returns error (negative): Given an
+// invalid nodeID, When GetObjectDetail is called,
+// Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailInvalidNodeID
@@ -263,19 +260,19 @@ func TestGetObjectDetailInvalidNodeID(t *testing.T) {
 	// - Call GetObjectDetail with an invalid nodeID (e.g., "bogus")
 	// - Assert error is returned
 	// - Assert no panic occurs
-	runPdfcoreTest(t, "2.6-UNIT-009 P1", "TestGetObjectDetailInvalidNodeID$")
+	runPdfcoreTest(t, "TestGetObjectDetailInvalidNodeID$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-010 [P1]: GetObjectDetail() reference values have RefTarget set
-// AC#2: References in purple (text-type-reference, underlined and clickable).
-// Backend must set RefTarget on IndirectRef ValueEntry so frontend can render.
+// GetObjectDetail() reference values have RefTarget set: References in purple
+// (text-type-reference, underlined and clickable). Backend must set RefTarget
+// on IndirectRef ValueEntry so frontend can render.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailRefTarget(t *testing.T) {
 	minimalPDF := filepath.Join(testdataDir(t), "minimal.pdf")
 	if _, err := os.Stat(minimalPDF); errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("[P1] testdata/minimal.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/minimal.pdf does not exist -- create test fixture first")
 	}
 
 	// Delegates to internal/pdfcore/inspector_test.go::TestGetObjectDetailRefTarget
@@ -284,12 +281,12 @@ func TestGetObjectDetailRefTarget(t *testing.T) {
 	// - Find a property whose Value.Type == "reference"
 	// - Assert Value.RefTarget is non-empty and matches "obj:{gen}:{num}" format
 	// - Assert Value.Display matches "{num} {gen} R" format
-	runPdfcoreTest(t, "2.6-UNIT-010 P1", "TestGetObjectDetailRefTarget$")
+	runPdfcoreTest(t, "TestGetObjectDetailRefTarget$")
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-011 [P1]: GetObjectDetail method exists on Inspector
-// AC#2: inspector.go has GetObjectDetail method signature.
+// GetObjectDetail method exists on Inspector: inspector.go has
+// GetObjectDetail method signature.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailMethodExists(t *testing.T) {
@@ -298,19 +295,19 @@ func TestGetObjectDetailMethodExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-011: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func (ins *Inspector) GetObjectDetail(") {
-		t.Error("[P1] 2.6-UNIT-011: inspector.go missing GetObjectDetail method on Inspector")
+		t.Error("inspector.go missing GetObjectDetail method on Inspector")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-012 [P1]: valueEntryFromObject helper exists
-// AC#2: Centralized pdfcpu-type-to-ValueEntry mapping helper.
+// valueEntryFromObject helper exists: Centralized
+// pdfcpu-type-to-ValueEntry mapping helper.
 // ---------------------------------------------------------------------------
 
 func TestValueEntryHelperExists(t *testing.T) {
@@ -319,19 +316,19 @@ func TestValueEntryHelperExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-012: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func valueEntryFromObject(") {
-		t.Error("[P1] 2.6-UNIT-012: inspector.go missing valueEntryFromObject helper")
+		t.Error("inspector.go missing valueEntryFromObject helper")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-013 [P1]: extractStreamInfo helper exists
-// AC#6: Stream metadata extraction helper.
+// extractStreamInfo helper exists: Stream metadata
+// extraction helper.
 // ---------------------------------------------------------------------------
 
 func TestExtractStreamInfoHelperExists(t *testing.T) {
@@ -340,19 +337,19 @@ func TestExtractStreamInfoHelperExists(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-013: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if !strings.Contains(src, "func extractStreamInfo(") {
-		t.Error("[P1] 2.6-UNIT-013: inspector.go missing extractStreamInfo helper")
+		t.Error("inspector.go missing extractStreamInfo helper")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-014 [P1]: GetObjectDetail wrapped in safeCall for panic recovery
-// AC#2: All pdfcpu calls must be wrapped in safeCall.
+// GetObjectDetail wrapped in safeCall for panic recovery: All pdfcpu calls
+// must be wrapped in safeCall.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailPanicRecovery(t *testing.T) {
@@ -361,20 +358,20 @@ func TestGetObjectDetailPanicRecovery(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-014: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	// GetObjectDetail must use safeCall
 	if !strings.Contains(src, "safeCall") {
-		t.Error("[P1] 2.6-UNIT-014: inspector.go GetObjectDetail does not use safeCall for panic recovery")
+		t.Error("inspector.go GetObjectDetail does not use safeCall for panic recovery")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-015 [P1]: inspector.go has no Wails imports
-// AC#2: pdfcore must have zero Wails dependencies.
+// inspector.go has no Wails imports: pdfcore must have
+// zero Wails dependencies.
 // ---------------------------------------------------------------------------
 
 func TestInspectorNoWailsImports(t *testing.T) {
@@ -383,19 +380,19 @@ func TestInspectorNoWailsImports(t *testing.T) {
 	inspectorPath := filepath.Join(root, "internal", "pdfcore", "inspector.go")
 	content, err := os.ReadFile(inspectorPath)
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-015: internal/pdfcore/inspector.go does not exist: %v", err)
+		t.Fatalf("internal/pdfcore/inspector.go does not exist: %v", err)
 	}
 
 	src := string(content)
 
 	if strings.Contains(src, "wailsapp") || strings.Contains(src, "wails/v3") {
-		t.Error("[P1] 2.6-UNIT-015: inspector.go imports Wails -- pdfcore must have zero Wails dependencies")
+		t.Error("inspector.go imports Wails -- pdfcore must have zero Wails dependencies")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-016 [P1]: All pdfcore tests pass after GetObjectDetail addition
-// AC#2-#6: Unit tests cover all object detail scenarios.
+// All pdfcore tests pass after the GetObjectDetail addition: unit tests cover
+// every object-detail scenario.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfcoreTestsPass(t *testing.T) {
@@ -405,17 +402,17 @@ func TestAllPdfcoreTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-016: pdfcore test suite failed:\n%s", string(output))
+		t.Fatalf("pdfcore test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.6-UNIT-016: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-017 [P1]: go vet passes on pdfcore with GetObjectDetail
-// AC#2: No vet warnings after adding GetObjectDetail.
+// go vet passes on pdfcore with GetObjectDetail: No vet warnings
+// after adding GetObjectDetail.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreGoVetWithObjectDetail(t *testing.T) {
@@ -425,14 +422,14 @@ func TestPdfcoreGoVetWithObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-017: go vet failed on pdfcore:\n%s", string(output))
+		t.Fatalf("go vet failed on pdfcore:\n%s", string(output))
 	}
 	_ = output
 }
 
 // ---------------------------------------------------------------------------
-// 2.6-UNIT-018 [P1]: pdfcore compiles with GetObjectDetail added
-// AC#2: go build ./... succeeds.
+// Pdfcore compiles with GetObjectDetail added: go build ./...
+// succeeds.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreCompilesWithObjectDetail(t *testing.T) {
@@ -442,7 +439,7 @@ func TestPdfcoreCompilesWithObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.6-UNIT-018: go build ./internal/pdfcore/... failed:\n%s", string(output))
+		t.Fatalf("go build ./internal/pdfcore/... failed:\n%s", string(output))
 	}
 	_ = output
 }

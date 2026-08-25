@@ -1,5 +1,5 @@
 /**
- * @file FontPreview -- presentational component for the Story 9-9 font
+ * @file FontPreview -- presentational component for the font
  * inspection view. Renders the consolidated FontDetail payload (metadata
  * header, encoding section, ToUnicode table, FontDescriptor card, optional
  * descendant section) returned by GetFontDetail.
@@ -7,7 +7,7 @@
  * Pure presentational: receives all data plus an onReferenceClick handler.
  * No Wails calls, no useAppDispatch. Mirrors the ImagePreview pattern.
  *
- * The Story 13.3 joined mapping table is viewport-virtualized with the same
+ * The joined mapping table is viewport-virtualized with the same
  * hand-rolled windowing approach as PlainTextView (a tall spacer fixes total
  * scroll height; only the visible slice of rows renders), so a CID font with
  * thousands of codes keeps the panel interactive (NFR5) with no new dependency.
@@ -51,7 +51,7 @@ export interface CIDSystemInfoData {
   supplement: number;
 }
 
-/** One assembled row in the joined per-code mapping table (Story 13.3 AC1):
+/** One assembled row in the joined per-code mapping table:
  *  the JOIN of /Differences (glyphName) and /ToUnicode (unicode, unicodeText)
  *  keyed by character code. Mirrors backend FontMappingRow. */
 export interface FontMappingRowData {
@@ -62,7 +62,7 @@ export interface FontMappingRowData {
   unicodeText: string;
 }
 
-/** Coverage/health diagnostic signals for a font (Story 13.3 AC2). Mirrors
+/** Coverage/health diagnostic signals for a font. Mirrors
  *  backend FontHealth. */
 export interface FontHealthData {
   declaredCodeCount: number;
@@ -88,7 +88,7 @@ export interface FontDetailData {
   fontDescriptor: FontDescriptorInfoData | null;
   descendant: FontDetailData | null;
   /** CIDFont-only (Subtype CIDFontType0 / CIDFontType2). Null on parent
-   *  Type0 / non-composite fonts. AC7. */
+   *  Type0 / non-composite fonts. */
   cidSystemInfo: CIDSystemInfoData | null;
   /** "Identity" for the Name form or "Stream (<N> bytes)" for the stream
    *  form. Empty when /CIDToGIDMap is absent. */
@@ -96,9 +96,9 @@ export interface FontDetailData {
   /** /DW default width for CIDFonts. 0 when absent. */
   defaultWidth: number;
   /** Assembled per-code mapping table: the JOIN of Differences + ToUnicode
-   *  over the union of declared codes (Story 13.3 AC1). */
+   *  over the union of declared codes. */
   mappingRows: FontMappingRowData[];
-  /** Coverage/health diagnostic signals (Story 13.3 AC2). Null when the
+  /** Coverage/health diagnostic signals. Null when the
    *  backend did not populate it (older payloads). */
   health: FontHealthData | null;
 }
@@ -195,7 +195,7 @@ function RefToken({
 }
 
 /** Renders the embedded badge. Green chip + format + size when embedded,
- *  red chip with viewer-fallback warning otherwise. AC2 contract. */
+ *  red chip with viewer-fallback warning otherwise. */
 function EmbeddedBadge({
   embedded,
   format,
@@ -299,7 +299,7 @@ function EncodingSection({ detail }: { detail: FontDetailData }) {
   );
 }
 
-/** ToUnicode section: table of code -> U+XXXX -> glyph, with AC9a warning
+/** ToUnicode section: table of code -> U+XXXX -> glyph, with a warning
  *  panel rendered above the table when toUnicodeError is set. Flex-grows to
  *  fill remaining FontPreview height; the inner scroll container is the
  *  table viewport. */
@@ -424,7 +424,7 @@ function MetadataHeader({
 }) {
   // Embedded badge data must come from the descriptor that actually carries
   // the FontFile -- on Type0 fonts that's the descendant's FontDescriptor,
-  // on everything else it's the parent's. AC2 contract.
+  // on everything else it's the parent's.
   let badgeFormat = '';
   let badgeSize = 0;
   if (detail.subtype === 'Type0' && detail.descendant?.fontDescriptor) {
@@ -535,7 +535,7 @@ function DescendantSection({
   );
 }
 
-/** Health-signals banner (Story 13.3 AC2): surfaces the classic
+/** Health-signals banner: surfaces the classic
  *  text-extraction failure modes explicitly. Renders nothing when health is
  *  absent or all signals are clear. */
 function FontHealthBanner({ health }: { health: FontHealthData }) {
@@ -579,7 +579,7 @@ const MAPPING_ROW_HEIGHT = 26;
 /** Rows rendered above/below the viewport for smooth scrolling. */
 const MAPPING_OVERSCAN = 12;
 
-/** Joined per-code mapping table (Story 13.3 AC1): one row per declared code
+/** Joined per-code mapping table: one row per declared code
  *  carrying code (hex), glyph name, Unicode, and literal text -- the JOIN of
  *  the Differences and ToUnicode sources. Viewport-virtualized (NFR5): only the
  *  visible window of rows is committed to the DOM, so thousands of CID codes do

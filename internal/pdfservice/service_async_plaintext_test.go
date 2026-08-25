@@ -1,8 +1,6 @@
-// Story 10-1: Async Plain Text Load with Cancel -- service-layer tests.
+// Async Plain Text Load with Cancel -- service-layer tests.
 //
-// TDD RED PHASE: these tests fail to compile until PDFService.CancelPlainText
-// and PDFService.GetPlainTextSize are added, and the legacy full-payload
-// method is removed.
+// These cover PDFService.CancelPlainText and PDFService.GetPlainTextSize.
 
 package pdfservice
 
@@ -18,7 +16,7 @@ import (
 )
 
 // TestServiceCancelPlainTextUnknownTab verifies the unknown-tab path on the
-// new CancelPlainText service binding (AC13 routed through the thin pdfservice
+// new CancelPlainText service binding (routed through the thin pdfservice
 // adapter).
 func TestServiceCancelPlainTextUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -32,7 +30,7 @@ func TestServiceCancelPlainTextUnknownTab(t *testing.T) {
 }
 
 // TestServiceCancelPlainTextValidNoOp verifies CancelPlainText on a known tab
-// with no load in flight returns nil (AC12: "no-op if no load is in flight").
+// with no load in flight returns nil ("no-op if no load is in flight").
 func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
 	svc := NewPDFService(nil)
 	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
@@ -42,13 +40,13 @@ func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
 	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
 	if err := svc.CancelPlainText(info.TabID); err != nil {
-		t.Errorf("CancelPlainText on idle tab: err = %v, want nil (AC12)", err)
+		t.Errorf("CancelPlainText on idle tab: err = %v, want nil", err)
 	}
 }
 
 // TestServiceCancelPlainTextCancelsInFlight verifies CancelPlainText cancels
 // an in-flight GetPlainText (mirrors the inspector-level cancel test through
-// the service binding). The story Task 2.2 explicitly requests this test.
+// the service binding).
 //
 // Uses a temporary copy of minimal.pdf padded out to 64 MiB so the chunked
 // read loop has time to observe ctx.Done().
@@ -122,7 +120,7 @@ func TestServiceCancelPlainTextCancelsInFlight(t *testing.T) {
 }
 
 // TestServiceGetPlainTextSizeUnknownTab verifies the unknown-tab path on the
-// new GetPlainTextSize service binding (AC19).
+// new GetPlainTextSize service binding.
 func TestServiceGetPlainTextSizeUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
 	_, err := svc.GetPlainTextSize("nonexistent-tab-id")

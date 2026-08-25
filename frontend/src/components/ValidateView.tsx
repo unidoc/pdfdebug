@@ -1,13 +1,13 @@
 /**
- * @file Validate view -- document-level STRUCTURAL conformance panel (Story
- * 13.5). A "Run checks" action with a profile selector runs the bounded
- * PDF/A-1b or PDF/UA-1-structural rule set and renders the returned problems
- * grouped by severity. Clicking an object-scoped problem jumps TreePanel to the
- * offending object via the existing NAVIGATE_TO_REF wiring; a problem with no
- * object node id is shown but not clickable, while a non-empty-but-unresolvable
- * id degrades gracefully through the reducer's navigation-error path (never a
- * broken jump). The not-authoritative disclaimer is ALWAYS visible and the
- * panel NEVER states an authoritative conformance verdict (AC5).
+ * @file Validate view -- document-level STRUCTURAL conformance panel. A "Run
+ * checks" action with a profile selector runs the bounded PDF/A-1b or
+ * PDF/UA-1-structural rule set and renders the returned problems grouped by
+ * severity. Clicking an object-scoped problem jumps TreePanel to the offending
+ * object via the existing NAVIGATE_TO_REF wiring; a problem with no object node
+ * id is shown but not clickable, while a non-empty-but-unresolvable id degrades
+ * gracefully through the reducer's navigation-error path (never a broken jump).
+ * The not-authoritative disclaimer is ALWAYS visible and the panel NEVER states
+ * an authoritative conformance verdict.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Validate } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
@@ -42,13 +42,13 @@ export interface ValidateViewProps {
   onNavigate: (nodeId: string) => void;
 }
 
-/** The two bounded, explicit profiles (AC2). */
+/** The two bounded, explicit profiles. */
 const PROFILES: { value: string; label: string }[] = [
   { value: 'pdfa-1b', label: 'PDF/A-1b (structural)' },
   { value: 'pdfua-1-structural', label: 'PDF/UA-1 (structural)' },
 ];
 
-/** Severity groups in display order, each with its stable testid (AC4). */
+/** Severity groups in display order, each with its stable testid. */
 const SEVERITY_GROUPS: { severity: string; testid: string; label: string }[] = [
   { severity: 'error', testid: 'validate-group-error', label: 'Errors' },
   { severity: 'warning', testid: 'validate-group-warning', label: 'Warnings' },
@@ -56,7 +56,7 @@ const SEVERITY_GROUPS: { severity: string; testid: string; label: string }[] = [
 ];
 
 /**
- * The always-visible honesty disclaimer (AC5). Deliberately free of any
+ * The always-visible honesty disclaimer. Deliberately free of any
  * authoritative verdict language ("compliant" / "valid" / "passed").
  */
 // Kept byte-identical to pdfcore.DisclaimerText so the CLI and GUI never ship
@@ -106,7 +106,7 @@ function ProblemRow({
           <span>{problem.objRef}</span>
         ) : (
           // Document-level problem (no object ref): flagged as the "Document"
-          // group per AC4 so it is visually distinct from object-scoped rows.
+          // group so it is visually distinct from object-scoped rows.
           <span data-testid="validate-doc-label" className="uppercase tracking-wide">
             Document
           </span>
