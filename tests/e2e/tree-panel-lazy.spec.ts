@@ -13,7 +13,7 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 test.describe('Tree Panel with Lazy-Loading Navigation', () => {
   // ---------------------------------------------------------------------------
   // User expands tree node, children appear, selects node,
-  //                    detail panel shows properties
+  // detail panel shows properties
   // Expand arrow loads children on demand from Go backend.
   // Selection dispatches SELECT_NODE, selected node has highlight.
   // ---------------------------------------------------------------------------

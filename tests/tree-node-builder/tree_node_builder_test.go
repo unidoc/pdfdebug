@@ -67,9 +67,9 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 // ---------------------------------------------------------------------------
 // GetTreeRoot() returns TreeNode with correct fields: Given a parsed
 // PDF document, When GetTreeRoot(tabID) is called,
-//       Then it returns a TreeNode with id="root", label="Catalog",
-//       hasChildren=true, iconHint="catalog", nodeType="dict",
-//       And childCount reflects the number of top-level catalog entries.
+// Then it returns a TreeNode with id="root", label="Catalog",
+// hasChildren=true, iconHint="catalog", nodeType="dict",
+// And childCount reflects the number of top-level catalog entries.
 // ---------------------------------------------------------------------------
 
 func TestGetTreeRootValidPDF(t *testing.T) {
@@ -96,8 +96,8 @@ func TestGetTreeRootValidPDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetChildren("root") returns children with obj: IDs
 // Given the root node, When GetChildren(tabID, "root") is called,
-//       Then it returns a slice of TreeNode for immediate catalog entries,
-//       And indirect ref values produce child IDs in "obj:{gen}:{num}" format.
+// Then it returns a slice of TreeNode for immediate catalog entries,
+// And indirect ref values produce child IDs in "obj:{gen}:{num}" format.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenRoot(t *testing.T) {
@@ -119,8 +119,8 @@ func TestGetChildrenRoot(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetChildren() for dict node returns dict:{parent}:{key} IDs: Given a tree node
 // ID for a dictionary, When GetChildren is called,
-//       Then children that are direct dict entries (non-IndirectRef values)
-//       have IDs in "dict:{parent_id}:{key}" format with bare keys (no slash).
+// Then children that are direct dict entries (non-IndirectRef values)
+// have IDs in "dict:{parent_id}:{key}" format with bare keys (no slash).
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenDictNode(t *testing.T) {
@@ -142,7 +142,7 @@ func TestGetChildrenDictNode(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetChildren() for array node returns arr:{parent}:{index} IDs: Given a tree node
 // ID for an array, When GetChildren is called,
-//       Then children have IDs in "arr:{parent_id}:{index}" format.
+// Then children have IDs in "arr:{parent_id}:{index}" format.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenArrayNode(t *testing.T) {
@@ -163,10 +163,9 @@ func TestGetChildrenArrayNode(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Malformed object produces error node, siblings unaffected: Given a tree node
-// for a malformed object, When GetChildren()
-//       encounters a parsing error, Then it returns an error node with Error
-//       field populated and Label="Error: {message}", And other sibling
-//       nodes are still returned.
+// for a malformed object, When GetChildren() encounters a parsing error, Then
+// it returns an error node with Error field populated and
+// Label="Error: {message}", And other sibling nodes are still returned.
 // ---------------------------------------------------------------------------
 
 func TestErrorNodeCreation(t *testing.T) {
@@ -183,7 +182,7 @@ func TestErrorNodeCreation(t *testing.T) {
 // ---------------------------------------------------------------------------
 // /Pages shows "Pages" with iconHint "page": Given tree
 // builder, When building nodes for /Pages,
-//       Then Label is "Pages" and iconHint is "page".
+// Then Label is "Pages" and iconHint is "page".
 // ---------------------------------------------------------------------------
 
 func TestSemanticLabelPages(t *testing.T) {
@@ -204,7 +203,7 @@ func TestSemanticLabelPages(t *testing.T) {
 // ---------------------------------------------------------------------------
 // /Font entries show "Font: {name}" with iconHint "font": Given tree
 // builder, When building nodes for /Font entries,
-//       Then Label follows "Font: {BaseFont}" pattern and iconHint is "font".
+// Then Label follows "Font: {BaseFont}" pattern and iconHint is "font".
 // ---------------------------------------------------------------------------
 
 func TestSemanticLabelFont(t *testing.T) {
@@ -246,7 +245,7 @@ func TestNodeTypeAssignment(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Node ID round-trip: encode then decode produces
-//                     original components
+// original components
 // Node IDs follow the scheme and can be parsed back to their components.
 // ---------------------------------------------------------------------------
 
@@ -305,7 +304,7 @@ func TestGetChildrenEmptyArray(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetTreeRoot with unknown tabID returns error (negative): Given an
 // unknown tabID, When GetTreeRoot is called,
-//                  Then it returns ErrDocumentNotFound.
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetTreeRootUnknownTabID(t *testing.T) {
@@ -320,7 +319,7 @@ func TestGetTreeRootUnknownTabID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetChildren with unknown tabID returns error (negative): Given an
 // unknown tabID, When GetChildren is called,
-//                  Then it returns ErrDocumentNotFound.
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenUnknownTabID(t *testing.T) {
@@ -335,7 +334,7 @@ func TestGetChildrenUnknownTabID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetChildren with invalid nodeID format returns error (negative): Given
 // a malformed nodeID, When GetChildren is called,
-//                  Then it returns an error (not panic).
+// Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
 func TestGetChildrenInvalidNodeID(t *testing.T) {

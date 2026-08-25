@@ -15,7 +15,7 @@ test.describe('Close Document and Tab Management', () => {
   // Close last tab returns to empty state: Document is
   // closed, tab is removed from tab bar.
   // When no documents remain open, empty state is shown again with
-  //       the drag-and-drop zone, and the user can immediately open a new PDF.
+  // the drag-and-drop zone, and the user can immediately open a new PDF.
   // ---------------------------------------------------------------------------
   test('should close last tab and return to empty state', async ({ appPage }) => {
     await waitForWailsReady(appPage);

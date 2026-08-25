@@ -23,10 +23,10 @@ import (
 // ContentStreamData fields (nodeId, raw, tokenized), verify `raw` is
 // non-empty (decompressed text), verify exit code 0.
 // Given a valid PDF file with content streams, When
-//       `pdfdebug dump stream --page 1 [--json] <file>` is executed, Then
-//       the CLI outputs the decoded content stream for page 1 as structured
-//       JSON to stdout, And the JSON matches the ContentStreamData model
-//       (nodeId, raw, tokenized, error), And the exit code is 0.
+// `pdfdebug dump stream --page 1 [--json] <file>` is executed, Then
+// the CLI outputs the decoded content stream for page 1 as structured
+// JSON to stdout, And the JSON matches the ContentStreamData model
+// (nodeId, raw, tokenized, error), And the exit code is 0.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_ValidPage_OutputsJSON(t *testing.T) {
@@ -65,9 +65,9 @@ func TestStreamDump_ValidPage_OutputsJSON(t *testing.T) {
 // contains JSON error mentioning "out of range", stdout is empty, exit
 // code 2.
 // Given a page number that does not exist, When the CLI is executed
-//       with `--page 999`, Then an error message in JSON format is written
-//       to stderr indicating the page is out of range, And the exit code
-//       is 2.
+// with `--page 999`, Then an error message in JSON format is written
+// to stderr indicating the page is out of range, And the exit code
+// is 2.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_OutOfRangePage_JSONErrorOnStderr(t *testing.T) {
@@ -104,9 +104,9 @@ func TestStreamDump_OutOfRangePage_JSONErrorOnStderr(t *testing.T) {
 // array is non-empty, each Token has `type`, `value`, `line`, `col`
 // fields. Verify at least one token has type "operator".
 // `tokenized` contains an array of Token objects with type, value,
-//       line, col fields.
+// line, col fields.
 // The JSON schema is self-documenting with clear field names matching
-//       the ContentStreamData model.
+// the ContentStreamData model.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
@@ -166,8 +166,8 @@ func TestStreamDump_TokenizedArray_HasTokens(t *testing.T) {
 // empty-stream.pdf has a Contents entry pointing to a zero-length stream --
 // the page dict has a Contents ref, but the stream body is empty.
 // Given a page with no content stream (empty page), When the CLI is
-//       executed, Then the JSON output includes an empty `raw` string,
-//       And the exit code is 0 (not a failure).
+// executed, Then the JSON output includes an empty `raw` string,
+// And the exit code is 0 (not a failure).
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
@@ -196,9 +196,9 @@ func TestStreamDump_EmptyStream_ReturnsEmptyRaw(t *testing.T) {
 // "page has no content stream", verify `raw` is empty. This tests the "no
 // Contents entry at all" case (the CLI's empty-page branch).
 // Given a page with no content stream (empty page), When the CLI is
-//       executed, Then the JSON output includes an empty `raw` string
-//       and/or a non-fatal `error` field explaining the page has no stream
-//       content, And the exit code is 0.
+// executed, Then the JSON output includes an empty `raw` string
+// and/or a non-fatal `error` field explaining the page has no stream
+// content, And the exit code is 0.
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
@@ -235,7 +235,7 @@ func TestStreamDump_NoContentsEntry_ReturnsErrorField(t *testing.T) {
 // text content (not compressed binary gibberish). Check for presence of
 // common PDF operators like "BT", "ET", "Tf", "Tj".
 // `raw` contains the decompressed plain text (FlateDecode streams
-//       are decoded).
+// are decoded).
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
@@ -275,9 +275,9 @@ func TestStreamDump_FlateDecode_ReturnsDecompressed(t *testing.T) {
 // Test with `--page 0` and `--page -1`, verify each produces JSON error on
 // stderr, exit code 1 (usage error, not file error).
 // Given an invalid page number (`--page 0`, `--page -1`), When the
-//       CLI is executed, Then an error message on stderr clearly describes
-//       the expected page format (1-based positive integer), And the exit
-//       code is 1 (usage error).
+// CLI is executed, Then an error message on stderr clearly describes
+// the expected page format (1-based positive integer), And the exit
+// code is 1 (usage error).
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_InvalidPageNumber_UsageError(t *testing.T) {
@@ -327,8 +327,8 @@ func TestStreamDump_InvalidPageNumber_UsageError(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Run without --page flag, verify usage error on stderr, exit code 1.
 // Given a missing `--page`, When the CLI is executed, Then an error
-//       message on stderr describes the expected page format, And the exit
-//       code is 1 (usage error).
+// message on stderr describes the expected page format, And the exit
+// code is 1 (usage error).
 // ---------------------------------------------------------------------------
 
 func TestStreamDump_MissingPageFlag_UsageError(t *testing.T) {

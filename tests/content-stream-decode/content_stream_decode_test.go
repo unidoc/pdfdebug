@@ -47,9 +47,9 @@ func testdataDir(t *testing.T) string {
 // GetContentStream returns decoded plain text for a page's Contents
 // node using testdata/content-stream.pdf.
 // Given a tree node ID corresponding to a page's Contents entry,
-//       When GetContentStream(tabID, nodeID) is called,
-//       Then it returns ContentStreamData with decoded plain text in Raw,
-//       And NodeID is populated correctly.
+// When GetContentStream(tabID, nodeID) is called,
+// Then it returns ContentStreamData with decoded plain text in Raw,
+// And NodeID is populated correctly.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamValid(t *testing.T) {
@@ -76,11 +76,11 @@ func TestGetContentStreamValid(t *testing.T) {
 // GetContentStream on corrupted/non-decodable stream returns error in
 // ContentStreamData.Error, does not panic.
 // Given a content stream that cannot be decoded,
-//       When GetContentStream is called,
-//       Then the Error field is populated with a clear message,
-//       And the function does not crash or panic.
+// When GetContentStream is called,
+// Then the Error field is populated with a clear message,
+// And the function does not crash or panic.
 // Note: The non-stream node test covers the error-path branch since
-//       content-stream fixtures with unsupported filters are not available.
+// content-stream fixtures with unsupported filters are not available.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamNonStream(t *testing.T) {

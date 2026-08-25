@@ -15,9 +15,9 @@ import (
 // GetContentStream returns decoded plain text for a page's Contents node
 // using testdata/content-stream.pdf.
 // Given a tree node ID corresponding to a page's Contents entry,
-//       When GetContentStream(tabID, nodeID) is called,
-//       Then it returns ContentStreamData with decoded plain text in Raw,
-//       And NodeID is populated correctly.
+// When GetContentStream(tabID, nodeID) is called,
+// Then it returns ContentStreamData with decoded plain text in Raw,
+// And NodeID is populated correctly.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamValid(t *testing.T) {
@@ -83,7 +83,7 @@ func TestGetContentStreamValid(t *testing.T) {
 // GetContentStream with non-stream nodeID returns error in
 // ContentStreamData.Error field, not a Go error.
 // Given a node that is not a stream, When GetContentStream is called,
-//       Then ContentStreamData.Error is populated, Raw is empty, no Go error.
+// Then ContentStreamData.Error is populated, Raw is empty, no Go error.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamNonStream(t *testing.T) {

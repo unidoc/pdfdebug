@@ -36,7 +36,7 @@ test.describe('Native Menu Bar and Application Shell', () => {
 
   // ---------------------------------------------------------------------------
   // Two-column layout renders with semantic HTML and
-  //                     data-testid attributes when MainLayout is active
+  // data-testid attributes when MainLayout is active
   // Left panel (aside) + right panel (main) with resizable divider:
   // Semantic HTML elements <aside> and <main>
   //
@@ -70,7 +70,7 @@ test.describe('Native Menu Bar and Application Shell', () => {
 
   // ---------------------------------------------------------------------------
   // Verify all required data-testid attributes are present
-  //                     in the rendered DOM
+  // in the rendered DOM
   // DOM structure verification
   //
   // This test launches the app and checks that the expected data-testid

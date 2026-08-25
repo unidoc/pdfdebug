@@ -1,5 +1,5 @@
 // 4-5: deleted TestAppShellNoRegression (meta-test that subprocess-ran the
-//      app-shell suite; CI already runs that suite -- pure overhead).
+// app-shell suite; CI already runs that suite -- pure overhead).
 
 // Package open_pdf_dialog_dnd_test provides acceptance tests for Open PDF via
 // File Dialog and Drag-and-Drop.
@@ -68,22 +68,22 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // PDFService has OpenFileDialog method: Given PDFService, When
 // reviewed, Then it has an exported
-//       OpenFileDialog() method that returns (string, error).
+// OpenFileDialog() method that returns (string, error).
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
 // PDFService has SetApp method and app field: PDFService needs access
 // to *application.App for dialog calls.
-//       SetApp(app *application.App) method and app field must exist.
+// SetApp(app *application.App) method and app field must exist.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
 // PDFService imports wails application package: pdfservice is the Wails
 // adapter layer -- it MAY import Wails packages
-//       (unlike pdfcore which must have zero Wails deps). Here,
-//       service.go must import application for *application.App type.
+// (unlike pdfcore which must have zero Wails deps). Here,
+// service.go must import application for *application.App type.
 // ---------------------------------------------------------------------------
 
 
@@ -110,7 +110,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // main.go captures window reference: Window return value from NewWithOptions
 // must be captured (not discarded)
-//       to register OnWindowEvent handler for file drop.
+// to register OnWindowEvent handler for file drop.
 // ---------------------------------------------------------------------------
 
 
@@ -129,7 +129,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // File drop handler emits document:opened or document:error: After processing
 // a dropped file, the Go handler must emit events
-//       to the frontend since WindowFilesDropped is Go-side only.
+// to the frontend since WindowFilesDropped is Go-side only.
 // ---------------------------------------------------------------------------
 
 
@@ -140,7 +140,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // File > Open menu handler wired to dialog (not just log): The TODO
 // placeholder in the menu handler must be replaced with
-//       actual file dialog logic.
+// actual file dialog logic.
 // ---------------------------------------------------------------------------
 
 
@@ -151,7 +151,7 @@ func fileExists(t *testing.T, relPath string) bool {
 // ---------------------------------------------------------------------------
 // useDocumentState.tsx has OPEN_DOCUMENT reducer implementation: The reducer must
 // handle OPEN_DOCUMENT to transition from empty to loaded.
-//       Current stub returns state unchanged -- must be implemented.
+// Current stub returns state unchanged -- must be implemented.
 // ---------------------------------------------------------------------------
 
 func TestReducerHandlesOpenDocument(t *testing.T) {
@@ -176,7 +176,7 @@ func TestReducerHandlesOpenDocument(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TabState has rootNode and rootChildren fields: TabState must include
 // rootNode and rootChildren to hold the Catalog
-//       root node and its immediate children after file open.
+// root node and its immediate children after file open.
 // ---------------------------------------------------------------------------
 
 func TestTabStateHasRootFields(t *testing.T) {
@@ -247,7 +247,7 @@ func TestErrorBannerComponentExists(t *testing.T) {
 // ---------------------------------------------------------------------------
 // ErrorBanner has required data-testid attributes: ErrorBanner must
 // have data-testid="error-banner",
-//       data-testid="error-banner-message", data-testid="error-banner-dismiss".
+// data-testid="error-banner-message", data-testid="error-banner-dismiss".
 // ---------------------------------------------------------------------------
 
 func TestErrorBannerHasTestIDs(t *testing.T) {
@@ -338,7 +338,7 @@ func TestAppHasFileDropTarget(t *testing.T) {
 // ---------------------------------------------------------------------------
 // App.jsx listens for document:opened event: Frontend must listen for
 // document:opened events from Go backend
-//           (used by both menu File > Open and drag-and-drop paths).
+// (used by both menu File > Open and drag-and-drop paths).
 // ---------------------------------------------------------------------------
 
 func TestAppListensForDocumentOpened(t *testing.T) {
@@ -386,7 +386,7 @@ func TestAppRendersErrorBanner(t *testing.T) {
 // ---------------------------------------------------------------------------
 // MainLayout shows root node and children in left panel: After file open,
 // the left panel must display the root Catalog node
-//       and its immediate children (not just placeholder text).
+// and its immediate children (not just placeholder text).
 // ---------------------------------------------------------------------------
 
 
@@ -429,7 +429,7 @@ func TestUsePDFServiceExportsOpenPDFFile(t *testing.T) {
 // ---------------------------------------------------------------------------
 // EmptyState imports and uses dispatch/service: EmptyState button click
 // must call PDFService.OpenFileDialog
-//           then openPDFFile, then dispatch OPEN_DOCUMENT or SET_DOCUMENT_ERROR.
+// then openPDFFile, then dispatch OPEN_DOCUMENT or SET_DOCUMENT_ERROR.
 // ---------------------------------------------------------------------------
 
 

@@ -2,15 +2,17 @@ package pdfcore
 
 // Acceptance tests for the behaviours that require package-private
 // access to DocumentState's unexported fields:
-//   re-Open under same tabID must invoke the prior DocumentState's
+//   - re-Open under the same tabID must invoke the prior DocumentState's
 //     plainTextLoadCancel before the new entry is inserted.
-//   reverse-refs build is deferred to first GetReverseRefs call;
+//   - the reverse-refs build is deferred to the first GetReverseRefs call;
 //     `doc.reverseRefs == nil && !doc.revRefsBuildFailed` MUST hold
 //     immediately after Open returns.
 //
 // `package pdfcore` (NOT `pdfcore_test`) is required because:
-//   - writes a wrapping closure directly into prior.plainTextLoadCancel.
-//   - reads doc.reverseRefs and doc.revRefsBuildFailed.
+//   - the re-Open test writes a wrapping closure directly into
+//     prior.plainTextLoadCancel.
+//   - the deferred-build test reads doc.reverseRefs and
+//     doc.revRefsBuildFailed.
 
 import (
 	"path/filepath"

@@ -15,8 +15,8 @@
 //     invalidation on re-Open / Close.
 //
 // Run: go test ./internal/pdfcore/ -run TestObjectIndex -count=1
-//      go test ./internal/pdfcore/ -run TestTreeNodeObjectRef -count=1
-//      go test ./internal/pdfcore/ -run TestTreeNodeTypeName -count=1
+// go test ./internal/pdfcore/ -run TestTreeNodeObjectRef -count=1
+// go test ./internal/pdfcore/ -run TestTreeNodeTypeName -count=1
 
 package pdfcore
 

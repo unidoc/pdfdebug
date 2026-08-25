@@ -57,8 +57,8 @@ func readFile(t *testing.T, relPath string) string {
 // ---------------------------------------------------------------------------
 // PDFService.OpenFile() delegates to Inspector.Open(): Given a valid
 // PDF, When PDFService.OpenFile(path) is called,
-//       Then it delegates to Inspector.Open() and returns DocumentInfo
-//       with non-empty TabID, correct FileName, PageCount > 0.
+// Then it delegates to Inspector.Open() and returns DocumentInfo
+// with non-empty TabID, correct FileName, PageCount > 0.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFile(t *testing.T) {
@@ -87,8 +87,8 @@ func TestPDFServiceOpenFile(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService.CloseDocument() delegates to Inspector.Close(): Given a previously
 // opened document, When CloseDocument(tabID) is called,
-//       Then it delegates to Inspector.Close() and returns nil error.
-//       And calling again with the same tabID returns ErrDocumentNotFound.
+// Then it delegates to Inspector.Close() and returns nil error.
+// And calling again with the same tabID returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceCloseDocument(t *testing.T) {
@@ -114,8 +114,8 @@ func TestPDFServiceCloseDocument(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService.GetTreeRoot() delegates to pdfcore: Given an opened
 // document, When GetTreeRoot(tabID) is called,
-//       Then it delegates to Inspector.GetTreeRoot() and returns TreeNode
-//       with ID "root".
+// Then it delegates to Inspector.GetTreeRoot() and returns TreeNode
+// with ID "root".
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetTreeRoot(t *testing.T) {
@@ -143,8 +143,8 @@ func TestPDFServiceGetTreeRoot(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService.GetChildren() delegates to pdfcore: Given an opened document,
 // When GetChildren(tabID, "root") is called,
-//       Then it delegates to Inspector.GetChildren() and returns non-empty
-//       []*TreeNode slice.
+// Then it delegates to Inspector.GetChildren() and returns non-empty
+// []*TreeNode slice.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetChildren(t *testing.T) {
@@ -171,7 +171,7 @@ func TestPDFServiceGetChildren(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService.GetObjectDetail() returns stub error: Given any input,
 // When GetObjectDetail(tabID, nodeID) is called,
-//       Then it returns a "not implemented" error while it is a stub.
+// Then it returns a "not implemented" error while it is a stub.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetObjectDetail(t *testing.T) {
@@ -197,7 +197,7 @@ func TestPDFServiceGetObjectDetail(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService methods with invalid tabID return error: Given a
 // PDFService method, When called with an unknown tabID,
-//       Then it returns an error (propagated from pdfcore).
+// Then it returns an error (propagated from pdfcore).
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceInvalidTabID(t *testing.T) {
@@ -228,14 +228,14 @@ func TestPDFServiceInvalidTabID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // PDFService is registered in main.go via app.RegisterService(): Given main.go,
 // When reviewed, Then PDFService is created and registered
-//       using app.RegisterService() (NOT the Services: field in Options).
+// using app.RegisterService() (NOT the Services: field in Options).
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
 // main.go does NOT use Services: field in application.Options: The app-shell
 // test TestServicesFieldRemoved must still pass.
-//       Services: field and application.NewService must not co-occur in Options.
+// Services: field and application.NewService must not co-occur in Options.
 // ---------------------------------------------------------------------------
 
 
@@ -356,8 +356,8 @@ func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Pdfservice is the Wails adapter layer: pdfservice delegates to pdfcore.
 // As the Wails adapter layer it may
-//       import Wails packages (e.g. application for dialog access). Only
-//       pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
+// import Wails packages (e.g. application for dialog access). Only
+// pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceIsWailsAdapter(t *testing.T) {

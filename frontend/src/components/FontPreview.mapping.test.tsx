@@ -9,8 +9,8 @@
  *
  *   FontMappingRowData = { code, codeHex, glyphName, unicode, unicodeText }
  *   FontHealthData = {
- *     declaredCodeCount, toUnicodeMissing, identityWithoutToUnicode,
- *     encodingWithoutToUnicodeCodes
+ * declaredCodeCount, toUnicodeMissing, identityWithoutToUnicode,
+ * encodingWithoutToUnicodeCodes
  *   }
  *
  * The new component must expose the joined table under

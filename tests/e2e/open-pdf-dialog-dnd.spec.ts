@@ -14,9 +14,9 @@ test.describe('Open PDF via File Dialog and Drag-and-Drop', () => {
   // ---------------------------------------------------------------------------
   // User opens PDF via drag-and-drop, sees tree Catalog: Given the empty
   // state, When the user drags a PDF onto the window
-  //       and releases, Then the PDF is opened and the tree panel shows the
-  //       document structure with the root "Catalog" node visible and
-  //       auto-expanded to show its immediate children.
+  // and releases, Then the PDF is opened and the tree panel shows the
+  // document structure with the root "Catalog" node visible and
+  // auto-expanded to show its immediate children.
   // The root Catalog node is visible and auto-expanded.
   // ---------------------------------------------------------------------------
   test('should open PDF via drag-and-drop and show Catalog in tree', async ({ appPage }) => {
@@ -110,8 +110,8 @@ test.describe('Open PDF via File Dialog and Drag-and-Drop', () => {
   // ---------------------------------------------------------------------------
   // Error banner appears for malformed PDF and is dismissible: Given a PDF that
   // cannot be parsed, When the user opens it,
-  //       Then an ErrorBanner appears with a clear message, And the error
-  //       banner is dismissible, And the user can open a different file.
+  // Then an ErrorBanner appears with a clear message, And the error
+  // banner is dismissible, And the user can open a different file.
   // ---------------------------------------------------------------------------
   test('should show error banner for malformed PDF and allow dismiss', async ({ appPage }) => {
     await waitForWailsReady(appPage);

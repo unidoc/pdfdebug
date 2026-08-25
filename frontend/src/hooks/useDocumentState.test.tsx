@@ -730,7 +730,7 @@ describe('CLOSE_DOCUMENT removes only the target tab', () => {
 // Closing active tab moves activeTabId to the next tab (or previous if
 // last).
 // Focus moves to the next tab (or the previous tab if the closed tab
-//       was the last one).
+// was the last one).
 //
 // (a) Close the last-in-array tab (tab-3): activeTabId -> tab-2 (previous).
 // (b) Close the first-in-array tab (tab-1): activeTabId -> tab-2 (next).
@@ -941,7 +941,7 @@ describe('Rapid sequential closes do not corrupt state', () => {
 // ---------------------------------------------------------------------------
 // Supplemental: Closing middle active tab prefers the next tab.
 // Focus moves to the next tab (or the previous tab if the closed tab
-//       was the last one).
+// was the last one).
 //
 // Given 3 tabs are open with tab-2 active (middle),
 // When CLOSE_DOCUMENT is dispatched for tab-2,

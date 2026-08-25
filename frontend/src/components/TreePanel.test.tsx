@@ -230,7 +230,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // TreePanel renders root node and expands on click: Given a PDF is
 // opened, the tree root is displayed. When the user
-//       clicks the expand arrow, child nodes load from the Go backend.
+// clicks the expand arrow, child nodes load from the Go backend.
 // ---------------------------------------------------------------------------
 
 describe('TreePanel renders root and expands on click', () => {
@@ -461,7 +461,7 @@ describe('TreePanel keyboard navigation', () => {
 // ---------------------------------------------------------------------------
 // ARIA roles and attributes: container has role="tree", nodes
 // have role="treeitem",
-//       aria-expanded, aria-level.
+// aria-expanded, aria-level.
 // ---------------------------------------------------------------------------
 
 describe('TreePanel ARIA accessibility', () => {
@@ -576,7 +576,7 @@ describe('TreePanel ARIA accessibility', () => {
 // ---------------------------------------------------------------------------
 // Loading indicator appears only after 200ms delay: A subtle loading
 // indicator (pulse animation) appears only if
-//       loading takes more than 200ms.
+// loading takes more than 200ms.
 // ---------------------------------------------------------------------------
 
 describe('Loading indicator with 200ms threshold', () => {

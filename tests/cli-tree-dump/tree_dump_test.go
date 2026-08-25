@@ -21,8 +21,8 @@ import (
 // Build binary, run `pdfdebug dump tree --json testdata/minimal.pdf`,
 // verify stdout parses as valid JSON, exit code 0.
 // Given a valid PDF file, When `pdfdebug dump tree [--json] <file>` is
-//       executed, Then the CLI outputs the PDF object tree as structured JSON
-//       to stdout, And the exit code is 0.
+// executed, Then the CLI outputs the PDF object tree as structured JSON
+// to stdout, And the exit code is 0.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_ValidPDF_OutputsJSON(t *testing.T) {
@@ -103,8 +103,8 @@ func TestTreeDump_IncludesChildren(t *testing.T) {
 // Run with non-existent path, verify stderr contains JSON {"error":
 // "..."}, stdout is empty, exit code 2.
 // Given an invalid file path, Then an error message in JSON format is
-//       written to stderr, And the exit code is non-zero (2 for file error),
-//       And stdout remains empty.
+// written to stderr, And the exit code is non-zero (2 for file error),
+// And stdout remains empty.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_InvalidFilePath_JSONErrorOnStderr(t *testing.T) {
@@ -134,7 +134,7 @@ func TestTreeDump_InvalidFilePath_JSONErrorOnStderr(t *testing.T) {
 // Run with testdata/malformed.pdf, verify stderr has JSON error, exit code
 // 2, no panic.
 // Given an unparseable PDF, Then an error message in JSON format is
-//       written to stderr, And the exit code is non-zero (2 for file error).
+// written to stderr, And the exit code is non-zero (2 for file error).
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_MalformedPDF_JSONErrorOnStderr(t *testing.T) {
@@ -298,7 +298,7 @@ func TestTreeDump_MissingFilePath_UsageOnStderr_ExitCode1(t *testing.T) {
 // Run with testdata/encrypted.pdf, verify error message contains "encrypt"
 // (case-insensitive), exit code 2.
 // Given an encrypted PDF, Then the error message on stderr specifically
-//       mentions encryption, And the exit code is 2.
+// mentions encryption, And the exit code is 2.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_EncryptedPDF_MentionsEncryption(t *testing.T) {
@@ -681,7 +681,7 @@ func TestTreeDump_WithoutJSONFlag_OutputsPlainText(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Tree dump with --depth flag limits traversal.
 // Given a large PDF, When --depth N is passed, Then recursive tree
-//       traversal stops at depth N.
+// traversal stops at depth N.
 // ---------------------------------------------------------------------------
 
 func TestTreeDump_DepthFlag_LimitsTraversal(t *testing.T) {

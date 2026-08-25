@@ -2,7 +2,7 @@
  * DetailPanel Embedded + Metadata tab integration tests.
  *
  * An "Embedded" document-level tab beside Object/XREF/Plain Text, with an
- *      optional "(N)" count mirroring the XREF tab.
+ * optional "(N)" count mirroring the XREF tab.
  * A dedicated "Metadata" tab beside Embedded (NOT crammed into Embedded).
  *
  * The four new bound methods (GetEmbeddedFiles, GetEmbeddedFileBytes,

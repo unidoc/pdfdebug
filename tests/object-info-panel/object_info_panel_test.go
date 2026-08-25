@@ -97,8 +97,8 @@ func TestGetObjectDetailDict(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns correct elements for array node: Given an array
 // node is selected, When the ObjectInfoPanel updates,
-//       Then it displays an indexed list of array elements with type-colored
-//       values.
+// Then it displays an indexed list of array elements with type-colored
+// values.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailArray(t *testing.T) {
@@ -123,7 +123,7 @@ func TestGetObjectDetailArray(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns correct value for scalar node: Given a scalar
 // node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the single value with its type label.
+// Then it displays the single value with its type label.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailScalar(t *testing.T) {
@@ -147,9 +147,9 @@ func TestGetObjectDetailScalar(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns stream properties and metadata: Given a stream
 // node is selected, When the ObjectInfoPanel updates,
-//       Then it displays the stream's dictionary properties as a key-value
-//       table, And it displays stream metadata (length and filter names)
-//       below the properties.
+// Then it displays the stream's dictionary properties as a key-value
+// table, And it displays stream metadata (length and filter names)
+// below the properties.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailStream(t *testing.T) {
@@ -196,7 +196,7 @@ func TestGetObjectDetailObjectRef(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns empty properties for empty dict: Given an empty
 // dictionary is selected, When the ObjectInfoPanel
-//       updates, Then it shows "Empty dictionary" in muted text.
+// updates, Then it shows "Empty dictionary" in muted text.
 // (Backend: returns ObjectDetail.Type == "dict" with Properties == [])
 // ---------------------------------------------------------------------------
 
@@ -213,7 +213,7 @@ func TestGetObjectDetailEmptyDict(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() returns empty elements for empty array: Given an empty
 // array is selected, When the ObjectInfoPanel updates,
-//       Then it shows "Empty array" in muted text.
+// Then it shows "Empty array" in muted text.
 // (Backend: returns ObjectDetail.Type == "array" with Elements == [])
 // ---------------------------------------------------------------------------
 
@@ -230,7 +230,7 @@ func TestGetObjectDetailEmptyArray(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() with unknown tabID returns error (negative): Given an
 // unknown tabID, When GetObjectDetail is called,
-//                  Then it returns ErrDocumentNotFound.
+// Then it returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailUnknownTabID(t *testing.T) {
@@ -245,7 +245,7 @@ func TestGetObjectDetailUnknownTabID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetObjectDetail() with invalid nodeID returns error (negative): Given an
 // invalid nodeID, When GetObjectDetail is called,
-//                  Then it returns an error (not panic).
+// Then it returns an error (not panic).
 // ---------------------------------------------------------------------------
 
 func TestGetObjectDetailInvalidNodeID(t *testing.T) {

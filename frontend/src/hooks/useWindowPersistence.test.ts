@@ -46,7 +46,7 @@ describe('useWindowPersistence (panel sizes)', () => {
    * Panel sizes saved to window.localStorage on resize.
    *
    * When the user resizes panels, the new sizes are persisted to
-   *       window.localStorage so they survive app restart.
+   * window.localStorage so they survive app restart.
    */
   test('panel sizes saved to window.localStorage on resize', () => {
     const { result } = renderHook(() => useWindowPersistence());
@@ -72,7 +72,7 @@ describe('useWindowPersistence (panel sizes)', () => {
    * Panel sizes restored from window.localStorage on mount.
    *
    * When the app starts with valid persisted state in window.localStorage,
-   *       the hook returns the stored panel sizes.
+   * the hook returns the stored panel sizes.
    */
   test('panel sizes restored from window.localStorage on mount', () => {
     // Pre-populate window.localStorage with valid state
@@ -95,7 +95,7 @@ describe('useWindowPersistence (panel sizes)', () => {
    * Panel sizes saved and restored round-trip.
    *
    * Save sizes, then create a new hook instance, verify loaded
-   *       sizes match saved sizes.
+   * sizes match saved sizes.
    */
   test('panel sizes saved and restored round-trip', () => {
     // First instance: save sizes
@@ -122,7 +122,7 @@ describe('useWindowPersistence (panel sizes)', () => {
    * Graceful fallback to null when window.localStorage is empty or corrupt.
    *
    * If window.localStorage is empty or corrupt, the application falls back to
-   *       default panel sizes with no error.
+   * default panel sizes with no error.
    */
   test('fallback to null when window.localStorage is empty', () => {
     // window.localStorage is cleared in beforeEach -- nothing stored
@@ -459,8 +459,8 @@ describe('useWindowPersistence (window geometry)', () => {
    * isValidGeometry() validator semantics.
    *
    * Validator allows negative x/y for multi-monitor;
-   *       rejects non-finite/NaN x/y/width/height;
-   *       rejects zero or negative width/height.
+   * rejects non-finite/NaN x/y/width/height;
+   * rejects zero or negative width/height.
    */
   test('isValidGeometry allows negative x/y, rejects non-finite or non-positive width/height', () => {
     // Allowed: positive width/height, any finite x/y (including negative for multi-monitor)
@@ -495,8 +495,8 @@ describe('useWindowPersistence (window geometry)', () => {
    * persisted geometry is corrupt (forward/backward compat).
    *
    * Mirrors UNIT-004 from the inverse direction (corrupt geometry +
-   *       valid panelSizes still loads panelSizes); this case validates
-   *       that the panelSizes load path is unaffected by the geometry path.
+   * valid panelSizes still loads panelSizes); this case validates
+   * that the panelSizes load path is unaffected by the geometry path.
    */
   test('loader returns null geometry but valid panelSizes when geometry shape mismatches', () => {
     // windowGeometry has only partial fields -- shape mismatch

@@ -49,8 +49,8 @@ func testdataDir(t *testing.T) string {
 // ---------------------------------------------------------------------------
 // Inspector.Open() opens valid PDF, returns DocumentInfo: Given a valid PDF
 // file path, When Inspector.Open() is called,
-//       Then pdfcpu parses the file and returns DocumentInfo with tabId,
-//       fileName, filePath, pageCount, and fileSize.
+// Then pdfcpu parses the file and returns DocumentInfo with tabId,
+// fileName, filePath, pageCount, and fileSize.
 // ---------------------------------------------------------------------------
 
 func TestInspectorOpenValidPDF(t *testing.T) {
@@ -88,8 +88,8 @@ func TestInspectorOpenValidPDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Inspector.Open() on malformed PDF returns error, no panic: Given a malformed
 // PDF, When Inspector.Open() is called,
-//       Then the function does not crash or panic, And returns an error
-//       with a human-readable message.
+// Then the function does not crash or panic, And returns an error
+// with a human-readable message.
 // ---------------------------------------------------------------------------
 
 func TestInspectorOpenMalformedPDF(t *testing.T) {
@@ -122,8 +122,8 @@ func TestInspectorOpenMalformedPDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 // safeCall() catches panic and returns wrapped error: Given the
 // safeCall() utility, When a function panics,
-//       Then the panic is caught and returned as a Go error with format
-//       "pdf parsing panic: {recovered value}".
+// Then the panic is caught and returned as a Go error with format
+// "pdf parsing panic: {recovered value}".
 // ---------------------------------------------------------------------------
 
 func TestSafeCallCatchesPanic(t *testing.T) {
@@ -151,8 +151,8 @@ func TestSafeCallCatchesPanic(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Inspector.Open() on non-existent path returns ErrDocumentNotFound (negative): Given
 // a file path that does not exist,
-//                  When Inspector.Open() is called,
-//                  Then it returns an error wrapping ErrDocumentNotFound.
+// When Inspector.Open() is called,
+// Then it returns an error wrapping ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestInspectorOpenNonExistentFile(t *testing.T) {
@@ -178,7 +178,7 @@ func TestInspectorOpenNonExistentFile(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Inspector.Open() on encrypted PDF returns ErrEncryptedPDF: Given an
 // encrypted PDF, When Inspector.Open() is called,
-//       Then the error wraps ErrEncryptedPDF with a message about encryption.
+// Then the error wraps ErrEncryptedPDF with a message about encryption.
 // ---------------------------------------------------------------------------
 
 func TestInspectorOpenEncryptedPDF(t *testing.T) {
@@ -210,7 +210,7 @@ func TestInspectorOpenEncryptedPDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Pdfcore package has zero Wails imports: Given the pdfcore package, When
 // reviewed for architecture compliance,
-//       Then it has zero dependency on Wails or any desktop framework.
+// Then it has zero dependency on Wails or any desktop framework.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreZeroWailsImports(t *testing.T) {
@@ -260,7 +260,7 @@ func TestPdfcoreZeroWailsImports(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Inspector.Open() on multipage.pdf returns correct page count: Given a
 // multi-page PDF, When Inspector.Open() is called,
-//       Then DocumentInfo.PageCount reflects the actual number of pages.
+// Then DocumentInfo.PageCount reflects the actual number of pages.
 // ---------------------------------------------------------------------------
 
 func TestInspectorOpenMultipagePDF(t *testing.T) {
@@ -293,7 +293,7 @@ func TestInspectorOpenMultipagePDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Model types exist in model.go with correct JSON tags: pdfcore exports model
 // types (TreeNode, ObjectDetail, ContentStreamData,
-//       DocumentInfo, ValueEntry, PropertyEntry, StreamInfo, Token) in model.go.
+// DocumentInfo, ValueEntry, PropertyEntry, StreamInfo, Token) in model.go.
 // ---------------------------------------------------------------------------
 
 func TestModelTypesExist(t *testing.T) {
@@ -466,7 +466,7 @@ func TestInspectorCloseAndGetDocument(t *testing.T) {
 // ---------------------------------------------------------------------------
 // All pdfcore unit tests pass together: Unit tests exist for Open with valid
 // PDF, malformed PDF, and encrypted
-//       PDF scenarios using test fixtures in testdata/.
+// PDF scenarios using test fixtures in testdata/.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfcoreTestsPass(t *testing.T) {

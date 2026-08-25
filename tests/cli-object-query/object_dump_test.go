@@ -83,9 +83,9 @@ func discoverValidRef(t *testing.T, bin, pdfPath string) (ref, nodeID string) {
 // testdata/minimal.pdf`, verify stdout parses as valid JSON with
 // ObjectDetail fields (nodeId, objectRef, type), exit code 0.
 // Given a valid PDF file and an object reference, When
-//       `pdfdebug dump object --ref "5 0 R" <file>` is executed, Then the
-//       CLI outputs the ObjectDetail for that object as structured JSON to
-//       stdout, And the exit code is 0.
+// `pdfdebug dump object --ref "5 0 R" <file>` is executed, Then the
+// CLI outputs the ObjectDetail for that object as structured JSON to
+// stdout, And the exit code is 0.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_ValidRef_OutputsJSON(t *testing.T) {
@@ -119,9 +119,9 @@ func TestObjectDump_ValidRef_OutputsJSON(t *testing.T) {
 // Run with `--ref "999 0 R"` against minimal.pdf, verify stderr
 // contains JSON error, stdout is empty, exit code 2.
 // Given an invalid or non-existent reference, When the CLI is
-//       executed with `--ref "999 0 R"`, Then an error message in JSON
-//       format is written to stderr indicating the object was not found,
-//       And the exit code is 2.
+// executed with `--ref "999 0 R"`, Then an error message in JSON
+// format is written to stderr indicating the object was not found,
+// And the exit code is 2.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_InvalidRef_JSONErrorOnStderr(t *testing.T) {
@@ -306,8 +306,8 @@ func TestObjectDump_ValidRefFormats(t *testing.T) {
 // "". Verify each produces a clear error message mentioning the
 // expected format, exit code 1.
 // Given a malformed reference string, When the CLI is executed,
-//       Then the error message on stderr clearly describes the expected
-//       reference format, And the exit code is 1 (usage error).
+// Then the error message on stderr clearly describes the expected
+// reference format, And the exit code is 1 (usage error).
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_MalformedRef_ClearError(t *testing.T) {
@@ -350,7 +350,7 @@ func TestObjectDump_MalformedRef_ClearError(t *testing.T) {
 // Query a known stream object from content-stream.pdf, verify
 // `streamInfo` field is present with `length` and `filters`.
 // Given a stream object reference, When the CLI is executed, Then
-//       the ObjectDetail JSON includes `streamInfo` with length and filters.
+// the ObjectDetail JSON includes `streamInfo` with length and filters.
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
@@ -436,7 +436,7 @@ func TestObjectDump_StreamObject_HasStreamInfo(t *testing.T) {
 // sections. A dict object should have elements: null, a scalar should
 // have properties: null, etc.
 // The output matches the ObjectDetail model structure (including
-//       null-valued fields for inapplicable sections).
+// null-valued fields for inapplicable sections).
 // ---------------------------------------------------------------------------
 
 func TestObjectDump_NullFieldsPresent(t *testing.T) {

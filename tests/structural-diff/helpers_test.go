@@ -22,9 +22,9 @@
 //
 //	diff --json  =>  top-level OBJECT:
 //	  summary  { added:int, removed:int, changed:int,
-//	             pageCountLeft:int, pageCountRight:int,
-//	             versionChanged:bool, encryptionChanged:bool,
-//	             infoChanged:bool, xmpChanged:bool }
+// pageCountLeft:int, pageCountRight:int,
+// versionChanged:bool, encryptionChanged:bool,
+// infoChanged:bool, xmpChanged:bool }
 //	  root     DiffNode, recursively:
 //	    path         string   catalog-rooted structural path
 //	    status       string   "added" | "removed" | "changed" | "unchanged"

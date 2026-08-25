@@ -8,7 +8,7 @@
  * the rendered palette overlay and the reducer's pendingNavTarget state.
  *
  * Run: cd frontend && npx vitest run \
- *      src/components/CommandPalette/CommandPalette.test.tsx
+ * src/components/CommandPalette/CommandPalette.test.tsx
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

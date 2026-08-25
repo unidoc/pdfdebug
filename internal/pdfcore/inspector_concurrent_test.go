@@ -6,10 +6,10 @@ package pdfcore
 //   50 goroutines, 1 second, each goroutine randomly picks ONE of the
 //   following nine Inspector methods on every iteration and invokes it
 //   against the same tabID:
-//     GetTreeRoot, GetChildren(tabID,"root"), GetReverseRefs(tabID,"obj:0:2"),
-//     GetObjectDetail(tabID,"obj:0:2"), GetXRefTable,
-//     GetContentStream(tabID, pageContentNodeID), GetObjectIndex,
-//     GetAncestorPath(tabID,"obj:0:2"), GetPageContentStreamNodeID(tabID,1)
+// GetTreeRoot, GetChildren(tabID,"root"), GetReverseRefs(tabID,"obj:0:2"),
+// GetObjectDetail(tabID,"obj:0:2"), GetXRefTable,
+// GetContentStream(tabID, pageContentNodeID), GetObjectIndex,
+// GetAncestorPath(tabID,"obj:0:2"), GetPageContentStreamNodeID(tabID,1)
 //
 // Per-document pdfMu serializes pdfcpu access, so the race detector reports
 // no data races across all 10 -count repetitions. Without it, pdfcpu's

@@ -46,8 +46,8 @@ func projectRoot(t *testing.T) string {
 // extractPDFPaths extracts .pdf paths from args.
 //
 // Given a second instance is launched with args containing PDF paths,
-//       When extractPDFPaths parses the args,
-//       Then it returns only the .pdf arguments (case-insensitive extension).
+// When extractPDFPaths parses the args,
+// Then it returns only the .pdf arguments (case-insensitive extension).
 //
 // The helper function extractPDFPaths must exist in main.go (package main)
 // and be tested via main_test.go in the project root.
@@ -86,7 +86,7 @@ func TestExtractPDFPaths(t *testing.T) {
 // SingleInstance option configured in main.go.
 //
 // Wails v3 SingleInstance option must be set in application.Options
-//       with the correct UniqueID.
+// with the correct UniqueID.
 // ---------------------------------------------------------------------------
 
 

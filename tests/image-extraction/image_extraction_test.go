@@ -69,14 +69,14 @@ func testdataDir(t *testing.T) string {
 // GetImageData extracts image from XObject Image stream and returns
 // base64-encoded PNG/JPEG with correct MIME type.
 // Given a tree node corresponding to an XObject image (Subtype=Image),
-//       When GetImageData(tabID, nodeID) is called,
-//       Then the image is extracted and encoded as base64,
-//       And mimeType is "image/png" or "image/jpeg",
-//       And the exit is non-error.
+// When GetImageData(tabID, nodeID) is called,
+// Then the image is extracted and encoded as base64,
+// And mimeType is "image/png" or "image/jpeg",
+// And the exit is non-error.
 // Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
-//       directly and mimeType is "image/jpeg".
+// directly and mimeType is "image/jpeg".
 // Given a FlateDecode image, the stream is decompressed and assembled
-//       into a PNG with mimeType "image/png".
+// into a PNG with mimeType "image/png".
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataExtractsImage(t *testing.T) {
@@ -99,7 +99,7 @@ func TestGetImageDataExtractsImage(t *testing.T) {
 // GetImageData returns image metadata: width, height, colorSpace,
 // bitsPerComponent, filter.
 // Given an XObject image node, When GetImageData is called,
-//       Then image metadata is returned with all numeric dimensions > 0.
+// Then image metadata is returned with all numeric dimensions > 0.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataReturnsMetadata(t *testing.T) {
@@ -116,11 +116,11 @@ func TestGetImageDataReturnsMetadata(t *testing.T) {
 // GetImageData on corrupted/invalid image stream returns error without
 // panic. safeCall wraps all pdfcpu calls.
 // Given an image that cannot be extracted (corrupted data),
-//       When extraction is attempted,
-//       Then ImageData.Error is populated with a descriptive message,
-//       And no panic occurs,
-//       And the function returns the ImageData struct (not a Go error),
-//       And metadata fields are still populated where possible.
+// When extraction is attempted,
+// Then ImageData.Error is populated with a descriptive message,
+// And no panic occurs,
+// And the function returns the ImageData struct (not a Go error),
+// And metadata fields are still populated where possible.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataPanicRecovery(t *testing.T) {
@@ -135,7 +135,7 @@ func TestGetImageDataPanicRecovery(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetImageData with empty nodeID returns Go error.
 // Guard: Empty nodeID is a programmer error, returns Go error
-//               wrapping ErrDocumentNotFound (matches existing pattern).
+// wrapping ErrDocumentNotFound (matches existing pattern).
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataEmptyNodeID(t *testing.T) {
@@ -148,10 +148,10 @@ func TestGetImageDataEmptyNodeID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetImageData on non-image node returns descriptive error.
 // Given a node that is NOT an XObject image (e.g., a dict, a Form
-//       XObject, a content stream),
-//       When GetImageData(tabID, nodeID) is called,
-//       Then ImageData.Error is populated with "not an image XObject",
-//       And no panic occurs.
+// XObject, a content stream),
+// When GetImageData(tabID, nodeID) is called,
+// Then ImageData.Error is populated with "not an image XObject",
+// And no panic occurs.
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataNonImageNode(t *testing.T) {
@@ -378,7 +378,7 @@ func TestImageFileZeroWailsImports(t *testing.T) {
 // DCTDecode image returns "image/jpeg" MIME type and filter metadata
 // contains "DCTDecode".
 // Given a DCTDecode (JPEG) image, raw JPEG bytes are base64-encoded
-//       directly and mimeType is "image/jpeg".
+// directly and mimeType is "image/jpeg".
 // ---------------------------------------------------------------------------
 
 func TestGetImageDataDCTDecodeJPEG(t *testing.T) {

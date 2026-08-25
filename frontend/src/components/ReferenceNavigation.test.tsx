@@ -248,9 +248,9 @@ function renderObjectInfoPanelWithState(selectedNodeId: string | null) {
 // ---------------------------------------------------------------------------
 // Reference values rendered as clickable links: Given a property value
 // is an indirect reference (e.g., "5 0 R"),
-//       When the reference is displayed in the DetailPanel or ObjectInfoPanel,
-//       Then it appears as a clickable link (purple/violet, underlined,
-//       cursor-pointer, role="button").
+// When the reference is displayed in the DetailPanel or ObjectInfoPanel,
+// Then it appears as a clickable link (purple/violet, underlined,
+// cursor-pointer, role="button").
 // ---------------------------------------------------------------------------
 
 describe('Reference values rendered as clickable links', () => {
@@ -427,7 +427,7 @@ describe('Reference keyboard activation', () => {
 // ---------------------------------------------------------------------------
 // Clicking reference dispatches navigation action: Given a clickable
 // reference is displayed, When the user clicks it,
-//       Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
+// Then a NAVIGATE_TO_REF action is dispatched with the target node ID.
 // ---------------------------------------------------------------------------
 
 describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
@@ -551,7 +551,7 @@ describe('Clicking reference dispatches NAVIGATE_TO_REF', () => {
 // ---------------------------------------------------------------------------
 // Target node flash animation (100ms highlight pulse): Given a reference is
 // clicked, When the tree navigates to the target,
-//       Then the target node briefly flashes (100ms highlight pulse).
+// Then the target node briefly flashes (100ms highlight pulse).
 // ---------------------------------------------------------------------------
 
 describe('Target node flash animation', () => {
@@ -601,7 +601,7 @@ describe('Target node flash animation', () => {
 // ---------------------------------------------------------------------------
 // NAVIGATE_TO_REF reducer sets pendingNavTarget: The reducer must set
 // pendingNavTarget on the active tab and clear
-//       navError when NAVIGATE_TO_REF is dispatched.
+// navError when NAVIGATE_TO_REF is dispatched.
 // ---------------------------------------------------------------------------
 
 describe('NAVIGATE_TO_REF reducer', () => {
@@ -776,7 +776,7 @@ describe('CLEAR_NAV_TARGET reducer', () => {
 // ---------------------------------------------------------------------------
 // NAV_ERROR reducer sets navError and clears target: When a dangling
 // reference is clicked and GetAncestorPath fails,
-//       NAV_ERROR sets navError and clears pendingNavTarget.
+// NAV_ERROR sets navError and clears pendingNavTarget.
 // ---------------------------------------------------------------------------
 
 describe('NAV_ERROR reducer', () => {

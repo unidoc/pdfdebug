@@ -28,7 +28,7 @@ const defaultProps = {
 // ---------------------------------------------------------------------------
 // ImagePreview renders base64 image in img tag: Given an XObject image node
 // is selected, Then the DetailPanel shows
-//       the rendered image via a data:${mimeType};base64,${base64} URI.
+// the rendered image via a data:${mimeType};base64,${base64} URI.
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview renders base64 image', () => {
@@ -55,7 +55,7 @@ describe('ImagePreview renders base64 image', () => {
 // ---------------------------------------------------------------------------
 // ImagePreview displays metadata below image: Image metadata displayed
 // below the image (dimensions, color space,
-//       encoding filter, bits per component).
+// encoding filter, bits per component).
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview metadata display', () => {
@@ -91,7 +91,7 @@ describe('ImagePreview metadata display', () => {
 // ---------------------------------------------------------------------------
 // ImagePreview shows error when base64 is empty: Given an image that
 // cannot be rendered, Then the DetailPanel shows
-//       the error message with error styling, And no img element is present.
+// the error message with error styling, And no img element is present.
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview error display', () => {
@@ -140,7 +140,7 @@ describe('ImagePreview error display', () => {
 // ---------------------------------------------------------------------------
 // CSS constraints on img element for scaling: Large images are
 // scaled to fit within the panel using
-//       object-fit: contain and max-width: 100% constraints.
+// object-fit: contain and max-width: 100% constraints.
 // ---------------------------------------------------------------------------
 
 describe('ImagePreview CSS constraints', () => {

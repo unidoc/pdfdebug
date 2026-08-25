@@ -68,7 +68,7 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 // ---------------------------------------------------------------------------
 // GetAncestorPath exists in inspector.go: The backend must provide
 // GetAncestorPath to return the path from
-//           root to a target node.
+// root to a target node.
 // ---------------------------------------------------------------------------
 
 func TestGetAncestorPathMethodExists(t *testing.T) {
@@ -105,7 +105,7 @@ func TestFindPathToObjectExists(t *testing.T) {
 // ---------------------------------------------------------------------------
 // GetAncestorPath unit test exists and passes: The pdfcore unit test for
 // GetAncestorPath must exist and pass using
-//       testdata/minimal.pdf.
+// testdata/minimal.pdf.
 // ---------------------------------------------------------------------------
 
 func TestGetAncestorPathUnitTestPasses(t *testing.T) {
@@ -338,7 +338,7 @@ func TestObjectInfoPanelDispatchesNavigateToRefOnClick(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TreePanel.tsx has treeRef for react-arborist TreeApi: TreePanel must use
 // a ref to control react-arborist
-//               programmatic open/scroll/select.
+// programmatic open/scroll/select.
 // ---------------------------------------------------------------------------
 
 func TestTreePanelHasTreeRef(t *testing.T) {
@@ -357,7 +357,7 @@ func TestTreePanelHasTreeRef(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TreePanel.tsx watches pendingNavTarget: TreePanel must have a useEffect
 // that watches pendingNavTarget
-//           and calls GetAncestorPath.
+// and calls GetAncestorPath.
 // ---------------------------------------------------------------------------
 
 func TestTreePanelWatchesPendingNavTarget(t *testing.T) {

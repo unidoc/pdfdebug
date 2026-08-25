@@ -14,10 +14,10 @@ import { waitForWailsReady } from '../support/helpers/wails-helpers';
 test.describe('Image Preview in Detail Panel', () => {
   // ---------------------------------------------------------------------------
   // User selects XObject image node in tree, sees image
-  //                    preview rendered in the detail panel with metadata.
+  // preview rendered in the detail panel with metadata.
   // Given an XObject image node is selected in the tree, When the
-  //       DetailPanel updates, Then it switches to image preview mode showing
-  //       the rendered image, And image metadata is displayed below the image.
+  // DetailPanel updates, Then it switches to image preview mode showing
+  // the rendered image, And image metadata is displayed below the image.
   // ---------------------------------------------------------------------------
   test('should show image preview when selecting an XObject image node', async ({ appPage }) => {
     await waitForWailsReady(appPage);

@@ -68,7 +68,7 @@ test.describe('Empty State with Drag-and-Drop Zone', () => {
   // ---------------------------------------------------------------------------
   // Drop zone highlights on drag-over: Dragging file over window
   // highlights drop zone with blue border
-  //       and background highlight
+  // and background highlight
   // ---------------------------------------------------------------------------
   test('should highlight drop zone when file is dragged over window', async ({ appPage }) => {
     await waitForWailsReady(appPage);

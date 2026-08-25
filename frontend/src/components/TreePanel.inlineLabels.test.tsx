@@ -15,10 +15,10 @@
  *     "Font", so /T:Font is also suppressed.
  *
  * clicking a tree row still dispatches SELECT_NODE (existing behavior);
- *      the inline label is read-only display, never NAVIGATE_TO_REF.
+ * the inline label is read-only display, never NAVIGATE_TO_REF.
  *
  * Run: cd frontend && npx vitest run \
- *      src/components/TreePanel.inlineLabels.test.tsx
+ * src/components/TreePanel.inlineLabels.test.tsx
  */
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
