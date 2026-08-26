@@ -14,7 +14,6 @@ import (
 	"encoding/ascii85"
 	"errors"
 	"runtime"
-	"strings"
 	"testing"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -80,7 +79,7 @@ func TestDecodeBounded_OverLimitReturnsUnsupported(t *testing.T) {
 	}
 }
 
-// The rejection happens during inflation, not after it: an 8 MiB inflation
+// The rejection happens during inflation, not after it: a 64 MiB inflation
 // stopped at a 64 KiB limit must not allocate the whole decompressed payload.
 //
 // TotalAlloc is cumulative and never decremented, so a GC landing mid-call
@@ -89,7 +88,7 @@ func TestDecodeBounded_OverLimitReturnsUnsupported(t *testing.T) {
 // nothing but the guarded call between them.
 func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 	const limit = int64(64 * 1024)
-	const inflatedSize = 8 * 1024 * 1024
+	const inflatedSize = 64 * 1024 * 1024
 	const allocCeiling = uint64(4 * 1024 * 1024)
 
 	sd := flateStream(zlibZeros(t, inflatedSize))
@@ -159,8 +158,8 @@ func TestDecodeBounded_InBoundsStreamPopulatesContent(t *testing.T) {
 	}
 }
 
-// The raw payload is checked before any filter runs, because only the terminal
-// filter of a pipeline is bounded.
+// The encoded payload is checked before any filter runs, so an oversized input
+// is refused without handing it to the decoder at all.
 func TestDecodeBounded_RawPayloadOverLimitRejected(t *testing.T) {
 	const limit = int64(1024)
 	sd := flateStream(bytes.Repeat([]byte{0x7a}, 4096))
@@ -168,6 +167,75 @@ func TestDecodeBounded_RawPayloadOverLimitRejected(t *testing.T) {
 	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF for a raw payload over the limit, got %v", err)
 	}
+}
+
+// An already-decoded payload is answered from Content even when the encoded
+// bytes it came from are larger than the limit, so an expanding encoding does
+// not reject a payload that fits.
+func TestDecodeBounded_PreDecodedContentBeatsOversizedRaw(t *testing.T) {
+	const limit = int64(1024)
+	payload := bytes.Repeat([]byte{'x'}, 512)
+	sd := &pdfcpu_types.StreamDict{
+		Dict:    pdfcpu_types.Dict{},
+		Raw:     bytes.Repeat([]byte{'0'}, 4096),
+		Content: payload,
+	}
+
+	out, err := decodeBounded(sd, limit)
+	if err != nil {
+		t.Fatalf("expected the pre-decoded payload, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// pdfcpu tolerates a truncated zlib stream, which makes its capped decode
+// return short output with a nil error and trip the unchecked tail. The helper
+// falls back to the unbounded decode rather than crashing or rejecting.
+func TestDecodeBounded_TruncatedFlateStreamStillDecodes(t *testing.T) {
+	const limit = int64(64 * 1024)
+	payload := bytes.Repeat([]byte{'a'}, 4096)
+	raw := zlibBytes(t, payload)
+	sd := flateStream(raw[:len(raw)-4])
+
+	// Pin the branch this covers: the probe cannot answer for this stream.
+	if _, probeErr := cappedDecode(flateStream(raw[:len(raw)-4]), limit+1); !errors.Is(probeErr, errProbeUnusable) {
+		t.Fatalf("expected the probe to report itself unusable, got %v", probeErr)
+	}
+
+	out, err := decodeBounded(sd, limit)
+	if err != nil {
+		t.Fatalf("expected a truncated in-bounds stream to decode, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// Truncation does not buy a bomb a way past the ceiling: the capped decode
+// still fills to the cap before the stream runs out.
+func TestDecodeBounded_TruncatedOverLimitStreamRejected(t *testing.T) {
+	const limit = int64(64 * 1024)
+	raw := zlibZeros(t, 8*1024*1024)
+	sd := flateStream(raw[:len(raw)-4])
+
+	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF for a truncated over-ceiling stream, got %v", err)
+	}
+}
+
+// A panic that is not pdfcpu's unchecked tail carries no proof that the stream
+// stayed under the cap, so it is re-panicked instead of becoming a fallback.
+func TestCappedDecode_NonBoundsPanicIsNotSwallowed(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected the panic to propagate")
+		}
+	}()
+
+	// A nil StreamDict makes pdfcpu dereference it, which is not a bounds error.
+	_, _ = cappedDecode(nil, 1024)
 }
 
 // An unfiltered stream carries its payload in Raw and must be answered with a
@@ -386,11 +454,11 @@ func TestDecodeBounded_PipelineLedByDCTReturnsDecodeError(t *testing.T) {
 		sd := stopperLedStream(t, "DCTDecode", terminal)
 
 		out, err := decodeBounded(sd, limit)
-		if err == nil {
-			t.Fatalf("terminal %s: expected an error, got %d bytes", terminal, len(out))
+		if !errors.Is(err, errStoppingFilterLeadsPipeline) {
+			t.Fatalf("terminal %s: expected the leading-stopper refusal, got err=%v (out %d bytes)", terminal, err, len(out))
 		}
 		if errors.Is(err, ErrUnsupportedPDF) {
-			t.Errorf("terminal %s: expected a decode error, got the ceiling sentinel: %v", terminal, err)
+			t.Errorf("terminal %s: refusal must not carry the ceiling sentinel: %v", terminal, err)
 		}
 	}
 }
@@ -402,11 +470,11 @@ func TestDecodeBounded_PipelineLedByJPXReturnsDecodeError(t *testing.T) {
 	sd := stopperLedStream(t, "JPXDecode", "FlateDecode")
 
 	out, err := decodeBounded(sd, limit)
-	if err == nil {
-		t.Fatalf("expected an error, got %d bytes", len(out))
+	if !errors.Is(err, errStoppingFilterLeadsPipeline) {
+		t.Fatalf("expected the leading-stopper refusal, got err=%v (out %d bytes)", err, len(out))
 	}
 	if errors.Is(err, ErrUnsupportedPDF) {
-		t.Errorf("expected a decode error, got the ceiling sentinel: %v", err)
+		t.Errorf("refusal must not carry the ceiling sentinel: %v", err)
 	}
 }
 
@@ -421,8 +489,33 @@ func TestDecodeBounded_PipelineLedByFourComponentDCTIsNotRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected the JPEG decode of a non-JPEG payload to fail")
 	}
-	if strings.Contains(err.Error(), "stops the decoder") {
+	if errors.Is(err, errStoppingFilterLeadsPipeline) {
 		t.Errorf("4-component DCTDecode must not be treated as a stopping filter: %v", err)
+	}
+}
+
+// A stopping filter that is neither first nor last leaves pdfcpu's reader
+// valid, so the filters ahead of it still yield their output and the pipeline
+// is not refused.
+func TestDecodeBounded_MidPipelineStopperDecodesEarlierFilters(t *testing.T) {
+	const limit = int64(64 * 1024)
+	payload := []byte("flate output ahead of a mid-pipeline stopper")
+	sd := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: "FlateDecode"},
+			{Name: "DCTDecode"},
+			{Name: "ASCII85Decode"},
+		},
+		Raw: zlibBytes(t, payload),
+	}
+
+	out, err := decodeBounded(sd, limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %q, want %q", out, payload)
 	}
 }
 

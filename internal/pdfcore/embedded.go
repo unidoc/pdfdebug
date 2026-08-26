@@ -402,8 +402,8 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 		}
 	}
 
-	// Ceiling guard for the unfiltered branch. The filtered branch is already
-	// capped inside decodeBounded.
+	// Ceiling guard for both branches. Redundant for the filtered one, which
+	// decodeBounded has already measured against the same limit.
 	if len(out) > maxImageBytes {
 		return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))
 	}

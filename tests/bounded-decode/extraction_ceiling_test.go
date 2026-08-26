@@ -2,6 +2,7 @@ package bounded_decode_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -46,7 +47,9 @@ func TestEmbeddedExtraction_TinyFlateAttachmentReturnsDecodedBytes(t *testing.T)
 // no payload reaches stdout.
 func TestEmbeddedExtraction_OverCeilingFlateAttachmentRejected(t *testing.T) {
 	bin := buildCLI(t)
-	pdf := writeTempPDF(t, "bomb.pdf", flateEmbeddedPDF(zlibZeros(t, overCeilingSize), overCeilingSize))
+	// The declared /Params /Size understates the payload, so only the decode
+	// path can be the thing that rejects this.
+	pdf := writeTempPDF(t, "bomb.pdf", flateEmbeddedPDF(zlibZeros(t, overCeilingSize), 1024))
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "embedded", "--ref", "4 0 R", pdf)
 	if ec == 0 {
@@ -55,8 +58,8 @@ func TestEmbeddedExtraction_OverCeilingFlateAttachmentRejected(t *testing.T) {
 	if len(stdout) != 0 {
 		t.Errorf("expected no payload on stdout, got %d bytes", len(stdout))
 	}
-	if len(stderr) == 0 {
-		t.Errorf("expected a diagnostic on stderr")
+	if !bytes.Contains(stderr, []byte("extraction ceiling")) {
+		t.Errorf("expected the ceiling diagnostic on stderr, got %q", string(stderr))
 	}
 }
 
@@ -95,8 +98,8 @@ func TestImageExtraction_OverCeilingFlateImageRejected(t *testing.T) {
 		t.Fatalf("expected exit 0 (the image view reports extraction failures in its payload), got %d (stderr: %s)", ec, string(stderr))
 	}
 	img := decodeImageJSON(t, stdout)
-	if img.Error == "" {
-		t.Fatalf("expected an error for an image stream inflating past the ceiling, got none (base64 %d chars)", len(img.Base64))
+	if !strings.Contains(img.Error, "too large") {
+		t.Fatalf("expected the ceiling error for an image stream inflating past the ceiling, got %q (base64 %d chars)", img.Error, len(img.Base64))
 	}
 	if img.Base64 != "" {
 		t.Errorf("expected no rendered payload for a rejected image, got %d chars of base64", len(img.Base64))
