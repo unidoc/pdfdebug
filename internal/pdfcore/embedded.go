@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"errors"
 	"fmt"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -380,13 +381,13 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 
 	var out []byte
 	if len(sd.FilterPipeline) > 0 {
-		err = safeCall(func() error {
-			return sd.Decode()
-		})
+		out, err = decodeBounded(&sd, maxImageBytes)
 		if err != nil {
+			if errors.Is(err, ErrUnsupportedPDF) {
+				return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))
+			}
 			return nil, fmt.Errorf("%w: failed to decode embedded file: %v", ErrUnsupportedPDF, err)
 		}
-		out = sd.Content
 	} else {
 		// Unfiltered: raw bytes ARE the decoded payload.
 		out = sd.Raw
@@ -401,8 +402,8 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 		}
 	}
 
-	// Post-decode ceiling guard (a small filtered stream can inflate past the
-	// ceiling on decompression).
+	// Ceiling guard for the unfiltered branch. The filtered branch is already
+	// capped inside decodeBounded.
 	if len(out) > maxImageBytes {
 		return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))
 	}

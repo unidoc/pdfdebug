@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -214,13 +215,15 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		}
 	}
 
-	// Decode the stream
+	// Decode the stream under the extraction ceiling, so a compressed bitmap
+	// cannot inflate past maxImageBytes before it is rejected.
 	if sd.FilterPipeline != nil {
-		err = safeCall(func() error {
-			return sd.Decode()
-		})
-		if err != nil {
-			result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
+		if _, err := decodeBounded(&sd, maxImageBytes); err != nil {
+			if errors.Is(err, ErrUnsupportedPDF) {
+				result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageBytes/(1024*1024))
+			} else {
+				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
+			}
 			return result, nil
 		}
 	} else {
