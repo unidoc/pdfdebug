@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	pdfcpu_render "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -22,6 +23,15 @@ const (
 	// maxImagePixels caps total pixel count for in-memory decode (TIFF->PNG).
 	// 100 megapixels at 4 bytes/pixel = ~400 MB working set.
 	maxImagePixels = 100_000_000
+	// maxImageDecodeBytes is the absolute ceiling on a decoded image stream,
+	// whatever geometry its dictionary declares, so an absurd /Width or /Height
+	// cannot authorize an unbounded allocation. Aligned with maxImagePixels,
+	// which already sanctions a ~400 MB working set.
+	maxImageDecodeBytes = 512 * 1024 * 1024
+	// imageDecodeHeadroom is added to the size the declared geometry implies. It
+	// covers the framing pdfcpu's gob encoding puts around a 4-component DCT
+	// image, which is proportionally largest on small images.
+	imageDecodeHeadroom = 1024 * 1024
 )
 
 // GetImageData extracts and encodes an image from the given XObject Image node.
@@ -215,12 +225,17 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		}
 	}
 
-	// Decode the stream under the extraction ceiling, so a compressed bitmap
-	// cannot inflate past maxImageBytes before it is rejected.
+	// Decode under a ceiling derived from the geometry the dictionary declares,
+	// so a compressed bitmap cannot inflate far past the size it claims before
+	// it is rejected. A large image that is honest about its dimensions still
+	// decodes; only a stream inflating well beyond its own declaration stops.
 	if sd.FilterPipeline != nil {
-		if _, err := decodeBounded(&sd, maxImageBytes); err != nil {
+		ceiling := imageDecodeCeiling(result.Width, result.Height, result.BitsPerComponent,
+			declaredComponents(xrt, &sd))
+		if _, err := decodeBounded(&sd, ceiling); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
-				result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageBytes/(1024*1024))
+				result.Error = fmt.Sprintf("image data too large (decoded stream exceeds %d MB, the size its dimensions imply)",
+					ceiling/(1024*1024))
 			} else {
 				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
 			}
@@ -319,6 +334,67 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	result.Base64 = base64.StdEncoding.EncodeToString(imgBytes)
 
 	return result, nil
+}
+
+// declaredComponents returns the colour-component count pdfcpu derives from the
+// image's /ColorSpace, or 0 when it cannot derive one. A DCT stream already had
+// it resolved for the decode, so that value is reused. Failures are reported as
+// 0 rather than as an error: the count only sizes the decode ceiling, and an
+// unreadable colour space must not stop an extraction that would otherwise work.
+func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) int {
+	if sd.CSComponents > 0 {
+		return sd.CSComponents
+	}
+	var comp int
+	if err := safeCall(func() error {
+		c, e := pdfcpu_render.ColorSpaceComponents(xrt, sd)
+		comp = c
+		return e
+	}); err != nil {
+		return 0
+	}
+	return comp
+}
+
+// imageDecodeCeiling returns the byte ceiling for decoding an image stream. The
+// dictionary's geometry states how big the samples should be, so that size plus
+// headroom bounds an honest image while stopping a stream that inflates well
+// past what it declares. Geometry that is missing, non-positive or large enough
+// to overflow falls back to maxImageBytes, and the result never exceeds
+// maxImageDecodeBytes.
+func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
+	// 16 bits is the widest sample PDF defines and DeviceN carries the most
+	// colorants; beyond those the entries are malformed rather than large, and
+	// the arithmetic below is only safe from overflow inside these bounds.
+	const maxBitsPerComponent, maxComponents = 64, 32
+	if width <= 0 || height <= 0 ||
+		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||
+		components <= 0 || components > maxComponents {
+		return maxImageBytes
+	}
+	// Check the product for wraparound before trusting it: an absurd /Width
+	// /Height pair would otherwise yield a small positive ceiling and reject a
+	// legitimate image.
+	pixels := int64(width) * int64(height)
+	if pixels/int64(width) != int64(height) {
+		return maxImageDecodeBytes
+	}
+	if pixels > maxImagePixels {
+		return maxImageDecodeBytes
+	}
+	// Bounded by the guards above: at most 100M pixels x 2048 bits.
+	declared := pixels * int64(bitsPerComponent) * int64(components) / 8
+	// Double it so packing and framing slack cannot reject an honest image,
+	// floor at maxImageBytes so a small picture is never held to a tighter
+	// ceiling than the extraction path already allowed, and cap the result.
+	ceiling := declared*2 + imageDecodeHeadroom
+	if ceiling < maxImageBytes {
+		return maxImageBytes
+	}
+	if ceiling > maxImageDecodeBytes {
+		return maxImageDecodeBytes
+	}
+	return ceiling
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.

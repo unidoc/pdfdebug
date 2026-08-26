@@ -105,3 +105,43 @@ func TestImageExtraction_OverCeilingFlateImageRejected(t *testing.T) {
 		t.Errorf("expected no rendered payload for a rejected image, got %d chars of base64", len(img.Base64))
 	}
 }
+
+// An image whose declared dimensions account for its decoded size renders even
+// when that size is past the base64 extraction ceiling: 8192x8192 8-bit gray is
+// 64 MiB of samples but only a few MB once rendered to PNG. The ceiling tracks
+// the geometry the dictionary declares, not the transport budget.
+func TestImageExtraction_LargeHonestFlateImageRenders(t *testing.T) {
+	bin := buildCLI(t)
+	const side = 8192
+	pdf := writeTempPDF(t, "large-image.pdf",
+		flateImagePDFSized(zlibZeros(t, side*side), side, side))
+
+	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "image", "--ref", "4 0 R", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+	}
+	img := decodeImageJSON(t, stdout)
+	if img.Error != "" {
+		t.Fatalf("expected a large honest image to render, got error %q", img.Error)
+	}
+	if img.Base64 == "" {
+		t.Errorf("expected a rendered payload for a large honest image")
+	}
+}
+
+// The same dict understating its payload is still refused: declaring 8x8 while
+// inflating to 60 MB is the case the guard exists for.
+func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := writeTempPDF(t, "understated-image.pdf",
+		flateImagePDFSized(zlibZeros(t, overCeilingSize), 8, 8))
+
+	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "image", "--ref", "4 0 R", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+	}
+	img := decodeImageJSON(t, stdout)
+	if !strings.Contains(img.Error, "too large") {
+		t.Fatalf("expected the ceiling error, got %q (base64 %d chars)", img.Error, len(img.Base64))
+	}
+}

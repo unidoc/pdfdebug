@@ -248,7 +248,14 @@ func flateEmbeddedPDF(raw []byte, decodedSize int) []byte {
 // payload varies between the in-bounds and over-ceiling fixtures, so the image
 // dict is never the difference under test.
 func flateImagePDF(raw []byte) []byte {
-	dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8" +
+	return flateImagePDFSized(raw, 8, 8)
+}
+
+// flateImagePDFSized is flateImagePDF with the declared dimensions as inputs, so
+// a fixture can either match its payload or understate it.
+func flateImagePDFSized(raw []byte, width, height int) []byte {
+	dict := "/Type /XObject /Subtype /Image" +
+		" /Width " + strconv.Itoa(width) + " /Height " + strconv.Itoa(height) +
 		" /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode"
 	return assemblePDF([][]byte{
 		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
