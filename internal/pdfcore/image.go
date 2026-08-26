@@ -338,11 +338,11 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 }
 
 // declaredComponents returns the colour-component count pdfcpu derives from the
-// image's /ColorSpace, or 0 when it cannot derive one. A DCT stream already had
-// it resolved for the decode, so that value is reused. Failures are reported as
-// 0 rather than as an error: the count only sizes the decode ceiling, and an
-// unreadable colour space must not stop an extraction that would otherwise work,
-// so an unresolvable one widens the estimate instead of collapsing it.
+// image's /ColorSpace, falling back to four when it cannot derive one. A DCT
+// stream already had it resolved for the decode, so that value is reused. The
+// count only sizes the decode ceiling, so an unresolvable or unrecognised colour
+// space widens the estimate rather than collapsing it: collapsing would pin a
+// large image to the smallest ceiling and refuse an extraction that works today.
 func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) int {
 	// A colour space pdfcpu cannot resolve must widen the estimate, not tighten
 	// it, or an unreadable /ColorSpace on a large image rejects an extraction
@@ -368,9 +368,20 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 // imageDecodeCeiling returns the byte ceiling for decoding an image stream. The
 // dictionary's geometry states how big the samples should be, so that size plus
 // headroom bounds an honest image while stopping a stream that inflates well
-// past what it declares. Geometry that is missing, non-positive or large enough
-// to overflow falls back to maxImageBytes, and the result never exceeds
+// past what it declares.
+//
+// Geometry that is missing, non-positive, implausible or wide enough to wrap the
+// arithmetic falls back to maxImageBytes. Being merely large does not: a 108
+// megapixel scan is a real document and gets room for its samples. The result is
+// floored at maxImageBytes so a small picture is never held to a tighter bound
+// than the extraction path already allowed, and never exceeds
 // maxImageDecodeBytes.
+//
+// The residual this leaves: a stream that OVERSTATES its dimensions raises its
+// own ceiling, up to maxImageDecodeBytes. That is bounded and survivable where
+// the unguarded decode was neither, but it is not the tight bound an honestly
+// declared image gets, and there is no pre-decode signal that separates a
+// generous declaration from a false one.
 func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 	// 16 bits is the widest sample PDF defines and DeviceN carries the most
 	// colorants; beyond those the entries are malformed rather than large.
@@ -380,21 +391,23 @@ func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 		components <= 0 || components > maxComponents {
 		return maxImageBytes
 	}
-	// Every rejection below falls back to maxImageBytes rather than to the
-	// absolute cap. A dictionary declaring an implausible geometry must not buy
-	// MORE room to inflate than an honest one gets: failing to the wider bound
-	// would let a bomb widen its own ceiling just by overstating its dimensions.
+	// Wraparound means the arithmetic below cannot be trusted at all, so fall
+	// back to maxImageBytes rather than to the wider cap: a geometry that is
+	// unusable must not buy more room to inflate than an honest one gets.
+	// Being merely LARGE is not grounds for this - a 108 megapixel scan is a
+	// real document, and maxImageDecodeBytes is what bounds the big cases.
 	pixels := int64(width) * int64(height)
 	if pixels/int64(width) != int64(height) {
 		return maxImageBytes
 	}
-	// Past this many pixels the render path cannot display the image anyway, so
-	// there is nothing to be gained by granting the decode more room.
-	if pixels > maxImagePixels {
-		return maxImageBytes
+	// Compare before multiplying: pixels and bitsPerPixel are each bounded, their
+	// product is not. A geometry whose declared size already passes the cap is
+	// answered by the cap, which is the widest this function ever returns.
+	bitsPerPixel := int64(bitsPerComponent) * int64(components)
+	if pixels > maxImageDecodeBytes*8/bitsPerPixel {
+		return maxImageDecodeBytes
 	}
-	// Bounded by the guards above: at most 100M pixels x 2048 bits.
-	declared := pixels * int64(bitsPerComponent) * int64(components) / 8
+	declared := pixels * bitsPerPixel / 8
 	// Double it so packing and framing slack cannot reject an honest image,
 	// floor at maxImageBytes so a small picture is never held to a tighter
 	// ceiling than the extraction path already allowed, and cap the result.

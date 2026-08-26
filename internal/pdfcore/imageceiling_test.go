@@ -69,24 +69,32 @@ func TestImageDecodeCeiling_UnusableGeometryFallsBackToExtractionCeiling(t *test
 	}
 }
 
-// An absurd geometry falls back to the extraction ceiling, never to the wider
-// absolute cap: overstating its dimensions must not buy a stream more room to
-// inflate than an honest image gets.
-func TestImageDecodeCeiling_AbsurdGeometryFallsBackTight(t *testing.T) {
-	for _, c := range []struct {
-		name          string
-		width, height int
-	}{
-		{"overflowing product", math.MaxInt, math.MaxInt},
-		{"past the pixel cap", 40000, 40000},
-	} {
-		got := imageDecodeCeiling(c.width, c.height, 16, 4)
-		if got != maxImageBytes {
-			t.Errorf("%s: got %d, want the maxImageBytes fallback %d", c.name, got, maxImageBytes)
-		}
-		if got == maxImageDecodeBytes {
-			t.Errorf("%s: an implausible geometry must not reach the absolute cap", c.name)
-		}
+// A geometry that wraps the arithmetic falls back to the extraction ceiling
+// rather than the wider absolute cap: an unusable declaration must not buy more
+// room to inflate than an honest image gets.
+func TestImageDecodeCeiling_WraparoundFallsBackTight(t *testing.T) {
+	got := imageDecodeCeiling(math.MaxInt, math.MaxInt, 16, 4)
+	if got != maxImageBytes {
+		t.Errorf("got %d, want the maxImageBytes fallback %d", got, maxImageBytes)
+	}
+}
+
+// Being large is not the same as being implausible. A scan past the render
+// path's pixel cap still gets room for the samples its geometry declares, so a
+// real large-format document is not refused for its size alone.
+func TestImageDecodeCeiling_LargeScanPastThePixelCapStillGetsRoom(t *testing.T) {
+	// 12000 x 9000 8-bit grayscale: 108 megapixels, 108 MB of samples.
+	const width, height = 12000, 9000
+	declared := int64(width) * height
+	if declared <= maxImagePixels {
+		t.Fatalf("fixture no longer exceeds the pixel cap: %d", declared)
+	}
+	got := imageDecodeCeiling(width, height, 8, 1)
+	if got < declared {
+		t.Errorf("ceiling %d is below the %d bytes the geometry declares", got, declared)
+	}
+	if got == maxImageBytes {
+		t.Errorf("a large honest scan must not be pinned to the maxImageBytes fallback")
 	}
 }
 

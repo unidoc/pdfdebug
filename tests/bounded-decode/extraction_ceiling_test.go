@@ -129,12 +129,15 @@ func TestImageExtraction_LargeHonestFlateImageRenders(t *testing.T) {
 	}
 }
 
-// The same dict understating its payload is still refused: declaring 8x8 while
-// inflating to 60 MB is the case the guard exists for.
+// A dict understating its payload is refused by the ceiling its OWN geometry
+// implies, not merely by the floor. 6000x6000 8-bit gray declares ~34 MB, so
+// the ceiling lands near 70 MB - above the floor - and a 90 MB payload is still
+// stopped. This is the geometry path rather than the 8x8 case above.
 func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
 	bin := buildCLI(t)
+	const side = 6000
 	pdf := writeTempPDF(t, "understated-image.pdf",
-		flateImagePDFSized(zlibZeros(t, overCeilingSize), 8, 8))
+		flateImagePDFSized(zlibZeros(t, 90*1024*1024), side, side))
 
 	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "image", "--ref", "4 0 R", "--json", pdf)
 	if ec != 0 {
@@ -143,5 +146,9 @@ func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
 	img := decodeImageJSON(t, stdout)
 	if !strings.Contains(img.Error, "too large") {
 		t.Fatalf("expected the ceiling error, got %q (base64 %d chars)", img.Error, len(img.Base64))
+	}
+	// The diagnostic names the geometry it held the stream to.
+	if !strings.Contains(img.Error, "6000x6000") {
+		t.Errorf("expected the declared dimensions in the error, got %q", img.Error)
 	}
 }
