@@ -15,6 +15,7 @@ import (
 	"encoding/ascii85"
 	"errors"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -633,17 +634,6 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 	}
 }
 
-// The exact-count confirmation must not become a way past the ceiling: a genuine
-// bomb still counts over the limit and is still refused.
-func TestDecodeBounded_ExactCountDoesNotAdmitABomb(t *testing.T) {
-	const limit = int64(64 * 1024)
-	sd := flateStream(zlibZeros(t, 8*1024*1024))
-
-	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
-		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
-	}
-}
-
 // A zero row width makes pdfcpu's predictor reconstruction loop forever on the
 // /Predictor 2 path and divide by zero on /Predictor 12. Both are refused before
 // the decode starts, because a hang holding the document lock cannot be
@@ -771,5 +761,28 @@ func TestDecodeBounded_SoleLZWOverLimitRejected(t *testing.T) {
 	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
 		t.Errorf("allocated %d bytes rejecting an 8 MiB inflation at a %d-byte limit; want under %d",
 			delta, limit, allocCeiling)
+	}
+}
+
+// The two ceiling rejections are worded for the quantity that actually exceeded
+// the limit. Both carry ErrUnsupportedPDF, so only the message distinguishes an
+// encoded payload that was too big to begin with from one that inflated past the
+// ceiling, and a reader chasing the wrong one looks in the wrong place.
+func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T) {
+	const limit = int64(1024)
+
+	rawOver := flateStream(bytes.Repeat([]byte{0x7a}, 4096))
+	_, rawErr := decodeBounded(rawOver, limit)
+	if !strings.Contains(rawErr.Error(), "encoded stream") {
+		t.Errorf("an oversized encoded payload should say so, got %q", rawErr)
+	}
+
+	inflatesOver := flateStream(zlibZeros(t, 64*1024))
+	if int64(len(inflatesOver.Raw)) > limit {
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the limit", len(inflatesOver.Raw))
+	}
+	_, decodedErr := decodeBounded(inflatesOver, limit)
+	if !strings.Contains(decodedErr.Error(), "decoded stream") {
+		t.Errorf("a stream that inflated past the ceiling should say so, got %q", decodedErr)
 	}
 }
