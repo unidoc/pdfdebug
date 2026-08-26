@@ -36,6 +36,10 @@ var errProbeUnusable = errors.New("bounded decode probe unusable")
 // slices their output to the cap unchecked on ordinary in-bounds input. In a
 // multi-filter pipeline only the last filter is capped, so len(sd.Raw) is
 // checked against limit first as a second line of defense.
+//
+// A pipeline that puts a filter the decoder stops at (JPXDecode, or DCTDecode
+// on a stream that is not 4-component) ahead of another filter is refused with
+// a decode error, because pdfcpu never runs the rest of that pipeline.
 func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 	if int64(len(sd.Raw)) > limit {
 		return nil, ceilingExceeded(limit)
@@ -53,6 +57,15 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 	if isPassthroughStream(sd) {
 		sd.Content = sd.Raw
 		return sd.Content, nil
+	}
+
+	// A stopping filter ahead of another one leaves the rest of the pipeline
+	// unrun, and pdfcpu reads from a nil reader when the stopping filter is
+	// first, so the decode is refused rather than attempted.
+	for _, f := range sd.FilterPipeline[:len(sd.FilterPipeline)-1] {
+		if stopsDecoding(f, sd.CSComponents) {
+			return nil, fmt.Errorf("filter %s stops the decoder before the rest of the pipeline runs", f.Name)
+		}
 	}
 
 	if isProbeableStream(sd) {
@@ -108,18 +121,23 @@ func cappedDecode(sd *pdfcpu_types.StreamDict, maxLen int64) (data []byte, err e
 }
 
 // isPassthroughStream reports whether pdfcpu hands sd.Raw back unchanged
-// instead of running a filter over it: no filters at all, a sole JPXDecode, or
-// a sole DCTDecode that is not 4-component. A cap on those shapes slices the
-// content unchecked, and an empty-but-non-nil pipeline reaches pdfcpu's decoder
-// with a nil reader.
+// instead of running a filter over it: no filters at all, or a sole stopping
+// filter. A cap on those shapes slices the content unchecked, and an
+// empty-but-non-nil pipeline reaches pdfcpu's decoder with a nil reader.
 func isPassthroughStream(sd *pdfcpu_types.StreamDict) bool {
 	if len(sd.FilterPipeline) == 0 {
 		return true
 	}
-	if sd.HasSoleFilterNamed("JPXDecode") {
-		return true
-	}
-	return sd.HasSoleFilterNamed("DCTDecode") && sd.CSComponents != 4
+	return len(sd.FilterPipeline) == 1 && stopsDecoding(sd.FilterPipeline[0], sd.CSComponents)
+}
+
+// stopsDecoding reports whether pdfcpu breaks out of its filter loop at f
+// rather than running it: JPXDecode always, DCTDecode unless the stream is
+// 4-component. As the sole filter of a pipeline that means the raw bytes are
+// the payload; ahead of another filter it means nothing downstream is decoded,
+// and pdfcpu copies from a nil reader when f is the first filter.
+func stopsDecoding(f pdfcpu_types.PDFFilter, csComponents int) bool {
+	return f.Name == "JPXDecode" || (f.Name == "DCTDecode" && csComponents != 4)
 }
 
 // isProbeableStream reports whether the terminal filter of sd's pipeline both

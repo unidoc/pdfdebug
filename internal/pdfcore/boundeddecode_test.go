@@ -14,6 +14,7 @@ import (
 	"encoding/ascii85"
 	"errors"
 	"runtime"
+	"strings"
 	"testing"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -356,5 +357,94 @@ func TestDecodeBounded_ASCII85ThenFlatePipelineReturnsDecodedBytes(t *testing.T)
 	}
 	if !bytes.Equal(out, payload) {
 		t.Errorf("pipeline payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// stopperLedStream returns a StreamDict whose pipeline leads with a filter
+// pdfcpu's decoder stops at, followed by the named terminal filter over a
+// zlib-compressed payload.
+func stopperLedStream(t *testing.T, leading, terminal string) *pdfcpu_types.StreamDict {
+	t.Helper()
+	return &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: leading},
+			{Name: terminal},
+		},
+		Raw: zlibBytes(t, []byte("payload behind a stopping filter")),
+	}
+}
+
+// pdfcpu breaks out of its filter loop at a non-4-component DCTDecode and then
+// copies from a nil reader, so a pipeline led by one must be refused instead of
+// decoded. The rejection is a decode failure, not the extraction-ceiling
+// sentinel, or both call sites would report the stream as too large.
+func TestDecodeBounded_PipelineLedByDCTReturnsDecodeError(t *testing.T) {
+	const limit = int64(64 * 1024)
+
+	for _, terminal := range []string{"FlateDecode", "RunLengthDecode"} {
+		sd := stopperLedStream(t, "DCTDecode", terminal)
+
+		out, err := decodeBounded(sd, limit)
+		if err == nil {
+			t.Fatalf("terminal %s: expected an error, got %d bytes", terminal, len(out))
+		}
+		if errors.Is(err, ErrUnsupportedPDF) {
+			t.Errorf("terminal %s: expected a decode error, got the ceiling sentinel: %v", terminal, err)
+		}
+	}
+}
+
+// The same holds for JPXDecode, which the decoder stops at regardless of the
+// component count.
+func TestDecodeBounded_PipelineLedByJPXReturnsDecodeError(t *testing.T) {
+	const limit = int64(64 * 1024)
+	sd := stopperLedStream(t, "JPXDecode", "FlateDecode")
+
+	out, err := decodeBounded(sd, limit)
+	if err == nil {
+		t.Fatalf("expected an error, got %d bytes", len(out))
+	}
+	if errors.Is(err, ErrUnsupportedPDF) {
+		t.Errorf("expected a decode error, got the ceiling sentinel: %v", err)
+	}
+}
+
+// A 4-component DCTDecode does not stop the decoder, so it stays on the
+// ordinary decode path rather than the refusal above.
+func TestDecodeBounded_PipelineLedByFourComponentDCTIsNotRefused(t *testing.T) {
+	const limit = int64(64 * 1024)
+	sd := stopperLedStream(t, "DCTDecode", "FlateDecode")
+	sd.CSComponents = 4
+
+	_, err := decodeBounded(sd, limit)
+	if err == nil {
+		t.Fatal("expected the JPEG decode of a non-JPEG payload to fail")
+	}
+	if strings.Contains(err.Error(), "stops the decoder") {
+		t.Errorf("4-component DCTDecode must not be treated as a stopping filter: %v", err)
+	}
+}
+
+// A stopping filter in terminal position leaves the pipeline decodable up to
+// that point, which is what pdfcpu does with it.
+func TestDecodeBounded_TrailingDCTInPipelineDecodesEarlierFilters(t *testing.T) {
+	const limit = int64(64 * 1024)
+	payload := []byte("flate output behind a trailing DCTDecode")
+	sd := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: "FlateDecode"},
+			{Name: "DCTDecode"},
+		},
+		Raw: zlibBytes(t, payload),
+	}
+
+	out, err := decodeBounded(sd, limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %q, want %q", out, payload)
 	}
 }
