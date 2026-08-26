@@ -152,3 +152,30 @@ func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
 		t.Errorf("expected the declared dimensions in the error, got %q", img.Error)
 	}
 }
+
+// A /DeviceN colour space with an indirect colorant array opens fine and then
+// faults pdfcpu's component lookup, which asserts the entry is an Array without
+// checking. safeCall re-panics a runtime error by design, so before this was
+// absorbed the whole command died at exit 2 with "internal error". The contract
+// is a per-image error at exit 0, with the rest of the image metadata intact.
+func TestImageExtraction_IndirectDeviceNColorantsReportPerImageError(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := writeTempPDF(t, "devicen-image.pdf", deviceNImagePDF())
+
+	// The document must actually open, or this measures validation instead.
+	if _, stderr, ec := runCLIBytes(t, bin, "dump", "object", "--ref", "4 0 R", pdf); ec != 0 {
+		t.Fatalf("fixture no longer opens, so the lookup is never reached: exit %d (%s)", ec, string(stderr))
+	}
+
+	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "image", "--ref", "4 0 R", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0 with a per-image error, got %d (stderr: %s)", ec, string(stderr))
+	}
+	img := decodeImageJSON(t, stdout)
+	if img.Error == "" {
+		t.Error("expected a populated error field")
+	}
+	if img.Width != 8 || img.Height != 8 {
+		t.Errorf("metadata gathered before the fault should survive: got %dx%d, want 8x8", img.Width, img.Height)
+	}
+}

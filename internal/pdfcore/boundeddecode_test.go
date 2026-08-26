@@ -665,24 +665,78 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 // recovered from.
 func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
 	for _, c := range []struct {
-		name      string
-		predictor int
-		key       string
-		value     int
+		name  string
+		key   string
+		value pdfcpu_types.Object
 	}{
-		{"predictor 2 with zero columns", 2, "Columns", 0},
-		{"predictor 12 with zero columns", 12, "Columns", 0},
-		{"zero colors", 12, "Colors", 0},
-		{"zero bits per component", 12, "BitsPerComponent", 0},
-		{"negative columns", 12, "Columns", -1},
+		// A zero row width: the non-terminating and divide-by-zero cases.
+		{"zero columns", "Columns", pdfcpu_types.Integer(0)},
+		{"zero colors", "Colors", pdfcpu_types.Integer(0)},
+		{"zero bits per component", "BitsPerComponent", pdfcpu_types.Integer(0)},
+		{"negative columns", "Columns", pdfcpu_types.Integer(-1)},
+		// pdfcpu coerces Boolean to 0/1, so false is a zero row width that an
+		// Integer-only check waves through.
+		{"false columns", "Columns", pdfcpu_types.Boolean(false)},
+		{"false colors", "Colors", pdfcpu_types.Boolean(false)},
+		// pdfcpu sizes two row buffers from these before reading anything, so a
+		// large value is an allocation the ceiling never sees.
+		{"columns past the row bound", "Columns", pdfcpu_types.Integer(1_000_000_000)},
+		{"colors past the colorant bound", "Colors", pdfcpu_types.Integer(1_000_000)},
+		{"bits per component past the sample bound", "BitsPerComponent", pdfcpu_types.Integer(4096)},
+		// Large enough that bpc*colors*columns wraps int64 to a negative value,
+		// which would otherwise give a zero row size and divide by zero.
+		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(4611686018427387903)},
 	} {
-		parms := pdfcpu_types.Dict{
-			"Predictor": pdfcpu_types.Integer(c.predictor),
-			c.key:       pdfcpu_types.Integer(c.value),
-		}
+		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
 		if err := checkPredictorParms(parms); !errors.Is(err, errUnrunnablePredictor) {
 			t.Errorf("%s: expected the unrunnable-predictor refusal, got %v", c.name, err)
 		}
+	}
+}
+
+// Values pdfcpu accepts as legal must not be refused: Boolean true coerces to 1,
+// and the bounds themselves are inclusive.
+func TestDecodeBounded_LegalPredictorParmsAreNotRefused(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		key   string
+		value pdfcpu_types.Object
+	}{
+		{"true columns coerces to one", "Columns", pdfcpu_types.Boolean(true)},
+		{"columns at the bound", "Columns", pdfcpu_types.Integer(maxPredictorColumns)},
+		{"colors at the bound", "Colors", pdfcpu_types.Integer(maxPredictorColors)},
+		{"bits per component at the bound", "BitsPerComponent", pdfcpu_types.Integer(maxPredictorBitsPerComponent)},
+		// pdfcpu discards types it cannot read, leaving the PDF default.
+		{"a name pdfcpu discards", "Columns", pdfcpu_types.Name("Nonsense")},
+	} {
+		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
+		if err := checkPredictorParms(parms); err != nil {
+			t.Errorf("%s: must not be refused, got %v", c.name, err)
+		}
+	}
+}
+
+// A huge /Columns makes pdfcpu allocate two row buffers sized from it before it
+// reads a byte, so the refusal has to happen before the decode or the ceiling is
+// bypassed entirely by a tiny file.
+func TestDecodeBounded_HugePredictorColumnsAllocatesNothing(t *testing.T) {
+	const allocCeiling = uint64(4 * 1024 * 1024)
+	sd := flateStream(zlibZeros(t, 4096))
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(12),
+		"Columns":   pdfcpu_types.Integer(1_000_000_000),
+	}
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := decodeBounded(sd, 64*1024)
+	runtime.ReadMemStats(&after)
+
+	if !errors.Is(err, errUnrunnablePredictor) {
+		t.Fatalf("expected the unrunnable-predictor refusal, got %v", err)
+	}
+	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
+		t.Errorf("allocated %d bytes refusing an oversized predictor row; want under %d", delta, allocCeiling)
 	}
 }
 
@@ -849,5 +903,33 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 	}
 	if !strings.Contains(decodedErr.Error(), "decoded stream") {
 		t.Errorf("a stream that inflated past the ceiling should say so, got %q", decodedErr)
+	}
+}
+
+// pdfcpu runs the earlier stages of a filter pipeline unbounded, so a predictor
+// on a NON-terminal filter reaches the same non-terminating loop as one on the
+// terminal filter. Checking only the last filter left this hanging.
+func TestDecodeBounded_NonTerminalPredictorParmsRefused(t *testing.T) {
+	sd := flateStream(zlibZeros(t, 4096))
+	sd.FilterPipeline = []pdfcpu_types.PDFFilter{
+		{Name: "FlateDecode", DecodeParms: pdfcpu_types.Dict{
+			"Predictor": pdfcpu_types.Integer(2),
+			"Columns":   pdfcpu_types.Integer(0),
+		}},
+		{Name: "ASCII85Decode"},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := decodeBounded(sd, 64*1024)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, errUnrunnablePredictor) {
+			t.Errorf("expected the unrunnable-predictor refusal, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("decode did not return; a non-terminal predictor is not being checked")
 	}
 }

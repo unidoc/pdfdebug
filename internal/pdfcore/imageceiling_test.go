@@ -193,13 +193,13 @@ func TestDeclaredComponents_MissingColorSpaceWidensTheEstimate(t *testing.T) {
 // colour space it cannot resolve faults it, and safeCall re-panics a runtime
 // error by design. This pins the absorption.
 //
-// Reachability, measured: no document exercises this. pdfcpu validates colour
-// spaces at read time and refuses to OPEN a file whose image carries
-// /ColorSpace [], [/Indexed], [5 0 R], [/ICCBased 99 0 R] or a /DeviceN with an
-// indirect colorant array - all four return "malformed PDF" from `dump object`
-// before any image code runs. The nil table below forces the fault synthetically.
-// The absorption is therefore defence in depth against a shape pdfcpu might one
-// day tolerate at open, not a fix for a live crash.
+// Reachability, measured: it varies by shape. A DANGLING reference
+// (/ColorSpace [5 0 R], [/ICCBased 99 0 R]) makes the document fail to open, so
+// those never reach the lookup. But a well-formed /DeviceN whose colorant array
+// is an indirect reference to a defined object DOES open and DOES reach it - see
+// the acceptance suite's indirect-DeviceN case, which is exit 2 without the
+// absorb and a per-image error with it. The nil table below forces the fault
+// synthetically because it is the cheapest way to exercise the branch.
 func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
 	sd := &pdfcpu_types.StreamDict{
 		Dict: pdfcpu_types.Dict{

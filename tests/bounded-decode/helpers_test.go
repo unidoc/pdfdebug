@@ -282,3 +282,23 @@ func imagePixels() []byte {
 	}
 	return px
 }
+
+// deviceNImagePDF builds a single-page document whose image XObject carries a
+// /DeviceN colour space whose colorant-name array is an INDIRECT reference. Every
+// referenced object exists, so the document is well-formed and opens; pdfcpu's
+// component lookup then asserts that entry is an Array without checking, and
+// faults. This is the shape that reaches the lookup - dangling references do not,
+// because the document fails to open first.
+func deviceNImagePDF() []byte {
+	dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8 /BitsPerComponent 8" +
+		" /ColorSpace [/DeviceN 5 0 R /DeviceRGB 6 0 R] /Filter /DCTDecode"
+	return assemblePDF([][]byte{
+		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
+		[]byte("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"),
+		[]byte("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]" +
+			" /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n"),
+		streamObj(4, dict, []byte("not a jpeg")),
+		[]byte("5 0 obj\n[/Ink1 /Ink2]\nendobj\n"),
+		[]byte("6 0 obj\n<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 1 1] /N 1 >>\nendobj\n"),
+	}, 1)
+}

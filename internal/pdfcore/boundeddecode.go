@@ -96,7 +96,15 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 	// divide by zero on the /Predictor 12 path. The first of those spins a core
 	// while the caller holds the document lock, and no recover can reach it, so
 	// the shape is refused up front. pdfcpu guards /Colors but not /Columns.
-	if f := sd.FilterPipeline[len(sd.FilterPipeline)-1]; hasPredictor(f.DecodeParms) {
+	//
+	// EVERY filter is checked, not just the terminal one: pdfcpu runs the earlier
+	// stages of a pipeline unbounded, so a predictor sitting on a non-terminal
+	// filter reaches the same loop. `[/FlateDecode /ASCII85Decode]` carrying
+	// `/DecodeParms [<< /Predictor 2 /Columns 0 >> null]` hangs on stage one.
+	for _, f := range sd.FilterPipeline {
+		if !hasPredictor(f.DecodeParms) {
+			continue
+		}
 		if err := checkPredictorParms(f.DecodeParms); err != nil {
 			return nil, err
 		}
@@ -255,22 +263,69 @@ func isProbeableStream(sd *pdfcpu_types.StreamDict) bool {
 	}
 }
 
+// Bounds on predictor parameters. pdfcpu sizes TWO row buffers of
+// (bpc*colors*columns+7)/8 (+1 off the TIFF path) from these before reading a
+// single byte, so an unbounded value is an unbounded allocation that neither the
+// raw pre-guard nor limit constrains - a 15-byte deflate stream declaring
+// /Columns 1000000000 allocates gigabytes. PDF allows sample depths up to 16 and
+// DeviceN carries at most 32 colorants; a row wider than 2^20 samples is not a
+// real image. Together these cap the row size near 64 MB and keep the product
+// clear of int64 overflow, which would otherwise wrap to a zero row size and
+// divide by zero.
+const (
+	maxPredictorColumns          = 1 << 20
+	maxPredictorColors           = 32
+	maxPredictorBitsPerComponent = 16
+)
+
 // checkPredictorParms rejects predictor parameters that would make pdfcpu's row
-// reconstruction non-terminating or divide by zero. Absent entries are fine -
-// PDF defines defaults of 1 for /Columns and /Colors and 8 for
-// /BitsPerComponent - so only an explicit non-positive value is refused.
+// reconstruction non-terminating, divide by zero, or allocate without regard to
+// the ceiling. A zero row width is the non-terminating case: /Predictor 2 leaves
+// io.ReadFull reading nothing forever, and the PNG predictors divide by it.
+//
+// Absent entries need no check - PDF defines 1 for /Columns and /Colors and 8 for
+// /BitsPerComponent.
 func checkPredictorParms(parms pdfcpu_types.Dict) error {
-	for _, key := range []string{"Columns", "Colors", "BitsPerComponent"} {
-		v, found := parms[key]
+	for _, bound := range []struct {
+		key      string
+		min, max int
+	}{
+		{"Columns", 1, maxPredictorColumns},
+		{"Colors", 1, maxPredictorColors},
+		{"BitsPerComponent", 1, maxPredictorBitsPerComponent},
+	} {
+		v, found := parms[bound.key]
 		if !found {
 			continue
 		}
-		i, ok := v.(pdfcpu_types.Integer)
-		if ok && i.Value() < 1 {
-			return fmt.Errorf("%w: /%s is %d", errUnrunnablePredictor, key, i.Value())
+		n, ok := predictorParmValue(v)
+		if !ok {
+			continue
+		}
+		if n < bound.min || n > bound.max {
+			return fmt.Errorf("%w: /%s is %d, outside %d..%d",
+				errUnrunnablePredictor, bound.key, n, bound.min, bound.max)
 		}
 	}
 	return nil
+}
+
+// predictorParmValue reads a decode parameter the way pdfcpu's parameter
+// flattening does: an Integer, or a Boolean as 0 or 1. Reading Booleans matters -
+// pdfcpu coerces them, so /Columns false arrives at the predictor as a zero row
+// width exactly as /Columns 0 would. Any other type pdfcpu discards, leaving the
+// PDF default, so it needs no check here.
+func predictorParmValue(v pdfcpu_types.Object) (int, bool) {
+	switch t := v.(type) {
+	case pdfcpu_types.Integer:
+		return t.Value(), true
+	case pdfcpu_types.Boolean:
+		if t.Value() {
+			return 1, true
+		}
+		return 0, true
+	}
+	return 0, false
 }
 
 // hasPredictor reports whether parms carries a /Predictor above 1, the value
