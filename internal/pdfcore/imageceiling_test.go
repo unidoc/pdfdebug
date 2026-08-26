@@ -188,9 +188,16 @@ func TestDeclaredComponents_MissingColorSpaceWidensTheEstimate(t *testing.T) {
 }
 
 // pdfcpu's component lookup dereferences and asserts types unchecked, so a
-// colour space it cannot resolve reaches it as a runtime panic that safeCall
-// re-panics by design. Absorbing that is what keeps one unreadable image from
-// taking down the whole command.
+// colour space it cannot resolve faults it, and safeCall re-panics a runtime
+// error by design. This pins the absorption.
+//
+// Reachability, measured: no document exercises this. pdfcpu validates colour
+// spaces at read time and refuses to OPEN a file whose image carries
+// /ColorSpace [], [/Indexed], [5 0 R], [/ICCBased 99 0 R] or a /DeviceN with an
+// indirect colorant array - all four return "malformed PDF" from `dump object`
+// before any image code runs. The nil table below forces the fault synthetically.
+// The absorption is therefore defence in depth against a shape pdfcpu might one
+// day tolerate at open, not a fix for a live crash.
 func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
 	sd := &pdfcpu_types.StreamDict{
 		Dict: pdfcpu_types.Dict{

@@ -211,10 +211,12 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	}
 
 	// Set CSComponents before Decode for DCT streams. The lookup asserts types
-	// and dereferences unchecked, so a malformed /ColorSpace array reaches it as
-	// a runtime error that safeCall re-panics; absorb that into the same error
-	// this branch already reports for a returned failure, rather than letting one
-	// unreadable image take down the whole request.
+	// and dereferences unchecked, so a malformed /ColorSpace array faults it and
+	// safeCall re-panics that by design; absorb it into the error this branch
+	// already reports for a returned failure. Defence in depth rather than a
+	// reachable path: pdfcpu validates colour spaces at read time and refuses to
+	// open a document carrying the malformed shapes, so nothing gets this far
+	// today.
 	if lastFilter == "DCTDecode" {
 		err = func() (err error) {
 			defer func() {

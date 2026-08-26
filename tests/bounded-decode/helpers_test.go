@@ -251,6 +251,19 @@ func flateImagePDF(raw []byte) []byte {
 	return flateImagePDFSized(raw, 8, 8)
 }
 
+// imagePDFWithDict builds the same single-page document around an image XObject
+// whose dictionary body is supplied verbatim, for fixtures that need a malformed
+// entry the typed builders will not produce.
+func imagePDFWithDict(dict string, raw []byte) []byte {
+	return assemblePDF([][]byte{
+		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
+		[]byte("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"),
+		[]byte("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]" +
+			" /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n"),
+		streamObj(4, dict, raw),
+	}, 1)
+}
+
 // flateImagePDFSized is flateImagePDF with the declared dimensions as inputs, so
 // a fixture can either match its payload or understate it.
 func flateImagePDFSized(raw []byte, width, height int) []byte {
