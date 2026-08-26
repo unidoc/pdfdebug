@@ -2,18 +2,43 @@
 // decodeBounded from the geometry an image dictionary declares.
 package pdfcore
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestImageDecodeCeiling_HonestLargeImageGetsRoomToDecode(t *testing.T) {
 	// 8192 x 8192 8-bit grayscale is 64 MiB of samples: over the extraction
 	// ceiling, but an ordinary scan rather than a bomb.
-	got := imageDecodeCeiling(8192, 8192, 8, 1)
-	const declared = int64(8192) * 8192
-	if got <= declared {
-		t.Fatalf("ceiling %d must exceed the %d bytes the geometry declares", got, declared)
+	const declared = int64(8192) * 8192 * 8 * 1 / 8
+	want := declared*2 + imageDecodeHeadroom
+	if got := imageDecodeCeiling(8192, 8192, 8, 1); got != want {
+		t.Errorf("got %d, want %d (twice the %d declared bytes plus headroom)", got, want, declared)
 	}
-	if got <= maxImageBytes {
-		t.Errorf("ceiling %d should be raised above maxImageBytes for a large declared image", got)
+}
+
+// The doubling and the headroom apply to the declared size, not to a rounded or
+// truncated version of it, so a geometry whose byte size is not a whole multiple
+// still lands exactly where the formula says.
+func TestImageDecodeCeiling_TracksDeclaredSizeExactly(t *testing.T) {
+	for _, c := range []struct {
+		width, height, bitsPerComponent, comps int
+	}{
+		{4000, 4000, 8, 3},
+		{6000, 4000, 8, 3},
+		{5000, 5000, 16, 1},
+		{3000, 3000, 4, 3},
+	} {
+		declared := int64(c.width) * int64(c.height) * int64(c.bitsPerComponent) * int64(c.comps) / 8
+		want := declared*2 + imageDecodeHeadroom
+		if want < maxImageBytes {
+			want = maxImageBytes
+		}
+		got := imageDecodeCeiling(c.width, c.height, c.bitsPerComponent, c.comps)
+		if got != want {
+			t.Errorf("%dx%d bpc=%d comps=%d: got %d, want %d",
+				c.width, c.height, c.bitsPerComponent, c.comps, got, want)
+		}
 	}
 }
 
@@ -44,30 +69,51 @@ func TestImageDecodeCeiling_UnusableGeometryFallsBackToExtractionCeiling(t *test
 	}
 }
 
-// An absurd geometry must not wrap into a small positive ceiling, which would
-// reject the image instead of bounding it.
-func TestImageDecodeCeiling_AbsurdGeometryIsCappedNotWrapped(t *testing.T) {
+// An absurd geometry falls back to the extraction ceiling, never to the wider
+// absolute cap: overstating its dimensions must not buy a stream more room to
+// inflate than an honest image gets.
+func TestImageDecodeCeiling_AbsurdGeometryFallsBackTight(t *testing.T) {
 	for _, c := range []struct {
 		name          string
 		width, height int
 	}{
-		{"overflowing product", 1 << 40, 1 << 40},
+		{"overflowing product", math.MaxInt, math.MaxInt},
 		{"past the pixel cap", 40000, 40000},
 	} {
 		got := imageDecodeCeiling(c.width, c.height, 16, 4)
-		if got != maxImageDecodeBytes {
-			t.Errorf("%s: got %d, want the absolute cap %d", c.name, got, maxImageDecodeBytes)
+		if got != maxImageBytes {
+			t.Errorf("%s: got %d, want the maxImageBytes fallback %d", c.name, got, maxImageBytes)
 		}
+		if got == maxImageDecodeBytes {
+			t.Errorf("%s: an implausible geometry must not reach the absolute cap", c.name)
+		}
+	}
+}
+
+// A geometry inside the pixel guard whose declared size still doubles past the
+// absolute cap saturates at the cap rather than returning the larger figure.
+func TestImageDecodeCeiling_LargeDeclaredSizeSaturatesAtAbsoluteCap(t *testing.T) {
+	// 100M pixels is exactly the pixel guard, so this reaches the arithmetic;
+	// 4 components at 8 bits declares 400 MB, and twice that is over the cap.
+	const side = 10000
+	declared := int64(side) * side * 8 * 4 / 8
+	if declared*2+imageDecodeHeadroom <= maxImageDecodeBytes {
+		t.Fatalf("fixture no longer exceeds the cap: declared %d", declared)
+	}
+	if got := imageDecodeCeiling(side, side, 8, 4); got != maxImageDecodeBytes {
+		t.Errorf("got %d, want the absolute cap %d", got, maxImageDecodeBytes)
 	}
 }
 
 // The ceiling never exceeds the absolute cap, whatever the geometry claims.
 func TestImageDecodeCeiling_NeverExceedsAbsoluteCap(t *testing.T) {
 	for _, comps := range []int{1, 3, 4, 32} {
-		for _, bpc := range []int{1, 8, 16, 64} {
-			if got := imageDecodeCeiling(20000, 20000, bpc, comps); got > maxImageDecodeBytes {
-				t.Errorf("bpc=%d comps=%d: ceiling %d exceeds the cap %d",
-					bpc, comps, got, maxImageDecodeBytes)
+		for _, bpc := range []int{1, 8, 16} {
+			for _, side := range []int{100, 5000, 10000, 40000} {
+				if got := imageDecodeCeiling(side, side, bpc, comps); got > maxImageDecodeBytes {
+					t.Errorf("%dx%d bpc=%d comps=%d: ceiling %d exceeds the cap %d",
+						side, side, bpc, comps, got, maxImageDecodeBytes)
+				}
 			}
 		}
 	}

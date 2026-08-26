@@ -141,10 +141,14 @@ func cappedDecode(sd *pdfcpu_types.StreamDict, maxLen int64) (data []byte, err e
 	return data, err
 }
 
-// isSliceBoundsPanic reports whether r is the runtime slice-bounds error raised
-// by pdfcpu's unchecked data[:maxLen] tail. Only that panic proves the stream
-// decoded to fewer bytes than the cap, which is what makes the unbounded
-// fallback safe.
+// isSliceBoundsPanic reports whether r is a runtime slice-bounds error, which is
+// what pdfcpu's unchecked data[:maxLen] tail raises. The match is on the message,
+// so it cannot distinguish that tail from an out-of-range slice elsewhere in a
+// filter. It does not have to: for the three probeable filters an over-ceiling
+// stream always fills the cap and so cannot reach the tail, and any other
+// bounds panic falls back to a decode whose result is still measured against the
+// ceiling - the same guarantee the extraction path had before, one allocation
+// later. Panics that are not bounds errors carry no such reasoning and re-panic.
 func isSliceBoundsPanic(r any) bool {
 	e, ok := r.(runtime.Error)
 	return ok && strings.Contains(e.Error(), "slice bounds out of range")

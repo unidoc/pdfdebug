@@ -28,9 +28,10 @@ const (
 	// cannot authorize an unbounded allocation. Aligned with maxImagePixels,
 	// which already sanctions a ~400 MB working set.
 	maxImageDecodeBytes = 512 * 1024 * 1024
-	// imageDecodeHeadroom is added to the size the declared geometry implies. It
-	// covers the framing pdfcpu's gob encoding puts around a 4-component DCT
-	// image, which is proportionally largest on small images.
+	// imageDecodeHeadroom is added to the size the declared geometry implies,
+	// covering the framing pdfcpu's gob encoding puts around a 4-component DCT
+	// image. Only large images see it: below the maxImageBytes floor it is
+	// subsumed, and there the floor is the more generous of the two anyway.
 	imageDecodeHeadroom = 1024 * 1024
 )
 
@@ -234,8 +235,8 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 			declaredComponents(xrt, &sd))
 		if _, err := decodeBounded(&sd, ceiling); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
-				result.Error = fmt.Sprintf("image data too large (decoded stream exceeds %d MB, the size its dimensions imply)",
-					ceiling/(1024*1024))
+				result.Error = fmt.Sprintf("image data too large (exceeds the %d byte ceiling for a %dx%d image)",
+					ceiling, result.Width, result.Height)
 			} else {
 				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
 			}
@@ -340,8 +341,13 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 // image's /ColorSpace, or 0 when it cannot derive one. A DCT stream already had
 // it resolved for the decode, so that value is reused. Failures are reported as
 // 0 rather than as an error: the count only sizes the decode ceiling, and an
-// unreadable colour space must not stop an extraction that would otherwise work.
+// unreadable colour space must not stop an extraction that would otherwise work,
+// so an unresolvable one widens the estimate instead of collapsing it.
 func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) int {
+	// A colour space pdfcpu cannot resolve must widen the estimate, not tighten
+	// it, or an unreadable /ColorSpace on a large image rejects an extraction
+	// that would otherwise work. Four covers every device space plus ICCBased.
+	const unknownComponents = 4
 	if sd.CSComponents > 0 {
 		return sd.CSComponents
 	}
@@ -351,7 +357,10 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 		comp = c
 		return e
 	}); err != nil {
-		return 0
+		return unknownComponents
+	}
+	if comp <= 0 {
+		return unknownComponents
 	}
 	return comp
 }
@@ -364,23 +373,25 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 // maxImageDecodeBytes.
 func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 	// 16 bits is the widest sample PDF defines and DeviceN carries the most
-	// colorants; beyond those the entries are malformed rather than large, and
-	// the arithmetic below is only safe from overflow inside these bounds.
-	const maxBitsPerComponent, maxComponents = 64, 32
+	// colorants; beyond those the entries are malformed rather than large.
+	const maxBitsPerComponent, maxComponents = 16, 32
 	if width <= 0 || height <= 0 ||
 		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||
 		components <= 0 || components > maxComponents {
 		return maxImageBytes
 	}
-	// Check the product for wraparound before trusting it: an absurd /Width
-	// /Height pair would otherwise yield a small positive ceiling and reject a
-	// legitimate image.
+	// Every rejection below falls back to maxImageBytes rather than to the
+	// absolute cap. A dictionary declaring an implausible geometry must not buy
+	// MORE room to inflate than an honest one gets: failing to the wider bound
+	// would let a bomb widen its own ceiling just by overstating its dimensions.
 	pixels := int64(width) * int64(height)
 	if pixels/int64(width) != int64(height) {
-		return maxImageDecodeBytes
+		return maxImageBytes
 	}
+	// Past this many pixels the render path cannot display the image anyway, so
+	// there is nothing to be gained by granting the decode more room.
 	if pixels > maxImagePixels {
-		return maxImageDecodeBytes
+		return maxImageBytes
 	}
 	// Bounded by the guards above: at most 100M pixels x 2048 bits.
 	declared := pixels * int64(bitsPerComponent) * int64(components) / 8
