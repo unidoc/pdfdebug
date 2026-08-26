@@ -343,7 +343,7 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 // count only sizes the decode ceiling, so an unresolvable or unrecognised colour
 // space widens the estimate rather than collapsing it: collapsing would pin a
 // large image to the smallest ceiling and refuse an extraction that works today.
-func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) int {
+func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (components int) {
 	// A colour space pdfcpu cannot resolve must widen the estimate, not tighten
 	// it, or an unreadable /ColorSpace on a large image rejects an extraction
 	// that would otherwise work. Four covers every device space plus ICCBased.
@@ -351,18 +351,31 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 	if sd.CSComponents > 0 {
 		return sd.CSComponents
 	}
-	var comp int
+	components = unknownComponents
+	// Absorb panics as well as errors, via the named return so a recovered panic
+	// still yields the fallback rather than a zero. pdfcpu's component lookup
+	// asserts types and dereferences without checking, so a dangling /ICCBased
+	// ref or an indirect /DeviceN colorant array reaches it as a runtime error,
+	// which safeCall re-panics by design. That policy is right where a panic
+	// means a real bug; here the result is only a size hint, every failure
+	// answers with the wider fallback, and nothing about the bytes returned to
+	// the caller depends on it. Without this, asking for a JPX image whose
+	// colour space will not resolve takes the whole command down.
+	defer func() {
+		if recover() != nil {
+			components = unknownComponents
+		}
+	}()
 	if err := safeCall(func() error {
 		c, e := pdfcpu_render.ColorSpaceComponents(xrt, sd)
-		comp = c
+		if e == nil && c > 0 {
+			components = c
+		}
 		return e
 	}); err != nil {
 		return unknownComponents
 	}
-	if comp <= 0 {
-		return unknownComponents
-	}
-	return comp
+	return components
 }
 
 // imageDecodeCeiling returns the byte ceiling for decoding an image stream. The
@@ -391,23 +404,21 @@ func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 		components <= 0 || components > maxComponents {
 		return maxImageBytes
 	}
-	// Wraparound means the arithmetic below cannot be trusted at all, so fall
-	// back to maxImageBytes rather than to the wider cap: a geometry that is
-	// unusable must not buy more room to inflate than an honest one gets.
-	// Being merely LARGE is not grounds for this - a 108 megapixel scan is a
-	// real document, and maxImageDecodeBytes is what bounds the big cases.
-	pixels := int64(width) * int64(height)
-	if pixels/int64(width) != int64(height) {
+	// A side longer than this is not a picture, and a dimension that cannot be
+	// trusted must not buy more room to inflate than an honest one gets, so it
+	// falls back to maxImageBytes. Being merely LARGE is not grounds for this:
+	// a 108 megapixel scan is a real document, and maxImageDecodeBytes bounds
+	// the big cases. The bound also keeps every product below from overflowing.
+	const maxImageDimension = 1 << 20
+	if width > maxImageDimension || height > maxImageDimension {
 		return maxImageBytes
 	}
-	// Compare before multiplying: pixels and bitsPerPixel are each bounded, their
-	// product is not. A geometry whose declared size already passes the cap is
-	// answered by the cap, which is the widest this function ever returns.
+	// PDF pads every ROW to a byte boundary, so the samples occupy
+	// ceil(width*bitsPerPixel/8) per row rather than a fraction of a byte.
+	// width*height*bitsPerPixel/8 understates a narrow sub-byte image.
 	bitsPerPixel := int64(bitsPerComponent) * int64(components)
-	if pixels > maxImageDecodeBytes*8/bitsPerPixel {
-		return maxImageDecodeBytes
-	}
-	declared := pixels * bitsPerPixel / 8
+	rowBytes := (int64(width)*bitsPerPixel + 7) / 8
+	declared := rowBytes * int64(height)
 	// Double it so packing and framing slack cannot reject an honest image,
 	// floor at maxImageBytes so a small picture is never held to a tighter
 	// ceiling than the extraction path already allowed, and cap the result.

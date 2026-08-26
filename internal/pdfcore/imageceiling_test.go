@@ -28,8 +28,12 @@ func TestImageDecodeCeiling_TracksDeclaredSizeExactly(t *testing.T) {
 		{6000, 4000, 8, 3},
 		{5000, 5000, 16, 1},
 		{3000, 3000, 4, 3},
+		{4095, 7000, 1, 1},
+		{3, 9000, 1, 1},
 	} {
-		declared := int64(c.width) * int64(c.height) * int64(c.bitsPerComponent) * int64(c.comps) / 8
+		bitsPerPixel := int64(c.bitsPerComponent) * int64(c.comps)
+		rowBytes := (int64(c.width)*bitsPerPixel + 7) / 8
+		declared := rowBytes * int64(c.height)
 		want := declared*2 + imageDecodeHeadroom
 		if want < maxImageBytes {
 			want = maxImageBytes
@@ -69,13 +73,34 @@ func TestImageDecodeCeiling_UnusableGeometryFallsBackToExtractionCeiling(t *test
 	}
 }
 
-// A geometry that wraps the arithmetic falls back to the extraction ceiling
-// rather than the wider absolute cap: an unusable declaration must not buy more
-// room to inflate than an honest image gets.
-func TestImageDecodeCeiling_WraparoundFallsBackTight(t *testing.T) {
-	got := imageDecodeCeiling(math.MaxInt, math.MaxInt, 16, 4)
-	if got != maxImageBytes {
-		t.Errorf("got %d, want the maxImageBytes fallback %d", got, maxImageBytes)
+// A side too long to be a picture falls back to the extraction ceiling rather
+// than the wider absolute cap: a dimension that cannot be trusted must not buy
+// more room to inflate than an honest image gets.
+func TestImageDecodeCeiling_UntrustworthyDimensionFallsBackTight(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		width, height int
+	}{
+		{"both sides absurd", math.MaxInt, math.MaxInt},
+		{"width absurd", math.MaxInt, 100},
+		{"height absurd", 100, math.MaxInt},
+		{"just past the dimension bound", (1 << 20) + 1, 1},
+	} {
+		if got := imageDecodeCeiling(c.width, c.height, 16, 4); got != maxImageBytes {
+			t.Errorf("%s: got %d, want the maxImageBytes fallback %d", c.name, got, maxImageBytes)
+		}
+	}
+}
+
+// Row padding is what the real stored size uses, so a narrow sub-byte image is
+// measured by its padded rows rather than by a fraction of a byte per pixel.
+func TestImageDecodeCeiling_AccountsForRowPadding(t *testing.T) {
+	// One 1-bit pixel per row still occupies a whole byte, so 3 x 200000 is
+	// 200000 bytes, not 75000.
+	got := imageDecodeCeiling(3, 200000, 1, 1)
+	const paddedSize = int64(200000)
+	if got < paddedSize {
+		t.Errorf("ceiling %d is below the %d padded bytes the rows occupy", got, paddedSize)
 	}
 }
 
