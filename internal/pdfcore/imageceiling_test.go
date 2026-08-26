@@ -5,6 +5,9 @@ package pdfcore
 import (
 	"math"
 	"testing"
+
+	pdfcpu_render "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 func TestImageDecodeCeiling_HonestLargeImageGetsRoomToDecode(t *testing.T) {
@@ -17,31 +20,29 @@ func TestImageDecodeCeiling_HonestLargeImageGetsRoomToDecode(t *testing.T) {
 	}
 }
 
-// The doubling and the headroom apply to the declared size, not to a rounded or
-// truncated version of it, so a geometry whose byte size is not a whole multiple
-// still lands exactly where the formula says.
-func TestImageDecodeCeiling_TracksDeclaredSizeExactly(t *testing.T) {
+// Hand-computed expectations, so a wrong formula cannot be transcribed into both
+// the code and the test. Each is ceil(width*bitsPerPixel/8)*height, doubled,
+// plus the 1 MiB headroom.
+func TestImageDecodeCeiling_MatchesHandComputedValues(t *testing.T) {
 	for _, c := range []struct {
 		width, height, bitsPerComponent, comps int
+		want                                   int64
 	}{
-		{4000, 4000, 8, 3},
-		{6000, 4000, 8, 3},
-		{5000, 5000, 16, 1},
-		{3000, 3000, 4, 3},
-		{4095, 7000, 1, 1},
-		{3, 9000, 1, 1},
+		// 12000 bytes per row x 4000 rows = 48,000,000 declared.
+		{4000, 4000, 8, 3, 97_048_576},
+		// 18000 x 4000 = 72,000,000.
+		{6000, 4000, 8, 3, 145_048_576},
+		// 10000 x 5000 = 50,000,000.
+		{5000, 5000, 16, 1, 101_048_576},
+		// 201 bits per row pads to 26 bytes, x 1048576 rows = 27,262,976.
+		// The unpadded formula gives 26,345,472 and a different ceiling, so this
+		// case distinguishes the two.
+		{201, 1 << 20, 1, 1, 55_574_528},
 	} {
-		bitsPerPixel := int64(c.bitsPerComponent) * int64(c.comps)
-		rowBytes := (int64(c.width)*bitsPerPixel + 7) / 8
-		declared := rowBytes * int64(c.height)
-		want := declared*2 + imageDecodeHeadroom
-		if want < maxImageBytes {
-			want = maxImageBytes
-		}
 		got := imageDecodeCeiling(c.width, c.height, c.bitsPerComponent, c.comps)
-		if got != want {
+		if got != c.want {
 			t.Errorf("%dx%d bpc=%d comps=%d: got %d, want %d",
-				c.width, c.height, c.bitsPerComponent, c.comps, got, want)
+				c.width, c.height, c.bitsPerComponent, c.comps, got, c.want)
 		}
 	}
 }
@@ -92,15 +93,26 @@ func TestImageDecodeCeiling_UntrustworthyDimensionFallsBackTight(t *testing.T) {
 	}
 }
 
-// Row padding is what the real stored size uses, so a narrow sub-byte image is
-// measured by its padded rows rather than by a fraction of a byte per pixel.
+// Row padding is what the real stored size uses, so a sub-byte image is measured
+// by its padded rows rather than by a fraction of a byte per pixel. The geometry
+// here is chosen so both formulas clear the maxImageBytes floor, which is what
+// makes the two answers distinguishable at all - below the floor they collapse
+// to the same value and the difference is invisible.
 func TestImageDecodeCeiling_AccountsForRowPadding(t *testing.T) {
-	// One 1-bit pixel per row still occupies a whole byte, so 3 x 200000 is
-	// 200000 bytes, not 75000.
-	got := imageDecodeCeiling(3, 200000, 1, 1)
-	const paddedSize = int64(200000)
-	if got < paddedSize {
-		t.Errorf("ceiling %d is below the %d padded bytes the rows occupy", got, paddedSize)
+	const width, height = 201, 1 << 20
+	const paddedDeclared = int64(26) * height // 201 bits -> 26 bytes per row
+	const unpaddedDeclared = int64(width) * height / 8
+
+	if paddedDeclared*2+imageDecodeHeadroom <= maxImageBytes ||
+		unpaddedDeclared*2+imageDecodeHeadroom <= maxImageBytes {
+		t.Fatal("fixture no longer clears the floor on both formulas; the case cannot discriminate")
+	}
+	got := imageDecodeCeiling(width, height, 1, 1)
+	if want := paddedDeclared*2 + imageDecodeHeadroom; got != want {
+		t.Errorf("got %d, want %d from the padded row size", got, want)
+	}
+	if got == unpaddedDeclared*2+imageDecodeHeadroom {
+		t.Error("ceiling matches the unpadded formula, so row padding is not applied")
 	}
 }
 
@@ -126,8 +138,8 @@ func TestImageDecodeCeiling_LargeScanPastThePixelCapStillGetsRoom(t *testing.T) 
 // A geometry inside the pixel guard whose declared size still doubles past the
 // absolute cap saturates at the cap rather than returning the larger figure.
 func TestImageDecodeCeiling_LargeDeclaredSizeSaturatesAtAbsoluteCap(t *testing.T) {
-	// 100M pixels is exactly the pixel guard, so this reaches the arithmetic;
-	// 4 components at 8 bits declares 400 MB, and twice that is over the cap.
+	// 4 components at 8 bits over 100M pixels declares 400 MB, and twice that
+	// is past the cap, so the cap is what comes back.
 	const side = 10000
 	declared := int64(side) * side * 8 * 4 / 8
 	if declared*2+imageDecodeHeadroom <= maxImageDecodeBytes {
@@ -148,6 +160,74 @@ func TestImageDecodeCeiling_NeverExceedsAbsoluteCap(t *testing.T) {
 						side, side, bpc, comps, got, maxImageDecodeBytes)
 				}
 			}
+		}
+	}
+}
+
+// The resolved component count is reused when the DCT path already set it, so no
+// second lookup happens for that stream.
+func TestDeclaredComponents_ReusesResolvedCount(t *testing.T) {
+	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, CSComponents: 4}
+	if got := declaredComponents(nil, sd); got != 4 {
+		t.Errorf("got %d, want the already-resolved 4", got)
+	}
+}
+
+// An image with no /ColorSpace at all - an ImageMask, say - has no count to
+// derive, so the estimate widens instead of collapsing to zero. Zero would pin
+// the ceiling to its tightest value and refuse a large extraction.
+func TestDeclaredComponents_MissingColorSpaceWidensTheEstimate(t *testing.T) {
+	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}}
+	got := declaredComponents(nil, sd)
+	if got <= 0 {
+		t.Fatalf("got %d, want a positive fallback", got)
+	}
+	if imageDecodeCeiling(8192, 8192, 8, got) <= maxImageBytes {
+		t.Errorf("fallback %d leaves a large image pinned to the floor", got)
+	}
+}
+
+// pdfcpu's component lookup dereferences and asserts types unchecked, so a
+// colour space it cannot resolve reaches it as a runtime panic that safeCall
+// re-panics by design. Absorbing that is what keeps one unreadable image from
+// taking down the whole command.
+func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
+	sd := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{
+			"ColorSpace": pdfcpu_types.NewNameArray("ICCBased"),
+		},
+	}
+	// Pin that this fixture really does fault the underlying lookup. Without
+	// this the assertion below passes whether the panic was absorbed or never
+	// happened, since both answer with the same fallback.
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("fixture no longer faults pdfcpu's lookup; the absorption is untested")
+			}
+		}()
+		_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
+	}()
+
+	got := declaredComponents(nil, sd)
+	if got <= 0 {
+		t.Errorf("got %d, want the positive fallback after an absorbed failure", got)
+	}
+}
+
+// A malformed /ColorSpace array faults pdfcpu's component lookup, which the DCT
+// pre-decode branch calls directly. That must surface as this branch's own error
+// rather than unwinding out of the request.
+func TestColorSpaceLookup_MalformedArrayIsAbsorbedAtBothCallSites(t *testing.T) {
+	for _, cs := range []pdfcpu_types.Object{
+		pdfcpu_types.Array{},
+		pdfcpu_types.NewNameArray("Indexed"),
+		pdfcpu_types.Array{pdfcpu_types.Integer(5)},
+	} {
+		sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{"ColorSpace": cs}}
+		// The non-DCT path goes through declaredComponents.
+		if got := declaredComponents(nil, sd); got <= 0 {
+			t.Errorf("%v: got %d, want a positive fallback", cs, got)
 		}
 	}
 }

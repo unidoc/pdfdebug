@@ -210,16 +210,27 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
 	}
 
-	// Set CSComponents before Decode for DCT streams
+	// Set CSComponents before Decode for DCT streams. The lookup asserts types
+	// and dereferences unchecked, so a malformed /ColorSpace array reaches it as
+	// a runtime error that safeCall re-panics; absorb that into the same error
+	// this branch already reports for a returned failure, rather than letting one
+	// unreadable image take down the whole request.
 	if lastFilter == "DCTDecode" {
-		err = safeCall(func() error {
-			comp, e := pdfcpu_render.ColorSpaceComponents(xrt, &sd)
-			if e != nil {
-				return e
-			}
-			sd.CSComponents = comp
-			return nil
-		})
+		err = func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("color space could not be resolved: %v", r)
+				}
+			}()
+			return safeCall(func() error {
+				comp, e := pdfcpu_render.ColorSpaceComponents(xrt, &sd)
+				if e != nil {
+					return e
+				}
+				sd.CSComponents = comp
+				return nil
+			})
+		}()
 		if err != nil {
 			result.Error = fmt.Sprintf("failed to determine color space components: %v", err)
 			return result, nil

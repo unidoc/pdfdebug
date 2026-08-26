@@ -15,6 +15,7 @@ import (
 	"errors"
 	"runtime"
 	"testing"
+	"time"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -539,5 +540,144 @@ func TestDecodeBounded_TrailingDCTInPipelineDecodesEarlierFilters(t *testing.T) 
 	}
 	if !bytes.Equal(out, payload) {
 		t.Errorf("payload mismatch: got %q, want %q", out, payload)
+	}
+}
+
+// ascii85Stream returns a StreamDict whose sole filter is ASCII85Decode over
+// the encoding of payload.
+func ascii85Stream(payload []byte) *pdfcpu_types.StreamDict {
+	buf := make([]byte, ascii85.MaxEncodedLen(len(payload)))
+	n := ascii85.Encode(buf, payload)
+	return &pdfcpu_types.StreamDict{
+		Dict:           pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "ASCII85Decode"}},
+		Raw:            append(buf[:n], '~', '>'),
+	}
+}
+
+// ASCII85Decode is one of the three filters the probe is applied to, so its
+// in-bounds path has to come back with the exact payload rather than the empty
+// result the capped decode hands back.
+func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
+	const limit = int64(64 * 1024)
+	payload := bytes.Repeat([]byte("ascii85-payload-"), 256)
+
+	out, err := decodeBounded(ascii85Stream(payload), limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// The same filter over a payload past the limit is rejected at the ceiling.
+func TestDecodeBounded_SoleASCII85OverLimitRejected(t *testing.T) {
+	const limit = int64(4 * 1024)
+	payload := bytes.Repeat([]byte{'x'}, 32*1024)
+
+	if _, err := decodeBounded(ascii85Stream(payload), limit); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	}
+}
+
+// A stream far below the limit exercises the same short-output path as the
+// Flate case, which is where a naive probe implementation breaks.
+func TestDecodeBounded_SoleASCII85FarBelowLimitReturnsDecodedBytes(t *testing.T) {
+	const limit = int64(50 * 1024 * 1024)
+	payload := []byte("tiny")
+
+	out, err := decodeBounded(ascii85Stream(payload), limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %q, want %q", out, payload)
+	}
+}
+
+// A stream with a broken checksum whose decoded size lands where pdfcpu's buffer
+// capacity reaches the cap comes back from the capped decode as exactly limit+1
+// bytes with a nil error - indistinguishable from a real over-ceiling result.
+// It must still decode, because it is in bounds.
+func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
+	// 40 MiB decoded against a 50 MiB limit: past the point where the buffer has
+	// doubled to 64 MiB, so the stale tail fills the cap without panicking.
+	const limit = int64(50 * 1024 * 1024)
+	const size = 40 * 1024 * 1024
+	raw := zlibZeros(t, size)
+	// Corrupt the trailing Adler-32 rather than truncating, so the deflate data
+	// is intact and the decoded length is exactly `size`.
+	broken := append([]byte(nil), raw...)
+	broken[len(broken)-1] ^= 0xff
+
+	sd := flateStream(broken)
+	out, err := decodeBounded(sd, limit)
+	if err != nil {
+		t.Fatalf("expected a %d-byte in-bounds stream to decode under a %d limit, got %v", size, limit, err)
+	}
+	if int64(len(out)) != size {
+		t.Errorf("got %d bytes, want %d", len(out), size)
+	}
+}
+
+// The exact-count confirmation must not become a way past the ceiling: a genuine
+// bomb still counts over the limit and is still refused.
+func TestDecodeBounded_ExactCountDoesNotAdmitABomb(t *testing.T) {
+	const limit = int64(64 * 1024)
+	sd := flateStream(zlibZeros(t, 8*1024*1024))
+
+	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	}
+}
+
+// A zero row width makes pdfcpu's predictor reconstruction loop forever on the
+// /Predictor 2 path and divide by zero on /Predictor 12. Both are refused before
+// the decode starts, because a hang holding the document lock cannot be
+// recovered from.
+func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		predictor int
+		key       string
+		value     int
+	}{
+		{"predictor 2 with zero columns", 2, "Columns", 0},
+		{"predictor 12 with zero columns", 12, "Columns", 0},
+		{"zero colors", 12, "Colors", 0},
+		{"zero bits per component", 12, "BitsPerComponent", 0},
+		{"negative columns", 12, "Columns", -1},
+	} {
+		sd := flateStream(zlibZeros(t, 4096))
+		sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+			"Predictor": pdfcpu_types.Integer(c.predictor),
+			c.key:       pdfcpu_types.Integer(c.value),
+		}
+
+		done := make(chan error, 1)
+		go func() {
+			_, err := decodeBounded(sd, 64*1024)
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			if !errors.Is(err, errUnrunnablePredictor) {
+				t.Errorf("%s: expected the unrunnable-predictor refusal, got %v", c.name, err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s: decode did not return; the predictor guard is not holding", c.name)
+		}
+	}
+}
+
+// Predictor parameters that are merely absent are legal and must not be refused:
+// PDF defines defaults for all three.
+func TestDecodeBounded_AbsentPredictorParmsAreNotRefused(t *testing.T) {
+	sd := flateStream(zlibZeros(t, 4096))
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12)}
+
+	if _, err := decodeBounded(sd, 64*1024); errors.Is(err, errUnrunnablePredictor) {
+		t.Errorf("absent predictor parms must not be refused: %v", err)
 	}
 }

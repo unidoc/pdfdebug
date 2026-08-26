@@ -1,6 +1,8 @@
 package pdfcore
 
 import (
+	"bytes"
+	"compress/zlib"
 	"errors"
 	"fmt"
 	"io"
@@ -10,19 +12,26 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// errProbeUnusable reports that pdfcpu's size-capped decode could not answer
-// for a stream, so the caller falls back to the unbounded decode. pdfcpu tails
-// a capped decode with an unchecked data[:maxLen]; a filter that returns fewer
-// bytes than the cap with a nil error trips it, which happens on the truncated
-// and checksum-broken zlib streams pdfcpu deliberately tolerates. Reaching that
-// tail proves the stream decoded to fewer bytes than the cap, so the fallback
-// decode stays under the ceiling.
+// errProbeUnusable reports that pdfcpu's size-capped decode could not answer for
+// a stream, so the caller falls back to the unbounded decode and the ceiling is
+// applied after the allocation instead of during it. pdfcpu tails a capped decode
+// with an unchecked data[:maxLen]; a filter returning fewer bytes than the cap
+// with a nil error trips it, which is what the truncated and checksum-broken
+// zlib streams pdfcpu deliberately tolerates do. See isSliceBoundsPanic for what
+// the detection does and does not establish - it is a message match, so it
+// cannot prove the panic came from that tail rather than from elsewhere in a
+// filter, and the fallback is what makes it safe either way.
 var errProbeUnusable = errors.New("bounded decode probe unusable")
 
 // errStoppingFilterLeadsPipeline reports a pipeline whose first filter is one
 // pdfcpu stops at. pdfcpu leaves its reader nil in that shape and copies from
 // it, so the decode is refused instead of attempted.
 var errStoppingFilterLeadsPipeline = errors.New("stopping filter leads the filter pipeline")
+
+// errUnrunnablePredictor reports predictor parameters that make pdfcpu's row
+// reconstruction non-terminating or divide by zero, so the decode is refused
+// instead of attempted.
+var errUnrunnablePredictor = errors.New("predictor parameters cannot be applied")
 
 // decodeBounded returns the decoded bytes of sd and rejects a stream whose
 // decoded size exceeds limit with ErrUnsupportedPDF. On success sd.Content
@@ -83,6 +92,16 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %s", errStoppingFilterLeadsPipeline, first.Name)
 	}
 
+	// A zero row width makes pdfcpu's predictor loop read zero bytes forever, or
+	// divide by zero on the /Predictor 12 path. The first of those spins a core
+	// while the caller holds the document lock, and no recover can reach it, so
+	// the shape is refused up front. pdfcpu guards /Colors but not /Columns.
+	if f := sd.FilterPipeline[len(sd.FilterPipeline)-1]; hasPredictor(f.DecodeParms) {
+		if err := checkPredictorParms(f.DecodeParms); err != nil {
+			return nil, err
+		}
+	}
+
 	if isProbeableStream(sd) {
 		if err := probeCeiling(sd, limit); err != nil {
 			return nil, err
@@ -107,14 +126,60 @@ func probeCeiling(sd *pdfcpu_types.StreamDict, limit int64) error {
 	switch {
 	// io.CopyN reports a short copy as io.EOF, which is how a stream that
 	// decoded fully within the cap surfaces. It carries no payload.
-	case errors.Is(err, io.EOF), errors.Is(err, errProbeUnusable):
-		return nil
+	// ANY probe error means the cap could not be applied to this stream, not that
+	// the stream is unextractable, so fall back to the unbounded decode and let
+	// the post-decode check enforce the ceiling. Three shapes arrive here and all
+	// three want the same answer: io.EOF, which is how io.CopyN reports a stream
+	// that decoded fully within the cap and carries no payload (H1); the unusable
+	// probe; and a filter stopped mid-symbol at the cap, which errors where the
+	// same stream decodes fine in full. A bomb does NOT reach here - an
+	// over-ceiling stream fills the cap and returns no error at all.
 	case err != nil:
-		return err
+		return nil
 	case int64(len(probe)) > limit:
+		// pdfcpu's stale-tail read is indistinguishable from a real over-ceiling
+		// result here: both come back as exactly limit+1 bytes with a nil error.
+		// pdfcpu tolerates a broken checksum or a truncated deflate stream, so an
+		// in-bounds stream whose buffer capacity happens to reach the cap lands in
+		// this branch too. Confirm with an exact count before refusing.
+		if size, ok := flateDecodedSize(sd, limit); ok && size <= limit {
+			return nil
+		}
 		return decodedCeilingExceeded(limit)
 	}
 	return nil
+}
+
+// flateDecodedSize counts what a sole no-predictor FlateDecode stream inflates
+// to, stopping at limit+1 bytes, and reports whether the count is meaningful. It
+// exists to settle the one case pdfcpu's capped decode cannot: counting through
+// io.Discard holds nothing but the reader's window, so it is exact where the
+// stale tail is ambiguous. A truncated or checksum-broken stream counts what it
+// could read, matching the tolerance pdfcpu applies to the same input.
+//
+// Only a single-filter pipeline qualifies: with any filter ahead of it sd.Raw is
+// not the deflate input, and the count would be meaningless.
+func flateDecodedSize(sd *pdfcpu_types.StreamDict, limit int64) (int64, bool) {
+	if len(sd.FilterPipeline) != 1 {
+		return 0, false
+	}
+	f := sd.FilterPipeline[0]
+	if f.Name != "FlateDecode" || hasPredictor(f.DecodeParms) {
+		return 0, false
+	}
+	zr, err := zlib.NewReader(bytes.NewReader(sd.Raw))
+	if err != nil {
+		return 0, false
+	}
+	defer func() { _ = zr.Close() }()
+	size, err := io.CopyN(io.Discard, zr, limit+1)
+	switch {
+	case err == nil, errors.Is(err, io.EOF),
+		errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, zlib.ErrChecksum):
+		return size, true
+	default:
+		return 0, false
+	}
 }
 
 // cappedDecode runs pdfcpu's size-capped decode, stopping inflation at maxLen
@@ -188,6 +253,24 @@ func isProbeableStream(sd *pdfcpu_types.StreamDict) bool {
 	default:
 		return false
 	}
+}
+
+// checkPredictorParms rejects predictor parameters that would make pdfcpu's row
+// reconstruction non-terminating or divide by zero. Absent entries are fine -
+// PDF defines defaults of 1 for /Columns and /Colors and 8 for
+// /BitsPerComponent - so only an explicit non-positive value is refused.
+func checkPredictorParms(parms pdfcpu_types.Dict) error {
+	for _, key := range []string{"Columns", "Colors", "BitsPerComponent"} {
+		v, found := parms[key]
+		if !found {
+			continue
+		}
+		i, ok := v.(pdfcpu_types.Integer)
+		if ok && i.Value() < 1 {
+			return fmt.Errorf("%w: /%s is %d", errUnrunnablePredictor, key, i.Value())
+		}
+	}
+	return nil
 }
 
 // hasPredictor reports whether parms carries a /Predictor above 1, the value
