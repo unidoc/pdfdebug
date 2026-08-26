@@ -130,7 +130,7 @@ func probeCeiling(sd *pdfcpu_types.StreamDict, limit int64) error {
 	// the stream is unextractable, so fall back to the unbounded decode and let
 	// the post-decode check enforce the ceiling. Three shapes arrive here and all
 	// three want the same answer: io.EOF, which is how io.CopyN reports a stream
-	// that decoded fully within the cap and carries no payload (H1); the unusable
+	// that decoded fully within the cap and carries no payload; the unusable
 	// probe; and a filter stopped mid-symbol at the cap, which errors where the
 	// same stream decodes fine in full. A bomb does NOT reach here - an
 	// over-ceiling stream fills the cap and returns no error at all.

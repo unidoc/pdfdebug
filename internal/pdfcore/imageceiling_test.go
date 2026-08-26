@@ -165,11 +165,13 @@ func TestImageDecodeCeiling_NeverExceedsAbsoluteCap(t *testing.T) {
 }
 
 // The resolved component count is reused when the DCT path already set it, so no
-// second lookup happens for that stream.
+// second lookup happens for that stream. The value is deliberately 3 rather than
+// 4: 4 is what the unresolvable fallback returns, so a reused count and a
+// fallback would be indistinguishable and deleting the reuse would not fail.
 func TestDeclaredComponents_ReusesResolvedCount(t *testing.T) {
-	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, CSComponents: 4}
-	if got := declaredComponents(nil, sd); got != 4 {
-		t.Errorf("got %d, want the already-resolved 4", got)
+	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, CSComponents: 3}
+	if got := declaredComponents(nil, sd); got != 3 {
+		t.Errorf("got %d, want the already-resolved 3", got)
 	}
 }
 
@@ -222,17 +224,31 @@ func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
 	}
 }
 
-// A malformed /ColorSpace array faults pdfcpu's component lookup, which the DCT
-// pre-decode branch calls directly. That must surface as this branch's own error
-// rather than unwinding out of the request.
-func TestColorSpaceLookup_MalformedArrayIsAbsorbedAtBothCallSites(t *testing.T) {
+// Several malformed /ColorSpace shapes fault pdfcpu's component lookup, and
+// declaredComponents answers with its fallback for each rather than letting the
+// fault escape. The DCT pre-decode branch in GetImageData has its own absorbing
+// wrapper around the same lookup; it is not covered here, and no document
+// reaches it either, since pdfcpu refuses to open a file carrying these shapes.
+func TestDeclaredComponents_MalformedColorSpaceShapesAllFallBack(t *testing.T) {
 	for _, cs := range []pdfcpu_types.Object{
 		pdfcpu_types.Array{},
 		pdfcpu_types.NewNameArray("Indexed"),
 		pdfcpu_types.Array{pdfcpu_types.Integer(5)},
 	} {
 		sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{"ColorSpace": cs}}
-		// The non-DCT path goes through declaredComponents.
+
+		// Pin that the shape really does fault. Without this the assertion below
+		// passes on the plain-error path too, which returns the same fallback and
+		// would leave the absorption itself unexercised.
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%v: fixture no longer faults the lookup; absorption untested", cs)
+				}
+			}()
+			_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
+		}()
+
 		if got := declaredComponents(nil, sd); got <= 0 {
 			t.Errorf("%v: got %d, want a positive fallback", cs, got)
 		}

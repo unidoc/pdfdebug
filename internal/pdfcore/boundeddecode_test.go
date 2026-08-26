@@ -5,7 +5,8 @@
 // The helper caps how much a compressed stream may inflate to, so a small
 // highly-compressible payload cannot allocate its way to an OOM before the
 // extraction ceiling is applied. Fixtures are StreamDict values built in
-// memory with compress/zlib; no PDF file is involved.
+// memory with compress/zlib, compress/lzw and encoding/ascii85 - one per filter
+// on the probe allowlist; no PDF file is involved.
 package pdfcore
 
 import (
@@ -96,6 +97,11 @@ func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 	// pre-guard satisfied while still being 256x smaller than the inflation.
 	const limit = int64(256 * 1024)
 	const inflatedSize = 64 * 1024 * 1024
+	// Measured: the bounded path allocates ~1.2 MB here (a zlib reader, pdfcpu's
+	// buffer doubling to the 256 KiB cap, and the confirming count's second
+	// reader), so this is ~3.4x clearance. Deleting the probe allocates ~268 MB.
+	// The figure tracks pdfcpu's internal read-buffer size, so a large upstream
+	// buffer change would move it.
 	const allocCeiling = uint64(4 * 1024 * 1024)
 
 	sd := flateStream(zlibZeros(t, inflatedSize))
@@ -405,6 +411,8 @@ func TestDecodeBounded_PredictorFlateStreamDecodesWithoutPanic(t *testing.T) {
 // A predictor stream over the limit keeps the existing decode-then-measure
 // rejection, which is still a ceiling rejection.
 func TestDecodeBounded_PredictorFlateStreamOverLimitRejected(t *testing.T) {
+	// This case is about the decode-then-measure path, so the encoded payload has
+	// to clear the raw pre-guard or a different guard answers.
 	const limit = int64(1024)
 	sd, _ := predictorFlateStream(t, 4096)
 
@@ -472,7 +480,7 @@ func TestDecodeBounded_PipelineLedByDCTReturnsDecodeError(t *testing.T) {
 			t.Fatalf("terminal %s: expected the leading-stopper refusal, got err=%v (out %d bytes)", terminal, err, len(out))
 		}
 		if errors.Is(err, ErrUnsupportedPDF) {
-			t.Errorf("terminal %s: refusal must not carry the ceiling sentinel: %v", terminal, err)
+			t.Errorf("terminal %s: the refusal must be distinguishable from a ceiling rejection inside the helper, whatever the call sites wrap it in: %v", terminal, err)
 		}
 	}
 }
@@ -584,13 +592,22 @@ func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 	}
 }
 
-// The same filter over a payload past the limit is rejected at the ceiling.
-func TestDecodeBounded_SoleASCII85OverLimitRejected(t *testing.T) {
+// An oversized ASCII85 stream is refused, and it is the ENCODED size that does
+// it. ASCII85 expands 4 bytes to 5, so its decoded size is always smaller than
+// its raw size: whenever the raw pre-guard passes, the payload is necessarily
+// under the limit too. The probe entry for this filter therefore has no
+// reachable rejection - it is kept for uniformity with the other two, not for
+// bomb protection, and this test pins the guard that actually fires.
+func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	const limit = int64(4 * 1024)
-	payload := bytes.Repeat([]byte{'x'}, 32*1024)
+	sd := ascii85Stream(bytes.Repeat([]byte{'x'}, 32*1024))
 
-	if _, err := decodeBounded(ascii85Stream(payload), limit); !errors.Is(err, ErrUnsupportedPDF) {
-		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	if int64(len(sd.Raw)) <= limit {
+		t.Fatalf("fixture no longer exceeds the limit when encoded: %d bytes", len(sd.Raw))
+	}
+	_, err := decodeBounded(sd, limit)
+	if err == nil || !strings.Contains(err.Error(), "encoded stream") {
+		t.Fatalf("expected the encoded-size rejection, got %v", err)
 	}
 }
 
@@ -624,6 +641,14 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 	broken := append([]byte(nil), raw...)
 	broken[len(broken)-1] ^= 0xff
 
+	// Pin the branch: the capped decode has to come back with exactly limit+1
+	// bytes and a NIL error, which is the ambiguous signal the exact-count
+	// confirmation exists to settle. If pdfcpu's buffer growth ever changes, the
+	// probe reports in-bounds instead and this test silently stops covering it.
+	if probe, probeErr := cappedDecode(flateStream(broken), limit+1); probeErr != nil || int64(len(probe)) != limit+1 {
+		t.Fatalf("fixture no longer reaches the ambiguous branch: probe=%d err=%v", len(probe), probeErr)
+	}
+
 	sd := flateStream(broken)
 	out, err := decodeBounded(sd, limit)
 	if err != nil {
@@ -651,25 +676,41 @@ func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
 		{"zero bits per component", 12, "BitsPerComponent", 0},
 		{"negative columns", 12, "Columns", -1},
 	} {
-		sd := flateStream(zlibZeros(t, 4096))
-		sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		parms := pdfcpu_types.Dict{
 			"Predictor": pdfcpu_types.Integer(c.predictor),
 			c.key:       pdfcpu_types.Integer(c.value),
 		}
-
-		done := make(chan error, 1)
-		go func() {
-			_, err := decodeBounded(sd, 64*1024)
-			done <- err
-		}()
-		select {
-		case err := <-done:
-			if !errors.Is(err, errUnrunnablePredictor) {
-				t.Errorf("%s: expected the unrunnable-predictor refusal, got %v", c.name, err)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatalf("%s: decode did not return; the predictor guard is not holding", c.name)
+		if err := checkPredictorParms(parms); !errors.Is(err, errUnrunnablePredictor) {
+			t.Errorf("%s: expected the unrunnable-predictor refusal, got %v", c.name, err)
 		}
+	}
+}
+
+// The check is wired into the decode path, not merely present. This is the one
+// case that goes through decodeBounded: if the wiring regresses, pdfcpu's
+// predictor loop never returns, so the call runs on its own goroutine with a
+// deadline rather than wedging the whole package. Only one such case exists,
+// because an abandoned goroutine keeps allocating and TotalAlloc is
+// process-wide, which would misattribute the failure to a later test.
+func TestDecodeBounded_PredictorGuardIsWiredIntoTheDecodePath(t *testing.T) {
+	sd := flateStream(zlibZeros(t, 4096))
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(2),
+		"Columns":   pdfcpu_types.Integer(0),
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := decodeBounded(sd, 64*1024)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, errUnrunnablePredictor) {
+			t.Errorf("expected the unrunnable-predictor refusal, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("decode did not return; the predictor guard is not wired into the decode path")
 	}
 }
 
@@ -707,6 +748,23 @@ func lzwStream(t *testing.T, payload []byte) *pdfcpu_types.StreamDict {
 	}
 }
 
+// The fixture's validity rests on pdfcpu honouring /EarlyChange 0, since Go's
+// encoder emits the no-early-change variant while PDF defaults to 1. Pin that
+// separately from anything about the bound: if a pdfcpu upgrade drops or ignores
+// the entry, this fails with a clear cause instead of surfacing as a byte-count
+// mismatch inside the tests below.
+func TestLZWFixtureRoundTripsThroughTheDecoder(t *testing.T) {
+	payload := bytes.Repeat([]byte("round-trip-"), 4096)
+	sd := lzwStream(t, payload)
+
+	if err := safeCall(func() error { return sd.Decode() }); err != nil {
+		t.Fatalf("fixture does not decode: %v", err)
+	}
+	if !bytes.Equal(sd.Content, payload) {
+		t.Errorf("fixture does not round-trip: got %d bytes, want %d", len(sd.Content), len(payload))
+	}
+}
+
 // LZWDecode is the third allowlisted terminal filter, and the one the exact-count
 // confirmation does not cover, so its in-bounds path needs its own pin.
 func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
@@ -722,7 +780,8 @@ func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
 	}
 }
 
-// A stream far below the limit is the H1 case for this filter: the capped decode
+// A stream far below the limit is the case a bounded decode most easily breaks
+// for this filter: the capped decode
 // reports a short read with no payload, which must read as in-bounds.
 func TestDecodeBounded_SoleLZWFarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
@@ -773,6 +832,9 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 
 	rawOver := flateStream(bytes.Repeat([]byte{0x7a}, 4096))
 	_, rawErr := decodeBounded(rawOver, limit)
+	if rawErr == nil {
+		t.Fatal("an encoded payload over the limit must be refused")
+	}
 	if !strings.Contains(rawErr.Error(), "encoded stream") {
 		t.Errorf("an oversized encoded payload should say so, got %q", rawErr)
 	}
@@ -782,6 +844,9 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the limit", len(inflatesOver.Raw))
 	}
 	_, decodedErr := decodeBounded(inflatesOver, limit)
+	if decodedErr == nil {
+		t.Fatal("a stream inflating past the limit must be refused")
+	}
 	if !strings.Contains(decodedErr.Error(), "decoded stream") {
 		t.Errorf("a stream that inflated past the ceiling should say so, got %q", decodedErr)
 	}

@@ -504,12 +504,24 @@ func flateEmbeddedStreamObj(num int, raw []byte, decodedSize int) string {
 // both readings with nothing but the guarded call between them.
 func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
 	const inflatedSize = 400 * 1024 * 1024
-	// TotalAlloc is CUMULATIVE, and pdfcpu's buffer doubles its way to the cap,
-	// so reaching the 50 MB ceiling legitimately allocates ~130 MB in total even
-	// though peak is ~64 MB - and about twice that under -race. The unbounded
-	// path allocates ~1 GB on the same fixture, so the threshold sits between
-	// the two with roughly 2x clearance on each side.
-	const allocCeiling = uint64(512 * 1024 * 1024)
+	// The threshold MUST sit below inflatedSize, or the assertion does not say
+	// what it claims: a regression that allocated the payload exactly once - a
+	// buffer pre-sized from /Length, say - would land near 400 MB and pass, and
+	// the test would only still work by accident of pdfcpu's buffer doubling.
+	//
+	// Measured on this fixture: the bounded path allocates ~134 MB (TotalAlloc is
+	// CUMULATIVE, and pdfcpu's buffer doubles its way to the 50 MB ceiling, so
+	// ~130 MB total for a ~64 MB peak); the unbounded path allocates ~1,074 MB.
+	// 256 MB gives ~1.9x clearance above the legitimate figure and sits 1.6x
+	// below the payload size.
+	const allocCeiling = uint64(256 * 1024 * 1024)
+
+	// Race instrumentation roughly doubles the measured allocation, which no
+	// threshold below the payload size can accommodate. Skip rather than widen
+	// the threshold past the point where it proves anything.
+	if raceEnabled {
+		t.Skip("allocation magnitude is not measurable under race instrumentation")
+	}
 
 	var compressed bytes.Buffer
 	zw := zlib.NewWriter(&compressed)
@@ -542,8 +554,12 @@ func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
 	_, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
 	runtime.ReadMemStats(&after)
 
-	if !errors.Is(err, ErrUnsupportedPDF) {
-		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	// Assert the WORDING, not just the sentinel. GetEmbeddedFileBytes wraps every
+	// decode failure as ErrUnsupportedPDF, so a broken fixture - a bad /Length, a
+	// wrong object number - would fail early, allocate almost nothing, and pass
+	// this test while proving nothing at all.
+	if err == nil || !strings.Contains(err.Error(), "extraction ceiling") {
+		t.Fatalf("expected the extraction-ceiling rejection, got %v", err)
 	}
 	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
 		t.Errorf("allocated %d bytes rejecting a %d-byte inflation; want under %d",

@@ -59,8 +59,12 @@ var (
 // buildCLI compiles the CLI binary once per test package and returns its path.
 func buildCLI(t *testing.T) string {
 	t.Helper()
+	// Resolve the root OUTSIDE the Once: projectRoot fails via t.Fatalf, which is
+	// runtime.Goexit, and sync.Once marks itself done in a defer - so failing in
+	// there would consume the Once and leave every later test to fail at
+	// exec.Command("") with an error that names nothing useful.
+	root := projectRoot(t)
 	cliBuildOnce.Do(func() {
-		root := projectRoot(t)
 		binName := "pdfdebug"
 		if runtime.GOOS == "windows" {
 			binName += ".exe"
@@ -182,8 +186,12 @@ func zlibZeros(t *testing.T, n int) []byte {
 	return buf.Bytes()
 }
 
-// overCeilingSize is the decompressed size of the bomb fixtures: comfortably
-// past the 50 MB production extraction ceiling.
+// overCeilingSize is the decompressed size of the bomb fixtures: comfortably past
+// the production extraction ceiling. This module cannot import that constant, so
+// the value SHADOWS pdfcore's maxImageBytes (50 MB) with only ~1.2x clearance -
+// raising maxImageBytes past 60 MB turns these fixtures into in-bounds streams
+// and flips the two over-ceiling tests. Loud rather than silent, but keep them in
+// step.
 const overCeilingSize = 60 * 1024 * 1024
 
 // --- fixture builders -------------------------------------------------------
@@ -249,19 +257,6 @@ func flateEmbeddedPDF(raw []byte, decodedSize int) []byte {
 // dict is never the difference under test.
 func flateImagePDF(raw []byte) []byte {
 	return flateImagePDFSized(raw, 8, 8)
-}
-
-// imagePDFWithDict builds the same single-page document around an image XObject
-// whose dictionary body is supplied verbatim, for fixtures that need a malformed
-// entry the typed builders will not produce.
-func imagePDFWithDict(dict string, raw []byte) []byte {
-	return assemblePDF([][]byte{
-		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
-		[]byte("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"),
-		[]byte("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]" +
-			" /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n"),
-		streamObj(4, dict, raw),
-	}, 1)
 }
 
 // flateImagePDFSized is flateImagePDF with the declared dimensions as inputs, so
