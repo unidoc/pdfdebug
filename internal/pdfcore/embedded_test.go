@@ -15,7 +15,10 @@
 package pdfcore
 
 import (
+	"bytes"
+	"compress/zlib"
 	"errors"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -477,5 +480,73 @@ func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {
 	}
 	if found.FilespecRef != "" {
 		t.Errorf("direct filespec must carry an EMPTY ref, got %q", found.FilespecRef)
+	}
+}
+
+// flateEmbeddedStreamObj returns an /EmbeddedFile object whose payload is
+// FlateDecode-compressed, so the stream's raw size stays far below the
+// extraction ceiling while its decoded size sits far above it.
+func flateEmbeddedStreamObj(num int, raw []byte, decodedSize int) string {
+	return strconv.Itoa(num) + " 0 obj\n" +
+		"<< /Type /EmbeddedFile /Subtype /application#2Foctet-stream /Filter /FlateDecode" +
+		" /Length " + strconv.Itoa(len(raw)) +
+		" /Params << /Size " + strconv.Itoa(decodedSize) + " >> >>\n" +
+		"stream\n" + string(raw) + "\nendstream\nendobj\n"
+}
+
+// The attachment path rejects a bomb DURING inflation rather than after it. This
+// is the claim no acceptance test can make: reverting the path to an unbounded
+// decode produces byte-identical CLI output, because the trailing length check
+// catches the same stream one allocation later. Allocation is the only signal
+// that separates the two, so it has to be asserted here.
+//
+// TotalAlloc is cumulative and GC-immune, so this test runs serially and takes
+// both readings with nothing but the guarded call between them.
+func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
+	const inflatedSize = 400 * 1024 * 1024
+	// TotalAlloc is CUMULATIVE, and pdfcpu's buffer doubles its way to the cap,
+	// so reaching the 50 MB ceiling legitimately allocates ~130 MB in total even
+	// though peak is ~64 MB - and about twice that under -race. The unbounded
+	// path allocates ~1 GB on the same fixture, so the threshold sits between
+	// the two with roughly 2x clearance on each side.
+	const allocCeiling = uint64(512 * 1024 * 1024)
+
+	var compressed bytes.Buffer
+	zw := zlib.NewWriter(&compressed)
+	block := make([]byte, 64*1024)
+	for written := 0; written < inflatedSize; written += len(block) {
+		if _, err := zw.Write(block); err != nil {
+			t.Fatalf("zlib write: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+	if compressed.Len() > maxImageBytes {
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the ceiling, so the raw pre-guard rejects first", compressed.Len())
+	}
+
+	content := assemblexref(
+		"%PDF-1.7\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AF [6 0 R] >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+		flateEmbeddedStreamObj(4, compressed.Bytes(), 1024),
+		"5 0 obj\nnull\nendobj\n",
+		filespecObj(6, 4, "bomb.bin", "Data"),
+	)
+	ins, tabID := writeTempPDF(t, "attachment-bomb.pdf", content)
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
+	runtime.ReadMemStats(&after)
+
+	if !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	}
+	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
+		t.Errorf("allocated %d bytes rejecting a %d-byte inflation; want under %d",
+			delta, inflatedSize, allocCeiling)
 	}
 }

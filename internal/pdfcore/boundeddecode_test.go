@@ -10,6 +10,7 @@ package pdfcore
 
 import (
 	"bytes"
+	"compress/lzw"
 	"compress/zlib"
 	"encoding/ascii85"
 	"errors"
@@ -88,11 +89,22 @@ func TestDecodeBounded_OverLimitReturnsUnsupported(t *testing.T) {
 // process-wide, so this test runs serially and takes both readings with
 // nothing but the guarded call between them.
 func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
-	const limit = int64(64 * 1024)
+	// The limit has to clear the COMPRESSED size, or the raw pre-guard refuses
+	// the stream before any decode runs and this measures that guard instead of
+	// the probe. 64 MiB of zeros deflates to ~130 KB, so 256 KiB leaves the
+	// pre-guard satisfied while still being 256x smaller than the inflation.
+	const limit = int64(256 * 1024)
 	const inflatedSize = 64 * 1024 * 1024
 	const allocCeiling = uint64(4 * 1024 * 1024)
 
 	sd := flateStream(zlibZeros(t, inflatedSize))
+
+	// Pin that precondition, so raising the fixture cannot silently move the
+	// rejection back onto the pre-guard.
+	if int64(len(sd.Raw)) > limit {
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the %d limit, so the raw pre-guard rejects before the probe",
+			len(sd.Raw), limit)
+	}
 
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
@@ -679,5 +691,85 @@ func TestDecodeBounded_AbsentPredictorParmsAreNotRefused(t *testing.T) {
 
 	if _, err := decodeBounded(sd, 64*1024); errors.Is(err, errUnrunnablePredictor) {
 		t.Errorf("absent predictor parms must not be refused: %v", err)
+	}
+}
+
+// lzwStream returns a StreamDict whose sole filter is LZWDecode over payload.
+// /EarlyChange 0 selects the code-width behaviour Go's encoder produces; pdfcpu
+// defaults the entry to 1, which would desynchronise the decoder.
+func lzwStream(t *testing.T, payload []byte) *pdfcpu_types.StreamDict {
+	t.Helper()
+	var buf bytes.Buffer
+	w := lzw.NewWriter(&buf, lzw.MSB, 8)
+	if _, err := w.Write(payload); err != nil {
+		t.Fatalf("lzw write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("lzw close: %v", err)
+	}
+	return &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{
+			Name:        "LZWDecode",
+			DecodeParms: pdfcpu_types.Dict{"EarlyChange": pdfcpu_types.Integer(0)},
+		}},
+		Raw: buf.Bytes(),
+	}
+}
+
+// LZWDecode is the third allowlisted terminal filter, and the one the exact-count
+// confirmation does not cover, so its in-bounds path needs its own pin.
+func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
+	const limit = int64(64 * 1024)
+	payload := bytes.Repeat([]byte("lzw-payload-"), 512)
+
+	out, err := decodeBounded(lzwStream(t, payload), limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// A stream far below the limit is the H1 case for this filter: the capped decode
+// reports a short read with no payload, which must read as in-bounds.
+func TestDecodeBounded_SoleLZWFarBelowLimitReturnsDecodedBytes(t *testing.T) {
+	const limit = int64(50 * 1024 * 1024)
+	payload := []byte("tiny lzw")
+
+	out, err := decodeBounded(lzwStream(t, payload), limit)
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %q, want %q", out, payload)
+	}
+}
+
+// An LZW stream inflating past the limit is rejected at the ceiling. The limit
+// clears the compressed size so the raw pre-guard is not what refuses it.
+func TestDecodeBounded_SoleLZWOverLimitRejected(t *testing.T) {
+	const limit = int64(256 * 1024)
+	sd := lzwStream(t, make([]byte, 8*1024*1024))
+
+	if int64(len(sd.Raw)) > limit {
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the %d limit", len(sd.Raw), limit)
+	}
+
+	// Assert the allocation too. Output alone cannot tell the probe from the
+	// post-decode check: both reject this stream, one of them after inflating it.
+	const allocCeiling = uint64(4 * 1024 * 1024)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := decodeBounded(sd, limit)
+	runtime.ReadMemStats(&after)
+
+	if !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	}
+	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
+		t.Errorf("allocated %d bytes rejecting an 8 MiB inflation at a %d-byte limit; want under %d",
+			delta, limit, allocCeiling)
 	}
 }
