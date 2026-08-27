@@ -105,7 +105,7 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 		if !hasPredictor(f.DecodeParms) {
 			continue
 		}
-		if err := checkPredictorParms(f.DecodeParms); err != nil {
+		if err := checkPredictorParms(f.DecodeParms, limit); err != nil {
 			return nil, err
 		}
 	}
@@ -285,7 +285,9 @@ const (
 //
 // Absent entries need no check - PDF defines 1 for /Columns and /Colors and 8 for
 // /BitsPerComponent.
-func checkPredictorParms(parms pdfcpu_types.Dict) error {
+func checkPredictorParms(parms pdfcpu_types.Dict, limit int64) error {
+	// PDF defaults when the entry is absent.
+	values := map[string]int{"Columns": 1, "Colors": 1, "BitsPerComponent": 8}
 	for _, bound := range []struct {
 		key      string
 		min, max int
@@ -306,6 +308,18 @@ func checkPredictorParms(parms pdfcpu_types.Dict) error {
 			return fmt.Errorf("%w: /%s is %d, outside %d..%d",
 				errUnrunnablePredictor, bound.key, n, bound.min, bound.max)
 		}
+		values[bound.key] = n
+	}
+
+	// The per-parameter bounds above only keep the arithmetic safe. On their own
+	// they still admit a 64 MB row, and pdfcpu allocates TWO of those before
+	// reading anything - 128 MB from a handful of bytes, whatever ceiling the
+	// caller asked for. A row wider than the whole ceiling cannot belong to a
+	// stream that fits under it, so measure the row against the ceiling.
+	rowBytes := int64(values["BitsPerComponent"]*values["Colors"]*values["Columns"]+7) / 8
+	if rowBytes > limit {
+		return fmt.Errorf("%w: a %d-byte predictor row exceeds the %d-byte ceiling",
+			errUnrunnablePredictor, rowBytes, limit)
 	}
 	return nil
 }

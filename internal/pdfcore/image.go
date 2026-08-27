@@ -28,6 +28,11 @@ const (
 	// cannot authorize an unbounded allocation. Aligned with maxImagePixels,
 	// which already sanctions a ~400 MB working set.
 	maxImageDecodeBytes = 512 * 1024 * 1024
+	// maxBitsPerComponent and maxComponents bound a plausible image sample: 16 is
+	// the widest depth PDF defines and DeviceN carries at most 32 colorants.
+	// Beyond either the dictionary is malformed rather than large.
+	maxBitsPerComponent = 16
+	maxComponents       = 32
 	// imageDecodeHeadroom is added to the size the declared geometry implies,
 	// covering the framing pdfcpu's gob encoding puts around a 4-component DCT
 	// image. Only large images see it: below the maxImageBytes floor it is
@@ -210,13 +215,12 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
 	}
 
-	// Set CSComponents before Decode for DCT streams. The lookup asserts types
-	// and dereferences unchecked, so a hostile /ColorSpace faults it and safeCall
-	// re-panics that by design; absorb it into the error this branch already
-	// reports for a returned failure. This IS reachable: /ColorSpace
-	// [/DeviceN 5 0 R /DeviceRGB 6 0 R] with 5 0 obj defined as [/Ink1 /Ink2] is a
-	// well-formed document that opens, and the lookup then asserts the indirect
-	// colorant entry is an Array. Without the absorb the whole command dies.
+	// Set CSComponents before Decode for DCT streams. The lookup asserts types and
+	// dereferences unchecked, so a colour space it cannot read faults it, and
+	// safeCall re-panics a runtime error by design. Absorbing it here keeps one
+	// unreadable image to a per-image error instead of ending the request. A
+	// well-formed document can reach this: a /DeviceN whose colorant array is an
+	// indirect reference opens cleanly and then fails the Array assertion.
 	if lastFilter == "DCTDecode" {
 		err = func() (err error) {
 			defer func() {
@@ -357,23 +361,24 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 // space widens the estimate rather than collapsing it: collapsing would pin a
 // large image to the smallest ceiling and refuse an extraction that works today.
 func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (components int) {
-	// A colour space pdfcpu cannot resolve must widen the estimate, not tighten
-	// it, or an unreadable /ColorSpace on a large image rejects an extraction
-	// that would otherwise work. Four covers every device space plus ICCBased.
-	const unknownComponents = 4
+	// An unresolved colour space must widen the estimate, not tighten it, or the
+	// ceiling refuses an extraction that would otherwise work. The widest a PDF
+	// colour space goes is 32, and the shape that most often lands here is a
+	// /DeviceN whose colorant array is an indirect reference - precisely the
+	// space that carries many components. Guessing four would leave room for
+	// about eight after the doubling and reject the rest as oversized.
+	const unknownComponents = maxComponents
 	if sd.CSComponents > 0 {
 		return sd.CSComponents
 	}
 	components = unknownComponents
 	// Absorb panics as well as errors, via the named return so a recovered panic
-	// still yields the fallback rather than a zero. pdfcpu's component lookup
-	// asserts types and dereferences without checking, so a dangling /ICCBased
-	// ref or an indirect /DeviceN colorant array reaches it as a runtime error,
-	// which safeCall re-panics by design. That policy is right where a panic
-	// means a real bug; here the result is only a size hint, every failure
-	// answers with the wider fallback, and nothing about the bytes returned to
-	// the caller depends on it. Without this, asking for a JPX image whose
-	// colour space will not resolve takes the whole command down.
+	// yields the fallback rather than a zero. pdfcpu's lookup asserts types and
+	// dereferences without checking, so a colour space it cannot read faults it,
+	// and safeCall re-panics a runtime error by design. Absorbing is safe HERE and
+	// nowhere else in this file: the result is only a size hint, every failure
+	// answers with the wider fallback, and no byte returned to the caller depends
+	// on it.
 	defer func() {
 		if recover() != nil {
 			components = unknownComponents
@@ -409,9 +414,6 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 // declared image gets, and there is no pre-decode signal that separates a
 // generous declaration from a false one.
 func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
-	// 16 bits is the widest sample PDF defines and DeviceN carries the most
-	// colorants; beyond those the entries are malformed rather than large.
-	const maxBitsPerComponent, maxComponents = 16, 32
 	if width <= 0 || height <= 0 ||
 		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||
 		components <= 0 || components > maxComponents {

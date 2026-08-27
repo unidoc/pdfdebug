@@ -155,9 +155,9 @@ func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
 
 // A /DeviceN colour space with an indirect colorant array opens fine and then
 // faults pdfcpu's component lookup, which asserts the entry is an Array without
-// checking. safeCall re-panics a runtime error by design, so before this was
-// absorbed the whole command died at exit 2 with "internal error". The contract
-// is a per-image error at exit 0, with the rest of the image metadata intact.
+// checking. The contract for a fault inside one image is a per-image error at
+// exit 0, with the metadata gathered before it intact - the command reports the
+// image it could not read and keeps going.
 func TestImageExtraction_IndirectDeviceNColorantsReportPerImageError(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := writeTempPDF(t, "devicen-image.pdf", deviceNImagePDF())

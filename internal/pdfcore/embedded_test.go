@@ -494,11 +494,11 @@ func flateEmbeddedStreamObj(num int, raw []byte, decodedSize int) string {
 		"stream\n" + string(raw) + "\nendstream\nendobj\n"
 }
 
-// The attachment path rejects a bomb DURING inflation rather than after it. This
-// is the claim no acceptance test can make: reverting the path to an unbounded
-// decode produces byte-identical CLI output, because the trailing length check
-// catches the same stream one allocation later. Allocation is the only signal
-// that separates the two, so it has to be asserted here.
+// The attachment path rejects a bomb DURING inflation rather than after it.
+// Allocation is the only observable difference: both a bounded and an unbounded
+// decode refuse this stream and print the same message, so output cannot show
+// which one ran. The assertion is therefore on how much was allocated getting
+// there, which is why this lives at the unit layer rather than in the CLI suite.
 //
 // TotalAlloc is cumulative and GC-immune, so this test runs serially and takes
 // both readings with nothing but the guarded call between them.

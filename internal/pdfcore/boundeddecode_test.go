@@ -688,14 +688,16 @@ func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
 		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(4611686018427387903)},
 	} {
 		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
-		if err := checkPredictorParms(parms); !errors.Is(err, errUnrunnablePredictor) {
+		if err := checkPredictorParms(parms, 64*1024); !errors.Is(err, errUnrunnablePredictor) {
 			t.Errorf("%s: expected the unrunnable-predictor refusal, got %v", c.name, err)
 		}
 	}
 }
 
 // Values pdfcpu accepts as legal must not be refused: Boolean true coerces to 1,
-// and the bounds themselves are inclusive.
+// and the bounds themselves are inclusive. The limit here is the production
+// ceiling, because whether a row is acceptable depends on it - a row at the
+// parameter bound is legal against 50 MB and correctly refused against 64 KiB.
 func TestDecodeBounded_LegalPredictorParmsAreNotRefused(t *testing.T) {
 	for _, c := range []struct {
 		name  string
@@ -710,7 +712,7 @@ func TestDecodeBounded_LegalPredictorParmsAreNotRefused(t *testing.T) {
 		{"a name pdfcpu discards", "Columns", pdfcpu_types.Name("Nonsense")},
 	} {
 		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
-		if err := checkPredictorParms(parms); err != nil {
+		if err := checkPredictorParms(parms, maxImageBytes); err != nil {
 			t.Errorf("%s: must not be refused, got %v", c.name, err)
 		}
 	}
@@ -931,5 +933,38 @@ func TestDecodeBounded_NonTerminalPredictorParmsRefused(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("decode did not return; a non-terminal predictor is not being checked")
+	}
+}
+
+// The per-parameter bounds alone still admit a 64 MB row, and pdfcpu allocates
+// two of those before reading anything. The row has to be measured against the
+// ceiling the caller actually asked for, not just against the parameter bounds.
+func TestCheckPredictorParms_RowMustFitTheCeiling(t *testing.T) {
+	// Each value is individually within bounds; together they describe a 64 MB row.
+	atBounds := pdfcpu_types.Dict{
+		"Predictor":        pdfcpu_types.Integer(12),
+		"Columns":          pdfcpu_types.Integer(maxPredictorColumns),
+		"Colors":           pdfcpu_types.Integer(maxPredictorColors),
+		"BitsPerComponent": pdfcpu_types.Integer(maxPredictorBitsPerComponent),
+	}
+	if err := checkPredictorParms(atBounds, 64*1024); !errors.Is(err, errUnrunnablePredictor) {
+		t.Errorf("a 64 MB row against a 64 KiB ceiling must be refused, got %v", err)
+	}
+	if err := checkPredictorParms(atBounds, 128*1024*1024); err != nil {
+		t.Errorf("the same row against a 128 MB ceiling is legal, got %v", err)
+	}
+
+	// A row exactly at the ceiling fits; one byte more does not.
+	fits := pdfcpu_types.Dict{
+		"Predictor":        pdfcpu_types.Integer(12),
+		"Columns":          pdfcpu_types.Integer(8192),
+		"Colors":           pdfcpu_types.Integer(1),
+		"BitsPerComponent": pdfcpu_types.Integer(8),
+	}
+	if err := checkPredictorParms(fits, 8192); err != nil {
+		t.Errorf("a row exactly at the ceiling must fit, got %v", err)
+	}
+	if err := checkPredictorParms(fits, 8191); !errors.Is(err, errUnrunnablePredictor) {
+		t.Errorf("a row one byte past the ceiling must be refused, got %v", err)
 	}
 }
