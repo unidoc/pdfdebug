@@ -384,7 +384,8 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 }
 
 // declaredComponents returns the colour-component count pdfcpu derives from the
-// image's /ColorSpace, falling back to four when it cannot derive one. A DCT
+// image's /ColorSpace, falling back to the widest a colour space goes when it
+// cannot derive one. A DCT
 // stream already had it resolved for the decode, so that value is reused. The
 // count only sizes the decode ceiling, so an unresolvable or unrecognised colour
 // space widens the estimate rather than collapsing it: collapsing would pin a

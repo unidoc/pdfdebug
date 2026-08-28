@@ -302,3 +302,25 @@ func deviceNImagePDF() []byte {
 		[]byte("6 0 obj\n<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 1 1] /N 1 >>\nendobj\n"),
 	}, 1)
 }
+
+// stencilMaskPDF builds a single-page document whose image XObject is a
+// FlateDecode stencil mask: /ImageMask true, no /ColorSpace, one 1-bit sample
+// per pixel. The payload inflates well past what a 1-bit mask of these
+// dimensions declares, so a ceiling sized from the mask's real geometry refuses
+// it while one sized from the unresolved-colour-space fallback does not.
+func stencilMaskPDF(raw []byte, width, height int) []byte {
+	// /BitsPerComponent is deliberately omitted, which is legal for a mask and is
+	// what makes the fallback sizing visible: absent, it defaults to 8, so a mask
+	// measured by the unresolved-colour-space fallback is read as 32 components
+	// of 8 bits rather than the 1 bit it actually carries.
+	dict := "/Type /XObject /Subtype /Image" +
+		" /Width " + strconv.Itoa(width) + " /Height " + strconv.Itoa(height) +
+		" /ImageMask true /Filter /FlateDecode"
+	return assemblePDF([][]byte{
+		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
+		[]byte("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"),
+		[]byte("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]" +
+			" /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n"),
+		streamObj(4, dict, raw),
+	}, 1)
+}

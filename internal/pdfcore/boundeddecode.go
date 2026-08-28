@@ -39,7 +39,7 @@ var errUnrunnablePredictor = errors.New("predictor parameters cannot be applied"
 // renderer.
 //
 // What the limit bounds during inflation: when the last filter of the pipeline
-// is FlateDecode without a /Predictor above 1 or LZWDecode, the
+// is FlateDecode without a /Predictor above 1, LZWDecode or ASCII85Decode, the
 // stream is first probed with a size-capped decode that stops inflating at
 // limit+1 bytes, so a highly compressible payload is rejected without its full
 // decompressed size ever being allocated. An in-bounds stream is then decoded a
@@ -252,15 +252,17 @@ func stopsDecoding(f pdfcpu_types.PDFFilter, csComponents int) bool {
 // what keeps pdfcpu's unchecked data[:maxLen] tail out of reach on an in-bounds
 // stream. Requires a non-empty pipeline.
 //
-// ASCII85Decode meets both conditions but is deliberately absent: it encodes 4
-// bytes as 5, so its output is always smaller than its input and the
-// len(sd.Raw) pre-guard already proves any stream reaching here is under the
-// ceiling. Probing it could never reject anything, and would decode every
-// accepted stream a second time while the caller holds the document lock.
+// ASCII85Decode belongs here even though its ordinary encoding turns 4 bytes
+// into 5 and so cannot expand. The z shorthand stands for four zero bytes, so a
+// run of z decodes 1 byte to 4 - measured at exactly 4.00x - and a raw payload
+// just under the ceiling reaches four times it. Measured on a 4 MB limit: the
+// capped probe allocates 21 MB where a full decode allocates 71 MB. Do not
+// remove this entry on the "output is always smaller than input" argument; that
+// holds for the general case and not for the one an attacker picks.
 func isProbeableStream(sd *pdfcpu_types.StreamDict) bool {
 	f := sd.FilterPipeline[len(sd.FilterPipeline)-1]
 	switch f.Name {
-	case "LZWDecode":
+	case "LZWDecode", "ASCII85Decode":
 		return true
 	case "FlateDecode":
 		return !hasPredictor(f.DecodeParms)
@@ -320,11 +322,11 @@ func checkPredictorParms(parms pdfcpu_types.Dict, limit int64) error {
 	// The per-parameter bounds above only keep the arithmetic safe. On their own
 	// they still admit a 64 MB row, and pdfcpu allocates TWO of those before
 	// reading anything - 128 MB from a handful of bytes, whatever ceiling the
-	// caller asked for. A row wider than the whole ceiling cannot belong to a
-	// stream that fits under it, so measure the row against the ceiling.
+	// caller asked for. Both rows are what has to fit, not one: checking a single
+	// row still lets a 29-byte stream allocate 100 MB against a 50 MB ceiling.
 	rowBytes := int64(values["BitsPerComponent"]*values["Colors"]*values["Columns"]+7) / 8
-	if rowBytes > limit {
-		return fmt.Errorf("%w: a %d-byte predictor row exceeds the %d-byte ceiling",
+	if 2*rowBytes > limit {
+		return fmt.Errorf("%w: two %d-byte predictor rows exceed the %d-byte ceiling",
 			errUnrunnablePredictor, rowBytes, limit)
 	}
 	return nil

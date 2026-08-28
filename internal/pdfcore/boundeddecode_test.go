@@ -961,10 +961,88 @@ func TestCheckPredictorParms_RowMustFitTheCeiling(t *testing.T) {
 		"Colors":           pdfcpu_types.Integer(1),
 		"BitsPerComponent": pdfcpu_types.Integer(8),
 	}
-	if err := checkPredictorParms(fits, 8192); err != nil {
-		t.Errorf("a row exactly at the ceiling must fit, got %v", err)
+	// The PAIR of rows is what has to fit, so a 8192-byte row needs 16384.
+	if err := checkPredictorParms(fits, 16384); err != nil {
+		t.Errorf("a row pair exactly at the ceiling must fit, got %v", err)
 	}
-	if err := checkPredictorParms(fits, 8191); !errors.Is(err, errUnrunnablePredictor) {
-		t.Errorf("a row one byte past the ceiling must be refused, got %v", err)
+	if err := checkPredictorParms(fits, 16383); !errors.Is(err, errUnrunnablePredictor) {
+		t.Errorf("a row pair one byte past the ceiling must be refused, got %v", err)
+	}
+
+	// Checking a single row instead of the pair lets this through: the row is
+	// exactly maxImageBytes, so a 29-byte stream allocates ~100 MB against a
+	// 50 MB ceiling.
+	singleRowAtCeiling := pdfcpu_types.Dict{
+		"Predictor":        pdfcpu_types.Integer(12),
+		"Columns":          pdfcpu_types.Integer(1 << 20),
+		"Colors":           pdfcpu_types.Integer(25),
+		"BitsPerComponent": pdfcpu_types.Integer(16),
+	}
+	if err := checkPredictorParms(singleRowAtCeiling, maxImageBytes); !errors.Is(err, errUnrunnablePredictor) {
+		t.Errorf("a row pair over the ceiling must be refused even when one row fits, got %v", err)
+	}
+}
+
+// ascii85ZeroRunStream returns a StreamDict whose sole filter is ASCII85Decode
+// over a run of the z shorthand. Each z stands for four zero bytes, so the raw
+// payload decodes to four times its own size.
+func ascii85ZeroRunStream(zCount int) *pdfcpu_types.StreamDict {
+	raw := append(bytes.Repeat([]byte{'z'}, zCount), '~', '>')
+	return &pdfcpu_types.StreamDict{
+		Dict:           pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "ASCII85Decode"}},
+		Raw:            raw,
+	}
+}
+
+// ASCII85 CAN expand, which is why it is on the probe allowlist. The ordinary
+// encoding turns 4 bytes into 5 and cannot inflate, but the z shorthand turns 1
+// byte into 4, so a raw payload just under the ceiling decodes to four times it.
+// This is the case that makes the entry load-bearing rather than decorative.
+func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
+	// ASCII85 expands only 4x, not the 1000x a Flate bomb reaches, so the fixture
+	// has to be large enough for the bounded and unbounded costs to separate: the
+	// probe fills to the limit while a full decode reaches four times it.
+	const limit = int64(4 * 1024 * 1024)
+	sd := ascii85ZeroRunStream(int(limit) - 16)
+
+	if int64(len(sd.Raw)) > limit {
+		t.Fatalf("fixture defeats the test: %d raw bytes exceed the %d limit, so the pre-guard rejects first",
+			len(sd.Raw), limit)
+	}
+
+	// Measured on this fixture: 21 MB through the capped probe, 71 MB through a
+	// full decode, so the threshold sits between them with ~2x either side.
+	const allocCeiling = uint64(40 * 1024 * 1024)
+
+	// ASCII85 expands only 4x, so bounded and unbounded are close enough that
+	// race instrumentation closes the gap - it lands a few KB over on its own.
+	// Same reasoning as the attachment bomb test: measure allocation where the
+	// measurement means something.
+	if raceEnabled {
+		t.Skip("allocation magnitude is not measurable under race instrumentation")
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := decodeBounded(sd, limit)
+	runtime.ReadMemStats(&after)
+
+	if !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF for a 4x zero-run inflation, got %v", err)
+	}
+	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
+		t.Errorf("allocated %d bytes rejecting the inflation; want under %d", delta, allocCeiling)
+	}
+}
+
+// The expansion the guard exists for is real and is exactly fourfold, so the
+// premise "ASCII85 output is always smaller than its input" is false.
+func TestASCII85ZeroRunExpandsFourfold(t *testing.T) {
+	sd := ascii85ZeroRunStream(100_000)
+	if err := safeCall(func() error { return sd.Decode() }); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if want := 400_000; len(sd.Content) != want {
+		t.Errorf("decoded %d bytes from %d raw, want %d", len(sd.Content), len(sd.Raw), want)
 	}
 }

@@ -179,3 +179,28 @@ func TestImageExtraction_IndirectDeviceNColorantsReportPerImageError(t *testing.
 		t.Errorf("metadata gathered before the fault should survive: got %dx%d, want 8x8", img.Width, img.Height)
 	}
 }
+
+// A stencil mask carries no /ColorSpace, so its component count cannot be
+// derived from one. Sized by its real geometry a 2048x2048 mask declares 512 KB
+// and a payload inflating to 80 MB is refused; sized by the unresolved-colour-
+// space fallback the same mask would be measured as 32 components of 8 bits and
+// handed room to inflate into. This exercises the /ImageMask read and the wiring
+// that uses it, which arithmetic-only unit tests cannot reach.
+func TestImageExtraction_StencilMaskIsHeldToItsOwnGeometry(t *testing.T) {
+	bin := buildCLI(t)
+	// 4096x4096 at 1 bit is 2 MB of real samples, so the ceiling floors at
+	// maxImageBytes and a 100 MB payload is refused. Sized by the fallback the
+	// same mask reads as 32 components of 8 bits, 512 MB, and 100 MB fits - which
+	// is what makes this discriminate rather than pass either way.
+	const side = 4096
+	pdf := writeTempPDF(t, "stencil-mask.pdf", stencilMaskPDF(zlibZeros(t, 100*1024*1024), side, side))
+
+	stdout, stderr, ec := runCLIBytes(t, bin, "dump", "image", "--ref", "4 0 R", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, string(stderr))
+	}
+	img := decodeImageJSON(t, stdout)
+	if !strings.Contains(img.Error, "too large") {
+		t.Fatalf("expected the ceiling rejection for a mask inflating past its geometry, got %q", img.Error)
+	}
+}
