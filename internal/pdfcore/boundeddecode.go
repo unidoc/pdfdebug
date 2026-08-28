@@ -101,7 +101,15 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 	// stages of a pipeline unbounded, so a predictor sitting on a non-terminal
 	// filter reaches the same loop. `[/FlateDecode /ASCII85Decode]` carrying
 	// `/DecodeParms [<< /Predictor 2 /Columns 0 >> null]` hangs on stage one.
-	for _, f := range sd.FilterPipeline {
+	// Only the filters pdfcpu actually runs are checked. It breaks out of its
+	// pipeline at a stopping filter without running it, so parameters at or after
+	// that point are unreachable and refusing on them rejects a stream that would
+	// decode fine.
+	runs := sd.FilterPipeline
+	if i := stopIndex(sd); i >= 0 {
+		runs = runs[:i]
+	}
+	for _, f := range runs {
 		if !hasPredictor(f.DecodeParms) {
 			continue
 		}
@@ -238,6 +246,17 @@ func isPassthroughStream(sd *pdfcpu_types.StreamDict) bool {
 	return len(sd.FilterPipeline) == 1 && stopsDecoding(sd.FilterPipeline[0], sd.CSComponents)
 }
 
+// stopIndex returns the index of the first filter pdfcpu stops at, or -1 when
+// there is none. Filters at and after that index never run.
+func stopIndex(sd *pdfcpu_types.StreamDict) int {
+	for i, f := range sd.FilterPipeline {
+		if stopsDecoding(f, sd.CSComponents) {
+			return i
+		}
+	}
+	return -1
+}
+
 // stopsDecoding reports whether pdfcpu breaks out of its filter loop at f
 // rather than running it: JPXDecode always, DCTDecode unless the stream is
 // 4-component. As the sole filter of a pipeline that means the raw bytes are
@@ -260,6 +279,13 @@ func stopsDecoding(f pdfcpu_types.PDFFilter, csComponents int) bool {
 // remove this entry on the "output is always smaller than input" argument; that
 // holds for the general case and not for the one an attacker picks.
 func isProbeableStream(sd *pdfcpu_types.StreamDict) bool {
+	// pdfcpu applies its cap only at the SYNTACTIC last index, and breaks out at
+	// a stopping filter before reaching it. So a stopper anywhere means the cap
+	// is never applied and the stream is not probeable, whatever the last filter
+	// happens to be named.
+	if stopIndex(sd) >= 0 {
+		return false
+	}
 	f := sd.FilterPipeline[len(sd.FilterPipeline)-1]
 	switch f.Name {
 	case "LZWDecode", "ASCII85Decode":

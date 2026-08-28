@@ -97,11 +97,10 @@ func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 	// pre-guard satisfied while still being 256x smaller than the inflation.
 	const limit = int64(256 * 1024)
 	const inflatedSize = 64 * 1024 * 1024
-	// Measured: the bounded path allocates ~1.2 MB here (a zlib reader, pdfcpu's
-	// buffer doubling to the 256 KiB cap, and the confirming count's second
-	// reader), so this is ~3.4x clearance. Deleting the probe allocates ~268 MB.
-	// The figure tracks pdfcpu's internal read-buffer size, so a large upstream
-	// buffer change would move it.
+	// The bounded path allocates ~1.2 MB here: a zlib reader, pdfcpu's buffer
+	// doubling to the 256 KiB cap, and the confirming count's second reader. The
+	// ceiling is ~3.4x that. It tracks pdfcpu's internal read-buffer size, so a
+	// large upstream buffer change would move it.
 	const allocCeiling = uint64(4 * 1024 * 1024)
 
 	sd := flateStream(zlibZeros(t, inflatedSize))
@@ -1011,8 +1010,9 @@ func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
 			len(sd.Raw), limit)
 	}
 
-	// Measured on this fixture: 21 MB through the capped probe, 71 MB through a
-	// full decode, so the threshold sits between them with ~2x either side.
+	// The capped probe allocates ~21 MB on this fixture, filling to the limit and
+	// stopping. The ceiling is ~2x that, which is also comfortably under what
+	// carrying the whole 16 MB payload would cost.
 	const allocCeiling = uint64(40 * 1024 * 1024)
 
 	// ASCII85 expands only 4x, so bounded and unbounded are close enough that
@@ -1044,5 +1044,61 @@ func TestASCII85ZeroRunExpandsFourfold(t *testing.T) {
 	}
 	if want := 400_000; len(sd.Content) != want {
 		t.Errorf("decoded %d bytes from %d raw, want %d", len(sd.Content), len(sd.Raw), want)
+	}
+}
+
+// pdfcpu breaks out of its pipeline at a stopping filter without running it, so
+// predictor parameters at or after that point never reach the decoder. Refusing
+// on them rejects a stream that decodes fine.
+func TestDecodeBounded_PredictorAfterAStopperIsNotRefused(t *testing.T) {
+	payload := []byte("flate output ahead of a stopper")
+	sd := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: "FlateDecode"},
+			{Name: "DCTDecode"},
+			{Name: "FlateDecode", DecodeParms: pdfcpu_types.Dict{
+				"Predictor": pdfcpu_types.Integer(12),
+				"Columns":   pdfcpu_types.Integer(0),
+			}},
+		},
+		Raw: zlibBytes(t, payload),
+	}
+
+	out, err := decodeBounded(sd, 64*1024)
+	if errors.Is(err, errUnrunnablePredictor) {
+		t.Fatalf("parameters after a stopper are unreachable and must not be refused: %v", err)
+	}
+	if err != nil {
+		t.Fatalf("expected the output of the filters ahead of the stopper, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %q, want %q", out, payload)
+	}
+}
+
+// The cap is applied only at the syntactic last index, and the pipeline breaks
+// out before reaching it when a stopper is present. A stream whose last filter
+// is probeable by name is therefore NOT probeable if a stopper precedes it,
+// because nothing would have capped it.
+func TestIsProbeableStream_StopperBeforeTheLastFilterMakesItUnprobeable(t *testing.T) {
+	withStopper := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: "FlateDecode"}, {Name: "DCTDecode"}, {Name: "FlateDecode"},
+		},
+	}
+	if isProbeableStream(withStopper) {
+		t.Error("a pipeline containing a stopper cannot be capped, so it is not probeable")
+	}
+
+	withoutStopper := &pdfcpu_types.StreamDict{
+		Dict: pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{
+			{Name: "ASCII85Decode"}, {Name: "FlateDecode"},
+		},
+	}
+	if !isProbeableStream(withoutStopper) {
+		t.Error("a pipeline with no stopper and a probeable last filter is probeable")
 	}
 }

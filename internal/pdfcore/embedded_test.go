@@ -509,11 +509,11 @@ func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
 	// buffer pre-sized from /Length, say - would land near 400 MB and pass, and
 	// the test would only still work by accident of pdfcpu's buffer doubling.
 	//
-	// Measured on this fixture: the bounded path allocates ~134 MB (TotalAlloc is
-	// CUMULATIVE, and pdfcpu's buffer doubles its way to the 50 MB ceiling, so
-	// ~130 MB total for a ~64 MB peak); the unbounded path allocates ~1,074 MB.
-	// 256 MB gives ~1.9x clearance above the legitimate figure and sits 1.6x
-	// below the payload size.
+	// The bounded path allocates ~134 MB on this fixture: TotalAlloc is CUMULATIVE
+	// and pdfcpu's buffer doubles its way to the 50 MB ceiling, so ~130 MB total
+	// for a ~64 MB peak. The ceiling is ~1.9x that, and sits 1.6x BELOW the
+	// payload size, which is what makes the assertion mean what it says - a
+	// threshold above the payload would be satisfied by carrying it whole.
 	const allocCeiling = uint64(256 * 1024 * 1024)
 
 	// Race instrumentation roughly doubles the measured allocation, which no
