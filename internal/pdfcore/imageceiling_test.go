@@ -251,3 +251,26 @@ func TestDeclaredComponents_MalformedColorSpaceShapesAllFallBack(t *testing.T) {
 		}
 	}
 }
+
+// A stencil mask has no /ColorSpace, so the component count cannot be derived
+// from one. Sizing it by the unresolved fallback measures a 1-bit mask as 32
+// components of 8 bits and hands it a ceiling 256 times its declared samples,
+// which is room a compressed mask could inflate into. The real geometry is one
+// bit and one component.
+func TestImageDecodeCeiling_StencilMaskIsSizedByItsRealGeometry(t *testing.T) {
+	const side = 4096
+	maskBytes := int64(side) * side / 8 // 1 bit per pixel
+
+	asMask := imageDecodeCeiling(side, side, 1, 1)
+	asUnresolved := imageDecodeCeiling(side, side, 8, maxComponents)
+
+	if asMask >= asUnresolved {
+		t.Fatalf("fixture cannot discriminate: mask ceiling %d, unresolved-fallback ceiling %d", asMask, asUnresolved)
+	}
+	if asMask < maskBytes {
+		t.Errorf("ceiling %d is below the %d bytes a 1-bit mask declares", asMask, maskBytes)
+	}
+	if asUnresolved != maxImageDecodeBytes {
+		t.Errorf("the fallback sizing should saturate the cap, got %d", asUnresolved)
+	}
+}

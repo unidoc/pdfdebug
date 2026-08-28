@@ -595,9 +595,9 @@ func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 // An oversized ASCII85 stream is refused, and it is the ENCODED size that does
 // it. ASCII85 expands 4 bytes to 5, so its decoded size is always smaller than
 // its raw size: whenever the raw pre-guard passes, the payload is necessarily
-// under the limit too. The probe entry for this filter therefore has no
-// reachable rejection - it is kept for uniformity with the other two, not for
-// bomb protection, and this test pins the guard that actually fires.
+// under the limit too. That is why the filter is not on the probe allowlist -
+// probing could never reject anything here - and this test pins the guard that
+// actually fires.
 func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	const limit = int64(4 * 1024)
 	sd := ascii85Stream(bytes.Repeat([]byte{'x'}, 32*1024))

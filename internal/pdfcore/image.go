@@ -148,9 +148,32 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		result.Warning = appendWarning(result.Warning, fmt.Sprintf("height metadata: %v", err))
 	}
 
+	// ImageMask -- a stencil mask carries no /ColorSpace and one 1-bit sample per
+	// pixel. It has to be read before the ceiling is sized, or the absent colour
+	// space sends it to the unresolved-component fallback and it is measured as
+	// 32 components of 8 bits: 256 times the samples it actually declares.
+	imageMask := false
+	err = safeCall(func() error {
+		maskObj, found := sd.Find("ImageMask")
+		if !found {
+			return nil
+		}
+		deref, e := xrt.Dereference(maskObj)
+		if e != nil {
+			return e
+		}
+		if b, ok := deref.(pdfcpu_types.Boolean); ok {
+			imageMask = b.Value()
+		}
+		return nil
+	})
+	if err != nil {
+		result.Warning = appendWarning(result.Warning, fmt.Sprintf("imageMask metadata: %v", err))
+	}
+
 	// BitsPerComponent -- use DereferenceInteger to handle IndirectRef values,
 	// matching the pattern for Width/Height.
-	result.BitsPerComponent = 8 // default for ImageMask or missing entry
+	result.BitsPerComponent = 8 // default when the entry is absent
 	err = safeCall(func() error {
 		bpcObj, found := sd.Find("BitsPerComponent")
 		if !found {
@@ -248,8 +271,14 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	// it is rejected. A large image that is honest about its dimensions still
 	// decodes; only a stream inflating well beyond its own declaration stops.
 	if sd.FilterPipeline != nil {
-		ceiling := imageDecodeCeiling(result.Width, result.Height, result.BitsPerComponent,
-			declaredComponents(xrt, &sd))
+		// A stencil mask is one 1-bit sample per pixel whatever the dictionary's
+		// other entries say, so it is sized from that rather than from the
+		// component fallback an absent /ColorSpace would otherwise trigger.
+		bitsPerComponent, components := result.BitsPerComponent, declaredComponents(xrt, &sd)
+		if imageMask {
+			bitsPerComponent, components = 1, 1
+		}
+		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
 		if _, err := decodeBounded(&sd, ceiling); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
 				result.Error = fmt.Sprintf("image data too large (exceeds the %d byte ceiling for a %dx%d image)",

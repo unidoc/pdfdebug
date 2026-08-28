@@ -39,7 +39,7 @@ var errUnrunnablePredictor = errors.New("predictor parameters cannot be applied"
 // renderer.
 //
 // What the limit bounds during inflation: when the last filter of the pipeline
-// is FlateDecode without a /Predictor above 1, LZWDecode or ASCII85Decode, the
+// is FlateDecode without a /Predictor above 1 or LZWDecode, the
 // stream is first probed with a size-capped decode that stops inflating at
 // limit+1 bytes, so a highly compressible payload is rejected without its full
 // decompressed size ever being allocated. An in-bounds stream is then decoded a
@@ -251,10 +251,16 @@ func stopsDecoding(f pdfcpu_types.PDFFilter, csComponents int) bool {
 // honours a decode cap and reports short output as io.EOF. The second half is
 // what keeps pdfcpu's unchecked data[:maxLen] tail out of reach on an in-bounds
 // stream. Requires a non-empty pipeline.
+//
+// ASCII85Decode meets both conditions but is deliberately absent: it encodes 4
+// bytes as 5, so its output is always smaller than its input and the
+// len(sd.Raw) pre-guard already proves any stream reaching here is under the
+// ceiling. Probing it could never reject anything, and would decode every
+// accepted stream a second time while the caller holds the document lock.
 func isProbeableStream(sd *pdfcpu_types.StreamDict) bool {
 	f := sd.FilterPipeline[len(sd.FilterPipeline)-1]
 	switch f.Name {
-	case "LZWDecode", "ASCII85Decode":
+	case "LZWDecode":
 		return true
 	case "FlateDecode":
 		return !hasPredictor(f.DecodeParms)
