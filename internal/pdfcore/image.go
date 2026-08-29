@@ -439,10 +439,9 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 // maxImageDecodeBytes.
 //
 // The residual this leaves: a stream that OVERSTATES its dimensions raises its
-// own ceiling, up to maxImageDecodeBytes. That is bounded and survivable where
-// the unguarded decode was neither, but it is not the tight bound an honestly
-// declared image gets, and there is no pre-decode signal that separates a
-// generous declaration from a false one.
+// own ceiling, up to maxImageDecodeBytes. That is a looser bound than an
+// honestly declared image gets, and no pre-decode signal separates a generous
+// declaration from a false one.
 func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 	if width <= 0 || height <= 0 ||
 		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||

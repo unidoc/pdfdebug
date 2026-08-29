@@ -110,7 +110,11 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 		runs = runs[:i]
 	}
 	for _, f := range runs {
-		if !hasPredictor(f.DecodeParms) {
+		// Only FlateDecode reaches the row reconstruction these parameters drive:
+		// it is the sole filter calling decodePostProcess. LZWDecode reads
+		// /Predictor only to reject it outright, and every other filter ignores
+		// the entry, so refusing on their parameters rejects a decode that runs.
+		if f.Name != "FlateDecode" || !hasPredictor(f.DecodeParms) {
 			continue
 		}
 		if err := checkPredictorParms(f.DecodeParms, limit); err != nil {

@@ -407,8 +407,8 @@ func TestDecodeBounded_PredictorFlateStreamDecodesWithoutPanic(t *testing.T) {
 	}
 }
 
-// A predictor stream over the limit keeps the existing decode-then-measure
-// rejection, which is still a ceiling rejection.
+// A predictor stream is decoded in full and measured afterwards, so an
+// over-limit one is refused with the ceiling sentinel like any other.
 func TestDecodeBounded_PredictorFlateStreamOverLimitRejected(t *testing.T) {
 	// This case is about the decode-then-measure path, so the encoded payload has
 	// to clear the raw pre-guard or a different guard answers.
@@ -591,12 +591,10 @@ func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 	}
 }
 
-// An oversized ASCII85 stream is refused, and it is the ENCODED size that does
-// it. ASCII85 expands 4 bytes to 5, so its decoded size is always smaller than
-// its raw size: whenever the raw pre-guard passes, the payload is necessarily
-// under the limit too. That is why the filter is not on the probe allowlist -
-// probing could never reject anything here - and this test pins the guard that
-// actually fires.
+// An ordinary ASCII85 stream over the limit is refused by its ENCODED size. This
+// fixture holds no z shorthand, so its 5-to-4 encoding cannot expand and the raw
+// pre-guard is the guard that fires. A payload that does hold z runs 4x the other
+// way and is caught by the probe instead; that case has its own test below.
 func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	const limit = int64(4 * 1024)
 	sd := ascii85Stream(bytes.Repeat([]byte{'x'}, 32*1024))
@@ -1100,5 +1098,42 @@ func TestIsProbeableStream_StopperBeforeTheLastFilterMakesItUnprobeable(t *testi
 	}
 	if !isProbeableStream(withoutStopper) {
 		t.Error("a pipeline with no stopper and a probeable last filter is probeable")
+	}
+}
+
+// Predictor parameters only drive pdfcpu's row reconstruction on FlateDecode.
+// Every other filter ignores the entry, so a hostile-looking /Predictor on one
+// of them describes nothing the decoder will do and must not stop the decode.
+func TestDecodeBounded_PredictorParmsOnANonFlateFilterAreIgnored(t *testing.T) {
+	payload := bytes.Repeat([]byte("ascii85-with-stray-parms-"), 64)
+	sd := ascii85Stream(payload)
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(12),
+		"Columns":   pdfcpu_types.Integer(0),
+	}
+
+	out, err := decodeBounded(sd, 64*1024)
+	if errors.Is(err, errUnrunnablePredictor) {
+		t.Fatalf("parameters no filter consumes must not be refused: %v", err)
+	}
+	if err != nil {
+		t.Fatalf("expected the decoded payload, got %v", err)
+	}
+	if !bytes.Equal(out, payload) {
+		t.Errorf("payload mismatch: got %d bytes, want %d", len(out), len(payload))
+	}
+}
+
+// The same parameters on a FlateDecode filter still are refused, so narrowing
+// the guard to that filter did not disarm it.
+func TestDecodeBounded_PredictorParmsOnFlateAreStillRefused(t *testing.T) {
+	sd := flateStream(zlibZeros(t, 4096))
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(12),
+		"Columns":   pdfcpu_types.Integer(0),
+	}
+
+	if _, err := decodeBounded(sd, 64*1024); !errors.Is(err, errUnrunnablePredictor) {
+		t.Fatalf("expected the unrunnable-predictor refusal, got %v", err)
 	}
 }

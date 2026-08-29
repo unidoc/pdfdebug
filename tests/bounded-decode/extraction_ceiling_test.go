@@ -181,11 +181,11 @@ func TestImageExtraction_IndirectDeviceNColorantsReportPerImageError(t *testing.
 }
 
 // A stencil mask carries no /ColorSpace, so its component count cannot be
-// derived from one. Sized by its real geometry a 2048x2048 mask declares 512 KB
-// and a payload inflating to 80 MB is refused; sized by the unresolved-colour-
-// space fallback the same mask would be measured as 32 components of 8 bits and
-// handed room to inflate into. This exercises the /ImageMask read and the wiring
-// that uses it, which arithmetic-only unit tests cannot reach.
+// derived from one. Sized by its real geometry it gets room for 1-bit samples;
+// sized by the unresolved-colour-space fallback it would be read as 32
+// components of 8 bits and handed room to inflate into. This exercises the
+// /ImageMask read and the wiring that uses it, which arithmetic-only unit tests
+// cannot reach. Dimensions and payload are stated at the fixture below.
 func TestImageExtraction_StencilMaskIsHeldToItsOwnGeometry(t *testing.T) {
 	bin := buildCLI(t)
 	// 4096x4096 at 1 bit is 2 MB of real samples, so the ceiling floors at

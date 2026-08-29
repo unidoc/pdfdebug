@@ -504,16 +504,11 @@ func flateEmbeddedStreamObj(num int, raw []byte, decodedSize int) string {
 // both readings with nothing but the guarded call between them.
 func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
 	const inflatedSize = 400 * 1024 * 1024
-	// The threshold MUST sit below inflatedSize, or the assertion does not say
-	// what it claims: a regression that allocated the payload exactly once - a
-	// buffer pre-sized from /Length, say - would land near 400 MB and pass, and
-	// the test would only still work by accident of pdfcpu's buffer doubling.
-	//
 	// The bounded path allocates ~134 MB on this fixture: TotalAlloc is CUMULATIVE
 	// and pdfcpu's buffer doubles its way to the 50 MB ceiling, so ~130 MB total
 	// for a ~64 MB peak. The ceiling is ~1.9x that, and sits 1.6x BELOW the
-	// payload size, which is what makes the assertion mean what it says - a
-	// threshold above the payload would be satisfied by carrying it whole.
+	// payload size. That second property is what gives the assertion its meaning:
+	// it can only pass if the payload was never carried whole.
 	const allocCeiling = uint64(256 * 1024 * 1024)
 
 	// Race instrumentation roughly doubles the measured allocation, which no
