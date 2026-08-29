@@ -48,7 +48,8 @@ func TestImageDecodeCeiling_MatchesHandComputedValues(t *testing.T) {
 }
 
 func TestImageDecodeCeiling_SmallImageKeepsTheExtractionCeiling(t *testing.T) {
-	// A small picture must not be held to a tighter bound than before.
+	// A picture whose declared size is under the floor gets the floor, so a small
+	// image is never held to a bound tighter than the extraction ceiling.
 	if got := imageDecodeCeiling(8, 8, 8, 1); got != maxImageBytes {
 		t.Errorf("got %d, want the maxImageBytes floor %d", got, maxImageBytes)
 	}
@@ -165,9 +166,9 @@ func TestImageDecodeCeiling_NeverExceedsAbsoluteCap(t *testing.T) {
 }
 
 // The resolved component count is reused when the DCT path already set it, so no
-// second lookup happens for that stream. The value is deliberately 3 rather than
-// 4: 4 is what the unresolvable fallback returns, so a reused count and a
-// fallback would be indistinguishable and deleting the reuse would not fail.
+// second lookup happens for that stream. The value is 3 because the fallback
+// returns 32: only a value the fallback cannot produce shows that the answer
+// came from the reuse rather than from an unresolved lookup.
 func TestDeclaredComponents_ReusesResolvedCount(t *testing.T) {
 	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, CSComponents: 3}
 	if got := declaredComponents(nil, sd); got != 3 {
