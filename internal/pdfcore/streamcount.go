@@ -48,8 +48,22 @@ func countStages(sd *pdfcpu_types.StreamDict, limit int64) error {
 		if c.n > limit {
 			return decodedCeilingExceeded(limit)
 		}
+		// A stage that ran out of input mid-run ends the count cleanly, but
+		// pdfcpu indexes past its own buffer on the same bytes and the
+		// runtime.Error that follows is re-panicked by safeCall. The count has
+		// already parsed the stream, so it refuses the shape here rather than
+		// handing it to a decoder that crashes on it.
+		if f, ok := c.src.(faultingStream); ok && f.faults() {
+			return errTruncatedRun
+		}
 	}
 	return nil
+}
+
+// faultingStream is implemented by a stage reader that can tell its input would
+// fault pdfcpu's decoder rather than merely end early.
+type faultingStream interface {
+	faults() bool
 }
 
 // stageCounters builds one counting reader per filter stage pdfcpu will run,
@@ -68,17 +82,20 @@ func stageCounters(sd *pdfcpu_types.StreamDict, limit int64) []*stageCounter {
 		// The cap is what keeps the count bounded: a stage stops producing at
 		// limit+1 bytes, which is one more than the ceiling allows and so
 		// enough to convict it.
-		c := &stageCounter{r: io.LimitReader(out, limit+1)}
+		c := &stageCounter{r: io.LimitReader(out, limit+1), src: out}
 		counters = append(counters, c)
 		r = c
 	}
 	return counters
 }
 
-// stageCounter counts the bytes one filter stage produces.
+// stageCounter counts the bytes one filter stage produces. src is the filter
+// reader itself, kept so the stage can be asked whether its input would fault
+// pdfcpu's decoder.
 type stageCounter struct {
-	r io.Reader
-	n int64
+	r   io.Reader
+	src io.Reader
+	n   int64
 }
 
 func (s *stageCounter) Read(p []byte) (int, error) {
@@ -234,12 +251,19 @@ func (a *asciiHexReader) hexDigit() (byte, bool) {
 // runLengthReader decodes a RunLengthDecode stream: a control byte under 0x80
 // introduces that many plus one literal bytes, one above it repeats the next
 // byte 257 minus its value times, and 0x80 ends the stream. Input that runs out
-// mid-run ends the stream, where pdfcpu indexes past its buffer and panics.
+// mid-run ends the count and sets truncated, because pdfcpu indexes past its
+// own buffer on those bytes.
 type runLengthReader struct {
-	r       *bufio.Reader
-	pending []byte
-	done    bool
+	r         *bufio.Reader
+	pending   []byte
+	done      bool
+	truncated bool
 }
+
+// faults reports that pdfcpu's decoder would index past its buffer on this
+// input. Running out of input BETWEEN runs is a clean end and does not count;
+// only a run whose payload is short does.
+func (rl *runLengthReader) faults() bool { return rl.truncated }
 
 func (rl *runLengthReader) Read(p []byte) (int, error) {
 	for len(rl.pending) == 0 {
@@ -265,14 +289,14 @@ func (rl *runLengthReader) fill() {
 		run := make([]byte, int(b)+1)
 		n, err := io.ReadFull(rl.r, run)
 		if err != nil {
-			rl.done = true
+			rl.done, rl.truncated = true, true
 		}
 		rl.pending = run[:n]
 		return
 	}
 	v, err := rl.r.ReadByte()
 	if err != nil {
-		rl.done = true
+		rl.done, rl.truncated = true, true
 		return
 	}
 	rl.pending = bytes.Repeat([]byte{v}, 257-int(b))

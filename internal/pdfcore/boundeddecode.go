@@ -17,6 +17,12 @@ var errStoppingFilterLeadsPipeline = errors.New("stopping filter leads the filte
 // instead of attempted.
 var errUnrunnablePredictor = errors.New("predictor parameters cannot be applied")
 
+// errTruncatedRun reports a RunLengthDecode stream whose last run promises more
+// bytes than remain. pdfcpu indexes past its own buffer on that input and the
+// runtime.Error it raises is re-panicked by safeCall, so the decode is refused
+// instead of attempted.
+var errTruncatedRun = errors.New("filter stream ends mid-run")
+
 // decodeBounded returns the decoded bytes of sd and rejects a stream whose
 // decoded size exceeds limit with ErrUnsupportedPDF. On success sd.Content
 // holds the same bytes, so the caller may hand the StreamDict on to pdfcpu's
