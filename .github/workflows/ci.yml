@@ -130,6 +130,7 @@ jobs:
             signature-decomposition
             compliance-validation
             structural-diff
+            bounded-decode
             cli-object-query
             cli-page-render
             cli-stream-retrieval

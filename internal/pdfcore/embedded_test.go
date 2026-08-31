@@ -15,7 +15,10 @@
 package pdfcore
 
 import (
+	"bytes"
+	"compress/zlib"
 	"errors"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -477,5 +480,84 @@ func TestGetEmbeddedFiles_DirectFilespecInNameTreeKept(t *testing.T) {
 	}
 	if found.FilespecRef != "" {
 		t.Errorf("direct filespec must carry an EMPTY ref, got %q", found.FilespecRef)
+	}
+}
+
+// flateEmbeddedStreamObj returns an /EmbeddedFile object whose payload is
+// FlateDecode-compressed, so the stream's raw size stays far below the
+// extraction ceiling while its decoded size sits far above it.
+func flateEmbeddedStreamObj(num int, raw []byte, decodedSize int) string {
+	return strconv.Itoa(num) + " 0 obj\n" +
+		"<< /Type /EmbeddedFile /Subtype /application#2Foctet-stream /Filter /FlateDecode" +
+		" /Length " + strconv.Itoa(len(raw)) +
+		" /Params << /Size " + strconv.Itoa(decodedSize) + " >> >>\n" +
+		"stream\n" + string(raw) + "\nendstream\nendobj\n"
+}
+
+// The attachment path rejects a bomb DURING inflation rather than after it.
+// Allocation is the only observable difference: both a bounded and an unbounded
+// decode refuse this stream and print the same message, so output cannot show
+// which one ran. The assertion is therefore on how much was allocated getting
+// there, which is why this lives at the unit layer rather than in the CLI suite.
+//
+// TotalAlloc is cumulative and GC-immune, so this test runs serially and takes
+// both readings with nothing but the guarded call between them.
+func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
+	const inflatedSize = 400 * 1024 * 1024
+	// The bounded path allocates ~134 MB on this fixture: TotalAlloc is CUMULATIVE
+	// and pdfcpu's buffer doubles its way to the 50 MB ceiling, so ~130 MB total
+	// for a ~64 MB peak. The ceiling is ~1.9x that, and sits 1.6x BELOW the
+	// payload size. That second property is what gives the assertion its meaning:
+	// it can only pass if the payload was never carried whole.
+	const allocCeiling = uint64(256 * 1024 * 1024)
+
+	// Race instrumentation roughly doubles the measured allocation, which no
+	// threshold below the payload size can accommodate. Skip rather than widen
+	// the threshold past the point where it proves anything.
+	if raceEnabled {
+		t.Skip("allocation magnitude is not measurable under race instrumentation")
+	}
+
+	var compressed bytes.Buffer
+	zw := zlib.NewWriter(&compressed)
+	block := make([]byte, 64*1024)
+	for written := 0; written < inflatedSize; written += len(block) {
+		if _, err := zw.Write(block); err != nil {
+			t.Fatalf("zlib write: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+	if compressed.Len() > maxImageBytes {
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the ceiling, so the raw pre-guard rejects first", compressed.Len())
+	}
+
+	content := assemblexref(
+		"%PDF-1.7\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AF [6 0 R] >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+		flateEmbeddedStreamObj(4, compressed.Bytes(), 1024),
+		"5 0 obj\nnull\nendobj\n",
+		filespecObj(6, 4, "bomb.bin", "Data"),
+	)
+	ins, tabID := writeTempPDF(t, "attachment-bomb.pdf", content)
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
+	runtime.ReadMemStats(&after)
+
+	// Assert the WORDING, not just the sentinel. GetEmbeddedFileBytes wraps every
+	// decode failure as ErrUnsupportedPDF, so a broken fixture - a bad /Length, a
+	// wrong object number - would fail early, allocate almost nothing, and pass
+	// this test while proving nothing at all.
+	if err == nil || !strings.Contains(err.Error(), "extraction ceiling") {
+		t.Fatalf("expected the extraction-ceiling rejection, got %v", err)
+	}
+	if delta := after.TotalAlloc - before.TotalAlloc; delta >= allocCeiling {
+		t.Errorf("allocated %d bytes rejecting a %d-byte inflation; want under %d",
+			delta, inflatedSize, allocCeiling)
 	}
 }

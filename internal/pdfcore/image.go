@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	pdfcpu_render "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -21,6 +23,21 @@ const (
 	// maxImagePixels caps total pixel count for in-memory decode (TIFF->PNG).
 	// 100 megapixels at 4 bytes/pixel = ~400 MB working set.
 	maxImagePixels = 100_000_000
+	// maxImageDecodeBytes is the absolute ceiling on a decoded image stream,
+	// whatever geometry its dictionary declares, so an absurd /Width or /Height
+	// cannot authorize an unbounded allocation. Aligned with maxImagePixels,
+	// which already sanctions a ~400 MB working set.
+	maxImageDecodeBytes = 512 * 1024 * 1024
+	// maxBitsPerComponent and maxComponents bound a plausible image sample: 16 is
+	// the widest depth PDF defines and DeviceN carries at most 32 colorants.
+	// Beyond either the dictionary is malformed rather than large.
+	maxBitsPerComponent = 16
+	maxComponents       = 32
+	// imageDecodeHeadroom is added to the size the declared geometry implies,
+	// covering the framing pdfcpu's gob encoding puts around a 4-component DCT
+	// image. Only large images see it: below the maxImageBytes floor it is
+	// subsumed, and there the floor is the more generous of the two anyway.
+	imageDecodeHeadroom = 1024 * 1024
 )
 
 // GetImageData extracts and encodes an image from the given XObject Image node.
@@ -131,9 +148,32 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		result.Warning = appendWarning(result.Warning, fmt.Sprintf("height metadata: %v", err))
 	}
 
+	// ImageMask -- a stencil mask carries no /ColorSpace and one 1-bit sample per
+	// pixel. It has to be read before the ceiling is sized, or the absent colour
+	// space sends it to the unresolved-component fallback and it is measured as
+	// 32 components of 8 bits: 256 times the samples it actually declares.
+	imageMask := false
+	err = safeCall(func() error {
+		maskObj, found := sd.Find("ImageMask")
+		if !found {
+			return nil
+		}
+		deref, e := xrt.Dereference(maskObj)
+		if e != nil {
+			return e
+		}
+		if b, ok := deref.(pdfcpu_types.Boolean); ok {
+			imageMask = b.Value()
+		}
+		return nil
+	})
+	if err != nil {
+		result.Warning = appendWarning(result.Warning, fmt.Sprintf("imageMask metadata: %v", err))
+	}
+
 	// BitsPerComponent -- use DereferenceInteger to handle IndirectRef values,
 	// matching the pattern for Width/Height.
-	result.BitsPerComponent = 8 // default for ImageMask or missing entry
+	result.BitsPerComponent = 8 // default when the entry is absent
 	err = safeCall(func() error {
 		bpcObj, found := sd.Find("BitsPerComponent")
 		if !found {
@@ -198,29 +238,54 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
 	}
 
-	// Set CSComponents before Decode for DCT streams
+	// Set CSComponents before Decode for DCT streams. The lookup asserts types and
+	// dereferences unchecked, so a colour space it cannot read faults it, and
+	// safeCall re-panics a runtime error by design. Absorbing it here keeps one
+	// unreadable image to a per-image error instead of ending the request. A
+	// well-formed document can reach this: a /DeviceN whose colorant array is an
+	// indirect reference opens cleanly and then fails the Array assertion.
 	if lastFilter == "DCTDecode" {
-		err = safeCall(func() error {
-			comp, e := pdfcpu_render.ColorSpaceComponents(xrt, &sd)
-			if e != nil {
-				return e
-			}
-			sd.CSComponents = comp
-			return nil
-		})
+		err = func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("color space could not be resolved: %v", r)
+				}
+			}()
+			return safeCall(func() error {
+				comp, e := pdfcpu_render.ColorSpaceComponents(xrt, &sd)
+				if e != nil {
+					return e
+				}
+				sd.CSComponents = comp
+				return nil
+			})
+		}()
 		if err != nil {
 			result.Error = fmt.Sprintf("failed to determine color space components: %v", err)
 			return result, nil
 		}
 	}
 
-	// Decode the stream
+	// Decode under a ceiling derived from the geometry the dictionary declares,
+	// so a compressed bitmap cannot inflate far past the size it claims before
+	// it is rejected. A large image that is honest about its dimensions still
+	// decodes; only a stream inflating well beyond its own declaration stops.
 	if sd.FilterPipeline != nil {
-		err = safeCall(func() error {
-			return sd.Decode()
-		})
-		if err != nil {
-			result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
+		// A stencil mask is one 1-bit sample per pixel whatever the dictionary's
+		// other entries say, so it is sized from that rather than from the
+		// component fallback an absent /ColorSpace would otherwise trigger.
+		bitsPerComponent, components := result.BitsPerComponent, declaredComponents(xrt, &sd)
+		if imageMask {
+			bitsPerComponent, components = 1, 1
+		}
+		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
+		if _, err := decodeBounded(&sd, ceiling); err != nil {
+			if errors.Is(err, ErrUnsupportedPDF) {
+				result.Error = fmt.Sprintf("image data too large (exceeds the %d byte ceiling for a %dx%d image)",
+					ceiling, result.Width, result.Height)
+			} else {
+				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
+			}
 			return result, nil
 		}
 	} else {
@@ -316,6 +381,99 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	result.Base64 = base64.StdEncoding.EncodeToString(imgBytes)
 
 	return result, nil
+}
+
+// declaredComponents returns the colour-component count pdfcpu derives from the
+// image's /ColorSpace, falling back to the widest a colour space goes when it
+// cannot derive one. A DCT
+// stream already had it resolved for the decode, so that value is reused. The
+// count only sizes the decode ceiling, so an unresolvable or unrecognised colour
+// space widens the estimate rather than collapsing it: collapsing would pin a
+// large image to the smallest ceiling and refuse an extraction that works today.
+func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (components int) {
+	// An unresolved colour space must widen the estimate, not tighten it, or the
+	// ceiling refuses an extraction that would otherwise work. The widest a PDF
+	// colour space goes is 32, and the shape that most often lands here is a
+	// /DeviceN whose colorant array is an indirect reference - precisely the
+	// space that carries many components. Guessing four would leave room for
+	// about eight after the doubling and reject the rest as oversized.
+	const unknownComponents = maxComponents
+	if sd.CSComponents > 0 {
+		return sd.CSComponents
+	}
+	components = unknownComponents
+	// Absorb panics as well as errors, via the named return so a recovered panic
+	// yields the fallback rather than a zero. pdfcpu's lookup asserts types and
+	// dereferences without checking, so a colour space it cannot read faults it,
+	// and safeCall re-panics a runtime error by design. Absorbing is safe HERE and
+	// nowhere else in this file: the result is only a size hint, every failure
+	// answers with the wider fallback, and no byte returned to the caller depends
+	// on it.
+	defer func() {
+		if recover() != nil {
+			components = unknownComponents
+		}
+	}()
+	if err := safeCall(func() error {
+		c, e := pdfcpu_render.ColorSpaceComponents(xrt, sd)
+		if e == nil && c > 0 {
+			components = c
+		}
+		return e
+	}); err != nil {
+		return unknownComponents
+	}
+	return components
+}
+
+// imageDecodeCeiling returns the byte ceiling for decoding an image stream. The
+// dictionary's geometry states how big the samples should be, so that size plus
+// headroom bounds an honest image while stopping a stream that inflates well
+// past what it declares.
+//
+// Geometry that is missing, non-positive, implausible or wide enough to wrap the
+// arithmetic falls back to maxImageBytes. Being merely large does not: a 108
+// megapixel scan is a real document and gets room for its samples. The result is
+// floored at maxImageBytes so a small picture is never held to a tighter bound
+// than the extraction path already allowed, and never exceeds
+// maxImageDecodeBytes.
+//
+// The residual this leaves: a stream that OVERSTATES its dimensions raises its
+// own ceiling, up to maxImageDecodeBytes. That is a looser bound than an
+// honestly declared image gets, and no pre-decode signal separates a generous
+// declaration from a false one.
+func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
+	if width <= 0 || height <= 0 ||
+		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||
+		components <= 0 || components > maxComponents {
+		return maxImageBytes
+	}
+	// A side longer than this is not a picture, and a dimension that cannot be
+	// trusted must not buy more room to inflate than an honest one gets, so it
+	// falls back to maxImageBytes. Being merely LARGE is not grounds for this:
+	// a 108 megapixel scan is a real document, and maxImageDecodeBytes bounds
+	// the big cases. The bound also keeps every product below from overflowing.
+	const maxImageDimension = 1 << 20
+	if width > maxImageDimension || height > maxImageDimension {
+		return maxImageBytes
+	}
+	// PDF pads every ROW to a byte boundary, so the samples occupy
+	// ceil(width*bitsPerPixel/8) per row rather than a fraction of a byte.
+	// width*height*bitsPerPixel/8 understates a narrow sub-byte image.
+	bitsPerPixel := int64(bitsPerComponent) * int64(components)
+	rowBytes := (int64(width)*bitsPerPixel + 7) / 8
+	declared := rowBytes * int64(height)
+	// Double it so packing and framing slack cannot reject an honest image,
+	// floor at maxImageBytes so a small picture is never held to a tighter
+	// ceiling than the extraction path already allowed, and cap the result.
+	ceiling := declared*2 + imageDecodeHeadroom
+	if ceiling < maxImageBytes {
+		return maxImageBytes
+	}
+	if ceiling > maxImageDecodeBytes {
+		return maxImageDecodeBytes
+	}
+	return ceiling
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.
