@@ -6,7 +6,7 @@
 // highly-compressible payload cannot allocate its way to an OOM before the
 // extraction ceiling is applied. Fixtures are StreamDict values built in
 // memory with compress/zlib, compress/lzw and encoding/ascii85 - one per filter
-// on the probe allowlist; no PDF file is involved.
+// the stage counter models; no PDF file is involved.
 package pdfcore
 
 import (
@@ -93,14 +93,13 @@ func TestDecodeBounded_OverLimitReturnsUnsupported(t *testing.T) {
 func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 	// The limit has to clear the COMPRESSED size, or the raw pre-guard refuses
 	// the stream before any decode runs and this measures that guard instead of
-	// the probe. 64 MiB of zeros deflates to ~130 KB, so 256 KiB leaves the
+	// the count. 64 MiB of zeros deflates to ~130 KB, so 256 KiB leaves the
 	// pre-guard satisfied while still being 256x smaller than the inflation.
 	const limit = int64(256 * 1024)
 	const inflatedSize = 64 * 1024 * 1024
-	// The bounded path allocates ~1.2 MB here: a zlib reader, pdfcpu's buffer
-	// doubling to the 256 KiB cap, and the confirming count's second reader. The
-	// ceiling is ~3.4x that. It tracks pdfcpu's internal read-buffer size, so a
-	// large upstream buffer change would move it.
+	// The counted path holds a zlib reader and io.Copy's 32 KiB buffer, nothing
+	// sized by the payload. The ceiling is set well above that so it pins the
+	// magnitude rather than the exact figure.
 	const allocCeiling = uint64(4 * 1024 * 1024)
 
 	sd := flateStream(zlibZeros(t, inflatedSize))
@@ -108,7 +107,7 @@ func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 	// Pin that precondition, so raising the fixture cannot silently move the
 	// rejection back onto the pre-guard.
 	if int64(len(sd.Raw)) > limit {
-		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the %d limit, so the raw pre-guard rejects before the probe",
+		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the %d limit, so the raw pre-guard rejects before the count",
 			len(sd.Raw), limit)
 	}
 
@@ -144,9 +143,8 @@ func TestDecodeBounded_InBoundsStreamReturnsDecodedBytes(t *testing.T) {
 }
 
 // A stream far below the limit is the case a bounded decode most easily
-// breaks: the underlying pdfcpu probe reports a short read as io.EOF with no
-// payload, which must be read as "fully decoded, in bounds" and not as a
-// failure.
+// breaks: the count ends at EOF well before the cap, which must be read as
+// "fully decoded, in bounds" and not as a failure.
 func TestDecodeBounded_StreamFarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
 	payload := []byte("a tiny attachment")
@@ -209,18 +207,19 @@ func TestDecodeBounded_PreDecodedContentBeatsOversizedRaw(t *testing.T) {
 	}
 }
 
-// pdfcpu tolerates a truncated zlib stream, which makes its capped decode
-// return short output with a nil error and trip the unchecked tail. The helper
-// falls back to the unbounded decode rather than crashing or rejecting.
+// pdfcpu tolerates a truncated zlib stream and returns what it could read. The
+// count stops at the same place, so the stream is measured at its real size and
+// still decodes.
 func TestDecodeBounded_TruncatedFlateStreamStillDecodes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte{'a'}, 4096)
 	raw := zlibBytes(t, payload)
 	sd := flateStream(raw[:len(raw)-4])
 
-	// Pin the branch this covers: the probe cannot answer for this stream.
-	if _, probeErr := cappedDecode(flateStream(raw[:len(raw)-4]), limit+1); !errors.Is(probeErr, errProbeUnusable) {
-		t.Fatalf("expected the probe to report itself unusable, got %v", probeErr)
+	// Pin what makes this work: the count tolerates the truncation rather than
+	// treating the read error as an over-ceiling verdict.
+	if err := countStages(flateStream(raw[:len(raw)-4]), limit); err != nil {
+		t.Fatalf("expected a truncated in-bounds stream to count as in bounds, got %v", err)
 	}
 
 	out, err := decodeBounded(sd, limit)
@@ -232,8 +231,8 @@ func TestDecodeBounded_TruncatedFlateStreamStillDecodes(t *testing.T) {
 	}
 }
 
-// Truncation does not buy a bomb a way past the ceiling: the capped decode
-// still fills to the cap before the stream runs out.
+// Truncation does not buy a bomb a way past the ceiling: the count still fills
+// to the cap before the stream runs out.
 func TestDecodeBounded_TruncatedOverLimitStreamRejected(t *testing.T) {
 	const limit = int64(64 * 1024)
 	raw := zlibZeros(t, 8*1024*1024)
@@ -244,21 +243,8 @@ func TestDecodeBounded_TruncatedOverLimitStreamRejected(t *testing.T) {
 	}
 }
 
-// A panic that is not pdfcpu's unchecked tail carries no proof that the stream
-// stayed under the cap, so it is re-panicked instead of becoming a fallback.
-func TestCappedDecode_NonBoundsPanicIsNotSwallowed(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected the panic to propagate")
-		}
-	}()
-
-	// A nil StreamDict makes pdfcpu dereference it, which is not a bounds error.
-	_, _ = cappedDecode(nil, 1024)
-}
-
 // An unfiltered stream carries its payload in Raw and must be answered with a
-// plain length comparison, never a bounded probe.
+// plain length comparison, never a decode.
 func TestDecodeBounded_UnfilteredStreamReturnsRawBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := []byte("unfiltered attachment body")
@@ -575,9 +561,9 @@ func ascii85Stream(payload []byte) *pdfcpu_types.StreamDict {
 	}
 }
 
-// ASCII85Decode is one of the three filters the probe is applied to, so its
-// in-bounds path has to come back with the exact payload rather than the empty
-// result the capped decode hands back.
+// ASCII85Decode is one of the filters the counter models, and the count
+// discards what it reads, so the in-bounds path has to come back with the exact
+// payload from the decode that follows.
 func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("ascii85-payload-"), 256)
@@ -594,7 +580,7 @@ func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 // An ordinary ASCII85 stream over the limit is refused by its ENCODED size. This
 // fixture holds no z shorthand, so its 5-to-4 encoding cannot expand and the raw
 // pre-guard is the guard that fires. A payload that does hold z runs 4x the other
-// way and is caught by the probe instead; that case has its own test below.
+// way and is caught by the count instead; that case has its own test below.
 func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	const limit = int64(4 * 1024)
 	sd := ascii85Stream(bytes.Repeat([]byte{'x'}, 32*1024))
@@ -608,8 +594,8 @@ func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	}
 }
 
-// A stream far below the limit exercises the same short-output path as the
-// Flate case, which is where a naive probe implementation breaks.
+// A stream far below the limit exercises the same early-EOF path as the Flate
+// case, which is where a naive bounded decode breaks.
 func TestDecodeBounded_SoleASCII85FarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
 	payload := []byte("tiny")
@@ -623,13 +609,11 @@ func TestDecodeBounded_SoleASCII85FarBelowLimitReturnsDecodedBytes(t *testing.T)
 	}
 }
 
-// A stream with a broken checksum whose decoded size lands where pdfcpu's buffer
-// capacity reaches the cap comes back from the capped decode as exactly limit+1
-// bytes with a nil error - indistinguishable from a real over-ceiling result.
-// It must still decode, because it is in bounds.
+// pdfcpu tolerates a broken Adler-32 and hands back the bytes it inflated, so a
+// stream whose checksum is corrupt but whose payload fits is in bounds. The
+// count reads the same bytes and stops where pdfcpu's output stops, so the
+// corruption does not turn into a ceiling rejection.
 func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
-	// 40 MiB decoded against a 50 MiB limit: past the point where the buffer has
-	// doubled to 64 MiB, so the stale tail fills the cap without panicking.
 	const limit = int64(50 * 1024 * 1024)
 	const size = 40 * 1024 * 1024
 	raw := zlibZeros(t, size)
@@ -637,14 +621,6 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 	// is intact and the decoded length is exactly `size`.
 	broken := append([]byte(nil), raw...)
 	broken[len(broken)-1] ^= 0xff
-
-	// Pin the branch: the capped decode has to come back with exactly limit+1
-	// bytes and a NIL error, which is the ambiguous signal the exact-count
-	// confirmation exists to settle. If pdfcpu's buffer growth ever changes, the
-	// probe reports in-bounds instead and this test silently stops covering it.
-	if probe, probeErr := cappedDecode(flateStream(broken), limit+1); probeErr != nil || int64(len(probe)) != limit+1 {
-		t.Fatalf("fixture no longer reaches the ambiguous branch: probe=%d err=%v", len(probe), probeErr)
-	}
 
 	sd := flateStream(broken)
 	out, err := decodeBounded(sd, limit)
@@ -818,8 +794,8 @@ func TestLZWFixtureRoundTripsThroughTheDecoder(t *testing.T) {
 	}
 }
 
-// LZWDecode is the third allowlisted terminal filter, and the one the exact-count
-// confirmation does not cover, so its in-bounds path needs its own pin.
+// LZWDecode is counted through hhrutter/lzw, the same decoder pdfcpu wraps, so
+// its in-bounds path needs its own pin.
 func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("lzw-payload-"), 512)
@@ -834,8 +810,8 @@ func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
 }
 
 // A stream far below the limit is the case a bounded decode most easily breaks
-// for this filter: the capped decode
-// reports a short read with no payload, which must read as in-bounds.
+// for this filter: the count ends at EOF long before the cap, which must read
+// as in-bounds.
 func TestDecodeBounded_SoleLZWFarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
 	payload := []byte("tiny lzw")
@@ -859,7 +835,7 @@ func TestDecodeBounded_SoleLZWOverLimitRejected(t *testing.T) {
 		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the %d limit", len(sd.Raw), limit)
 	}
 
-	// Assert the allocation too. Output alone cannot tell the probe from the
+	// Assert the allocation too. Output alone cannot tell the count from the
 	// post-decode check: both reject this stream, one of them after inflating it.
 	const allocCeiling = uint64(4 * 1024 * 1024)
 	var before, after runtime.MemStats
@@ -905,9 +881,9 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 	}
 }
 
-// pdfcpu runs the earlier stages of a filter pipeline unbounded, so a predictor
-// on a NON-terminal filter reaches the same non-terminating loop as one on the
-// terminal filter. Checking only the last filter left this hanging.
+// A predictor on a NON-terminal filter reaches the same non-terminating loop as
+// one on the terminal filter, so every runnable FlateDecode in the pipeline is
+// checked rather than only the last.
 func TestDecodeBounded_NonTerminalPredictorParmsRefused(t *testing.T) {
 	sd := flateStream(zlibZeros(t, 4096))
 	sd.FilterPipeline = []pdfcpu_types.PDFFilter{
@@ -992,14 +968,14 @@ func ascii85ZeroRunStream(zCount int) *pdfcpu_types.StreamDict {
 	}
 }
 
-// ASCII85 CAN expand, which is why it is on the probe allowlist. The ordinary
-// encoding turns 4 bytes into 5 and cannot inflate, but the z shorthand turns 1
-// byte into 4, so a raw payload just under the ceiling decodes to four times it.
-// This is the case that makes the entry load-bearing rather than decorative.
+// ASCII85 CAN expand, which is why it is counted rather than waved through on
+// its encoded size. The ordinary encoding turns 4 bytes into 5 and cannot
+// inflate, but the z shorthand turns 1 byte into 4, so a raw payload just under
+// the ceiling decodes to four times it.
 func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
 	// ASCII85 expands only 4x, not the 1000x a Flate bomb reaches, so the fixture
-	// has to be large enough for the bounded and unbounded costs to separate: the
-	// probe fills to the limit while a full decode reaches four times it.
+	// has to be large enough for the counted and unbounded costs to separate: the
+	// count stops at the limit while a full decode reaches four times it.
 	const limit = int64(4 * 1024 * 1024)
 	sd := ascii85ZeroRunStream(int(limit) - 16)
 
@@ -1008,9 +984,8 @@ func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
 			len(sd.Raw), limit)
 	}
 
-	// The capped probe allocates ~21 MB on this fixture, filling to the limit and
-	// stopping. The ceiling is ~2x that, which is also comfortably under what
-	// carrying the whole 16 MB payload would cost.
+	// The count holds only the ascii85 decoder and io.Copy's buffer, so the
+	// ceiling here is far under what carrying the whole 16 MB payload would cost.
 	const allocCeiling = uint64(40 * 1024 * 1024)
 
 	// ASCII85 expands only 4x, so bounded and unbounded are close enough that
@@ -1075,19 +1050,18 @@ func TestDecodeBounded_PredictorAfterAStopperIsNotRefused(t *testing.T) {
 	}
 }
 
-// The cap is applied only at the syntactic last index, and the pipeline breaks
-// out before reaching it when a stopper is present. A stream whose last filter
-// is probeable by name is therefore NOT probeable if a stopper precedes it,
-// because nothing would have capped it.
-func TestIsProbeableStream_StopperBeforeTheLastFilterMakesItUnprobeable(t *testing.T) {
+// pdfcpu breaks out of its pipeline at a stopping filter without running it, so
+// only the filters ahead of the first stopper are counted. Counting past it
+// would measure output the decoder never produces.
+func TestRunnableFilters_StopsAtTheFirstStoppingFilter(t *testing.T) {
 	withStopper := &pdfcpu_types.StreamDict{
 		Dict: pdfcpu_types.Dict{},
 		FilterPipeline: []pdfcpu_types.PDFFilter{
 			{Name: "FlateDecode"}, {Name: "DCTDecode"}, {Name: "FlateDecode"},
 		},
 	}
-	if isProbeableStream(withStopper) {
-		t.Error("a pipeline containing a stopper cannot be capped, so it is not probeable")
+	if got := runnableFilters(withStopper); len(got) != 1 || got[0].Name != "FlateDecode" {
+		t.Errorf("only the filters before the stopper run, got %v", got)
 	}
 
 	withoutStopper := &pdfcpu_types.StreamDict{
@@ -1096,8 +1070,18 @@ func TestIsProbeableStream_StopperBeforeTheLastFilterMakesItUnprobeable(t *testi
 			{Name: "ASCII85Decode"}, {Name: "FlateDecode"},
 		},
 	}
-	if !isProbeableStream(withoutStopper) {
-		t.Error("a pipeline with no stopper and a probeable last filter is probeable")
+	if got := runnableFilters(withoutStopper); len(got) != 2 {
+		t.Errorf("a pipeline with no stopper runs every filter, got %v", got)
+	}
+
+	// A 4-component DCTDecode is not a stopper: pdfcpu decodes it.
+	fourComponent := &pdfcpu_types.StreamDict{
+		Dict:           pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "FlateDecode"}, {Name: "DCTDecode"}},
+		CSComponents:   4,
+	}
+	if got := runnableFilters(fourComponent); len(got) != 2 {
+		t.Errorf("a 4-component DCTDecode runs, got %v", got)
 	}
 }
 
