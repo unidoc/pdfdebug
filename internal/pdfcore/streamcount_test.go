@@ -267,6 +267,59 @@ func TestCountStages_HexFeedingFlateCountsTheRealPayload(t *testing.T) {
 	}
 }
 
+// A predictor FlateDecode that is not the last stage ends the chain, but its own
+// bare inflate is still counted. Dropping the stage instead leaves a pipeline it
+// LEADS with no counters at all, and no counters reads as nothing to refuse -
+// so legal predictor parameters on stage 0 would turn the whole bound off.
+func TestCountStages_NonTerminalPredictorStageIsStillCounted(t *testing.T) {
+	const limit = int64(4 * 1024 * 1024)
+	sd := pipeline(zlibRepeat(t, nil, []byte("00"), 64*1024*1024),
+		"FlateDecode", "ASCIIHexDecode")
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(2),
+		"Columns":   pdfcpu_types.Integer(2),
+	}
+
+	// The parameters are legal, so the pre-decode predictor guard passes them
+	// and the count is the only thing standing between this and the decode.
+	if err := checkPredictorParms(sd.FilterPipeline[0].DecodeParms, limit); err != nil {
+		t.Fatalf("fixture defeats the test: the predictor guard refuses it first: %v", err)
+	}
+	if n := len(stageCounters(sd, limit)); n != 1 {
+		t.Fatalf("expected the predictor stage to be counted and end the chain, got %d counters", n)
+	}
+
+	var err error
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	if !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
+	}
+	if alloc >= uint64(limit) {
+		t.Errorf("allocated %d bytes rejecting a 64 MiB inflation at a %d-byte limit", alloc, limit)
+	}
+}
+
+// The bare inflate of a non-terminal predictor stage over-states the
+// reconstructed rows by one filter byte per row, which keeps it an upper bound
+// on what the stage hands downstream. An in-bounds pipeline of that shape must
+// still be accepted rather than refused by the over-estimate.
+func TestCountStages_NonTerminalPredictorInBoundsIsNotRefused(t *testing.T) {
+	const rows = 512
+	const rowSize = 8
+	payload := bytes.Repeat([]byte{0}, rows*(rowSize+1))
+	sd := pipeline(zlibBytes(t, payload), "FlateDecode", "ASCIIHexDecode")
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Predictor": pdfcpu_types.Integer(12),
+		"Columns":   pdfcpu_types.Integer(rowSize),
+	}
+
+	// The ceiling clears the inflated size, which is what this stage is counted
+	// at, so the over-estimate must not tip it over.
+	if err := countStages(sd, int64(len(payload))); err != nil {
+		t.Fatalf("an in-bounds non-terminal predictor pipeline must not be refused, got %v", err)
+	}
+}
+
 // A filter the counter does not model stops the chain, and the stages ahead of
 // it are still measured. A Flate bomb feeding CCITTFaxDecode is refused on the
 // Flate stage even though nothing can predict what CCITT would produce.
