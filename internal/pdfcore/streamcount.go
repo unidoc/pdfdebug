@@ -21,9 +21,15 @@ import (
 // intermediate stage is an allocation of its own and a pipeline led by a bomb
 // exceeds the ceiling however small its final output is.
 //
-// A pipeline carrying a filter the counter does not model - CCITTFaxDecode,
-// 4-component DCTDecode, JBIG2Decode - is measured up to that filter and no
-// further, leaving that stage's own expansion to the post-decode check.
+// Two shapes are measured only partially, and in both the chain stops at the
+// stage named and the stages before it are still measured:
+//
+//   - a filter the counter does not model: CCITTFaxDecode, 4-component
+//     DCTDecode, JBIG2Decode. Its own expansion falls to the post-decode check,
+//     and when it is the FIRST filter nothing is measured at all.
+//   - a predictor FlateDecode that is not the last stage. Its bare inflate IS
+//     counted, which is an upper bound on the reconstructed rows it hands
+//     downstream, but the stages after it are not.
 func countStages(sd *pdfcpu_types.StreamDict, limit int64) error {
 	counters := stageCounters(sd, limit)
 	if len(counters) == 0 {
@@ -75,7 +81,7 @@ func stageCounters(sd *pdfcpu_types.StreamDict, limit int64) []*stageCounter {
 
 	runs := runnableFilters(sd)
 	for i, f := range runs {
-		out := filterReader(r, f, i == len(runs)-1)
+		out, chainContinues := filterReader(r, f, i == len(runs)-1)
 		if out == nil {
 			break
 		}
@@ -85,6 +91,13 @@ func stageCounters(sd *pdfcpu_types.StreamDict, limit int64) []*stageCounter {
 		c := &stageCounter{r: io.LimitReader(out, limit+1), src: out}
 		counters = append(counters, c)
 		r = c
+		// A stage that is counted but cannot feed the next one ends the chain
+		// AFTER being added, so its own output is still measured. Dropping it
+		// instead would leave a pipeline led by that stage with no counters at
+		// all, and countStages reads no counters as nothing to refuse.
+		if !chainContinues {
+			break
+		}
 	}
 	return counters
 }
@@ -104,51 +117,55 @@ func (s *stageCounter) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// filterReader returns a reader over the output of f applied to r, or nil for a
-// filter the counter does not model.
+// filterReader returns a reader over the output of f applied to r, and whether
+// the chain may continue past this stage. A nil reader means a filter the
+// counter does not model.
 //
-// Only the byte COUNT has to match what pdfcpu produces. A stage may therefore
-// yield the right number of wrong bytes, which is why the predictor path is
-// modelled only as the last stage - the stages before it feed a filter that
-// reads the values.
+// Only the byte COUNT has to match what pdfcpu produces, so a stage may yield
+// the right number of wrong bytes. That is why a predictor FlateDecode ends the
+// chain: predictorRows hands back the raw row rather than the reconstructed one,
+// and a filter after it would read the values. As the LAST stage it is counted
+// at the reconstructed width; anywhere else its bare inflate is counted instead,
+// which over-states the rows by 1+1/rowSize and so stays an upper bound on both
+// its own output and what it feeds downstream.
 //
 // A stage that cannot start reads as empty rather than as unmodelled: pdfcpu
 // fails on the same input, so the decode below reports the real error instead of
 // the counter guessing at one.
-func filterReader(r io.Reader, f pdfcpu_types.PDFFilter, last bool) io.Reader {
+func filterReader(r io.Reader, f pdfcpu_types.PDFFilter, last bool) (io.Reader, bool) {
 	switch f.Name {
 	case "FlateDecode":
 		zr, err := zlib.NewReader(r)
 		if err != nil {
-			return bytes.NewReader(nil)
+			return bytes.NewReader(nil), true
 		}
 		if !hasPredictor(f.DecodeParms) {
-			return zr
+			return zr, true
 		}
 		if !last {
-			return nil
+			return zr, false
 		}
-		return predictorRows(zr, f.DecodeParms)
+		return predictorRows(zr, f.DecodeParms), true
 
 	case "LZWDecode":
 		// pdfcpu refuses a predictor on this filter outright rather than
 		// applying one, so the stream produces nothing.
 		if predictorValue(f.DecodeParms) > 1 {
-			return bytes.NewReader(nil)
+			return bytes.NewReader(nil), true
 		}
-		return lzw.NewReader(r, earlyChange(f.DecodeParms))
+		return lzw.NewReader(r, earlyChange(f.DecodeParms)), true
 
 	case "ASCII85Decode":
-		return ascii85.NewDecoder(&ascii85Body{r: r})
+		return ascii85.NewDecoder(&ascii85Body{r: r}), true
 
 	case "ASCIIHexDecode":
-		return &asciiHexReader{r: bufio.NewReader(r)}
+		return &asciiHexReader{r: bufio.NewReader(r)}, true
 
 	case "RunLengthDecode":
-		return &runLengthReader{r: bufio.NewReader(r)}
+		return &runLengthReader{r: bufio.NewReader(r)}, true
 
 	default:
-		return nil
+		return nil, false
 	}
 }
 
