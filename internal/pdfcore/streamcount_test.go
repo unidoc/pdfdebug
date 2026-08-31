@@ -319,12 +319,53 @@ func TestCountStages_RunLengthRunsAreCountedLikePDFCPU(t *testing.T) {
 	}
 }
 
-// Input running out mid-run ends the count where pdfcpu indexes past its own
-// buffer and panics. The count has to stop rather than fault.
-func TestCountStages_TruncatedRunLengthDoesNotFault(t *testing.T) {
-	// A literal run promising four bytes with only two present.
-	sd := pipeline([]byte{0x03, 'a', 'b'}, "RunLengthDecode")
-	if err := countStages(sd, 1024); err != nil {
-		t.Fatalf("a truncated run must not be refused, got %v", err)
+// A run promising more bytes than remain is refused before the decode. pdfcpu
+// indexes past its own buffer on that input, and safeCall re-panics the
+// runtime.Error, so letting it through crashes both extraction paths on a
+// handful of bytes. The count parses the stream anyway, so it catches the shape.
+func TestDecodeBounded_TruncatedRunLengthIsRefusedNotFaulted(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		raw  []byte
+	}{
+		{"literal run promising four bytes with two present", []byte{0x03, 'a', 'b'}},
+		{"literal control byte is the last byte", []byte{0x03}},
+		{"repeat control byte with no value after it", []byte{0x81}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			sd := pipeline(c.raw, "RunLengthDecode")
+			if err := countStages(sd, 1024); !errors.Is(err, errTruncatedRun) {
+				t.Errorf("countStages: expected the truncated-run refusal, got %v", err)
+			}
+			// decodeBounded is what the extraction paths call, and it is the
+			// call that used to reach the fault, so assert it and not only the
+			// count.
+			if _, err := decodeBounded(sd, 1024); !errors.Is(err, errTruncatedRun) {
+				t.Errorf("decodeBounded: expected the truncated-run refusal, got %v", err)
+			}
+		})
+	}
+}
+
+// A stream ending cleanly BETWEEN runs is not truncated. pdfcpu's loop ends on
+// its own there, so refusing it would reject a stream that decodes.
+func TestDecodeBounded_RunLengthEndingBetweenRunsIsNotRefused(t *testing.T) {
+	// Two literals and a complete repeat, with no 0x80 terminator.
+	sd := pipeline([]byte{0x01, 'a', 'b', 0x81, 'c'}, "RunLengthDecode")
+
+	out, err := decodeBounded(sd, 1024)
+	if err != nil {
+		t.Fatalf("a stream ending between runs must decode, got %v", err)
+	}
+	if want := 2 + 128; len(out) != want {
+		t.Errorf("decoded %d bytes, want %d", len(out), want)
+	}
+}
+
+// The same refusal applies to a run inside a pipeline, not just a sole filter.
+func TestDecodeBounded_TruncatedRunLengthBehindAnotherFilterIsRefused(t *testing.T) {
+	sd := pipeline(zlibBytes(t, []byte{0x03, 'a', 'b'}), "FlateDecode", "RunLengthDecode")
+	if _, err := decodeBounded(sd, 1024); !errors.Is(err, errTruncatedRun) {
+		t.Fatalf("expected the truncated-run refusal, got %v", err)
 	}
 }

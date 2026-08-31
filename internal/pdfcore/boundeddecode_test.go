@@ -375,11 +375,9 @@ func predictorFlateStream(t *testing.T, rows int) (*pdfcpu_types.StreamDict, []b
 	return sd, expected.Bytes()
 }
 
-// Predictor Flate is outside what the helper can bound: pdfcpu's predictor
-// path returns short output with a nil error and then slices it unchecked. The
-// helper must keep the unbounded behaviour for that shape rather than probing
-// it, so an ordinary in-bounds predictor stream decodes correctly and does not
-// panic.
+// A predictor stream is counted at its reconstructed row width, which is the
+// stage most easily miscounted, so an ordinary in-bounds one has to come back
+// with its exact payload rather than being refused or faulting.
 func TestDecodeBounded_PredictorFlateStreamDecodesWithoutPanic(t *testing.T) {
 	const limit = int64(64 * 1024)
 	sd, expected := predictorFlateStream(t, 10)
@@ -393,11 +391,11 @@ func TestDecodeBounded_PredictorFlateStreamDecodesWithoutPanic(t *testing.T) {
 	}
 }
 
-// A predictor stream is decoded in full and measured afterwards, so an
-// over-limit one is refused with the ceiling sentinel like any other.
+// An over-limit predictor stream is refused with the ceiling sentinel like any
+// other counted stage.
 func TestDecodeBounded_PredictorFlateStreamOverLimitRejected(t *testing.T) {
-	// This case is about the decode-then-measure path, so the encoded payload has
-	// to clear the raw pre-guard or a different guard answers.
+	// The encoded payload has to clear the raw pre-guard or a different guard
+	// answers and this stops covering the count.
 	const limit = int64(1024)
 	sd, _ := predictorFlateStream(t, 4096)
 
@@ -406,8 +404,8 @@ func TestDecodeBounded_PredictorFlateStreamOverLimitRejected(t *testing.T) {
 	}
 }
 
-// A multi-filter pipeline is bounded only at its terminal filter; the ordinary
-// ASCII85-then-Flate arrangement must still round-trip.
+// Every stage of a multi-filter pipeline is counted, so the ordinary
+// ASCII85-then-Flate arrangement has to round-trip rather than trip the bound.
 func TestDecodeBounded_ASCII85ThenFlatePipelineReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("pipeline-"), 512)
