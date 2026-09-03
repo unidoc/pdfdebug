@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { GetXRefTable } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { useWindowedRows } from '../hooks/useWindowedRows';
 
 /** One row in the XREF table, mirroring `pdfcore.XRefEntry`. */
 interface XRefEntryData {
@@ -171,38 +172,23 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // --- Viewport virtualization (see class doc). The scroll container mounts
-  // only once `data` is present (after the early returns below), so the measure
-  // and reset effects key on `data` rather than `[]`. ---
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
+  // --- Viewport virtualization via useWindowedRows. The scroll container mounts
+  // only once `data` is present (after the early returns below); the hook's
+  // measure effect keys on rowCount, so it attaches once rows appear. ---
+  const totalRows = data?.entries?.length ?? 0;
+  const { scrollRef, scrollTop, onScroll, firstVisible, lastVisible, topPad, bottomPad, scrollToTop, syncScrollTop } =
+    useWindowedRows({ rowCount: totalRows, rowHeight: XREF_ROW_HEIGHT, overscan: XREF_OVERSCAN });
   // Row index to focus after the window updates. Because virtualization unmounts
   // off-window rows, arrow-key navigation cannot walk DOM siblings; instead it
   // scrolls the target index into view and focuses it here once it is rendered.
   const pendingFocusRef = useRef<number | null>(null);
   const [focusTick, setFocusTick] = useState(0);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setViewportHeight(el.clientHeight);
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data]);
-
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  }, []);
-
   // Reset the window to the top when the document (row set) changes, so a stale
   // scrollTop never slices past the end of a shorter table.
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-    setScrollTop(0);
-  }, [data]);
+    scrollToTop();
+  }, [data, scrollToTop]);
 
   // Focus the pending arrow-key target once the window has updated to include it.
   // Runs on focusTick (a key press) and scrollTop (the window shifted); if the
@@ -220,7 +206,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
       row.focus();
       pendingFocusRef.current = null;
     }
-  }, [focusTick, scrollTop]);
+  }, [focusTick, scrollTop, scrollRef]);
 
   /** Click handler: free rows are no-ops; in-use / in-objstm dispatch navigation. */
   const handleRowClick = useCallback(
@@ -254,7 +240,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
           const rowBottom = rowTop + XREF_ROW_HEIGHT;
           if (rowTop < el.scrollTop) el.scrollTop = rowTop;
           else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
-          setScrollTop(el.scrollTop);
+          syncScrollTop();
         }
         pendingFocusRef.current = target;
         setFocusTick((t) => t + 1);
@@ -265,7 +251,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
         handleRowClick(entry);
       }
     },
-    [handleRowClick]
+    [handleRowClick, scrollRef, syncScrollTop]
   );
 
   // No-document branch (defense-in-depth -- DetailPanel does not mount when
@@ -302,12 +288,6 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   }
 
   const entries = data.entries ?? [];
-  const totalRows = entries.length;
-  const firstVisible = Math.max(0, Math.floor(scrollTop / XREF_ROW_HEIGHT) - XREF_OVERSCAN);
-  // A zero clientHeight (jsdom / pre-measure) falls back to a bounded default so
-  // the window stays small rather than rendering every row.
-  const visibleCount = Math.ceil((viewportHeight || 320) / XREF_ROW_HEIGHT) + XREF_OVERSCAN * 2;
-  const lastVisible = Math.min(totalRows, firstVisible + visibleCount);
   const rowsToRender = entries.slice(firstVisible, lastVisible);
 
   return (
@@ -315,7 +295,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
       className="h-full overflow-auto"
       data-testid="xref-table-container"
       ref={scrollRef}
-      onScroll={handleScroll}
+      onScroll={onScroll}
     >
       <table className="w-full text-xs font-mono border-collapse">
         {/* `position: sticky` on <thead> is unreliable on WebKit2GTK and older
@@ -334,7 +314,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
         <tbody>
           {/* Top spacer reserves the scroll height of the rows above the window. */}
           {firstVisible > 0 && (
-            <tr aria-hidden="true" style={{ height: firstVisible * XREF_ROW_HEIGHT }}>
+            <tr aria-hidden="true" style={{ height: topPad }}>
               <td colSpan={5} />
             </tr>
           )}
@@ -354,6 +334,9 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
                 ? 'text-type-name bg-surface-hover px-1.5 py-0.5 rounded'
                 : 'text-text px-1.5 py-0.5';
             return (
+              // Cells clamp to a single line (nowrap + overflow-hidden) so the
+              // row stays exactly XREF_ROW_HEIGHT and the window math never
+              // desyncs from the true scroll height.
               <tr
                 key={`${entry.objNum}:${entry.gen}`}
                 className={rowClass}
@@ -364,21 +347,21 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
                 onClick={() => handleRowClick(entry)}
                 onKeyDown={(e) => handleRowKeyDown(e, index, entry)}
               >
-                <td className="px-2 py-1 text-right text-text" data-testid={`xref-row-objnum-${entry.objNum}`}>
+                <td className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden" data-testid={`xref-row-objnum-${entry.objNum}`}>
                   {entry.objNum}
                 </td>
-                <td className="px-2 py-1 text-right text-text">{entry.gen}</td>
+                <td className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden">{entry.gen}</td>
                 <td
-                  className="px-2 py-1 text-right text-text"
+                  className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden"
                   data-testid={`xref-row-offset-${entry.objNum}`}
                 >
                   {entry.status === 'in-use' && entry.offset >= 0 ? entry.offset : '-'}
                 </td>
-                <td className="px-2 py-1 text-left">
+                <td className="px-2 py-1 text-left whitespace-nowrap overflow-hidden">
                   <span className={pillClass}>{entry.status}</span>
                 </td>
                 <td
-                  className="px-2 py-1 text-right text-text"
+                  className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden"
                   data-testid={`xref-row-host-${entry.objNum}`}
                 >
                   {isInObjStm && entry.hostObjStm > 0 ? entry.hostObjStm : '-'}
@@ -388,7 +371,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
           })}
           {/* Bottom spacer reserves the scroll height of the rows below. */}
           {lastVisible < totalRows && (
-            <tr aria-hidden="true" style={{ height: (totalRows - lastVisible) * XREF_ROW_HEIGHT }}>
+            <tr aria-hidden="true" style={{ height: bottomPad }}>
               <td colSpan={5} />
             </tr>
           )}

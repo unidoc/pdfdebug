@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLatest } from '../hooks/useLatest';
+import { useWindowedRows } from '../hooks/useWindowedRows';
 import { flushSync } from 'react-dom';
 import {
   GetPlainText,
@@ -82,8 +83,6 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
   const [showLoadingCard, setShowLoadingCard] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
 
   // Per-tab case-sensitivity toggle on TabState.
   const appState = useAppState();
@@ -91,7 +90,24 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   const findCaseSensitive =
     appState.tabs.find((t) => t.tabId === tabId)?.findCaseSensitive ?? false;
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  /** Memoized line split: CRLF / CR / LF all collapse to one row each.
+   * zero-byte case renders an empty list (no synthetic single empty row). */
+  const lines = useMemo(() => {
+    if (!data) return [] as string[];
+    const content = data.content ?? '';
+    if (content === '') return [] as string[];
+    return content.split(/\r\n?|\n/);
+  }, [data]);
+
+  // Viewport virtualization via the shared hook. scrollRef/scrollToTop are used
+  // by the reset effects below, so the hook must precede them.
+  const { scrollRef, onScroll, firstVisible, lastVisible, topPad, scrollToTop } = useWindowedRows({
+    rowCount: lines.length,
+    rowHeight: ROW_HEIGHT,
+    overscan: OVERSCAN,
+    viewportFallback: 400,
+  });
+
   // Cache data as a ref so the fetch effect doesn't re-fire on data change.
   // useLatest mirrors `data` during render (#28); the imperative dataRef writes
   // in the reset/resolve paths below still apply (useLatest returns a stable
@@ -122,13 +138,13 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     setTotalBytes(null);
     setShowLoadingCard(false);
     setCancelling(false);
-    setScrollTop(0);
+    scrollToTop();
     dataRef.current = null;
     inFlightRef.current = false;
     loadStateRef.current = 'idle';
     // dataRef / tabIdRef are stable useLatest refs (identity never changes);
-    // listed to satisfy exhaustive-deps without a disable.
-  }, [tabId, dataRef, tabIdRef]);
+    // scrollToTop is a stable useCallback; listed to satisfy exhaustive-deps.
+  }, [tabId, dataRef, tabIdRef, scrollToTop]);
 
   /** Kicks the GetPlainText + GetPlainTextSize pair. */
   const handleLoad = useCallback(() => {
@@ -225,33 +241,8 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   // Scroll to top whenever `active` transitions false -> true.
   useEffect(() => {
     if (!active) return;
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
-    }
-    setScrollTop(0);
-  }, [active]);
-
-  // Track viewport height for virtualization.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setViewportHeight(el.clientHeight);
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => {
-      setViewportHeight(el.clientHeight);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data]);
-
-  /** Memoized line split: CRLF / CR / LF all collapse to one row each.
-   * zero-byte case renders an empty list (no synthetic single empty row). */
-  const lines = useMemo(() => {
-    if (!data) return [] as string[];
-    const content = data.content ?? '';
-    if (content === '') return [] as string[];
-    return content.split(/\r\n?|\n/);
-  }, [data]);
+    scrollToTop();
+  }, [active, scrollToTop]);
 
   // find-bar hook. content is the raw payload when load is ready;
   // Null otherwise so Cmd+F preventDefault-only.
@@ -299,7 +290,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
       }
       el.focus({ preventScroll: true });
     }
-  }, [closeFindBar]);
+  }, [closeFindBar, scrollRef]);
 
   /** Lines that contain at least one match, for the gutter density marker. */
   const matchedLineSet = useMemo(() => {
@@ -341,14 +332,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
 
   const totalRows = lines.length;
   const totalHeight = totalRows * ROW_HEIGHT;
-  const firstVisible = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const visibleCount = Math.ceil((viewportHeight || 400) / ROW_HEIGHT) + OVERSCAN * 2;
-  const lastVisible = Math.min(totalRows, firstVisible + visibleCount);
   const rowsToRender = lines.slice(firstVisible, lastVisible);
-
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  }, []);
 
   // Auto-scroll on active-match change. Centers the line on change when not
   // already visible; uses smooth scroll unless prefers-reduced-motion is set.
@@ -417,7 +401,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
         if (horizontalNeedsScroll) el.scrollLeft = horizontalTarget;
       }
     }
-  }, [findActiveIndex, findMatchesList, findOpen, findLineStarts]);
+  }, [findActiveIndex, findMatchesList, findOpen, findLineStarts, scrollRef]);
 
   /** Fire-and-forget Cancel. The original GetPlainText promise rejects with
    * context.Canceled; the .catch branch flips to 'cancelled'. */
@@ -535,14 +519,14 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
         className="flex-1 overflow-auto font-mono text-sm"
         data-testid="plain-text-scroll"
         ref={scrollRef}
-        onScroll={handleScroll}
+        onScroll={onScroll}
       >
         <div style={{ position: 'relative', height: totalHeight }}>
           <div
             className="flex pr-4"
             style={{
               position: 'absolute',
-              top: firstVisible * ROW_HEIGHT,
+              top: topPad,
               left: 0,
               minWidth: '100%',
               width: 'max-content',
