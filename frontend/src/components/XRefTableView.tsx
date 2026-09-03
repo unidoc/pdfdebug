@@ -184,8 +184,8 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   const pendingFocusRef = useRef<number | null>(null);
   const [focusTick, setFocusTick] = useState(0);
 
-  // Reset the window to the top when the document (row set) changes, so a stale
-  // scrollTop never slices past the end of a shorter table.
+  // Open a newly-loaded document at the first xref entry, so the table does not
+  // inherit the previous document's scroll position.
   useEffect(() => {
     scrollToTop();
   }, [data, scrollToTop]);

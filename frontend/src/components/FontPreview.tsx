@@ -593,11 +593,8 @@ function FontMappingTable({ rows }: { rows: FontMappingRowData[] }) {
       overscan: MAPPING_OVERSCAN,
     });
 
-  // Reset the window when the row set changes (a new font is selected).
-  // Without this, a stale large scrollTop from a previous long CID font would
-  // slice past the end of a short row set (rows.slice(firstVisible, ...) with
-  // firstVisible >> totalRows yields []), rendering an empty table until the
-  // user manually scrolls up.
+  // Open a newly-selected font scrolled to the top, so the table does not
+  // inherit the previous font's scroll position.
   useEffect(() => {
     scrollToTop();
   }, [rows, scrollToTop]);
