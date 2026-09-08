@@ -20,12 +20,12 @@ import (
 
 // goWailsTarget is the exact Wails Go module / wails3 CLI version the tree pins.
 // go.mod and both workflow install lines must equal it verbatim.
-const goWailsTarget = "v3.0.0-alpha2.117"
+const goWailsTarget = "v3.0.0-beta.18"
 
 // runtimeTarget is the exact @wailsio/runtime version the frontend pins. The
 // package.json spec (with no range specifier) and the lockfile resolution must
 // both equal it verbatim.
-const runtimeTarget = "3.0.0-alpha.79"
+const runtimeTarget = "3.0.0-beta.18"
 
 // projectRoot walks up from the working directory to the project go.mod (module
 // unidoc-pdf-debugger) and returns its absolute path.
@@ -78,35 +78,57 @@ func TestGoModPinEqualsTarget(t *testing.T) {
 	}
 }
 
-// wails3InstallPin returns the version pinned on the `wails3@<version>` install
-// line in the given workflow, or "" if no such line exists.
-func wails3InstallPin(src string) string {
+// TestGoSumCarriesTarget asserts go.sum carries an entry for the pinned wails/v3
+// version, which proves `go mod tidy` ran after the go.mod edit. A bump that
+// edits go.mod but skips tidy leaves go.sum stale; this fails loud here rather
+// than letting it surface later as a build error.
+func TestGoSumCarriesTarget(t *testing.T) {
+	needle := "github.com/wailsapp/wails/v3 " + goWailsTarget
+	if !strings.Contains(readSource(t, "go.sum"), needle) {
+		t.Errorf("go.sum must carry an entry for %q -- run `go mod tidy` after editing go.mod", needle)
+	}
+}
+
+// wails3InstallPins returns the version pinned on EVERY `wails3@<version>`
+// install line in the given workflow. A marker with no version after it yields
+// an empty-string pin rather than being skipped, so a malformed line surfaces as
+// a mismatch instead of passing silently. Every occurrence is returned so a
+// stale duplicate install line cannot hide behind a corrected first one.
+func wails3InstallPins(src string) []string {
 	const marker = "wails3@"
+	var pins []string
 	for _, line := range strings.Split(src, "\n") {
 		i := strings.Index(line, marker)
 		if i < 0 {
 			continue
 		}
-		rest := line[i+len(marker):]
-		return strings.FieldsFunc(rest, func(r rune) bool {
+		fields := strings.FieldsFunc(line[i+len(marker):], func(r rune) bool {
 			return r == ' ' || r == '\t' || r == '"' || r == '\''
-		})[0]
+		})
+		if len(fields) == 0 {
+			pins = append(pins, "")
+			continue
+		}
+		pins = append(pins, fields[0])
 	}
-	return ""
+	return pins
 }
 
 // TestWorkflowInstallPinsEqualTarget asserts both CI workflows install the wails3
-// CLI at exactly the declared target, so the CLI and the library can never skew
-// and a bump that touches only one workflow file fails.
+// CLI at exactly the declared target on every install line, so the CLI and the
+// library can never skew and a bump that touches only one workflow file, or
+// leaves a stale duplicate install line, fails.
 func TestWorkflowInstallPinsEqualTarget(t *testing.T) {
 	for _, wf := range []string{".github/workflows/ci.yml", ".github/workflows/release.yml"} {
-		pin := wails3InstallPin(readSource(t, wf))
-		if pin == "" {
+		pins := wails3InstallPins(readSource(t, wf))
+		if len(pins) == 0 {
 			t.Errorf("%s must install wails3 with a `wails3@<version>` pin", wf)
 			continue
 		}
-		if pin != goWailsTarget {
-			t.Errorf("%s installs wails3@%s, want wails3@%s (CLI must equal the go.mod library pin)", wf, pin, goWailsTarget)
+		for _, pin := range pins {
+			if pin != goWailsTarget {
+				t.Errorf("%s installs wails3@%s, want wails3@%s (every wails3 install pin must equal the go.mod library pin)", wf, pin, goWailsTarget)
+			}
 		}
 	}
 }
