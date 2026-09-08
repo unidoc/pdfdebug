@@ -2,6 +2,12 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
+## [Unreleased]
+
+### Changed
+
+- Wails v3 alpha2.117 -> beta.18 and `@wailsio/runtime` alpha.79 -> beta.18, both pinned exact with no range specifier (library and runtime at the same patch). Moves onto the supported beta release channel; the `alpha2` line is no longer advertised in the Go module proxy. Regenerated bindings are byte-identical (zero diff). The three per-release version-floor test suites are collapsed into one current-state contract at `tests/wails-version-contract/`
+
 ## [0.4.0] - 2026-07-12
 
 Epic 12 (desktop shell correctness) and Epic 13 (PDF structure inspection). Adds six dual-surface (CLI + GUI) inspection capabilities on a normalized CLI output contract. Bumps the Wails toolchain.
