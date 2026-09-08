@@ -6,6 +6,7 @@
 package pdfcore
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,7 +20,7 @@ import (
 // well-formed minimal PDF.
 func TestGetPlainTextLatin1HeaderAndSize(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
-	got, err := ins.GetPlainText(tabID)
+	got, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestGetPlainTextFileMovedReturnsError(t *testing.T) {
 		t.Fatalf("remove: %v", err)
 	}
 
-	_, err = ins.GetPlainText(tabID)
+	_, err = ins.GetPlainText(context.Background(), tabID)
 	if err == nil {
 		t.Fatal("expected error after file removal, got nil")
 	}
@@ -187,11 +188,11 @@ func TestGetPlainTextFileMovedReturnsError(t *testing.T) {
 func TestGetPlainTextCacheReturnsSamePointer(t *testing.T) {
 	ins, tabID, doc := openWithFixture(t, "minimal.pdf")
 
-	first, err := ins.GetPlainText(tabID)
+	first, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	second, err := ins.GetPlainText(tabID)
+	second, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -203,7 +204,7 @@ func TestGetPlainTextCacheReturnsSamePointer(t *testing.T) {
 	doc.plainTextCache = nil
 	doc.plainTextMu.Unlock()
 
-	third, err := ins.GetPlainText(tabID)
+	third, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("third (post-drop): %v", err)
 	}
@@ -225,7 +226,7 @@ func TestGetPlainTextConcurrentSharesIO(t *testing.T) {
 	for i := range ptrs {
 		go func(i int) {
 			defer wg.Done()
-			pt, err := ins.GetPlainText(tabID)
+			pt, err := ins.GetPlainText(context.Background(), tabID)
 			if err != nil {
 				t.Errorf("goroutine %d: %v", i, err)
 				return
@@ -245,7 +246,7 @@ func TestGetPlainTextConcurrentSharesIO(t *testing.T) {
 // TestGetPlainTextUnknownTab verifies unknown tabID surfaces an error.
 func TestGetPlainTextUnknownTab(t *testing.T) {
 	ins := NewInspector()
-	if _, err := ins.GetPlainText("no-such-tab"); err == nil {
+	if _, err := ins.GetPlainText(context.Background(), "no-such-tab"); err == nil {
 		t.Errorf("expected error, got nil")
 	}
 }
@@ -337,7 +338,7 @@ func TestGetPlainTextLatin1C1(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
-	pt, err := ins.GetPlainText(tabID)
+	pt, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}

@@ -13,14 +13,12 @@ import { AppProvider } from '../hooks/useDocumentState';
 
 const mockGetPlainText = vi.fn();
 const mockGetPlainTextSize = vi.fn();
-const mockCancelPlainText = vi.fn();
 
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
-    CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
   }),
 );
 
@@ -62,6 +60,28 @@ function deferred<T>(): {
     reject = rej;
   });
   return { promise, resolve, reject };
+}
+
+// Helper: a controllable promise carrying a .cancel() spy, mimicking the Wails
+// CancellablePromise a bound call returns. cancel() rejects the promise with a
+// CancelError (name 'CancelError'), which is what the runtime does when a call
+// is aborted.
+function cancellable<T>(): {
+  promise: Promise<T> & { cancel: ReturnType<typeof vi.fn> };
+  resolve: (v: T) => void;
+} {
+  let resolveFn!: (v: T) => void;
+  let rejectFn!: (e: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolveFn = res;
+    rejectFn = rej;
+  }) as Promise<T> & { cancel: ReturnType<typeof vi.fn> };
+  promise.cancel = vi.fn(() => {
+    const err = new Error('load cancelled');
+    err.name = 'CancelError';
+    rejectFn(err);
+  });
+  return { promise, resolve: resolveFn };
 }
 
 // ---------------------------------------------------------------------------
@@ -199,21 +219,21 @@ describe('success path renders content', () => {
 // Cancel click invokes CancelPlainText(tabID).
 // ---------------------------------------------------------------------------
 
-describe('Cancel click invokes CancelPlainText', () => {
+describe('Cancel click aborts the bound call', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    const def = deferred<PlainTextDocumentFixture>();
-    mockGetPlainText.mockReturnValue(def.promise);
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  test('clicking Cancel invokes CancelPlainText("tab-1") and disables the button with "Cancelling" label', async () => {
+  test('clicking Cancel calls cancel() on the load promise and disables the button with "Cancelling" label', async () => {
+    const c = cancellable<PlainTextDocumentFixture>();
+    mockGetPlainText.mockReturnValue(c.promise);
+
     render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
     act(() => {
       vi.advanceTimersByTime(250);
@@ -227,8 +247,9 @@ describe('Cancel click invokes CancelPlainText', () => {
       fireEvent.click(cancelBtn);
     });
 
-    expect(mockCancelPlainText).toHaveBeenCalledTimes(1);
-    expect(mockCancelPlainText).toHaveBeenCalledWith('tab-1');
+    // The bound call's cancel() was invoked (aborts it; the Wails runtime
+    // cancels the Go-side request context).
+    expect(c.promise.cancel).toHaveBeenCalledTimes(1);
 
     // The button is immediately disabled with the "Cancelling" label.
     const reread = screen.getByTestId('plain-text-cancel-button') as HTMLButtonElement;
@@ -246,7 +267,6 @@ describe('cancelled state renders documented copy + CTA', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test('rejected GetPlainText with cancel-substring shows "Plain text load cancelled." + Load plain text CTA', async () => {
@@ -281,7 +301,6 @@ describe('cancelled CTA re-runs fetch with elapsed reset', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -598,7 +617,6 @@ describe('cancellation rejection substring contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test.each([
@@ -620,6 +638,24 @@ describe('cancellation rejection substring contract', () => {
     // Error pane NOT used for cancellation.
     expect(screen.queryByTestId('plain-text-error')).not.toBeInTheDocument();
   });
+
+  test('a CancelError rejection routes to cancelled by name even without a cancel substring', async () => {
+    const def = deferred<PlainTextDocumentFixture>();
+    mockGetPlainText.mockReturnValueOnce(def.promise);
+
+    render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
+    await act(async () => {
+      // Message has no 'cancel' substring -- only the CancelError name routes it.
+      const err = new Error('aborted');
+      err.name = 'CancelError';
+      def.reject(err);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('plain-text-load-cta')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Plain text load cancelled.')).toBeInTheDocument();
+    expect(screen.queryByTestId('plain-text-error')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -632,7 +668,6 @@ describe('terminal states do not auto-refetch on active toggle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(17);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test('cancelled state does NOT re-invoke GetPlainText on active false -> true', async () => {

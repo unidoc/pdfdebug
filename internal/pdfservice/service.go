@@ -1,6 +1,7 @@
 package pdfservice
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -41,8 +42,7 @@ type inspectorAPI interface {
 	GetPageContentStreamNodeID(tabID string, pageNum int) (string, error)
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
-	GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error)
-	CancelPlainText(tabID string) error
+	GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error)
 	GetPlainTextSize(tabID string) (int64, error)
 	GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error)
 	GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error)
@@ -341,24 +341,17 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 
 // GetPlainText returns the Latin-1-decoded file bytes for the document in
 // tabID. There is no size cap and no two-tier "Load all" step: a single
-// uncapped lazy load feeds a cancellable chunked read. The
-// read is cancellable via CancelPlainText; cancellation surfaces an error
+// uncapped lazy load feeds a cancellable chunked read. The read is cancelled by
+// aborting the bound call from the frontend (the Wails-injected ctx propagates
+// to the read) or by closing the document; cancellation surfaces an error
 // satisfying errors.Is(err, context.Canceled).
 //
 // NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
 // disk bytes and never calls into the PDF backend; a runtime.Error here is a
 // Go bug in our non-backend code and SHOULD crash loudly rather than be
 // laundered as "malformed PDF" (which would mislead the user).
-func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
-	return s.inspector.GetPlainText(tabID)
-}
-
-// CancelPlainText cancels an in-flight GetPlainText for tabID. No-op when no
-// load is in flight. Returns ErrDocumentNotFound for unknown tabs.
-//
-// NOT wrapped by recoverRuntimePanic (non-backend code path).
-func (s *PDFService) CancelPlainText(tabID string) error {
-	return s.inspector.CancelPlainText(tabID)
+func (s *PDFService) GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error) {
+	return s.inspector.GetPlainText(ctx, tabID)
 }
 
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.

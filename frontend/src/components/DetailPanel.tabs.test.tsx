@@ -48,7 +48,6 @@ const mockGetFontView = vi.fn();
 const mockGetXRefTable = vi.fn();
 const mockGetPlainText = vi.fn();
 const mockGetPlainTextSize = vi.fn();
-const mockCancelPlainText = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -65,7 +64,6 @@ vi.mock(
     GetXRefTable: (...args: unknown[]) => mockGetXRefTable(...args),
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
-    CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
     // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),

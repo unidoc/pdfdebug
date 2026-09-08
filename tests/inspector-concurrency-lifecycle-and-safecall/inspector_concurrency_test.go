@@ -312,7 +312,7 @@ func extractFunctionBodyTopLevel(t *testing.T, src, name string) string {
 // pdfserviceWrappedMethods is the pinned list of 15 PDFService methods
 // that MUST begin with `defer recoverRuntimePanic("<Name>", &err)`. Methods
 // outside this list (OpenFileDialog, CloseDocument, GetPlainText,
-// CancelPlainText, GetPlainTextSize) MUST NOT be wrapped.
+// GetPlainTextSize) MUST NOT be wrapped.
 var pdfserviceWrappedMethods = []string{
 	"OpenFile",
 	"GetTreeRoot",
@@ -339,7 +339,6 @@ var pdfserviceUnwrappedMethods = []string{
 	"OpenFileDialog",
 	"CloseDocument",
 	"GetPlainText",
-	"CancelPlainText",
 	"GetPlainTextSize",
 }
 

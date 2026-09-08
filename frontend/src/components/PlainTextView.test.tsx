@@ -19,14 +19,12 @@ function ProviderWrapper({ children }: { children: ReactNode }) {
 
 const mockGetPlainText = vi.fn();
 const mockGetPlainTextSize = vi.fn();
-const mockCancelPlainText = vi.fn();
 
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
-    CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
   })
 );
 
