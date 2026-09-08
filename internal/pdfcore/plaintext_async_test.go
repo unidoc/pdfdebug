@@ -111,8 +111,7 @@ func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 // TestGetPlainTextCloseReturnsContextCanceled verifies the document-close path:
 // Inspector.Close cancels the document's closeCtx, which is merged into the read
 // context, so an in-flight GetPlainText (called with an un-cancelled caller ctx)
-// returns context.Canceled. This is the close-interrupt contract that used to be
-// served by CancelPlainText + plainTextClosed.
+// returns context.Canceled.
 func TestGetPlainTextCloseReturnsContextCanceled(t *testing.T) {
 	path := makeOversizedPDF(t, 64*1024*1024)
 	defer func() { _ = os.Remove(path) }()

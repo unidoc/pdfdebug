@@ -256,8 +256,8 @@ func TestInspectorMethodSurface(t *testing.T) {
 }
 
 // TestDocumentStateCarriesCloseFields asserts Inspector.DocumentState carries the
-// closeCtx / closeCancel fields (the per-document close signal) and no longer
-// carries the retired per-load cancel machinery.
+// closeCtx / closeCancel fields (the per-document close signal) and carries no
+// per-load cancel slot or plain-text-full cache fields.
 func TestDocumentStateCarriesCloseFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
 	if !strings.Contains(src, "closeCtx") {
@@ -268,7 +268,7 @@ func TestDocumentStateCarriesCloseFields(t *testing.T) {
 	}
 	for _, sym := range []string{"plainTextLoadCancel", "plainTextCancelMu", "plainTextClosed", "plainTextFullCache", "plainTextFullMu"} {
 		if strings.Contains(src, sym) {
-			t.Errorf("inspector.go DocumentState must NOT carry %q -- removed by the context-cancellation refactor", sym)
+			t.Errorf("inspector.go DocumentState must NOT carry %q -- cancellation rides the read context, not a per-load cancel slot", sym)
 		}
 	}
 }
