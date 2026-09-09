@@ -582,9 +582,9 @@ func ccittThenFlateEmbeddedStreamObj(num int, raw string) string {
 // [/CCITTFaxDecode /FlateDecode] attachment is that pipeline: CCITT is counted
 // but ends the chain, leaving the trailing FlateDecode unmeasured.
 //
-// This pins the embedded call site passing refuseUnmeasured=true. The mechanism
-// test at decodeBounded drives that flag directly, so flipping the embedded
-// call site to false leaves it green; this fails on that flip.
+// This exercises the public GetEmbeddedFileBytes path, which passes
+// refuseUnmeasured=true. The decodeBounded test drives that flag directly and
+// cannot pin the call site's choice.
 // ---------------------------------------------------------------------------
 
 func TestGetEmbeddedFileBytes_UnmeasuredPipelineRefused(t *testing.T) {

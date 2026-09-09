@@ -34,12 +34,9 @@ func ccittStream(height int, parms pdfcpu_types.Dict) *pdfcpu_types.StreamDict {
 }
 
 // A pipeline whose first runnable filter is one the counter does not model
-// reports the pipeline UNMEASURED rather than measured-and-in-bounds. This is
-// the case that used to return a nil error and read as "measured, fits".
-//
-// Mutation check for AC5: reverting the zero-counter branch in countStages to
-// its old answer (return pipelineMeasurement{measured: true}, nil - the pre-story
-// `return nil` adjusted to the new signature) must make this test fail.
+// reports the pipeline UNMEASURED rather than measured-and-in-bounds, so a
+// caller can tell "could not measure" apart from "measured, fits". A counter
+// that reported such a pipeline as measured would defeat this test.
 func TestCountStages_UnmodelledFirstFilterReportsUnmeasured(t *testing.T) {
 	// 4-component DCTDecode is runnable (not a stopping filter) yet unmodelled,
 	// so it reaches the zero-counter branch. JBIG2 would be decided by pdfcpu's
@@ -204,16 +201,16 @@ func TestCountStages_CCITTBlackIs1DoesNotChangeCount(t *testing.T) {
 	}
 }
 
-// Every filter name pdfcpu defines is classified: the counter either models its
-// own stage output or lists it as unmodelled. A name pdfcpu does not define is in
-// neither, so a filter added to pdfcpu (or routed through filterReader's default)
-// without being classified here fails this test rather than defaulting to a nil
-// reader and a silent fail-open.
+// Every filter name pdfcpu defines today is classified: the counter either
+// models its own stage output or lists it as unmodelled. Referencing the names
+// by const means a renamed, removed, or revalued pdfcpu constant breaks this
+// test. A name filterModelled does not classify is treated as unmodelled at
+// runtime (filterReader's default); this test pins that classification for the
+// known set, but cannot see a brand-new pdfcpu const that no code references yet.
 func TestFilterClassification_EveryPDFCPUFilterIsCountedOrUnmodelled(t *testing.T) {
 	// The nine filter-name consts pdfcpu exports from pkg/filter/filter.go,
-	// referenced by const so a renamed, removed, or revalued name breaks this
-	// test rather than drifting, paired with whether the counter models each
-	// one's output.
+	// referenced by const, paired with whether the counter models each one's
+	// output.
 	want := map[string]bool{
 		filter.ASCII85:   true,
 		filter.ASCIIHex:  true,

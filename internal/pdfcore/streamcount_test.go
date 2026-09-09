@@ -13,6 +13,7 @@ import (
 	"compress/zlib"
 	"encoding/ascii85"
 	"errors"
+	"math"
 	"runtime"
 	"testing"
 
@@ -353,10 +354,14 @@ func TestCountStages_SoleUnmodelledFilterIsNotRefused(t *testing.T) {
 // A CCITT geometry large enough to overflow the int64 output product is refused
 // rather than wrapping to a small count that reads as in bounds.
 func TestCountStages_CCITTOverflowGeometryIsRefused(t *testing.T) {
+	if math.MaxInt < 1<<40 {
+		t.Skip("overflow geometry fixture needs a 64-bit int")
+	}
+	huge := pdfcpu_types.Integer(int64(1) << 40)
 	sd := pipeline([]byte("ccitt"), "CCITTFaxDecode")
 	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
-		"Columns": pdfcpu_types.Integer(1 << 40),
-		"Rows":    pdfcpu_types.Integer(1 << 40),
+		"Columns": huge,
+		"Rows":    huge,
 	}
 	if _, err := countStages(sd, 50*1024*1024); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("an overflowing CCITT geometry must be refused, got %v", err)
@@ -378,10 +383,10 @@ func TestCountStages_CCITTNegativeRowsIsRefused(t *testing.T) {
 	}
 }
 
-// A Flate bomb ahead of the now-modelled CCITT stage is refused on the Flate
-// stage. CCITT hands back a fixed-size zero reader that never pulls its
-// predecessor, so the count depends on the reverse drain reaching the Flate
-// stage on its own turn rather than through the terminal CCITT stage.
+// A Flate bomb ahead of the modelled CCITT stage is refused on the Flate stage.
+// CCITT hands back a fixed-size zero reader that never pulls its predecessor, so
+// the Flate stage is counted only because the reverse drain reaches it on its
+// own turn rather than through the terminal CCITT stage.
 func TestCountStages_InflationAheadOfCCITTIsRejected(t *testing.T) {
 	const limit = int64(4 * 1024 * 1024)
 	sd := pipeline(zlibRepeat(t, nil, []byte{0}, 64*1024*1024),
