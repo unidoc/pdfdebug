@@ -481,6 +481,54 @@ func TestGetPlainTextAsyncCompletedLoadIgnoresLateCancel(t *testing.T) {
 	}
 }
 
+// TestGetPlainTextAsyncCancelledCtxShortCircuitsCache verifies that an
+// already-cancelled caller context returns context.Canceled even when the result
+// is cached, rather than handing back the cached document.
+func TestGetPlainTextAsyncCancelledCtxShortCircuitsCache(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+	// Prime the cache with a successful load.
+	if _, err := ins.GetPlainText(context.Background(), tabID); err != nil {
+		t.Fatalf("prime: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	got, err := ins.GetPlainText(ctx, tabID)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v, want context.Canceled on an already-cancelled ctx even with a warm cache", err)
+	}
+	if got != nil {
+		t.Errorf("want nil document on a cancelled ctx, got %v", got)
+	}
+}
+
+// TestGetPlainTextAsyncDeadlineExceededPreserved verifies a caller context that
+// expires by deadline surfaces context.DeadlineExceeded, not a wrapped
+// ErrMalformedPDF.
+func TestGetPlainTextAsyncDeadlineExceededPreserved(t *testing.T) {
+	path := makeOversizedPDF(t, 64*1024*1024)
+	defer func() { _ = os.Remove(path) }()
+
+	ins := NewInspector()
+	tabID := "tab-deadline"
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = ins.Close(tabID) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	_, err := ins.GetPlainText(ctx, tabID)
+	if err == nil {
+		t.Fatalf("expected an error from a deadline-limited load, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("err = %v, want errors.Is(..., context.DeadlineExceeded)", err)
+	}
+	if errors.Is(err, ErrMalformedPDF) {
+		t.Errorf("err = %v, must NOT be reclassified as ErrMalformedPDF", err)
+	}
+}
+
 // TestGetPlainTextAsyncMaxAllocCeiling verifies: a file exceeding the 4 GiB
 // maxPlainTextAlloc ceiling returns ErrUnsupportedPDF before attempting the
 // read.

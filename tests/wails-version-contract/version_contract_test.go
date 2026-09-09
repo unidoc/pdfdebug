@@ -1,5 +1,4 @@
-// One current-state version contract for the Wails toolchain, replacing the
-// per-release floor suites that each froze a different lower bound.
+// One current-state version contract for the Wails toolchain.
 //
 // The tree pins the Wails Go module and wails3 CLI in three places (go.mod and
 // the two CI workflow install lines) and the JS runtime in two (package.json
@@ -83,9 +82,14 @@ func TestGoModPinEqualsTarget(t *testing.T) {
 // edits go.mod but skips tidy leaves go.sum stale; this fails loud here rather
 // than letting it surface later as a build error.
 func TestGoSumCarriesTarget(t *testing.T) {
-	needle := "github.com/wailsapp/wails/v3 " + goWailsTarget
-	if !strings.Contains(readSource(t, "go.sum"), needle) {
-		t.Errorf("go.sum must carry an entry for %q -- run `go mod tidy` after editing go.mod", needle)
+	// The version must be followed by a field delimiter so a longer version that
+	// carries the target as a prefix (beta.180 vs beta.18) cannot satisfy the
+	// check. go.sum lines are `<module> <version> h1:...` and
+	// `<module> <version>/go.mod h1:...`.
+	prefix := "github.com/wailsapp/wails/v3 " + goWailsTarget
+	src := readSource(t, "go.sum")
+	if !strings.Contains(src, prefix+" ") && !strings.Contains(src, prefix+"/go.mod") {
+		t.Errorf("go.sum must carry an entry for %q -- run `go mod tidy` after editing go.mod", prefix)
 	}
 }
 

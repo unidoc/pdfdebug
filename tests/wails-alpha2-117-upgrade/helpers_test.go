@@ -3,17 +3,14 @@
 // contract and a wire-shape guard for the JSON struct-tag risk, plus the
 // documented deferred human/hardware gates.
 //
-// Test pyramid for this suite (per the directive to favour API/integration over
-// E2E, unit only where there is business logic):
-//
-//   - No new business logic to unit-test: these are structural / CLI-integration
-//     acceptance checks in an independent module (mirrors
-//     tests/wails-alpha2-103-upgrade/).
-//   - The decisive coverage (the live bindings round-trip inside the platform
-//     WebView, multi-WebView desktop smoke) is the native runtime layer. It needs
-//     real macOS + Windows hardware and a human observer and is a DEFERRED
-//     HUMAN/HARDWARE gate recorded in the Dev Agent Record (see
-//     deferred_gates_test.go). Playwright cannot drive it; no red E2E is authored.
+// These are structural / CLI-integration acceptance checks (no new business
+// logic to unit-test) in an independent module, mirroring
+// tests/wails-alpha2-103-upgrade/. The decisive coverage -- the live bindings
+// round-trip inside the platform WebView and the multi-WebView desktop smoke --
+// is the native runtime layer: it needs real macOS + Windows hardware and a
+// human observer, so it is a manual hardware smoke that Playwright cannot drive
+// (see deferred_gates_test.go for the documented skips), and no E2E is authored
+// here.
 //
 // This module is an independent go.mod (the project convention: no `replace`
 // link into the main module, which would drag the whole Wails tree into a test

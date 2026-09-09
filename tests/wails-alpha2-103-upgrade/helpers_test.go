@@ -3,15 +3,12 @@
 // contract, the live event-surface preservation checks, and a wire-shape guard for
 // the JSON struct-tag risk.
 //
-// Test pyramid for this suite (per the directive to favour API/integration over
-// E2E, unit only for business logic):
-//
-//   - No new business logic to unit-test: these are structural / CLI-integration
-//     acceptance checks in an independent module (mirrors tests/page-render-info/).
-//   - The decisive coverage (the live bindings round-trip in the WebView, cross-OS
-//     desktop smoke) is the native runtime layer. It needs a real GUI build + OS
-//     IPC and is MANUAL cross-OS smoke recorded in the Dev Agent Record; Playwright
-//     cannot drive it, so no red E2E is authored.
+// These are structural / CLI-integration acceptance checks (no new business
+// logic to unit-test) in an independent module, mirroring tests/page-render-info/.
+// The decisive coverage -- the live bindings round-trip in the WebView and the
+// cross-OS desktop smoke -- is the native runtime layer: it needs a real GUI
+// build plus OS IPC, so it is a manual cross-OS smoke that Playwright cannot
+// drive, and no E2E is authored here.
 //
 // This module is an independent go.mod (the project convention: no `replace` link
 // into the main module, which would drag the whole Wails tree into a test module).
