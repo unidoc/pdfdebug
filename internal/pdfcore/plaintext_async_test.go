@@ -1,8 +1,10 @@
 // Async Plain Text Load with Cancel -- co-located unit tests.
 //
 // These cover Inspector.GetPlainText's cancellable chunked-read loop plus
-// Inspector.CancelPlainText and Inspector.GetPlainTextSize. Test names match
-// the runPdfcoreTest patterns pinned in tests/async-plain-text-load/.
+// Inspector.GetPlainTextSize. Cancellation is driven by the context passed to
+// GetPlainText (user cancel: the frontend aborts the bound call) and by
+// Inspector.Close (which cancels the document's closeCtx). Test names match the
+// runPdfcoreTest patterns pinned in tests/async-plain-text-load/.
 
 package pdfcore
 
@@ -18,17 +20,13 @@ import (
 	"time"
 )
 
-// (makeOversizedFile helper retired: GetPlainTextSize unknown-tab tests
-// resolve via Inspector.GetDocument before any file I/O, so no pure-bytes
-// fixture is needed at this layer.)
-
 // TestGetPlainTextAsyncHappyPath verifies: open a small fixture,
 // GetPlainText returns full content with TotalBytes equal to the on-disk
 // size, no truncation (the struct no longer has the field), and the Latin-1
 // decode rules unchanged (%PDF- header passes through).
 func TestGetPlainTextAsyncHappyPath(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
-	got, err := ins.GetPlainText(tabID)
+	got, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}
@@ -56,11 +54,11 @@ func TestGetPlainTextAsyncHappyPath(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCancelReturnsContextCanceled verifies: a cancel
-// mid-load returns an error that satisfies errors.Is(err, context.Canceled).
-// The authoritative cancellation contract is the identity, NOT the substring
-// -- if this assertion regresses, the frontend extractErrorMessage substring
-// check becomes the only safety net.
+// TestGetPlainTextAsyncCancelReturnsContextCanceled verifies: cancelling the
+// context passed to GetPlainText mid-load returns an error that satisfies
+// errors.Is(err, context.Canceled). The authoritative cancellation contract is
+// the identity, NOT the substring -- if this assertion regresses, the frontend
+// CancelError check becomes the only safety net.
 func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 	// Make a large enough file that the chunked-read loop has time to observe
 	// ctx.Done() between chunks. chunkSize is pinned at 1 MiB. A
@@ -80,18 +78,16 @@ func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 		err error
 	}
 	resultCh := make(chan result, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		doc, err := ins.GetPlainText(tabID)
+		doc, err := ins.GetPlainText(ctx, tabID)
 		resultCh <- result{doc: doc, err: err}
 	}()
 
 	// Give the read loop time to enter the chunked-read body before cancelling.
 	// 10ms is enough for the os.Open + first chunk read on warm OS cache.
 	time.Sleep(10 * time.Millisecond)
-
-	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Fatalf("CancelPlainText: %v", err)
-	}
+	cancel()
 
 	select {
 	case r := <-resultCh:
@@ -109,6 +105,51 @@ func TestGetPlainTextAsyncCancelReturnsContextCanceled(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("GetPlainText did not return within 5 seconds of cancel -- chunk loop is not checking ctx.Done()")
+	}
+}
+
+// TestGetPlainTextCloseReturnsContextCanceled verifies the document-close path:
+// Inspector.Close cancels the document's closeCtx, which is merged into the read
+// context, so an in-flight GetPlainText (called with an un-cancelled caller ctx)
+// returns context.Canceled.
+func TestGetPlainTextCloseReturnsContextCanceled(t *testing.T) {
+	path := makeOversizedPDF(t, 64*1024*1024)
+	defer func() { _ = os.Remove(path) }()
+
+	ins := NewInspector()
+	tabID := "tab-close-returns-canceled"
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	type result struct {
+		doc *PlainTextDocument
+		err error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		doc, err := ins.GetPlainText(context.Background(), tabID)
+		resultCh <- result{doc: doc, err: err}
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+	if err := ins.Close(tabID); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		if r.err == nil {
+			t.Fatalf("GetPlainText returned no error -- Close did not preempt the read")
+		}
+		if !errors.Is(r.err, context.Canceled) {
+			t.Errorf("err = %v, want errors.Is(..., context.Canceled)", r.err)
+		}
+		if r.doc != nil {
+			t.Errorf("closed-mid-load load returned a non-nil document; want nil")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("GetPlainText did not return within 5 seconds of Close")
 	}
 }
 
@@ -138,7 +179,7 @@ func TestGetPlainTextAsyncCloseReleasesGoroutine(t *testing.T) {
 	// Kick the load on a background goroutine; we don't consume the result.
 	// The goroutine count goes up by 1 here; Close must drive it back.
 	go func() {
-		_, _ = ins.GetPlainText(tabID)
+		_, _ = ins.GetPlainText(context.Background(), tabID)
 	}()
 
 	// Give the goroutine time to enter the chunk loop.
@@ -170,21 +211,15 @@ func TestGetPlainTextAsyncCloseReleasesGoroutine(t *testing.T) {
 }
 
 // TestGetPlainTextAsyncUnknownTabSentinels verifies: unknown-tab paths return
-// errors that satisfy errors.Is(..., ErrDocumentNotFound) for GetPlainText,
-// CancelPlainText, and GetPlainTextSize.
+// errors that satisfy errors.Is(..., ErrDocumentNotFound) for GetPlainText and
+// GetPlainTextSize.
 func TestGetPlainTextAsyncUnknownTabSentinels(t *testing.T) {
 	ins := NewInspector()
 
-	if _, err := ins.GetPlainText("no-such-tab"); err == nil {
+	if _, err := ins.GetPlainText(context.Background(), "no-such-tab"); err == nil {
 		t.Errorf("GetPlainText: expected error, got nil")
 	} else if !errors.Is(err, ErrDocumentNotFound) {
 		t.Errorf("GetPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
-	}
-
-	if err := ins.CancelPlainText("no-such-tab"); err == nil {
-		t.Errorf("CancelPlainText: expected error, got nil")
-	} else if !errors.Is(err, ErrDocumentNotFound) {
-		t.Errorf("CancelPlainText: err = %v, want errors.Is(..., ErrDocumentNotFound)", err)
 	}
 
 	if _, err := ins.GetPlainTextSize("no-such-tab"); err == nil {
@@ -219,7 +254,7 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	tmp, err := os.CreateTemp("", "pdfcore-10-1-moved-*.pdf")
+	tmp, err := os.CreateTemp("", "pdfcore-plaintext-moved-*.pdf")
 	if err != nil {
 		t.Fatalf("CreateTemp: %v", err)
 	}
@@ -258,11 +293,10 @@ func TestGetPlainTextAsyncGetPlainTextSize(t *testing.T) {
 // Note: this test cannot open a 0-byte file via Inspector.Open because pdfcpu
 // rejects empty files at the parse step. We exercise the read path via a
 // direct construction: create the empty file, manually inject it into the
-// inspector's document map. If the dev step adds a sane API for this, the
-// test should be migrated; for now, the field-injection pattern keeps the
-// test deterministic.
+// inspector's document map. The synthetic DocumentState must carry a closeCtx
+// because GetPlainText merges it into the read context.
 func TestGetPlainTextAsyncZeroByteFile(t *testing.T) {
-	tmp, err := os.CreateTemp("", "pdfcore-10-1-zero-*.bin")
+	tmp, err := os.CreateTemp("", "pdfcore-plaintext-zero-*.bin")
 	if err != nil {
 		t.Fatalf("CreateTemp: %v", err)
 	}
@@ -282,15 +316,18 @@ func TestGetPlainTextAsyncZeroByteFile(t *testing.T) {
 	// Inspector.Open (pdfcpu would reject) by writing directly to the map.
 	ins := NewInspector()
 	tabID := "tab-zero-byte"
+	closeCtx, closeCancel := context.WithCancel(context.Background())
 	ins.mu.Lock()
 	ins.documents[tabID] = &DocumentState{
 		FilePath:    path,
 		streamCache: make(map[string]*ContentStreamData),
+		closeCtx:    closeCtx,
+		closeCancel: closeCancel,
 	}
 	ins.mu.Unlock()
 	defer func() { _ = ins.Close(tabID) }()
 
-	got, err := ins.GetPlainText(tabID)
+	got, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("GetPlainText on 0-byte file: %v", err)
 	}
@@ -321,7 +358,7 @@ func TestGetPlainTextAsyncConcurrentSharesIO(t *testing.T) {
 	for i := 0; i < n; i++ {
 		go func(i int) {
 			defer wg.Done()
-			pt, err := ins.GetPlainText(tabID)
+			pt, err := ins.GetPlainText(context.Background(), tabID)
 			ptrs[i] = pt
 			errs[i] = err
 		}(i)
@@ -345,11 +382,11 @@ func TestGetPlainTextAsyncConcurrentSharesIO(t *testing.T) {
 func TestGetPlainTextAsyncCacheHit(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 
-	first, err := ins.GetPlainText(tabID)
+	first, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	second, err := ins.GetPlainText(tabID)
+	second, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -359,10 +396,7 @@ func TestGetPlainTextAsyncCacheHit(t *testing.T) {
 }
 
 // TestGetPlainTextAsyncCancelDoesNotPopulateCache verifies: a cancelled load
-// does NOT populate plainTextCache. A subsequent call
-// performs a fresh read (different pointer would be the post-cancel observation;
-// here we assert that the cache slot is empty after cancel by performing the
-// follow-up call and checking the err path / fresh build).
+// does NOT populate plainTextCache. A subsequent call performs a fresh read.
 func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 	path := makeOversizedPDF(t, 64*1024*1024)
 	defer func() { _ = os.Remove(path) }()
@@ -374,20 +408,19 @@ func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 	}
 	defer func() { _ = ins.Close(tabID) }()
 
-	// First call: kick + cancel.
+	// First call: kick + cancel via the caller ctx.
 	type result struct {
 		doc *PlainTextDocument
 		err error
 	}
 	resultCh := make(chan result, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		doc, err := ins.GetPlainText(tabID)
+		doc, err := ins.GetPlainText(ctx, tabID)
 		resultCh <- result{doc: doc, err: err}
 	}()
 	time.Sleep(10 * time.Millisecond)
-	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Fatalf("CancelPlainText: %v", err)
-	}
+	cancel()
 	select {
 	case r := <-resultCh:
 		if r.err == nil {
@@ -416,7 +449,7 @@ func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 	}
 
 	// Second call (no cancel): should succeed and populate the cache.
-	second, err := ins.GetPlainText(tabID)
+	second, err := ins.GetPlainText(context.Background(), tabID)
 	if err != nil {
 		t.Fatalf("second call after cancel: %v", err)
 	}
@@ -425,24 +458,74 @@ func TestGetPlainTextAsyncCancelDoesNotPopulateCache(t *testing.T) {
 	}
 }
 
-// TestGetPlainTextAsyncCancelNoOpWhenIdle verifies that CancelPlainText is
-// safe to call when no load is in flight (no-op, returns nil). Belt-and-
-// braces for: "no-op if no load is in flight or the load already
-// completed".
-func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
+// TestGetPlainTextAsyncCompletedLoadIgnoresLateCancel verifies that cancelling
+// the caller ctx AFTER a load has completed does not corrupt the cached result:
+// a completed load caches, and a later cancel of a fresh ctx is a no-op.
+func TestGetPlainTextAsyncCompletedLoadIgnoresLateCancel(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 
-	// Cancel with no load in flight: must return nil.
-	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Errorf("CancelPlainText with no load in flight: err = %v, want nil", err)
-	}
-
-	// Run a load to completion, then cancel after-the-fact: still nil.
-	if _, err := ins.GetPlainText(tabID); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	first, err := ins.GetPlainText(ctx, tabID)
+	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}
-	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Errorf("CancelPlainText after completed load: err = %v, want nil", err)
+	// Cancelling after the call returned must not affect the cached result.
+	cancel()
+
+	second, err := ins.GetPlainText(context.Background(), tabID)
+	if err != nil {
+		t.Fatalf("GetPlainText after late cancel: %v", err)
+	}
+	if first != second {
+		t.Errorf("cache returned different pointers after a late cancel")
+	}
+}
+
+// TestGetPlainTextAsyncCancelledCtxShortCircuitsCache verifies that an
+// already-cancelled caller context returns context.Canceled even when the result
+// is cached, rather than handing back the cached document.
+func TestGetPlainTextAsyncCancelledCtxShortCircuitsCache(t *testing.T) {
+	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
+	// Prime the cache with a successful load.
+	if _, err := ins.GetPlainText(context.Background(), tabID); err != nil {
+		t.Fatalf("prime: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	got, err := ins.GetPlainText(ctx, tabID)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v, want context.Canceled on an already-cancelled ctx even with a warm cache", err)
+	}
+	if got != nil {
+		t.Errorf("want nil document on a cancelled ctx, got %v", got)
+	}
+}
+
+// TestGetPlainTextAsyncDeadlineExceededPreserved verifies a caller context that
+// expires by deadline surfaces context.DeadlineExceeded, not a wrapped
+// ErrMalformedPDF.
+func TestGetPlainTextAsyncDeadlineExceededPreserved(t *testing.T) {
+	path := makeOversizedPDF(t, 64*1024*1024)
+	defer func() { _ = os.Remove(path) }()
+
+	ins := NewInspector()
+	tabID := "tab-deadline"
+	if _, err := ins.Open(tabID, path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = ins.Close(tabID) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	_, err := ins.GetPlainText(ctx, tabID)
+	if err == nil {
+		t.Fatalf("expected an error from a deadline-limited load, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("err = %v, want errors.Is(..., context.DeadlineExceeded)", err)
+	}
+	if errors.Is(err, ErrMalformedPDF) {
+		t.Errorf("err = %v, must NOT be reclassified as ErrMalformedPDF", err)
 	}
 }
 
@@ -455,10 +538,6 @@ func TestGetPlainTextAsyncCancelNoOpWhenIdle(t *testing.T) {
 // guard. The behavioral test would require a TB-class fixture, which is out
 // of scope.
 func TestGetPlainTextAsyncMaxAllocCeiling(t *testing.T) {
-	// Source-grep: the maxPlainTextAlloc constant must exist and pin 4 GiB.
-	// Defensive: if the dev moves the constant to a different file, this test
-	// becomes meaningless. The acceptance suite source-grep is the harder
-	// guard; this in-package test validates the value.
 	const want = int64(4) << 30 // 4 GiB
 	if maxPlainTextAlloc != want {
 		t.Errorf("maxPlainTextAlloc = %d, want %d (4 GiB ceiling)", maxPlainTextAlloc, want)
@@ -510,14 +589,13 @@ func TestGetPlainTextAsyncErrWrappingPreservesCanceled(t *testing.T) {
 		err error
 	}
 	resultCh := make(chan result, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		_, err := ins.GetPlainText(tabID)
+		_, err := ins.GetPlainText(ctx, tabID)
 		resultCh <- result{err: err}
 	}()
 	time.Sleep(10 * time.Millisecond)
-	if err := ins.CancelPlainText(tabID); err != nil {
-		t.Fatalf("CancelPlainText: %v", err)
-	}
+	cancel()
 	select {
 	case r := <-resultCh:
 		if r.err == nil {
@@ -533,4 +611,3 @@ func TestGetPlainTextAsyncErrWrappingPreservesCanceled(t *testing.T) {
 		t.Fatalf("cancelled load did not return within 5s")
 	}
 }
-

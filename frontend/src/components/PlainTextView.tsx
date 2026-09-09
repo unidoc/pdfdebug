@@ -18,7 +18,6 @@ import { flushSync } from 'react-dom';
 import {
   GetPlainText,
   GetPlainTextSize,
-  CancelPlainText,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
@@ -115,6 +114,10 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
   // mirroring never disagrees with a fresher imperative write).
   const dataRef = useLatest(data);
   const inFlightRef = useRef(false);
+  // Holds the in-flight GetPlainText cancellable call so the Cancel button can
+  // abort it. Cancelling sends a CancelCall to Go, which cancels the injected
+  // request context and rejects this promise with a CancelError.
+  const loadPromiseRef = useRef<ReturnType<typeof GetPlainText> | null>(null);
   // tabId mirrored during render via useLatest (#28); the resolve/reject
   // branches capture tabId at call time and compare against this ref before
   // mutating state on a stale fetch. The imperative write in the reset
@@ -141,6 +144,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     scrollToTop();
     dataRef.current = null;
     inFlightRef.current = false;
+    loadPromiseRef.current = null;
     loadStateRef.current = 'idle';
     // dataRef / tabIdRef are stable useLatest refs (identity never changes);
     // scrollToTop is a stable useCallback; listed to satisfy exhaustive-deps.
@@ -176,10 +180,13 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
           if (tabIdAtFetch !== tabIdRef.current) return;
         });
     }
-    GetPlainText(tabIdAtFetch)
+    const loadPromise = GetPlainText(tabIdAtFetch);
+    loadPromiseRef.current = loadPromise;
+    loadPromise
       .then((result: unknown) => {
         if (tabIdAtFetch !== tabIdRef.current) return;
         inFlightRef.current = false;
+        loadPromiseRef.current = null;
         const doc = result as PlainTextDocumentData;
         dataRef.current = doc;
         loadStateRef.current = 'ready';
@@ -189,12 +196,15 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
       .catch((err: unknown) => {
         if (tabIdAtFetch !== tabIdRef.current) return;
         inFlightRef.current = false;
+        loadPromiseRef.current = null;
         const msg = extractErrorMessage(err);
-        // Cancellation contract: extractErrorMessage substring 'cancel'
-        // (case-insensitive) routes to the cancelled state. The backend
-        // errors.Is(err, context.Canceled) identity is the authoritative
-        // Go-side contract; this is the frontend matching path.
-        if (/cancel/i.test(msg)) {
+        // Cancellation contract: a user cancel rejects the bound call with a
+        // CancelError (name 'CancelError'); a backend context.Canceled also
+        // stringifies to a 'cancel' substring. Either routes to the cancelled
+        // state.
+        const isCancel =
+          (err instanceof Error && err.name === 'CancelError') || /cancel/i.test(msg);
+        if (isCancel) {
           loadStateRef.current = 'cancelled';
           setLoadState('cancelled');
           setCancelling(false);
@@ -403,17 +413,15 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     }
   }, [findActiveIndex, findMatchesList, findOpen, findLineStarts, scrollRef]);
 
-  /** Fire-and-forget Cancel. The original GetPlainText promise rejects with
-   * context.Canceled; the .catch branch flips to 'cancelled'. */
+  /** Cancel the in-flight load by aborting the bound call. The Wails runtime
+   * sends a CancelCall to Go, cancelling the injected request context; the
+   * chunked read bails and the promise rejects with a CancelError, and the
+   * .catch branch flips to 'cancelled'. No-op if the call already settled. */
   const handleCancel = useCallback(() => {
     if (cancelling) return;
     setCancelling(true);
-    // Fire-and-forget; we do NOT await. The reject branch of GetPlainText
-    // handles state transition. Attach an empty catch so a rejection on the
-    // cancel call itself (e.g. ErrDocumentNotFound during a close race) does
-    // not surface as an unhandled promise rejection.
-    CancelPlainText(tabId).catch(() => {});
-  }, [cancelling, tabId]);
+    loadPromiseRef.current?.cancel();
+  }, [cancelling]);
 
   // Empty / no-document state.
   if (!tabId) {

@@ -132,7 +132,7 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 	})
 	// Dispatch the pdfcpu read to a goroutine. Pass the long-lived values as
 	// explicit parameters for lifetime documentation (Go 1.22+ already fixes
-	// the historical loop-variable trap; go.mod declares go 1.26.0).
+	// the historical loop-variable trap; go.mod declares go 1.27.0).
 	go func(p, ew string, s pdfOpener, a eventEmitter, w *sync.WaitGroup) {
 		defer w.Done()
 		docInfo, err := s.OpenFile(p)

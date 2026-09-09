@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +50,7 @@ func execPlaintextDump(filePath string, f docViewFlags) (exitCode int) {
 		// the raw path (which re-streams the file from disk below) would do that
 		// expensive work and then discard it -- defeating the raw-by-default
 		// "keep the common case cheap" contract. Gate it behind --json.
-		doc, err := ins.GetPlainText("cli")
+		doc, err := ins.GetPlainText(context.Background(), "cli")
 		if err != nil {
 			writeJSONError(os.Stderr, err.Error())
 			return 2

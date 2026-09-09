@@ -48,7 +48,6 @@ vi.mock(
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: 'tab-1', entries: [] }),
     GetPlainText: vi.fn().mockResolvedValue({ tabId: 'tab-1', content: '', totalBytes: 0 }),
     GetPlainTextSize: vi.fn().mockResolvedValue(0),
-    CancelPlainText: vi.fn(),
     // The four embedded/metadata bound methods.
     GetEmbeddedFiles: (...a: unknown[]) => mockGetEmbeddedFiles(...a),
     GetSignatures: vi.fn().mockResolvedValue([]),

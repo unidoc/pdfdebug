@@ -1,6 +1,7 @@
 // Async Plain Text Load with Cancel -- service-layer tests.
 //
-// These cover PDFService.CancelPlainText and PDFService.GetPlainTextSize.
+// These cover PDFService.GetPlainText cancellation via the passed context and
+// PDFService.GetPlainTextSize.
 
 package pdfservice
 
@@ -15,49 +16,22 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-// TestServiceCancelPlainTextUnknownTab verifies the unknown-tab path on the
-// new CancelPlainText service binding (routed through the thin pdfservice
-// adapter).
-func TestServiceCancelPlainTextUnknownTab(t *testing.T) {
-	svc := NewPDFService(nil)
-	err := svc.CancelPlainText("nonexistent-tab-id")
-	if err == nil {
-		t.Fatal("CancelPlainText on unknown tab should return error")
-	}
-	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
-		t.Errorf("expected ErrDocumentNotFound, got %v", err)
-	}
-}
-
-// TestServiceCancelPlainTextValidNoOp verifies CancelPlainText on a known tab
-// with no load in flight returns nil ("no-op if no load is in flight").
-func TestServiceCancelPlainTextValidNoOp(t *testing.T) {
-	svc := NewPDFService(nil)
-	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "minimal.pdf"))
-	if err != nil {
-		t.Fatalf("OpenFile: %v", err)
-	}
-	defer func() { _ = svc.CloseDocument(info.TabID) }()
-
-	if err := svc.CancelPlainText(info.TabID); err != nil {
-		t.Errorf("CancelPlainText on idle tab: err = %v, want nil", err)
-	}
-}
-
-// TestServiceCancelPlainTextCancelsInFlight verifies CancelPlainText cancels
-// an in-flight GetPlainText (mirrors the inspector-level cancel test through
-// the service binding).
+// TestServiceGetPlainTextCancelsViaContext verifies cancelling the context
+// passed to GetPlainText cancels an in-flight read (mirrors the inspector-level
+// cancel test through the service binding). In production the frontend aborts
+// the bound call, which cancels the Wails-injected request context; here the
+// test drives that context directly.
 //
 // Uses a temporary copy of minimal.pdf padded out to 64 MiB so the chunked
 // read loop has time to observe ctx.Done().
-func TestServiceCancelPlainTextCancelsInFlight(t *testing.T) {
+func TestServiceGetPlainTextCancelsViaContext(t *testing.T) {
 	// Build a 64 MiB temp PDF (real header + pad).
 	srcPath := filepath.Join(testdataDir(t), "minimal.pdf")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Fatalf("read minimal.pdf: %v", err)
 	}
-	tmp, err := os.CreateTemp("", "pdfservice-10-1-oversize-*.pdf")
+	tmp, err := os.CreateTemp("", "pdfservice-plaintext-oversize-*.pdf")
 	if err != nil {
 		t.Fatalf("CreateTemp: %v", err)
 	}
@@ -95,16 +69,14 @@ func TestServiceCancelPlainTextCancelsInFlight(t *testing.T) {
 		err error
 	}
 	resultCh := make(chan result, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		_, err := svc.GetPlainText(info.TabID)
+		_, err := svc.GetPlainText(ctx, info.TabID)
 		resultCh <- result{err: err}
 	}()
 
 	time.Sleep(10 * time.Millisecond)
-
-	if err := svc.CancelPlainText(info.TabID); err != nil {
-		t.Fatalf("CancelPlainText: %v", err)
-	}
+	cancel()
 
 	select {
 	case r := <-resultCh:
@@ -120,7 +92,7 @@ func TestServiceCancelPlainTextCancelsInFlight(t *testing.T) {
 }
 
 // TestServiceGetPlainTextSizeUnknownTab verifies the unknown-tab path on the
-// new GetPlainTextSize service binding.
+// GetPlainTextSize service binding.
 func TestServiceGetPlainTextSizeUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
 	_, err := svc.GetPlainTextSize("nonexistent-tab-id")

@@ -28,13 +28,13 @@ import (
 //   - pdfMu MUST be acquired BEFORE any per-feature mutex (streamMu,
 //     objectIndexMu, xrefTableMu) when the feature path calls into pdfcpu.
 //
-//   - plainTextMu and plainTextCancelMu are DISJOINT from pdfMu; the
-//     plaintext path does not call into pdfcpu inside its critical section.
+//   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
+//     into pdfcpu inside its critical section.
 //
-//   - ins.mu (Inspector.documents map) -> plainTextCancelMu is an edge:
-//     Inspector.Open invokes closeDocLocked on the prior entry while holding
-//     ins.mu, and closeDocLocked acquires plainTextCancelMu. No path acquires
-//     ins.mu while holding plainTextCancelMu, so this edge is acyclic.
+//   - Document close is signalled by cancelling doc.closeCtx (a per-document
+//     context set at Open). closeDocLocked calls doc.closeCancel, which never
+//     acquires plainTextMu, so a close preempts an in-flight read without
+//     contending against the mutex the read holds for the entire I/O.
 type DocumentState struct {
 	FilePath   string
 	PDFContext *pdfcpu_model.Context
@@ -48,7 +48,7 @@ type DocumentState struct {
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
 	// GetDocument returns. Methods that do NOT call pdfcpu (GetPlainText,
-	// GetPlainTextSize, CancelPlainText, Open, Close, GetDocument) are exempt.
+	// GetPlainTextSize, Open, Close, GetDocument) are exempt.
 	// See lock-ordering note on the struct doc comment.
 	pdfMu sync.Mutex
 
@@ -88,21 +88,14 @@ type DocumentState struct {
 	plainTextMu    sync.Mutex
 	plainTextCache *PlainTextDocument
 
-	// plainTextLoadCancel is the cancel func for the in-flight GetPlainText
-	// chunked read. Nil when no load is in flight. Guarded by
-	// plainTextCancelMu (NOT plainTextMu) so CancelPlainText can preempt a
-	// read without contending against the mutex the read itself holds for the
-	// entire I/O.
-	//
-	// plainTextClosed is set by Inspector.Close under plainTextCancelMu so a
-	// GetPlainText goroutine that has acquired the cancel mutex AFTER Close
-	// already ran can observe the close and bail out instead of leaking the
-	// read to natural completion (would defeat the "one chunk-read cycle"
-	// guarantee in the race where Close fires between GetDocument and the
-	// cancel-func registration).
-	plainTextCancelMu   sync.Mutex
-	plainTextLoadCancel context.CancelFunc
-	plainTextClosed     bool
+	// closeCtx is cancelled when the document is closed or re-Opened under the
+	// same tabID (closeDocLocked -> closeCancel). GetPlainText merges it into
+	// the read context so an in-flight chunked read bails within one chunk-read
+	// cycle and releases its file handle. Set once at Open and never
+	// reassigned; closeCancel is goroutine-safe and idempotent, so cancelling
+	// it needs no mutex and never touches plainTextMu.
+	closeCtx    context.Context
+	closeCancel context.CancelFunc
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are
@@ -167,6 +160,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
+	closeCtx, closeCancel := context.WithCancel(context.Background())
 	doc := &DocumentState{
 		FilePath:   absPath,
 		PDFContext: ctx,
@@ -175,6 +169,9 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		FileSize: fileSize,
 
 		streamCache: make(map[string]*ContentStreamData),
+
+		closeCtx:    closeCtx,
+		closeCancel: closeCancel,
 	}
 
 	// The reverse-refs build is deferred to the first GetReverseRefs call via
@@ -184,11 +181,10 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	ins.mu.Lock()
 	// If a document is already registered under this tabID, release the
 	// prior DocumentState's per-doc resources (cancel an in-flight plaintext
-	// load, flag plainTextClosed) BEFORE inserting the new entry. Without
-	// this, a tabID collision would leak the prior cancel func and let the
-	// prior plaintext read complete naturally. closeDocLocked does NOT
-	// acquire ins.mu (we hold it); calling the public Close would
-	// self-deadlock since Go mutexes are not reentrant.
+	// load via its closeCtx) BEFORE inserting the new entry. Without this, a
+	// tabID collision would let the prior plaintext read complete naturally.
+	// closeDocLocked does NOT acquire ins.mu (we hold it); calling the public
+	// Close would self-deadlock since Go mutexes are not reentrant.
 	if prior, ok := ins.documents[tabID]; ok && prior != nil {
 		closeDocLocked(prior)
 	}
@@ -206,13 +202,13 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 }
 
 // Close removes the document associated with tabID from the inspector. If a
-// GetPlainText load is in flight for this tab, the cancel func is invoked
-// before the document is dropped so the read goroutine returns
-// context.Canceled within one chunk-read cycle and releases its file handle.
+// GetPlainText load is in flight for this tab, cancelling doc.closeCtx makes
+// the read return context.Canceled within one chunk-read cycle and release its
+// file handle before the document is dropped.
 //
-// Critical: the cancel invocation acquires plainTextCancelMu only, NEVER
-// plainTextMu (which the read goroutine holds for the entire I/O). Holding
-// plainTextMu here would deadlock against the active read.
+// Critical: cancelling closeCtx never acquires plainTextMu (which the read
+// goroutine holds for the entire I/O), so a close cannot deadlock against the
+// active read.
 func (ins *Inspector) Close(tabID string) error {
 	ins.mu.Lock()
 	doc, ok := ins.documents[tabID]
@@ -232,9 +228,10 @@ func (ins *Inspector) Close(tabID string) error {
 	return nil
 }
 
-// closeDocLocked releases per-DocumentState resources: it sets plainTextClosed
-// and invokes plainTextLoadCancel if registered. It acquires ONLY
-// plainTextCancelMu; the caller controls whether ins.mu is held.
+// closeDocLocked releases per-DocumentState resources: it cancels doc.closeCtx,
+// which preempts an in-flight GetPlainText read within one chunk-read cycle. It
+// takes no lock of its own (closeCancel is goroutine-safe and idempotent and
+// never touches plainTextMu); the caller controls whether ins.mu is held.
 //
 // Naming: "Locked" follows the Go convention "the caller is responsible for
 // the higher-level lock". Inspector.Close holds ins.mu briefly to delete the
@@ -244,12 +241,8 @@ func closeDocLocked(doc *DocumentState) {
 	if doc == nil {
 		return
 	}
-	doc.plainTextCancelMu.Lock()
-	doc.plainTextClosed = true
-	cancel := doc.plainTextLoadCancel
-	doc.plainTextCancelMu.Unlock()
-	if cancel != nil {
-		cancel()
+	if doc.closeCancel != nil {
+		doc.closeCancel()
 	}
 }
 

@@ -3,14 +3,13 @@ package pdfcore
 // Acceptance tests for the behaviours that require package-private
 // access to DocumentState's unexported fields:
 //   - re-Open under the same tabID must invoke the prior DocumentState's
-//     plainTextLoadCancel before the new entry is inserted.
+//     closeCancel before the new entry is inserted.
 //   - the reverse-refs build is deferred to the first GetReverseRefs call;
 //     `doc.reverseRefs == nil && !doc.revRefsBuildFailed` MUST hold
 //     immediately after Open returns.
 //
 // `package pdfcore` (NOT `pdfcore_test`) is required because:
-//   - the re-Open test writes a wrapping closure directly into
-//     prior.plainTextLoadCancel.
+//   - the re-Open test wraps prior.closeCancel with a counter.
 //   - the deferred-build test reads doc.reverseRefs and
 //     doc.revRefsBuildFailed.
 
@@ -25,7 +24,7 @@ import (
 // ---------------------------------------------------------------------------
 
 // TestOpenSameTabIDReleasesPrior asserts that re-Opening a tabID which already
-// holds a DocumentState invokes the prior plainTextLoadCancel exactly once before
+// holds a DocumentState invokes the prior closeCancel exactly once before
 // the new entry is inserted, and that the new DocumentState pointer differs from
 // the prior one.
 func TestOpenSameTabIDReleasesPrior(t *testing.T) {
@@ -44,16 +43,16 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 		t.Fatalf("GetDocument(prior) failed: %v", err)
 	}
 
-	// Install a wrapping cancel func that increments an atomic counter.
-	// This stands in for the real cancel registered by an in-flight
-	// GetPlainText -- asserts the LIFECYCLE contract (cancel invoked), not
-	// a real plaintext read.
+	// Wrap the prior document's closeCancel with an atomic counter. Re-Open
+	// must invoke it (via closeDocLocked) to release the prior DocumentState's
+	// closeCtx before inserting the new entry -- this asserts the LIFECYCLE
+	// contract (cancel invoked), not a real plaintext read.
 	var cancelCalls atomic.Int32
-	prior.plainTextCancelMu.Lock()
-	prior.plainTextLoadCancel = func() {
+	realCancel := prior.closeCancel
+	prior.closeCancel = func() {
 		cancelCalls.Add(1)
+		realCancel()
 	}
-	prior.plainTextCancelMu.Unlock()
 
 	if _, err := ins.Open(tabID, path2); err != nil {
 		t.Fatalf("second Open(%q) failed: %v", path2, err)
@@ -61,7 +60,7 @@ func TestOpenSameTabIDReleasesPrior(t *testing.T) {
 
 	got := cancelCalls.Load()
 	if got != 1 {
-		t.Errorf("prior.plainTextLoadCancel invoked %d times after re-Open under same tabID -- want exactly 1 (re-Open must release the prior DocumentState's cancel before inserting the new entry)", got)
+		t.Errorf("prior.closeCancel invoked %d times after re-Open under same tabID -- want exactly 1 (re-Open must release the prior DocumentState's closeCtx before inserting the new entry)", got)
 	}
 
 	current, err := ins.GetDocument(tabID)

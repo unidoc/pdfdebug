@@ -12,8 +12,9 @@
 //   - Backend (model.go field removal, binding removal, ZERO repo-wide
 //     hits for GetPlainTextFull) -> structural assertions on model.go,
 //     service.go, and a recursive grep guard.
-//   - Wails plumbing (CancelPlainText + GetPlainTextSize exposed,
-//     GetPlainTextFull removed) -> structural assertions on service.go.
+//   - Wails plumbing (context-taking GetPlainText + GetPlainTextSize exposed,
+//     CancelPlainText + GetPlainTextFull removed) -> structural assertions on
+//     service.go.
 //   - IPC shape (PlainTextDocument retains TabID/Content/TotalBytes
 //     only) -> structural assertions on model.go.
 //   - Frontend ->
@@ -123,8 +124,7 @@ func TestCloseReleasesGoroutine(t *testing.T) {
 }
 
 // TestUnknownTabSentinels asserts the unknown-tab path returns
-// errors.Is(..., ErrDocumentNotFound) for GetPlainText, CancelPlainText and
-// GetPlainTextSize.
+// errors.Is(..., ErrDocumentNotFound) for GetPlainText and GetPlainTextSize.
 func TestUnknownTabSentinels(t *testing.T) {
 	runPdfcoreTest(t, "TestGetPlainTextAsyncUnknownTabSentinels")
 }
@@ -220,79 +220,76 @@ func TestServiceDropsGetPlainTextFull(t *testing.T) {
 	}
 }
 
-// TestServiceDeclaresNewMethods asserts service.go declares CancelPlainText and
-// GetPlainTextSize with their documented return signatures.
+// TestServiceDeclaresNewMethods asserts service.go declares GetPlainTextSize
+// with its documented return signature and a context-taking GetPlainText, and
+// no longer declares CancelPlainText.
 func TestServiceDeclaresNewMethods(t *testing.T) {
 	src := readSource(t, "internal/pdfservice/service.go")
-	if !strings.Contains(src, "CancelPlainText") {
-		t.Errorf("service.go must declare CancelPlainText(tabID string) error")
+	if strings.Contains(src, "CancelPlainText") {
+		t.Errorf("service.go must NOT declare CancelPlainText -- cancellation is via the Wails-injected context now")
 	}
-	if !strings.Contains(src, "GetPlainTextSize") {
-		t.Errorf("service.go must declare GetPlainTextSize(tabID string) (int64, error)")
+	if !strings.Contains(src, "GetPlainText(ctx context.Context, tabID string)") {
+		t.Errorf("service.go GetPlainText must take a context.Context first param (the injected request context)")
 	}
-	// Return type assertion for GetPlainTextSize.
 	if !strings.Contains(src, "GetPlainTextSize(tabID string) (int64, error)") {
 		t.Errorf("service.go GetPlainTextSize must return (int64, error)")
 	}
 }
 
-// TestInspectorMethodSurface asserts plaintext.go declares
-// Inspector.CancelPlainText and Inspector.GetPlainTextSize and does not declare
-// GetPlainTextFull.
+// TestInspectorMethodSurface asserts plaintext.go declares a context-taking
+// Inspector.GetPlainText and Inspector.GetPlainTextSize, and does not declare
+// CancelPlainText or GetPlainTextFull.
 func TestInspectorMethodSurface(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/plaintext.go")
 	if strings.Contains(src, "GetPlainTextFull") {
 		t.Errorf("plaintext.go must NOT declare GetPlainTextFull -- the sync full-read entry point is gone")
 	}
-	if !strings.Contains(src, "CancelPlainText") {
-		t.Errorf("plaintext.go must declare Inspector.CancelPlainText")
+	if strings.Contains(src, "CancelPlainText") {
+		t.Errorf("plaintext.go must NOT declare CancelPlainText -- cancellation is via the context passed to GetPlainText")
+	}
+	if !strings.Contains(src, "func (ins *Inspector) GetPlainText(ctx context.Context, tabID string)") {
+		t.Errorf("plaintext.go GetPlainText must take a context.Context first param")
 	}
 	if !strings.Contains(src, "GetPlainTextSize") {
 		t.Errorf("plaintext.go must declare Inspector.GetPlainTextSize")
 	}
 }
 
-// TestDocumentStateCarriesCancelFields asserts Inspector.DocumentState carries the
-// plainTextLoadCancel and plainTextCancelMu fields. The separate mutex is the
-// deadlock guard for cancel-and-waiter interleaving.
-func TestDocumentStateCarriesCancelFields(t *testing.T) {
+// TestDocumentStateCarriesCloseFields asserts Inspector.DocumentState carries the
+// closeCtx / closeCancel fields (the per-document close signal) and carries no
+// per-load cancel slot or plain-text-full cache fields.
+func TestDocumentStateCarriesCloseFields(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
-	if !strings.Contains(src, "plainTextLoadCancel") {
-		t.Errorf("inspector.go DocumentState must carry plainTextLoadCancel context.CancelFunc")
+	if !strings.Contains(src, "closeCtx") {
+		t.Errorf("inspector.go DocumentState must carry closeCtx context.Context")
 	}
-	if !strings.Contains(src, "plainTextCancelMu") {
-		t.Errorf("inspector.go DocumentState must carry plainTextCancelMu sync.Mutex")
+	if !strings.Contains(src, "closeCancel") {
+		t.Errorf("inspector.go DocumentState must carry closeCancel context.CancelFunc")
 	}
-	// The plainTextFullCache + plainTextFullMu fields MUST be deleted.
-	if strings.Contains(src, "plainTextFullCache") {
-		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullCache -- the field was deleted")
-	}
-	if strings.Contains(src, "plainTextFullMu") {
-		t.Errorf("inspector.go DocumentState must NOT carry plainTextFullMu -- the field was deleted")
+	for _, sym := range []string{"plainTextLoadCancel", "plainTextCancelMu", "plainTextClosed", "plainTextFullCache", "plainTextFullMu"} {
+		if strings.Contains(src, sym) {
+			t.Errorf("inspector.go DocumentState must NOT carry %q -- cancellation rides the read context, not a per-load cancel slot", sym)
+		}
 	}
 }
 
-// TestCloseInvokesCancel asserts Inspector.Close acquires plainTextCancelMu and
-// invokes the cancel func before dropping the entry from the map. This is the
-// structural guard; the behavioral leak test is
+// TestCloseInvokesCancel asserts closeDocLocked (invoked by Inspector.Close and
+// by re-Open) cancels the document's closeCtx before the entry is dropped. This
+// is the structural guard; the behavioral leak test is
 // TestGetPlainTextAsyncCloseReleasesGoroutine.
 func TestCloseInvokesCancel(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/inspector.go")
-	// Verify Close references plainTextLoadCancel + plainTextCancelMu.
-	closeStart := strings.Index(src, "func (ins *Inspector) Close(")
+	closeStart := strings.Index(src, "func closeDocLocked(")
 	if closeStart == -1 {
-		t.Fatalf("could not locate Inspector.Close in inspector.go")
+		t.Fatalf("could not locate closeDocLocked in inspector.go")
 	}
-	closeEnd := closeStart + 800
+	closeEnd := closeStart + 400
 	if closeEnd > len(src) {
 		closeEnd = len(src)
 	}
 	closeBody := src[closeStart:closeEnd]
-	if !strings.Contains(closeBody, "plainTextLoadCancel") {
-		t.Errorf("Inspector.Close must invoke plainTextLoadCancel")
-	}
-	if !strings.Contains(closeBody, "plainTextCancelMu") {
-		t.Errorf("Inspector.Close must acquire plainTextCancelMu -- the deadlock guard depends on it")
+	if !strings.Contains(closeBody, "closeCancel") {
+		t.Errorf("closeDocLocked must invoke doc.closeCancel to preempt an in-flight read")
 	}
 }
 
@@ -369,7 +366,8 @@ func TestRepoWideGrepGetPlainTextFull(t *testing.T) {
 }
 
 // TestWailsBindingsRegenerated asserts the frontend Wails binding file no longer
-// exports GetPlainTextFull and does export CancelPlainText and GetPlainTextSize.
+// exports GetPlainTextFull or CancelPlainText, and does export GetPlainText and
+// GetPlainTextSize.
 func TestWailsBindingsRegenerated(t *testing.T) {
 	root := projectRoot(t)
 	bindingsPath := filepath.Join(root, "frontend", "bindings", "unidoc-pdf-debugger", "internal", "pdfservice", "pdfservice.js")
@@ -381,8 +379,11 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 	if strings.Contains(src, "GetPlainTextFull") {
 		t.Errorf("pdfservice.js must NOT export GetPlainTextFull -- regenerate bindings after removing the Go method")
 	}
-	if !strings.Contains(src, "export function CancelPlainText") {
-		t.Errorf("pdfservice.js must export CancelPlainText")
+	if strings.Contains(src, "export function CancelPlainText") {
+		t.Errorf("pdfservice.js must NOT export CancelPlainText -- the Go method was removed; regenerate bindings")
+	}
+	if !strings.Contains(src, "export function GetPlainText(") {
+		t.Errorf("pdfservice.js must export GetPlainText")
 	}
 	if !strings.Contains(src, "export function GetPlainTextSize") {
 		t.Errorf("pdfservice.js must export GetPlainTextSize")
@@ -393,11 +394,11 @@ func TestWailsBindingsRegenerated(t *testing.T) {
 // PlainTextView component (structural)
 // ---------------------------------------------------------------------------
 //
-// Behavior contracts (loading card mount + 200ms debounce, elapsed-counter
-// ticking, Cancel click -> CancelPlainText invocation, cancelled state CTA,
-// stale-fetch guard on document tab switch, fast-path under-debounce) are
-// asserted in PlainTextView.async.test.tsx. We assert here only that the
-// wiring points those component tests rely on exist in source.
+// Behavior contracts (loading card mount + 200ms debounce, Cancel click ->
+// bound-call cancel(), cancelled state CTA, stale-fetch guard on document tab
+// switch, fast-path under-debounce) are asserted in PlainTextView.async.test.tsx.
+// We assert here only that the wiring points those component tests rely on exist
+// in source.
 
 // TestPlainTextViewLoadingCardTestIds asserts PlainTextView carries the
 // load-bearing data-testids for the async loading card flow.
@@ -447,16 +448,19 @@ func TestPlainTextViewDropsDeletedSurface(t *testing.T) {
 	}
 }
 
-// TestPlainTextViewImports asserts PlainTextView imports CancelPlainText and
-// GetPlainTextSize from the regenerated binding and does not import
-// GetPlainTextFull.
+// TestPlainTextViewImports asserts PlainTextView imports GetPlainText and
+// GetPlainTextSize from the regenerated binding and no longer imports
+// CancelPlainText.
 func TestPlainTextViewImports(t *testing.T) {
 	src := readSource(t, "frontend/src/components/PlainTextView.tsx")
-	required := []string{"GetPlainText", "CancelPlainText", "GetPlainTextSize"}
+	required := []string{"GetPlainText", "GetPlainTextSize"}
 	for _, sym := range required {
 		if !strings.Contains(src, sym) {
 			t.Errorf("PlainTextView.tsx must import %q from the pdfservice bindings", sym)
 		}
+	}
+	if strings.Contains(src, "CancelPlainText") {
+		t.Errorf("PlainTextView.tsx must NOT import CancelPlainText -- the Cancel button aborts the bound call via cancel()")
 	}
 }
 

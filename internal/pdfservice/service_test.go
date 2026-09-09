@@ -1,6 +1,7 @@
 package pdfservice
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -548,7 +549,7 @@ func TestGetPlainTextValid(t *testing.T) {
 	}
 	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
-	pt, err := svc.GetPlainText(info.TabID)
+	pt, err := svc.GetPlainText(context.Background(), info.TabID)
 	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}
@@ -565,7 +566,7 @@ func TestGetPlainTextValid(t *testing.T) {
 
 func TestGetPlainTextUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
-	_, err := svc.GetPlainText("does-not-exist")
+	_, err := svc.GetPlainText(context.Background(), "does-not-exist")
 	if err == nil {
 		t.Fatal("expected error for unknown tab, got nil")
 	}

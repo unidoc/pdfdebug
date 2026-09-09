@@ -6,12 +6,11 @@
 // namespaces; this suite pins that the Go-emit / JS-consume event names survive
 // the bump and that no native:* prefix is introduced.
 //
-// These read main.go the same way the GRANDFATHERED event assertions in
-// tests/wails-alpha-95-upgrade do. They are NOT new content-grep tests of a
-// guarded file in the
+// These read main.go the same way the project's established event-surface
+// assertions do. They are NOT new content-grep tests of a guarded file in the
 // source-grep-guard sense: the guard forbids NEW greps of
-// main.go/MainLayout.tsx/EmptyState.tsx; the alpha-95 main.go event greps are
-// grandfathered and this suite reuses that exact established pattern for the same
+// main.go/MainLayout.tsx/EmptyState.tsx; these main.go event greps are
+// grandfathered and this suite reuses that established pattern for the same
 // upgrade-audit purpose.
 package wails_alpha2_103_upgrade_test
 

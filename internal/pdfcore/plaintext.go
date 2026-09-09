@@ -24,18 +24,26 @@ const maxPlainTextAlloc = int64(4) << 30
 // Latin-1-decoded view of the FULL file: no size cap, no two-tier
 // "Load all" step.
 //
-// The read is cancellable: a per-document context.CancelFunc is stored under
-// the dedicated plainTextCancelMu mutex so CancelPlainText can preempt the
-// read without contending against plainTextMu (which is held for the entire
-// I/O). Cancellation returns context.Canceled UNWRAPPED -- wrapPDFError would
-// reclassify it as ErrMalformedPDF and break errors.Is(err, context.Canceled).
+// The read is cancellable: it observes cancellation of the passed ctx (the
+// Wails-injected request context, cancelled when the frontend aborts the bound
+// call) AND of the document's closeCtx (cancelled on Close / re-Open), merged
+// via context.AfterFunc. Cancellation returns context.Canceled or
+// context.DeadlineExceeded UNWRAPPED -- wrapPDFError would reclassify either as
+// ErrMalformedPDF and break errors.Is against the context sentinels.
 //
 // Concurrent callers for the same tab serialize on plainTextMu. The first
 // performs the disk read; subsequent callers see the cached pointer.
 // Cancelled and errored loads do NOT populate the cache.
-func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
+func (ins *Inspector) GetPlainText(ctx context.Context, tabID string) (*PlainTextDocument, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
+		return nil, err
+	}
+
+	// A caller ctx already cancelled or past its deadline short-circuits before
+	// any work, including a cache hit: the caller aborted the call and will
+	// discard the result.
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
@@ -45,74 +53,37 @@ func (ins *Inspector) GetPlainText(tabID string) (*PlainTextDocument, error) {
 		return doc.plainTextCache, nil
 	}
 
-	// Create a per-call cancel context and publish it under the cancel mutex
-	// (NOT plainTextMu, which is already held). Defer cleanup that clears the
-	// slot AND calls cancel() idempotently -- safe to call after success.
-	//
-	// plainTextClosed check closes the race window where Inspector.Close fires
-	// between GetDocument and this registration: Close would observe a nil
-	// cancel func and the read would otherwise run to natural completion,
-	// defeating the "one chunk-read cycle" promise. By checking the closed
-	// flag while holding plainTextCancelMu, we either see Close's flag (bail
-	// with context.Canceled) or our cancel func is published before Close can
-	// observe it.
-	ctx, cancel := context.WithCancel(context.Background())
-	doc.plainTextCancelMu.Lock()
-	if doc.plainTextClosed {
-		doc.plainTextCancelMu.Unlock()
-		cancel()
-		return nil, context.Canceled
-	}
-	doc.plainTextLoadCancel = cancel
-	doc.plainTextCancelMu.Unlock()
-	defer func() {
-		doc.plainTextCancelMu.Lock()
-		doc.plainTextLoadCancel = nil
-		doc.plainTextCancelMu.Unlock()
-		cancel()
-	}()
+	// Merge the caller's ctx (user cancel) with the document's closeCtx (tab
+	// close / re-Open): readCtx is cancelled by whichever fires first. AfterFunc
+	// registers the merge without a managed goroutine; stop() unregisters it on
+	// return so a completed read leaves no callback pending. This also covers
+	// the race where Close fires between GetDocument and here: closeCtx is
+	// already cancelled, so AfterFunc invokes cancel immediately.
+	readCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(doc.closeCtx, cancel)
+	defer stop()
 
 	var out *PlainTextDocument
 	err = safeCall(func() error {
 		var e error
-		out, e = readPlainText(ctx, doc.FilePath, doc.FileSize, tabID)
+		out, e = readPlainText(readCtx, doc.FilePath, doc.FileSize, tabID)
 		return e
 	})
 	if err != nil {
-		// Bypass wrapPDFError for cancellation AND ErrUnsupportedPDF (the 4 GiB
-		// ceiling guard) so errors.Is(err, ...) survives across the boundary.
-		// The wrapper's %v verb stringifies the inner error and severs the
-		// chain; for context.Canceled the result is a misleading "malformed PDF"
-		// message, for ErrUnsupportedPDF the sentinel contract breaks. See Dev
-		// Notes "Why bypass wrapPDFError for context.Canceled".
-		if errors.Is(err, context.Canceled) || errors.Is(err, ErrUnsupportedPDF) {
+		// Bypass wrapPDFError for the context termination sentinels AND
+		// ErrUnsupportedPDF (the 4 GiB ceiling guard) so errors.Is survives across
+		// the boundary. The wrapper's %v verb stringifies the inner error and
+		// severs the chain; a context termination would otherwise read as a
+		// misleading "malformed PDF", and the ErrUnsupportedPDF sentinel contract
+		// would break.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrUnsupportedPDF) {
 			return nil, err
 		}
 		return nil, wrapPDFError(err)
 	}
 	doc.plainTextCache = out
 	return out, nil
-}
-
-// CancelPlainText cancels an in-flight GetPlainText for tabID. No-op if no
-// load is in flight or the load already completed. Returns ErrDocumentNotFound
-// for unknown tabs. MUST acquire only plainTextCancelMu -- acquiring
-// plainTextMu would deadlock against the active read.
-//
-// Returns immediately; the in-flight goroutine observes ctx.Done() between
-// chunks and unwinds on its own.
-func (ins *Inspector) CancelPlainText(tabID string) error {
-	doc, err := ins.GetDocument(tabID)
-	if err != nil {
-		return err
-	}
-	doc.plainTextCancelMu.Lock()
-	cancel := doc.plainTextLoadCancel
-	doc.plainTextCancelMu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
-	return nil
 }
 
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.

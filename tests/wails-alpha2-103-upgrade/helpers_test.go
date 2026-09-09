@@ -1,28 +1,19 @@
-// Package wails_alpha2_103_upgrade_test provides acceptance tests
-// for the Wails v3 bump (Go library + CLI) from alpha.95 to the
-// latest alpha2.103 (fallback alpha.102), regenerate bindings, loosen the
-// brittle method-count test into a consumer-driven presence contract, and add a
-// wire-shape guard for the alpha.96 struct-tag change.
+// Package wails_alpha2_103_upgrade_test provides behavioral regression nets that
+// stand across a Wails v3 bump + binding regen: a consumer-driven binding-presence
+// contract, the live event-surface preservation checks, and a wire-shape guard for
+// the JSON struct-tag risk.
 //
-// Test pyramid for this story (per the user directive to favour API/integration
-// over E2E, unit only for business logic):
+// These are structural / CLI-integration acceptance checks (no new business
+// logic to unit-test) in an independent module, mirroring tests/page-render-info/.
+// The decisive coverage -- the live bindings round-trip in the WebView and the
+// cross-OS desktop smoke -- is the native runtime layer: it needs a real GUI
+// build plus OS IPC, so it is a manual cross-OS smoke that Playwright cannot
+// drive, and no E2E is authored here.
 //
-//   - The story introduces ZERO new business logic. The entire change is a
-//     platform-version bump + binding regen + a test-loosening + a wire-shape
-//     guard. There is no new function/hook/component to unit-test, and no
-//     automatable browser journey to E2E-test.
-//   - The decisive coverage (cold/warm OS file-association open, the live
-//     bindings round-trip in the WebView, multi-display / idle crash checks) is
-//     the native runtime layer. It requires a real GUI build + OS IPC and is, by
-//     the story's own design, MANUAL cross-OS smoke recorded in
-//     Completion Notes. Playwright cannot drive it; no red E2E is authored.
-//   - So every test here is a Go structural / CLI-integration acceptance test in
-//     this independent module (mirrors tests/wails-alpha-95-upgrade/ and
-//     tests/page-render-info/).
-//
-// The Go assertions run against the built tree rather than being skipped: the
-// version assertions read the pins, and the wire-shape guards stand as the
-// regression net across the bump.
+// This module is an independent go.mod (the project convention: no `replace` link
+// into the main module, which would drag the whole Wails tree into a test module).
+// It reads the repo's static files and exercises the CLI, the executable
+// expression of the SAME internal/pdfcore model.go structs.
 //
 // Run: cd tests/wails-alpha2-103-upgrade && go test -v -count=1 ./...
 package wails_alpha2_103_upgrade_test
@@ -30,85 +21,13 @@ package wails_alpha2_103_upgrade_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 )
-
-// preBumpBaselineOrdinal is the ordinal of the current pin, v3.0.0-alpha.95.
-// The post-bump pin MUST be strictly newer than this on every Go-side
-// touch-point (go.mod, go.sum, ci.yml, release.yml). Both the alpha2.103 target
-// and the alpha.102 fallback clear it.
-const preBumpBaselineOrdinal = 95 // == alpha.95 ordinal; see alphaOrdinal.
-
-// jsRuntimePreBumpAlpha is the current @wailsio/runtime pin alpha number. The
-// npm runtime tops out at alpha.79: the post-bump pin must be a well-formed
-// 3.0.0-alpha.N tag with N >= this. It must NOT be rewritten to a phantom
-// alpha2.* tag (none is published on npm; the story's explicit anti-pattern).
-const jsRuntimePreBumpAlpha = 79
-
-// goWailsRe matches a Wails Go pin in either scheme and captures the variant
-// digit (empty for plain `alpha`, "2" for `alpha2`) and the trailing number:
-//
-//	v3.0.0-alpha.95    -> groups ("",  "95")
-//	v3.0.0-alpha2.103  -> groups ("2", "103")
-var goWailsRe = regexp.MustCompile(`v3\.0\.0-alpha(2)?\.(\d+)`)
-
-// jsRuntimeRe matches a @wailsio/runtime pin in either scheme and captures the
-// variant digit and the trailing number (same shape as goWailsRe, sans the
-// leading `v`).
-var jsRuntimeRe = regexp.MustCompile(`3\.0\.0-alpha(2)?\.(\d+)`)
-
-// alphaOrdinal collapses the two version schemes into ONE monotonic line so
-// "strictly newer" comparisons work across the alpha.95 -> alpha2.103 jump.
-// `alpha.K` maps to K; `alpha2.K` maps to alpha2Base+K. alpha2Base (1000) is
-// safely above any plain-alpha number Wails has shipped, so every alpha2.* sorts
-// after every alpha.*, which matches the upstream release ordering
-// (alpha.102 < alpha2.103). Returns -1 on no match.
-func alphaOrdinal(re *regexp.Regexp, s string) int {
-	const alpha2Base = 1000
-	m := re.FindStringSubmatch(s)
-	if len(m) < 3 {
-		return -1
-	}
-	n, err := strconv.Atoi(m[2])
-	if err != nil {
-		return -1
-	}
-	if m[1] == "2" {
-		return alpha2Base + n
-	}
-	return n
-}
-
-// allAlphaOrdinals returns the ordinal of every Wails/runtime pin matched in s.
-// Used to catch a file that still carries the old pin alongside the new one.
-func allAlphaOrdinals(re *regexp.Regexp, s string) []int {
-	const alpha2Base = 1000
-	all := re.FindAllStringSubmatch(s, -1)
-	out := make([]int, 0, len(all))
-	for _, m := range all {
-		if len(m) < 3 {
-			continue
-		}
-		n, err := strconv.Atoi(m[2])
-		if err != nil {
-			continue
-		}
-		if m[1] == "2" {
-			out = append(out, alpha2Base+n)
-		} else {
-			out = append(out, n)
-		}
-	}
-	return out
-}
 
 // projectRoot walks up from the working directory until it finds the project
 // go.mod (module unidoc-pdf-debugger), and returns its absolute path.
@@ -314,26 +233,4 @@ func mustParseJSONObject(t *testing.T, s string) map[string]any {
 		t.Fatalf("failed to parse JSON object: %v\nraw: %s", err, s)
 	}
 	return m
-}
-
-// goWailsLine returns the `github.com/wailsapp/wails/v3 ` require line from
-// go.mod, or "" if absent.
-func goWailsLine(t *testing.T) string {
-	t.Helper()
-	src := readSource(t, "go.mod")
-	for _, l := range strings.Split(src, "\n") {
-		if strings.Contains(l, "github.com/wailsapp/wails/v3 ") {
-			return l
-		}
-	}
-	return ""
-}
-
-// fmtOrdinal renders an ordinal back to a human-readable Wails tag for messages.
-func fmtOrdinal(ord int) string {
-	const alpha2Base = 1000
-	if ord >= alpha2Base {
-		return fmt.Sprintf("alpha2.%d", ord-alpha2Base)
-	}
-	return fmt.Sprintf("alpha.%d", ord)
 }
