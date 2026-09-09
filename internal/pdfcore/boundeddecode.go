@@ -23,6 +23,13 @@ var errUnrunnablePredictor = errors.New("predictor parameters cannot be applied"
 // instead of attempted.
 var errTruncatedRun = errors.New("filter stream ends mid-run")
 
+// errPipelineUnmeasured reports a filter pipeline countStages could not measure
+// end to end: a filter it cannot size without a real decode leads or interrupts
+// the runnable chain. The embedded path refuses on it. It deliberately does NOT
+// wrap ErrUnsupportedPDF, so a caller can tell an unmeasured pipeline from an
+// over-ceiling one.
+var errPipelineUnmeasured = errors.New("filter pipeline could not be measured end to end")
+
 // decodeBounded returns the decoded bytes of sd and rejects a stream whose
 // decoded size exceeds limit with ErrUnsupportedPDF. On success sd.Content
 // holds the same bytes, so the caller may hand the StreamDict on to pdfcpu's
@@ -36,15 +43,21 @@ var errTruncatedRun = errors.New("filter stream ends mid-run")
 // pdfcpu buffers the full output of each filter before running the next, so an
 // intermediate stage is an allocation of its own.
 //
-// The one shape still measured after the fact is a pipeline carrying a filter
-// the counter does not model - CCITTFaxDecode, 4-component DCTDecode,
-// JBIG2Decode. Those are counted up to that filter, so what feeds it is
-// bounded, and its own expansion is left to the post-decode check.
+// The shapes still measured after the fact carry a runnable filter the counter
+// cannot size: a 4-component DCTDecode or JBIG2Decode, a CCITTFaxDecode whose
+// geometry gives no row count, or any filter after a chain-ending stage. Those
+// are counted up to that filter, so what feeds it is bounded, and its own
+// expansion is left to the post-decode check. countStages reports such a
+// pipeline as unmeasured rather than silently reading its absent count as
+// in-bounds. When refuseUnmeasured is set the decode is refused on that fact
+// instead of attempted; the embedded path sets it (it has no geometry to bound
+// the decode), the image path does not (its ceiling is geometry-derived and the
+// post-decode check backstops it).
 //
 // A pipeline that opens with a filter the decoder stops at (JPXDecode, or
 // DCTDecode on a stream that is not 4-component) is refused, because pdfcpu
 // copies from a nil reader in that shape.
-func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
+func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64, refuseUnmeasured bool) ([]byte, error) {
 	// The loader pre-decodes a few stream kinds (XRef streams, object streams,
 	// zero-length streams), which need no decode at all. Answered before the
 	// raw guard, because an encoding may be larger than the payload it carries.
@@ -94,8 +107,15 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error) {
 		}
 	}
 
-	if err := countStages(sd, limit); err != nil {
+	m, err := countStages(sd, limit)
+	if err != nil {
 		return nil, err
+	}
+	// A pipeline the counter could not measure end to end is a known gap, not a
+	// silent one. The embedded path refuses it; the image path proceeds under its
+	// geometry-derived ceiling and relies on the post-decode backstop.
+	if !m.measured && refuseUnmeasured {
+		return nil, fmt.Errorf("%w: from %s", errPipelineUnmeasured, m.firstUnmeasured)
 	}
 
 	if err := safeCall(func() error { return sd.Decode() }); err != nil {
