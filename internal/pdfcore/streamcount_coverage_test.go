@@ -10,6 +10,7 @@
 package pdfcore
 
 import (
+	"encoding/base64"
 	"errors"
 	"testing"
 
@@ -242,5 +243,39 @@ func TestFilterClassification_EveryPDFCPUFilterIsCountedOrUnmodelled(t *testing.
 	// the list to be explicit rather than a catch-all default.
 	if _, known := filterModelled["NotARealDecode"]; known {
 		t.Error("an unknown filter name must not be classified, or the classification is a fail-open default")
+	}
+}
+
+// The geometry model is validated against pdfcpu's real decoder, not just its
+// own arithmetic. A genuine Group 4 stream (x/image's 153x55 bw-gopher fixture,
+// whose 153-pixel width is not byte-aligned) is decoded through pdfcpu, and its
+// output length must equal ccittDecodedSize's geometry-derived count. If
+// pdfcpu's bit packing or parameter handling ever diverged from
+// ceil(Columns/8)*Rows, this fails where the pure-arithmetic cases would not.
+func TestCCITTDecodedSizeMatchesRealDecode(t *testing.T) {
+	const gopherGroup4B64 = "O1pwQMjnCO57SPGEEkwiPMpOgqV+Ekk2HT96DZXW6NgLaelbKyyq0CI6CsL/hBMqoLx9AguDBGF1VlcErK19giOgS74YUQmVpuIaI9d2KeHYUHxYRdWUNj8KyhrOxtfO0gjKEGnnZcE0CMLnYYdlJx87gHZVRULk0C4jyshWUYypgnyWghEhspJkWByJgnwRCCoX2cSIbAfiVAN75VQb/IWDGlkRZ8f99BF1/ukF6Q8JbShlahWUgKy7BYIuflDWljgAgAg="
+	raw, err := base64.StdEncoding.DecodeString(gopherGroup4B64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parms := pdfcpu_types.Dict{
+		"K":       pdfcpu_types.Integer(-1),
+		"Columns": pdfcpu_types.Integer(153),
+		"Rows":    pdfcpu_types.Integer(55),
+	}
+	modelled, ok := ccittDecodedSize(parms, 0)
+	if !ok {
+		t.Fatal("the model could not size a valid CCITT geometry")
+	}
+	sd := &pdfcpu_types.StreamDict{
+		Dict:           pdfcpu_types.Dict{"Filter": pdfcpu_types.Name("CCITTFaxDecode"), "DecodeParms": parms},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "CCITTFaxDecode", DecodeParms: parms}},
+		Raw:            raw,
+	}
+	if err := sd.Decode(); err != nil {
+		t.Fatalf("pdfcpu could not decode the CCITT fixture: %v", err)
+	}
+	if int64(len(sd.Content)) != modelled {
+		t.Fatalf("model sized the CCITT output at %d bytes, pdfcpu decoded %d", modelled, len(sd.Content))
 	}
 }

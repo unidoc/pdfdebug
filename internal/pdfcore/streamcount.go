@@ -116,6 +116,13 @@ func stageCounters(sd *pdfcpu_types.StreamDict, limit int64) ([]*stageCounter, s
 		// limit+1 bytes, which is one more than the ceiling allows and so
 		// enough to convict it.
 		c := &stageCounter{r: io.LimitReader(out, limit+1), src: out}
+		// A stage whose output size is known from geometry (CCITTFaxDecode)
+		// records its count directly rather than draining a synthetic payload,
+		// which on the image path would be an O(limit) pass under the document
+		// lock. The count is capped at limit+1, the same bound the drain applies.
+		if ks, ok := out.(knownSize); ok {
+			c.n = min(ks.size(), limit+1)
+		}
 		counters = append(counters, c)
 		r = c
 		// A stage that is counted but cannot feed the next one ends the chain
@@ -217,15 +224,15 @@ func filterReader(r io.Reader, f pdfcpu_types.PDFFilter, last bool, height int) 
 
 	case "CCITTFaxDecode":
 		// The decoded bitmap is sized from geometry, not decoded. The chain ends
-		// here because the zero reader carries the right COUNT but not the bytes
-		// a following filter would read - measuring that filter over zeros would
-		// under-count it. A stream missing both /Rows and /Height cannot be
-		// sized and is left unmeasured.
+		// here because the size stands in for the bytes a following filter would
+		// read - measuring that filter over a synthetic payload would under-count
+		// it. A stream missing both /Rows and /Height cannot be sized and is left
+		// unmeasured.
 		n, ok := ccittDecodedSize(f.DecodeParms, height)
 		if !ok {
 			return nil, false
 		}
-		return &zeroReader{n: n}, false
+		return sizedStage{n: n}, false
 	}
 
 	// Unreachable: filterModelled admits only the cases above. Kept so the
@@ -468,26 +475,20 @@ func earlyChange(parms pdfcpu_types.Dict) bool {
 	return n == 1
 }
 
-// zeroReader yields n zero bytes and nothing more. It is the fixed-size stand-in
-// for a stage whose output byte COUNT is known but whose bytes are not, so the
-// counter measures the size without materialising the payload. CCITTFaxDecode
-// uses it: only ccittDecodedSize's count is asserted, never the bitmap.
-type zeroReader struct{ n int64 }
+// knownSize is implemented by a stage reader whose decoded byte count is known
+// without reading it. stageCounters records that count directly instead of
+// draining the stage, so a large geometry does not drive an O(limit) pass under
+// the document lock.
+type knownSize interface{ size() int64 }
 
-func (z *zeroReader) Read(p []byte) (int, error) {
-	if z.n <= 0 {
-		return 0, io.EOF
-	}
-	k := int64(len(p))
-	if k > z.n {
-		k = z.n
-	}
-	for i := int64(0); i < k; i++ {
-		p[i] = 0
-	}
-	z.n -= k
-	return int(k), nil
-}
+// sizedStage stands in for a stage whose decoded size is computed from geometry
+// rather than by decoding (CCITTFaxDecode). It yields no bytes; only its size is
+// read, so the bitmap is never materialised.
+type sizedStage struct{ n int64 }
+
+func (sizedStage) Read([]byte) (int, error) { return 0, io.EOF }
+
+func (s sizedStage) size() int64 { return s.n }
 
 // ccittDecodedSize reports the byte size of the bilevel bitmap pdfcpu's
 // CCITTFaxDecode allocates, computed from the decode parameters without decoding.

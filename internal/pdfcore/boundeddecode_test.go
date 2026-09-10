@@ -660,6 +660,9 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 // the decode starts, because a hang holding the document lock cannot be
 // recovered from.
 func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
+	// int64 max/2, materialised at runtime so the conversion to the int-sized
+	// Integer is not a constant conversion that overflows on a 32-bit build.
+	var overflowColumns int64 = 4611686018427387903
 	for _, c := range []struct {
 		name  string
 		key   string
@@ -681,7 +684,7 @@ func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
 		{"bits per component past the sample bound", "BitsPerComponent", pdfcpu_types.Integer(4096)},
 		// Large enough that bpc*colors*columns wraps int64 to a negative value,
 		// which would otherwise give a zero row size and divide by zero.
-		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(4611686018427387903)},
+		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(overflowColumns)},
 	} {
 		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
 		if err := checkPredictorParms(parms, 64*1024); !errors.Is(err, errUnrunnablePredictor) {

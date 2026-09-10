@@ -357,11 +357,13 @@ func TestCountStages_CCITTOverflowGeometryIsRefused(t *testing.T) {
 	if math.MaxInt < 1<<40 {
 		t.Skip("overflow geometry fixture needs a 64-bit int")
 	}
-	huge := pdfcpu_types.Integer(int64(1) << 40)
+	// Materialised at runtime so the conversion to the int-sized Integer is not a
+	// constant conversion that overflows at compile time on a 32-bit build.
+	var huge int64 = 1 << 40
 	sd := pipeline([]byte("ccitt"), "CCITTFaxDecode")
 	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
-		"Columns": huge,
-		"Rows":    huge,
+		"Columns": pdfcpu_types.Integer(huge),
+		"Rows":    pdfcpu_types.Integer(huge),
 	}
 	if _, err := countStages(sd, 50*1024*1024); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("an overflowing CCITT geometry must be refused, got %v", err)
