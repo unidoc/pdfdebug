@@ -381,7 +381,7 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 
 	var out []byte
 	if len(sd.FilterPipeline) > 0 {
-		out, err = decodeBounded(&sd, maxImageBytes)
+		out, err = decodeBounded(&sd, maxImageBytes, true)
 		if err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
 				return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))

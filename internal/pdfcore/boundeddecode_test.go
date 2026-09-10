@@ -1,6 +1,6 @@
 // Co-located unit tests for the bounded stream-decode helper:
 //
-//	decodeBounded(sd *pdfcpu_types.StreamDict, limit int64) ([]byte, error)
+//	decodeBounded(sd *pdfcpu_types.StreamDict, limit int64, refuseUnmeasured bool) ([]byte, error)
 //
 // The helper caps how much a compressed stream may inflate to, so a small
 // highly-compressible payload cannot allocate its way to an OOM before the
@@ -68,13 +68,38 @@ func flateStream(raw []byte) *pdfcpu_types.StreamDict {
 	}
 }
 
+// The embedded path refuses a pipeline the counter could not measure end to end;
+// the image path proceeds under its geometry-derived ceiling and the post-decode
+// backstop. decodeBounded's refuseUnmeasured flag carries that per-call-site
+// decision.
+func TestDecodeBounded_UnmeasuredPipelineRefusedOnlyWhenAsked(t *testing.T) {
+	// 4-component DCTDecode is runnable but unmodelled, so the pipeline is
+	// unmeasured. The refusal happens before any decode, so the raw body never
+	// has to be a real JPEG.
+	newSD := func() *pdfcpu_types.StreamDict {
+		return &pdfcpu_types.StreamDict{
+			Dict:           pdfcpu_types.Dict{},
+			FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "DCTDecode"}},
+			Raw:            []byte("not really a jpeg"),
+			CSComponents:   4,
+		}
+	}
+
+	if _, err := decodeBounded(newSD(), 1024, true); !errors.Is(err, errPipelineUnmeasured) {
+		t.Fatalf("refuseUnmeasured must reject an unmeasured pipeline before the decode, got %v", err)
+	}
+	if _, err := decodeBounded(newSD(), 1024, false); errors.Is(err, errPipelineUnmeasured) {
+		t.Fatalf("without refuseUnmeasured the pipeline must proceed to the decode, not be refused as unmeasured, got %v", err)
+	}
+}
+
 // A stream that inflates past the limit is rejected, and the rejection is the
 // extraction-ceiling sentinel rather than a decode failure.
 func TestDecodeBounded_OverLimitReturnsUnsupported(t *testing.T) {
 	const limit = int64(64 * 1024)
 	sd := flateStream(zlibZeros(t, 8*1024*1024))
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got err=%v (out %d bytes)", err, len(out))
 	}
@@ -113,7 +138,7 @@ func TestDecodeBounded_OverLimitDoesNotFullyInflate(t *testing.T) {
 
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	runtime.ReadMemStats(&after)
 
 	if !errors.Is(err, ErrUnsupportedPDF) {
@@ -133,7 +158,7 @@ func TestDecodeBounded_InBoundsStreamReturnsDecodedBytes(t *testing.T) {
 	payload := bytes.Repeat([]byte("compressible-"), 2000)
 	sd := flateStream(zlibBytes(t, payload))
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -150,7 +175,7 @@ func TestDecodeBounded_StreamFarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	payload := []byte("a tiny attachment")
 	sd := flateStream(zlibBytes(t, payload))
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success for a stream far below the limit, got %v", err)
 	}
@@ -166,7 +191,7 @@ func TestDecodeBounded_InBoundsStreamPopulatesContent(t *testing.T) {
 	payload := bytes.Repeat([]byte{0x41}, 4096)
 	sd := flateStream(zlibBytes(t, payload))
 
-	if _, err := decodeBounded(sd, limit); err != nil {
+	if _, err := decodeBounded(sd, limit, false); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
 	if !bytes.Equal(sd.Content, payload) {
@@ -181,7 +206,7 @@ func TestDecodeBounded_RawPayloadOverLimitRejected(t *testing.T) {
 	const limit = int64(1024)
 	sd := flateStream(bytes.Repeat([]byte{0x7a}, 4096))
 
-	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := decodeBounded(sd, limit, false); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF for a raw payload over the limit, got %v", err)
 	}
 }
@@ -198,7 +223,7 @@ func TestDecodeBounded_PreDecodedContentBeatsOversizedRaw(t *testing.T) {
 		Content: payload,
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected the pre-decoded payload, got %v", err)
 	}
@@ -218,11 +243,11 @@ func TestDecodeBounded_TruncatedFlateStreamStillDecodes(t *testing.T) {
 
 	// Pin what makes this work: the count tolerates the truncation rather than
 	// treating the read error as an over-ceiling verdict.
-	if err := countStages(flateStream(raw[:len(raw)-4]), limit); err != nil {
+	if _, err := countStages(flateStream(raw[:len(raw)-4]), limit); err != nil {
 		t.Fatalf("expected a truncated in-bounds stream to count as in bounds, got %v", err)
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected a truncated in-bounds stream to decode, got %v", err)
 	}
@@ -238,7 +263,7 @@ func TestDecodeBounded_TruncatedOverLimitStreamRejected(t *testing.T) {
 	raw := zlibZeros(t, 8*1024*1024)
 	sd := flateStream(raw[:len(raw)-4])
 
-	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := decodeBounded(sd, limit, false); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF for a truncated over-ceiling stream, got %v", err)
 	}
 }
@@ -250,7 +275,7 @@ func TestDecodeBounded_UnfilteredStreamReturnsRawBytes(t *testing.T) {
 	payload := []byte("unfiltered attachment body")
 	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, Raw: payload}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -270,7 +295,7 @@ func TestDecodeBounded_EmptyFilterPipelineReturnsRawBytes(t *testing.T) {
 		Raw:            payload,
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -286,7 +311,7 @@ func TestDecodeBounded_AlreadyDecodedStreamReturnsContent(t *testing.T) {
 	sd := flateStream([]byte("ignored raw"))
 	sd.Content = payload
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -301,7 +326,7 @@ func TestDecodeBounded_AlreadyDecodedStreamOverLimitRejected(t *testing.T) {
 	sd := flateStream([]byte("ignored raw"))
 	sd.Content = bytes.Repeat([]byte{0x42}, 4096)
 
-	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := decodeBounded(sd, limit, false); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF for pre-decoded content over the limit, got %v", err)
 	}
 }
@@ -318,7 +343,7 @@ func TestDecodeBounded_SoleDCTStreamReturnsRawBytes(t *testing.T) {
 		Raw:            payload,
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -337,7 +362,7 @@ func TestDecodeBounded_SoleJPXStreamReturnsRawBytes(t *testing.T) {
 		Raw:            payload,
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -382,7 +407,7 @@ func TestDecodeBounded_PredictorFlateStreamDecodesWithoutPanic(t *testing.T) {
 	const limit = int64(64 * 1024)
 	sd, expected := predictorFlateStream(t, 10)
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success for an in-bounds predictor stream, got %v", err)
 	}
@@ -399,7 +424,7 @@ func TestDecodeBounded_PredictorFlateStreamOverLimitRejected(t *testing.T) {
 	const limit = int64(1024)
 	sd, _ := predictorFlateStream(t, 4096)
 
-	if _, err := decodeBounded(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := decodeBounded(sd, limit, false); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF for an over-limit predictor stream, got %v", err)
 	}
 }
@@ -424,7 +449,7 @@ func TestDecodeBounded_ASCII85ThenFlatePipelineReturnsDecodedBytes(t *testing.T)
 		Raw: raw,
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -458,7 +483,7 @@ func TestDecodeBounded_PipelineLedByDCTReturnsDecodeError(t *testing.T) {
 	for _, terminal := range []string{"FlateDecode", "RunLengthDecode"} {
 		sd := stopperLedStream(t, "DCTDecode", terminal)
 
-		out, err := decodeBounded(sd, limit)
+		out, err := decodeBounded(sd, limit, false)
 		if !errors.Is(err, errStoppingFilterLeadsPipeline) {
 			t.Fatalf("terminal %s: expected the leading-stopper refusal, got err=%v (out %d bytes)", terminal, err, len(out))
 		}
@@ -474,7 +499,7 @@ func TestDecodeBounded_PipelineLedByJPXReturnsDecodeError(t *testing.T) {
 	const limit = int64(64 * 1024)
 	sd := stopperLedStream(t, "JPXDecode", "FlateDecode")
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if !errors.Is(err, errStoppingFilterLeadsPipeline) {
 		t.Fatalf("expected the leading-stopper refusal, got err=%v (out %d bytes)", err, len(out))
 	}
@@ -490,7 +515,7 @@ func TestDecodeBounded_PipelineLedByFourComponentDCTIsNotRefused(t *testing.T) {
 	sd := stopperLedStream(t, "DCTDecode", "FlateDecode")
 	sd.CSComponents = 4
 
-	_, err := decodeBounded(sd, limit)
+	_, err := decodeBounded(sd, limit, false)
 	if err == nil {
 		t.Fatal("expected the JPEG decode of a non-JPEG payload to fail")
 	}
@@ -515,7 +540,7 @@ func TestDecodeBounded_MidPipelineStopperDecodesEarlierFilters(t *testing.T) {
 		Raw: zlibBytes(t, payload),
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -538,7 +563,7 @@ func TestDecodeBounded_TrailingDCTInPipelineDecodesEarlierFilters(t *testing.T) 
 		Raw: zlibBytes(t, payload),
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -566,7 +591,7 @@ func TestDecodeBounded_SoleASCII85InBoundsReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("ascii85-payload-"), 256)
 
-	out, err := decodeBounded(ascii85Stream(payload), limit)
+	out, err := decodeBounded(ascii85Stream(payload), limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -586,7 +611,7 @@ func TestDecodeBounded_SoleASCII85OverLimitRejectedByEncodedSize(t *testing.T) {
 	if int64(len(sd.Raw)) <= limit {
 		t.Fatalf("fixture no longer exceeds the limit when encoded: %d bytes", len(sd.Raw))
 	}
-	_, err := decodeBounded(sd, limit)
+	_, err := decodeBounded(sd, limit, false)
 	if err == nil || !strings.Contains(err.Error(), "encoded stream") {
 		t.Fatalf("expected the encoded-size rejection, got %v", err)
 	}
@@ -598,7 +623,7 @@ func TestDecodeBounded_SoleASCII85FarBelowLimitReturnsDecodedBytes(t *testing.T)
 	const limit = int64(50 * 1024 * 1024)
 	payload := []byte("tiny")
 
-	out, err := decodeBounded(ascii85Stream(payload), limit)
+	out, err := decodeBounded(ascii85Stream(payload), limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -621,7 +646,7 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 	broken[len(broken)-1] ^= 0xff
 
 	sd := flateStream(broken)
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected a %d-byte in-bounds stream to decode under a %d limit, got %v", size, limit, err)
 	}
@@ -635,6 +660,9 @@ func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 // the decode starts, because a hang holding the document lock cannot be
 // recovered from.
 func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
+	// int64 max/2, materialised at runtime so the conversion to the int-sized
+	// Integer is not a constant conversion that overflows on a 32-bit build.
+	var overflowColumns int64 = 4611686018427387903
 	for _, c := range []struct {
 		name  string
 		key   string
@@ -656,7 +684,7 @@ func TestDecodeBounded_NonPositivePredictorParmsRefused(t *testing.T) {
 		{"bits per component past the sample bound", "BitsPerComponent", pdfcpu_types.Integer(4096)},
 		// Large enough that bpc*colors*columns wraps int64 to a negative value,
 		// which would otherwise give a zero row size and divide by zero.
-		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(4611686018427387903)},
+		{"columns large enough to overflow the row size", "Columns", pdfcpu_types.Integer(overflowColumns)},
 	} {
 		parms := pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12), c.key: c.value}
 		if err := checkPredictorParms(parms, 64*1024); !errors.Is(err, errUnrunnablePredictor) {
@@ -702,7 +730,7 @@ func TestDecodeBounded_HugePredictorColumnsAllocatesNothing(t *testing.T) {
 
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	_, err := decodeBounded(sd, 64*1024)
+	_, err := decodeBounded(sd, 64*1024, false)
 	runtime.ReadMemStats(&after)
 
 	if !errors.Is(err, errUnrunnablePredictor) {
@@ -728,7 +756,7 @@ func TestDecodeBounded_PredictorGuardIsWiredIntoTheDecodePath(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := decodeBounded(sd, 64*1024)
+		_, err := decodeBounded(sd, 64*1024, false)
 		done <- err
 	}()
 	select {
@@ -747,7 +775,7 @@ func TestDecodeBounded_AbsentPredictorParmsAreNotRefused(t *testing.T) {
 	sd := flateStream(zlibZeros(t, 4096))
 	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12)}
 
-	if _, err := decodeBounded(sd, 64*1024); errors.Is(err, errUnrunnablePredictor) {
+	if _, err := decodeBounded(sd, 64*1024, false); errors.Is(err, errUnrunnablePredictor) {
 		t.Errorf("absent predictor parms must not be refused: %v", err)
 	}
 }
@@ -798,7 +826,7 @@ func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("lzw-payload-"), 512)
 
-	out, err := decodeBounded(lzwStream(t, payload), limit)
+	out, err := decodeBounded(lzwStream(t, payload), limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -814,7 +842,7 @@ func TestDecodeBounded_SoleLZWFarBelowLimitReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
 	payload := []byte("tiny lzw")
 
-	out, err := decodeBounded(lzwStream(t, payload), limit)
+	out, err := decodeBounded(lzwStream(t, payload), limit, false)
 	if err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
@@ -838,7 +866,7 @@ func TestDecodeBounded_SoleLZWOverLimitRejected(t *testing.T) {
 	const allocCeiling = uint64(4 * 1024 * 1024)
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	_, err := decodeBounded(sd, limit)
+	_, err := decodeBounded(sd, limit, false)
 	runtime.ReadMemStats(&after)
 
 	if !errors.Is(err, ErrUnsupportedPDF) {
@@ -858,7 +886,7 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 	const limit = int64(1024)
 
 	rawOver := flateStream(bytes.Repeat([]byte{0x7a}, 4096))
-	_, rawErr := decodeBounded(rawOver, limit)
+	_, rawErr := decodeBounded(rawOver, limit, false)
 	if rawErr == nil {
 		t.Fatal("an encoded payload over the limit must be refused")
 	}
@@ -870,7 +898,7 @@ func TestDecodeBounded_CeilingRejectionNamesTheQuantityThatExceeded(t *testing.T
 	if int64(len(inflatesOver.Raw)) > limit {
 		t.Fatalf("fixture defeats the test: %d compressed bytes exceed the limit", len(inflatesOver.Raw))
 	}
-	_, decodedErr := decodeBounded(inflatesOver, limit)
+	_, decodedErr := decodeBounded(inflatesOver, limit, false)
 	if decodedErr == nil {
 		t.Fatal("a stream inflating past the limit must be refused")
 	}
@@ -894,7 +922,7 @@ func TestDecodeBounded_NonTerminalPredictorParmsRefused(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := decodeBounded(sd, 64*1024)
+		_, err := decodeBounded(sd, 64*1024, false)
 		done <- err
 	}()
 	select {
@@ -995,7 +1023,7 @@ func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
 	}
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	_, err := decodeBounded(sd, limit)
+	_, err := decodeBounded(sd, limit, false)
 	runtime.ReadMemStats(&after)
 
 	if !errors.Is(err, ErrUnsupportedPDF) {
@@ -1036,7 +1064,7 @@ func TestDecodeBounded_PredictorAfterAStopperIsNotRefused(t *testing.T) {
 		Raw: zlibBytes(t, payload),
 	}
 
-	out, err := decodeBounded(sd, 64*1024)
+	out, err := decodeBounded(sd, 64*1024, false)
 	if errors.Is(err, errUnrunnablePredictor) {
 		t.Fatalf("parameters after a stopper are unreachable and must not be refused: %v", err)
 	}
@@ -1094,7 +1122,7 @@ func TestDecodeBounded_PredictorParmsOnANonFlateFilterAreIgnored(t *testing.T) {
 		"Columns":   pdfcpu_types.Integer(0),
 	}
 
-	out, err := decodeBounded(sd, 64*1024)
+	out, err := decodeBounded(sd, 64*1024, false)
 	if errors.Is(err, errUnrunnablePredictor) {
 		t.Fatalf("parameters no filter consumes must not be refused: %v", err)
 	}
@@ -1115,7 +1143,7 @@ func TestDecodeBounded_PredictorParmsOnFlateAreStillRefused(t *testing.T) {
 		"Columns":   pdfcpu_types.Integer(0),
 	}
 
-	if _, err := decodeBounded(sd, 64*1024); !errors.Is(err, errUnrunnablePredictor) {
+	if _, err := decodeBounded(sd, 64*1024, false); !errors.Is(err, errUnrunnablePredictor) {
 		t.Fatalf("expected the unrunnable-predictor refusal, got %v", err)
 	}
 }

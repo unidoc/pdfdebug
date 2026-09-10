@@ -1,6 +1,6 @@
 // Co-located unit tests for the per-stage stream counter:
 //
-//	countStages(sd *pdfcpu_types.StreamDict, limit int64) error
+//	countStages(sd *pdfcpu_types.StreamDict, limit int64) (pipelineMeasurement, error)
 //
 // The counter measures what every filter of a pipeline produces before any of it
 // is allocated. These tests cover the multi-filter shapes: a stage that inflates
@@ -13,6 +13,7 @@ import (
 	"compress/zlib"
 	"encoding/ascii85"
 	"errors"
+	"math"
 	"runtime"
 	"testing"
 
@@ -85,12 +86,12 @@ func TestCountStages_MultiFilterBrokenChecksumIsNotRejected(t *testing.T) {
 	broken[len(broken)-1] ^= 0xff
 
 	sd := pipeline(ascii85Wrap(broken), "ASCII85Decode", "FlateDecode")
-	if err := countStages(sd, limit); err != nil {
+	if _, err := countStages(sd, limit); err != nil {
 		t.Fatalf("a %d-byte in-bounds stream must count as in bounds under a %d limit, got %v",
 			size, limit, err)
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected the stream to decode, got %v", err)
 	}
@@ -115,7 +116,7 @@ func TestCountStages_InflationBehindAShrinkingFilterIsRejected(t *testing.T) {
 	}
 
 	var err error
-	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit, false) })
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
 	}
@@ -139,7 +140,7 @@ func TestCountStages_InflationAbandonedByTheNextFilterIsRejected(t *testing.T) {
 	}
 
 	var err error
-	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit, false) })
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
 	}
@@ -156,7 +157,7 @@ func TestCountStages_InflationBehindARunLengthTerminatorIsRejected(t *testing.T)
 		"FlateDecode", "RunLengthDecode")
 
 	var err error
-	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit, false) })
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
 	}
@@ -178,7 +179,7 @@ func TestCountStages_PredictorInflationIsRejectedBeforeAllocation(t *testing.T) 
 	}
 
 	var err error
-	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit, false) })
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
 	}
@@ -203,11 +204,11 @@ func TestCountStages_PredictorRowsAreCountedWithoutTheFilterByte(t *testing.T) {
 		"Columns":   pdfcpu_types.Integer(rowSize),
 	}
 
-	if err := countStages(sd, limit); err != nil {
+	if _, err := countStages(sd, limit); err != nil {
 		t.Fatalf("a payload of exactly the ceiling must count as in bounds, got %v", err)
 	}
 
-	out, err := decodeBounded(sd, limit)
+	out, err := decodeBounded(sd, limit, false)
 	if err != nil {
 		t.Fatalf("expected the stream to decode, got %v", err)
 	}
@@ -228,10 +229,10 @@ func TestCountStages_TIFFPredictorRowsCarryNoFilterByte(t *testing.T) {
 		"Columns":   pdfcpu_types.Integer(rowSize),
 	}
 
-	if err := countStages(sd, int64(len(payload))); err != nil {
+	if _, err := countStages(sd, int64(len(payload))); err != nil {
 		t.Fatalf("a TIFF-predictor payload of exactly the ceiling must be in bounds, got %v", err)
 	}
-	if err := countStages(sd, int64(len(payload))-1); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := countStages(sd, int64(len(payload))-1); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("one byte under the ceiling must be refused, got %v", err)
 	}
 }
@@ -251,14 +252,14 @@ func TestCountStages_HexFeedingFlateCountsTheRealPayload(t *testing.T) {
 	}
 	sd := pipeline(append(hexed, '>'), "ASCIIHexDecode", "FlateDecode")
 
-	if err := countStages(sd, int64(len(payload))); err != nil {
+	if _, err := countStages(sd, int64(len(payload))); err != nil {
 		t.Fatalf("a payload of exactly the ceiling must be in bounds, got %v", err)
 	}
-	if err := countStages(sd, int64(len(payload))-1); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := countStages(sd, int64(len(payload))-1); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("one byte under the ceiling must be refused, got %v", err)
 	}
 
-	out, err := decodeBounded(sd, int64(len(payload)))
+	out, err := decodeBounded(sd, int64(len(payload)), false)
 	if err != nil {
 		t.Fatalf("expected the stream to decode, got %v", err)
 	}
@@ -285,12 +286,13 @@ func TestCountStages_NonTerminalPredictorStageIsStillCounted(t *testing.T) {
 	if err := checkPredictorParms(sd.FilterPipeline[0].DecodeParms, limit); err != nil {
 		t.Fatalf("fixture defeats the test: the predictor guard refuses it first: %v", err)
 	}
-	if n := len(stageCounters(sd, limit)); n != 1 {
+	counters, _ := stageCounters(sd, limit)
+	if n := len(counters); n != 1 {
 		t.Fatalf("expected the predictor stage to be counted and end the chain, got %d counters", n)
 	}
 
 	var err error
-	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit) })
+	alloc := allocatedBy(func() { _, err = decodeBounded(sd, limit, false) })
 	if !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected ErrUnsupportedPDF, got %v", err)
 	}
@@ -315,30 +317,102 @@ func TestCountStages_NonTerminalPredictorInBoundsIsNotRefused(t *testing.T) {
 
 	// The ceiling clears the inflated size, which is what this stage is counted
 	// at, so the over-estimate must not tip it over.
-	if err := countStages(sd, int64(len(payload))); err != nil {
+	if _, err := countStages(sd, int64(len(payload))); err != nil {
 		t.Fatalf("an in-bounds non-terminal predictor pipeline must not be refused, got %v", err)
 	}
 }
 
 // A filter the counter does not model stops the chain, and the stages ahead of
-// it are still measured. A Flate bomb feeding CCITTFaxDecode is refused on the
-// Flate stage even though nothing can predict what CCITT would produce.
+// it are still measured. A Flate bomb feeding JBIG2Decode is refused on the
+// Flate stage even though nothing can predict what JBIG2 would produce.
 func TestCountStages_InflationAheadOfAnUnmodelledFilterIsRejected(t *testing.T) {
 	const limit = int64(4 * 1024 * 1024)
 	sd := pipeline(zlibRepeat(t, nil, []byte{0}, 64*1024*1024),
-		"FlateDecode", "CCITTFaxDecode")
+		"FlateDecode", "JBIG2Decode")
 
-	if err := countStages(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := countStages(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("expected the Flate stage to be refused, got %v", err)
 	}
 }
 
 // A pipeline whose only filter is unmodelled is left to the post-decode check
 // rather than refused, so an image the counter cannot measure still extracts.
+// 4-component DCTDecode is the fixture: CCITTFaxDecode is now sized from its
+// geometry, so it no longer reaches the unmodelled path.
 func TestCountStages_SoleUnmodelledFilterIsNotRefused(t *testing.T) {
-	sd := pipeline([]byte("ccitt bytes"), "CCITTFaxDecode")
-	if err := countStages(sd, 1024); err != nil {
+	sd := &pdfcpu_types.StreamDict{
+		Dict:           pdfcpu_types.Dict{},
+		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "DCTDecode"}},
+		Raw:            []byte("dct bytes"),
+		CSComponents:   4,
+	}
+	if _, err := countStages(sd, 1024); err != nil {
 		t.Fatalf("an unmodelled filter must not be refused by the count, got %v", err)
+	}
+}
+
+// A CCITT geometry large enough to overflow the int64 output product is refused
+// rather than wrapping to a small count that reads as in bounds.
+func TestCountStages_CCITTOverflowGeometryIsRefused(t *testing.T) {
+	if math.MaxInt < 1<<40 {
+		t.Skip("overflow geometry fixture needs a 64-bit int")
+	}
+	// Materialised at runtime so the conversion to the int-sized Integer is not a
+	// constant conversion that overflows at compile time on a 32-bit build.
+	var huge int64 = 1 << 40
+	sd := pipeline([]byte("ccitt"), "CCITTFaxDecode")
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Columns": pdfcpu_types.Integer(huge),
+		"Rows":    pdfcpu_types.Integer(huge),
+	}
+	if _, err := countStages(sd, 50*1024*1024); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("an overflowing CCITT geometry must be refused, got %v", err)
+	}
+}
+
+// A negative /Rows is malformed: pdfcpu forwards it to x/image, which drops into
+// an unbounded auto-detect decode rather than a geometry-bounded one. The counter
+// reports it at the ceiling so the stream is refused before that allocation
+// rather than reaching the post-decode check.
+func TestCountStages_CCITTNegativeRowsIsRefused(t *testing.T) {
+	sd := pipeline([]byte("ccitt"), "CCITTFaxDecode")
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Columns": pdfcpu_types.Integer(1728),
+		"Rows":    pdfcpu_types.Integer(-1),
+	}
+	if _, err := countStages(sd, 50*1024*1024); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("a negative CCITT row count must be refused, got %v", err)
+	}
+}
+
+// A Flate bomb ahead of the modelled CCITT stage is refused on the Flate stage.
+// CCITT hands back a fixed-size zero reader that never pulls its predecessor, so
+// the Flate stage is counted only because the reverse drain reaches it on its
+// own turn rather than through the terminal CCITT stage.
+func TestCountStages_InflationAheadOfCCITTIsRejected(t *testing.T) {
+	const limit = int64(4 * 1024 * 1024)
+	sd := pipeline(zlibRepeat(t, nil, []byte{0}, 64*1024*1024),
+		"FlateDecode", "CCITTFaxDecode")
+	sd.FilterPipeline[1].DecodeParms = pdfcpu_types.Dict{
+		"Columns": pdfcpu_types.Integer(8),
+		"Rows":    pdfcpu_types.Integer(1),
+	}
+	if _, err := countStages(sd, limit); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("expected the Flate stage ahead of CCITT to be refused, got %v", err)
+	}
+}
+
+// A negative /Rows is refused even when /Columns is non-positive: the row-count
+// guard is checked before the column guard, so a zero /Columns cannot route the
+// malformed negative row count to the unmeasured path.
+func TestCountStages_CCITTNegativeRowsWithZeroColumnsIsRefused(t *testing.T) {
+	sd := pipeline([]byte("ccitt"), "CCITTFaxDecode")
+	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{
+		"Columns": pdfcpu_types.Integer(0),
+		"Rows":    pdfcpu_types.Integer(-1),
+	}
+	if _, err := countStages(sd, 50*1024*1024); !errors.Is(err, ErrUnsupportedPDF) {
+		t.Fatalf("a negative row count must be refused regardless of /Columns, got %v", err)
 	}
 }
 
@@ -349,7 +423,7 @@ func TestCountStages_PredictorOnLZWCountsAsEmpty(t *testing.T) {
 	sd := pipeline([]byte("whatever"), "LZWDecode")
 	sd.FilterPipeline[0].DecodeParms = pdfcpu_types.Dict{"Predictor": pdfcpu_types.Integer(12)}
 
-	if err := countStages(sd, 16); err != nil {
+	if _, err := countStages(sd, 16); err != nil {
 		t.Fatalf("a predictor pdfcpu refuses must not be counted as an inflation, got %v", err)
 	}
 }
@@ -364,10 +438,10 @@ func TestCountStages_RunLengthRunsAreCountedLikePDFCPU(t *testing.T) {
 	const want = int64(2 + 128)
 
 	sd := pipeline(raw, "RunLengthDecode")
-	if err := countStages(sd, want); err != nil {
+	if _, err := countStages(sd, want); err != nil {
 		t.Fatalf("a payload of exactly the ceiling must be in bounds, got %v", err)
 	}
-	if err := countStages(sd, want-1); !errors.Is(err, ErrUnsupportedPDF) {
+	if _, err := countStages(sd, want-1); !errors.Is(err, ErrUnsupportedPDF) {
 		t.Fatalf("one byte under the ceiling must be refused, got %v", err)
 	}
 }
@@ -387,13 +461,13 @@ func TestDecodeBounded_TruncatedRunLengthIsRefusedNotFaulted(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			sd := pipeline(c.raw, "RunLengthDecode")
-			if err := countStages(sd, 1024); !errors.Is(err, errTruncatedRun) {
+			if _, err := countStages(sd, 1024); !errors.Is(err, errTruncatedRun) {
 				t.Errorf("countStages: expected the truncated-run refusal, got %v", err)
 			}
 			// decodeBounded is what the extraction paths call, and it is the
 			// call that used to reach the fault, so assert it and not only the
 			// count.
-			if _, err := decodeBounded(sd, 1024); !errors.Is(err, errTruncatedRun) {
+			if _, err := decodeBounded(sd, 1024, false); !errors.Is(err, errTruncatedRun) {
 				t.Errorf("decodeBounded: expected the truncated-run refusal, got %v", err)
 			}
 		})
@@ -406,7 +480,7 @@ func TestDecodeBounded_RunLengthEndingBetweenRunsIsNotRefused(t *testing.T) {
 	// Two literals and a complete repeat, with no 0x80 terminator.
 	sd := pipeline([]byte{0x01, 'a', 'b', 0x81, 'c'}, "RunLengthDecode")
 
-	out, err := decodeBounded(sd, 1024)
+	out, err := decodeBounded(sd, 1024, false)
 	if err != nil {
 		t.Fatalf("a stream ending between runs must decode, got %v", err)
 	}
@@ -418,7 +492,7 @@ func TestDecodeBounded_RunLengthEndingBetweenRunsIsNotRefused(t *testing.T) {
 // The same refusal applies to a run inside a pipeline, not just a sole filter.
 func TestDecodeBounded_TruncatedRunLengthBehindAnotherFilterIsRefused(t *testing.T) {
 	sd := pipeline(zlibBytes(t, []byte{0x03, 'a', 'b'}), "FlateDecode", "RunLengthDecode")
-	if _, err := decodeBounded(sd, 1024); !errors.Is(err, errTruncatedRun) {
+	if _, err := decodeBounded(sd, 1024, false); !errors.Is(err, errTruncatedRun) {
 		t.Fatalf("expected the truncated-run refusal, got %v", err)
 	}
 }

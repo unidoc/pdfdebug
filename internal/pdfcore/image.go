@@ -279,7 +279,7 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 			bitsPerComponent, components = 1, 1
 		}
 		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
-		if _, err := decodeBounded(&sd, ceiling); err != nil {
+		if _, err := decodeBounded(&sd, ceiling, false); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
 				result.Error = fmt.Sprintf("image data too large (exceeds the %d byte ceiling for a %dx%d image)",
 					ceiling, result.Width, result.Height)

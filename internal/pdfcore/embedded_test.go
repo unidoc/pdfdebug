@@ -561,3 +561,50 @@ func TestGetEmbeddedFileBytes_BombRejectedWithoutFullInflation(t *testing.T) {
 			delta, inflatedSize, allocCeiling)
 	}
 }
+
+// ccittThenFlateEmbeddedStreamObj returns an /EmbeddedFile whose filter pipeline
+// is [/CCITTFaxDecode /FlateDecode]. CCITT is sized from its /Columns and /Rows
+// geometry and counted, but it ends the chain, so the FlateDecode after it is
+// left unmeasured. The stream body never has to decode: the refusal is decided
+// at the count, before any decode is attempted.
+func ccittThenFlateEmbeddedStreamObj(num int, raw string) string {
+	return strconv.Itoa(num) + " 0 obj\n" +
+		"<< /Type /EmbeddedFile /Subtype /application#2Foctet-stream" +
+		" /Filter [/CCITTFaxDecode /FlateDecode]" +
+		" /DecodeParms [<< /Columns 8 /Rows 8 /K -1 >> null]" +
+		" /Length " + strconv.Itoa(len(raw)) + " >>\n" +
+		"stream\n" + raw + "\nendstream\nendobj\n"
+}
+
+// ---------------------------------------------------------------------------
+// The embedded path has no geometry to bound a decode, so it refuses a pipeline
+// countStages could not measure end to end rather than allocating one. A
+// [/CCITTFaxDecode /FlateDecode] attachment is that pipeline: CCITT is counted
+// but ends the chain, leaving the trailing FlateDecode unmeasured.
+//
+// This exercises the public GetEmbeddedFileBytes path, which passes
+// refuseUnmeasured=true. The decodeBounded test drives that flag directly and
+// cannot pin the call site's choice.
+// ---------------------------------------------------------------------------
+
+func TestGetEmbeddedFileBytes_UnmeasuredPipelineRefused(t *testing.T) {
+	content := assemblexref(
+		"%PDF-1.7\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AF [6 0 R] >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+		ccittThenFlateEmbeddedStreamObj(4, "\x00\x01\x02\x03"),
+		"5 0 obj\nnull\nendobj\n",
+		filespecObj(6, 4, "scan.bin", "Data"),
+	)
+	ins, tabID := writeTempPDF(t, "unmeasured-pipeline.pdf", content)
+
+	_, err := ins.GetEmbeddedFileBytes(tabID, "obj:0:4")
+	// GetEmbeddedFileBytes flattens errPipelineUnmeasured through %v (the sentinel
+	// deliberately does not wrap ErrUnsupportedPDF), so match its message rather
+	// than errors.Is. Only the unmeasured refusal carries this text; a decode that
+	// ran instead would fail with pdfcpu's own message or return bytes.
+	if err == nil || !strings.Contains(err.Error(), errPipelineUnmeasured.Error()) {
+		t.Fatalf("an unmeasured embedded pipeline must be refused as unmeasured, got %v", err)
+	}
+}
