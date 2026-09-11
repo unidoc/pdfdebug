@@ -815,11 +815,15 @@ func main() {
 	// opaque first paint. The frontend additionally starts at
 	// opacity 0 and fades to 1 on the splash:dismissed event.
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:              "UniDoc PDF Debugger",
-		Width:              1024,
-		Height:             768,
-		MinWidth:           800,
-		MinHeight:          600,
+		Title:     "UniDoc PDF Debugger",
+		Width:     1024,
+		Height:    768,
+		MinWidth:  800,
+		MinHeight: 600,
+		// Center on first launch. When persisted geometry exists, the frontend
+		// restore (App.jsx) overrides this by calling SetSize/SetPosition once
+		// mounted, so centering never fights a restored window.
+		InitialPosition:    application.WindowCentered,
 		BackgroundColour:   application.NewRGB(248, 250, 252),
 		URL:                "/",
 		EnableFileDrop:     true,
