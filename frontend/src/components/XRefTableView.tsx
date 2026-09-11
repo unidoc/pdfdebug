@@ -61,6 +61,21 @@ function displayedHost(e: XRefEntryData): string {
 }
 
 /**
+ * Scrolls the row at absolute `index` into `el`'s viewport. The tbody sits below
+ * the sticky `<thead>`, which overlays the top of the scroll area, so a row
+ * pulled up from below the fold must clear the header height to stay visible.
+ */
+function scrollRowIntoView(el: HTMLElement, index: number): void {
+  const headerH = (el.querySelector('thead') as HTMLElement | null)?.offsetHeight ?? 0;
+  const rowTop = index * XREF_ROW_HEIGHT;
+  const rowBottom = rowTop + XREF_ROW_HEIGHT;
+  if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+  else if (headerH + rowBottom > el.scrollTop + el.clientHeight) {
+    el.scrollTop = headerH + rowBottom - el.clientHeight;
+  }
+}
+
+/**
  * Document-level XREF table view. Lazy-fetches on first activation; data is
  * cached in component state for the lifetime of the document (tabId change
  * resets state). The row list is viewport-virtualized (only the visible slice
@@ -274,21 +289,17 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
 
   // Scroll the active match's row into the virtualized window so it renders,
   // mirroring the arrow-key scroll mechanism. Keyed on the active match alone
-  // (not `open`): F3 navigation moves the match and scrolls even while the bar
-  // is closed (Esc-then-F3), while opening or closing the bar -- which leaves
-  // the active match unchanged -- does not re-scroll and yank the viewport.
+  // (not `open`) so navigating between matches scrolls, while opening or closing
+  // the bar -- which does not move the active match -- never re-scrolls and
+  // yanks the viewport.
   useEffect(() => {
     const m = xrefFind.activeMatch;
     if (!m) return;
     const parsed = /^row:(\d+):/.exec(m.spanId);
     if (!parsed) return;
-    const index = Number(parsed[1]);
     const el = scrollRef.current;
     if (!el) return;
-    const rowTop = index * XREF_ROW_HEIGHT;
-    const rowBottom = rowTop + XREF_ROW_HEIGHT;
-    if (rowTop < el.scrollTop) el.scrollTop = rowTop;
-    else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
+    scrollRowIntoView(el, Number(parsed[1]));
     syncScrollTop();
   }, [xrefFind.activeMatch, scrollRef, syncScrollTop]);
 
@@ -320,10 +331,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
         if (el) {
           // Ensure the target row is inside the scroll viewport so it renders in
           // the next window; the effect then focuses it.
-          const rowTop = target * XREF_ROW_HEIGHT;
-          const rowBottom = rowTop + XREF_ROW_HEIGHT;
-          if (rowTop < el.scrollTop) el.scrollTop = rowTop;
-          else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
+          scrollRowIntoView(el, target);
           syncScrollTop();
         }
         pendingFocusRef.current = target;

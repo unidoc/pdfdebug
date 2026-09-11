@@ -91,6 +91,9 @@ function DetailPanelInner() {
 
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [detailTabId, setDetailTabId] = useState<string | null>(null);
+  // The node id the current `detail` payload was fetched for. Find is gated on
+  // this matching the live selection so stale detail is not searched mid-load.
+  const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
@@ -215,6 +218,7 @@ function DetailPanelInner() {
         if (!cancelled) {
           setDetail(result as ObjectDetailData);
           setDetailTabId(activeTabId);
+          setDetailNodeId(selectedNodeId);
         }
       })
       .catch((err: unknown) => {
@@ -512,6 +516,10 @@ function DetailPanelInner() {
   // visible marks). Mirrors the render branches in the Object pane below.
   const objectFindable = useMemo(() => {
     if (!detail) return false;
+    // The previous selection's detail is kept on screen while the next one
+    // loads. Do not treat that stale payload as searchable: a query entered
+    // during the load window would otherwise carry into the newly loaded object.
+    if (detailTabId !== activeTabId || detailNodeId !== selectedNodeId) return false;
     if (detail.type === 'dict') {
       if (selectedNodeIconHint === 'font') return fontState?.kind === 'fallback';
       return true;
@@ -519,7 +527,7 @@ function DetailPanelInner() {
     if (detail.type === 'array') return true;
     if (detail.type === 'scalar') return !!detail.scalarValue;
     return false;
-  }, [detail, selectedNodeIconHint, fontState]);
+  }, [detail, detailTabId, detailNodeId, activeTabId, selectedNodeId, selectedNodeIconHint, fontState]);
 
   const objectSpans = useMemo<FindSpan[]>(() => {
     const spans: FindSpan[] = [];
@@ -572,10 +580,10 @@ function DetailPanelInner() {
 
   // Scroll the active object match into view. The Object views are not
   // virtualized, so the active mark is always in the DOM once matches render.
-  // Keyed on the active match alone (not `open`): F3 while the bar is closed
-  // still scrolls to the moved match, but opening or closing the bar -- which
-  // leaves the active match unchanged -- does not re-scroll. A null query
-  // renders no active mark, so the querySelector returns null and this no-ops.
+  // Keyed on the active match alone (not `open`) so navigating between matches
+  // scrolls, while opening or closing the bar -- which does not move the active
+  // match -- never re-scrolls. Closing clears the query, so no active mark
+  // remains and the querySelector no-ops.
   const objectContentRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = objectContentRef.current?.querySelector('[data-testid="object-find-active-match"]');

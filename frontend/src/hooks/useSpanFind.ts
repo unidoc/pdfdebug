@@ -202,12 +202,17 @@ export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
 
-  // Close an already-open bar when the tab's content stops being searchable
-  // (e.g. the selected object switched to a render path with no highlight
-  // surface). `ready` gates opening; this stops a stranded "0 of 0" bar from
-  // lingering over content it can never match.
+  // Clear the search when the tab's content stops being searchable (e.g. the
+  // selected object switched to a render path with no highlight surface, or a
+  // font detail is being refetched). Mirrors closeBar so a hidden query cannot
+  // resurface with highlights, or be navigated by F3, when the content becomes
+  // searchable again without a resetKey change.
   useEffect(() => {
-    if (!ready) setOpen(false);
+    if (!ready) {
+      setOpen(false);
+      setQueryState('');
+      setWrapped(null);
+    }
   }, [ready]);
 
   const openBar = useCallback(() => {
