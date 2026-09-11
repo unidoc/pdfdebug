@@ -377,6 +377,17 @@ describe('closing find clears the search', () => {
     });
   });
 
+  test('closing the bar restores focus to the object content', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('/Marker')).toBeInTheDocument());
+    cmdF();
+    fireEvent.change(screen.getByTestId('object-find-input'), { target: { value: 'objectonly-needle' } });
+    await waitFor(() => expect(objectMarkCount()).toBe(2));
+    fireEvent.click(screen.getByTestId('object-find-close'));
+    await waitFor(() => expect(screen.queryByTestId('object-find-bar')).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId('detail-panel-content'));
+  });
+
   test('closing after navigating past the first match does not scroll the viewport', async () => {
     const scrollSpy = vi.fn();
     const original = Element.prototype.scrollIntoView;

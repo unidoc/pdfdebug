@@ -590,6 +590,19 @@ function DetailPanelInner() {
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
   }, [objectFind.activeMatch]);
 
+  // Close the Object find bar and move focus back onto the Object content, so a
+  // keyboard user does not land on document.body when the input unmounts
+  // (mirrors the Plain Text close). tabIndex=-1 is set lazily so the container
+  // can accept programmatic focus without entering the tab order.
+  const handleObjectFindClose = useCallback(() => {
+    objectFind.closeBar();
+    const el = objectContentRef.current;
+    if (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+    }
+  }, [objectFind]);
+
   // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
@@ -816,7 +829,7 @@ function DetailPanelInner() {
                     onNext={objectFind.next}
                     onPrev={objectFind.prev}
                     onCaseToggle={handleObjectCaseToggle}
-                    onClose={objectFind.closeBar}
+                    onClose={handleObjectFindClose}
                   />
                 )}
                 {detail.type === 'dict' && selectedNodeIconHint === 'font' && (

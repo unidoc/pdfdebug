@@ -88,6 +88,9 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Gates lazy construction of the find span source (see the find section). Set
+  // once the find bar is first opened; reset on document change.
+  const [findArmed, setFindArmed] = useState(false);
   // latchedTabId records the tabId the user actually activated the XREF tab on.
   // The fetch gates on the DERIVED `everActive = latchedTabId === tabId` (below),
   // NOT a boolean+reset: a boolean reset in an effect is applied a render late,
@@ -130,6 +133,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
     setError(null);
     setLoading(false);
     setShowLoading(false);
+    setFindArmed(false);
     dataRef.current = null;
     inFlightRef.current = false;
   }, [tabId]);
@@ -243,8 +247,15 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
   // --- XREF-tab find (Model B). The match source is the DISPLAYED cell text
   // per row (obj#, gen, offset, status, host), matched as a literal substring
   // (same semantics as the Plain Text find), so a `-` query hits the offset/host
-  // placeholders as well as the `-` inside status strings like `in-use`. ---
+  // placeholders as well as the `-` inside status strings like `in-use`.
+  //
+  // The span source is built lazily: a large xref can carry ~129k entries, so
+  // materializing five spans per row on every load would allocate ~645k objects
+  // and stringify every cell up front, even when the user never opens find. The
+  // `findArmed` latch defers that work until the bar is first opened, then keeps
+  // the spans memoized so incremental typing does not rebuild them. ---
   const xrefSpans = useMemo<FindSpan[]>(() => {
+    if (!findArmed) return [];
     const spans: FindSpan[] = [];
     const list = data?.entries ?? [];
     list.forEach((e, i) => {
@@ -255,7 +266,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
       spans.push({ id: `row:${i}:host`, text: displayedHost(e) });
     });
     return spans;
-  }, [data]);
+  }, [data, findArmed]);
 
   const xrefFind = useSpanFind({
     resetKey: tabId,
@@ -266,6 +277,12 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
     ready: data !== null,
     barTestId: 'xref-find-bar',
   });
+
+  // Latch the span source on once the bar is first opened; the query is empty on
+  // open, so the one-render delay before spans exist is invisible.
+  useEffect(() => {
+    if (xrefFind.open) setFindArmed(true);
+  }, [xrefFind.open]);
 
   const xrefMatchesBySpan = useMemo(() => {
     const map = new Map<string, SpanMatch[]>();
@@ -286,6 +303,19 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
   const handleXrefCaseToggle = useCallback(() => {
     onFindCaseToggle?.();
   }, [onFindCaseToggle]);
+
+  // Close the find bar and move focus back onto the XREF scroll container, so a
+  // keyboard user does not land on document.body when the input unmounts
+  // (mirrors the Plain Text close). tabIndex=-1 is set lazily so the container
+  // can accept programmatic focus without entering the tab order.
+  const handleXrefFindClose = useCallback(() => {
+    xrefFind.closeBar();
+    const el = scrollRef.current;
+    if (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+    }
+  }, [xrefFind, scrollRef]);
 
   // Scroll the active match's row into the virtualized window so it renders,
   // mirroring the arrow-key scroll mechanism. Keyed on the active match alone
@@ -399,7 +429,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
           onNext={xrefFind.next}
           onPrev={xrefFind.prev}
           onCaseToggle={handleXrefCaseToggle}
-          onClose={xrefFind.closeBar}
+          onClose={handleXrefFindClose}
         />
       )}
       <div

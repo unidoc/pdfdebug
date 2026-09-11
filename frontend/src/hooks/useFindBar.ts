@@ -310,8 +310,9 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
         return;
       }
 
-      // F3 / Shift+F3: navigate matches even when the bar is closed, provided
-      // openedOnce && query !== '' on the current tab.
+      // F3 / Shift+F3: navigate matches while the bar is open. Closing clears
+      // the query, so the openedOnce && query gate below can only pass via the
+      // open branch -- there is no navigation once the bar is closed.
       if (e.key === 'F3') {
         // Focus-guard: don't steal F3 from arbitrary text inputs.
         if (targetIsTextField && !targetIsFindBar) return;

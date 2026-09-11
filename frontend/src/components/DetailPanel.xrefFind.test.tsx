@@ -180,6 +180,17 @@ describe('XREF find matches displayed cell text', () => {
   });
 });
 
+describe('closing XREF find restores focus', () => {
+  test('closing the bar moves focus to the xref scroll container', async () => {
+    await renderAndOpenXref();
+    cmdF();
+    expect(screen.getByTestId('xref-find-bar')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('xref-find-close'));
+    await waitFor(() => expect(screen.queryByTestId('xref-find-bar')).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId('xref-table-container'));
+  });
+});
+
 describe('XREF find navigation', () => {
   test('Next advances the active match across the "-" matches', async () => {
     await renderAndOpenXref();
