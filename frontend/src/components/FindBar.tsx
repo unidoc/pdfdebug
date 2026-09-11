@@ -12,7 +12,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 export interface FindBarProps {
   /**
    * Per-instance testid + element-id prefix. Defaults to the Plain Text values
-   * so the Story 10-2 `plain-text-find-*` tests keep asserting on the same
+   * so the existing `plain-text-find-*` tests keep asserting on the same
    * testids. Object/XREF instances pass their own prefix so all three bars can
    * coexist in the force-mounted DOM without duplicate ids.
    */
