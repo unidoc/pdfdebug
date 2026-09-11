@@ -561,8 +561,8 @@ func main() {
 
 	// macOS-only app-submenu wiring. AddRole(AppMenu) returns the PARENT
 	// *Menu, not the app submenu, so items are reached via
-	// FindByLabel(appName).GetSubmenu() (verified against Wails v3 beta.18;
-	// see the story's Menu-API note). Two changes here:
+	// FindByLabel(appName).GetSubmenu() (verified against Wails v3 beta.18).
+	// Two changes here:
 	//   - Append the "Install 'pdfdebug' Command in PATH..." item.
 	//   - Replace the native About item with the custom About window. The
 	//     role-based About item carries the native orderFrontStandardAboutPanel

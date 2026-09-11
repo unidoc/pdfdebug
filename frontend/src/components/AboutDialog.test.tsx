@@ -8,9 +8,9 @@
  * (no stripping of `-rc`).
  *
  * The Go menu wiring and the real overlay/WebView rendering are verified
- * manually on macOS + Windows; this suite covers only the component behavior
- * that jsdom can observe: the anchor href, the external-open wiring, and the
- * verbatim version text.
+ * manually on macOS; this suite covers only the component behavior that jsdom
+ * can observe: the anchor href, the external-open wiring, and the verbatim
+ * version text.
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
