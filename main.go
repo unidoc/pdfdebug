@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -177,6 +178,41 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 	}(path, extraWarning, svc, emitter, wg)
 }
 
+// aboutWindow holds the single custom About window while it is open, so a
+// second About click focuses the existing window instead of spawning another.
+var aboutWindow *application.WebviewWindow
+
+// openAboutWindow shows the custom About window: a small centered WebviewWindow
+// that loads the frontend About view carrying the running version in the URL
+// query. Sourcing the version this way shows the honest, unstripped semver
+// (main.version) without adding a bound method, and the unidoc.io link inside
+// opens in the external browser rather than navigating the app WebView (see
+// AboutDialog.tsx). The native macOS About panel can do neither.
+func openAboutWindow(app *application.App) {
+	if aboutWindow != nil {
+		// Restore un-minimises a window the user has minimised; Focus alone
+		// leaves it minimised and the menu item appears to do nothing.
+		aboutWindow.Restore()
+		aboutWindow.Focus()
+		return
+	}
+	aboutWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            "About " + appName,
+		Width:            360,
+		Height:           220,
+		DisableResize:    true,
+		InitialPosition:  application.WindowCentered,
+		BackgroundColour: application.NewRGB(248, 250, 252),
+		URL:              "/?view=about&version=" + url.QueryEscape(version),
+	})
+	if aboutWindow == nil {
+		return
+	}
+	aboutWindow.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		aboutWindow = nil
+	})
+}
+
 // onSplashDismiss is the success-path dismissal handler for the startup
 // splash. It clears the splash's AlwaysOnTop so the main
 // window can render above it, triggers the crossfade by emitting
@@ -184,7 +220,7 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 // and splash:dismissed (the main frontend fades its #root opacity to 1),
 // unhides the main window, then closes + destroys the splash after the
 // 200ms crossfade. The callback can be invoked from a non-main goroutine
-// (clock-driven); Wails alpha.85 SetAlwaysOnTop / Show / Close all
+// (clock-driven); Wails beta.18 SetAlwaysOnTop / Show / Close all
 // InvokeSync to the impl thread internally and app.Event.Emit is
 // goroutine-safe, so direct calls from a worker goroutine are safe.
 func onSplashDismiss(app *application.App, splashWindow, mainWindow *application.WebviewWindow) {
@@ -198,7 +234,7 @@ func onSplashDismiss(app *application.App, splashWindow, mainWindow *application
 		mainWindow.Show()
 	}
 	app.Event.Emit("splash:dismissed", nil)
-	// Close the splash after the 200ms crossfade window. Wails alpha.85
+	// Close the splash after the 200ms crossfade window. Wails beta.18
 	// WebviewWindow.Close() dispatches to the impl thread internally; we
 	// can call it from a time.AfterFunc goroutine.
 	time.AfterFunc(220*time.Millisecond, func() {
@@ -523,14 +559,26 @@ func main() {
 	// macOS app menu (About, Services, Hide, Quit) -- AddRole is a no-op on non-macOS
 	menu.AddRole(application.AppMenu)
 
-	// macOS-only "Install 'pdfdebug' Command in PATH..." item under
-	// the app menu. AddRole(AppMenu) returns the PARENT *Menu, not the app
-	// submenu, so the item is appended via FindByLabel(appName).GetSubmenu()
-	// (verified against Wails v3 alpha.95; see the story's Menu-API note).
+	// macOS-only app-submenu wiring. AddRole(AppMenu) returns the PARENT
+	// *Menu, not the app submenu, so items are reached via
+	// FindByLabel(appName).GetSubmenu() (verified against Wails v3 beta.18;
+	// see the story's Menu-API note). Two changes here:
+	//   - Append the "Install 'pdfdebug' Command in PATH..." item.
+	//   - Replace the native About item with the custom About window. The
+	//     role-based About item carries the native orderFrontStandardAboutPanel
+	//     selector, so clearing its role (NoRole) routes clicks through the Go
+	//     callback instead, which opens the honest, clickable About window.
 	if runtime.GOOS == "darwin" {
 		if appItem := menu.FindByLabel(appName); appItem != nil {
 			if appSub := appItem.GetSubmenu(); appSub != nil {
 				wireInstallCLIMenuItem(app, appSub)
+				if aboutItem := appSub.FindByRole(application.About); aboutItem != nil {
+					aboutItem.SetRole(application.NoRole).
+						SetLabel("About " + appName).
+						OnClick(func(_ *application.Context) {
+							openAboutWindow(app)
+						})
+				}
 			}
 		}
 	}
@@ -652,13 +700,13 @@ func main() {
 	// signal); no first-launch persistence gate.
 	//
 	// Option B (separate WebviewWindow) was chosen over Option A
-	// (native pre-WebView window) because Wails v3 alpha.85 does not
+	// (native pre-WebView window) because Wails v3 beta.18 does not
 	// expose a pre-WebView native primitive on Windows. The Windows
 	// perception trade-off is documented in deferred-work.md.
 	//
-	// Wails alpha.85 WebviewWindowOptions does not have separate
+	// Wails beta.18 WebviewWindowOptions does not have separate
 	// Resizable / Minimisable / Closable boolean fields -- the splash
-	// disables resize via DisableResize (the alpha.85 idiom) and
+	// disables resize via DisableResize (the beta.18 idiom) and
 	// suppresses close/minimise affordances by being Frameless.
 	//
 	// The splash integration tests grep this file for each option as
@@ -673,7 +721,7 @@ func main() {
 	//   Height: 320 -- logical height
 	//   Frameless: true -- no title bar / chrome
 	//   AlwaysOnTop: true -- cleared in the dismissal handler
-	//   Resizable: false -- DisableResize: true is the alpha.85 spelling
+	//   Resizable: false -- DisableResize: true is the beta.18 spelling
 	//   Minimisable: false -- frameless suppresses the affordance
 	//   Closable: false -- frameless suppresses the affordance
 	splashWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -723,7 +771,7 @@ func main() {
 		// onDismiss: clear AlwaysOnTop, trigger crossfade, then close
 		// + destroy the splash so it does not linger in the OS
 		// window list. The callback fires on a clock goroutine;
-		// Wails alpha.85 SetAlwaysOnTop / Show / Close / Event.Emit all
+		// Wails beta.18 SetAlwaysOnTop / Show / Close / Event.Emit all
 		// InvokeSync internally so direct calls from a worker goroutine
 		// are safe.
 		func() {

@@ -130,9 +130,12 @@ func TestSplashWindowCreatedBeforeMainWindow(t *testing.T) {
 			"`splash := createSplash(...)`.")
 	}
 
-	mainWinIdx := strings.Index(src, "app.Window.NewWithOptions(application.WebviewWindowOptions{")
+	// Anchor on the main window's assignment to the pre-declared `window` var
+	// so sibling windows created elsewhere (splash, custom About) do not shift
+	// this index.
+	mainWinIdx := strings.Index(src, "window = app.Window.NewWithOptions(application.WebviewWindowOptions{")
 	if mainWinIdx == -1 {
-		t.Fatalf("expected main WebviewWindow creation site (`app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
+		t.Fatalf("expected main WebviewWindow creation site (`window = app.Window.NewWithOptions(...)`) was not found in main.go -- has main window creation been refactored away?")
 	}
 
 	if splashIdx[0] >= mainWinIdx {
