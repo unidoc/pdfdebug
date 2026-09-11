@@ -101,7 +101,7 @@ export function ObjectSourcePanel() {
         )}
         {selectedNodeId && !error && source && (
           <pre
-            className="font-mono text-xs whitespace-pre-wrap p-3 text-text"
+            className="font-mono text-xs whitespace-pre-wrap p-3 pr-4 text-text"
             data-testid="object-source-body"
           >
             {renderSourceWithClickableRefs(source, handleRefClick)}

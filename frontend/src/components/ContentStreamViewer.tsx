@@ -253,7 +253,7 @@ export function ContentStreamViewer({ raw, formatted, error, viewMode: controlle
             ))}
           </div>
           <div
-            className="pl-3 font-mono text-xs text-text whitespace-pre"
+            className="pl-3 pr-4 font-mono text-xs text-text whitespace-pre"
             data-testid="content-stream-content"
           >
             {useFormatted
