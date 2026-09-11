@@ -4,10 +4,13 @@
  * in-objstm rows navigate via `onNavigate` when clicked or Entered; free
  * rows are focusable but not clickable.
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { GetXRefTable } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { useWindowedRows } from '../hooks/useWindowedRows';
+import { useSpanFind, substringSpanMatcher, type FindSpan, type SpanMatch } from '../hooks/useSpanFind';
+import { FindBar } from './FindBar';
+import { renderHighlightedText, type ObjectFindContext } from './DetailShared';
 
 /** One row in the XREF table, mirroring `pdfcore.XRefEntry`. */
 interface XRefEntryData {
@@ -35,6 +38,10 @@ export interface XRefTableViewProps {
   onNavigate: (nodeId: string) => void;
   /** Fires with the row count once the fetch resolves successfully. */
   onLoaded: (count: number) => void;
+  /** Shared per-document find case-sensitivity (TabState.findCaseSensitive). */
+  findCaseSensitive?: boolean;
+  /** Toggles the shared find case-sensitivity flag. */
+  onFindCaseToggle?: () => void;
 }
 
 /** Fixed row height (px) for windowing math; each rendered row is pinned to this
@@ -42,6 +49,16 @@ export interface XRefTableViewProps {
 const XREF_ROW_HEIGHT = 28;
 /** Rows rendered above/below the viewport for smooth scrolling. */
 const XREF_OVERSCAN = 12;
+
+/** Displayed offset cell text: the byte offset for in-use rows, else `-`. */
+function displayedOffset(e: XRefEntryData): string {
+  return e.status === 'in-use' && e.offset >= 0 ? String(e.offset) : '-';
+}
+
+/** Displayed host-objstm cell text: the host object number for in-objstm rows, else `-`. */
+function displayedHost(e: XRefEntryData): string {
+  return e.status === 'in-objstm' && e.hostObjStm > 0 ? String(e.hostObjStm) : '-';
+}
 
 /**
  * Document-level XREF table view. Lazy-fetches on first activation; data is
@@ -51,7 +68,7 @@ const XREF_OVERSCAN = 12;
  * entries -- does not freeze the UI on render. Mirrors the FontMappingTable /
  * PlainTextView windowing pattern.
  */
-export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTableViewProps) {
+export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSensitive = false, onFindCaseToggle }: XRefTableViewProps) {
   const [data, setData] = useState<XRefTableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
@@ -208,6 +225,73 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
     }
   }, [focusTick, scrollTop, scrollRef]);
 
+  // --- XREF-tab find (Model B). The match source is the DISPLAYED cell text
+  // per row (obj#, gen, offset, status, host), matched as a literal substring
+  // (same semantics as the Plain Text find), so a `-` query hits the offset/host
+  // placeholders as well as the `-` inside status strings like `in-use`. ---
+  const xrefSpans = useMemo<FindSpan[]>(() => {
+    const spans: FindSpan[] = [];
+    const list = data?.entries ?? [];
+    list.forEach((e, i) => {
+      spans.push({ id: `row:${i}:objnum`, text: String(e.objNum) });
+      spans.push({ id: `row:${i}:gen`, text: String(e.gen) });
+      spans.push({ id: `row:${i}:offset`, text: displayedOffset(e) });
+      spans.push({ id: `row:${i}:status`, text: e.status });
+      spans.push({ id: `row:${i}:host`, text: displayedHost(e) });
+    });
+    return spans;
+  }, [data]);
+
+  const xrefFind = useSpanFind({
+    tabId,
+    spans: xrefSpans,
+    matcher: substringSpanMatcher,
+    caseSensitive: findCaseSensitive,
+    active,
+    ready: data !== null,
+    barTestId: 'xref-find-bar',
+  });
+
+  const xrefMatchesBySpan = useMemo(() => {
+    const map = new Map<string, SpanMatch[]>();
+    for (const m of xrefFind.matches) {
+      const arr = map.get(m.spanId);
+      if (arr) arr.push(m);
+      else map.set(m.spanId, [m]);
+    }
+    return map;
+  }, [xrefFind.matches]);
+
+  const xrefFindContext: ObjectFindContext = {
+    matchesBySpan: xrefMatchesBySpan,
+    activeMatch: xrefFind.activeMatch,
+    prefix: 'xref-find',
+  };
+
+  const handleXrefCaseToggle = useCallback(() => {
+    onFindCaseToggle?.();
+  }, [onFindCaseToggle]);
+
+  // Scroll the active match's row into the virtualized window so it renders,
+  // mirroring the arrow-key scroll mechanism. Keyed on the active match alone
+  // (not `open`): F3 navigation moves the match and scrolls even while the bar
+  // is closed (Esc-then-F3), while opening or closing the bar -- which leaves
+  // the active match unchanged -- does not re-scroll and yank the viewport.
+  useEffect(() => {
+    const m = xrefFind.activeMatch;
+    if (!m) return;
+    const parsed = /^row:(\d+):/.exec(m.spanId);
+    if (!parsed) return;
+    const index = Number(parsed[1]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const rowTop = index * XREF_ROW_HEIGHT;
+    const rowBottom = rowTop + XREF_ROW_HEIGHT;
+    if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+    else if (rowBottom > el.scrollTop + el.clientHeight) el.scrollTop = rowBottom - el.clientHeight;
+    syncScrollTop();
+  }, [xrefFind.activeMatch, scrollRef, syncScrollTop]);
+
   /** Click handler: free rows are no-ops; in-use / in-objstm dispatch navigation. */
   const handleRowClick = useCallback(
     (entry: XRefEntryData) => {
@@ -291,12 +375,31 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
   const rowsToRender = entries.slice(firstVisible, lastVisible);
 
   return (
-    <div
-      className="h-full overflow-auto"
-      data-testid="xref-table-container"
-      ref={scrollRef}
-      onScroll={onScroll}
-    >
+    <div className="h-full flex flex-col">
+      {xrefFind.open && (
+        <FindBar
+          idPrefix="xref-find"
+          label="Find in xref"
+          matchCount={xrefFind.matches.length}
+          activeIndex={xrefFind.activeIndex}
+          query={xrefFind.query}
+          caseSensitive={findCaseSensitive}
+          wrapped={xrefFind.wrapped}
+          nonLatin1={false}
+          focusVersion={xrefFind.focusVersion}
+          onQueryChange={xrefFind.setQuery}
+          onNext={xrefFind.next}
+          onPrev={xrefFind.prev}
+          onCaseToggle={handleXrefCaseToggle}
+          onClose={xrefFind.closeBar}
+        />
+      )}
+      <div
+        className="flex-1 min-h-0 overflow-auto"
+        data-testid="xref-table-container"
+        ref={scrollRef}
+        onScroll={onScroll}
+      >
       <table className="w-full text-xs font-mono border-collapse">
         {/* `position: sticky` on <thead> is unreliable on WebKit2GTK and older
             Safari/WebKit; apply sticky on each <th> so the header sticks on every
@@ -348,23 +451,25 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
                 onKeyDown={(e) => handleRowKeyDown(e, index, entry)}
               >
                 <td className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden" data-testid={`xref-row-objnum-${entry.objNum}`}>
-                  {entry.objNum}
+                  {renderHighlightedText(String(entry.objNum), `row:${index}:objnum`, xrefFindContext)}
                 </td>
-                <td className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden">{entry.gen}</td>
+                <td className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden">
+                  {renderHighlightedText(String(entry.gen), `row:${index}:gen`, xrefFindContext)}
+                </td>
                 <td
                   className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden"
                   data-testid={`xref-row-offset-${entry.objNum}`}
                 >
-                  {entry.status === 'in-use' && entry.offset >= 0 ? entry.offset : '-'}
+                  {renderHighlightedText(displayedOffset(entry), `row:${index}:offset`, xrefFindContext)}
                 </td>
                 <td className="px-2 py-1 text-left whitespace-nowrap overflow-hidden">
-                  <span className={pillClass}>{entry.status}</span>
+                  <span className={pillClass}>{renderHighlightedText(entry.status, `row:${index}:status`, xrefFindContext)}</span>
                 </td>
                 <td
                   className="px-2 py-1 text-right text-text whitespace-nowrap overflow-hidden"
                   data-testid={`xref-row-host-${entry.objNum}`}
                 >
-                  {isInObjStm && entry.hostObjStm > 0 ? entry.hostObjStm : '-'}
+                  {renderHighlightedText(displayedHost(entry), `row:${index}:host`, xrefFindContext)}
                 </td>
               </tr>
             );
@@ -377,6 +482,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded }: XRefTable
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

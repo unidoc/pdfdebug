@@ -509,7 +509,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     <div className="h-full flex flex-col bg-bg">
       {findOpen && (
         <FindBar
-          matches={findMatchesList}
+          matchCount={findMatchesList.length}
           activeIndex={findActiveIndex}
           query={findQuery}
           caseSensitive={findCaseSensitive}

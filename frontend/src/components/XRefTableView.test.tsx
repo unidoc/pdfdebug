@@ -61,6 +61,26 @@ const xrefSingleInUse: XRefTableFixture = {
   ],
 };
 
+// --- Find helpers. The find bar opens on Cmd+F; force the platform so the
+// window listener wants metaKey, then dispatch the shortcut / F3 at window. ---
+function forceMacPlatform() {
+  const original = Object.getOwnPropertyDescriptor(window.navigator, 'platform');
+  Object.defineProperty(window.navigator, 'platform', { configurable: true, get: () => 'MacIntel' });
+  return () => { if (original) Object.defineProperty(window.navigator, 'platform', original); };
+}
+
+function cmdF() {
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true, cancelable: true }));
+  });
+}
+
+function pressF3(shift = false) {
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F3', shiftKey: shift, bubbles: true, cancelable: true }));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Renders all five always-present columns in order.
 // ---------------------------------------------------------------------------
@@ -602,6 +622,120 @@ describe('onLoaded callback', () => {
     await waitFor(() => {
       expect(onLoaded).toHaveBeenCalledWith(5);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Find: previous-match navigation (Prev button and Shift+F3) and the case
+// toggle control, asserted directly on the xref find instance.
+// ---------------------------------------------------------------------------
+
+describe('find previous navigation and case toggle', () => {
+  let restore: () => void;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetXRefTable.mockResolvedValue(xrefBasic);
+    restore = forceMacPlatform();
+  });
+  afterEach(() => restore());
+
+  test('Prev button wraps backward from the first match to the last', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    // "in-use" is the status of three rows.
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: 'in-use' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 3'));
+    fireEvent.click(screen.getByTestId('xref-find-prev'));
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('3 of 3');
+  });
+
+  test('Shift+F3 navigates to the previous match', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: 'in-use' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 3'));
+    pressF3(true);
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('3 of 3');
+  });
+
+  test('clicking Aa invokes the case-toggle callback', async () => {
+    const onFindCaseToggle = vi.fn();
+    render(
+      <XRefTableView
+        tabId="tab-1"
+        active={true}
+        onNavigate={vi.fn()}
+        onLoaded={vi.fn()}
+        onFindCaseToggle={onFindCaseToggle}
+      />,
+    );
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.click(screen.getByTestId('xref-find-case-toggle'));
+    expect(onFindCaseToggle).toHaveBeenCalledTimes(1);
+  });
+
+  test('the case-sensitive flag drives the Aa pressed state', async () => {
+    render(
+      <XRefTableView
+        tabId="tab-1"
+        active={true}
+        onNavigate={vi.fn()}
+        onLoaded={vi.fn()}
+        findCaseSensitive={true}
+        onFindCaseToggle={vi.fn()}
+      />,
+    );
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    expect(screen.getByTestId('xref-find-case-toggle').getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Find across the virtualization window: a match on an off-window row is not
+// rendered until navigation scrolls its index into the window, mirroring the
+// arrow-key scroll-into-view leg.
+// ---------------------------------------------------------------------------
+
+describe('find navigation crosses the virtualization window', () => {
+  let restore: () => void;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // A large table where only row index 0 (in-window) and row index 2499
+    // (off-window) carry the searchable offset; every other row is free and
+    // displays "-" for its offset.
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => {
+        if (i === 0 || i === 2499) {
+          return { objNum: i + 1, gen: 0, status: 'in-use' as const, offset: 707070, hostObjStm: 0, nodeID: `obj:0:${i + 1}` };
+        }
+        return { objNum: i + 1, gen: 0, status: 'free' as const, offset: -1, hostObjStm: 0, nodeID: '' };
+      }),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+    restore = forceMacPlatform();
+  });
+  afterEach(() => restore());
+
+  test('Next scrolls an off-window match row into view and highlights it', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: '707070' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 2'));
+    // The second match's row (objNum 2500) is outside the initial window.
+    expect(screen.queryByTestId('xref-row-2500')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('xref-find-next'));
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('2 of 2');
+    const row2500 = await screen.findByTestId('xref-row-2500');
+    const activeMark = screen.getByTestId('xref-find-active-match');
+    expect(activeMark.textContent).toBe('707070');
+    expect(activeMark.closest('[data-testid="xref-row-2500"]')).toBe(row2500);
   });
 });
 

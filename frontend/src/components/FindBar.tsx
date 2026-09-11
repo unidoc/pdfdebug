@@ -7,11 +7,20 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import type { Match } from '../lib/findMatches';
 
 /** Props for {@link FindBar}. */
 export interface FindBarProps {
-  matches: Match[];
+  /**
+   * Per-instance testid + element-id prefix. Defaults to the Plain Text values
+   * so the Story 10-2 `plain-text-find-*` tests keep asserting on the same
+   * testids. Object/XREF instances pass their own prefix so all three bars can
+   * coexist in the force-mounted DOM without duplicate ids.
+   */
+  idPrefix?: string;
+  /** role="search" aria-label. Defaults to the Plain Text wording. */
+  label?: string;
+  /** Total number of matches in the active tab's source. */
+  matchCount: number;
   activeIndex: number;
   query: string;
   caseSensitive: boolean;
@@ -26,14 +35,15 @@ export interface FindBarProps {
   onClose: () => void;
 }
 
-const HINT_ID = 'plain-text-find-non-latin1-hint';
-
 /**
- * Inline find bar mounted above the Plain Text scroll container.
+ * Inline find bar mounted above a find-enabled tab's scroll container. All
+ * state lives in useFindBar / useSpanFind; this component is pure props -> DOM.
  */
 export function FindBar(props: FindBarProps): JSX.Element {
   const {
-    matches,
+    idPrefix = 'plain-text-find',
+    label = 'Find in plain text',
+    matchCount,
     activeIndex,
     query,
     caseSensitive,
@@ -46,6 +56,8 @@ export function FindBar(props: FindBarProps): JSX.Element {
     onCaseToggle,
     onClose,
   } = props;
+
+  const hintId = `${idPrefix}-non-latin1-hint`;
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -90,15 +102,15 @@ export function FindBar(props: FindBarProps): JSX.Element {
     }
   };
 
-  const hasMatches = matches.length > 0;
-  const countText = hasMatches ? `${activeIndex + 1} of ${matches.length}` : '0 of 0';
+  const hasMatches = matchCount > 0;
+  const countText = hasMatches ? `${activeIndex + 1} of ${matchCount}` : '0 of 0';
 
   return (
     <Tooltip.Provider delayDuration={300}>
     <div
       role="search"
-      aria-label="Find in plain text"
-      data-testid="plain-text-find-bar"
+      aria-label={label}
+      data-testid={`${idPrefix}-bar`}
       onKeyDown={handleRootKeyDown}
       className="flex-shrink-0 flex items-center gap-2 px-2 py-1 border-b border-border bg-surface text-sm"
     >
@@ -106,9 +118,9 @@ export function FindBar(props: FindBarProps): JSX.Element {
         <input
           ref={inputRef}
           type="text"
-          data-testid="plain-text-find-input"
+          data-testid={`${idPrefix}-input`}
           aria-label="Find query"
-          aria-describedby={nonLatin1 ? HINT_ID : undefined}
+          aria-describedby={nonLatin1 ? hintId : undefined}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleInputKeyDown}
@@ -118,7 +130,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
         {query !== '' && (
           <button
             type="button"
-            data-testid="plain-text-find-clear"
+            data-testid={`${idPrefix}-clear`}
             aria-label="Clear find query"
             onClick={() => {
               onQueryChange('');
@@ -131,7 +143,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
         )}
       </div>
       <span
-        data-testid="plain-text-find-count"
+        data-testid={`${idPrefix}-count`}
         aria-live="polite"
         className="text-text-muted min-w-[6ch] text-right tabular-nums"
       >
@@ -139,7 +151,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
       </span>
       {wrapped !== null && (
         <span
-          data-testid="plain-text-find-wrap-status"
+          data-testid={`${idPrefix}-wrap-status`}
           aria-live="polite"
           className="text-text-muted text-xs"
         >
@@ -150,7 +162,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
         <Tooltip.Trigger asChild>
           <button
             type="button"
-            data-testid="plain-text-find-case-toggle"
+            data-testid={`${idPrefix}-case-toggle`}
             aria-label="Match case"
             aria-pressed={caseSensitive ? 'true' : 'false'}
             onClick={onCaseToggle}
@@ -166,7 +178,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content
-            data-testid="plain-text-find-case-toggle-tooltip"
+            data-testid={`${idPrefix}-case-toggle-tooltip`}
             className="bg-surface border border-border rounded px-2 py-1 text-xs text-text shadow-md z-50"
             sideOffset={5}
           >
@@ -176,7 +188,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
       </Tooltip.Root>
       <button
         type="button"
-        data-testid="plain-text-find-prev"
+        data-testid={`${idPrefix}-prev`}
         aria-label="Previous match"
         aria-disabled={hasMatches ? 'false' : 'true'}
         disabled={!hasMatches}
@@ -187,7 +199,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
       </button>
       <button
         type="button"
-        data-testid="plain-text-find-next"
+        data-testid={`${idPrefix}-next`}
         aria-label="Next match"
         aria-disabled={hasMatches ? 'false' : 'true'}
         disabled={!hasMatches}
@@ -198,7 +210,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
       </button>
       <button
         type="button"
-        data-testid="plain-text-find-close"
+        data-testid={`${idPrefix}-close`}
         aria-label="Close find"
         onClick={onClose}
         className="px-2 py-0.5 rounded text-xs bg-bg border border-border text-text-muted hover:bg-surface-hover cursor-pointer"
@@ -207,8 +219,8 @@ export function FindBar(props: FindBarProps): JSX.Element {
       </button>
       {nonLatin1 && (
         <span
-          id={HINT_ID}
-          data-testid="plain-text-find-non-latin1-hint"
+          id={hintId}
+          data-testid={`${idPrefix}-non-latin1-hint`}
           className="text-warning text-xs"
         >
           {"Non-Latin-1 characters won't match"}
