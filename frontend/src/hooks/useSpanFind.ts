@@ -32,8 +32,13 @@ export type SpanMatcher = (spans: FindSpan[], query: string, caseSensitive: bool
 
 /** Arguments accepted by {@link useSpanFind}. */
 export interface UseSpanFindArgs {
-  /** Active document tab ID. A change resets all find-bar state. */
-  tabId: string;
+  /**
+   * Identity of the searchable content. A change resets all find-bar state
+   * (closes the bar, clears the query). For a document-level source this is the
+   * document tab id; for a per-selection source (the Object tab) it also folds
+   * in the selected node, so navigating to a different object starts fresh.
+   */
+  resetKey: string;
   /** The tab's linear match source. */
   spans: FindSpan[];
   /** Maps a query to matches over the spans. */
@@ -127,7 +132,7 @@ function matchKey(m: SpanMatch): string {
  * `activeMatch`.
  */
 export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
-  const { tabId, spans, matcher, caseSensitive, active, ready, barTestId } = args;
+  const { resetKey, spans, matcher, caseSensitive, active, ready, barTestId } = args;
 
   const [open, setOpen] = useState(false);
   const [query, setQueryState] = useState('');
@@ -184,7 +189,8 @@ export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredQuery, caseSensitive, matches]);
 
-  // Reset on document-tab change only. Inner-tab toggle (active prop) does NOT
+  // Reset when the searchable content identity changes (document tab, or the
+  // selected object for the Object tab). Inner-tab toggle (active prop) does NOT
   // reset, so each tab's find state persists across inner-tab switches.
   useEffect(() => {
     setOpen(false);
@@ -194,7 +200,7 @@ export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
     setOpenedOnce(false);
     prevDepsRef.current = { query: '', caseSensitive, matches: [] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId]);
+  }, [resetKey]);
 
   // Close an already-open bar when the tab's content stops being searchable
   // (e.g. the selected object switched to a render path with no highlight
@@ -211,7 +217,12 @@ export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
   }, []);
 
   const closeBar = useCallback(() => {
+    // Closing clears the search: query, matches and highlights all go, so the
+    // tab shows no leftover marks once the bar is dismissed.
     setOpen(false);
+    setQueryState('');
+    setActiveIndex(0);
+    setWrapped(null);
   }, []);
 
   const setQuery = useCallback((q: string) => {

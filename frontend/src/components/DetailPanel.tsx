@@ -538,7 +538,9 @@ function DetailPanelInner() {
   }, [detail, objectFindable]);
 
   const objectFind = useSpanFind({
-    tabId: activeTabId ?? '',
+    // Fold the selected node into the reset key so navigating to a different
+    // object starts find fresh (no query carried over to the new object).
+    resetKey: `${activeTabId ?? ''}::${selectedNodeId ?? ''}`,
     spans: objectSpans,
     matcher: substringSpanMatcher,
     caseSensitive: findCaseSensitive,

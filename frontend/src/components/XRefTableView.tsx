@@ -243,7 +243,7 @@ export function XRefTableView({ tabId, active, onNavigate, onLoaded, findCaseSen
   }, [data]);
 
   const xrefFind = useSpanFind({
-    tabId,
+    resetKey: tabId,
     spans: xrefSpans,
     matcher: substringSpanMatcher,
     caseSensitive: findCaseSensitive,

@@ -127,6 +127,20 @@ function Dispatch({ action }: { action: AppAction }) {
   return null;
 }
 
+// Selects a different tree node on click, so a test can drive an in-tab
+// navigation to another object after opening find.
+function NodeSelector() {
+  const dispatch = useAppDispatch();
+  return (
+    <button
+      data-testid="select-other-node"
+      onClick={() => dispatch({ type: 'SELECT_NODE', payload: { nodeId: 'obj:0:4' } })}
+    >
+      select other
+    </button>
+  );
+}
+
 function forceMacPlatform() {
   const original = Object.getOwnPropertyDescriptor(window.navigator, 'platform');
   Object.defineProperty(window.navigator, 'platform', { configurable: true, get: () => 'MacIntel' });
@@ -150,8 +164,16 @@ function renderPanel() {
     <AppProvider>
       <Dispatch action={openAction} />
       <Dispatch action={selectAction} />
+      <NodeSelector />
       <DetailPanel />
     </AppProvider>,
+  );
+}
+
+function objectMarkCount() {
+  return (
+    screen.queryAllByTestId('object-find-match').length +
+    screen.queryAllByTestId('object-find-active-match').length
   );
 }
 
@@ -338,5 +360,35 @@ describe('Object find issues no backend call', () => {
     expect(mockGetPlainText).not.toHaveBeenCalled();
     expect(mockGetPlainTextSize).not.toHaveBeenCalled();
     expect(mockGetReverseRefs).not.toHaveBeenCalled();
+  });
+});
+
+describe('closing find clears the search', () => {
+  test('closing the bar removes the highlights and the bar', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('/Marker')).toBeInTheDocument());
+    cmdF();
+    fireEvent.change(screen.getByTestId('object-find-input'), { target: { value: 'objectonly-needle' } });
+    await waitFor(() => expect(objectMarkCount()).toBe(2));
+    fireEvent.click(screen.getByTestId('object-find-close'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('object-find-bar')).toBeNull();
+      expect(objectMarkCount()).toBe(0);
+    });
+  });
+});
+
+describe('selecting a different object starts find fresh', () => {
+  test('navigating to another object clears the previous search and closes the bar', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('/Marker')).toBeInTheDocument());
+    cmdF();
+    fireEvent.change(screen.getByTestId('object-find-input'), { target: { value: 'objectonly-needle' } });
+    await waitFor(() => expect(objectMarkCount()).toBe(2));
+    fireEvent.click(screen.getByTestId('select-other-node'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('object-find-bar')).toBeNull();
+      expect(objectMarkCount()).toBe(0);
+    });
   });
 });

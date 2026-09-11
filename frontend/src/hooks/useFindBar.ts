@@ -219,9 +219,12 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   }, []);
 
   const closeBar = useCallback(() => {
+    // Closing clears the search: the query, matches and highlights all go, so
+    // the tab shows no leftover marks once the bar is dismissed.
     setOpen(false);
-    // PRESERVE query, matches, activeIndex, openedOnce so the Notepad++ "open
-    // -> type -> Esc -> F3 F3 F3" muscle-memory path works.
+    setQueryState('');
+    setActiveIndex(0);
+    setWrapped(null);
   }, []);
 
   const setQuery = useCallback((q: string) => {

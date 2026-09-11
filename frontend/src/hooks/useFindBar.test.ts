@@ -5,8 +5,7 @@
  * - openBar / closeBar / setQuery / next / prev surface
  * - Cmd+F / Ctrl+F keystroke handler (open + re-focus + select-all path)
  * - Esc close path (scoped via the FindBar root)
- * - F3 / Shift+F3 stepping with the bar closed
- * - openedOnce flag: persists across Esc-close on the same tab, clears on tab change
+ * - closeBar clears the search; F3 / Shift+F3 do not step once the bar is closed
  * - activeIndex preservation algorithm on case-toggle
  * - Wrap-status one-shot flag
  * - tabId-change reset
@@ -248,11 +247,11 @@ describe('Cmd+F is non-toggling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// closeBar() flips open=false but PRESERVES the query, matches, and
-// openedOnce flag on the same tab.
+// closeBar() flips open=false AND clears the search (query, matches,
+// activeIndex) so no highlights linger after the bar is dismissed.
 // ---------------------------------------------------------------------------
 
-describe('closeBar() preserves query + openedOnce', () => {
+describe('closeBar() clears the search', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -261,7 +260,7 @@ describe('closeBar() preserves query + openedOnce', () => {
     restore();
   });
 
-  test('closeBar() preserves query, openedOnce stays true', () => {
+  test('closeBar() clears query, matches, and activeIndex', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo bar foo', caseSensitive: false, active: true }),
     );
@@ -272,13 +271,14 @@ describe('closeBar() preserves query + openedOnce', () => {
       result.current.setQuery('foo');
     });
     expect(result.current.open).toBe(true);
-    expect(result.current.openedOnce).toBe(true);
+    expect(result.current.matches.length).toBe(2);
     act(() => {
       result.current.closeBar();
     });
     expect(result.current.open).toBe(false);
-    expect(result.current.query).toBe('foo');
-    expect(result.current.openedOnce).toBe(true);
+    expect(result.current.query).toBe('');
+    expect(result.current.matches).toEqual([]);
+    expect(result.current.activeIndex).toBe(0);
   });
 });
 
@@ -480,11 +480,11 @@ describe('wrap-to-top from last match', () => {
 });
 
 // ---------------------------------------------------------------------------
-// F3 navigates when the bar is closed but
-// openedOnce && query !== ''. The bar does NOT auto-reopen.
+// Closing the bar clears the search, so F3 does NOT navigate once the bar is
+// closed. F3 only steps matches while the bar is open.
 // ---------------------------------------------------------------------------
 
-describe('F3 navigates when bar is closed (after openedOnce)', () => {
+describe('F3 does not navigate when the bar is closed', () => {
   let restore: () => void;
   beforeEach(() => {
     restore = forceMacPlatform();
@@ -493,7 +493,7 @@ describe('F3 navigates when bar is closed (after openedOnce)', () => {
     restore();
   });
 
-  test('F3 with bar closed + openedOnce=true + query non-empty advances activeIndex', () => {
+  test('F3 after close does NOT advance (close cleared the query)', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -507,15 +507,15 @@ describe('F3 navigates when bar is closed (after openedOnce)', () => {
       result.current.closeBar();
     });
     expect(result.current.open).toBe(false);
+    expect(result.current.query).toBe('');
     act(() => {
       dispatchKey({ key: 'F3' });
     });
-    expect(result.current.activeIndex).toBe(1);
-    // Bar must NOT auto-reopen.
+    expect(result.current.activeIndex).toBe(0);
     expect(result.current.open).toBe(false);
   });
 
-  test('Shift+F3 with bar closed retreats with wrap', () => {
+  test('Shift+F3 after close does NOT retreat (close cleared the query)', () => {
     const { result } = renderHook(() =>
       useFindBar({ tabId: 'tab-1', content: 'foo foo foo', caseSensitive: false, active: true }),
     );
@@ -531,8 +531,8 @@ describe('F3 navigates when bar is closed (after openedOnce)', () => {
     act(() => {
       dispatchKey({ key: 'F3', shiftKey: true });
     });
-    expect(result.current.activeIndex).toBe(2);
-    expect(result.current.wrapped).toBe('bottom');
+    expect(result.current.activeIndex).toBe(0);
+    expect(result.current.wrapped).toBeNull();
   });
 
   test('F3 with openedOnce=false (bar never opened) does NOT navigate', () => {
