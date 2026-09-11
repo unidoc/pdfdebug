@@ -218,10 +218,12 @@ export function useSpanFind(args: UseSpanFindArgs): UseSpanFindReturn {
 
   const closeBar = useCallback(() => {
     // Closing clears the search: query, matches and highlights all go, so the
-    // tab shows no leftover marks once the bar is dismissed.
+    // tab shows no leftover marks once the bar is dismissed. activeIndex is left
+    // for the reconcile effect to reset once the empty query commits; forcing it
+    // to 0 here would move the active match under the still-live (deferred)
+    // match list and scroll the viewport for one frame.
     setOpen(false);
     setQueryState('');
-    setActiveIndex(0);
     setWrapped(null);
   }, []);
 

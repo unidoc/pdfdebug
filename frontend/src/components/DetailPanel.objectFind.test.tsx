@@ -376,6 +376,29 @@ describe('closing find clears the search', () => {
       expect(objectMarkCount()).toBe(0);
     });
   });
+
+  test('closing after navigating past the first match does not scroll the viewport', async () => {
+    const scrollSpy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      renderPanel();
+      await waitFor(() => expect(screen.getByText('/Marker')).toBeInTheDocument());
+      cmdF();
+      fireEvent.change(screen.getByTestId('object-find-input'), { target: { value: 'objectonly-needle' } });
+      await waitFor(() => expect(screen.getByTestId('object-find-count').textContent).toBe('1 of 2'));
+      fireEvent.click(screen.getByTestId('object-find-next'));
+      await waitFor(() => expect(screen.getByTestId('object-find-count').textContent).toBe('2 of 2'));
+      // Closing must not move the active match back to #0 under the still-live
+      // (deferred) match list, which would scroll the pane for one frame.
+      scrollSpy.mockClear();
+      fireEvent.click(screen.getByTestId('object-find-close'));
+      await waitFor(() => expect(screen.queryByTestId('object-find-bar')).toBeNull());
+      expect(scrollSpy).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
 });
 
 describe('selecting a different object starts find fresh', () => {
