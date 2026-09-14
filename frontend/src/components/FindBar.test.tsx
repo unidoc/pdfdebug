@@ -47,7 +47,7 @@ function renderBar(opts: RenderOpts = {}) {
   const onClose = vi.fn();
   render(
     <FindBar
-      matches={opts.matches ?? []}
+      matchCount={(opts.matches ?? []).length}
       activeIndex={opts.activeIndex ?? 0}
       query={opts.query ?? ''}
       caseSensitive={opts.caseSensitive ?? false}
@@ -136,7 +136,7 @@ describe('case toggle', () => {
   test('aria-pressed reflects caseSensitive prop', () => {
     const { rerender } = render(
       <FindBar
-        matches={[]}
+        matchCount={0}
         activeIndex={0}
         query=""
         caseSensitive={false}
@@ -152,7 +152,7 @@ describe('case toggle', () => {
     expect(screen.getByTestId('plain-text-find-case-toggle').getAttribute('aria-pressed')).toBe('false');
     rerender(
       <FindBar
-        matches={[]}
+        matchCount={0}
         activeIndex={0}
         query=""
         caseSensitive={true}

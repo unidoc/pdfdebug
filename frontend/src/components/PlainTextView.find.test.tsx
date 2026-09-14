@@ -426,11 +426,10 @@ describe('Cmd+F gated on data!==null', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Esc close moves focus to the scroll container so subsequent F3 / Shift+F3
-// keystrokes still reach the window-level navigation handler (the App.jsx
-// Cmd+G focus-guard relies on focus being OFF the FindBar input after Esc).
-// The scroll container is lazily given tabindex=-1 so it can accept
-// programmatic focus.
+// Esc close moves focus off the FindBar input back to the scroll container, so
+// keyboard focus returns to the content (the App.jsx Cmd+G focus-guard relies
+// on focus being OFF the FindBar input after Esc). The scroll container is
+// lazily given tabindex=-1 so it can accept programmatic focus.
 // ---------------------------------------------------------------------------
 
 describe('Esc restores focus to the scroll container', () => {

@@ -12,10 +12,13 @@ import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import {
   type ObjectDetailData,
+  type ObjectFindContext,
   DictView,
   ArrayView,
   ScalarView,
 } from './DetailShared';
+import { useSpanFind, substringSpanMatcher, type FindSpan, type SpanMatch } from '../hooks/useSpanFind';
+import { FindBar } from './FindBar';
 import { ContentStreamViewer, type StreamViewMode } from './ContentStreamViewer';
 import { ImagePreview } from './ImagePreview';
 import { FontPreview, type FontDetailData } from './FontPreview';
@@ -88,6 +91,9 @@ function DetailPanelInner() {
 
   const [detail, setDetail] = useState<ObjectDetailData | null>(null);
   const [detailTabId, setDetailTabId] = useState<string | null>(null);
+  // The node id the current `detail` payload was fetched for. Find is gated on
+  // this matching the live selection so stale detail is not searched mid-load.
+  const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [contentStream, setContentStream] = useState<ContentStreamData | null>(null);
   const [contentStreamLoading, setContentStreamLoading] = useState(false);
@@ -212,6 +218,7 @@ function DetailPanelInner() {
         if (!cancelled) {
           setDetail(result as ObjectDetailData);
           setDetailTabId(activeTabId);
+          setDetailNodeId(selectedNodeId);
         }
       })
       .catch((err: unknown) => {
@@ -497,6 +504,105 @@ function DetailPanelInner() {
       .catch((err: unknown) => setDiffError(extractErrorMessage(err)));
   }, [activeTabId]);
 
+  // --- Object-tab find (Model B: scoped to the active tab). Derives a linear
+  // match source from the rendered object text (keys + values) and reuses the
+  // shared find machinery. The window listener is gated on the Object tab being
+  // active, so a query here never reaches another tab. ---
+  const findCaseSensitive = activeTab?.findCaseSensitive ?? false;
+  // Object find only has a highlight surface in the DictView / ArrayView /
+  // ScalarView render paths. Font detail/roster previews, image previews and
+  // content-stream views render their own components that ignore `find`, so the
+  // bar must not open or report matches there (it would show a count with no
+  // visible marks). Mirrors the render branches in the Object pane below.
+  const objectFindable = useMemo(() => {
+    if (!detail) return false;
+    // The previous selection's detail is kept on screen while the next one
+    // loads. Do not treat that stale payload as searchable: a query entered
+    // during the load window would otherwise carry into the newly loaded object.
+    if (detailTabId !== activeTabId || detailNodeId !== selectedNodeId) return false;
+    if (detail.type === 'dict') {
+      if (selectedNodeIconHint === 'font') return fontState?.kind === 'fallback';
+      return true;
+    }
+    if (detail.type === 'array') return true;
+    if (detail.type === 'scalar') return !!detail.scalarValue;
+    return false;
+  }, [detail, detailTabId, detailNodeId, activeTabId, selectedNodeId, selectedNodeIconHint, fontState]);
+
+  const objectSpans = useMemo<FindSpan[]>(() => {
+    const spans: FindSpan[] = [];
+    if (!objectFindable || !detail) return spans;
+    if (detail.type === 'dict' && detail.properties) {
+      detail.properties.forEach((p, i) => {
+        spans.push({ id: `prop:${i}:key`, text: p.key });
+        spans.push({ id: `prop:${i}:value`, text: p.value.display });
+      });
+    } else if (detail.type === 'array' && detail.elements) {
+      detail.elements.forEach((e, i) => spans.push({ id: `elem:${i}`, text: e.display }));
+    } else if (detail.type === 'scalar' && detail.scalarValue) {
+      spans.push({ id: 'scalar', text: detail.scalarValue.display });
+    }
+    return spans;
+  }, [detail, objectFindable]);
+
+  const objectFind = useSpanFind({
+    // Fold the selected node into the reset key so navigating to a different
+    // object starts find fresh (no query carried over to the new object).
+    resetKey: `${activeTabId ?? ''}::${selectedNodeId ?? ''}`,
+    spans: objectSpans,
+    matcher: substringSpanMatcher,
+    caseSensitive: findCaseSensitive,
+    active: detailView === 'object',
+    ready: objectFindable,
+    barTestId: 'object-find-bar',
+  });
+
+  const objectMatchesBySpan = useMemo(() => {
+    const map = new Map<string, SpanMatch[]>();
+    for (const m of objectFind.matches) {
+      const arr = map.get(m.spanId);
+      if (arr) arr.push(m);
+      else map.set(m.spanId, [m]);
+    }
+    return map;
+  }, [objectFind.matches]);
+
+  const objectFindContext: ObjectFindContext = {
+    matchesBySpan: objectMatchesBySpan,
+    activeMatch: objectFind.activeMatch,
+    prefix: 'object-find',
+  };
+
+  const handleObjectCaseToggle = useCallback(() => {
+    if (!activeTabId) return;
+    dispatch({ type: 'SET_FIND_CASE_SENSITIVE', payload: { tabId: activeTabId, value: !findCaseSensitive } });
+  }, [dispatch, activeTabId, findCaseSensitive]);
+
+  // Scroll the active object match into view. The Object views are not
+  // virtualized, so the active mark is always in the DOM once matches render.
+  // Keyed on the active match alone (not `open`) so navigating between matches
+  // scrolls, while opening or closing the bar -- which does not move the active
+  // match -- never re-scrolls. Closing clears the query, so no active mark
+  // remains and the querySelector no-ops.
+  const objectContentRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = objectContentRef.current?.querySelector('[data-testid="object-find-active-match"]');
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
+  }, [objectFind.activeMatch]);
+
+  // Close the Object find bar and move focus back onto the Object content, so a
+  // keyboard user does not land on document.body when the input unmounts
+  // (mirrors the Plain Text close). tabIndex=-1 is set lazily so the container
+  // can accept programmatic focus without entering the tab order.
+  const handleObjectFindClose = useCallback(() => {
+    objectFind.closeBar();
+    const el = objectContentRef.current;
+    if (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+    }
+  }, [objectFind]);
+
   // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
@@ -656,7 +762,7 @@ function DetailPanelInner() {
           className="flex-1 min-h-0 data-[state=inactive]:hidden"
           data-testid="detail-pane-object"
         >
-          <div className="h-full" aria-live="polite" data-testid="detail-panel-content">
+          <div className="h-full" aria-live="polite" data-testid="detail-panel-content" ref={objectContentRef}>
             {!selectedNodeId && (
               <div
                 className="h-full flex items-center justify-center text-text-muted text-sm"
@@ -708,6 +814,24 @@ function DetailPanelInner() {
                     <span className="text-xs text-text-muted font-mono">{detail.objectRef}</span>
                   )}
                 </div>
+                {objectFind.open && (
+                  <FindBar
+                    idPrefix="object-find"
+                    label="Find in object"
+                    matchCount={objectFind.matches.length}
+                    activeIndex={objectFind.activeIndex}
+                    query={objectFind.query}
+                    caseSensitive={findCaseSensitive}
+                    wrapped={objectFind.wrapped}
+                    nonLatin1={false}
+                    focusVersion={objectFind.focusVersion}
+                    onQueryChange={objectFind.setQuery}
+                    onNext={objectFind.next}
+                    onPrev={objectFind.prev}
+                    onCaseToggle={handleObjectCaseToggle}
+                    onClose={handleObjectFindClose}
+                  />
+                )}
                 {detail.type === 'dict' && selectedNodeIconHint === 'font' && (
                   <>
                     {fontState?.kind === 'detail' && (
@@ -723,7 +847,7 @@ function DetailPanelInner() {
                       />
                     )}
                     {fontState?.kind === 'fallback' && (
-                      <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
+                      <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} find={objectFindContext} />
                     )}
                     {fontState?.kind === 'error' && (
                       <div className="p-3 text-error text-sm" data-testid="font-preview-error">
@@ -738,11 +862,11 @@ function DetailPanelInner() {
                   </>
                 )}
                 {detail.type === 'dict' && selectedNodeIconHint !== 'font' && (
-                  <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} />
+                  <DictView properties={detail.properties} onReferenceClick={handleReferenceClick} find={objectFindContext} />
                 )}
-                {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} />}
+                {detail.type === 'array' && <ArrayView elements={detail.elements} onReferenceClick={handleReferenceClick} find={objectFindContext} />}
                 {detail.type === 'scalar' && (detail.scalarValue
-                  ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} />
+                  ? <ScalarView value={detail.scalarValue} onReferenceClick={handleReferenceClick} find={objectFindContext} />
                   : <div className="text-text-muted text-sm p-3">No value</div>
                 )}
                 {detail.type === 'stream' && selectedNodeIconHint === 'image' && (
@@ -809,6 +933,8 @@ function DetailPanelInner() {
             active={detailView === 'xref'}
             onNavigate={handleXRefNavigate}
             onLoaded={setXrefEntryCount}
+            findCaseSensitive={findCaseSensitive}
+            onFindCaseToggle={handleObjectCaseToggle}
           />
         </Tabs.Content>
 

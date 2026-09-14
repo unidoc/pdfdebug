@@ -219,9 +219,14 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
   }, []);
 
   const closeBar = useCallback(() => {
+    // Closing clears the search: the query, matches and highlights all go, so
+    // the tab shows no leftover marks once the bar is dismissed. activeIndex is
+    // left for the reconcile effect to reset once the empty query commits;
+    // forcing it to 0 here would move the active match under the still-live
+    // (deferred) match list and scroll the viewport for one frame.
     setOpen(false);
-    // PRESERVE query, matches, activeIndex, openedOnce so the Notepad++ "open
-    // -> type -> Esc -> F3 F3 F3" muscle-memory path works.
+    setQueryState('');
+    setWrapped(null);
   }, []);
 
   const setQuery = useCallback((q: string) => {
@@ -305,8 +310,9 @@ export function useFindBar(args: UseFindBarArgs): UseFindBarReturn {
         return;
       }
 
-      // F3 / Shift+F3: navigate matches even when the bar is closed, provided
-      // openedOnce && query !== '' on the current tab.
+      // F3 / Shift+F3: navigate matches while the bar is open. Closing clears
+      // the query, so the openedOnce && query gate below can only pass via the
+      // open branch -- there is no navigation once the bar is closed.
       if (e.key === 'F3') {
         // Focus-guard: don't steal F3 from arbitrary text inputs.
         if (targetIsTextField && !targetIsFindBar) return;

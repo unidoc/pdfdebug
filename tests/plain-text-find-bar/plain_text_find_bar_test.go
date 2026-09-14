@@ -186,24 +186,29 @@ func TestFindBarTestExists(t *testing.T) {
 }
 
 // TestFindBarTestIds asserts FindBar.tsx renders the documented data-testids for
-// its static structure (input, count, case toggle, prev, next, close). The
-// conditional testids -- wrap-status, non-Latin-1 hint, gutter marker -- are
+// its static structure (input, count, case toggle, prev, next, close). The bar
+// is reused across tabs, so each testid is composed from an idPrefix that
+// defaults to the Plain Text prefix; the effective ids stay plain-text-find-*.
+// The conditional testids -- wrap-status, non-Latin-1 hint, gutter marker -- are
 // asserted in their dedicated component and integration tests.
 func TestFindBarTestIds(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
-	requiredTestIds := []string{
-		"plain-text-find-bar",          // root
-		"plain-text-find-input",        // input
-		"plain-text-find-count",        // count
-		"plain-text-find-case-toggle",  // case toggle
-		"plain-text-find-prev",         // prev
-		"plain-text-find-next",         // next
-		"plain-text-find-close",        // close
-		"plain-text-find-wrap-status",  // wrap status
+	if !strings.Contains(src, `idPrefix = 'plain-text-find'`) {
+		t.Errorf("FindBar.tsx must default idPrefix to 'plain-text-find'")
 	}
-	for _, tid := range requiredTestIds {
+	composedTestIds := []string{
+		"${idPrefix}-bar",          // root
+		"${idPrefix}-input",        // input
+		"${idPrefix}-count",        // count
+		"${idPrefix}-case-toggle",  // case toggle
+		"${idPrefix}-prev",         // prev
+		"${idPrefix}-next",         // next
+		"${idPrefix}-close",        // close
+		"${idPrefix}-wrap-status",  // wrap status
+	}
+	for _, tid := range composedTestIds {
 		if !strings.Contains(src, tid) {
-			t.Errorf("FindBar.tsx missing data-testid=%q", tid)
+			t.Errorf("FindBar.tsx missing composed data-testid %q", tid)
 		}
 	}
 }
@@ -237,7 +242,7 @@ func TestFindBarAriaContract(t *testing.T) {
 func TestFindBarNonLatin1Hint(t *testing.T) {
 	src := readSource(t, "frontend/src/components/FindBar.tsx")
 	requiredFragments := []string{
-		"plain-text-find-non-latin1-hint", // testid + id
+		"${idPrefix}-non-latin1-hint", // composed testid + id (default prefix plain-text-find)
 		`Non-Latin-1 characters won't match`, // exact copy
 		`aria-describedby`, // linkage
 	}

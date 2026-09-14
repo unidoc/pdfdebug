@@ -284,10 +284,9 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     });
   }, [dispatch, tabId, findCaseSensitive]);
 
-  // On Esc close, restore focus to the scroll container so subsequent F3 /
-  // Shift+F3 keystrokes still reach the window-level navigation handler (and so
-  // the input-focus check in App.jsx's Cmd+G handler does not erroneously see a
-  // stale FindBar input as the active text field).
+  // On Esc close, move focus off the FindBar input back to the scroll container
+  // so keyboard focus returns to the content, and so App.jsx's Cmd+G handler
+  // does not erroneously see a stale FindBar input as the active text field.
   const handleFindClose = useCallback(() => {
     closeFindBar();
     const el = scrollRef.current;
@@ -509,7 +508,7 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
     <div className="h-full flex flex-col bg-bg">
       {findOpen && (
         <FindBar
-          matches={findMatchesList}
+          matchCount={findMatchesList.length}
           activeIndex={findActiveIndex}
           query={findQuery}
           caseSensitive={findCaseSensitive}
