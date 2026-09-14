@@ -795,38 +795,39 @@ func TestArtifactStagingNaming(t *testing.T) {
 	if !strings.Contains(darwin, "--app-drop-link") {
 		t.Errorf("release.yml darwin stage: create-dmg must pass `--app-drop-link`")
 	}
+	// The darwin stage must not call the old native disk-image tool.
 	if strings.Contains(darwin, "hdiutil create") {
-		t.Errorf("release.yml darwin stage: `hdiutil create` must no longer appear; create-dmg replaces it")
+		t.Errorf("release.yml darwin stage: must not call `hdiutil create`")
 	}
-	// The named DMG must be asserted present after the build so a create-dmg
-	// run that exits 0 without producing the image fails at the source rather
-	// than as a later artifact-count mismatch.
-	if !strings.Contains(darwin, `test -f "$DMG"`) {
-		t.Errorf("release.yml darwin stage: must assert the built DMG exists via `test -f \"$DMG\"`")
+	// create-dmg replaces an existing output itself, so the build can honor its
+	// exit code rather than mask it with a manual overwrite.
+	if !strings.Contains(darwin, "--overwrite") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--overwrite` so the build honors its exit code")
 	}
-	// LICENSE and NOTICE ship at the DMG volume root (Apache 2.0 sec. 4); the
-	// swap to create-dmg must not regress this.
+	// The retry skips the flaky Finder window-arrange step so a headless
+	// AppleScript failure still ships a DMG instead of aborting the release.
+	if !strings.Contains(darwin, "--skip-jenkins") {
+		t.Errorf("release.yml darwin stage: the create-dmg retry must pass `--skip-jenkins` so a headless Finder failure still ships a DMG")
+	}
+	// LICENSE and NOTICE ship at the DMG volume root (Apache 2.0 sec. 4).
 	if !strings.Contains(darwin, "cp LICENSE NOTICE") {
 		t.Errorf("release.yml darwin stage: LICENSE and NOTICE must be staged into the DMG source folder so they ship at the volume root")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// create-dmg is installed before packaging (it is not on the default
-// macos-latest image), and when Homebrew is unavailable the GitHub-release
-// fallback verifies the archive against a pinned SHA-256 before it runs.
+// create-dmg is installed via Homebrew before packaging (it is not on the
+// default macos-latest image), and the tool on PATH is verified to be the real
+// create-dmg.
 // ---------------------------------------------------------------------------
 
-func TestCreateDmgInstalledWithVerifiedFallback(t *testing.T) {
+func TestCreateDmgInstalledViaBrew(t *testing.T) {
 	build := jobRunBodies(t, "build")
 	if !strings.Contains(build, "brew install create-dmg") {
-		t.Errorf("release.yml build job: create-dmg must be installed (it is not on the default macos-latest image)")
+		t.Errorf("release.yml build job: create-dmg must be installed via `brew install create-dmg` (it is not on the default macos-latest image)")
 	}
-	if !strings.Contains(build, "github.com/create-dmg/create-dmg") {
-		t.Errorf("release.yml build job: the create-dmg install must fall back to the GitHub release when Homebrew is unavailable")
-	}
-	if !strings.Contains(build, "shasum -a 256 -c") {
-		t.Errorf("release.yml build job: the create-dmg GitHub fallback must verify the archive against a pinned SHA-256 (`shasum -a 256 -c`) before use")
+	if !strings.Contains(build, "create-dmg --version") {
+		t.Errorf("release.yml build job: the install step must verify the tool on PATH is the real create-dmg via `create-dmg --version`")
 	}
 }
 
