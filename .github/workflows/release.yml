@@ -282,6 +282,38 @@ jobs:
           wails3 task linux:build ARCH="$ARCH" EXTRA_TAGS=gtk3
           test -f "bin/unidoc-pdf-debugger"
 
+      - name: Install create-dmg
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          set -euo pipefail
+          # create-dmg is not on the default macos-latest image.
+          if command -v create-dmg >/dev/null 2>&1; then
+            echo "create-dmg already on PATH"
+          elif command -v brew >/dev/null 2>&1; then
+            # Idempotent: brew reports it already installed on any future image
+            # that ships it.
+            brew install create-dmg
+          else
+            # No Homebrew (e.g. a self-hosted runner). create-dmg is a shell
+            # script plus a support/ dir -- there is no compiled binary -- so
+            # fetch the pinned release from GitHub and put it on PATH. The script
+            # locates support/ via a repo sentinel next to itself, so running it
+            # from the extracted tree needs no install step.
+            tag="v1.3.0"
+            sha256="c50d2bc97c3d6292642bac55f530d247eaf4bf65ee605f26b4caf339383e381c"
+            curl -fsSL "https://github.com/create-dmg/create-dmg/archive/refs/tags/${tag}.tar.gz" -o "$RUNNER_TEMP/create-dmg.tar.gz"
+            # Supply-chain integrity: fail closed if the archive does not match
+            # its pinned SHA-256 (a tag is mutable; this guards a moved tag or a
+            # tampered download before any of its code runs).
+            echo "${sha256}  $RUNNER_TEMP/create-dmg.tar.gz" | shasum -a 256 -c -
+            tar -xzf "$RUNNER_TEMP/create-dmg.tar.gz" -C "$RUNNER_TEMP"
+            # GitHub strips the leading `v` from the archive's top-level dir.
+            dir="$RUNNER_TEMP/create-dmg-${tag#v}"
+            chmod +x "$dir/create-dmg"
+            echo "$dir" >> "$GITHUB_PATH"
+          fi
+
       - name: Stage artifacts
         shell: bash
         env:
@@ -292,19 +324,76 @@ jobs:
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
               APP="bin/UniDoc PDF Debugger.app"
-              # GUI: DMG with the .app, LICENSE/NOTICE, and an Applications
-              # symlink so the mounted volume shows the standard drag-to-install
-              # layout. LICENSE/NOTICE ship at DMG root for Apache 2.0 sec 4.
+              # GUI: DMG built with create-dmg so the mounted volume carries the
+              # app's own icon (--volicon) and the drag-to-Applications layout
+              # (--app-drop-link, which owns the Applications drop target -- no
+              # manual symlink). LICENSE/NOTICE ship at the DMG root for Apache
+              # 2.0 sec 4, positioned on a lower row so they clear the app icon
+              # and drop target.
               STAGE="$RUNNER_TEMP/dmg-stage"
               rm -rf "$STAGE" && mkdir -p "$STAGE"
               cp -R "$APP" "$STAGE/"
               cp LICENSE NOTICE "$STAGE/"
-              ln -s /Applications "$STAGE/Applications"
-              hdiutil create \
-                -volname "UniDoc PDF Debugger" \
-                -srcfolder "$STAGE" \
-                -ov -format UDZO \
-                "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
+              DMG="dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
+              # The volume icon is load-bearing for this DMG; fail clearly if the
+              # source icon is missing rather than shipping a generic-icon image.
+              test -f "build/darwin/icons.icns"
+              # create-dmg refuses to overwrite an existing image, can leave a
+              # rw.*.dmg scratch image, and can leave the volume mounted on a
+              # failed run; clear all three before each attempt so a retry starts
+              # clean and only the final named DMG remains (EXPECTED_FILES=6).
+              build_dmg() {
+                hdiutil detach "/Volumes/UniDoc PDF Debugger" >/dev/null 2>&1 || true
+                rm -f "$DMG" dist/rw.*.dmg
+                # Ignore create-dmg's exit code: its AppleScript window-arrange
+                # step is flaky and can exit nonzero even when it produced a valid
+                # image. The `|| true` is load-bearing on the retry: below,
+                # `build_dmg` is the final command of the `||` list, so set -e is
+                # active inside it (it is suppressed inside the first call), and a
+                # nonzero-but-valid create-dmg would otherwise abort the step
+                # before the image check. Judging the attempt by the output image
+                # (next line) makes both calls reach the same verdict regardless.
+                create-dmg \
+                  --volname "UniDoc PDF Debugger" \
+                  --volicon "build/darwin/icons.icns" \
+                  --window-size 660 420 \
+                  --icon-size 100 \
+                  --icon "UniDoc PDF Debugger.app" 180 180 \
+                  --app-drop-link 480 180 \
+                  --icon "LICENSE" 180 340 \
+                  --icon "NOTICE" 480 340 \
+                  --format UDZO \
+                  "$DMG" "$STAGE" || true
+                # Success = the named image exists and is a valid disk image; a
+                # missing or corrupt result fails the attempt so the retry re-runs.
+                test -f "$DMG" && hdiutil verify "$DMG"
+              }
+              # The create-dmg AppleScript window-arrange step is intermittently
+              # flaky on CI; one bounded retry with a clean slate rather than
+              # degrading the volume icon / drag layout. A genuine double failure
+              # returns nonzero and aborts the step under set -e; on success the
+              # image already exists and verified, so only scratch cleanup remains.
+              build_dmg || build_dmg
+              rm -f dist/rw.*.dmg
+              # Best-effort: give the .dmg FILE its own app icon in Finder (the
+              # pre-mount appearance in Downloads). create-dmg's --volicon only
+              # sets the MOUNTED volume icon; the file icon needs an icns resource
+              # in the file's resource fork plus the custom-icon bit. This relies
+              # on the Xcode CLT (sips/DeRez/Rez/SetFile) and Finder icon caching
+              # can still show the generic icon until it refreshes, so a failure
+              # here must never fail the release.
+              set_dmg_file_icon() {
+                local tmp; tmp="$(mktemp -d)" || return 1
+                cp "build/darwin/icons.icns" "$tmp/icon.icns" \
+                  && sips -i "$tmp/icon.icns" >/dev/null \
+                  && DeRez -only icns "$tmp/icon.icns" > "$tmp/icon.rsrc" \
+                  && Rez -append "$tmp/icon.rsrc" -o "$DMG" \
+                  && SetFile -a C "$DMG"
+                local rc=$?
+                rm -rf "$tmp"
+                return $rc
+              }
+              set_dmg_file_icon || echo "note: could not set the .dmg file icon (best-effort); the mounted volume icon is set via --volicon"
               # CLI: tar.gz with LICENSE/NOTICE bundled.
               CLI_STAGE="$RUNNER_TEMP/darwin-cli-stage"
               rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"

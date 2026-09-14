@@ -782,9 +782,51 @@ func TestArtifactStagingNaming(t *testing.T) {
 		}
 	}
 
-	// macOS DMG must be built via hdiutil (native macOS disk-image tool).
-	if !strings.Contains(run, "hdiutil create") {
-		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create`")
+	// macOS DMG must be built via create-dmg so the disk image carries the app
+	// volume icon and the drag-to-Applications layout. Scoped to the parsed
+	// darwin Stage artifacts case, not a whole-file YAML grep.
+	darwin := stageCaseBlock(t, "darwin-arm64|darwin-amd64")
+	if !strings.Contains(darwin, "create-dmg") {
+		t.Errorf("release.yml darwin stage: macOS DMG must be built via `create-dmg`")
+	}
+	if !strings.Contains(darwin, "--volicon") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--volicon`")
+	}
+	if !strings.Contains(darwin, "--app-drop-link") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--app-drop-link`")
+	}
+	if strings.Contains(darwin, "hdiutil create") {
+		t.Errorf("release.yml darwin stage: `hdiutil create` must no longer appear; create-dmg replaces it")
+	}
+	// The named DMG must be asserted present after the build so a create-dmg
+	// run that exits 0 without producing the image fails at the source rather
+	// than as a later artifact-count mismatch.
+	if !strings.Contains(darwin, `test -f "$DMG"`) {
+		t.Errorf("release.yml darwin stage: must assert the built DMG exists via `test -f \"$DMG\"`")
+	}
+	// LICENSE and NOTICE ship at the DMG volume root (Apache 2.0 sec. 4); the
+	// swap to create-dmg must not regress this.
+	if !strings.Contains(darwin, "cp LICENSE NOTICE") {
+		t.Errorf("release.yml darwin stage: LICENSE and NOTICE must be staged into the DMG source folder so they ship at the volume root")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// create-dmg is installed before packaging (it is not on the default
+// macos-latest image), and when Homebrew is unavailable the GitHub-release
+// fallback verifies the archive against a pinned SHA-256 before it runs.
+// ---------------------------------------------------------------------------
+
+func TestCreateDmgInstalledWithVerifiedFallback(t *testing.T) {
+	build := jobRunBodies(t, "build")
+	if !strings.Contains(build, "brew install create-dmg") {
+		t.Errorf("release.yml build job: create-dmg must be installed (it is not on the default macos-latest image)")
+	}
+	if !strings.Contains(build, "github.com/create-dmg/create-dmg") {
+		t.Errorf("release.yml build job: the create-dmg install must fall back to the GitHub release when Homebrew is unavailable")
+	}
+	if !strings.Contains(build, "shasum -a 256 -c") {
+		t.Errorf("release.yml build job: the create-dmg GitHub fallback must verify the archive against a pinned SHA-256 (`shasum -a 256 -c`) before use")
 	}
 }
 

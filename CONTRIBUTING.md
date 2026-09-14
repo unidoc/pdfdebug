@@ -14,6 +14,7 @@ See [README.md#build-from-source](./README.md#build-from-source) for the canonic
 | Node.js | 20.x LTS | `.github/workflows/ci.yml` |
 | Wails v3 CLI | `v3.0.0-alpha.74` | `go.mod` require block |
 | golangci-lint | v2.1.6 | `.golangci.yml` |
+| create-dmg | Homebrew latest, or GitHub release `v1.3.0` fallback (SHA-256 pinned) | macOS release DMG packaging only; `release.yml` runs `brew install create-dmg`, and when Homebrew is unavailable fetches the `v1.3.0` create-dmg GitHub release and verifies its SHA-256 before use |
 
 ### Editor recommendations
 
