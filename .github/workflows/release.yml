@@ -282,6 +282,21 @@ jobs:
           wails3 task linux:build ARCH="$ARCH" EXTRA_TAGS=gtk3
           test -f "bin/unidoc-pdf-debugger"
 
+      - name: Install create-dmg
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          set -euo pipefail
+          # create-dmg is not on the default macos-latest image; brew is
+          # idempotent and reports it already installed on any image that ships
+          # it.
+          brew install create-dmg
+          # Verify the tool on PATH is the real create-dmg (not the unrelated npm
+          # package of the same name) and record the version in the log.
+          ver="$(create-dmg --version)"
+          echo "$ver"
+          echo "$ver" | grep -q '^create-dmg '
+
       - name: Stage artifacts
         shell: bash
         env:
@@ -292,19 +307,45 @@ jobs:
           case "$PLATFORM" in
             darwin-arm64|darwin-amd64)
               APP="bin/UniDoc PDF Debugger.app"
-              # GUI: DMG with the .app, LICENSE/NOTICE, and an Applications
-              # symlink so the mounted volume shows the standard drag-to-install
-              # layout. LICENSE/NOTICE ship at DMG root for Apache 2.0 sec 4.
+              # GUI: DMG built with create-dmg so the mounted volume carries the
+              # app's own icon (--volicon) and the drag-to-Applications layout
+              # (--app-drop-link, which owns the Applications drop target -- no
+              # manual symlink). LICENSE/NOTICE ship at the DMG root for Apache
+              # 2.0 sec 4, positioned on a lower row so they clear the app icon
+              # and drop target.
               STAGE="$RUNNER_TEMP/dmg-stage"
               rm -rf "$STAGE" && mkdir -p "$STAGE"
               cp -R "$APP" "$STAGE/"
               cp LICENSE NOTICE "$STAGE/"
-              ln -s /Applications "$STAGE/Applications"
-              hdiutil create \
-                -volname "UniDoc PDF Debugger" \
-                -srcfolder "$STAGE" \
-                -ov -format UDZO \
-                "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
+              DMG="dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.dmg"
+              build_dmg() {
+                create-dmg \
+                  --volname "UniDoc PDF Debugger" \
+                  --volicon "build/darwin/icons.icns" \
+                  --window-size 660 420 \
+                  --icon-size 100 \
+                  --icon "UniDoc PDF Debugger.app" 180 180 \
+                  --app-drop-link 480 180 \
+                  --icon "LICENSE" 180 340 \
+                  --icon "NOTICE" 480 340 \
+                  --format UDZO \
+                  --overwrite \
+                  "$@" \
+                  "$DMG" "$STAGE"
+              }
+              # The create-dmg Finder window-arrange step (AppleScript) is
+              # intermittently flaky on CI; retry once, and on the retry skip that
+              # step (--skip-jenkins) so a headless failure still ships a DMG with
+              # a degraded layout instead of aborting the release. create-dmg's
+              # exit code is honored; --overwrite replaces any existing output.
+              build_dmg || build_dmg --skip-jenkins
+              # A failed first attempt leaves its own rw.<pid>.*.dmg scratch that
+              # the retry (a new pid) does not remove; clear any scratch so only
+              # the final .dmg reaches the artifact upload (EXPECTED_FILES=6).
+              rm -f dist/rw.*.dmg
+              # Confirm the output is a valid disk image before it feeds the
+              # SHA256SUMS job.
+              hdiutil verify "$DMG"
               # CLI: tar.gz with LICENSE/NOTICE bundled.
               CLI_STAGE="$RUNNER_TEMP/darwin-cli-stage"
               rm -rf "$CLI_STAGE" && mkdir -p "$CLI_STAGE"

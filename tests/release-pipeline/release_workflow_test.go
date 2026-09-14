@@ -782,9 +782,52 @@ func TestArtifactStagingNaming(t *testing.T) {
 		}
 	}
 
-	// macOS DMG must be built via hdiutil (native macOS disk-image tool).
-	if !strings.Contains(run, "hdiutil create") {
-		t.Errorf("release.yml build job: macOS artifact must be built via `hdiutil create`")
+	// macOS DMG must be built via create-dmg so the disk image carries the app
+	// volume icon and the drag-to-Applications layout. Scoped to the parsed
+	// darwin Stage artifacts case, not a whole-file YAML grep.
+	darwin := stageCaseBlock(t, "darwin-arm64|darwin-amd64")
+	if !strings.Contains(darwin, "create-dmg") {
+		t.Errorf("release.yml darwin stage: macOS DMG must be built via `create-dmg`")
+	}
+	if !strings.Contains(darwin, "--volicon") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--volicon`")
+	}
+	if !strings.Contains(darwin, "--app-drop-link") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--app-drop-link`")
+	}
+	// The darwin stage must not call the old native disk-image tool.
+	if strings.Contains(darwin, "hdiutil create") {
+		t.Errorf("release.yml darwin stage: must not call `hdiutil create`")
+	}
+	// create-dmg replaces an existing output itself, so the build can honor its
+	// exit code rather than mask it with a manual overwrite.
+	if !strings.Contains(darwin, "--overwrite") {
+		t.Errorf("release.yml darwin stage: create-dmg must pass `--overwrite` so the build honors its exit code")
+	}
+	// The retry skips the flaky Finder window-arrange step so a headless
+	// AppleScript failure still ships a DMG instead of aborting the release.
+	if !strings.Contains(darwin, "--skip-jenkins") {
+		t.Errorf("release.yml darwin stage: the create-dmg retry must pass `--skip-jenkins` so a headless Finder failure still ships a DMG")
+	}
+	// LICENSE and NOTICE ship at the DMG volume root (Apache 2.0 sec. 4).
+	if !strings.Contains(darwin, "cp LICENSE NOTICE") {
+		t.Errorf("release.yml darwin stage: LICENSE and NOTICE must be staged into the DMG source folder so they ship at the volume root")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// create-dmg is installed via Homebrew before packaging (it is not on the
+// default macos-latest image), and the tool on PATH is verified to be the real
+// create-dmg.
+// ---------------------------------------------------------------------------
+
+func TestCreateDmgInstalledViaBrew(t *testing.T) {
+	build := jobRunBodies(t, "build")
+	if !strings.Contains(build, "brew install create-dmg") {
+		t.Errorf("release.yml build job: create-dmg must be installed via `brew install create-dmg` (it is not on the default macos-latest image)")
+	}
+	if !strings.Contains(build, "create-dmg --version") {
+		t.Errorf("release.yml build job: the install step must verify the tool on PATH is the real create-dmg via `create-dmg --version`")
 	}
 }
 

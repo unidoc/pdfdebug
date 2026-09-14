@@ -255,8 +255,9 @@ func TestDarwinBundleCLICopyPrecedesCodesignDispatch(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // The darwin GUI (dmg) staging carries NO loose pdfdebug file -- the CLI ships
-// inside the .app. The dmg stage copies only the app + LICENSE/NOTICE + the
-// /Applications symlink.
+// inside the .app. The dmg stage copies only the app + LICENSE/NOTICE; the
+// Applications drop link is created by create-dmg via --app-drop-link, not a
+// manual symlink in the stage.
 // ---------------------------------------------------------------------------
 
 func TestDarwinGUIStageHasNoLooseCLI(t *testing.T) {
