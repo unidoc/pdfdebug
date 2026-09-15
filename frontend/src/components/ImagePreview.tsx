@@ -96,14 +96,16 @@ export function ImagePreview({
       >
         <div className="flex items-center justify-between mb-1">
           <span className="text-text-secondary font-medium">Image Metadata</span>
-          <button
-            type="button"
-            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
-            data-testid="image-preview-save"
-            onClick={() => onSave?.()}
-          >
-            Save image...
-          </button>
+          {onSave && (
+            <button
+              type="button"
+              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+              data-testid="image-preview-save"
+              onClick={onSave}
+            >
+              Save image...
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-1 text-text-muted font-mono">
           <div>

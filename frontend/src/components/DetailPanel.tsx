@@ -121,6 +121,9 @@ function DetailPanelInner() {
   const [imageSaveError, setImageSaveError] = useState<string | null>(null);
   // Monotonic token guarding stale image requests across selection changes.
   const imageReqRef = useRef(0);
+  // Tracks the currently selected node id so a save failure is dropped only when
+  // the node actually changed, not when the same node re-decodes.
+  const selectedImageNodeRef = useRef<string | null>(null);
   // Blocks a second full-resolution save render while one is already in flight.
   const savingRef = useRef(false);
   // Holds the in-flight GetImageData cancellable call so navigating away can
@@ -385,6 +388,12 @@ function DetailPanelInner() {
     return () => clearInterval(id);
   }, [selectedNodeIconHint, imageData, imageConsent]);
 
+  // Mirror the selected node id into a ref so an async save-failure handler can
+  // tell whether the selection moved while its save was in flight.
+  useEffect(() => {
+    selectedImageNodeRef.current = detail?.nodeId ?? null;
+  }, [detail]);
+
   const handleProceedImage = useCallback(() => {
     if (!detailTabId || !detail) return;
     decodeImage(detailTabId, detail.nodeId);
@@ -394,7 +403,7 @@ function DetailPanelInner() {
     if (!detailTabId || !detail) return;
     if (savingRef.current) return;
     savingRef.current = true;
-    const token = imageReqRef.current;
+    const nodeIdAtSave = detail.nodeId;
     setImageSaveError(null);
     try {
       // Sanitize the node-derived base: object refs like "obj:0:7" carry colons,
@@ -402,8 +411,9 @@ function DetailPanelInner() {
       const base = (detail.objectRef || detail.nodeId || 'image').split(' ')[0].replace(/[^\w.-]/g, '-');
       await SaveImageToFile(detailTabId, detail.nodeId, `image-${base}.png`);
     } catch (err) {
-      // Drop a failure whose node was superseded while the save was in flight.
-      if (imageReqRef.current !== token) return;
+      // Drop a failure only when the selected node changed while the save was in
+      // flight; a same-node re-decode (Load after Save) must still show the error.
+      if (selectedImageNodeRef.current !== nodeIdAtSave) return;
       setImageSaveError(extractErrorMessage(err));
     } finally {
       savingRef.current = false;
@@ -1027,6 +1037,9 @@ function DetailPanelInner() {
                         saveError={imageSaveError ?? undefined}
                       />
                     )}
+                    {/* Shown immediately (no debounce, unlike the content-stream
+                        indicator): image loads carry a two-step describe+decode,
+                        and the elapsed-seconds counter communicates duration. */}
                     {imageLoading && !imageData && !imageConsent && (
                       <div className="p-3 text-text-muted text-sm" data-testid="image-loading">
                         {imageElapsed >= IMAGE_SLOW_THRESHOLD_SECONDS

@@ -171,7 +171,7 @@ func TestImageDecodeCeiling_NeverExceedsAbsoluteCap(t *testing.T) {
 // came from the reuse rather than from an unresolved lookup.
 func TestDeclaredComponents_ReusesResolvedCount(t *testing.T) {
 	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}, CSComponents: 3}
-	if got := declaredComponents(nil, sd); got != 3 {
+	if got := declaredComponents(nil, sd, maxComponents); got != 3 {
 		t.Errorf("got %d, want the already-resolved 3", got)
 	}
 }
@@ -181,7 +181,7 @@ func TestDeclaredComponents_ReusesResolvedCount(t *testing.T) {
 // the ceiling to its tightest value and refuse a large extraction.
 func TestDeclaredComponents_MissingColorSpaceWidensTheEstimate(t *testing.T) {
 	sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{}}
-	got := declaredComponents(nil, sd)
+	got := declaredComponents(nil, sd, maxComponents)
 	if got <= 0 {
 		t.Fatalf("got %d, want a positive fallback", got)
 	}
@@ -216,7 +216,7 @@ func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
 		_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
 	}()
 
-	got := declaredComponents(nil, sd)
+	got := declaredComponents(nil, sd, maxComponents)
 	if got <= 0 {
 		t.Errorf("got %d, want the positive fallback after an absorbed failure", got)
 	}
@@ -247,7 +247,7 @@ func TestDeclaredComponents_MalformedColorSpaceShapesAllFallBack(t *testing.T) {
 			_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
 		}()
 
-		if got := declaredComponents(nil, sd); got <= 0 {
+		if got := declaredComponents(nil, sd, maxComponents); got <= 0 {
 			t.Errorf("%v: got %d, want a positive fallback", cs, got)
 		}
 	}

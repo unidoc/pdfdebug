@@ -29,8 +29,15 @@ const (
 	//      source into memory to downsample it (pixels x bytesPerPixel).
 	// Because the encoded render is still held while makeThumbnail decodes, peak
 	// memory during preview build approaches encoded + decoded, so this is the
-	// high end of what a low-memory machine tolerates. An image whose decoded
-	// footprint exceeds it is not previewed inline (save-only).
+	// high end of what a low-memory machine tolerates.
+	//
+	// The two roles have different fallbacks when an image is over the ceiling:
+	// an image whose Go-decoded preview raster exceeds role 2 but whose stream
+	// decoded within role 1 (a high-pixel low-bit-depth scan) is save-only - the
+	// preview is skipped but the full-resolution bytes still exist. An image
+	// whose stream decode itself exceeds role 1 (a high-bit-depth large image)
+	// cannot be rendered OR saved within the limit and is reported as too large;
+	// raising that would require raising this budget.
 	maxImageDecodeBytes = 512 * 1024 * 1024
 
 	// maxBitsPerComponent and maxComponents bound a plausible image sample: 16 is

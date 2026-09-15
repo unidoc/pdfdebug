@@ -331,7 +331,7 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		// A stencil mask is one 1-bit sample per pixel whatever the dictionary's
 		// other entries say, so it is sized from that rather than from the
 		// component fallback an absent /ColorSpace would otherwise trigger.
-		bitsPerComponent, components := result.BitsPerComponent, declaredComponents(xrt, &sd)
+		bitsPerComponent, components := result.BitsPerComponent, declaredComponents(xrt, &sd, maxComponents)
 		if imageMask {
 			bitsPerComponent, components = 1, 1
 		}
@@ -462,34 +462,28 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 }
 
 // declaredComponents returns the colour-component count pdfcpu derives from the
-// image's /ColorSpace, falling back to the widest a colour space goes when it
-// cannot derive one. A DCT
-// stream already had it resolved for the decode, so that value is reused. The
-// count only sizes the decode ceiling, so an unresolvable or unrecognised colour
-// space widens the estimate rather than collapsing it: collapsing would pin a
-// large image to the smallest ceiling and refuse an extraction that works today.
-func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (components int) {
-	// An unresolved colour space must widen the estimate, not tighten it, or the
-	// ceiling refuses an extraction that would otherwise work. The widest a PDF
-	// colour space goes is 32, and the shape that most often lands here is a
-	// /DeviceN whose colorant array is an indirect reference - precisely the
-	// space that carries many components. Guessing four would leave room for
-	// about eight after the doubling and reject the rest as oversized.
-	const unknownComponents = maxComponents
+// image's /ColorSpace. A DCT stream already had it resolved for the decode, so
+// that value is reused. When the colour space cannot be resolved it returns
+// unknownFallback, so the caller picks the safe direction for its purpose:
+//   - the decode ceiling passes maxComponents to WIDEN (an unresolved space must
+//     not pin a large image to the smallest ceiling and refuse an extraction
+//     that works today);
+//   - the pre-decode estimate passes 0 to SUPPRESS (an honest size cannot be
+//     computed, so no consent prompt is forced on an image we cannot size).
+func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, unknownFallback int) (components int) {
 	if sd.CSComponents > 0 {
 		return sd.CSComponents
 	}
-	components = unknownComponents
+	components = unknownFallback
 	// Absorb panics as well as errors, via the named return so a recovered panic
 	// yields the fallback rather than a zero. pdfcpu's lookup asserts types and
 	// dereferences without checking, so a colour space it cannot read faults it,
 	// and safeCall re-panics a runtime error by design. Absorbing is safe HERE and
 	// nowhere else in this file: the result is only a size hint, every failure
-	// answers with the wider fallback, and no byte returned to the caller depends
-	// on it.
+	// answers with the fallback, and no byte returned to the caller depends on it.
 	defer func() {
 		if recover() != nil {
-			components = unknownComponents
+			components = unknownFallback
 		}
 	}()
 	if err := safeCall(func() error {
@@ -499,7 +493,7 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 		}
 		return e
 	}); err != nil {
-		return unknownComponents
+		return unknownFallback
 	}
 	return components
 }
@@ -775,7 +769,10 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("colorSpace metadata: %v", e))
 	}
 
-	components := declaredComponents(xrt, &sd)
+	// 0 fallback: an unresolvable colour space yields no estimate rather than the
+	// widened maxComponents the ceiling uses, so an image we cannot honestly size
+	// does not force a consent prompt (estimatedDecodedBytes returns 0).
+	components := declaredComponents(xrt, &sd, 0)
 	if imageMask {
 		bitsPerComponent, components = 1, 1
 	}
