@@ -42,6 +42,8 @@ vi.mock(
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
+    DescribeImage: vi.fn().mockResolvedValue({ width: 320, height: 240, colorSpace: 'DeviceRGB', estimatedBytes: 320 * 240 * 3 }),
+    SaveImageToFile: vi.fn().mockResolvedValue(''),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
     // The Embedded + Metadata tab panes forceMount, so DetailPanel
@@ -1348,40 +1350,16 @@ describe('DetailPanel image loading state', () => {
     vi.useRealTimers();
   });
 
-  test('loading indicator does NOT appear before 200ms', async () => {
+  test('loading indicator appears while the image decode is pending', async () => {
     mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
     // Image data hangs indefinitely
     mockGetImageData.mockReturnValue(new Promise(() => {}));
 
     renderWithState('obj:0:20', { iconHint: 'image' });
 
-    // Flush pending microtasks so detail state settles
+    // Flush pending microtasks so detail + describe settle and the decode starts
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
-    });
-
-    // Advance 199ms -- loading indicator should NOT be visible yet
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(199);
-    });
-
-    expect(screen.queryByTestId('image-loading')).not.toBeInTheDocument();
-  });
-
-  test('loading indicator appears after 200ms when image fetch is pending', async () => {
-    mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
-    mockGetImageData.mockReturnValue(new Promise(() => {}));
-
-    renderWithState('obj:0:20', { iconHint: 'image' });
-
-    // Flush microtasks so detail state settles
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-
-    // Advance past 200ms debounce
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(201);
     });
 
     expect(screen.getByTestId('image-loading')).toBeInTheDocument();

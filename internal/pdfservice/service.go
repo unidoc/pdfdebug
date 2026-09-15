@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -34,6 +35,8 @@ type inspectorAPI interface {
 	GetAncestorPath(tabID string, nodeID string) ([]string, error)
 	GetContentStream(tabID string, nodeID string) (*pdfcore.ContentStreamData, error)
 	GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error)
+	DescribeImage(tabID string, nodeID string) (*pdfcore.ImageDescription, error)
+	GetImageBytes(tabID string, nodeID string) ([]byte, string, error)
 	GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error)
 	GetFontResourceMap(tabID string, nodeID string) (*pdfcore.FontResourceMap, error)
 	GetFontView(tabID string, nodeID string) (*pdfcore.FontView, error)
@@ -202,13 +205,27 @@ func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.Con
 	return result, err
 }
 
-// GetImageData extracts and encodes an image from the given node.
+// GetImageData extracts and encodes a downsampled preview of an image from the
+// given node. The full-resolution bytes never cross the IPC boundary.
 func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error) {
 	var result *pdfcore.ImageData
 	var err error
 	func() {
 		defer recoverRuntimePanic("GetImageData", &err)
 		result, err = s.inspector.GetImageData(tabID, nodeID)
+	}()
+	return result, err
+}
+
+// DescribeImage returns the decode-free pre-decode estimate for an image node:
+// its geometry and the decoded size that geometry implies, so the frontend can
+// warn before an expensive decode without any byte being inflated.
+func (s *PDFService) DescribeImage(tabID string, nodeID string) (*pdfcore.ImageDescription, error) {
+	var result *pdfcore.ImageDescription
+	var err error
+	func() {
+		defer recoverRuntimePanic("DescribeImage", &err)
+		result, err = s.inspector.DescribeImage(tabID, nodeID)
 	}()
 	return result, err
 }
@@ -490,4 +507,53 @@ func (s *PDFService) SaveBytesToFile(suggestedName string, data []byte) (string,
 		return "", err
 	}
 	return path, nil
+}
+
+// SaveImageToFile renders the FULL-resolution image for the given node
+// server-side and writes it to a path chosen via the native Save-file dialog,
+// returning the saved path. An empty path (user cancelled) returns ("", nil).
+// The full-resolution bytes never round-trip through the frontend: this is the
+// backend-direct save that keeps the transport cost the preview removes from
+// coming back for the save. suggestedName seeds the dialog filename; its
+// extension is replaced with the rendered image's actual extension.
+func (s *PDFService) SaveImageToFile(tabID, nodeID, suggestedName string) (string, error) {
+	if s.app == nil {
+		return "", fmt.Errorf("app not initialized")
+	}
+	var data []byte
+	var ext string
+	var err error
+	func() {
+		defer recoverRuntimePanic("SaveImageToFile", &err)
+		data, ext, err = s.inspector.GetImageBytes(tabID, nodeID)
+	}()
+	if err != nil {
+		return "", err
+	}
+	path, err := s.app.Dialog.SaveFile().
+		SetFilename(suggestedImageName(suggestedName, ext)).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		// User cancelled the dialog.
+		return "", nil
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// suggestedImageName replaces any extension on suggested with ext, defaulting to
+// "image" when suggested is empty.
+func suggestedImageName(suggested, ext string) string {
+	if suggested == "" {
+		suggested = "image"
+	}
+	if i := strings.LastIndex(suggested, "."); i > 0 {
+		suggested = suggested[:i]
+	}
+	return suggested + ext
 }

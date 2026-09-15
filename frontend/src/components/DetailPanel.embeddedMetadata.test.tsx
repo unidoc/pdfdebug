@@ -43,6 +43,8 @@ vi.mock(
     GetObjectDetail: vi.fn().mockResolvedValue(null),
     GetContentStream: vi.fn(),
     GetImageData: vi.fn(),
+    DescribeImage: vi.fn().mockResolvedValue({ width: 0, height: 0, colorSpace: '', estimatedBytes: 0 }),
+    SaveImageToFile: vi.fn().mockResolvedValue(''),
     GetReverseRefs: vi.fn().mockResolvedValue([]),
     GetFontView: vi.fn(),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: 'tab-1', entries: [] }),

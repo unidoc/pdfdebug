@@ -7,6 +7,7 @@ require (
 	github.com/hhrutter/lzw v1.0.0
 	github.com/pdfcpu/pdfcpu v0.12.1
 	github.com/wailsapp/wails/v3 v3.0.0-beta.18
+	golang.org/x/image v0.41.0
 )
 
 require (
@@ -25,7 +26,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/image v0.41.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

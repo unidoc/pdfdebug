@@ -6,19 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	_ "image/jpeg" // registers the JPEG decoder for downsampling DCT renders
 	"image/png"
 	"io"
 	"strconv"
 	"strings"
 
+	"golang.org/x/image/draw"
 	pdfcpu_render "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 const (
-	// maxImageBytes caps the base64-encoded image payload to avoid OOM on
-	// pathologically large streams. 50 MB decoded is ~67 MB base64.
+	// maxImageBytes is the floor for imageDecodeCeiling: a small image is never
+	// held to a decode bound tighter than this. The full-resolution render read
+	// is bounded by maxImageDecodeBytes, since only a thumbnail crosses the IPC.
 	maxImageBytes = 50 * 1024 * 1024
 	// maxImagePixels caps total pixel count for in-memory decode (TIFF->PNG).
 	// 100 megapixels at 4 bytes/pixel = ~400 MB working set.
@@ -38,25 +41,88 @@ const (
 	// image. Only large images see it: below the maxImageBytes floor it is
 	// subsumed, and there the floor is the more generous of the two anyway.
 	imageDecodeHeadroom = 1024 * 1024
+	// maxThumbnailEdge bounds the longer side of the downsampled preview shipped
+	// over IPC. Fixed, not panel-relative, so GetImageData stays a pure function
+	// of the document. A source within this bound on both sides ships unchanged.
+	maxThumbnailEdge = 2048
 )
 
-// GetImageData extracts and encodes an image from the given XObject Image node.
-// Returns metadata and base64-encoded image data for frontend display.
+// Outcome discriminators for ImageData.Kind. The frontend branches the three
+// cases on this rather than parsing Error: an ordinary preview, the lying-stream
+// geometry-ceiling refusal (a finding, not offered for consent), and any other
+// per-image failure.
+const (
+	imageKindOK             = "ok"
+	imageKindCeilingRefusal = "ceiling-refusal"
+	imageKindError          = "error"
+)
+
+// GetImageData extracts an image from the given XObject Image node and returns
+// its metadata plus a base64-encoded DOWNSAMPLED preview. The full-resolution
+// bytes never cross the IPC boundary: the pixels in Base64 are bounded by
+// maxThumbnailEdge while every metadata field keeps reporting the real image.
+// Kind discriminates the outcome for the frontend.
 func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
+	result, fullBytes, format, err := ins.renderImage(tabID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != "" || fullBytes == nil {
+		return result, nil
+	}
+	b64, mime, tw, th, terr := makeThumbnail(fullBytes, format)
+	if terr != nil {
+		result.Error = fmt.Sprintf("failed to build image preview: %v", terr)
+		return result, nil
+	}
+	result.Base64 = b64
+	result.MimeType = mime
+	result.ThumbWidth = tw
+	result.ThumbHeight = th
+	result.Kind = imageKindOK
+	return result, nil
+}
+
+// GetImageBytes renders the FULL-resolution image for the given node and returns
+// the encoded bytes plus a file extension. The backend-direct save path uses it
+// so the full-resolution bytes never round-trip through the frontend. The
+// geometry decode ceiling governs the render exactly as it does for the preview.
+func (ins *Inspector) GetImageBytes(tabID, nodeID string) ([]byte, string, error) {
+	result, fullBytes, format, err := ins.renderImage(tabID, nodeID)
+	if err != nil {
+		return nil, "", err
+	}
+	if result.Error != "" {
+		return nil, "", errors.New(result.Error)
+	}
+	if len(fullBytes) == 0 {
+		return nil, "", errors.New("no image data")
+	}
+	return fullBytes, imageExtForFormat(format), nil
+}
+
+// renderImage resolves an image XObject, applies the geometry decode ceiling,
+// and renders it to full-resolution encoded bytes. On any per-image problem it
+// returns a *ImageData carrying Error and Kind (and nil bytes); on success it
+// returns the metadata result together with the full-resolution bytes and the
+// pdfcpu format string ("jpg"/"png"). Callers turn those bytes into either a
+// preview (GetImageData) or a saved file (GetImageBytes).
+func (ins *Inspector) renderImage(tabID, nodeID string) (*ImageData, []byte, string, error) {
 	if nodeID == "" {
-		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
+		return nil, nil, "", fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
 	}
 
 	if strings.HasPrefix(nodeID, "error:") {
 		return &ImageData{
 			NodeID: nodeID,
+			Kind:   imageKindError,
 			Error:  "cannot extract image for error node",
-		}, nil
+		}, nil, "", nil
 	}
 
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 	// Serialize pdfcpu access. Image extraction dereferences indirect refs
 	// (Subtype, Filter, ColorSpace) and reads pdfcpu's XRefTable.
@@ -70,7 +136,7 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		return e
 	})
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, nil, "", wrapPDFError(err)
 	}
 
 	// Must be a StreamDict (not ObjectStreamDict, XRefStreamDict, Dict, etc.)
@@ -78,8 +144,9 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	if !ok {
 		return &ImageData{
 			NodeID: nodeID,
+			Kind:   imageKindError,
 			Error:  "not an image XObject",
-		}, nil
+		}, nil, "", nil
 	}
 
 	// Verify Subtype == Image
@@ -87,8 +154,9 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	if !found {
 		return &ImageData{
 			NodeID: nodeID,
+			Kind:   imageKindError,
 			Error:  "not an image XObject",
-		}, nil
+		}, nil, "", nil
 	}
 	subtypeName, ok := subtypeObj.(pdfcpu_types.Name)
 	if !ok || string(subtypeName) != "Image" {
@@ -98,13 +166,15 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		}
 		return &ImageData{
 			NodeID: nodeID,
+			Kind:   imageKindError,
 			Error:  fmt.Sprintf("not an image XObject (Subtype: %s)", actual),
-		}, nil
+		}, nil, "", nil
 	}
 
 	result := &ImageData{
 		NodeID:    nodeID,
 		ObjectRef: objectRefFromNodeID(nodeID),
+		Kind:      imageKindError,
 	}
 
 	// Extract metadata -- wrap each pdfcpu call in safeCall.
@@ -262,7 +332,7 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		}()
 		if err != nil {
 			result.Error = fmt.Sprintf("failed to determine color space components: %v", err)
-			return result, nil
+			return result, nil, "", nil
 		}
 	}
 
@@ -281,19 +351,22 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
 		if _, err := decodeBounded(&sd, ceiling, false); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
-				result.Error = fmt.Sprintf("image data too large (exceeds the %d byte ceiling for a %dx%d image)",
+				// Declared small, actual enormous: the stream inflates past what
+				// it declares. A finding, not offered for consent.
+				result.Kind = imageKindCeilingRefusal
+				result.Error = fmt.Sprintf("image data too large: the stream inflates past what it declares (exceeds the %d byte ceiling for a %dx%d image)",
 					ceiling, result.Width, result.Height)
 			} else {
 				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
 			}
-			return result, nil
+			return result, nil, "", nil
 		}
 	} else {
 		// No filters -- raw content is the image data.
 		if sd.Content == nil {
 			if sd.Raw == nil {
 				result.Error = "empty image stream"
-				return result, nil
+				return result, nil, "", nil
 			}
 			sd.Content = sd.Raw
 		}
@@ -317,11 +390,11 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 	})
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to render image: %v", err)
-		return result, nil
+		return result, nil, "", nil
 	}
 	if reader == nil {
 		result.Error = fmt.Sprintf("unsupported image format: %s", result.Filter)
-		return result, nil
+		return result, nil, "", nil
 	}
 
 	// Handle format
@@ -332,13 +405,13 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		result.MimeType = "image/png"
 	case "jpx":
 		result.Error = "unsupported image format: JPEG 2000 (JPX)"
-		return result, nil
+		return result, nil, "", nil
 	case "tif":
 		// Guard against huge images that would OOM during decode+re-encode.
 		if result.Width > 0 && result.Height > 0 &&
 			int64(result.Width)*int64(result.Height) > maxImagePixels {
 			result.Error = fmt.Sprintf("image too large for re-encoding (%dx%d pixels)", result.Width, result.Height)
-			return result, nil
+			return result, nil, "", nil
 		}
 		// Re-encode TIFF to PNG for browser display
 		var img image.Image
@@ -349,38 +422,39 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 		})
 		if err != nil {
 			result.Error = fmt.Sprintf("failed to decode TIFF for re-encoding: %v", err)
-			return result, nil
+			return result, nil, "", nil
 		}
 		var buf bytes.Buffer
 		if err := png.Encode(&buf, img); err != nil {
 			result.Error = fmt.Sprintf("failed to re-encode TIFF as PNG: %v", err)
-			return result, nil
+			return result, nil, "", nil
 		}
-		if buf.Len() > maxImageBytes {
-			result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageBytes/(1024*1024))
-			return result, nil
+		if buf.Len() > maxImageDecodeBytes {
+			result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageDecodeBytes/(1024*1024))
+			return result, nil, "", nil
 		}
-		result.Base64 = base64.StdEncoding.EncodeToString(buf.Bytes())
 		result.MimeType = "image/png"
-		return result, nil
+		return result, buf.Bytes(), "png", nil
 	default:
 		result.Error = fmt.Sprintf("unsupported image format: %s", format)
-		return result, nil
+		return result, nil, "", nil
 	}
 
-	// Read image bytes and base64-encode, capped to avoid OOM.
-	imgBytes, err := io.ReadAll(io.LimitReader(reader, maxImageBytes+1))
+	// Read the full-resolution render, capped at the decode ceiling to avoid OOM.
+	// Only a downsampled thumbnail crosses the IPC, so the bound is
+	// maxImageDecodeBytes (the ceiling the geometry guard already sanctions),
+	// not the smaller maxImageBytes.
+	imgBytes, err := io.ReadAll(io.LimitReader(reader, maxImageDecodeBytes+1))
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to read image data: %v", err)
-		return result, nil
+		return result, nil, "", nil
 	}
-	if len(imgBytes) > maxImageBytes {
-		result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageBytes/(1024*1024))
-		return result, nil
+	if len(imgBytes) > maxImageDecodeBytes {
+		result.Error = fmt.Sprintf("image data too large (>%d MB)", maxImageDecodeBytes/(1024*1024))
+		return result, nil, "", nil
 	}
-	result.Base64 = base64.StdEncoding.EncodeToString(imgBytes)
 
-	return result, nil
+	return result, imgBytes, format, nil
 }
 
 // declaredComponents returns the colour-component count pdfcpu derives from the
@@ -483,4 +557,198 @@ func appendWarning(existing, addition string) string {
 		return addition
 	}
 	return existing + "; " + addition
+}
+
+// makeThumbnail turns full-resolution encoded image bytes into a base64 preview
+// bounded by maxThumbnailEdge, returning the preview's MIME type and pixel
+// dimensions. A source within the bound on both sides ships unchanged (its
+// original bytes and format); a larger one is decoded, scaled with
+// draw.CatmullRom and re-encoded as PNG. The pixel-count guard keeps the decode
+// from OOM on an image past maxImagePixels.
+func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, thumbH int, err error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(fullBytes))
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	mime = "image/png"
+	if format == "jpg" {
+		mime = "image/jpeg"
+	}
+	if cfg.Width <= maxThumbnailEdge && cfg.Height <= maxThumbnailEdge {
+		return base64.StdEncoding.EncodeToString(fullBytes), mime, cfg.Width, cfg.Height, nil
+	}
+	if int64(cfg.Width)*int64(cfg.Height) > maxImagePixels {
+		return "", "", 0, 0, fmt.Errorf("image too large to preview (%dx%d pixels)", cfg.Width, cfg.Height)
+	}
+	src, _, err := image.Decode(bytes.NewReader(fullBytes))
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	thumbW, thumbH = thumbnailDims(cfg.Width, cfg.Height)
+	dst := image.NewRGBA(image.Rect(0, 0, thumbW, thumbH))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, dst); err != nil {
+		return "", "", 0, 0, err
+	}
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), "image/png", thumbW, thumbH, nil
+}
+
+// thumbnailDims scales w x h so the longer edge is maxThumbnailEdge, preserving
+// aspect ratio, with each side floored at 1 pixel.
+func thumbnailDims(w, h int) (int, int) {
+	if w >= h {
+		th := h * maxThumbnailEdge / w
+		if th < 1 {
+			th = 1
+		}
+		return maxThumbnailEdge, th
+	}
+	tw := w * maxThumbnailEdge / h
+	if tw < 1 {
+		tw = 1
+	}
+	return tw, maxThumbnailEdge
+}
+
+// imageExtForFormat maps a pdfcpu render format to a file extension for the save
+// dialog. TIFF is re-encoded to PNG upstream, so only jpg and png reach here.
+func imageExtForFormat(format string) string {
+	if format == "jpg" {
+		return ".jpg"
+	}
+	return ".png"
+}
+
+// estimatedDecodedBytes returns the decoded size the declared geometry implies,
+// row-padded to a byte boundary exactly as imageDecodeCeiling sizes it. Zero for
+// geometry that is missing, non-positive, or implausible enough to overflow the
+// arithmetic.
+func estimatedDecodedBytes(width, height, bitsPerComponent, components int) int64 {
+	// Same plausibility bounds as imageDecodeCeiling: a dimension, depth or
+	// component count past these makes the int64 products overflow, so an
+	// implausible declaration yields 0 (unknown) rather than a wrapped estimate.
+	const maxImageDimension = 1 << 20
+	if width <= 0 || height <= 0 ||
+		bitsPerComponent <= 0 || bitsPerComponent > maxBitsPerComponent ||
+		components <= 0 || components > maxComponents ||
+		width > maxImageDimension || height > maxImageDimension {
+		return 0
+	}
+	bitsPerPixel := int64(bitsPerComponent) * int64(components)
+	rowBytes := (int64(width)*bitsPerPixel + 7) / 8
+	return rowBytes * int64(height)
+}
+
+// DescribeImage reads the geometry of an image XObject and the decoded size it
+// implies WITHOUT inflating a byte, so the frontend can warn before an expensive
+// decode. It is a decode-free companion to GetImageData: no stream is decoded,
+// only the dictionary is read.
+func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, error) {
+	if nodeID == "" {
+		return nil, fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
+	}
+	if strings.HasPrefix(nodeID, "error:") {
+		return &ImageDescription{NodeID: nodeID, Error: "cannot describe image for error node"}, nil
+	}
+
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, err
+	}
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
+	var obj pdfcpu_types.Object
+	err = safeCall(func() error {
+		var e error
+		obj, e = resolveNodeObject(doc, nodeID)
+		return e
+	})
+	if err != nil {
+		return nil, wrapPDFError(err)
+	}
+	sd, ok := obj.(pdfcpu_types.StreamDict)
+	if !ok {
+		return &ImageDescription{NodeID: nodeID, Error: "not an image XObject"}, nil
+	}
+
+	desc := &ImageDescription{
+		NodeID:    nodeID,
+		ObjectRef: objectRefFromNodeID(nodeID),
+	}
+	xrt := doc.PDFContext.XRefTable
+
+	readInt := func(key string, dst *int) {
+		if e := safeCall(func() error {
+			o, found := sd.Find(key)
+			if !found {
+				return nil
+			}
+			i, e := xrt.DereferenceInteger(o)
+			if e != nil {
+				return e
+			}
+			if i != nil {
+				*dst = int(*i)
+			}
+			return nil
+		}); e != nil {
+			desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("%s metadata: %v", key, e))
+		}
+	}
+	readInt("Width", &desc.Width)
+	readInt("Height", &desc.Height)
+
+	bitsPerComponent := 8
+	readInt("BitsPerComponent", &bitsPerComponent)
+
+	imageMask := false
+	if e := safeCall(func() error {
+		maskObj, found := sd.Find("ImageMask")
+		if !found {
+			return nil
+		}
+		deref, e := xrt.Dereference(maskObj)
+		if e != nil {
+			return e
+		}
+		if b, ok := deref.(pdfcpu_types.Boolean); ok {
+			imageMask = b.Value()
+		}
+		return nil
+	}); e != nil {
+		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("imageMask metadata: %v", e))
+	}
+
+	if e := safeCall(func() error {
+		csObj, found := sd.Find("ColorSpace")
+		if !found {
+			return nil
+		}
+		deref, e := xrt.Dereference(csObj)
+		if e != nil {
+			return e
+		}
+		switch cs := deref.(type) {
+		case pdfcpu_types.Name:
+			desc.ColorSpace = string(cs)
+		case pdfcpu_types.Array:
+			if len(cs) > 0 {
+				if n, ok := cs[0].(pdfcpu_types.Name); ok {
+					desc.ColorSpace = string(n)
+				}
+			}
+		}
+		return nil
+	}); e != nil {
+		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("colorSpace metadata: %v", e))
+	}
+
+	components := declaredComponents(xrt, &sd)
+	if imageMask {
+		bitsPerComponent, components = 1, 1
+	}
+	desc.EstimatedBytes = estimatedDecodedBytes(desc.Width, desc.Height, bitsPerComponent, components)
+	return desc, nil
 }
