@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,7 +41,7 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 	}
 	defer func() { _ = ins.Close("cli") }()
 
-	img, err := ins.GetImageData("cli", nodeID)
+	img, err := ins.GetImageData(context.Background(), "cli", nodeID)
 	if err != nil {
 		writeJSONError(os.Stderr, err.Error())
 		return 2
@@ -76,6 +78,23 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 			return 2
 		}
 		return 0
+	}
+
+	// The CLI emits the FULL-resolution image, not the GUI's downsampled
+	// preview. GetImageData's Base64 is a thumbnail; replace it with the
+	// full-resolution bytes so the base64 matches the reported dimensions.
+	if img.Error == "" && img.Base64 != "" {
+		if full, ext, berr := ins.GetImageBytes("cli", nodeID); berr == nil {
+			img.Base64 = base64.StdEncoding.EncodeToString(full)
+			img.MimeType = "image/png"
+			if ext == ".jpg" {
+				img.MimeType = "image/jpeg"
+			}
+			// The CLI ships the full-resolution image, so the reported preview
+			// dimensions equal the real dimensions (no downsampling here).
+			img.ThumbWidth = img.Width
+			img.ThumbHeight = img.Height
+		}
 	}
 
 	if err := emit(os.Stdout, img, f.pretty); err != nil {

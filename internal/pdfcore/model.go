@@ -308,6 +308,13 @@ type FormRenderInfo struct {
 }
 
 // ImageData holds extracted image data and metadata for frontend display.
+//
+// Base64 carries a downsampled PREVIEW, not the full-resolution render: the
+// pixels are bounded by maxThumbnailEdge while Width/Height and the other
+// metadata fields keep reporting the REAL image. ThumbWidth/ThumbHeight are the
+// preview's own pixel dimensions so the frontend can label it as reduced. Kind
+// is the outcome discriminator ("ok", "ceiling-refusal", "error") so the
+// frontend branches the three cases without parsing Error.
 type ImageData struct {
 	NodeID           string `json:"nodeId"`
 	ObjectRef        string `json:"objectRef"`
@@ -318,8 +325,27 @@ type ImageData struct {
 	ColorSpace       string `json:"colorSpace"`
 	BitsPerComponent int    `json:"bitsPerComponent"`
 	Filter           string `json:"filter"`
+	Kind             string `json:"kind"`
+	ThumbWidth       int    `json:"thumbWidth"`
+	ThumbHeight      int    `json:"thumbHeight"`
 	Warning          string `json:"warning"`
 	Error            string `json:"error"`
+}
+
+// ImageDescription is the decode-free pre-decode estimate for an image XObject:
+// the geometry read from the dictionary and the decoded size that geometry
+// implies. It lets the frontend warn before an expensive decode without a byte
+// being inflated. EstimatedBytes is the honest decoded size the declared
+// geometry implies, not the ceiling.
+type ImageDescription struct {
+	NodeID         string `json:"nodeId"`
+	ObjectRef      string `json:"objectRef"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	ColorSpace     string `json:"colorSpace"`
+	EstimatedBytes int64  `json:"estimatedBytes"`
+	Warning        string `json:"warning"`
+	Error          string `json:"error"`
 }
 
 // StreamInfo describes the length and filter pipeline of a PDF stream.

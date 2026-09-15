@@ -344,7 +344,7 @@ func TestGetImageData(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	result, err := svc.GetImageData(info.TabID, imageNodeID)
+	result, err := svc.GetImageData(context.Background(), info.TabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}
@@ -364,7 +364,7 @@ func TestGetImageData(t *testing.T) {
 
 func TestGetImageDataUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
-	_, err := svc.GetImageData("nonexistent-tab-id", "root")
+	_, err := svc.GetImageData(context.Background(), "nonexistent-tab-id", "root")
 	if err == nil {
 		t.Fatal("GetImageData with unknown tabID should return error")
 	}

@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useLatest } from '../hooks/useLatest';
+import { formatBytes } from '../lib/formatBytes';
 import { useWindowedRows } from '../hooks/useWindowedRows';
 import { flushSync } from 'react-dom';
 import {
@@ -48,28 +49,9 @@ const OVERSCAN = 20;
 /** Per-component load lifecycle. */
 type LoadState = 'idle' | 'loading' | 'ready' | 'cancelled' | 'error';
 
-/**
- * Binary-base size formatter for user-facing copy. JEDEC-style labels
- * (KB/MB/GB, not KiB/MiB/GiB). Non-finite or negative inputs collapse to
- * "0 B".
- */
-export function formatBytes(n: number): string {
-  if (!Number.isFinite(n) || n < 0) {
-    return '0 B';
-  }
-  if (n < 1024) {
-    return `${n} B`;
-  }
-  // Promote across a unit boundary when 1-decimal rounding would otherwise
-  // render the full count of the lower unit (e.g. "1024.0 KB" -> "1.0 MB").
-  if (n < 1024 * 1024 && n / 1024 < 1023.95) {
-    return `${(n / 1024).toFixed(1)} KB`;
-  }
-  if (n < 1024 * 1024 * 1024 && n / (1024 * 1024) < 1023.95) {
-    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
+// formatBytes is re-exported from lib so existing importers (formatBytes.test)
+// keep resolving it here.
+export { formatBytes };
 
 /**
  * Document-level Plain Text view. Lazy-fetches on first activation; renders
