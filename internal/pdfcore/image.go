@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/jpeg" // registers the JPEG decoder for downsampling DCT renders
 	"image/png"
 	"io"
@@ -45,6 +46,14 @@ const (
 	// over IPC. Fixed, not panel-relative, so GetImageData stays a pure function
 	// of the document. A source within this bound on both sides ships unchanged.
 	maxThumbnailEdge = 2048
+	// maxPreviewDecodeBytes bounds the decoded raster makeThumbnail holds in
+	// memory to build the inline preview (pixels x bytes-per-pixel, so a 1-bit
+	// scan is measured by its decoded 1-byte-per-pixel footprint, not its packed
+	// size). Kept below maxImageDecodeBytes because the encoded render is still
+	// held during the decode, so peak is roughly encoded + decoded. Set
+	// conservatively: too-low only falls back to a save-only preview, too-high
+	// risks OOM on a low-memory machine.
+	maxPreviewDecodeBytes = 256 * 1024 * 1024
 )
 
 // Outcome discriminators for ImageData.Kind. The frontend branches the three
@@ -563,8 +572,9 @@ func appendWarning(existing, addition string) string {
 // bounded by maxThumbnailEdge, returning the preview's MIME type and pixel
 // dimensions. A source within the bound on both sides ships unchanged (its
 // original bytes and format); a larger one is decoded, scaled with
-// draw.CatmullRom and re-encoded as PNG. The pixel-count guard keeps the decode
-// from OOM on an image past maxImagePixels.
+// draw.CatmullRom and re-encoded as PNG. Sources whose decoded footprint
+// exceeds maxPreviewDecodeBytes fall back to a save-only error rather than
+// decode into memory.
 func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, thumbH int, err error) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(fullBytes))
 	if err != nil {
@@ -577,8 +587,8 @@ func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, t
 	if cfg.Width <= maxThumbnailEdge && cfg.Height <= maxThumbnailEdge {
 		return base64.StdEncoding.EncodeToString(fullBytes), mime, cfg.Width, cfg.Height, nil
 	}
-	if int64(cfg.Width)*int64(cfg.Height) > maxImagePixels {
-		return "", "", 0, 0, fmt.Errorf("image too large to preview (%dx%d pixels)", cfg.Width, cfg.Height)
+	if int64(cfg.Width)*int64(cfg.Height)*int64(bytesPerPixel(cfg.ColorModel)) > maxPreviewDecodeBytes {
+		return "", "", 0, 0, fmt.Errorf("image too large to preview inline (%dx%d); use Save image to write the full-resolution file", cfg.Width, cfg.Height)
 	}
 	src, _, err := image.Decode(bytes.NewReader(fullBytes))
 	if err != nil {
@@ -592,6 +602,22 @@ func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, t
 		return "", "", 0, 0, err
 	}
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), "image/png", thumbW, thumbH, nil
+}
+
+// bytesPerPixel returns the in-memory byte width of one decoded pixel for an
+// image color model, used to size the preview decode budget. Unknown models
+// (including paletted) fall back to 4, the conservative upper bound.
+func bytesPerPixel(m color.Model) int {
+	switch m {
+	case color.GrayModel, color.AlphaModel:
+		return 1
+	case color.Gray16Model, color.Alpha16Model:
+		return 2
+	case color.RGBA64Model, color.NRGBA64Model:
+		return 8
+	default:
+		return 4
+	}
 }
 
 // thumbnailDims scales w x h so the longer edge is maxThumbnailEdge, preserving
