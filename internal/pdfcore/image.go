@@ -338,11 +338,18 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
 		if _, err := decodeBounded(&sd, ceiling, false); err != nil {
 			if errors.Is(err, ErrUnsupportedPDF) {
-				// Declared small, actual enormous: the stream inflates past what
-				// it declares. A finding, not offered for consent.
 				result.Kind = imageKindCeilingRefusal
-				result.Error = fmt.Sprintf("image data too large: the stream inflates past what it declares (exceeds the %d byte ceiling for a %dx%d image)",
-					ceiling, result.Width, result.Height)
+				if est := estimatedDecodedBytes(result.Width, result.Height, bitsPerComponent, components); est > 0 && est >= ceiling {
+					// Declared large and actually large: an honest image over the
+					// decode limit, not a lying stream. Report the size plainly.
+					result.Error = fmt.Sprintf("image too large to render: a %dx%d image decodes to about %d MB, over the %d MB limit",
+						result.Width, result.Height, est/(1024*1024), ceiling/(1024*1024))
+				} else {
+					// Declared small, actual enormous: the stream inflates past
+					// what it declares. A finding, not offered for consent.
+					result.Error = fmt.Sprintf("image data too large: the stream inflates past what it declares (exceeds the %d byte ceiling for a %dx%d image)",
+						ceiling, result.Width, result.Height)
+				}
 			} else {
 				result.Error = fmt.Sprintf("failed to decode image stream: %v", err)
 			}

@@ -5,12 +5,11 @@ import (
 	"testing"
 )
 
-// A large raster is shipped for display as a downsampled preview while every
-// metadata field keeps reporting the real image. The declared 8192x8192 is far
-// above any plausible fixed max-edge, so an honest thumbnail is strictly smaller
-// than the source in both the reported ThumbWidth/ThumbHeight and the pixels of
-// the base64 payload; Width/Height still describe the PDF's image.
-func TestImagePreview_LargeRasterDownsampledWhileMetadataReportsRealGeometry(t *testing.T) {
+// The CLI `dump image --json` emits the FULL-resolution image (not the GUI's
+// downsampled preview) while every metadata field reports the real image. A
+// large 8192x8192 raster decodes back to its real geometry, and the reported
+// preview dimensions equal the real dimensions since the CLI does not downsample.
+func TestImageCLI_EmitsFullResolutionWithRealGeometry(t *testing.T) {
 	bin := buildCLI(t)
 	const side = 8192
 	pdf := writeTempPDF(t, "large-raster.pdf",
@@ -25,7 +24,7 @@ func TestImagePreview_LargeRasterDownsampledWhileMetadataReportsRealGeometry(t *
 		t.Fatalf("expected a large honest raster to render, got error %q", img.Error)
 	}
 	if img.Base64 == "" {
-		t.Fatalf("expected a rendered preview payload")
+		t.Fatalf("expected a rendered payload")
 	}
 
 	// Metadata reports the real image.
@@ -34,24 +33,17 @@ func TestImagePreview_LargeRasterDownsampledWhileMetadataReportsRealGeometry(t *
 			img.Width, img.Height, side, side)
 	}
 
-	// Reduced-preview dimensions are reported and are smaller than the source.
-	if img.ThumbWidth <= 0 || img.ThumbHeight <= 0 {
-		t.Errorf("expected reported thumbnail dimensions > 0, got %dx%d", img.ThumbWidth, img.ThumbHeight)
-	}
-	if img.ThumbWidth >= side || img.ThumbHeight >= side {
-		t.Errorf("expected the thumbnail to be smaller than the %dx%d source, got %dx%d",
-			side, side, img.ThumbWidth, img.ThumbHeight)
-	}
-
-	// The pixels actually shipped are reduced, not the full-resolution render.
+	// The CLI payload is the full-resolution image, decoding back to real geometry.
 	dw, dh := decodedPreviewDims(t, img.Base64)
-	if dw >= side || dh >= side {
-		t.Errorf("preview payload still carries full-resolution pixels: decoded %dx%d, source %dx%d",
+	if dw != side || dh != side {
+		t.Errorf("CLI payload must be the full-resolution image: decoded %dx%d, want %dx%d",
 			dw, dh, side, side)
 	}
-	if dw != img.ThumbWidth || dh != img.ThumbHeight {
-		t.Errorf("reported thumbnail dimensions must match the payload: reported %dx%d, decoded %dx%d",
-			img.ThumbWidth, img.ThumbHeight, dw, dh)
+
+	// The CLI does not downsample, so the reported preview dims equal real dims.
+	if img.ThumbWidth != side || img.ThumbHeight != side {
+		t.Errorf("CLI preview dims should equal the real dims: got %dx%d, want %dx%d",
+			img.ThumbWidth, img.ThumbHeight, side, side)
 	}
 }
 

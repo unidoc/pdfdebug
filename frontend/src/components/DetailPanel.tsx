@@ -11,6 +11,7 @@ import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/uni
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
+import { formatBytes } from '../lib/formatBytes';
 import {
   type ObjectDetailData,
   type ObjectFindContext,
@@ -65,14 +66,6 @@ interface ImageDescriptionData {
 }
 
 /** Renders an estimated byte count as a compact size (e.g. "192 MB"). */
-function formatEstimatedBytes(n: number): string {
-  const mb = n / (1024 * 1024);
-  if (mb >= 1) return `${Math.round(mb)} MB`;
-  const kb = n / 1024;
-  if (kb >= 1) return `${Math.round(kb)} KB`;
-  return `${n} B`;
-}
-
 /** Render-state for the iconHint='font' branch. Encodes the four possible
  *  outcomes of a GetFontView fetch: detail payload (render FontPreview),
  *  roster (render FontRosterPreview for the /Resources /Font map),
@@ -985,7 +978,7 @@ function DetailPanelInner() {
                     {imageConsent && imageDescription && (
                       <div className="p-3 text-sm text-text-secondary" data-testid="image-preview-consent">
                         <div className="mb-2">
-                          {imageDescription.width} x {imageDescription.height} {imageDescription.colorSpace || 'image'}, about {formatEstimatedBytes(imageDescription.estimatedBytes)} decoded. Loading it decodes a large image and the document is busy while it loads.
+                          {imageDescription.width} x {imageDescription.height} {imageDescription.colorSpace || 'image'}, about {formatBytes(imageDescription.estimatedBytes, 0)} decoded. Loading it decodes a large image and the document is busy while it loads.
                         </div>
                         <div className="flex items-center gap-2">
                           <button
