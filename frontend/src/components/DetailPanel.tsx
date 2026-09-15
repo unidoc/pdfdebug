@@ -10,6 +10,7 @@ import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveIma
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
 import {
   type ObjectDetailData,
   type ObjectFindContext,
@@ -54,12 +55,6 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   scalar: 'Value',
 };
 
-/** Estimated-decoded-bytes above which an image is announced before decoding
- *  instead of loaded immediately. A UX threshold, not a memory bound. */
-const IMAGE_WARN_THRESHOLD_BYTES = 64 * 1024 * 1024;
-
-/** Seconds after which the loading indicator escalates its copy. */
-const IMAGE_SLOW_THRESHOLD_SECONDS = 5;
 
 /** Decode-free pre-decode estimate returned by DescribeImage. */
 interface ImageDescriptionData {
@@ -135,6 +130,10 @@ function DetailPanelInner() {
   const imageReqRef = useRef(0);
   // Blocks a second full-resolution save render while one is already in flight.
   const savingRef = useRef(false);
+  // Holds the in-flight GetImageData cancellable call so navigating away can
+  // abort the backend decode (not just drop the result). Cancelling sends a
+  // CancelCall to Go, which cancels the render context at its next checkpoint.
+  const imageLoadPromiseRef = useRef<ReturnType<typeof GetImageData> | null>(null);
   const [fontState, setFontState] = useState<FontFetchState>(null);
   const [showFontLoading, setShowFontLoading] = useState(false);
 
@@ -308,15 +307,26 @@ function DetailPanelInner() {
     setImageData(null);
     setImageSaveError(null);
     setImageLoading(true);
-    GetImageData(tabId, nodeId)
+    const promise = GetImageData(tabId, nodeId);
+    imageLoadPromiseRef.current = promise;
+    promise
       .then((result: unknown) => {
         if (imageReqRef.current !== token) return;
+        imageLoadPromiseRef.current = null;
         setImageData(result as PdfImageData);
         setImageLoading(false);
       })
       .catch((err: unknown) => {
         if (imageReqRef.current !== token) return;
-        setImageData(new PdfImageData({ nodeId, kind: 'error', error: extractErrorMessage(err) }));
+        imageLoadPromiseRef.current = null;
+        // A cancel (navigating away) is not an error: clear loading and show
+        // nothing. Any other failure renders as an error preview.
+        const msg = extractErrorMessage(err);
+        if ((err instanceof Error && err.name === 'CancelError') || /cancel/i.test(msg)) {
+          setImageLoading(false);
+          return;
+        }
+        setImageData(new PdfImageData({ nodeId, kind: 'error', error: msg }));
         setImageLoading(false);
       });
   }, []);
@@ -359,8 +369,13 @@ function DetailPanelInner() {
         // Describe is a best-effort pre-warning; fall back to decoding directly.
         if (imageReqRef.current === token) decodeImage(tabId, nodeId);
       });
-    // No cleanup: the next run bumps imageReqRef at its start (or in the
-    // non-image early return), which invalidates this run's in-flight results.
+    return () => {
+      // Cancel the in-flight decode when the selection changes or the panel
+      // unmounts, so the backend stops decoding instead of running to
+      // completion. The imageReqRef bump still drops any result that races in.
+      imageLoadPromiseRef.current?.cancel();
+      imageLoadPromiseRef.current = null;
+    };
   }, [detail, detailTabId, selectedNodeIconHint, decodeImage]);
 
   // Elapsed-seconds counter while an image node is selected and still resolving

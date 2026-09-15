@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,7 +40,7 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 	}
 	defer func() { _ = ins.Close("cli") }()
 
-	img, err := ins.GetImageData("cli", nodeID)
+	img, err := ins.GetImageData(context.Background(), "cli", nodeID)
 	if err != nil {
 		writeJSONError(os.Stderr, err.Error())
 		return 2

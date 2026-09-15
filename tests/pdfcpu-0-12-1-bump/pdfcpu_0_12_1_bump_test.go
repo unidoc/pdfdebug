@@ -228,20 +228,26 @@ func TestSafeCallNamedTestsExist(t *testing.T) {
 // image.go memory guards + pdfcpu_render call surface preserved
 // ---------------------------------------------------------------------------
 
-// TestImageMemoryGuardsUnchanged asserts the three numeric memory-guard constants
-// in internal/pdfcore/image.go are unchanged: maxImageBytes = 50 MB,
-// maxImagePixels = 100_000_000, and the io.LimitReader cap at maxImageBytes+1.
+// TestImageMemoryGuardsUnchanged asserts the numeric memory-guard constants are
+// unchanged in value: maxImageBytes = 50 MB, maxImagePixels = 100_000_000, and
+// maxImageDecodeBytes = 512 MB (defined in internal/pdfcore/imagelimits.go), and
+// that the full-resolution render read in internal/pdfcore/image.go is capped at
+// the decode ceiling (maxImageDecodeBytes+1).
 func TestImageMemoryGuardsUnchanged(t *testing.T) {
-	src := readSource(t, "internal/pdfcore/image.go")
+	limits := readSource(t, "internal/pdfcore/imagelimits.go")
 	guards := []string{
 		"maxImageBytes = 50 * 1024 * 1024",
 		"maxImagePixels = 100_000_000",
-		"io.LimitReader(reader, maxImageBytes+1)",
+		"maxImageDecodeBytes = 512 * 1024 * 1024",
 	}
 	for _, g := range guards {
-		if !strings.Contains(src, g) {
-			t.Errorf("internal/pdfcore/image.go must retain the literal %q (numeric values are unchanged by this story)", g)
+		if !strings.Contains(limits, g) {
+			t.Errorf("internal/pdfcore/imagelimits.go must retain the literal %q (numeric guard values are unchanged)", g)
 		}
+	}
+	img := readSource(t, "internal/pdfcore/image.go")
+	if !strings.Contains(img, "io.LimitReader(reader, maxImageDecodeBytes+1)") {
+		t.Errorf("internal/pdfcore/image.go must cap the full-resolution render read at maxImageDecodeBytes+1")
 	}
 }
 

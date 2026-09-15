@@ -265,8 +265,9 @@ describe('loading indicator escalates', () => {
       colorSpace: 'DeviceRGB',
       estimatedBytes: 320 * 240 * 3,
     });
-    // Never resolves: the decode stays in flight for the whole test.
-    mockGetImageData.mockImplementation(() => new Promise(() => {}));
+    // Never resolves: the decode stays in flight for the whole test. The bound
+    // call is a Wails cancellable promise.
+    mockGetImageData.mockImplementation(() => Object.assign(new Promise(() => {}), { cancel: vi.fn() }));
   });
 
   afterEach(() => {

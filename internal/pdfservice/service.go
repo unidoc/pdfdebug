@@ -34,7 +34,7 @@ type inspectorAPI interface {
 	GetObjectDetail(tabID string, nodeID string) (*pdfcore.ObjectDetail, error)
 	GetAncestorPath(tabID string, nodeID string) ([]string, error)
 	GetContentStream(tabID string, nodeID string) (*pdfcore.ContentStreamData, error)
-	GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error)
+	GetImageData(ctx context.Context, tabID string, nodeID string) (*pdfcore.ImageData, error)
 	DescribeImage(tabID string, nodeID string) (*pdfcore.ImageDescription, error)
 	GetImageBytes(tabID string, nodeID string) ([]byte, string, error)
 	GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error)
@@ -206,13 +206,15 @@ func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.Con
 }
 
 // GetImageData extracts and encodes a downsampled preview of an image from the
-// given node. The full-resolution bytes never cross the IPC boundary.
-func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error) {
+// given node. The full-resolution bytes never cross the IPC boundary. ctx is the
+// Wails per-call request context; cancelling the bound call (on navigation)
+// aborts the decode at its next checkpoint.
+func (s *PDFService) GetImageData(ctx context.Context, tabID string, nodeID string) (*pdfcore.ImageData, error) {
 	var result *pdfcore.ImageData
 	var err error
 	func() {
 		defer recoverRuntimePanic("GetImageData", &err)
-		result, err = s.inspector.GetImageData(tabID, nodeID)
+		result, err = s.inspector.GetImageData(ctx, tabID, nodeID)
 	}()
 	return result, err
 }

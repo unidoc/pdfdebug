@@ -1352,8 +1352,8 @@ describe('DetailPanel image loading state', () => {
 
   test('loading indicator appears while the image decode is pending', async () => {
     mockGetObjectDetail.mockResolvedValue(imageStreamDetail);
-    // Image data hangs indefinitely
-    mockGetImageData.mockReturnValue(new Promise(() => {}));
+    // Image data hangs indefinitely; the bound call is cancellable.
+    mockGetImageData.mockReturnValue(Object.assign(new Promise(() => {}), { cancel: vi.fn() }));
 
     renderWithState('obj:0:20', { iconHint: 'image' });
 
@@ -1603,11 +1603,17 @@ describe('DetailPanel stale image fetch cancellation', () => {
   test('stale image data result is discarded when node changes', async () => {
     vi.clearAllMocks();
 
-    // First node: image stream that returns slowly
+    // First node: image stream that returns slowly. The bound call is a Wails
+    // cancellable promise; attach a cancel spy so we can assert navigating away
+    // aborts the in-flight decode.
     let resolveFirstImage: (v: unknown) => void;
-    const firstImagePromise = new Promise((resolve) => {
-      resolveFirstImage = resolve;
-    });
+    const cancelFirstImage = vi.fn();
+    const firstImagePromise = Object.assign(
+      new Promise((resolve) => {
+        resolveFirstImage = resolve;
+      }),
+      { cancel: cancelFirstImage }
+    );
     mockGetObjectDetail
       .mockResolvedValueOnce(imageStreamDetail)
       .mockResolvedValueOnce(dictDetail);
@@ -1645,6 +1651,10 @@ describe('DetailPanel stale image fetch cancellation', () => {
         <DetailPanel />
       </AppProvider>
     );
+
+    // Navigating away cancels the in-flight decode instead of letting it run to
+    // completion in the backend.
+    expect(cancelFirstImage).toHaveBeenCalled();
 
     // Now resolve the stale image data
     resolveFirstImage!(mockImageDataResponse);

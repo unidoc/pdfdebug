@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"testing"
 )
@@ -65,7 +66,7 @@ func TestGetImageBytes_ReturnsFullResolutionNotThumbnail(t *testing.T) {
 			fw, fh, side, side)
 	}
 
-	preview, err := ins.GetImageData(tabID, nodeID)
+	preview, err := ins.GetImageData(context.Background(), tabID, nodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}

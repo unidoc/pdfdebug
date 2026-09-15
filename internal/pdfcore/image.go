@@ -2,12 +2,13 @@ package pdfcore
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
-	_ "image/jpeg" // registers the JPEG decoder for downsampling DCT renders
+	"image/jpeg"
 	"image/png"
 	"io"
 	"strconv"
@@ -19,60 +20,19 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-const (
-	// maxImageBytes is the floor for imageDecodeCeiling: a small image is never
-	// held to a decode bound tighter than this. The full-resolution render read
-	// is bounded by maxImageDecodeBytes, since only a thumbnail crosses the IPC.
-	maxImageBytes = 50 * 1024 * 1024
-	// maxImagePixels caps total pixel count for in-memory decode (TIFF->PNG).
-	// 100 megapixels at 4 bytes/pixel = ~400 MB working set.
-	maxImagePixels = 100_000_000
-	// maxImageDecodeBytes is the absolute ceiling on a decoded image stream,
-	// whatever geometry its dictionary declares, so an absurd /Width or /Height
-	// cannot authorize an unbounded allocation. Aligned with maxImagePixels,
-	// which already sanctions a ~400 MB working set.
-	maxImageDecodeBytes = 512 * 1024 * 1024
-	// maxBitsPerComponent and maxComponents bound a plausible image sample: 16 is
-	// the widest depth PDF defines and DeviceN carries at most 32 colorants.
-	// Beyond either the dictionary is malformed rather than large.
-	maxBitsPerComponent = 16
-	maxComponents       = 32
-	// imageDecodeHeadroom is added to the size the declared geometry implies,
-	// covering the framing pdfcpu's gob encoding puts around a 4-component DCT
-	// image. Only large images see it: below the maxImageBytes floor it is
-	// subsumed, and there the floor is the more generous of the two anyway.
-	imageDecodeHeadroom = 1024 * 1024
-	// maxThumbnailEdge bounds the longer side of the downsampled preview shipped
-	// over IPC. Fixed, not panel-relative, so GetImageData stays a pure function
-	// of the document. A source within this bound on both sides ships unchanged.
-	maxThumbnailEdge = 2048
-	// maxPreviewDecodeBytes bounds the decoded raster makeThumbnail holds in
-	// memory to build the inline preview (pixels x bytes-per-pixel, so a 1-bit
-	// scan is measured by its decoded 1-byte-per-pixel footprint, not its packed
-	// size). Kept below maxImageDecodeBytes because the encoded render is still
-	// held during the decode, so peak is roughly encoded + decoded. Set
-	// conservatively: too-low only falls back to a save-only preview, too-high
-	// risks OOM on a low-memory machine.
-	maxPreviewDecodeBytes = 256 * 1024 * 1024
-)
-
-// Outcome discriminators for ImageData.Kind. The frontend branches the three
-// cases on this rather than parsing Error: an ordinary preview, the lying-stream
-// geometry-ceiling refusal (a finding, not offered for consent), and any other
-// per-image failure.
-const (
-	imageKindOK             = "ok"
-	imageKindCeilingRefusal = "ceiling-refusal"
-	imageKindError          = "error"
-)
+// Image limits (maxImageBytes, maxImageDecodeBytes, maxThumbnailEdge,
+// jpegThumbnailQuality, ...) and the imageKind* discriminators are defined in
+// imagelimits.go.
 
 // GetImageData extracts an image from the given XObject Image node and returns
 // its metadata plus a base64-encoded DOWNSAMPLED preview. The full-resolution
 // bytes never cross the IPC boundary: the pixels in Base64 are bounded by
 // maxThumbnailEdge while every metadata field keeps reporting the real image.
-// Kind discriminates the outcome for the frontend.
-func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
-	result, fullBytes, format, err := ins.renderImage(tabID, nodeID)
+// Kind discriminates the outcome for the frontend. ctx cancels the decode when
+// the caller navigates away or the document closes (coarse: checked at
+// checkpoints, since pdfcpu's decode is not itself interruptible).
+func (ins *Inspector) GetImageData(ctx context.Context, tabID, nodeID string) (*ImageData, error) {
+	result, fullBytes, format, err := ins.renderImage(ctx, tabID, nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +57,8 @@ func (ins *Inspector) GetImageData(tabID, nodeID string) (*ImageData, error) {
 // so the full-resolution bytes never round-trip through the frontend. The
 // geometry decode ceiling governs the render exactly as it does for the preview.
 func (ins *Inspector) GetImageBytes(tabID, nodeID string) ([]byte, string, error) {
-	result, fullBytes, format, err := ins.renderImage(tabID, nodeID)
+	// The save path is a deliberate user action and is not cancelled mid-render.
+	result, fullBytes, format, err := ins.renderImage(context.Background(), tabID, nodeID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -116,7 +77,7 @@ func (ins *Inspector) GetImageBytes(tabID, nodeID string) ([]byte, string, error
 // returns the metadata result together with the full-resolution bytes and the
 // pdfcpu format string ("jpg"/"png"). Callers turn those bytes into either a
 // preview (GetImageData) or a saved file (GetImageBytes).
-func (ins *Inspector) renderImage(tabID, nodeID string) (*ImageData, []byte, string, error) {
+func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*ImageData, []byte, string, error) {
 	if nodeID == "" {
 		return nil, nil, "", fmt.Errorf("%w: empty node ID", ErrDocumentNotFound)
 	}
@@ -133,10 +94,27 @@ func (ins *Inspector) renderImage(tabID, nodeID string) (*ImageData, []byte, str
 	if err != nil {
 		return nil, nil, "", err
 	}
+
+	// Cancel when the caller navigates away (ctx) or the document closes
+	// (doc.closeCtx), whichever fires first. pdfcpu's decode is synchronous and
+	// not context-aware, so ctx is checked only at the coarse checkpoints below:
+	// a decode already inside RenderImage runs to that call's completion.
+	renderCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(doc.closeCtx, cancel)
+	defer stop()
+	if err := renderCtx.Err(); err != nil {
+		return nil, nil, "", err
+	}
+
 	// Serialize pdfcpu access. Image extraction dereferences indirect refs
 	// (Subtype, Filter, ColorSpace) and reads pdfcpu's XRefTable.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
+
+	if err := renderCtx.Err(); err != nil {
+		return nil, nil, "", err
+	}
 
 	var obj pdfcpu_types.Object
 	err = safeCall(func() error {
@@ -389,6 +367,11 @@ func (ins *Inspector) renderImage(tabID, nodeID string) (*ImageData, []byte, str
 		objNr = 0
 	}
 
+	// Cancellation checkpoint before the expensive render/decode.
+	if err := renderCtx.Err(); err != nil {
+		return nil, nil, "", err
+	}
+
 	// RenderImage
 	var reader io.Reader
 	var format string
@@ -447,6 +430,11 @@ func (ins *Inspector) renderImage(tabID, nodeID string) (*ImageData, []byte, str
 	default:
 		result.Error = fmt.Sprintf("unsupported image format: %s", format)
 		return result, nil, "", nil
+	}
+
+	// Cancellation checkpoint before draining the render into memory.
+	if err := renderCtx.Err(); err != nil {
+		return nil, nil, "", err
 	}
 
 	// Read the full-resolution render, capped at the decode ceiling to avoid OOM.
@@ -571,10 +559,11 @@ func appendWarning(existing, addition string) string {
 // makeThumbnail turns full-resolution encoded image bytes into a base64 preview
 // bounded by maxThumbnailEdge, returning the preview's MIME type and pixel
 // dimensions. A source within the bound on both sides ships unchanged (its
-// original bytes and format); a larger one is decoded, scaled with
-// draw.CatmullRom and re-encoded as PNG. Sources whose decoded footprint
-// exceeds maxPreviewDecodeBytes fall back to a save-only error rather than
-// decode into memory.
+// original bytes and format). A larger one is decoded, scaled with
+// draw.CatmullRom, and re-encoded: JPEG (jpegThumbnailQuality) when the scaled
+// result is opaque, PNG otherwise so transparency survives. Sources whose
+// decoded footprint exceeds maxImageDecodeBytes fall back to a save-only error
+// rather than decode into memory.
 func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, thumbH int, err error) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(fullBytes))
 	if err != nil {
@@ -587,7 +576,7 @@ func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, t
 	if cfg.Width <= maxThumbnailEdge && cfg.Height <= maxThumbnailEdge {
 		return base64.StdEncoding.EncodeToString(fullBytes), mime, cfg.Width, cfg.Height, nil
 	}
-	if int64(cfg.Width)*int64(cfg.Height)*int64(bytesPerPixel(cfg.ColorModel)) > maxPreviewDecodeBytes {
+	if int64(cfg.Width)*int64(cfg.Height)*int64(bytesPerPixel(cfg.ColorModel)) > maxImageDecodeBytes {
 		return "", "", 0, 0, fmt.Errorf("image too large to preview inline (%dx%d); use Save image to write the full-resolution file", cfg.Width, cfg.Height)
 	}
 	src, _, err := image.Decode(bytes.NewReader(fullBytes))
@@ -598,6 +587,14 @@ func makeThumbnail(fullBytes []byte, format string) (b64, mime string, thumbW, t
 	dst := image.NewRGBA(image.Rect(0, 0, thumbW, thumbH))
 	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
 	var buf bytes.Buffer
+	// JPEG for an opaque preview (smaller payload); PNG when the scaled result
+	// carries transparency, which JPEG cannot represent.
+	if dst.Opaque() {
+		if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: jpegThumbnailQuality}); err != nil {
+			return "", "", 0, 0, err
+		}
+		return base64.StdEncoding.EncodeToString(buf.Bytes()), "image/jpeg", thumbW, thumbH, nil
+	}
 	if err := png.Encode(&buf, dst); err != nil {
 		return "", "", 0, 0, err
 	}
