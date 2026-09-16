@@ -139,6 +139,7 @@ var methodFileMap = map[string]string{
 // GetPageContentStream share one page-dict resolution.
 var pdfMuLockOwner = map[string]string{
 	"GetPageContentStreamNodeID": "pageContentStreamNodeIDs",
+	"GetImageData":               "renderImage",
 }
 
 // TestMethodsAcquirePdfMu asserts every method in pdfMuRequiredMethods contains a

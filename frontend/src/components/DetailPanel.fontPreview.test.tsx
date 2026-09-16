@@ -47,6 +47,8 @@ vi.mock(
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
+    DescribeImage: vi.fn().mockResolvedValue({ width: 0, height: 0, colorSpace: '', estimatedBytes: 0 }),
+    SaveImageToFile: vi.fn().mockResolvedValue(''),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetFontView: (...args: unknown[]) => mockGetFontView(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),

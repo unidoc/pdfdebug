@@ -6,10 +6,12 @@
  */
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { GetObjectDetail, GetContentStream, GetImageData, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
+import { formatBytes } from '../lib/formatBytes';
 import {
   type ObjectDetailData,
   type ObjectFindContext,
@@ -54,6 +56,16 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   scalar: 'Value',
 };
 
+
+/** Decode-free pre-decode estimate returned by DescribeImage. */
+interface ImageDescriptionData {
+  width: number;
+  height: number;
+  colorSpace: string;
+  estimatedBytes: number;
+}
+
+/** Renders an estimated byte count as a compact size (e.g. "192 MB"). */
 /** Render-state for the iconHint='font' branch. Encodes the four possible
  *  outcomes of a GetFontView fetch: detail payload (render FontPreview),
  *  roster (render FontRosterPreview for the /Resources /Font map),
@@ -100,8 +112,24 @@ function DetailPanelInner() {
   const [showContentStreamLoading, setShowContentStreamLoading] = useState(false);
   const [streamViewMode, setStreamViewMode] = useState<StreamViewMode>('formatted');
   const [imageData, setImageData] = useState<PdfImageData | null>(null);
+  const [imageDescription, setImageDescription] = useState<ImageDescriptionData | null>(null);
+  // True when the pre-decode estimate is above the warning threshold: the panel
+  // announces the size and defers the decode until the user proceeds.
+  const [imageConsent, setImageConsent] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
-  const [showImageLoading, setShowImageLoading] = useState(false);
+  const [imageElapsed, setImageElapsed] = useState(0);
+  const [imageSaveError, setImageSaveError] = useState<string | null>(null);
+  // Monotonic token guarding stale image requests across selection changes.
+  const imageReqRef = useRef(0);
+  // Tracks the currently selected node id so a save failure is dropped only when
+  // the node actually changed, not when the same node re-decodes.
+  const selectedImageNodeRef = useRef<string | null>(null);
+  // Blocks a second full-resolution save render while one is already in flight.
+  const savingRef = useRef(false);
+  // Holds the in-flight GetImageData cancellable call so navigating away can
+  // abort the backend decode (not just drop the result). Cancelling sends a
+  // CancelCall to Go, which cancels the render context at its next checkpoint.
+  const imageLoadPromiseRef = useRef<ReturnType<typeof GetImageData> | null>(null);
   const [fontState, setFontState] = useState<FontFetchState>(null);
   const [showFontLoading, setShowFontLoading] = useState(false);
 
@@ -203,7 +231,7 @@ function DetailPanelInner() {
       setShowContentStreamLoading(false);
       setImageData(null);
       setImageLoading(false);
-      setShowImageLoading(false);
+      setImageConsent(false);
       setFontState(null);
       setShowFontLoading(false);
       return;
@@ -267,44 +295,130 @@ function DetailPanelInner() {
     return () => clearTimeout(timer);
   }, [contentStreamLoading]);
 
-  // Fetch image data when detail resolves to a stream node with image iconHint.
-  useEffect(() => {
-    if (selectedNodeIconHint !== 'image' || !detail || detail.type !== 'stream' || !detailTabId) {
-      setImageData(null);
-      setImageLoading(false);
-      return;
-    }
+  // Decode an image and show its preview. Guarded by imageReqRef so a result
+  // from a superseded selection is dropped.
+  const decodeImage = useCallback((tabId: string, nodeId: string) => {
+    const token = ++imageReqRef.current;
+    setImageConsent(false);
     setImageData(null);
+    setImageSaveError(null);
     setImageLoading(true);
-    let cancelled = false;
-    GetImageData(detailTabId, detail.nodeId)
+    const promise = GetImageData(tabId, nodeId);
+    imageLoadPromiseRef.current = promise;
+    promise
       .then((result: unknown) => {
-        if (!cancelled) {
-          setImageData(result as PdfImageData);
-          setImageLoading(false);
-        }
+        if (imageReqRef.current !== token) return;
+        imageLoadPromiseRef.current = null;
+        setImageData(result as PdfImageData);
+        setImageLoading(false);
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setImageData(new PdfImageData({
-            nodeId: detail.nodeId,
-            error: extractErrorMessage(err),
-          }));
+        if (imageReqRef.current !== token) return;
+        imageLoadPromiseRef.current = null;
+        // A cancel (navigating away) is not an error: clear loading and show
+        // nothing. Any other failure renders as an error preview.
+        const msg = extractErrorMessage(err);
+        if ((err instanceof Error && err.name === 'CancelError') || /cancel/i.test(msg)) {
           setImageLoading(false);
+          return;
         }
+        setImageData(new PdfImageData({ nodeId, kind: 'error', error: msg }));
+        setImageLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [detail, detailTabId, selectedNodeIconHint]);
+  }, []);
 
-  // Debounce image loading indicator by 200ms
+  // On an image node, describe it first (decode-free) so an expensive decode can
+  // be announced before it runs; a within-threshold image decodes immediately.
+  // imageLoading is set from selection so the loading indicator's elapsed timer
+  // starts before the describe resolves.
   useEffect(() => {
-    if (!imageLoading) {
-      setShowImageLoading(false);
+    if (selectedNodeIconHint !== 'image' || !detail || detail.type !== 'stream' || !detailTabId) {
+      imageReqRef.current++;
+      setImageData(null);
+      setImageDescription(null);
+      setImageConsent(false);
+      setImageLoading(false);
+      setImageSaveError(null);
       return;
     }
-    const timer = setTimeout(() => setShowImageLoading(true), 200);
-    return () => clearTimeout(timer);
-  }, [imageLoading]);
+    const tabId = detailTabId;
+    const nodeId = detail.nodeId;
+    const token = ++imageReqRef.current;
+    setImageData(null);
+    setImageDescription(null);
+    setImageConsent(false);
+    setImageSaveError(null);
+    setImageLoading(true);
+    DescribeImage(tabId, nodeId)
+      .then((result: unknown) => {
+        if (imageReqRef.current !== token) return;
+        const desc = result as ImageDescriptionData;
+        setImageDescription(desc);
+        if (desc && desc.estimatedBytes > IMAGE_WARN_THRESHOLD_BYTES) {
+          setImageConsent(true);
+          setImageLoading(false);
+          return;
+        }
+        decodeImage(tabId, nodeId);
+      })
+      .catch(() => {
+        // Describe is a best-effort pre-warning; fall back to decoding directly.
+        if (imageReqRef.current === token) decodeImage(tabId, nodeId);
+      });
+    return () => {
+      // Cancel the in-flight decode when the selection changes or the panel
+      // unmounts, so the backend stops decoding instead of running to
+      // completion. The imageReqRef bump still drops any result that races in.
+      imageLoadPromiseRef.current?.cancel();
+      imageLoadPromiseRef.current = null;
+    };
+  }, [detail, detailTabId, selectedNodeIconHint, decodeImage]);
+
+  // Elapsed-seconds counter while an image node is selected and still resolving
+  // (describe or decode in flight), driving the loading indicator's escalation.
+  // Keyed on the synchronous selection rather than the async imageLoading so the
+  // counter starts before the detail/describe round-trips resolve.
+  useEffect(() => {
+    if (selectedNodeIconHint !== 'image' || imageData || imageConsent) {
+      setImageElapsed(0);
+      return;
+    }
+    setImageElapsed(0);
+    const id = setInterval(() => setImageElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [selectedNodeIconHint, imageData, imageConsent]);
+
+  // Mirror the selected node id into a ref so an async save-failure handler can
+  // tell whether the selection moved while its save was in flight.
+  useEffect(() => {
+    selectedImageNodeRef.current = detail?.nodeId ?? null;
+  }, [detail]);
+
+  const handleProceedImage = useCallback(() => {
+    if (!detailTabId || !detail) return;
+    decodeImage(detailTabId, detail.nodeId);
+  }, [detail, detailTabId, decodeImage]);
+
+  const handleSaveImage = useCallback(async () => {
+    if (!detailTabId || !detail) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    const nodeIdAtSave = detail.nodeId;
+    setImageSaveError(null);
+    try {
+      // Sanitize the node-derived base: object refs like "obj:0:7" carry colons,
+      // which are invalid in filenames on Windows.
+      const base = (detail.objectRef || detail.nodeId || 'image').split(' ')[0].replace(/[^\w.-]/g, '-');
+      await SaveImageToFile(detailTabId, detail.nodeId, `image-${base}.png`);
+    } catch (err) {
+      // Drop a failure only when the selected node changed while the save was in
+      // flight; a same-node re-decode (Load after Save) must still show the error.
+      if (selectedImageNodeRef.current !== nodeIdAtSave) return;
+      setImageSaveError(extractErrorMessage(err));
+    } finally {
+      savingRef.current = false;
+    }
+  }, [detail, detailTabId]);
 
   // Fetch the unified FontView when detail resolves to a dict node
   // tagged iconHint='font'. The backend disambiguates the three outcomes
@@ -871,7 +985,42 @@ function DetailPanelInner() {
                 )}
                 {detail.type === 'stream' && selectedNodeIconHint === 'image' && (
                   <>
-                    {imageData && (
+                    {imageConsent && imageDescription && (
+                      <div className="p-3 text-sm text-text-secondary" data-testid="image-preview-consent">
+                        <div className="mb-2">
+                          {imageDescription.width} x {imageDescription.height} {imageDescription.colorSpace || 'image'}, about {formatBytes(imageDescription.estimatedBytes, 0)} decoded. Loading it decodes a large image and the document is busy while it loads.
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+                            data-testid="image-preview-proceed"
+                            onClick={handleProceedImage}
+                          >
+                            Load image
+                          </button>
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+                            data-testid="image-preview-save"
+                            onClick={handleSaveImage}
+                          >
+                            Save image...
+                          </button>
+                        </div>
+                        {imageSaveError && (
+                          <div className="mt-2 text-error text-xs" data-testid="image-preview-save-error">
+                            {imageSaveError}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {imageData && imageData.kind === 'ceiling-refusal' && (
+                      <div className="p-3 text-error text-sm" data-testid="image-preview-finding">
+                        {imageData.error}
+                      </div>
+                    )}
+                    {imageData && imageData.kind !== 'ceiling-refusal' && (
                       <ImagePreview
                         base64={imageData.base64}
                         mimeType={imageData.mimeType}
@@ -880,13 +1029,22 @@ function DetailPanelInner() {
                         colorSpace={imageData.colorSpace}
                         bitsPerComponent={imageData.bitsPerComponent}
                         filter={imageData.filter}
+                        thumbWidth={imageData.thumbWidth}
+                        thumbHeight={imageData.thumbHeight}
                         warning={imageData.warning}
                         error={imageData.error}
+                        onSave={handleSaveImage}
+                        saveError={imageSaveError ?? undefined}
                       />
                     )}
-                    {showImageLoading && !imageData && (
+                    {/* Shown immediately (no debounce, unlike the content-stream
+                        indicator): image loads carry a two-step describe+decode,
+                        and the elapsed-seconds counter communicates duration. */}
+                    {imageLoading && !imageData && !imageConsent && (
                       <div className="p-3 text-text-muted text-sm" data-testid="image-loading">
-                        Loading image...
+                        {imageElapsed >= IMAGE_SLOW_THRESHOLD_SECONDS
+                          ? `Still decoding - taking longer than expected. The document is busy while this image loads (${imageElapsed}s).`
+                          : `Loading image... (${imageElapsed}s)`}
                       </div>
                     )}
                   </>

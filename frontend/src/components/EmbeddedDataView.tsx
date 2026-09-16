@@ -14,6 +14,7 @@ import {
   SaveBytesToFile,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { formatBytes } from '../lib/formatBytes';
 
 /** One embedded file, mirroring `pdfcore.EmbeddedFile`. */
 interface EmbeddedFileData {
@@ -39,20 +40,6 @@ export interface EmbeddedDataViewProps {
   onNavigate: (nodeId: string) => void;
   /** Fires with the file count once the fetch resolves (for the "(N)" tab label). */
   onLoaded?: (count: number) => void;
-}
-
-/** Renders a byte count as a compact human-readable size (e.g. "1.5 KB"). */
-function humanizeBytes(n: number): string {
-  if (n < 0) return '-';
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let val = n / 1024;
-  let i = 0;
-  while (val >= 1024 && i < units.length - 1) {
-    val /= 1024;
-    i += 1;
-  }
-  return `${val.toFixed(1)} ${units[i]}`;
 }
 
 /** True when a /Subtype MIME is text-like and safe to preview inline. */
@@ -219,7 +206,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
                   <td className="px-2 py-1 text-left text-text">{f.name || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.afRelationship || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.subtype || '-'}</td>
-                  <td className="px-2 py-1 text-right text-text">{humanizeBytes(f.size)}</td>
+                  <td className="px-2 py-1 text-right text-text">{formatBytes(f.size)}</td>
                 </tr>
               );
             })}
@@ -237,7 +224,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
           <dl className="text-xs font-mono grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
             <dt className="text-text-muted">Relationship</dt><dd className="text-text">{selected.afRelationship || '-'}</dd>
             <dt className="text-text-muted">MIME</dt><dd className="text-text">{selected.subtype || '-'}</dd>
-            <dt className="text-text-muted">Size</dt><dd className="text-text">{humanizeBytes(selected.size)}</dd>
+            <dt className="text-text-muted">Size</dt><dd className="text-text">{formatBytes(selected.size)}</dd>
             <dt className="text-text-muted">Filespec</dt><dd className="text-text">{selected.filespecRef || '-'}</dd>
             <dt className="text-text-muted">EmbeddedFile</dt><dd className="text-text">{selected.embeddedFileRef || '-'}</dd>
             {selected.checkSum && (<><dt className="text-text-muted">CheckSum</dt><dd className="text-text break-all">{selected.checkSum}</dd></>)}
