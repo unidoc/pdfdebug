@@ -244,3 +244,74 @@ describe('ImagePreview warning display', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Downsampled-preview cue: a subtle caption appears only when the preview
+// pixels are reduced, and the metadata keeps reporting the REAL image
+// dimensions (never the thumbnail geometry).
+// ---------------------------------------------------------------------------
+
+describe('ImagePreview downsampled cue', () => {
+  test('shows the cue and keeps real dimensions when the preview is reduced', () => {
+    render(
+      <ImagePreview
+        {...defaultProps}
+        width={8192}
+        height={8192}
+        thumbWidth={2048}
+        thumbHeight={2048}
+      />
+    );
+    expect(screen.getByTestId('image-preview-reduced')).toHaveTextContent(
+      /downsampled preview/i
+    );
+    // The metadata reports the REAL image, not the reduced preview geometry.
+    const meta = screen.getByTestId('image-preview-metadata');
+    expect(meta.textContent).toContain('8192 x 8192 px');
+    expect(meta.textContent).not.toContain('2048');
+  });
+
+  test('no cue when the preview matches the real dimensions', () => {
+    render(
+      <ImagePreview {...defaultProps} thumbWidth={320} thumbHeight={240} />
+    );
+    expect(
+      screen.queryByTestId('image-preview-reduced')
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Size row: stored (compressed) size with the decoded in-memory size in
+// parentheses; each half appears only when known.
+// ---------------------------------------------------------------------------
+
+describe('ImagePreview size row', () => {
+  test('shows stored size with decoded in parentheses when both are known', () => {
+    render(
+      <ImagePreview {...defaultProps} storedBytes={848670} decodedBytes={81000000} />
+    );
+    const size = screen.getByTestId('image-preview-size');
+    expect(size.textContent).toMatch(/KB/);
+    expect(size.textContent).toMatch(/\(.*MB in memory\)/);
+  });
+
+  test('shows only the stored size when decoded is unknown', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={848670} decodedBytes={0} />);
+    const size = screen.getByTestId('image-preview-size');
+    expect(size.textContent).toMatch(/KB/);
+    expect(size.textContent).not.toMatch(/in memory/);
+  });
+
+  test('shows only the decoded size when stored is unknown', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={0} decodedBytes={81000000} />);
+    expect(screen.getByTestId('image-preview-size').textContent).toMatch(
+      /in memory/
+    );
+  });
+
+  test('no size row when neither is known', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={0} decodedBytes={0} />);
+    expect(screen.queryByTestId('image-preview-size')).not.toBeInTheDocument();
+  });
+});

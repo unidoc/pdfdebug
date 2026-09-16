@@ -73,3 +73,23 @@ func TestMakeThumbnail_SmallShipsOriginal(t *testing.T) {
 		t.Error("small image should ship its original bytes unchanged")
 	}
 }
+
+func TestSizeEstimateComponents(t *testing.T) {
+	cases := []struct {
+		name       string
+		colorSpace string
+		imageMask  bool
+		resolved   int
+		want       int
+	}{
+		{"indexed counts one index sample, not the palette's components", "Indexed", false, 3, 1},
+		{"image mask counts one stencil sample", "DeviceGray", true, 8, 1},
+		{"unresolved yields no estimate", "", false, -1, 0},
+		{"resolved count passes through", "DeviceRGB", false, 3, 3},
+	}
+	for _, c := range cases {
+		if got := sizeEstimateComponents(c.colorSpace, c.imageMask, c.resolved); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}

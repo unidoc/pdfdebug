@@ -323,17 +323,21 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		}
 	}
 
+	// Resolve the colour-component count once (a negative sentinel means it could
+	// not be resolved): the size estimate and the decode ceiling both need it but
+	// pick different fallbacks, so this avoids a second colour-space dereference.
+	resolvedComponents := declaredComponents(xrt, &sd, -1)
+
 	// Size metadata for the frontend: the stored (encoded /Length) size and the
-	// decoded size the declared geometry implies. The decoded estimate uses the
-	// honest 0 fallback, so an unresolvable colour space yields no estimate
-	// rather than a widened one.
+	// honest decoded size the declared geometry implies (0 when unknown, one
+	// sample per pixel for masks and Indexed images).
 	result.StoredBytes = int64(len(sd.Raw))
-	sizeComponents := declaredComponents(xrt, &sd, 0)
 	sizeBits := result.BitsPerComponent
 	if imageMask {
-		sizeBits, sizeComponents = 1, 1
+		sizeBits = 1
 	}
-	result.DecodedBytes = estimatedDecodedBytes(result.Width, result.Height, sizeBits, sizeComponents)
+	result.DecodedBytes = estimatedDecodedBytes(result.Width, result.Height, sizeBits,
+		sizeEstimateComponents(result.ColorSpace, imageMask, resolvedComponents))
 
 	// Decode under a ceiling derived from the geometry the dictionary declares,
 	// so a compressed bitmap cannot inflate far past the size it claims before
@@ -341,11 +345,13 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	// decodes; only a stream inflating well beyond its own declaration stops.
 	if sd.FilterPipeline != nil {
 		// A stencil mask is one 1-bit sample per pixel whatever the dictionary's
-		// other entries say, so it is sized from that rather than from the
-		// component fallback an absent /ColorSpace would otherwise trigger.
-		bitsPerComponent, components := result.BitsPerComponent, declaredComponents(xrt, &sd, maxComponents)
+		// other entries say. An unresolved colour space widens to maxComponents so
+		// the ceiling keeps headroom rather than pinning a large image to the floor.
+		bitsPerComponent, components := result.BitsPerComponent, resolvedComponents
 		if imageMask {
 			bitsPerComponent, components = 1, 1
+		} else if components < 0 {
+			components = maxComponents
 		}
 		ceiling := imageDecodeCeiling(result.Width, result.Height, bitsPerComponent, components)
 		if _, err := decodeBounded(&sd, ceiling, false); err != nil {
@@ -656,6 +662,26 @@ func imageExtForFormat(format string) string {
 	return ".png"
 }
 
+// sizeEstimateComponents returns the colour-component count for an HONEST
+// decoded-size estimate (the user-facing "in memory" figure), given the count
+// declaredComponents resolved (or a negative sentinel when it could not). A
+// stencil mask and an /Indexed image both carry one sample per pixel: the mask
+// is a 1-bit stencil, and an Indexed image stores palette indices, not the base
+// space's components (declaredComponents reports the base count, which is right
+// for the decode ceiling's headroom but over-reports the stored samples here).
+// An unresolved colour space yields 0 so no estimate is shown, rather than the
+// widened fallback the ceiling deliberately uses.
+func sizeEstimateComponents(colorSpace string, imageMask bool, resolved int) int {
+	switch {
+	case imageMask, colorSpace == "Indexed":
+		return 1
+	case resolved <= 0:
+		return 0
+	default:
+		return resolved
+	}
+}
+
 // estimatedDecodedBytes returns the decoded size the declared geometry implies,
 // row-padded to a byte boundary exactly as imageDecodeCeiling sizes it. Zero for
 // geometry that is missing, non-positive, or implausible enough to overflow the
@@ -781,13 +807,13 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("colorSpace metadata: %v", e))
 	}
 
-	// 0 fallback: an unresolvable colour space yields no estimate rather than the
-	// widened maxComponents the ceiling uses, so an image we cannot honestly size
-	// does not force a consent prompt (estimatedDecodedBytes returns 0).
-	components := declaredComponents(xrt, &sd, 0)
+	// Honest decoded estimate for the consent prompt: one sample per pixel for
+	// masks and Indexed images, 0 (no estimate) when the colour space cannot be
+	// resolved. A negative sentinel from declaredComponents means unresolved.
 	if imageMask {
-		bitsPerComponent, components = 1, 1
+		bitsPerComponent = 1
 	}
-	desc.EstimatedBytes = estimatedDecodedBytes(desc.Width, desc.Height, bitsPerComponent, components)
+	desc.EstimatedBytes = estimatedDecodedBytes(desc.Width, desc.Height, bitsPerComponent,
+		sizeEstimateComponents(desc.ColorSpace, imageMask, declaredComponents(xrt, &sd, -1)))
 	return desc, nil
 }
