@@ -990,7 +990,7 @@ function DetailPanelInner() {
                         <div className="mb-3">
                           <div>This image is large and may take a moment to load.</div>
                           <div className="mt-1 text-xs text-text-muted font-mono">
-                            {imageDescription.width} x {imageDescription.height} {imageDescription.colorSpace || 'image'}, about {formatBytes(imageDescription.estimatedBytes, 0)}
+                            {imageDescription.width} x {imageDescription.height} {imageDescription.colorSpace || 'image'}, about {formatBytes(imageDescription.estimatedBytes, 0)} in memory
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1032,6 +1032,10 @@ function DetailPanelInner() {
                         colorSpace={imageData.colorSpace}
                         bitsPerComponent={imageData.bitsPerComponent}
                         filter={imageData.filter}
+                        thumbWidth={imageData.thumbWidth}
+                        thumbHeight={imageData.thumbHeight}
+                        storedBytes={imageData.storedBytes}
+                        decodedBytes={imageData.decodedBytes}
                         warning={imageData.warning}
                         error={imageData.error}
                         onSave={handleSaveImage}

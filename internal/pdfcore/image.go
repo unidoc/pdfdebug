@@ -323,6 +323,18 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		}
 	}
 
+	// Size metadata for the frontend: the stored (encoded /Length) size and the
+	// decoded size the declared geometry implies. The decoded estimate uses the
+	// honest 0 fallback, so an unresolvable colour space yields no estimate
+	// rather than a widened one.
+	result.StoredBytes = int64(len(sd.Raw))
+	sizeComponents := declaredComponents(xrt, &sd, 0)
+	sizeBits := result.BitsPerComponent
+	if imageMask {
+		sizeBits, sizeComponents = 1, 1
+	}
+	result.DecodedBytes = estimatedDecodedBytes(result.Width, result.Height, sizeBits, sizeComponents)
+
 	// Decode under a ceiling derived from the geometry the dictionary declares,
 	// so a compressed bitmap cannot inflate far past the size it claims before
 	// it is rejected. A large image that is honest about its dimensions still
