@@ -314,7 +314,9 @@ type FormRenderInfo struct {
 // metadata fields keep reporting the REAL image. ThumbWidth/ThumbHeight are the
 // preview's own pixel dimensions so the frontend can label it as reduced. Kind
 // is the outcome discriminator ("ok", "ceiling-refusal", "error") so the
-// frontend branches the three cases without parsing Error.
+// frontend branches the three cases without parsing Error. StoredBytes is the
+// encoded stream length (the compressed size in the PDF); DecodedBytes is the
+// raw size the declared geometry implies once decoded (0 when unknown).
 type ImageData struct {
 	NodeID           string `json:"nodeId"`
 	ObjectRef        string `json:"objectRef"`
@@ -328,6 +330,8 @@ type ImageData struct {
 	Kind             string `json:"kind"`
 	ThumbWidth       int    `json:"thumbWidth"`
 	ThumbHeight      int    `json:"thumbHeight"`
+	StoredBytes      int64  `json:"storedBytes"`
+	DecodedBytes     int64  `json:"decodedBytes"`
 	Warning          string `json:"warning"`
 	Error            string `json:"error"`
 }
