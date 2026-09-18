@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"github.com/adrg/xdg"
@@ -129,6 +128,17 @@ func (s *Service) DownloadUpdate(ctx context.Context, assetURL, assetName, sumsU
 	return saved, nil
 }
 
+// revealAndWait starts a best-effort reveal command without blocking, reaping the
+// child in the background. Reveal failures never fail the download (already saved);
+// some file managers (Explorer) exit non-zero even on success, so the status is
+// ignored.
+func revealAndWait(cmd *exec.Cmd) {
+	if err := cmd.Start(); err != nil {
+		return
+	}
+	go func() { _ = cmd.Wait() }()
+}
+
 // downloadsDir returns the user's Downloads directory, creating it if absent.
 // It uses the platform's real location: adrg/xdg resolves the XDG user dir on
 // Linux (which may be a localized name), and falls back to <home>/Downloads on
@@ -146,19 +156,4 @@ func downloadsDir() (string, error) {
 		return "", err
 	}
 	return dir, nil
-}
-
-// revealInFileManager selects the file in the platform file manager. It is best
-// effort: a failure here does not fail the download, which has already saved.
-func revealInFileManager(path string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", "-R", path)
-	case "windows":
-		cmd = exec.Command("explorer", "/select,"+path)
-	default:
-		cmd = exec.Command("xdg-open", filepath.Dir(path))
-	}
-	_ = cmd.Start()
 }

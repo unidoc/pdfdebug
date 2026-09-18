@@ -501,28 +501,58 @@ func TestCheckWalksPastAnOlderOnlyPage(t *testing.T) {
 
 func TestAvailableNameAvoidsCollisions(t *testing.T) {
 	dir := t.TempDir()
+	mustName := func(name string) string {
+		got, err := availableName(dir, name)
+		if err != nil {
+			t.Fatalf("availableName(%q): %v", name, err)
+		}
+		return got
+	}
 	// Free name is returned unchanged.
-	if got := availableName(dir, "unidoc-pdf-debugger-1.4.0-darwin-arm64.dmg"); got != "unidoc-pdf-debugger-1.4.0-darwin-arm64.dmg" {
+	if got := mustName("unidoc-pdf-debugger-1.4.0-darwin-arm64.dmg"); got != "unidoc-pdf-debugger-1.4.0-darwin-arm64.dmg" {
 		t.Fatalf("free name changed: %q", got)
 	}
 	// Occupied name gets a bracketed counter before the extension.
-	must := func(name string) {
+	touch := func(name string) {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	must("app.dmg")
-	if got := availableName(dir, "app.dmg"); got != "app (1).dmg" {
+	touch("app.dmg")
+	if got := mustName("app.dmg"); got != "app (1).dmg" {
 		t.Fatalf("first collision = %q, want app (1).dmg", got)
 	}
-	must("app (1).dmg")
-	if got := availableName(dir, "app.dmg"); got != "app (2).dmg" {
+	touch("app (1).dmg")
+	if got := mustName("app.dmg"); got != "app (2).dmg" {
 		t.Fatalf("second collision = %q, want app (2).dmg", got)
 	}
 	// .tar.gz stays intact rather than splitting at the last dot.
-	must("pkg-1.4.0-linux-amd64.tar.gz")
-	if got := availableName(dir, "pkg-1.4.0-linux-amd64.tar.gz"); got != "pkg-1.4.0-linux-amd64 (1).tar.gz" {
+	touch("pkg-1.4.0-linux-amd64.tar.gz")
+	if got := mustName("pkg-1.4.0-linux-amd64.tar.gz"); got != "pkg-1.4.0-linux-amd64 (1).tar.gz" {
 		t.Fatalf("tar.gz collision = %q", got)
+	}
+}
+
+func TestDownloadAndVerifySanitizesAssetName(t *testing.T) {
+	payload := []byte("payload")
+	// The sums manifest keys off the base name, matching what a real release ships.
+	base := "evil.dmg"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/sums") {
+			_, _ = fmt.Fprint(w, writeSums(t, map[string]string{base: sha256Hex(payload)}))
+			return
+		}
+		_, _ = w.Write(payload)
+	}))
+	defer srv.Close()
+
+	dest := t.TempDir()
+	saved, err := testChecker(srv).DownloadAndVerify(t.Context(), srv.URL+"/asset", "../../../"+base, srv.URL+"/sums", dest)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if saved != filepath.Join(dest, base) {
+		t.Fatalf("traversal not neutralized: saved = %q, want inside %q", saved, dest)
 	}
 }
 
@@ -560,6 +590,12 @@ func TestDownloadAndVerifyDoesNotOverwriteExisting(t *testing.T) {
 }
 
 func TestMoveFileCopyFallback(t *testing.T) {
+	// Force rename to fail so the copy+remove fallback is exercised on every
+	// platform (a same-volume temp dir would otherwise let rename succeed).
+	orig := renameFunc
+	renameFunc = func(string, string) error { return errors.New("simulated cross-device rename") }
+	t.Cleanup(func() { renameFunc = orig })
+
 	src := filepath.Join(t.TempDir(), "src.bin")
 	if err := os.WriteFile(src, []byte("payload"), 0o644); err != nil {
 		t.Fatal(err)

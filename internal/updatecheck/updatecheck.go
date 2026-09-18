@@ -359,6 +359,9 @@ func (c *Checker) DownloadAndVerify(ctx context.Context, assetURL, assetName, su
 	if sumsURL == "" {
 		return "", ErrChecksumMissing
 	}
+	// assetName is bound to the frontend; reduce it to a bare filename so it can
+	// never traverse out of destDir (defence in depth - the value is server-derived).
+	assetName = filepath.Base(assetName)
 
 	tmp, err := os.CreateTemp("", "pdfdebug-update-*")
 	if err != nil {
@@ -392,7 +395,14 @@ func (c *Checker) DownloadAndVerify(ctx context.Context, assetURL, assetName, su
 	}
 
 	c.emit(Progress{Phase: PhaseSaving})
-	dest := filepath.Join(destDir, availableName(destDir, assetName))
+	name, err := availableName(destDir, assetName)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(destDir, name)
+	if !strings.HasPrefix(dest, filepath.Clean(destDir)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("resolved download path escapes the destination directory")
+	}
 	if err := moveFile(tmpPath, dest); err != nil {
 		return "", err
 	}
@@ -400,12 +410,28 @@ func (c *Checker) DownloadAndVerify(ctx context.Context, assetURL, assetName, su
 	return dest, nil
 }
 
+// maxNameCollisions bounds the "base (n).ext" search so a pathological directory
+// cannot spin the goroutine forever.
+const maxNameCollisions = 1000
+
 // availableName returns name if destDir/name is free, otherwise the first
 // "base (n).ext" variant that does not yet exist (browser convention). The known
 // compound extension .tar.gz is kept intact ("x (1).tar.gz", not "x.tar (1).gz").
-func availableName(destDir, name string) string {
-	if _, err := os.Stat(filepath.Join(destDir, name)); os.IsNotExist(err) {
-		return name
+// A stat error other than "not exist" (permission denied, I/O error, dead network
+// mount) is returned rather than looped on, so a locked-down Downloads dir fails
+// fast instead of hanging.
+func availableName(destDir, name string) (string, error) {
+	free := func(candidate string) (bool, error) {
+		_, err := os.Stat(filepath.Join(destDir, candidate))
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err // err == nil means it exists; a non-nil err is fatal
+	}
+	if ok, err := free(name); err != nil {
+		return "", err
+	} else if ok {
+		return name, nil
 	}
 	ext := filepath.Ext(name)
 	base := name[:len(name)-len(ext)]
@@ -413,12 +439,15 @@ func availableName(destDir, name string) string {
 		ext = ".tar" + ext
 		base = base[:len(base)-len(".tar")]
 	}
-	for n := 1; ; n++ {
+	for n := 1; n <= maxNameCollisions; n++ {
 		candidate := fmt.Sprintf("%s (%d)%s", base, n, ext)
-		if _, err := os.Stat(filepath.Join(destDir, candidate)); os.IsNotExist(err) {
-			return candidate
+		if ok, err := free(candidate); err != nil {
+			return "", err
+		} else if ok {
+			return candidate, nil
 		}
 	}
+	return "", fmt.Errorf("no available filename for %q after %d attempts", name, maxNameCollisions)
 }
 
 // downloadTo streams a GET response body into w.
@@ -501,14 +530,17 @@ func (c *Checker) expectedSum(ctx context.Context, sumsURL, assetName string) (s
 	return "", ErrChecksumMissing
 }
 
-// moveFile renames src to dst, falling back to copy+remove across filesystems
-// (os.Rename fails with EXDEV between mount points). dst is expected to be a
-// fresh path (see availableName), so no existing file is overwritten.
+// renameFunc is os.Rename, overridable in tests to exercise the copy fallback.
+var renameFunc = os.Rename
+
+// moveFile renames src to dst, falling back to copy+remove when the rename fails
+// for any reason (the cross-filesystem EXDEV error is not portably classifiable -
+// Windows returns ERROR_NOT_SAME_DEVICE, not EXDEV - so any failure retries via
+// copy and only a failed copy surfaces an error). dst is expected to be a fresh
+// path (see availableName), so no existing file is overwritten.
 func moveFile(src, dst string) error {
-	if err := os.Rename(src, dst); err == nil {
+	if err := renameFunc(src, dst); err == nil {
 		return nil
-	} else if !isCrossDevice(err) {
-		return err
 	}
 
 	in, err := os.Open(src)
