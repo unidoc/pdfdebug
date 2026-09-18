@@ -78,6 +78,14 @@ function phaseLabel(phase: string, received: number, total: number): string {
 const CHECKSUM_VERIFY_MARKER = 'checksum verification';
 const CHECKSUM_MISSING_MARKER = 'checksum is unavailable';
 
+// displayVersion normalizes a version to a single leading "v" for display. The
+// ldflag build version has no "v" (release.yml strips it) while GitHub tags carry
+// one, so they are unified at the render site (comparisons normalize separately).
+function displayVersion(v: string): string {
+  if (!v) return v;
+  return v.startsWith('v') ? v : `v${v}`;
+}
+
 function formatDate(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -293,6 +301,8 @@ export function UpdateNotifier(): JSX.Element | null {
           <Dialog.Content
             data-testid="update-dialog"
             className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[32rem] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-border bg-surface shadow-lg"
+            onEscapeKeyDown={(e) => { if (isDownloading) e.preventDefault(); }}
+            onPointerDownOutside={(e) => { if (isDownloading) e.preventDefault(); }}
           >
             <Dialog.Title className="border-b border-border px-4 py-3 text-sm font-ui text-text">
               {updateReady ? 'Update available' : checkError ? 'Update check' : 'You are up to date'}
@@ -302,7 +312,8 @@ export function UpdateNotifier(): JSX.Element | null {
               {updateReady ? (
                 <div className="flex flex-col gap-3" data-testid="update-changelog">
                   <p className="text-xs text-text-muted">
-                    Installed {result?.installedVersion} - latest {result?.latestVersion}
+                    Installed {displayVersion(result?.installedVersion ?? '')} - latest{' '}
+                    {displayVersion(result?.latestVersion ?? '')}
                   </p>
                   {result?.releases.map((rel, i) => {
                     const isExpanded = expanded[rel.tagName] ?? i === 0;
@@ -340,7 +351,7 @@ export function UpdateNotifier(): JSX.Element | null {
                 <p className="text-sm text-text">Couldn&apos;t reach GitHub to check for updates. Try again later.</p>
               ) : (
                 <p className="text-sm text-text">
-                  You&apos;re running the latest version{result?.installedVersion ? ` (${result.installedVersion})` : ''}.
+                  You&apos;re running the latest version{result?.installedVersion ? ` (${displayVersion(result.installedVersion)})` : ''}.
                 </p>
               )}
             </div>

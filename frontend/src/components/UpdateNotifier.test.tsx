@@ -109,6 +109,26 @@ describe('UpdateNotifier', () => {
     expect(JSON.parse(window.localStorage.getItem(UPDATE_PREF_STORAGE_KEY) as string).seenVersion).toBe('v1.4.0');
   });
 
+  test('normalizes mixed version formats in the header', async () => {
+    mockCheck.mockResolvedValue(result({ installedVersion: '0.2.0', latestVersion: 'v0.4.0' }));
+    render(<UpdateNotifier />);
+    fireEvent.click(await screen.findByTestId('update-badge'));
+    expect(screen.getByText(/Installed v0\.2\.0 - latest v0\.4\.0/)).toBeInTheDocument();
+  });
+
+  test('a running download cannot be dismissed with Escape', async () => {
+    mockCheck.mockResolvedValue(result());
+    mockDownload.mockReturnValue(new Promise<string>(() => {}));
+    render(<UpdateNotifier />);
+    fireEvent.click(await screen.findByTestId('update-badge'));
+    fireEvent.click(screen.getByTestId('update-download-button'));
+    expect(await screen.findByTestId('update-download-progress')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    // Dialog stays open (dismiss is blocked while downloading).
+    expect(screen.getByTestId('update-dialog')).toBeInTheDocument();
+  });
+
   test('strips script tags from release notes', async () => {
     mockCheck.mockResolvedValue(
       result({
