@@ -3,15 +3,16 @@ module unidoc-pdf-debugger
 go 1.27.0
 
 require (
+	github.com/adrg/xdg v0.5.3
 	github.com/google/uuid v1.6.0
 	github.com/hhrutter/lzw v1.0.0
 	github.com/pdfcpu/pdfcpu v0.12.1
 	github.com/wailsapp/wails/v3 v3.0.0-beta.18
 	golang.org/x/image v0.41.0
+	golang.org/x/mod v0.41.0
 )
 
 require (
-	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

@@ -21,6 +21,7 @@ import (
 	"unidoc-pdf-debugger/internal/pdfservice"
 	"unidoc-pdf-debugger/internal/pendingopen"
 	"unidoc-pdf-debugger/internal/splash"
+	"unidoc-pdf-debugger/internal/updateservice"
 )
 
 // version is the release version of the GUI binary, printed by the `--version`
@@ -449,6 +450,10 @@ func main() {
 
 	app.RegisterService(application.NewService(&pdfService))
 
+	// Update-notification service. Version-aware; skips the check on "dev".
+	updateSvc := updateservice.NewUpdateService(app, version)
+	app.RegisterService(application.NewService(updateSvc))
+
 	// openFileAndEmit handles the shared logic for opening a PDF and emitting
 	// the result to the frontend. Used by menu, file drop, file association,
 	// and single-instance handlers.
@@ -667,6 +672,15 @@ func main() {
 		SetAccelerator("CmdOrCtrl+Left").
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit("tab:prev", nil)
+		})
+
+	// Help menu: on-demand update check. The frontend runs the bound check and
+	// surfaces the result (including up-to-date / unreachable messages, which the
+	// silent automatic path omits).
+	helpMenu := menu.AddSubmenu("Help")
+	helpMenu.Add("Check for Updates...").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("update:check-requested", nil)
 		})
 
 	// Frontend sends navigation state changes to sync menu enabled state

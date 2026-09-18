@@ -83,6 +83,9 @@ vi.mock('./components/ErrorBanner', () => ({
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar">Tabs</div>,
 }));
+vi.mock('./components/UpdateNotifier', () => ({
+  UpdateNotifier: () => null,
+}));
 
 // Helper: emit a simulated Wails event
 function emitEvent(name: string, data: Record<string, unknown>) {
