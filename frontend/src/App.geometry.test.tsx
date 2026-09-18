@@ -108,6 +108,9 @@ vi.mock('./components/ErrorBanner', () => ({
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar">Tabs</div>,
 }));
+vi.mock('./components/UpdateNotifier', () => ({
+  UpdateNotifier: () => null,
+}));
 
 const STORAGE_KEY = 'unidoc-pdf-debugger:window-state';
 

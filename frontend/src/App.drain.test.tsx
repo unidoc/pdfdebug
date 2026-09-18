@@ -88,6 +88,9 @@ vi.mock('./components/ErrorBanner', () => ({
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar">Tabs</div>,
 }));
+vi.mock('./components/UpdateNotifier', () => ({
+  UpdateNotifier: () => null,
+}));
 
 function docInfo(tabId: string, filePath: string) {
   return {

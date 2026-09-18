@@ -17,6 +17,7 @@ import { TabBar } from './components/TabBar'
 import { GoToPageDialog } from './components/GoToPageDialog'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
+import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 
 /**
@@ -419,6 +420,7 @@ function AppContent() {
       <GoToPageDialog />
       <BatchOpenDialog />
       <CommandPalette />
+      <UpdateNotifier />
     </div>
   )
 }
