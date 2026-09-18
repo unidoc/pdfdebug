@@ -122,7 +122,7 @@ export function GoToPageDialog() {
                 type="submit"
                 data-testid="go-to-page-submit"
                 disabled={submitDisabled}
-                className="px-3 py-1 text-sm font-ui rounded bg-accent text-on-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-sm font-ui rounded bg-info text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Go
               </button>
