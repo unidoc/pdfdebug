@@ -43,12 +43,10 @@ func runValidate(args []string) int {
 		return 2
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, validateUsage)
+	if !requirePositionals(fs, 1, validateUsage) {
 		return 2
 	}
-	return execValidate(filePath, profile, *jsonFlag, *prettyFlag)
+	return execValidate(fs.Arg(0), profile, *jsonFlag, *prettyFlag)
 }
 
 // execValidate opens the PDF, runs the profile's rule set, and renders the

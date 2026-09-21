@@ -11,6 +11,9 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
+// objectUsage is the one-line usage string for the object dump subcommand.
+const objectUsage = `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`
+
 // runObjectDump executes the object dump command and returns the exit code.
 func runObjectDump(args []string) int {
 	fs := flag.NewFlagSet("dump object", flag.ContinueOnError)
@@ -21,12 +24,12 @@ func runObjectDump(args []string) int {
 	resolveDepthFlag := fs.Int("resolve-depth", defaultResolveDepth, "Ref-following depth for --resolve")
 	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, objectUsage)
 		return 1
 	}
 
 	if *refFlag == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, objectUsage)
 		return 1
 	}
 	if *resolveDepthFlag < 0 {
@@ -40,11 +43,10 @@ func runObjectDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+	if !requirePositionals(fs, 1, objectUsage) {
 		return 1
 	}
+	filePath := fs.Arg(0)
 
 	return execObjectDump(filePath, objNum, genNum, *jsonFlag, *prettyFlag, *resolveFlag, *resolveDepthFlag)
 }

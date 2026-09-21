@@ -41,11 +41,14 @@ type treeNodeOutput struct {
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
+// treeUsage is the one-line usage string for the tree dump subcommand.
+const treeUsage = "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>"
+
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
 	fs, flags, err := parseDumpFlags("dump tree", args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
+		fmt.Fprintln(os.Stderr, treeUsage)
 		return 1
 	}
 
@@ -67,11 +70,10 @@ func runTreeDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
+	if !requirePositionals(fs, 1, treeUsage) {
 		return 1
 	}
+	filePath := fs.Arg(0)
 
 	pageNum := 0
 	if flags.pageSet {

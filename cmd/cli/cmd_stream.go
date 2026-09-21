@@ -111,13 +111,11 @@ func runStreamDump(args []string) int {
 		}
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, streamUsage)
+	if !requirePositionals(fs, 1, streamUsage) {
 		return 1
 	}
 
-	return execStreamDump(filePath, flags)
+	return execStreamDump(fs.Arg(0), flags)
 }
 
 // execStreamDump opens the PDF, resolves the target content-stream node from

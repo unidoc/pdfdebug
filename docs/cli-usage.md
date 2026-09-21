@@ -18,6 +18,11 @@ pdfdebug <command> [subcommand] [flags] <file.pdf>
 
 Most inspection lives under `dump`. `validate` and `diff` are top-level peers.
 
+Flags go before the file, not after it. Argument parsing stops at the first
+non-flag argument, so `dump tree file.pdf --json` would leave `--json` unparsed;
+the command rejects it with the usage line rather than quietly printing plain
+text. Every command takes one file except `diff`, which takes two.
+
 ## Commands
 
 | Command | What it shows | Key flags |

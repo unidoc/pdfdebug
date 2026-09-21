@@ -213,6 +213,23 @@ type dumpFlags struct {
 	resolveDepth int
 }
 
+// requirePositionals reports whether fs holds exactly want positional
+// arguments. Go's flag package stops parsing at the first non-flag argument, so
+// a flag written after the file path arrives here as an extra positional;
+// accepting it silently would run `dump tree file.pdf --json` as plain text at
+// exit 0 while the caller waits for JSON. On a mismatch it writes usage to
+// stderr and returns false; the caller supplies its own exit code, which
+// differs between the dump subcommands (1) and validate/diff (2).
+//
+// want is explicit rather than fixed at 1 because `diff` takes two files.
+func requirePositionals(fs *flag.FlagSet, want int, usage string) bool {
+	if fs.NArg() != want {
+		fmt.Fprintln(os.Stderr, usage)
+		return false
+	}
+	return true
+}
+
 // parseDumpFlags creates a FlagSet for dump subcommands with common flags.
 func parseDumpFlags(name string, args []string) (*flag.FlagSet, dumpFlags, error) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)

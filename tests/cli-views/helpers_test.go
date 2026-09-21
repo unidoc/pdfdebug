@@ -117,6 +117,19 @@ func runCLIRaw(t *testing.T, binPath string, args ...string) (stdout []byte, std
 	return out, errBuf.String(), exitCode
 }
 
+// copyTestdataFile copies the named file out of testdata/ to dst, so a test can
+// exercise a path spelling the repo cannot carry (a leading dash, say).
+func copyTestdataFile(t *testing.T, name, dst string) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(testdataDir(t), name))
+	if err != nil {
+		t.Fatalf("failed to read testdata/%s: %v", name, err)
+	}
+	if err := os.WriteFile(dst, content, 0o600); err != nil {
+		t.Fatalf("failed to write %s: %v", dst, err)
+	}
+}
+
 // mustParseJSON parses s as JSON into target, failing the test on error.
 func mustParseJSON(t *testing.T, s string, target any) {
 	t.Helper()

@@ -35,11 +35,10 @@ func runEmbeddedDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, embeddedUsage)
+	if !requirePositionals(fs, 1, embeddedUsage) {
 		return 1
 	}
+	filePath := fs.Arg(0)
 
 	if *refFlag != "" {
 		return execEmbeddedExtractByRef(filePath, *refFlag)

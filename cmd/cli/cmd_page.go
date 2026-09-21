@@ -95,13 +95,11 @@ func runPageDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, pageUsage)
+	if !requirePositionals(fs, 1, pageUsage) {
 		return 1
 	}
 
-	return execPageDump(filePath, flags)
+	return execPageDump(fs.Arg(0), flags)
 }
 
 // execPageDump opens the PDF, assembles the page render-info, and emits it as

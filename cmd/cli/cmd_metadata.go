@@ -23,12 +23,10 @@ func runMetadataDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, metadataUsage)
+	if !requirePositionals(fs, 1, metadataUsage) {
 		return 1
 	}
-	return execMetadataDump(filePath, *jsonFlag, *prettyFlag)
+	return execMetadataDump(fs.Arg(0), *jsonFlag, *prettyFlag)
 }
 
 // execMetadataDump opens the PDF and writes the metadata view as an aligned
