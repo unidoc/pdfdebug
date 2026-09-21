@@ -1,11 +1,11 @@
 // Expose existing pdfcore views as CLI commands.
 //
-// Document-level presenters (no --ref): xref, objects, plaintext. Black-box:
+// Document-level presenters (no --ref): xref, objects, bytes. Black-box:
 // build the CLI, run as a subprocess.
 //
 // Test level: Integration (Go) -- CLI binary build + execution. No browser.
 //
-// Covers: xref + objects JSON; plaintext raw byte-exact; the --json wrapper
+// Covers: xref + objects JSON; `dump bytes` raw byte-exact; the --json wrapper
 // without the tabId leak.
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
@@ -108,20 +108,22 @@ func TestObjectsVsObject_DistinctCommands(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// `dump plaintext <file>` (default) writes the document text to stdout, NOT
-// JSON-wrapped, and Latin-1-re-encoded so the stdout bytes equal the source
-// file bytes byte-for-byte. A naive UTF-8 string write would corrupt every
-// byte >= 0x80, so byte-exact equality is the gate.
+// `dump bytes <file>` (default) writes the document bytes to stdout, NOT
+// JSON-wrapped, and verbatim so the stdout bytes equal the source file bytes
+// byte-for-byte. A naive UTF-8 string write would corrupt every byte >= 0x80,
+// so byte-exact equality is the gate. The command appends nothing and strips
+// nothing: the fixture ends %%EOF followed by a newline, so correct output
+// ends with one too.
 //
 // Fixture choice: image-xobject.pdf embeds DCTDecode (JPEG) stream bytes that
 // include bytes >= 0x80, which is exactly what surfaces the re-encoding trap.
 // ---------------------------------------------------------------------------
 
-func TestPlaintextDump_Default_ByteExactSource(t *testing.T) {
+func TestBytesDump_Default_ByteExactSource(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	stdout, _, exitCode := runCLIRaw(t, bin, "dump", "plaintext", pdfPath)
+	stdout, _, exitCode := runCLIRaw(t, bin, "dump", "bytes", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
@@ -132,21 +134,21 @@ func TestPlaintextDump_Default_ByteExactSource(t *testing.T) {
 	}
 
 	if !bytes.Equal(stdout, want) {
-		t.Errorf("plaintext stdout does not equal source bytes byte-for-byte (Latin-1 re-encode trap?)\n got %d bytes, want %d bytes", len(stdout), len(want))
+		t.Errorf("`dump bytes` stdout does not equal source bytes byte-for-byte (Latin-1 re-encode trap?)\n got %d bytes, want %d bytes", len(stdout), len(want))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// `dump plaintext --json <file>` wraps the document as EXACTLY
+// `dump bytes --json <file>` wraps the document as EXACTLY
 // {"totalBytes","content"} -- the tabId field is NOT included (it is a
 // CLI-internal artifact). totalBytes equals the on-disk file size.
 // ---------------------------------------------------------------------------
 
-func TestPlaintextDump_JSON_WrapsWithoutTabID(t *testing.T) {
+func TestBytesDump_JSON_WrapsWithoutTabID(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	stdout, _, exitCode := runCLI(t, bin, "dump", "plaintext", "--json", pdfPath)
+	stdout, _, exitCode := runCLI(t, bin, "dump", "bytes", "--json", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
@@ -179,14 +181,17 @@ func TestPlaintextDump_JSON_WrapsWithoutTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// document-level presenters surface genuine Go errors as JSON on stderr
-// with exit 2 (nonexistent file), empty stdout.
+// Under their canonical spelling, document-level presenters surface genuine Go
+// errors as a single JSON object on stderr with exit 2 (nonexistent file) and
+// empty stdout. Usage errors (exit 1) are a bare plain-text usage line instead,
+// and the deprecated `dump plaintext` alias prefixes a notice line to whichever
+// shape applies -- both are covered in dump_bytes_test.go.
 // ---------------------------------------------------------------------------
 
 func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
 	bin := buildCLI(t)
 
-	for _, resource := range []string{"xref", "objects", "plaintext"} {
+	for _, resource := range []string{"xref", "objects", "bytes"} {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, "/nonexistent/path/fake.pdf")
 			if ec != 2 {
