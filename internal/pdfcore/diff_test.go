@@ -41,6 +41,7 @@ import (
 	"time"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // --- diff fixture assembler (custom /Root so numbering can be permuted) -------
@@ -114,8 +115,8 @@ func diffThreeLevelRenumbered() []byte {
 		"1 0 obj\n<< /Type /Pages /Parent 4 0 R /Kids [2 0 R] /Count 1 >>\nendobj\n", // PagesMid
 		"2 0 obj\n<< /Type /Pages /Parent 1 0 R /Kids [3 0 R] /Count 1 >>\nendobj\n", // PagesLeaf
 		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n", // Page
-		"4 0 obj\n<< /Type /Pages /Kids [1 0 R] /Count 1 >>\nendobj\n",              // PagesRoot
-		"5 0 obj\n<< /Type /Catalog /Pages 4 0 R >>\nendobj\n",                      // Catalog
+		"4 0 obj\n<< /Type /Pages /Kids [1 0 R] /Count 1 >>\nendobj\n",               // PagesRoot
+		"5 0 obj\n<< /Type /Catalog /Pages 4 0 R >>\nendobj\n",                       // Catalog
 	)
 }
 
@@ -937,5 +938,56 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 	}
 	if meta.Status != "added" {
 		t.Errorf("Root/Metadata status = %q, want added", meta.Status)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The changed/unchanged decision runs on the byte-exact rendering while the
+// displayed summaries are decoded. Two strings that decode to the same text
+// from different bytes are a real difference and must report "changed".
+// ---------------------------------------------------------------------------
+
+func TestScalarLeaf_ByteDifferentStringsThatDecodeAlikeStayChanged(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		left, right pdfcpu_types.Object
+		wantSummary string
+	}{
+		{
+			// UTF-16BE hex against a plain literal: both decode to "A".
+			name:        "utf16be hex against a plain literal",
+			left:        pdfcpu_types.HexLiteral("FEFF0041"),
+			right:       pdfcpu_types.StringLiteral("A"),
+			wantSummary: "A",
+		},
+		{
+			// pdfcpu unescapes already-decoded hex bytes, so the 0x5C is
+			// dropped and both sides decode to "AB".
+			name:        "hex escape quirk collapses two different blobs",
+			left:        pdfcpu_types.HexLiteral("415C42"),
+			right:       pdfcpu_types.HexLiteral("4142"),
+			wantSummary: "AB",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar", tc.left, tc.right)
+
+			if node.Status != "changed" {
+				t.Errorf("status = %q, want changed: the bytes differ even though the decodes match", node.Status)
+			}
+			if node.LeftSummary != tc.wantSummary || node.RightSummary != tc.wantSummary {
+				t.Errorf("summaries = %q / %q, want the decoded %q on both sides",
+					node.LeftSummary, node.RightSummary, tc.wantSummary)
+			}
+		})
+	}
+}
+
+func TestScalarLeaf_IdenticalBytesStayUnchanged(t *testing.T) {
+	node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar",
+		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0041"))
+
+	if node.Status != "unchanged" {
+		t.Errorf("status = %q, want unchanged", node.Status)
 	}
 }

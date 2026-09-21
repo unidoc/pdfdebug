@@ -12,6 +12,7 @@ import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
 import { formatBytes } from '../lib/formatBytes';
+import { escapeDisplayValue } from '../lib/escapeDisplayValue';
 import {
   type ObjectDetailData,
   type ObjectFindContext,
@@ -646,15 +647,17 @@ function DetailPanelInner() {
   const objectSpans = useMemo<FindSpan[]>(() => {
     const spans: FindSpan[] = [];
     if (!objectFindable || !detail) return spans;
+    // Escaped to match what ValueDisplay renders, so a match offset lands on
+    // the same character the mark is drawn over.
     if (detail.type === 'dict' && detail.properties) {
       detail.properties.forEach((p, i) => {
         spans.push({ id: `prop:${i}:key`, text: p.key });
-        spans.push({ id: `prop:${i}:value`, text: p.value.display });
+        spans.push({ id: `prop:${i}:value`, text: escapeDisplayValue(p.value.display) });
       });
     } else if (detail.type === 'array' && detail.elements) {
-      detail.elements.forEach((e, i) => spans.push({ id: `elem:${i}`, text: e.display }));
+      detail.elements.forEach((e, i) => spans.push({ id: `elem:${i}`, text: escapeDisplayValue(e.display) }));
     } else if (detail.type === 'scalar' && detail.scalarValue) {
-      spans.push({ id: 'scalar', text: detail.scalarValue.display });
+      spans.push({ id: 'scalar', text: escapeDisplayValue(detail.scalarValue.display) });
     }
     return spans;
   }, [detail, objectFindable]);

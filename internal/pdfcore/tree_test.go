@@ -231,6 +231,11 @@ func TestErrorNodeLabel(t *testing.T) {
 	if node.NodeType != "scalar" {
 		t.Errorf("error node NodeType = %q, want 'scalar'", node.NodeType)
 	}
+	// An error node is classified as a scalar, so it is the one scalar row that
+	// must not carry a value: there is nothing to render, only a failure.
+	if node.Value != "" || node.ValueRaw != "" {
+		t.Errorf("error node carries value %q / valueRaw %q, want both empty", node.Value, node.ValueRaw)
+	}
 }
 
 func TestSemanticLabelPages(t *testing.T) {

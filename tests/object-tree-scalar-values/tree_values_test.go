@@ -52,7 +52,7 @@ func TestTreeRow_DictionaryScalarValuesInJSON(t *testing.T) {
 	}
 }
 
-func TestTreeRow_ContainersRefsAndErrorsCarryNoValue(t *testing.T) {
+func TestTreeRow_ContainersAndRefsCarryNoValue(t *testing.T) {
 	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
 
 	if _, ok := value(root); ok {
