@@ -290,15 +290,19 @@ func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object, binary b
 }
 
 // scalarNodeValue renders a dictionary-entry scalar leaf: the display value,
-// and the byte-exact counterpart only where decoding changed the content, so
-// the absence of a raw counterpart means the decode was a no-op.
+// and the byte-exact counterpart only where it says something the display value
+// does not. A raw counterpart equal to the display value would carry no
+// information, which is the case for a string whose decode is empty and whose
+// display therefore falls back to the stored form (a BOM-only <FEFF>).
 func scalarNodeValue(obj pdfcpu_types.Object, binary bool) (value, raw string) {
 	if binary && isStringObject(obj) {
 		return binaryStringSummary(obj), ""
 	}
 	value = scalarText(obj)
 	if decodeChangedContent(obj) {
-		raw = scalarRaw(obj)
+		if r := scalarRaw(obj); r != value {
+			raw = r
+		}
 	}
 	return value, raw
 }

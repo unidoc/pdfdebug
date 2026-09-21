@@ -35,6 +35,20 @@ func TestDictionaryEntryNullCarriesTheNullToken(t *testing.T) {
 	}
 }
 
+// A string whose decode is empty keeps its delimited stored form as the display
+// value, so a raw counterpart would only repeat it.
+
+func TestBomOnlyStringCarriesNoDuplicateRawCounterpart(t *testing.T) {
+	node := buildTreeNode("dict:root:BomOnly", "/BomOnly", "BomOnly", pdfcpu_types.HexLiteral("FEFF"), false)
+
+	if node.Value != "<FEFF>" {
+		t.Errorf("value = %q, want the delimited stored form %q", node.Value, "<FEFF>")
+	}
+	if node.ValueRaw != "" {
+		t.Errorf("valueRaw = %q, want it omitted: it repeats the value and says nothing extra", node.ValueRaw)
+	}
+}
+
 // An object type outside classifyObject's vocabulary. It is classified as a
 // scalar with an empty valueType, and its value surfaces visibly rather than as
 // a silently missing key.

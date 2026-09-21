@@ -164,6 +164,11 @@ func TestEmptyString_RendersAsItsDelimitedStoredForm(t *testing.T) {
 		if got != want {
 			t.Errorf("%s value = %q, want %q", key, got, want)
 		}
+		// The display value already is the stored form here, so a raw
+		// counterpart would only repeat it.
+		if raw, ok := valueRaw(node); ok && raw == got {
+			t.Errorf("%s emits valueRaw %q, identical to its value", key, raw)
+		}
 	}
 }
 

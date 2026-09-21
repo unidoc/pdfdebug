@@ -105,6 +105,14 @@ const pressuredRow: AnyNode = {
   error: '', objectRef: '9 0 R', typeName: 'Annot', value: LONG_VALUE,
 };
 
+// A value carrying the control characters the backend sends unescaped: an
+// embedded newline and a C1 byte from the Latin-1 decode fallback.
+const controlScalar: AnyNode = {
+  id: 'dict:root:Note', label: 'Note', rawKey: '/Note', nodeType: 'scalar',
+  valueType: 'string', hasChildren: false, childCount: 0, iconHint: 'default',
+  error: '', objectRef: '', typeName: '', value: 'don\u0092t\nstop',
+};
+
 // A container: no value, and the row must not gain an empty segment.
 const containerNode: AnyNode = {
   id: 'dict:root:A', label: 'A', rawKey: '/A', nodeType: 'dict', valueType: '',
@@ -120,7 +128,7 @@ const openAction: AppAction = {
     filePath: '/test.pdf',
     rootNode: catalogNode as unknown as AppAction['payload']['rootNode'],
     rootChildren: [
-      altScalar, rowSpanScalar, pressuredRow, containerNode,
+      altScalar, rowSpanScalar, pressuredRow, controlScalar, containerNode,
     ] as unknown as AppAction['payload']['rootChildren'],
   },
 };
@@ -178,6 +186,15 @@ describe('scalar value on the tree row', () => {
   test('a dictionary-entry number scalar renders its value', async () => {
     const rows = await openTree();
     expect(rowById(rows, 'dict:root:RowSpan').textContent).toContain('2');
+  });
+
+  test('control characters in the value are escaped so the row stays one line', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'dict:root:Note');
+
+    expect(row.textContent).toContain('don\\x92t\\nstop');
+    expect(row.textContent).not.toContain('\n');
+    expect(row.textContent).not.toContain('\u0092');
   });
 
   test('a container row renders no value segment', async () => {
