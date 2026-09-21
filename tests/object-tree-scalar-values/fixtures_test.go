@@ -40,6 +40,14 @@ const (
 	// emitted for it.
 	langText = "en-US"
 
+	// hexAsciiHex is langText stored as hex digits. It displays exactly as the
+	// literal form does, so only its raw counterpart says how it is stored.
+	hexAsciiHex = "656E2D5553"
+	// escapedLiteral is a literal carrying a PDF escape: the display value
+	// drops the backslash, so the stored form is not recoverable from it.
+	escapedLiteral = `(a\(b)`
+	escapedText    = "a(b"
+
 	// sigContentsBytes is the stand-in signature payload length: 128 hex digits
 	// in the file, so 64 bytes of binary.
 	sigContentsBytes = 64
@@ -97,6 +105,8 @@ func scalarValuesPDF() []byte {
 		"/HexEmpty <> " +
 		"/BomOnly <FEFF> " +
 		"/Lang (" + langText + ") " +
+		"/HexAscii <" + hexAsciiHex + "> " +
+		"/Escaped " + escapedLiteral + " " +
 		"/Backslash <" + backslashHex + "> " +
 		">>\nendobj\n"
 
@@ -176,6 +186,31 @@ func decodeCollisionPDF(side string) []byte {
 	})
 }
 
+// sigChangePDF pairs two documents whose binary-carrying strings differ, so the
+// diff's carve-out can be pinned: signature /Contents and /Cert and filespec
+// /Params /CheckSum must summarize as the fixed-width stand-in on the diff
+// surface too, never as the blob.
+func sigChangePDF(side string) []byte {
+	contents := strings.Repeat("AB", sigContentsBytes)
+	cert := strings.Repeat("CD", sigCertBytes)
+	checkSum := checkSumHex
+	if side == "b" {
+		contents = strings.Repeat("CD", sigContentsBytes)
+		cert = strings.Repeat("EF", sigCertBytes)
+		checkSum = "00112233445566778899AABBCCDDEEFF"
+	}
+	return assemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /SigTyped 4 0 R /Attachment 5 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+		// /Cert is an array so the elements' inherited carve-out is pinned too.
+		"4 0 obj\n<< /Type /Sig /ByteRange [0 100 200 300] /Contents <" + contents +
+			"> /Cert [<" + cert + ">] >>\nendobj\n",
+		"5 0 obj\n<< /Type /Filespec /F (a.xml) /Params << /CheckSum <" + checkSum +
+			"> /Size 3 >> >>\nendobj\n",
+	})
+}
+
 // utf16beHex renders s as the hex digits of its UTF-16BE encoding, BOM first.
 func utf16beHex(s string) string {
 	var b strings.Builder
@@ -224,6 +259,8 @@ func fixtures(t *testing.T) string {
 			"decode-twin.pdf":      decodeCollisionPDF("b"),
 			"text-change-a.pdf":    textChangePDF("a"),
 			"text-change-b.pdf":    textChangePDF("b"),
+			"sig-change-a.pdf":     sigChangePDF("a"),
+			"sig-change-b.pdf":     sigChangePDF("b"),
 		}
 		for name, content := range files {
 			if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {

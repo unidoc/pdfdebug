@@ -944,48 +944,79 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 // ---------------------------------------------------------------------------
 // The changed/unchanged decision runs on the byte-exact rendering while the
 // displayed summaries are decoded. Two strings that decode to the same text
-// from different bytes are a real difference and must report "changed".
+// from different bytes are a real difference and must report "changed" - and
+// must say what differs, which the decoded summaries cannot.
 // ---------------------------------------------------------------------------
 
-func TestScalarLeaf_ByteDifferentStringsThatDecodeAlikeStayChanged(t *testing.T) {
+func TestScalarLeaf_ByteDifferentStringsThatDecodeAlikeShowTheirBytes(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		left, right pdfcpu_types.Object
-		wantSummary string
+		name                string
+		left, right         pdfcpu_types.Object
+		wantLeft, wantRight string
 	}{
 		{
 			// UTF-16BE hex against a plain literal: both decode to "A".
-			name:        "utf16be hex against a plain literal",
-			left:        pdfcpu_types.HexLiteral("FEFF0041"),
-			right:       pdfcpu_types.StringLiteral("A"),
-			wantSummary: "A",
+			name:      "utf16be hex against a plain literal",
+			left:      pdfcpu_types.HexLiteral("FEFF0041"),
+			right:     pdfcpu_types.StringLiteral("A"),
+			wantLeft:  "<FEFF0041>",
+			wantRight: "(A)",
 		},
 		{
 			// pdfcpu unescapes already-decoded hex bytes, so the 0x5C is
 			// dropped and both sides decode to "AB".
-			name:        "hex escape quirk collapses two different blobs",
-			left:        pdfcpu_types.HexLiteral("415C42"),
-			right:       pdfcpu_types.HexLiteral("4142"),
-			wantSummary: "AB",
+			name:      "hex escape quirk collapses two different blobs",
+			left:      pdfcpu_types.HexLiteral("415C42"),
+			right:     pdfcpu_types.HexLiteral("4142"),
+			wantLeft:  "<415C42>",
+			wantRight: "<4142>",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar", tc.left, tc.right)
+			node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar", tc.left, tc.right, false)
 
 			if node.Status != "changed" {
 				t.Errorf("status = %q, want changed: the bytes differ even though the decodes match", node.Status)
 			}
-			if node.LeftSummary != tc.wantSummary || node.RightSummary != tc.wantSummary {
-				t.Errorf("summaries = %q / %q, want the decoded %q on both sides",
-					node.LeftSummary, node.RightSummary, tc.wantSummary)
+			if node.LeftSummary != tc.wantLeft || node.RightSummary != tc.wantRight {
+				t.Errorf("summaries = %q / %q, want the byte-exact %q / %q: two identical summaries on a changed row say nothing",
+					node.LeftSummary, node.RightSummary, tc.wantLeft, tc.wantRight)
 			}
 		})
 	}
 }
 
+func TestScalarLeaf_ChangedTextKeepsItsDecodedSummaries(t *testing.T) {
+	node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar",
+		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0042"), false)
+
+	if node.Status != "changed" {
+		t.Errorf("status = %q, want changed", node.Status)
+	}
+	if node.LeftSummary != "A" || node.RightSummary != "B" {
+		t.Errorf("summaries = %q / %q, want the decoded %q / %q: the byte-exact fallback is only for a decode collision",
+			node.LeftSummary, node.RightSummary, "A", "B")
+	}
+}
+
+func TestScalarLeaf_CarvedOutBinaryKeepsItsStandIn(t *testing.T) {
+	left := pdfcpu_types.HexLiteral(strings.Repeat("AB", 64))
+	right := pdfcpu_types.HexLiteral(strings.Repeat("CD", 64))
+	node := scalarLeaf("/Root/AcroForm/Fields[0]/V/Contents", "scalar", left, right, true)
+
+	if node.Status != "changed" {
+		t.Errorf("status = %q, want changed", node.Status)
+	}
+	want := "<binary, 64 bytes>"
+	if node.LeftSummary != want || node.RightSummary != want {
+		t.Errorf("summaries = %q / %q, want %q on both sides: the blob must not come back on the row",
+			node.LeftSummary, node.RightSummary, want)
+	}
+}
+
 func TestScalarLeaf_IdenticalBytesStayUnchanged(t *testing.T) {
 	node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar",
-		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0041"))
+		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0041"), false)
 
 	if node.Status != "unchanged" {
 		t.Errorf("status = %q, want unchanged", node.Status)

@@ -152,41 +152,20 @@ func isSignatureDict(d pdfcpu_types.Dict) bool {
 	return hasByteRange
 }
 
-// decodeChangedContent reports whether decoding a string object produced
-// content different from its stored bytes with delimiters and escaping
-// removed. The comparison is on content, not on the rendered forms: "(en-US)"
-// is never string-equal to "en-US", so comparing renderings would answer yes
-// for every string in the document.
-func decodeChangedContent(obj pdfcpu_types.Object) bool {
-	stored, ok := storedStringContent(obj)
-	if !ok {
-		// A string whose stored content cannot be recovered (malformed escape,
-		// odd or non-hex digits) still gets a raw counterpart: the decode
-		// fallback drops the delimiters, so without it the stored form would
-		// be unreachable from the output.
-		return isStringObject(obj)
-	}
-	return textStringOrRaw(obj) != stored
-}
-
-// storedStringContent returns a string object's stored bytes with its
-// delimiters and escaping removed, and whether obj is a string at all.
-func storedStringContent(obj pdfcpu_types.Object) (string, bool) {
-	switch v := obj.(type) {
-	case pdfcpu_types.HexLiteral:
-		b, err := v.Bytes()
-		if err != nil {
-			return "", false
-		}
-		return string(b), true
-	case pdfcpu_types.StringLiteral:
-		b, err := pdfcpu_types.Unescape(string(v))
-		if err != nil {
-			return "", false
-		}
-		return string(b), true
-	}
-	return "", false
+// rawCounterpartNeeded reports whether obj's byte-exact stored form says
+// anything its display value does not, given that value. It is suppressed in
+// exactly two cases: the stored form IS the display value (every non-string
+// scalar, and a string whose decode fell back to the raw rendering), or the
+// stored form is the display value wrapped in literal-string delimiters.
+//
+// Everything else keeps a raw counterpart, hex encoding and PDF escaping
+// included: <656E2D5553> and (en-US) both display "en-US", and only the first
+// of them can be reconstructed from that. Suppressing on "the decode changed
+// the content" would drop both, which is the common case rather than a corner
+// of it.
+func rawCounterpartNeeded(obj pdfcpu_types.Object, value string) bool {
+	raw := scalarRaw(obj)
+	return raw != value && raw != "("+value+")"
 }
 
 // EscapeDisplayValue renders a value's control characters as escape sequences

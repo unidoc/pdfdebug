@@ -7,7 +7,7 @@
  * Run: cd frontend && npx vitest run src/lib/escapeDisplayValue.test.ts
  */
 import { describe, test, expect } from 'vitest';
-import { escapeDisplayValue } from './escapeDisplayValue';
+import { clampDisplayValue, escapeDisplayValue, TREE_VALUE_RENDER_CAP } from './escapeDisplayValue';
 
 describe('escapeDisplayValue', () => {
   test('leaves ordinary text untouched', () => {
@@ -50,5 +50,31 @@ describe('escapeDisplayValue', () => {
   test('passes multi-byte and astral characters through whole', () => {
     expect(escapeDisplayValue('\u4e2d\u6587')).toBe('\u4e2d\u6587');
     expect(escapeDisplayValue('\u{1f600}')).toBe('\u{1f600}');
+  });
+});
+
+describe('clampDisplayValue', () => {
+  test('escapes a value at or under the limit whole', () => {
+    expect(clampDisplayValue('a\nb', 10)).toBe('a\\nb');
+    expect(clampDisplayValue('xxxxx', 5)).toBe('xxxxx');
+  });
+
+  test('cuts a value over the limit and marks the cut', () => {
+    expect(clampDisplayValue('xxxxxx', 5)).toBe('xxxxx...');
+  });
+
+  test('escaping happens after the cut, so the result stays bounded', () => {
+    // Ten NULs escape to forty characters; only the first three are kept.
+    expect(clampDisplayValue('\x00'.repeat(10), 3)).toBe('\\x00\\x00\\x00...');
+  });
+
+  test('never cuts an astral character in half', () => {
+    // Each emoji is two UTF-16 code units, so a limit of 3 lands mid-pair.
+    expect(clampDisplayValue('\u{1f600}\u{1f600}', 3)).toBe('\u{1f600}...');
+  });
+
+  test('the render cap leaves a normal-sized value intact', () => {
+    const value = 'L'.repeat(500);
+    expect(clampDisplayValue(value, TREE_VALUE_RENDER_CAP)).toBe(value);
   });
 });

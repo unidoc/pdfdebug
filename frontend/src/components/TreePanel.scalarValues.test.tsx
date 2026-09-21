@@ -12,8 +12,11 @@
  *   - The value is the only element that takes the remaining width and the only
  *     one allowed to ellipsize (min-w-0 + truncate); the three suffixes keep
  *     flex-shrink-0 and are never dropped.
- *   - The full, uncapped value lives in the value span's own title attribute.
- *     No rune count in the DOM.
+ *   - The value on screen and in the title is clamped to a render ceiling, so
+ *     a multi-megabyte string literal is neither escaped nor written into a DOM
+ *     attribute whole. A normal-sized value reaches the title intact.
+ *   - An array element's label already IS its value, so its row renders it
+ *     once and hangs the value off the label's title instead.
  *
  * Run: cd frontend && npx vitest run \
  * src/components/TreePanel.scalarValues.test.tsx
@@ -27,6 +30,7 @@ import {
   type AppAction,
 } from '../hooks/useDocumentState';
 import { TreePanel } from './TreePanel';
+import { TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 
 // --- Mocks (mirrors TreePanel.test.tsx setup) ---
 
@@ -76,6 +80,7 @@ type AnyNode = Record<string, unknown>;
 
 const DECODED_ALT = 'Rapport cell';
 const LONG_VALUE = 'L'.repeat(500);
+const OVER_CAP_VALUE = 'M'.repeat(TREE_VALUE_RENDER_CAP + 500);
 
 const catalogNode: AnyNode = {
   id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
@@ -113,6 +118,22 @@ const controlScalar: AnyNode = {
   error: '', objectRef: '', typeName: '', value: 'don\u0092t\nstop',
 };
 
+// An array element: its label is the rendered value, so the row must not show
+// the same text twice.
+const arrayElement: AnyNode = {
+  id: 'arr:dict:root:Nums:0', label: '612', rawKey: '[0]', nodeType: 'scalar',
+  valueType: 'number', hasChildren: false, childCount: 0, iconHint: 'default',
+  error: '', objectRef: '', typeName: '', value: '612',
+};
+
+// A value past the render ceiling: the row clamps it rather than escaping and
+// storing megabytes per render.
+const overCapScalar: AnyNode = {
+  id: 'dict:root:Blob', label: 'Blob', rawKey: '/Blob', nodeType: 'scalar',
+  valueType: 'string', hasChildren: false, childCount: 0, iconHint: 'default',
+  error: '', objectRef: '', typeName: '', value: OVER_CAP_VALUE,
+};
+
 // A container: no value, and the row must not gain an empty segment.
 const containerNode: AnyNode = {
   id: 'dict:root:A', label: 'A', rawKey: '/A', nodeType: 'dict', valueType: '',
@@ -128,7 +149,8 @@ const openAction: AppAction = {
     filePath: '/test.pdf',
     rootNode: catalogNode as unknown as AppAction['payload']['rootNode'],
     rootChildren: [
-      altScalar, rowSpanScalar, pressuredRow, controlScalar, containerNode,
+      altScalar, rowSpanScalar, pressuredRow, controlScalar, arrayElement,
+      overCapScalar, containerNode,
     ] as unknown as AppAction['payload']['rootChildren'],
   },
 };
@@ -273,11 +295,46 @@ describe('single-line clamp', () => {
     expect(typeSpan?.className).toContain('flex-shrink-0');
   });
 
-  test('the full uncapped value lives in the title attribute, with no rune count in the DOM', async () => {
+  test('a normal-sized value reaches the title intact, with no rune count in the DOM', async () => {
     const rows = await openTree();
     const row = rowById(rows, 'obj:0:9');
 
     expect(screen.getByTitle(LONG_VALUE)).toBeTruthy();
     expect(row.textContent).not.toContain('[truncated');
+  });
+
+  test('a value past the render ceiling is clamped on screen and in the title', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'dict:root:Blob');
+    const valueSpan = Array.from(row.querySelectorAll('span'))
+      .find((s) => s.className.includes('truncate'));
+
+    const clamped = `${'M'.repeat(TREE_VALUE_RENDER_CAP)}...`;
+    expect(valueSpan?.textContent).toBe(clamped);
+    expect(valueSpan?.getAttribute('title')).toBe(clamped);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Array elements
+// ---------------------------------------------------------------------------
+
+describe('array element rows', () => {
+  test('the value is rendered once, as the label', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'arr:dict:root:Nums:0');
+
+    expect(row.textContent).toContain('612');
+    expect(row.textContent).not.toContain('612612');
+    expect(row.querySelectorAll('.truncate')).toHaveLength(0);
+  });
+
+  test('the value hangs off the label title, so a clamped label is recoverable', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'arr:dict:root:Nums:0');
+    const labelSpan = Array.from(row.querySelectorAll('span'))
+      .find((s) => s.textContent === '612');
+
+    expect(labelSpan?.getAttribute('title')).toBe('612');
   });
 });

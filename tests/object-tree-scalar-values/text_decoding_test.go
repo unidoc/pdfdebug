@@ -45,9 +45,9 @@ func TestDecoding_HexTextStringInheritsTheUpstreamEscapeQuirk(t *testing.T) {
 	}
 }
 
-// The raw counterpart is emitted only where decoding actually changed the
-// content, so its absence carries information rather than duplicating every
-// node.
+// The raw counterpart is emitted wherever the stored form says something the
+// display value does not, so its presence means "the display form is not the
+// form on disk" and a single jq pass surveys the document's encodings.
 
 func TestValueRaw_EmittedWhenDecodingChangedTheContent(t *testing.T) {
 	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
@@ -73,18 +73,53 @@ func TestValueRaw_EmittedWhenDecodingChangedTheContent(t *testing.T) {
 	}
 }
 
-func TestValueRaw_OmittedWhenDecodingWasANoOp(t *testing.T) {
+func TestValueRaw_OmittedWhenTheStoredFormIsTheDisplayValue(t *testing.T) {
 	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
 	scalars := nodeAt(t, root, "/Scalars")
 
-	// An ASCII string is the case a rendered-form comparison gets wrong: "(en-US)"
-	// is never string-equal to "en-US", so comparing renderings would emit the
-	// key on every string in the document.
+	// A plain literal is the display value inside its delimiters, and a
+	// non-string scalar renders identically either way. Nothing is recoverable
+	// from a raw copy of it.
 	for _, key := range []string{"/Lang", "/Nm", "/Int", "/Real", "/Flag", "/Off"} {
 		node := nodeAt(t, scalars, key)
 		if raw, ok := valueRaw(node); ok {
-			t.Errorf("%s emits valueRaw %q although decoding was a no-op", key, raw)
+			t.Errorf("%s emits valueRaw %q although the stored form is the display value in delimiters", key, raw)
 		}
+	}
+}
+
+// The two shapes a content comparison gets wrong: both display exactly what a
+// plain literal would, and neither can be reconstructed from that display value.
+
+func TestValueRaw_EmittedForAHexEncodedAsciiString(t *testing.T) {
+	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
+	node := nodeAt(t, root, "/Scalars", "/HexAscii")
+
+	if got := mustValue(t, node); got != langText {
+		t.Errorf("/HexAscii value = %q, want %q", got, langText)
+	}
+	raw, ok := valueRaw(node)
+	if !ok {
+		t.Fatalf("/HexAscii emits no valueRaw; nothing in the output then says it is stored as hex")
+	}
+	if want := "<" + hexAsciiHex + ">"; raw != want {
+		t.Errorf("/HexAscii valueRaw = %q, want %q", raw, want)
+	}
+}
+
+func TestValueRaw_EmittedForALiteralCarryingAPDFEscape(t *testing.T) {
+	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
+	node := nodeAt(t, root, "/Scalars", "/Escaped")
+
+	if got := mustValue(t, node); got != escapedText {
+		t.Errorf("/Escaped value = %q, want %q", got, escapedText)
+	}
+	raw, ok := valueRaw(node)
+	if !ok {
+		t.Fatalf("/Escaped emits no valueRaw; the escape is then unreachable from the output")
+	}
+	if raw != escapedLiteral {
+		t.Errorf("/Escaped valueRaw = %q, want %q", raw, escapedLiteral)
 	}
 }
 

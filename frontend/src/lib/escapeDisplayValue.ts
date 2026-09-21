@@ -23,3 +23,28 @@ export function escapeDisplayValue(value: string): string {
   }
   return out;
 }
+
+/**
+ * The ceiling a tree row escapes and renders. TreeNode.value is uncapped by
+ * design - a dictionary entry can hold a multi-megabyte string literal - and
+ * neither CSS truncation nor a `title` attribute bounds the work of escaping
+ * it, so the row cuts first and escapes the cut.
+ */
+export const TREE_VALUE_RENDER_CAP = 2000;
+
+/**
+ * Cut `value` to at most `limit` UTF-16 code units, then escape it with
+ * {@link escapeDisplayValue}. A cut appends a trailing `...`; a value at or
+ * under the limit is escaped whole, so a normal-sized row still carries its
+ * full value on screen and in its title.
+ *
+ * The cut lands on a code-point boundary: a trailing lone high surrogate is
+ * dropped rather than rendered as a replacement character.
+ */
+export function clampDisplayValue(value: string, limit: number): string {
+  if (value.length <= limit) return escapeDisplayValue(value);
+  let cut = value.slice(0, limit);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  return `${escapeDisplayValue(cut)}...`;
+}
