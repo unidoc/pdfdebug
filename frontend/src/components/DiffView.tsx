@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { DiffDocuments } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { escapeDisplayValue } from '../lib/escapeDisplayValue';
 
 /** One node in the structural delta tree, mirroring `pdfcore.DiffNode`. */
 export interface DiffNodeData {
@@ -346,7 +347,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 )}
                 <span>{diffMarker(node.status)} </span>
                 <span>{node.path}</span>
-                {node.leftSummary ? <span className="text-text-muted"> {node.leftSummary}</span> : null}
+                {node.leftSummary ? <span className="text-text-muted"> {escapeDisplayValue(node.leftSummary)}</span> : null}
                 {node.truncated ? <span className="text-warning"> [truncated: depth cap]</span> : null}
               </div>
             );
@@ -367,7 +368,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
             >
               <span>{diffMarker(node.status)} </span>
               <span>{node.path}</span>
-              {node.rightSummary ? <span className="text-text-muted"> {node.rightSummary}</span> : null}
+              {node.rightSummary ? <span className="text-text-muted"> {escapeDisplayValue(node.rightSummary)}</span> : null}
             </div>
           ))}
         </div>
@@ -387,11 +388,11 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
             <div className="flex flex-col gap-0.5">
               <div>
                 <span className="text-text-muted">left: </span>
-                <span className="text-error break-all">{selectedNode.leftSummary || '(absent)'}</span>
+                <span className="text-error break-all">{selectedNode.leftSummary ? escapeDisplayValue(selectedNode.leftSummary) : '(absent)'}</span>
               </div>
               <div>
                 <span className="text-text-muted">right: </span>
-                <span className="text-success break-all">{selectedNode.rightSummary || '(absent)'}</span>
+                <span className="text-success break-all">{selectedNode.rightSummary ? escapeDisplayValue(selectedNode.rightSummary) : '(absent)'}</span>
               </div>
             </div>
           )}

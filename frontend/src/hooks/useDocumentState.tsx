@@ -28,6 +28,19 @@ export interface TreeNode {
    * rendering /T:<TypeName>.
    */
   typeName: string;
+  /**
+   * Decoded value of a dictionary-entry scalar leaf; "" for dicts, arrays,
+   * streams, refs, error nodes and array-element scalars, whose value already
+   * lives in the label. Uncapped and unescaped: the row clamps it in CSS and
+   * escapes its control characters before rendering.
+   */
+  value: string;
+  /**
+   * Byte-exact counterpart of value, sent only where decoding changed the
+   * content. Mirrored here to keep this type assignable to the generated
+   * binding; the GUI does not render it.
+   */
+  valueRaw: string;
 }
 
 /** Entry in the navigation history stack. */

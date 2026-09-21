@@ -12,18 +12,27 @@ import (
 
 // treeNodeOutput extends TreeNode with a recursive children field for CLI output.
 type treeNodeOutput struct {
-	ID          string            `json:"id"`
-	Label       string            `json:"label"`
-	RawKey      string            `json:"rawKey,omitempty"`
-	NodeType    string            `json:"nodeType"`
-	ValueType   string            `json:"valueType,omitempty"`
-	HasChildren bool              `json:"hasChildren"`
-	ChildCount  int               `json:"childCount"`
-	IconHint    string            `json:"iconHint,omitempty"`
-	PdfRef      string            `json:"pdfRef,omitempty"`
-	TypeName    string            `json:"typeName,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	Children    []*treeNodeOutput `json:"children,omitempty"`
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	RawKey      string `json:"rawKey,omitempty"`
+	NodeType    string `json:"nodeType"`
+	ValueType   string `json:"valueType,omitempty"`
+	HasChildren bool   `json:"hasChildren"`
+	ChildCount  int    `json:"childCount"`
+	IconHint    string `json:"iconHint,omitempty"`
+	PdfRef      string `json:"pdfRef,omitempty"`
+	TypeName    string `json:"typeName,omitempty"`
+	// Value is the decoded scalar value of a dictionary-entry leaf, uncapped
+	// and unescaped: truncating or escaping the machine contract would degrade
+	// what --json exists for. Omitted for containers, refs, error nodes and
+	// array-element scalars, whose value already lives in Label, so the key's
+	// presence means "this is a dictionary scalar, and here is what it says".
+	Value string `json:"value,omitempty"`
+	// ValueRaw is Value's byte-exact counterpart, emitted only where decoding
+	// changed the content.
+	ValueRaw string            `json:"valueRaw,omitempty"`
+	Error    string            `json:"error,omitempty"`
+	Children []*treeNodeOutput `json:"children,omitempty"`
 	// Resolved is the inline ref-following expansion produced by --resolve via
 	// pdfcore.ResolveRef. Populated only for indirect-object nodes (id prefix
 	// "obj:") when --resolve is set; nil (omitted) otherwise. Strictly additive:
@@ -148,6 +157,10 @@ func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
 		b.WriteByte(' ')
 		b.WriteString(meta)
 	}
+	if n.Value != "" {
+		b.WriteString(" = ")
+		b.WriteString(pdfcore.ClampDisplayValue(n.Value, pdfcore.TreeValueCap))
+	}
 	if n.Error != "" {
 		b.WriteString(" [error: ")
 		b.WriteString(n.Error)
@@ -246,6 +259,8 @@ func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 		IconHint:    n.IconHint,
 		PdfRef:      pdfRef,
 		TypeName:    n.TypeName,
+		Value:       n.Value,
+		ValueRaw:    n.ValueRaw,
 		Error:       n.Error,
 	}
 }

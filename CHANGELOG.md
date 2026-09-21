@@ -4,8 +4,14 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ## [Unreleased]
 
+### Added
+
+- The object tree now shows what a dictionary entry says, not just its type: `dump tree` rows read `RowSpan number = 2`, `--json` gains an additive `value` key on dictionary-entry scalar leaves, and the GUI tree row renders the value between the label and the `/Key` suffix. A `valueRaw` key carries the byte-exact stored form, emitted only where decoding changed the content
+
 ### Changed
 
+- PDF text strings render decoded (ISO 32000-1 7.9.2.2) on every display surface - `dump tree`, `dump object`, `diff` and their GUI counterparts - so a UTF-16BE `/Alt` reads as text. `dump object` no longer prints string delimiters: `/Lang: (en-US)` becomes `/Lang: en-US`. Signature `/Contents` and `/Cert` and filespec `/Params /CheckSum` are carved out and summarized as `<binary, N bytes>`; their bytes stay available through `dump source` and the `raw` field of `dump object --json`. `dump source` output is unchanged
+- Plain-text scalar values are capped at 80 runes with a `[truncated: N of M]` marker, and control characters are escaped so one node is always exactly one output line. `--json` carries the full, unescaped value
 - Wails v3 alpha2.117 -> beta.18 and `@wailsio/runtime` alpha.79 -> beta.18, both pinned exact with no range specifier (library and runtime at the same patch). Moves onto the supported beta release channel; the `alpha2` line is no longer advertised in the Go module proxy. The bump itself leaves the bound API surface unchanged. The three per-release version-floor test suites are collapsed into one current-state contract at `tests/wails-version-contract/`
 
 ### Refactored

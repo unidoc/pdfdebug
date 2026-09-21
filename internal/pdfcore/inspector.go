@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -332,39 +331,25 @@ func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, erro
 		detail.Properties = buildPropertyEntries(v)
 	case pdfcpu_types.Array:
 		detail.Type = "array"
-		detail.Elements = buildArrayEntries(v)
+		detail.Elements = buildArrayEntries(v, inheritsBinaryCarveOut(doc, nodeID))
 	default:
+		// The key is not in scope here, so it is recovered from the node ID:
+		// without it a signature /Contents selected directly as a node would
+		// decode where the same key inside its parent dict does not.
 		detail.Type = "scalar"
-		ve := valueEntryFromObject(obj)
+		ve := valueEntryFromObject(obj, inheritsBinaryCarveOut(doc, nodeID))
 		detail.ScalarValue = &ve
 	}
 
 	return detail, nil
 }
 
-func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
+// valueEntryFromObject renders one PDF value for the detail view. Display
+// carries the decoded form and Raw the byte-exact one; they are no longer
+// written identically for strings. binary marks a carved-out binary-carrying
+// string, whose Display is a fixed-width summary while Raw keeps the bytes.
+func valueEntryFromObject(obj pdfcpu_types.Object, binary bool) ValueEntry {
 	switch v := obj.(type) {
-	case pdfcpu_types.Name:
-		d := "/" + string(v)
-		return ValueEntry{Type: "name", Display: d, Raw: d}
-	case pdfcpu_types.StringLiteral:
-		d := "(" + string(v) + ")"
-		return ValueEntry{Type: "string", Display: d, Raw: d}
-	case pdfcpu_types.HexLiteral:
-		d := "<" + string(v) + ">"
-		return ValueEntry{Type: "string", Display: d, Raw: d}
-	case pdfcpu_types.Integer:
-		d := strconv.Itoa(int(v))
-		return ValueEntry{Type: "number", Display: d, Raw: d}
-	case pdfcpu_types.Float:
-		d := strconv.FormatFloat(float64(v), 'f', -1, 64)
-		return ValueEntry{Type: "number", Display: d, Raw: d}
-	case pdfcpu_types.Boolean:
-		d := "false"
-		if bool(v) {
-			d = "true"
-		}
-		return ValueEntry{Type: "boolean", Display: d, Raw: d}
 	case pdfcpu_types.IndirectRef:
 		num := v.ObjectNumber.Value()
 		gen := v.GenerationNumber.Value()
@@ -375,10 +360,32 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 		return ValueEntry{Type: "dict", Display: "<< ... >>", Raw: "<< ... >>"}
 	case pdfcpu_types.Array:
 		return ValueEntry{Type: "array", Display: "[...]", Raw: "[...]"}
+	}
+
+	entry := ValueEntry{Type: valueEntryType(obj), Display: scalarText(obj), Raw: scalarRaw(obj)}
+	if binary && isStringObject(obj) {
+		entry.Display = binaryStringSummary(obj)
+	}
+	return entry
+}
+
+// valueEntryType classifies a scalar for the detail view's type column. It
+// mirrors classifyObject's valueType vocabulary except for the unhandled arm,
+// which the detail view has always named "unknown".
+func valueEntryType(obj pdfcpu_types.Object) string {
+	switch obj.(type) {
+	case pdfcpu_types.Name:
+		return "name"
+	case pdfcpu_types.StringLiteral, pdfcpu_types.HexLiteral:
+		return "string"
+	case pdfcpu_types.Integer, pdfcpu_types.Float:
+		return "number"
+	case pdfcpu_types.Boolean:
+		return "boolean"
 	case nil:
-		return ValueEntry{Type: "null", Display: "null", Raw: "null"}
+		return "null"
 	default:
-		return ValueEntry{Type: "unknown", Display: "Unknown", Raw: "Unknown"}
+		return "unknown"
 	}
 }
 
@@ -454,7 +461,7 @@ func buildPropertyEntries(d pdfcpu_types.Dict) []PropertyEntry {
 	for key, val := range d {
 		entries = append(entries, PropertyEntry{
 			Key:   "/" + key,
-			Value: valueEntryFromObject(val),
+			Value: valueEntryFromObject(val, binaryStringKey(d, key)),
 		})
 	}
 	slices.SortFunc(entries, func(a, b PropertyEntry) int {
@@ -463,10 +470,13 @@ func buildPropertyEntries(d pdfcpu_types.Dict) []PropertyEntry {
 	return entries
 }
 
-func buildArrayEntries(arr pdfcpu_types.Array) []ValueEntry {
+// buildArrayEntries renders an array's elements. binary is inherited from the
+// array's own key: a signature /Cert may hold an array of certificate strings,
+// and its elements carry no key of their own.
+func buildArrayEntries(arr pdfcpu_types.Array, binary bool) []ValueEntry {
 	entries := make([]ValueEntry, 0, len(arr))
 	for _, elem := range arr {
-		entries = append(entries, valueEntryFromObject(elem))
+		entries = append(entries, valueEntryFromObject(elem, binary))
 	}
 	return entries
 }

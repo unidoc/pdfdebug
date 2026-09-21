@@ -233,12 +233,14 @@ func printObjectPlain(out io.Writer, o objectDumpOutput) error {
 
 // valueEntryDisplay returns the human-readable form of a ValueEntry: its
 // Display string, falling back to Raw, annotated with the ref target for
-// references.
+// references. Control characters are escaped so one property is always exactly
+// one output line; the JSON form keeps the decoded string as it is.
 func valueEntryDisplay(v pdfcore.ValueEntry) string {
 	s := v.Display
 	if s == "" {
 		s = v.Raw
 	}
+	s = pdfcore.EscapeDisplayValue(s)
 	if v.Type == "reference" && v.RefTarget != "" {
 		s += " -> " + v.RefTarget
 	}

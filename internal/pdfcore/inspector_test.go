@@ -325,6 +325,32 @@ func TestGetObjectDetailScalar(t *testing.T) {
 	}
 }
 
+// A signature /Contents selected directly as a node, not reached as an entry of
+// its parent dictionary. The key is not in scope there and is recovered from
+// the node ID, so both paths must summarise the bytes instead of decoding them.
+func TestGetObjectDetailScalarSignatureContentsCarvedOut(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-signed-scalar"
+	if _, err := ins.Open(tabID, filepath.Join(testdataDir(t), "signed.pdf")); err != nil {
+		t.Fatalf("failed to open signed.pdf: %v", err)
+	}
+
+	detail, err := ins.GetObjectDetail(tabID, "dict:obj:0:5:Contents")
+	if err != nil {
+		t.Fatalf("GetObjectDetail failed: %v", err)
+	}
+	if detail.ScalarValue == nil {
+		t.Fatal("ScalarValue is nil")
+	}
+	if detail.ScalarValue.Display != "<binary, 3072 bytes>" {
+		t.Errorf("Display = %q, want %q", detail.ScalarValue.Display, "<binary, 3072 bytes>")
+	}
+	if !strings.HasPrefix(detail.ScalarValue.Raw, "<3082") {
+		t.Errorf("Raw does not start with the byte-exact hex form: %d characters starting %.16q",
+			len(detail.ScalarValue.Raw), detail.ScalarValue.Raw)
+	}
+}
+
 func findStreamNode(t *testing.T, ins *Inspector, tabID, nodeID string, depth int) string {
 	t.Helper()
 	if depth > 4 {
@@ -683,29 +709,30 @@ func TestValueEntryFromObjectAllTypes(t *testing.T) {
 		obj     pdfcpu_types.Object
 		wantTyp string
 		wantDsp string
+		wantRaw string
 	}{
-		{"Name", pdfcpu_types.Name("Catalog"), "name", "/Catalog"},
-		{"StringLiteral", pdfcpu_types.StringLiteral("hello"), "string", "(hello)"},
-		{"HexLiteral", pdfcpu_types.HexLiteral("AABB"), "string", "<AABB>"},
-		{"Integer", pdfcpu_types.Integer(42), "number", "42"},
-		{"Float", pdfcpu_types.Float(3.14), "number", "3.14"},
-		{"BooleanTrue", pdfcpu_types.Boolean(true), "boolean", "true"},
-		{"BooleanFalse", pdfcpu_types.Boolean(false), "boolean", "false"},
-		{"Nil", nil, "null", "null"},
-		{"Dict", pdfcpu_types.Dict{}, "dict", "<< ... >>"},
-		{"Array", pdfcpu_types.Array{}, "array", "[...]"},
+		{"Name", pdfcpu_types.Name("Catalog"), "name", "/Catalog", "/Catalog"},
+		{"StringLiteral", pdfcpu_types.StringLiteral("hello"), "string", "hello", "(hello)"},
+		{"HexLiteral", pdfcpu_types.HexLiteral("4142"), "string", "AB", "<4142>"},
+		{"Integer", pdfcpu_types.Integer(42), "number", "42", "42"},
+		{"Float", pdfcpu_types.Float(3.14), "number", "3.14", "3.14"},
+		{"BooleanTrue", pdfcpu_types.Boolean(true), "boolean", "true", "true"},
+		{"BooleanFalse", pdfcpu_types.Boolean(false), "boolean", "false", "false"},
+		{"Nil", nil, "null", "null", "null"},
+		{"Dict", pdfcpu_types.Dict{}, "dict", "<< ... >>", "<< ... >>"},
+		{"Array", pdfcpu_types.Array{}, "array", "[...]", "[...]"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ve := valueEntryFromObject(tc.obj)
+			ve := valueEntryFromObject(tc.obj, false)
 			if ve.Type != tc.wantTyp {
 				t.Errorf("Type = %q, want %q", ve.Type, tc.wantTyp)
 			}
 			if ve.Display != tc.wantDsp {
 				t.Errorf("Display = %q, want %q", ve.Display, tc.wantDsp)
 			}
-			if ve.Raw != tc.wantDsp {
-				t.Errorf("Raw = %q, want %q", ve.Raw, tc.wantDsp)
+			if ve.Raw != tc.wantRaw {
+				t.Errorf("Raw = %q, want %q", ve.Raw, tc.wantRaw)
 			}
 		})
 	}
@@ -716,7 +743,7 @@ func TestValueEntryFromObjectIndirectRef(t *testing.T) {
 		ObjectNumber:     pdfcpu_types.Integer(7),
 		GenerationNumber: pdfcpu_types.Integer(0),
 	}
-	ve := valueEntryFromObject(ref)
+	ve := valueEntryFromObject(ref, false)
 	if ve.Type != "reference" {
 		t.Errorf("Type = %q, want %q", ve.Type, "reference")
 	}

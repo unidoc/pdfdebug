@@ -20,6 +20,16 @@ type TreeNode struct {
 	// "Page", "Font"), "" when the dict has no /Type entry or the node is not
 	// a dict. The frontend dedups this against the semantic label.
 	TypeName string `json:"typeName"`
+	// Value is what a dictionary-entry scalar leaf says, decoded: a text string
+	// per ISO 32000-1 7.9.2.2, a binary-carrying string as a "<binary, N bytes>"
+	// summary, every other scalar in its stored form. Empty for dicts, arrays,
+	// streams, refs, error nodes and array-element scalars, whose value already
+	// lives in Label. Uncapped and unescaped; the plain-text presenters clamp it.
+	Value string `json:"value"`
+	// ValueRaw is Value's byte-exact counterpart, written only where decoding
+	// changed the content. Its absence therefore means the decode was a no-op,
+	// rather than duplicating every node.
+	ValueRaw string `json:"valueRaw"`
 }
 
 // ObjectIndexEntry is one row in the per-document object index produced by

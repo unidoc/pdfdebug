@@ -8,6 +8,7 @@ import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
+import { escapeDisplayValue } from '../lib/escapeDisplayValue';
 
 /**
  * Per-row transient state (which node is mid-load, which is flashing) delivered
@@ -54,6 +55,7 @@ interface TreeNodeData {
   error: string;
   objectRef: string;
   typeName: string;
+  value: string;
 }
 
 /**
@@ -77,6 +79,7 @@ function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
     error: node.error,
     objectRef: node.objectRef ?? '',
     typeName: node.typeName ?? '',
+    value: node.value ?? '',
     children: node.hasChildren ? [] : null,
   };
 }
@@ -216,17 +219,28 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
       })()}
 
       {/* Label */}
-      <span className={`whitespace-nowrap ${isError ? 'text-text-muted' : 'text-text'}`}>{data.name}</span>
+      <span className={`whitespace-nowrap flex-shrink-0 ${isError ? 'text-text-muted' : 'text-text'}`}>{data.name}</span>
+
+      {/* Scalar value: the only element that takes the remaining width and the
+          only one allowed to ellipsize. The full value lives in the title. */}
+      {data.value !== '' && (
+        <span
+          className="text-text-muted ml-1.5 min-w-0 truncate"
+          title={escapeDisplayValue(data.value)}
+        >
+          {escapeDisplayValue(data.value)}
+        </span>
+      )}
 
       {/* Raw key */}
       {showRawKey && (
-        <span className="text-text-muted ml-1.5 text-xs">{data.rawKey}</span>
+        <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap flex-shrink-0">{data.rawKey}</span>
       )}
 
       {/* Inline object ref [N G R] */}
       {data.objectRef !== '' && (
         <span
-          className="text-text-muted ml-1.5 text-xs whitespace-nowrap"
+          className="text-text-muted ml-1.5 text-xs whitespace-nowrap flex-shrink-0"
           title={`Object ${data.objectRef}${data.typeName ? ` /Type ${data.typeName}` : ''}`}
         >
           [{data.objectRef}]
@@ -235,7 +249,7 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
 
       {/* /T:<TypeName> suffix with dedup */}
       {shouldRenderTypeSuffix(data.name, data.typeName) && (
-        <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap">
+        <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap flex-shrink-0">
           /T:{data.typeName}
         </span>
       )}

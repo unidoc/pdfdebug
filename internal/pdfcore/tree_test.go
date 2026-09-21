@@ -231,6 +231,11 @@ func TestErrorNodeLabel(t *testing.T) {
 	if node.NodeType != "scalar" {
 		t.Errorf("error node NodeType = %q, want 'scalar'", node.NodeType)
 	}
+	// An error node is classified as a scalar, so it is the one scalar row that
+	// must not carry a value: there is nothing to render, only a failure.
+	if node.Value != "" || node.ValueRaw != "" {
+		t.Errorf("error node carries value %q / valueRaw %q, want both empty", node.Value, node.ValueRaw)
+	}
 }
 
 func TestSemanticLabelPages(t *testing.T) {
@@ -383,7 +388,7 @@ func TestGetChildrenEmptyDict(t *testing.T) {
 }
 
 func TestGetChildrenEmptyArray(t *testing.T) {
-	nodes := buildArrayChildren(nil, "test-parent", pdfcpu_types.Array{})
+	nodes := buildArrayChildren(nil, "test-parent", pdfcpu_types.Array{}, false)
 	if nodes == nil {
 		t.Error("expected non-nil empty slice, got nil")
 	}
@@ -562,8 +567,8 @@ func TestClassifyObjectAllTypes(t *testing.T) {
 	}
 }
 
-// TestScalarDisplayAllTypes verifies scalarDisplay for each scalar pdfcpu type.
-func TestScalarDisplayAllTypes(t *testing.T) {
+// TestScalarRawAllTypes verifies scalarRaw for each scalar pdfcpu type.
+func TestScalarRawAllTypes(t *testing.T) {
 	tests := []struct {
 		name string
 		obj  pdfcpu_types.Object
@@ -580,9 +585,9 @@ func TestScalarDisplayAllTypes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := scalarDisplay(tt.obj)
+			got := scalarRaw(tt.obj)
 			if got != tt.want {
-				t.Errorf("scalarDisplay = %q, want %q", got, tt.want)
+				t.Errorf("scalarRaw = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -736,7 +741,7 @@ func TestParseNodeIDDeeplyNested(t *testing.T) {
 // TestBuildTreeNodeFallbackLabel verifies buildTreeNode uses rawKey as label
 // when semanticLabel returns empty (container with no bareKey).
 func TestBuildTreeNodeFallbackLabel(t *testing.T) {
-	node := buildTreeNode("arr:parent:0", "[0]", "", pdfcpu_types.Dict{"A": pdfcpu_types.Integer(1)})
+	node := buildTreeNode("arr:parent:0", "[0]", "", pdfcpu_types.Dict{"A": pdfcpu_types.Integer(1)}, false)
 	if node.Label != "[0]" {
 		t.Errorf("Label = %q, want %q (fallback to rawKey)", node.Label, "[0]")
 	}
@@ -826,7 +831,7 @@ func TestBuildArrayChildrenMixedTypes(t *testing.T) {
 		pdfcpu_types.Boolean(true),
 		nil,
 	}
-	nodes := buildArrayChildren(nil, "parent", arr)
+	nodes := buildArrayChildren(nil, "parent", arr, false)
 	if len(nodes) != 5 {
 		t.Fatalf("expected 5 children, got %d", len(nodes))
 	}

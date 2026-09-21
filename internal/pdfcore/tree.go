@@ -120,7 +120,7 @@ func buildChildrenDepth(doc *DocumentState, parentID string, obj pdfcpu_types.Ob
 	case pdfcpu_types.XRefStreamDict:
 		return buildDictChildren(doc, parentID, v.StreamDict.Dict)
 	case pdfcpu_types.Array:
-		return buildArrayChildren(doc, parentID, v)
+		return buildArrayChildren(doc, parentID, v, inheritsBinaryCarveOut(doc, parentID))
 	case pdfcpu_types.IndirectRef:
 		if depth >= maxRefDepth {
 			return []*TreeNode{makeErrorNode(fmt.Sprintf("error:%s:depth", parentID), "", fmt.Errorf("circular reference detected (depth %d)", depth))}
@@ -156,7 +156,7 @@ func buildDictChildren(doc *DocumentState, parentID string, d pdfcpu_types.Dict)
 		val := d[bareKey]
 		var node *TreeNode
 		err := safeCall(func() error {
-			node = buildChildFromDictEntry(doc, parentID, bareKey, val)
+			node = buildChildFromDictEntry(doc, parentID, bareKey, val, d)
 			return nil
 		})
 		if err != nil {
@@ -167,7 +167,7 @@ func buildDictChildren(doc *DocumentState, parentID string, d pdfcpu_types.Dict)
 	return nodes
 }
 
-func buildChildFromDictEntry(doc *DocumentState, parentID, bareKey string, val pdfcpu_types.Object) *TreeNode {
+func buildChildFromDictEntry(doc *DocumentState, parentID, bareKey string, val pdfcpu_types.Object, parent pdfcpu_types.Dict) *TreeNode {
 	if ref, ok := val.(pdfcpu_types.IndirectRef); ok {
 		id := fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value())
 		resolved, label, nodeType, valueType, hasChildren, childCount := resolveRefInfo(doc, ref, bareKey)
@@ -189,7 +189,7 @@ func buildChildFromDictEntry(doc *DocumentState, parentID, bareKey string, val p
 	}
 
 	id := fmt.Sprintf("dict:%s:%s", parentID, bareKey)
-	node := buildTreeNode(id, "/"+bareKey, bareKey, val)
+	node := buildTreeNode(id, "/"+bareKey, bareKey, val, binaryStringKey(parent, bareKey))
 	// Inline dicts can still carry a /Type entry; surface it so dedup works for
 	// non-indirect dicts too (e.g. /Resources dict inline with /Type).
 	node.TypeName = extractTypeName(val)
@@ -215,7 +215,7 @@ func resolveRefInfo(doc *DocumentState, ref pdfcpu_types.IndirectRef, bareKey st
 	return resolved, label, nodeType, valueType, hasChildren, childCount
 }
 
-func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Array) []*TreeNode {
+func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Array, binary bool) []*TreeNode {
 	nodes := make([]*TreeNode, 0, len(arr))
 	for i, elem := range arr {
 		var node *TreeNode
@@ -240,7 +240,7 @@ func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Ar
 				}
 			} else {
 				id := fmt.Sprintf("arr:%s:%d", parentID, i)
-				node = buildTreeNode(id, fmt.Sprintf("[%d]", i), "", elem)
+				node = buildTreeNode(id, fmt.Sprintf("[%d]", i), "", elem, binary)
 				node.TypeName = extractTypeName(elem)
 			}
 			return nil
@@ -253,13 +253,25 @@ func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Ar
 	return nodes
 }
 
-func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object) *TreeNode {
+// buildTreeNode assembles one tree node. binary marks a carved-out
+// binary-carrying string, whose bytes are summarized rather than decoded.
+func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object, binary bool) *TreeNode {
 	nodeType, valueType, hasChildren, childCount := classifyObject(obj)
-	label := semanticLabel(bareKey, obj)
+	// An array element under a carved-out key (a signature /Cert array) reaches
+	// the walker with no key of its own and carries its value in the label. It
+	// is summarized instead of, not after, semanticLabel: decoding and escaping
+	// a certificate chain only to discard the result is work proportional to
+	// the blob.
+	label := ""
+	if binary && bareKey == "" && isStringObject(obj) {
+		label = binaryStringSummary(obj)
+	} else {
+		label = semanticLabel(bareKey, obj)
+	}
 	if label == "" {
 		label = rawKey
 	}
-	return &TreeNode{
+	node := &TreeNode{
 		ID:          id,
 		Label:       label,
 		RawKey:      rawKey,
@@ -269,6 +281,64 @@ func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object) *TreeNod
 		ChildCount:  childCount,
 		IconHint:    iconHint(bareKey, nodeType, obj),
 	}
+	// Dictionary-entry scalar leaves only. An array element's value already
+	// lives in its label, and containers and refs have no scalar to show.
+	if bareKey != "" && nodeType == "scalar" {
+		node.Value, node.ValueRaw = scalarNodeValue(obj, binary)
+	}
+	return node
+}
+
+// scalarNodeValue renders a dictionary-entry scalar leaf: the display value,
+// and the byte-exact counterpart only where it says something the display value
+// does not. A raw counterpart equal to the display value would carry no
+// information, which is the case for a string whose decode is empty and whose
+// display therefore falls back to the stored form (a BOM-only <FEFF>).
+func scalarNodeValue(obj pdfcpu_types.Object, binary bool) (value, raw string) {
+	if binary && isStringObject(obj) {
+		return binaryStringSummary(obj), ""
+	}
+	value = scalarText(obj)
+	if decodeChangedContent(obj) {
+		if r := scalarRaw(obj); r != value {
+			raw = r
+		}
+	}
+	return value, raw
+}
+
+// inheritsBinaryCarveOut reports whether a node's own dictionary key carves its
+// string content out of decoding, so array elements below it inherit it. A
+// signature /Cert may hold an array of strings, and those elements reach the
+// walker with no key of their own.
+func inheritsBinaryCarveOut(doc *DocumentState, nodeID string) bool {
+	kind, parentID, lastPart := parseNodeID(nodeID)
+	// An array element answers whatever the array it sits in answers, so a
+	// nested /Cert array and a /Cert element selected directly in the detail
+	// view agree with the /Cert node itself. Each step strips a segment, so the
+	// walk terminates.
+	if kind == "arr" {
+		return inheritsBinaryCarveOut(doc, parentID)
+	}
+	if kind != "dict" {
+		return false
+	}
+	if lastPart == "CheckSum" {
+		return true
+	}
+	if lastPart != "Contents" && lastPart != "Cert" {
+		return false
+	}
+	var parent pdfcpu_types.Object
+	err := safeCall(func() error {
+		var e error
+		parent, e = resolveNodeObject(doc, parentID)
+		return e
+	})
+	if err != nil {
+		return false
+	}
+	return isSignatureDict(asDict(parent))
 }
 
 func classifyObject(obj pdfcpu_types.Object) (nodeType, valueType string, hasChildren bool, childCount int) {
@@ -362,7 +432,7 @@ func semanticLabel(bareKey string, obj pdfcpu_types.Object) string {
 		pdfcpu_types.Array:
 		return ""
 	}
-	return scalarDisplay(obj)
+	return ClampDisplayValue(scalarText(obj), TreeValueCap)
 }
 
 func fontLabel(obj pdfcpu_types.Object) string {
@@ -374,30 +444,6 @@ func fontLabel(obj pdfcpu_types.Object) string {
 		}
 	}
 	return "Font"
-}
-
-func scalarDisplay(obj pdfcpu_types.Object) string {
-	switch v := obj.(type) {
-	case pdfcpu_types.Name:
-		return "/" + string(v)
-	case pdfcpu_types.StringLiteral:
-		return "(" + string(v) + ")"
-	case pdfcpu_types.HexLiteral:
-		return "<" + string(v) + ">"
-	case pdfcpu_types.Integer:
-		return strconv.Itoa(int(v))
-	case pdfcpu_types.Float:
-		return strconv.FormatFloat(float64(v), 'f', -1, 64)
-	case pdfcpu_types.Boolean:
-		if bool(v) {
-			return "true"
-		}
-		return "false"
-	case nil:
-		return "null"
-	default:
-		return "Unknown"
-	}
 }
 
 func iconHint(bareKey, nodeType string, obj pdfcpu_types.Object) string {

@@ -4,6 +4,7 @@
  */
 import type { ReactNode } from 'react';
 import type { SpanMatch } from '../hooks/useSpanFind';
+import { escapeDisplayValue } from '../lib/escapeDisplayValue';
 
 /**
  * Find context threaded through the object views. Maps a span id to the matches
@@ -100,7 +101,11 @@ export function ValueDisplay({ value, onReferenceClick, find, spanId }: {
   spanId?: string;
 }) {
   const colorClass = TYPE_CLASS_MAP[value.type] ?? 'text-text';
-  const content = spanId ? renderHighlightedText(value.display, spanId, find) : value.display;
+  // The backend sends the decoded string unescaped, so control characters are
+  // escaped here: a C1 byte from the Latin-1 fallback would otherwise render
+  // invisible, and an embedded newline would collapse into its neighbours.
+  const display = escapeDisplayValue(value.display);
+  const content = spanId ? renderHighlightedText(display, spanId, find) : display;
 
   if (value.type === 'reference') {
     return (
