@@ -30,7 +30,7 @@
 // Exit codes (dump subcommands):
 //
 //	0 - success
-//	1 - usage error (bad flags, missing file argument)
+//	1 - usage error (bad flags, missing file argument, extra positional argument)
 //	2 - runtime error (file not found, malformed PDF, decode failure, internal panic)
 //
 // The `validate` command uses a DIFFERENT three-way exit contract so CI can

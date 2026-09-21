@@ -322,6 +322,61 @@ func TestBytesDump_MissingFileArgument_UsageNotJSON(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// A flag written after <file> is a usage error, not a silently dropped
+// argument. Go's flag package stops parsing at the first non-flag argument, so
+// `dump bytes file.pdf --json` would otherwise leave f.json false and stream
+// the raw document to a caller who asked for the JSON wrapper -- with exit 0,
+// so nothing downstream could tell. Both spellings are checked, and stdout must
+// stay empty on each: a usage failure never emits a partial document.
+// ---------------------------------------------------------------------------
+
+func TestBytesDump_FlagAfterFile_UsageErrorNotSilentlyDropped(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	for _, resource := range []string{"bytes", "plaintext"} {
+		t.Run(resource, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, "dump", resource, pdfPath, "--json")
+			if ec != 1 {
+				t.Errorf("a flag after <file> expected exit 1 (usage), got %d", ec)
+			}
+			if stdout != "" {
+				t.Errorf("stdout must stay empty, got %d bytes of document", len(stdout))
+			}
+			if !strings.Contains(stderr, bytesUsageLine) {
+				t.Errorf("stderr should carry the usage line, got: %q", stderr)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A second file path is a usage error too, under both spellings: the command
+// dumps one document, so an extra positional is a typo, not an instruction to
+// pick the first and ignore the rest.
+// ---------------------------------------------------------------------------
+
+func TestBytesDump_ExtraPositionalArgument_UsageError(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	for _, resource := range []string{"bytes", "plaintext"} {
+		t.Run(resource, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, "dump", resource, pdfPath, pdfPath)
+			if ec != 1 {
+				t.Errorf("a second positional expected exit 1 (usage), got %d", ec)
+			}
+			if stdout != "" {
+				t.Errorf("stdout must stay empty, got %d bytes of document", len(stdout))
+			}
+			if !strings.Contains(stderr, bytesUsageLine) {
+				t.Errorf("stderr should carry the usage line, got: %q", stderr)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Help text: `dump bytes` is listed, its description says the output is raw
 // document bytes rather than extracted page text and names pdftotext as the
 // tool for page prose, and the literal lowercase token the rename removes

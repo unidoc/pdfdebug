@@ -31,8 +31,13 @@ func parseDocViewFlags(resource string, args []string) (filePath string, f docVi
 		fmt.Fprintln(os.Stderr, usage)
 		return "", docViewFlags{}, false
 	}
+	// Exactly one positional argument, the file. Go's flag package stops parsing
+	// at the first non-flag argument, so a flag written after <file> arrives
+	// here as a second positional; accepting it silently would make
+	// `dump bytes file.pdf --json` emit the raw document instead of the JSON
+	// wrapper the caller asked for, with exit 0.
 	filePath = fs.Arg(0)
-	if filePath == "" {
+	if filePath == "" || fs.NArg() > 1 {
 		fmt.Fprintln(os.Stderr, usage)
 		return "", docViewFlags{}, false
 	}
