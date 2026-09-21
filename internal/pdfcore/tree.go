@@ -257,11 +257,16 @@ func buildArrayChildren(doc *DocumentState, parentID string, arr pdfcpu_types.Ar
 // binary-carrying string, whose bytes are summarized rather than decoded.
 func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object, binary bool) *TreeNode {
 	nodeType, valueType, hasChildren, childCount := classifyObject(obj)
-	label := semanticLabel(bareKey, obj)
 	// An array element under a carved-out key (a signature /Cert array) reaches
-	// the walker with no key of its own and carries its value in the label.
+	// the walker with no key of its own and carries its value in the label. It
+	// is summarized instead of, not after, semanticLabel: decoding and escaping
+	// a certificate chain only to discard the result is work proportional to
+	// the blob.
+	label := ""
 	if binary && bareKey == "" && isStringObject(obj) {
 		label = binaryStringSummary(obj)
+	} else {
+		label = semanticLabel(bareKey, obj)
 	}
 	if label == "" {
 		label = rawKey
@@ -304,6 +309,13 @@ func scalarNodeValue(obj pdfcpu_types.Object, binary bool) (value, raw string) {
 // walker with no key of their own.
 func inheritsBinaryCarveOut(doc *DocumentState, nodeID string) bool {
 	kind, parentID, lastPart := parseNodeID(nodeID)
+	// An array element answers whatever the array it sits in answers, so a
+	// nested /Cert array and a /Cert element selected directly in the detail
+	// view agree with the /Cert node itself. Each step strips a segment, so the
+	// walk terminates.
+	if kind == "arr" {
+		return inheritsBinaryCarveOut(doc, parentID)
+	}
 	if kind != "dict" {
 		return false
 	}

@@ -151,20 +151,26 @@ func writeDiffLines(b *strings.Builder, n *pdfcore.DiffNode, depth int, full boo
 	}
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(b, "%s%s %s", indent, diffMarker(n.Status), n.Path)
+	// Summaries carry decoded text, so their control characters are escaped
+	// here for the same reason the tree and object rows escape theirs: an
+	// embedded newline would split one node across two lines and break the
+	// indentation that carries the path hierarchy. --json is unaffected.
+	left := pdfcore.EscapeDisplayValue(n.LeftSummary)
+	right := pdfcore.EscapeDisplayValue(n.RightSummary)
 	switch n.Status {
 	case "changed":
-		if len(n.Children) == 0 && (n.LeftSummary != "" || n.RightSummary != "") {
-			fmt.Fprintf(b, "  %s -> %s", n.LeftSummary, n.RightSummary)
+		if len(n.Children) == 0 && (left != "" || right != "") {
+			fmt.Fprintf(b, "  %s -> %s", left, right)
 		} else if len(n.ChangedKeys) > 0 {
 			fmt.Fprintf(b, "  keys: %s", strings.Join(n.ChangedKeys, ", "))
 		}
 	case "added":
-		if n.RightSummary != "" {
-			fmt.Fprintf(b, "  %s", n.RightSummary)
+		if right != "" {
+			fmt.Fprintf(b, "  %s", right)
 		}
 	case "removed":
-		if n.LeftSummary != "" {
-			fmt.Fprintf(b, "  %s", n.LeftSummary)
+		if left != "" {
+			fmt.Fprintf(b, "  %s", left)
 		}
 	}
 	if n.Truncated {

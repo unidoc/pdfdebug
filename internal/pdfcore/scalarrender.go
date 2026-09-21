@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,15 +27,17 @@ import (
 // output and CI output agree.
 const TreeValueCap = 80
 
-// scalarRaw renders a PDF scalar in its byte-exact stored form.
+// scalarRaw renders a PDF scalar in its byte-exact stored form. The arms that
+// can carry arbitrary bytes pass through utf8Safe, because every consumer of
+// this rendering reaches a reader through JSON.
 func scalarRaw(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.Name:
-		return "/" + string(v)
+		return utf8Safe("/" + string(v))
 	case pdfcpu_types.StringLiteral:
-		return "(" + string(v) + ")"
+		return utf8Safe("(" + string(v) + ")")
 	case pdfcpu_types.HexLiteral:
-		return "<" + string(v) + ">"
+		return utf8Safe("<" + string(v) + ">")
 	case pdfcpu_types.Integer:
 		return strconv.Itoa(int(v))
 	case pdfcpu_types.Float:
@@ -72,6 +75,17 @@ func isStringObject(obj pdfcpu_types.Object) bool {
 		return true
 	}
 	return false
+}
+
+// utf8Safe returns s unchanged when it is valid UTF-8 and its bytes as
+// uppercase hex otherwise. json.Marshal rewrites invalid bytes to U+FFFD,
+// which destroys the value a raw rendering exists to preserve; hex keeps it
+// recoverable. Same policy textStringOrRaw applies to a decoded text string.
+func utf8Safe(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToUpper(hex.EncodeToString([]byte(s)))
 }
 
 // binaryStringSummary renders the fixed-width stand-in a binary-carrying string
@@ -116,15 +130,23 @@ func binaryStringKey(parent pdfcpu_types.Dict, bareKey string) bool {
 	return false
 }
 
-// isSignatureDict reports whether d is a signature dictionary: /Type /Sig, or,
-// where /Type is absent, a dictionary carrying /ByteRange.
+// isSignatureDict reports whether d is a signature dictionary: /Type /Sig, or
+// /Type /DocTimeStamp, whose /Contents carries the same DER a signature does,
+// or a dictionary carrying /ByteRange. /ByteRange is checked whatever /Type
+// says rather than only when it is absent, so a signature dictionary typed
+// with a name this list does not know still keeps its bytes; no dictionary
+// outside the signature family carries that key.
 func isSignatureDict(d pdfcpu_types.Dict) bool {
 	if d == nil {
 		return false
 	}
 	if t, ok := d["Type"]; ok {
-		name, isName := t.(pdfcpu_types.Name)
-		return isName && string(name) == "Sig"
+		if name, isName := t.(pdfcpu_types.Name); isName {
+			switch string(name) {
+			case "Sig", "DocTimeStamp":
+				return true
+			}
+		}
 	}
 	_, hasByteRange := d["ByteRange"]
 	return hasByteRange
@@ -138,7 +160,11 @@ func isSignatureDict(d pdfcpu_types.Dict) bool {
 func decodeChangedContent(obj pdfcpu_types.Object) bool {
 	stored, ok := storedStringContent(obj)
 	if !ok {
-		return false
+		// A string whose stored content cannot be recovered (malformed escape,
+		// odd or non-hex digits) still gets a raw counterpart: the decode
+		// fallback drops the delimiters, so without it the stored form would
+		// be unreachable from the output.
+		return isStringObject(obj)
 	}
 	return textStringOrRaw(obj) != stored
 }
@@ -172,7 +198,11 @@ func storedStringContent(obj pdfcpu_types.Object) (string, bool) {
 // apostrophe (0x92) into U+0092, which would otherwise reach the screen as an
 // invisible character.
 func EscapeDisplayValue(s string) string {
-	return strings.Join(escapeUnits(s), "")
+	var b strings.Builder
+	for _, r := range s {
+		b.WriteString(escapeRune(r))
+	}
+	return b.String()
 }
 
 // ClampDisplayValue escapes s and cuts the result to at most limit runes,
@@ -180,48 +210,45 @@ func EscapeDisplayValue(s string) string {
 // runes the whole escaped value has. The cut lands on an escape-sequence
 // boundary, so it never separates a backslash from its letter.
 func ClampDisplayValue(s string, limit int) string {
-	units := escapeUnits(s)
-	total := 0
-	for _, u := range units {
-		total += utf8.RuneCountInString(u)
-	}
-	if total <= limit {
-		return strings.Join(units, "")
-	}
-
 	var b strings.Builder
-	emitted := 0
-	for _, u := range units {
+	emitted, total := 0, 0
+	cut := false
+	for _, r := range s {
+		u := escapeRune(r)
 		n := utf8.RuneCountInString(u)
-		if emitted+n > limit {
-			break
+		total += n
+		// Once one unit does not fit, no later unit may be emitted either:
+		// skipping a wide unit to fit a narrow one behind it would reorder the
+		// text. The walk continues only to finish counting total.
+		if cut || emitted+n > limit {
+			cut = true
+			continue
 		}
 		b.WriteString(u)
 		emitted += n
 	}
+	if !cut {
+		return b.String()
+	}
 	return fmt.Sprintf("%s [truncated: %d of %d]", b.String(), emitted, total)
 }
 
-// escapeUnits splits s into one display unit per source rune: the rune itself,
-// or the escape sequence standing in for it. Cutting on unit boundaries is what
-// keeps a two-rune escape sequence from being halved by the cap.
-func escapeUnits(s string) []string {
-	units := make([]string, 0, len(s))
-	for _, r := range s {
-		switch {
-		case r == '\n':
-			units = append(units, `\n`)
-		case r == '\r':
-			units = append(units, `\r`)
-		case r == '\t':
-			units = append(units, `\t`)
-		case r == '\\':
-			units = append(units, `\\`)
-		case r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f):
-			units = append(units, fmt.Sprintf(`\x%02X`, r))
-		default:
-			units = append(units, string(r))
-		}
+// escapeRune returns one display unit: the rune itself, or the escape sequence
+// standing in for it. Cutting on unit boundaries is what keeps a two-rune
+// escape sequence from being halved by the cap.
+func escapeRune(r rune) string {
+	switch {
+	case r == '\n':
+		return `\n`
+	case r == '\r':
+		return `\r`
+	case r == '\t':
+		return `\t`
+	case r == '\\':
+		return `\\`
+	case r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f):
+		return fmt.Sprintf(`\x%02X`, r)
+	default:
+		return string(r)
 	}
-	return units
 }

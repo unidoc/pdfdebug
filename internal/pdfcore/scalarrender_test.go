@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -124,6 +125,11 @@ func TestBinaryStringKeyMatchesOnContext(t *testing.T) {
 		{"signature contents", sigTyped, "Contents", true},
 		{"signature cert", sigTyped, "Cert", true},
 		{"signature recognised by byte range", sigByteRange, "Contents", true},
+		{"document timestamp contents", pdfcpu_types.Dict{"Type": pdfcpu_types.Name("DocTimeStamp")}, "Contents", true},
+		{"byte range wins over an unrecognised type", pdfcpu_types.Dict{
+			"Type":      pdfcpu_types.Name("Other"),
+			"ByteRange": pdfcpu_types.Array{},
+		}, "Contents", true},
 		{"annotation contents", annot, "Contents", false},
 		{"page contents", pdfcpu_types.Dict{"Type": pdfcpu_types.Name("Page")}, "Contents", false},
 		{"checksum matches on the name alone", pdfcpu_types.Dict{}, "CheckSum", true},
@@ -193,6 +199,54 @@ func TestClampDisplayValueCutsOnEscapeBoundariesAndNamesBothLengths(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			if got := ClampDisplayValue(tc.in, TreeValueCap); got != tc.want {
 				t.Errorf("ClampDisplayValue =\n  %q\nwant\n  %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A string holding bytes that are not valid UTF-8. Both renderings reach a
+// reader through JSON, where json.Marshal would rewrite those bytes to U+FFFD
+// and destroy exactly what the raw counterpart exists to preserve.
+
+func TestInvalidUTF8BytesSurviveAsHex(t *testing.T) {
+	obj := pdfcpu_types.StringLiteral("caf\xe9 \x92s")
+
+	value, raw := scalarNodeValue(obj, false)
+	if !utf8.ValidString(value) {
+		t.Errorf("value = %q, want valid UTF-8", value)
+	}
+	if !utf8.ValidString(raw) {
+		t.Errorf("valueRaw = %q, want valid UTF-8", raw)
+	}
+	if raw == "" {
+		t.Error("valueRaw is empty, want the stored bytes rendered as hex")
+	}
+	if strings.ContainsRune(raw, '\uFFFD') {
+		t.Errorf("valueRaw = %q, want no replacement characters", raw)
+	}
+
+	name := pdfcpu_types.Name("caf\xe9")
+	if got := scalarText(name); !utf8.ValidString(got) {
+		t.Errorf("name value = %q, want valid UTF-8", got)
+	}
+}
+
+// A string whose stored content cannot be recovered - odd or non-hex digits, a
+// malformed escape. The decode fallback drops the delimiters, so without a raw
+// counterpart the stored form would be unreachable from the output.
+
+func TestUnrecoverableStringStillCarriesItsRawForm(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		obj  pdfcpu_types.Object
+		want string
+	}{
+		{"odd hex digit count", pdfcpu_types.HexLiteral("ABC"), "<ABC>"},
+		{"non hex digits", pdfcpu_types.HexLiteral("ZZZZ"), "<ZZZZ>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, raw := scalarNodeValue(tc.obj, false); raw != tc.want {
+				t.Errorf("valueRaw = %q, want %q", raw, tc.want)
 			}
 		})
 	}
