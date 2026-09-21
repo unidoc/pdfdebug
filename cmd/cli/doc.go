@@ -2,7 +2,7 @@
 //
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
-// source, reverserefs, xref, objects, plaintext, embedded, metadata, and
+// source, reverserefs, xref, objects, bytes, embedded, metadata, and
 // signatures, plus the top-level `validate` command (bounded structural
 // PDF/A-1b and PDF/UA-1 conformance checks).
 //
@@ -10,9 +10,22 @@
 // structured JSON instead. The plain-text form is for reading and is NOT a
 // stable contract (it may change between releases) - parse the --json form.
 // Two payload selectors stand outside the format rule: `dump stream --raw` /
-// `--ops` and the raw `dump plaintext` bytes are deliberate machine formats.
+// `--ops` and the raw `dump bytes` output are deliberate machine formats.
 // `dump page --info --json` is EXPERIMENTAL and carries an in-band
-// "_stability":"experimental" marker. Errors are always JSON on stderr.
+// "_stability":"experimental" marker.
+//
+// Stderr, per exit path (dump subcommands):
+//
+//	0 - empty, except that a structurally damaged but parseable file draws a
+//	    JSON warning object while the command still succeeds
+//	1 - a bare plain-text usage line, NOT JSON
+//	2 - a single JSON object carrying an `error` key, with one standing
+//	    exception: the raw `dump bytes` path reports a write failure as plain
+//	    text
+//
+// The deprecated `dump plaintext` alias prefixes a one-line deprecation notice
+// to stderr on every one of those paths, so under that spelling stderr taken as
+// a whole never parses as JSON.
 //
 // Exit codes (dump subcommands):
 //

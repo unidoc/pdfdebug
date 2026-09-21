@@ -7,17 +7,20 @@ import (
 	"os"
 )
 
-// runPlaintextDump parses flags and dispatches the document-level plain-text
-// dump. Default writes the document text raw to stdout; --json wraps it.
-func runPlaintextDump(args []string) int {
-	filePath, f, ok := parseDocViewFlags("plaintext", args)
+// runBytesDump parses flags and dispatches the document-level byte dump.
+// Default writes the document bytes raw to stdout; --json wraps the decoded
+// text. The deprecated `dump plaintext` alias routes here too, which is why the
+// resource label is always "bytes": a usage error under either spelling names
+// the live one.
+func runBytesDump(args []string) int {
+	filePath, f, ok := parseDocViewFlags("bytes", args)
 	if !ok {
 		return 1
 	}
-	return execPlaintextDump(filePath, f)
+	return execBytesDump(filePath, f)
 }
 
-// execPlaintextDump opens the PDF and emits the document text.
+// execBytesDump opens the PDF and emits the document bytes.
 //
 // The --json path wraps the GetPlainText payload as exactly
 // {"totalBytes","content"} -- the CLI-internal tabId field is deliberately
@@ -30,7 +33,7 @@ func runPlaintextDump(args []string) int {
 // substitution is lossy and cannot be reversed, so re-encoding the decoded
 // string would corrupt every control byte. Reading the file directly keeps the
 // raw dump truly byte-for-byte without adding any PDF semantics (thin presenter).
-func execPlaintextDump(filePath string, f docViewFlags) (exitCode int) {
+func execBytesDump(filePath string, f docViewFlags) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			writeJSONError(os.Stderr, fmt.Sprintf("internal error: %v", r))

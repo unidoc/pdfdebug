@@ -32,12 +32,16 @@ Most inspection lives under `dump`. `validate` and `diff` are top-level peers.
 | `dump source` | The reserialized object source (PDF syntax) | `--ref`, `--raw` |
 | `dump reverserefs` | Inbound references (who points at this object) | `--ref` |
 | `dump xref` | The cross-reference table | - |
-| `dump plaintext` | Document bytes as decoded text | - |
+| `dump bytes` | Raw document bytes, not extracted page text | - |
 | `dump embedded` | Embedded/associated files; extracts one's bytes to stdout | `--ref`/`--name` |
 | `dump metadata` | The `/Info` dictionary fields and the XMP packet | - |
 | `dump signatures` | Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict) | - |
 | `validate` | Bounded structural conformance checks; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found; 2 = operational error) | `--profile` |
 | `diff` | Path-aligned structural diff of two PDFs; returns a three-way exit status (0 = identical; 1 = differ; 2 = operational error) | `--full` |
+
+`dump bytes` was called `dump plaintext`. The old spelling still works, prints
+a deprecation notice on stderr, and is removed in 0.6.0. It dumps the document's
+raw bytes; for the prose on the pages, use `pdftotext`.
 
 `validate` runs structural checks only, not full conformance; for an
 authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and

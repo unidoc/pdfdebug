@@ -7,12 +7,12 @@ import (
 
 // ---------------------------------------------------------------------------
 // Default is RAW source bytes, UNCHANGED.
-// Dump plaintext already conforms; its default stays raw document bytes. This
+// `dump bytes` already conforms; its default stays raw document bytes. This
 // is a regression lock -- it must keep passing after the normalization. The
 // raw dump is byte-for-byte the source file.
 // ---------------------------------------------------------------------------
 
-func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
+func TestBytes_DefaultRawBytesUnchanged(t *testing.T) {
 	bin := buildCLI(t)
 	file := fixture(t, "minimal.pdf")
 
@@ -21,12 +21,12 @@ func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", file)
+	stdout, stderr, ec := runCLI(t, bin, "dump", "bytes", file)
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}
 	if stdout != string(want) {
-		t.Errorf("default plaintext must be the verbatim source bytes (got %d bytes, want %d)",
+		t.Errorf("the default `dump bytes` output must be the verbatim source bytes (got %d bytes, want %d)",
 			len(stdout), len(want))
 	}
 }
@@ -36,9 +36,9 @@ func TestPlaintext_DefaultRawBytesUnchanged(t *testing.T) {
 // --json wraps the decoded text in {"totalBytes","content"}.
 // ---------------------------------------------------------------------------
 
-func TestPlaintext_JSONWrapsDecodedText(t *testing.T) {
+func TestBytes_JSONWrapsDecodedText(t *testing.T) {
 	bin := buildCLI(t)
-	stdout, stderr, ec := runCLI(t, bin, "dump", "plaintext", "--json", fixture(t, "minimal.pdf"))
+	stdout, stderr, ec := runCLI(t, bin, "dump", "bytes", "--json", fixture(t, "minimal.pdf"))
 	if ec != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
 	}

@@ -13,6 +13,11 @@ import (
 // version is overridden via -ldflags "-X main.version=x.y.z" in release builds.
 var version = "dev"
 
+// deprecatedPlaintextNotice is the single stderr line the `dump plaintext`
+// alias writes before running `dump bytes`. Unconditional: no TTY check and no
+// opt-out, because the people who most need it run the command from scripts.
+const deprecatedPlaintextNotice = `pdfdebug: "dump plaintext" is deprecated and will be removed in 0.6.0; use "dump bytes".`
+
 func main() {
 	// Suppress pdfcpu's internal log output so stderr stays clean for JSON errors.
 	log.SetOutput(io.Discard)
@@ -61,8 +66,14 @@ func main() {
 			os.Exit(runXRefDump(remaining))
 		case "objects":
 			os.Exit(runObjectsDump(remaining))
+		case "bytes":
+			os.Exit(runBytesDump(remaining))
 		case "plaintext":
-			os.Exit(runPlaintextDump(remaining))
+			// Deprecated alias. The notice is written here rather than inside the
+			// handler so it fires on a usage error too, and on stderr so piped
+			// stdout (a machine format) stays clean.
+			fmt.Fprintln(os.Stderr, deprecatedPlaintextNotice)
+			os.Exit(runBytesDump(remaining))
 		case "embedded":
 			os.Exit(runEmbeddedDump(remaining))
 		case "metadata":
@@ -98,7 +109,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump reverserefs [--json] --ref \"N G R\" <file>    Dump inbound refs (who points at this object)")
 	_, _ = fmt.Fprintln(w, "  dump xref [--json] <file>                         Dump the cross-reference table")
 	_, _ = fmt.Fprintln(w, "  dump objects [--json] <file>                      Dump the object index (plural: every object)")
-	_, _ = fmt.Fprintln(w, "  dump plaintext [--json] <file>                    Dump document bytes as text (raw by default; --json wraps the decoded text)")
+	_, _ = fmt.Fprintln(w, "  dump bytes [--json] <file>                        Dump raw document bytes, not extracted page text (use pdftotext for page prose; --json wraps the decoded text)")
 	_, _ = fmt.Fprintln(w, "  dump embedded [--json] [--ref \"N G R\" | --name NAME] <file>  List embedded/associated files; --ref/--name extracts one's raw bytes to stdout")
 	_, _ = fmt.Fprintln(w, "  dump metadata [--json] <file>                     Dump the /Info dictionary fields and the XMP metadata packet")
 	_, _ = fmt.Fprintln(w, "  dump signatures [--json] <file>                   Decompose digital-signature fields (signer, chain, ByteRange coverage; no trust verdict)")
@@ -136,7 +147,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump reverserefs --ref \"4 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump objects file.pdf")
-	_, _ = fmt.Fprintln(w, "  pdfdebug dump plaintext file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump bytes file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --ref \"4 0 R\" file.pdf > factur-x.xml")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --name factur-x.xml file.pdf > factur-x.xml")
@@ -150,7 +161,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Plain text is for reading and may change between releases. To parse output")
 	_, _ = fmt.Fprintln(w, "reliably (scripts, agents), pass --json. The --raw / --ops stream payloads and")
-	_, _ = fmt.Fprintln(w, "the raw `dump plaintext` bytes are separate machine formats.")
+	_, _ = fmt.Fprintln(w, "the raw `dump bytes` output are separate machine formats.")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Note: `dump page --info` is EXPERIMENTAL - its JSON field set is not a frozen")
 	_, _ = fmt.Fprintln(w, "      contract and may change (the --json output carries a \"_stability\":")

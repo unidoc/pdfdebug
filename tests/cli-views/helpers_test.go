@@ -99,7 +99,7 @@ func runCLI(t *testing.T, binPath string, args ...string) (stdout, stderr string
 }
 
 // runCLIRaw executes the CLI binary and returns stdout as raw bytes (for
-// byte-exact comparisons such as `dump plaintext` Latin-1 re-encoding).
+// byte-exact comparisons such as `dump bytes` Latin-1 re-encoding).
 func runCLIRaw(t *testing.T, binPath string, args ...string) (stdout []byte, stderr string, exitCode int) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
