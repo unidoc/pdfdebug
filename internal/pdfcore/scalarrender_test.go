@@ -265,3 +265,99 @@ func TestUnrecoverableStringStillCarriesItsRawForm(t *testing.T) {
 		})
 	}
 }
+
+// One renderer behind four display surfaces. Each surface also keeps its own
+// expectation table, and a table restates what its surface does rather than
+// comparing it to the others, so a second copy of the switch can live behind
+// three tables that were updated together. These two cases compare the
+// surfaces to each other instead: the tree row, the array-element label, the
+// detail entry and the diff summary must answer with the same bytes for the
+// same object, across the whole scalar vocabulary and not only for a string.
+
+func TestEverySurfaceRendersAScalarTheSameWay(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		obj  pdfcpu_types.Object
+	}{
+		{"name", pdfcpu_types.Name("Helvetica")},
+		{"ascii literal", pdfcpu_types.StringLiteral("en-US")},
+		{"utf16be hex", pdfcpu_types.HexLiteral("FEFF0052006100700070006F00720074002000630065006C006C")},
+		{"escaped utf16be literal", pdfcpu_types.StringLiteral(`\376\377\000E\000x\000p`)},
+		{"empty literal", pdfcpu_types.StringLiteral("")},
+		{"empty hex", pdfcpu_types.HexLiteral("")},
+		{"bom only", pdfcpu_types.HexLiteral("FEFF")},
+		{"unrecoverable hex", pdfcpu_types.HexLiteral("ZZZZ")},
+		{"literal carrying control characters", pdfcpu_types.StringLiteral("a\nb\tc")},
+		{"literal over the cap", pdfcpu_types.StringLiteral(strings.Repeat("x", 120))},
+		{"integer", pdfcpu_types.Integer(42)},
+		{"float", pdfcpu_types.Float(3.14)},
+		{"boolean true", pdfcpu_types.Boolean(true)},
+		{"boolean false", pdfcpu_types.Boolean(false)},
+		{"null", nil},
+		{"unhandled type", unhandledObject{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			value, _ := scalarNodeValue(tc.obj, false)
+			entry := valueEntryFromObject(tc.obj, false)
+
+			if entry.Display != value {
+				t.Errorf("detail Display = %q, want the tree row's value %q", entry.Display, value)
+			}
+			if got := diffSummarize(tc.obj); got != value {
+				t.Errorf("diff summary = %q, want the tree row's value %q", got, value)
+			}
+			// An array element carries its value in the label, already escaped
+			// and capped the way the plain-text presenter treats a dictionary
+			// scalar's value.
+			if got, want := semanticLabel("", tc.obj), ClampDisplayValue(value, TreeValueCap); got != want {
+				t.Errorf("array element label = %q, want the presented row value %q", got, want)
+			}
+
+			raw := scalarRaw(tc.obj)
+			if entry.Raw != raw {
+				t.Errorf("detail Raw = %q, want the byte-exact rendering %q", entry.Raw, raw)
+			}
+			if got := diffCompare(tc.obj); got != raw {
+				t.Errorf("diff comparison = %q, want the byte-exact rendering %q", got, raw)
+			}
+		})
+	}
+}
+
+func TestEverySurfaceSummarizesACarvedOutStringTheSameWay(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		obj  pdfcpu_types.Object
+	}{
+		{"hex certificate", pdfcpu_types.HexLiteral(strings.Repeat("AB", 3072))},
+		{"literal with escapes", pdfcpu_types.StringLiteral(`ab\000c`)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want := binaryStringSummary(tc.obj)
+
+			value, raw := scalarNodeValue(tc.obj, true)
+			if value != want {
+				t.Errorf("tree row value = %q, want %q", value, want)
+			}
+			if raw != "" {
+				t.Errorf("valueRaw = %q, want it omitted: a fixed-width summary has no counterpart to offer", raw)
+			}
+
+			element := buildTreeNode("arr:dict:obj:0:12:Cert:0", "[0]", "", tc.obj, true)
+			if element.Label != want {
+				t.Errorf("array element label = %q, want %q", element.Label, want)
+			}
+			if element.Value != "" {
+				t.Errorf("array element value = %q, want it empty: the value lives in the label", element.Value)
+			}
+
+			entry := valueEntryFromObject(tc.obj, true)
+			if entry.Display != want {
+				t.Errorf("detail Display = %q, want %q", entry.Display, want)
+			}
+			if got := scalarRaw(tc.obj); entry.Raw != got {
+				t.Errorf("detail Raw = %q, want the bytes kept whole: %q", entry.Raw, got)
+			}
+		})
+	}
+}
