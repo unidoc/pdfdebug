@@ -22,14 +22,18 @@
 //	    for an unavailable Do classification in `dump stream --ops`, and a bare
 //	    "page has no content stream" note from `dump stream --ops`
 //	1 - plain text when the argument SHAPE is wrong (unparseable flags, a
-//	    missing --ref or <file>, an extra positional): the usage line, with an
-//	    `error:` line above it in `dump embedded` and the flag list below it in
-//	    `dump font`. A rejected flag VALUE is JSON instead - a malformed --ref
-//	    (object, font, image, source, reverserefs), an out-of-range --depth /
-//	    --resolve-depth / --page / --info / --forms-depth or an unknown
-//	    --section (tree, object, stream, page), and a mutually exclusive flag
-//	    pair in `dump stream` and `dump source`. The --ref/--name pair of
-//	    `dump embedded` is the one such rejection reported as plain text
+//	    missing --ref or <file>, an extra positional): the usage line, with the
+//	    flag list below it in `dump font`. A rejected flag VALUE is JSON
+//	    instead - a malformed --ref (object, font, image, source, reverserefs),
+//	    an out-of-range --depth / --resolve-depth / --page / --info /
+//	    --forms-depth or an unknown --section (tree, object, stream, page), and
+//	    a mutually exclusive flag pair in `dump stream` and `dump source`. Two
+//	    kinds of case cross that line. The --ref/--name pair of `dump embedded`
+//	    is a rejected combination reported as plain text, an `error:` line
+//	    above the usage line. An absent mode selector is a missing flag
+//	    reported as JSON: no --info on `dump page`, no --page / --ref /
+//	    --xobject on `dump stream`, and no --page or --ref to own a
+//	    `dump stream --xobject`
 //	2 - a single JSON object carrying an `error` key, except where a payload
 //	    path reports its own failure as plain text: the write failures of the
 //	    raw `dump bytes`, of `dump source` on both --raw and the plain-text
@@ -46,7 +50,7 @@
 //	0 - success
 //	1 - usage error (bad flags, missing file argument, and on `dump bytes`,
 //	    `dump xref`, `dump objects` and `dump signatures` an extra positional
-//	    argument; `dump metadata` and `dump embedded` still drop one)
+//	    argument; every other dump subcommand still drops one)
 //	2 - runtime error (file not found, malformed PDF, decode failure, internal panic)
 //
 // The `validate` command uses a DIFFERENT three-way exit contract so CI can
