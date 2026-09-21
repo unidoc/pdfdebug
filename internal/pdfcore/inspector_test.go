@@ -683,29 +683,30 @@ func TestValueEntryFromObjectAllTypes(t *testing.T) {
 		obj     pdfcpu_types.Object
 		wantTyp string
 		wantDsp string
+		wantRaw string
 	}{
-		{"Name", pdfcpu_types.Name("Catalog"), "name", "/Catalog"},
-		{"StringLiteral", pdfcpu_types.StringLiteral("hello"), "string", "(hello)"},
-		{"HexLiteral", pdfcpu_types.HexLiteral("AABB"), "string", "<AABB>"},
-		{"Integer", pdfcpu_types.Integer(42), "number", "42"},
-		{"Float", pdfcpu_types.Float(3.14), "number", "3.14"},
-		{"BooleanTrue", pdfcpu_types.Boolean(true), "boolean", "true"},
-		{"BooleanFalse", pdfcpu_types.Boolean(false), "boolean", "false"},
-		{"Nil", nil, "null", "null"},
-		{"Dict", pdfcpu_types.Dict{}, "dict", "<< ... >>"},
-		{"Array", pdfcpu_types.Array{}, "array", "[...]"},
+		{"Name", pdfcpu_types.Name("Catalog"), "name", "/Catalog", "/Catalog"},
+		{"StringLiteral", pdfcpu_types.StringLiteral("hello"), "string", "hello", "(hello)"},
+		{"HexLiteral", pdfcpu_types.HexLiteral("4142"), "string", "AB", "<4142>"},
+		{"Integer", pdfcpu_types.Integer(42), "number", "42", "42"},
+		{"Float", pdfcpu_types.Float(3.14), "number", "3.14", "3.14"},
+		{"BooleanTrue", pdfcpu_types.Boolean(true), "boolean", "true", "true"},
+		{"BooleanFalse", pdfcpu_types.Boolean(false), "boolean", "false", "false"},
+		{"Nil", nil, "null", "null", "null"},
+		{"Dict", pdfcpu_types.Dict{}, "dict", "<< ... >>", "<< ... >>"},
+		{"Array", pdfcpu_types.Array{}, "array", "[...]", "[...]"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ve := valueEntryFromObject(tc.obj)
+			ve := valueEntryFromObject(tc.obj, false)
 			if ve.Type != tc.wantTyp {
 				t.Errorf("Type = %q, want %q", ve.Type, tc.wantTyp)
 			}
 			if ve.Display != tc.wantDsp {
 				t.Errorf("Display = %q, want %q", ve.Display, tc.wantDsp)
 			}
-			if ve.Raw != tc.wantDsp {
-				t.Errorf("Raw = %q, want %q", ve.Raw, tc.wantDsp)
+			if ve.Raw != tc.wantRaw {
+				t.Errorf("Raw = %q, want %q", ve.Raw, tc.wantRaw)
 			}
 		})
 	}
@@ -716,7 +717,7 @@ func TestValueEntryFromObjectIndirectRef(t *testing.T) {
 		ObjectNumber:     pdfcpu_types.Integer(7),
 		GenerationNumber: pdfcpu_types.Integer(0),
 	}
-	ve := valueEntryFromObject(ref)
+	ve := valueEntryFromObject(ref, false)
 	if ve.Type != "reference" {
 		t.Errorf("Type = %q, want %q", ve.Type, "reference")
 	}

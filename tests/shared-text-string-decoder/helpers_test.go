@@ -49,6 +49,18 @@ type metadataJSON struct {
 	XMP  string            `json:"xmp"`
 }
 
+// objectDetailJSON mirrors the parts of `dump object --json` this suite reads:
+// the per-key display/raw split of the detail view.
+type objectDetailJSON struct {
+	Properties []struct {
+		Key   string `json:"key"`
+		Value struct {
+			Display string `json:"display"`
+			Raw     string `json:"raw"`
+		} `json:"value"`
+	} `json:"properties"`
+}
+
 // embeddedEntryJSON mirrors one element of `dump embedded --json`.
 type embeddedEntryJSON struct {
 	Name           string `json:"name"`
@@ -215,6 +227,25 @@ func dumpEmbeddedJSON(t *testing.T) []embeddedEntryJSON {
 // firstNonASCII returns the offset and byte of the first byte the plain-text
 // surface should not contain, or (-1, 0) when s is clean. The window matches
 // asciiSafe's (< 0x20 || > 0x7e); newlines are the one exception.
+// dumpObjectPropertyJSON runs `dump object --json --ref` and returns the
+// display/raw pair for one property key.
+func dumpObjectPropertyJSON(t *testing.T, ref, key string) (display, raw string) {
+	t.Helper()
+	stdout, stderr, ec := runCLI(t, buildCLI(t), "dump", "object", "--json", "--ref", ref, fixturePath(t, fixtureName))
+	if ec != 0 {
+		t.Fatalf("dump object --json --ref %q exit %d (stderr: %s)", ref, ec, stderr)
+	}
+	var detail objectDetailJSON
+	mustParseJSON(t, stdout, &detail)
+	for _, p := range detail.Properties {
+		if p.Key == key {
+			return p.Value.Display, p.Value.Raw
+		}
+	}
+	t.Fatalf("object %s has no property %q in:\n%s", ref, key, stdout)
+	return "", ""
+}
+
 func firstNonASCII(s string) (int, byte) {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\n' {

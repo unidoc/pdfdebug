@@ -83,11 +83,16 @@ Output:
 ```
 Catalog Catalog
   Pages (2 0 R) Pages
-    Count number
+    Count number = 1
     Kids
       Page (3 0 R) Page
         MediaBox
           ...
 ```
+
+A dictionary entry holding a scalar shows its value after the type, decoded for
+text strings. Array elements keep their value in place of a label, so an element
+row reads `0 number` rather than repeating it. A value longer than 80 runes is
+cut and marked `[truncated: N of M]`; `--json` carries it in full.
 
 Add `--json` to any command to get the same information as parseable JSON.

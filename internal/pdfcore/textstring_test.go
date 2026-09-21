@@ -374,10 +374,10 @@ func TestCollectInfoFields_AllSixTextKeysDecode(t *testing.T) {
 	}
 }
 
-// ScalarDisplay still renders text bytes as raw hex.
-// It has no key context, so it cannot tell a text /Title from a binary /ID.
+// The byte-exact renderer still shows text bytes as raw hex. It is what the
+// diff compares and what ValueEntry.Raw carries, so a decode must not reach it.
 
-func TestScalarDisplay_TextBytesStillRenderRaw(t *testing.T) {
+func TestScalarRaw_TextBytesStillRenderRaw(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		in   pdfcpu_types.Object
@@ -387,8 +387,8 @@ func TestScalarDisplay_TextBytesStillRenderRaw(t *testing.T) {
 		{"undecodable hex", pdfcpu_types.HexLiteral(undecodableHex), "<" + undecodableHex + ">"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := scalarDisplay(tc.in); got != tc.want {
-				t.Errorf("scalarDisplay = %q, want %q (the tree renderer must NOT be text-decoded)",
+			if got := scalarRaw(tc.in); got != tc.want {
+				t.Errorf("scalarRaw = %q, want %q (the byte-exact renderer must NOT be text-decoded)",
 					got, tc.want)
 			}
 		})

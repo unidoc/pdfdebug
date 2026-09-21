@@ -241,14 +241,23 @@ func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object,
 // scalarLeaf builds a leaf DiffNode comparing two resolved values by their
 // shallow summary: unchanged when the summaries match, changed otherwise. Used
 // for scalar leaves and for cut/depth-capped refs.
+//
+// The comparison runs on the BYTE-EXACT summary while the displayed summaries
+// are decoded. Comparing decoded forms would report byte-different strings as
+// unchanged: <FEFF0041> and (A) both decode to "A", and pdfcpu's hex escape
+// quirk makes <415C42> and <4142> both decode to "AB".
 func scalarLeaf(path, kind string, left, right pdfcpu_types.Object) *DiffNode {
-	ls := diffSummarize(left)
-	rs := diffSummarize(right)
 	status := "unchanged"
-	if ls != rs {
+	if diffCompare(left) != diffCompare(right) {
 		status = "changed"
 	}
-	return &DiffNode{Path: path, Status: status, Kind: kind, LeftSummary: ls, RightSummary: rs}
+	return &DiffNode{
+		Path:         path,
+		Status:       status,
+		Kind:         kind,
+		LeftSummary:  diffSummarize(left),
+		RightSummary: diffSummarize(right),
+	}
 }
 
 // diffDict diffs two dictionaries (or stream dicts) over the union of their
@@ -572,26 +581,39 @@ func infoEqual(a, b map[string]string) bool {
 // across files, so embedding them would make a renumbered-but-identical pair
 // compare as changed at cut points (defeating the path-alignment guarantee).
 func diffSummarize(obj pdfcpu_types.Object) string {
+	return summarizeWith(obj, scalarText)
+}
+
+// diffCompare renders the byte-exact counterpart of diffSummarize, and is the
+// only rendering the changed/unchanged decision may use. Keeping the decode out
+// of it is what stops a decode collision from hiding a real byte difference.
+func diffCompare(obj pdfcpu_types.Object) string {
+	return summarizeWith(obj, scalarRaw)
+}
+
+// summarizeWith is diffSummarize's body, parameterized by the scalar renderer
+// so the displayed and the compared summary differ in exactly one place.
+func summarizeWith(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Object) string) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.Dict:
-		return dictSummary(v)
+		return dictSummary(v, renderScalar)
 	case pdfcpu_types.StreamDict:
-		return dictSummary(v.Dict) + " stream"
+		return dictSummary(v.Dict, renderScalar) + " stream"
 	case pdfcpu_types.ObjectStreamDict:
-		return dictSummary(v.StreamDict.Dict) + " stream"
+		return dictSummary(v.StreamDict.Dict, renderScalar) + " stream"
 	case pdfcpu_types.XRefStreamDict:
-		return dictSummary(v.StreamDict.Dict) + " stream"
+		return dictSummary(v.StreamDict.Dict, renderScalar) + " stream"
 	case pdfcpu_types.Array:
-		return arraySummary(v)
+		return arraySummary(v, renderScalar)
 	case pdfcpu_types.IndirectRef:
 		return "<ref>"
 	default:
-		return scalarDisplay(obj)
+		return renderScalar(obj)
 	}
 }
 
 // dictSummary renders a shallow "<< /K v ... >>" repr with sorted keys.
-func dictSummary(d pdfcpu_types.Dict) string {
+func dictSummary(d pdfcpu_types.Dict, renderScalar func(pdfcpu_types.Object) string) string {
 	keys := make([]string, 0, len(d))
 	for k := range d {
 		keys = append(keys, k)
@@ -603,19 +625,19 @@ func dictSummary(d pdfcpu_types.Dict) string {
 		b.WriteString(" /")
 		b.WriteString(k)
 		b.WriteString(" ")
-		b.WriteString(shallowValue(d[k]))
+		b.WriteString(shallowValue(d[k], renderScalar))
 	}
 	b.WriteString(" >>")
 	return b.String()
 }
 
 // arraySummary renders a shallow "[ e1 e2 ... ]" repr.
-func arraySummary(a pdfcpu_types.Array) string {
+func arraySummary(a pdfcpu_types.Array, renderScalar func(pdfcpu_types.Object) string) string {
 	var b strings.Builder
 	b.WriteString("[")
 	for _, e := range a {
 		b.WriteString(" ")
-		b.WriteString(shallowValue(e))
+		b.WriteString(shallowValue(e, renderScalar))
 	}
 	b.WriteString(" ]")
 	return b.String()
@@ -626,7 +648,7 @@ func arraySummary(a pdfcpu_types.Array) string {
 // keeping summaries bounded and comparison cheap. Indirect refs render as a
 // number-independent "<ref>" token (see diffSummarize) so a cut-point summary
 // comparison stays renumber-invariant.
-func shallowValue(obj pdfcpu_types.Object) string {
+func shallowValue(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Object) string) string {
 	switch obj.(type) {
 	case pdfcpu_types.Dict, pdfcpu_types.StreamDict, pdfcpu_types.ObjectStreamDict, pdfcpu_types.XRefStreamDict:
 		return "<<...>>"
@@ -635,6 +657,6 @@ func shallowValue(obj pdfcpu_types.Object) string {
 	case pdfcpu_types.IndirectRef:
 		return "<ref>"
 	default:
-		return scalarDisplay(obj)
+		return renderScalar(obj)
 	}
 }

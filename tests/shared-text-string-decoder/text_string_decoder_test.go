@@ -93,33 +93,40 @@ func TestEmbeddedJSON_BinaryCheckSumNotTextDecoded(t *testing.T) {
 	}
 }
 
-// The raw string renderers stay raw. `dump object`
-// renders through the ObjectDetail builder, not tree.go scalarDisplay; both must
-// keep emitting <...> hex digits for the same /Title and /UF the readers decode.
+// The detail view splits display from raw. `dump object` renders through the
+// ObjectDetail builder, which now decodes into display while raw keeps the
+// stored bytes, so the same /Title and /UF the readers decode read as text on
+// the row and stay recoverable as <...> hex digits in the JSON raw field.
 
-func TestDumpObject_RawStringRenderersUnchanged(t *testing.T) {
+func TestDumpObject_DisplayIsDecodedAndRawKeepsTheBytes(t *testing.T) {
 	bin := buildCLI(t)
 	path := fixturePath(t, fixtureName)
 
 	for _, tc := range []struct {
 		ref     string
 		key     string
+		want    string
 		wantHex string
 	}{
-		{ref: "5 0 R", key: "/Title:", wantHex: rawTitleHex}, // the /Info dict
-		{ref: "6 0 R", key: "/UF:", wantHex: rawUFNameHex},   // the filespec
+		{ref: "5 0 R", key: "/Title", want: wantTitle, wantHex: rawTitleHex}, // the /Info dict
+		{ref: "6 0 R", key: "/UF", want: wantUFName, wantHex: rawUFNameHex},  // the filespec
 	} {
+		display, raw := dumpObjectPropertyJSON(t, tc.ref, tc.key)
+		if display != tc.want {
+			t.Errorf("dump object --ref %q %s display = %q, want the decoded %q", tc.ref, tc.key, display, tc.want)
+		}
+		if raw != "<"+tc.wantHex+">" {
+			t.Errorf("dump object --ref %q %s raw = %q, want the byte-exact <%s>", tc.ref, tc.key, raw, tc.wantHex)
+		}
+
+		// The plain row follows display, so the hex must not be there either.
 		stdout, stderr, ec := runCLI(t, bin, "dump", "object", "--ref", tc.ref, path)
 		if ec != 0 {
 			t.Fatalf("dump object --ref %q exit %d (stderr: %s)", tc.ref, ec, stderr)
 		}
-		// Scope the assertion to the NAMED key's line, not the whole dump: a bare
-		// whole-output Contains would pass if the hex appeared under any other key
-		// or in an unrelated raw section, for a test whose entire point is that
-		// THIS field still renders raw.
 		var line string
 		for _, l := range strings.Split(stdout, "\n") {
-			if strings.Contains(l, tc.key) {
+			if strings.Contains(l, tc.key+":") {
 				line = l
 				break
 			}
@@ -127,9 +134,11 @@ func TestDumpObject_RawStringRenderersUnchanged(t *testing.T) {
 		if line == "" {
 			t.Fatalf("dump object --ref %q produced no %s line; got:\n%s", tc.ref, tc.key, stdout)
 		}
-		if !strings.Contains(line, "<"+tc.wantHex+">") {
-			t.Errorf("dump object --ref %q must still render %s as the raw hex string <%s>; got line %q in:\n%s",
-				tc.ref, tc.key, tc.wantHex, line, stdout)
+		if !strings.Contains(line, tc.want) {
+			t.Errorf("dump object --ref %q %s row = %q, want it to carry the decoded %q", tc.ref, tc.key, line, tc.want)
+		}
+		if strings.Contains(line, tc.wantHex) {
+			t.Errorf("dump object --ref %q %s row still carries the undecoded hex: %q", tc.ref, tc.key, line)
 		}
 	}
 }
