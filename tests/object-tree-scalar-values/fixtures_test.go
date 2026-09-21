@@ -211,6 +211,28 @@ func sigChangePDF(side string) []byte {
 	})
 }
 
+// sharedSigPDF pairs two documents whose single signature dictionary is reached
+// TWICE: through the /AcroForm field's /V and through its widget kid's /V, the
+// shape a file takes when the field and the widget are separate objects. The
+// second encounter is cut by the cross-path dedup and compared as a whole
+// resolved dictionary, with no key of its own to decide the carve-out.
+func sharedSigPDF(side string) []byte {
+	contents := strings.Repeat("AB", sigContentsBytes)
+	if side == "b" {
+		contents = strings.Repeat("CD", sigContentsBytes)
+	}
+	return assemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm 5 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>\nendobj\n",
+		"4 0 obj\n<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Sig" +
+			" /T (Signature1) /Parent 6 0 R /V 7 0 R >>\nendobj\n",
+		"5 0 obj\n<< /Fields [6 0 R] >>\nendobj\n",
+		"6 0 obj\n<< /FT /Sig /T (Signature1) /Kids [4 0 R] /V 7 0 R >>\nendobj\n",
+		"7 0 obj\n<< /Type /Sig /ByteRange [0 100 200 300] /Contents <" + contents + "> >>\nendobj\n",
+	})
+}
+
 // utf16beHex renders s as the hex digits of its UTF-16BE encoding, BOM first.
 func utf16beHex(s string) string {
 	var b strings.Builder
@@ -261,6 +283,8 @@ func fixtures(t *testing.T) string {
 			"text-change-b.pdf":    textChangePDF("b"),
 			"sig-change-a.pdf":     sigChangePDF("a"),
 			"sig-change-b.pdf":     sigChangePDF("b"),
+			"shared-sig-a.pdf":     sharedSigPDF("a"),
+			"shared-sig-b.pdf":     sharedSigPDF("b"),
 		}
 		for name, content := range files {
 			if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {

@@ -252,17 +252,23 @@ func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object,
 // Those same collisions would then print the identical text on both sides of a
 // changed row, so a changed node whose two decoded summaries are equal falls
 // back to the byte-exact renderings: the common case stays readable and the
-// collision case says what actually differs. A carved-out binary string is
-// exempt - its two stand-ins matching is what the carve-out is for, and the
-// fallback would put the blob back on the row.
+// collision case says what actually differs. The fallback keeps the carve-out:
+// a binary string still renders as its stand-in, so two signatures whose only
+// difference is inside the DER stay a changed row carrying two matching
+// stand-ins rather than the blob. The carve-out is re-derived per key inside a
+// resolved dict, which is what a ref cut (cycle, depth cap, cross-path dedup)
+// hands this function.
 func scalarLeaf(path, kind string, left, right pdfcpu_types.Object, binary bool) *DiffNode {
 	leftSummary := diffSummarize(left, binary)
 	rightSummary := diffSummarize(right, binary)
+	leftRaw := diffCompare(left)
+	rightRaw := diffCompare(right)
 	status := "unchanged"
-	if diffCompare(left) != diffCompare(right) {
+	if leftRaw != rightRaw {
 		status = "changed"
-		if !binary && leftSummary == rightSummary {
-			leftSummary, rightSummary = diffCompare(left), diffCompare(right)
+		if leftSummary == rightSummary {
+			leftSummary = summarizeWith(left, binary, diffFallbackScalar)
+			rightSummary = summarizeWith(right, binary, diffFallbackScalar)
 		}
 	}
 	return &DiffNode{
@@ -629,6 +635,17 @@ func diffDisplayScalar(obj pdfcpu_types.Object, binary bool) string {
 // carve-out is a display concern, so the flag is ignored and two signatures
 // still compare on their bytes.
 func diffCompareScalar(obj pdfcpu_types.Object, _ bool) string {
+	return scalarRaw(obj)
+}
+
+// diffFallbackScalar renders a scalar for scalarLeaf's decode-collision
+// fallback: a carved-out binary string as its fixed-width stand-in, every other
+// scalar byte-exact. It is diffCompareScalar with the carve-out kept, so a blob
+// the display surfaces stand down cannot return through the fallback.
+func diffFallbackScalar(obj pdfcpu_types.Object, binary bool) string {
+	if binary && isStringObject(obj) {
+		return binaryStringSummary(obj)
+	}
 	return scalarRaw(obj)
 }
 

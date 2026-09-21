@@ -157,3 +157,58 @@ func TestDiff_ExitCodeStillSignalsTheDifference(t *testing.T) {
 		t.Errorf("diff exited %d, want 1: a decode collision must not hide a real difference", code)
 	}
 }
+
+// A signature dictionary reached twice is cut by the diff's cross-path dedup
+// and compared as a whole resolved dictionary. The two sides then summarize
+// alike - both stand-ins - which is exactly the collision shape that falls back
+// to the byte-exact rendering, so the carve-out has to survive the fallback.
+
+func TestDiff_SignatureReachedTwiceKeepsTheStandInOnTheCutRow(t *testing.T) {
+	result := diffJSON(t,
+		fixturePath(t, "shared-sig-a.pdf"),
+		fixturePath(t, "shared-sig-b.pdf"),
+	)
+
+	cut := diffNodeAt(t, result, "/Root/AcroForm/Fields[0]/V")
+	if cut.Status != "changed" {
+		t.Errorf("cut row status = %q, want changed", cut.Status)
+	}
+	for _, side := range []struct {
+		name    string
+		summary string
+	}{{"left", cut.LeftSummary}, {"right", cut.RightSummary}} {
+		if !strings.Contains(side.summary, "<binary, 64 bytes>") {
+			t.Errorf("%s summary = %q, want the fixed-width stand-in", side.name, side.summary)
+		}
+	}
+	for _, blob := range []string{
+		strings.Repeat("AB", sigContentsBytes),
+		strings.Repeat("CD", sigContentsBytes),
+	} {
+		if strings.Contains(cut.LeftSummary, blob) || strings.Contains(cut.RightSummary, blob) {
+			t.Errorf("cut row carries the blob: %q / %q", cut.LeftSummary, cut.RightSummary)
+		}
+	}
+}
+
+func TestDiff_PlainOutputNeverPrintsTheBlobOfASignatureReachedTwice(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "diff", "--full",
+		fixturePath(t, "shared-sig-a.pdf"),
+		fixturePath(t, "shared-sig-b.pdf"),
+	)
+	if code > 1 {
+		t.Fatalf("diff exited %d: %s", code, stderr)
+	}
+
+	for _, blob := range []string{
+		strings.Repeat("AB", sigContentsBytes),
+		strings.Repeat("CD", sigContentsBytes),
+	} {
+		if strings.Contains(stdout, blob) {
+			t.Errorf("diff printed a carved-out blob on the row\n--- output ---\n%s", stdout)
+		}
+	}
+	if !strings.Contains(stdout, "<binary, 64 bytes>") {
+		t.Errorf("diff never printed the fixed-width stand-in\n--- output ---\n%s", stdout)
+	}
+}
