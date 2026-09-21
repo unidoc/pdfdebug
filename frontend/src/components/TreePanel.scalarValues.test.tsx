@@ -83,7 +83,7 @@ const catalogNode: AnyNode = {
   objectRef: '', typeName: '', value: '',
 };
 
-// Dictionary-entry scalar: the row this story exists for. rawKey is rendered
+// Dictionary-entry scalar: the row that carries a value. rawKey is rendered
 // because the row carries no objectRef.
 const altScalar: AnyNode = {
   id: 'dict:root:Alt', label: 'Alt', rawKey: '/Alt', nodeType: 'scalar',
@@ -184,7 +184,9 @@ describe('scalar value on the tree row', () => {
     const rows = await openTree();
     const row = rowById(rows, 'dict:root:A');
     expect(row.textContent).toContain('A');
-    expect(row.querySelector('[title]')?.getAttribute('title') ?? '').not.toContain('A');
+    // The value span is the only truncating one, so its absence is the check.
+    expect(row.querySelectorAll('.truncate')).toHaveLength(0);
+    expect(rowById(rows, 'dict:root:Alt').querySelectorAll('.truncate')).toHaveLength(1);
   });
 });
 

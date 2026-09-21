@@ -7,7 +7,7 @@ import (
 
 // dump source reserializes PDF syntax and is the escape hatch for raw bytes
 // once the display surfaces decode. Its bytes are frozen: the expectations
-// below were captured from the tree at the story's baseline commit.
+// below are the reserialized form, unaffected by any display decoding.
 
 const structElemSource = `10 0 obj
 <<

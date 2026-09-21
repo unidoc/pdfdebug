@@ -224,9 +224,6 @@ func dumpEmbeddedJSON(t *testing.T) []embeddedEntryJSON {
 	return entries
 }
 
-// firstNonASCII returns the offset and byte of the first byte the plain-text
-// surface should not contain, or (-1, 0) when s is clean. The window matches
-// asciiSafe's (< 0x20 || > 0x7e); newlines are the one exception.
 // dumpObjectPropertyJSON runs `dump object --json --ref` and returns the
 // display/raw pair for one property key.
 func dumpObjectPropertyJSON(t *testing.T, ref, key string) (display, raw string) {
@@ -246,6 +243,9 @@ func dumpObjectPropertyJSON(t *testing.T, ref, key string) (display, raw string)
 	return "", ""
 }
 
+// firstNonASCII returns the offset and byte of the first byte the plain-text
+// surface should not contain, or (-1, 0) when s is clean. The window matches
+// asciiSafe's (< 0x20 || > 0x7e); newlines are the one exception.
 func firstNonASCII(s string) (int, byte) {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\n' {

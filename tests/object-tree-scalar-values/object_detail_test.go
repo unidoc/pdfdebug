@@ -97,10 +97,10 @@ func TestObjectDetail_EmptyStringStillRendersItsStoredForm(t *testing.T) {
 	}
 }
 
-// A signature /Contents selected directly as a node is carved out the same way
-// it is as a dictionary entry: the key has to be recovered from the node ID.
+// The detail view carves out a signature /Contents the same way the tree does:
+// the display shows the fixed-width summary while raw keeps the bytes.
 
-func TestObjectDetail_SignatureContentsSelectedAsANodeStaysBinary(t *testing.T) {
+func TestObjectDetail_SignatureContentsStaysBinary(t *testing.T) {
 	detail := objectJSON(t, fixturePath(t, "scalar-values.pdf"), "12 0 R")
 
 	contents := propertyValue(t, detail, "/Contents")

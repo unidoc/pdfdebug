@@ -325,6 +325,32 @@ func TestGetObjectDetailScalar(t *testing.T) {
 	}
 }
 
+// A signature /Contents selected directly as a node, not reached as an entry of
+// its parent dictionary. The key is not in scope there and is recovered from
+// the node ID, so both paths must summarise the bytes instead of decoding them.
+func TestGetObjectDetailScalarSignatureContentsCarvedOut(t *testing.T) {
+	ins := NewInspector()
+	tabID := "tab-signed-scalar"
+	if _, err := ins.Open(tabID, filepath.Join(testdataDir(t), "signed.pdf")); err != nil {
+		t.Fatalf("failed to open signed.pdf: %v", err)
+	}
+
+	detail, err := ins.GetObjectDetail(tabID, "dict:obj:0:5:Contents")
+	if err != nil {
+		t.Fatalf("GetObjectDetail failed: %v", err)
+	}
+	if detail.ScalarValue == nil {
+		t.Fatal("ScalarValue is nil")
+	}
+	if detail.ScalarValue.Display != "<binary, 3072 bytes>" {
+		t.Errorf("Display = %q, want %q", detail.ScalarValue.Display, "<binary, 3072 bytes>")
+	}
+	if !strings.HasPrefix(detail.ScalarValue.Raw, "<3082") {
+		t.Errorf("Raw does not start with the byte-exact hex form: %d characters starting %.16q",
+			len(detail.ScalarValue.Raw), detail.ScalarValue.Raw)
+	}
+}
+
 func findStreamNode(t *testing.T, ins *Inspector, tabID, nodeID string, depth int) string {
 	t.Helper()
 	if depth > 4 {
