@@ -16,12 +16,18 @@
 //
 // Stderr, per exit path (dump subcommands):
 //
-//	0 - empty, except that a structurally damaged but parseable file draws a
-//	    JSON warning object while the command still succeeds
-//	1 - a bare plain-text usage line, NOT JSON
-//	2 - a single JSON object carrying an `error` key, with one standing
-//	    exception: the raw `dump bytes` path reports a write failure as plain
-//	    text
+//	0 - usually empty. A structurally damaged but parseable file draws a JSON
+//	    warning object, and a non-fatal degradation draws a plain-text
+//	    `warning:` line (a failed --resolve in `dump tree` / `dump object`, an
+//	    unavailable Do classification in `dump stream`)
+//	1 - plain text: on the document-level dumps (bytes, xref, objects,
+//	    signatures) the usage line alone, and in `dump embedded` an `error:`
+//	    line above it. `dump stream` and `dump page` are the exception - they
+//	    report a rejected flag combination as JSON
+//	2 - a single JSON object carrying an `error` key, except where a payload
+//	    path reports its own failure as plain text: the raw `dump bytes` and
+//	    `dump source --raw` write failures, and `dump embedded --name` naming
+//	    no attachment
 //
 // The deprecated `dump plaintext` alias prefixes a one-line deprecation notice
 // to stderr on every one of those paths, so under that spelling stderr taken as
@@ -30,7 +36,8 @@
 // Exit codes (dump subcommands):
 //
 //	0 - success
-//	1 - usage error (bad flags, missing file argument, extra positional argument)
+//	1 - usage error (bad flags, missing file argument, and on the
+//	    document-level dumps an extra positional argument)
 //	2 - runtime error (file not found, malformed PDF, decode failure, internal panic)
 //
 // The `validate` command uses a DIFFERENT three-way exit contract so CI can

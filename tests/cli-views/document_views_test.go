@@ -6,7 +6,7 @@
 // Test level: Integration (Go) -- CLI binary build + execution. No browser.
 //
 // Covers: xref + objects JSON; `dump bytes` raw byte-exact; the --json wrapper
-// without the tabId leak.
+// without the tabId leak; the shared parser rejecting an argument after <file>.
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
 package cli_views_test
@@ -259,6 +259,34 @@ func TestObjectsDump_PlainTextDefault(t *testing.T) {
 		if !contains(lines[0], col) {
 			t.Errorf("objects plain: header row missing column %q\nheader: %s", col, lines[0])
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The document-level dumps share one flag parser, so each of them rejects a
+// second positional argument. A flag written after <file> arrives as that
+// second positional: `dump xref file.pdf --json` would otherwise print the
+// plain-text table with exit 0 to a caller waiting for JSON. `dump bytes` and
+// its alias are covered in dump_bytes_test.go.
+// ---------------------------------------------------------------------------
+
+func TestDocumentViews_FlagAfterFile_UsageError(t *testing.T) {
+	bin := buildCLI(t)
+	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	for _, resource := range []string{"xref", "objects", "signatures"} {
+		t.Run(resource, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, "dump", resource, pdfPath, "--json")
+			if ec != 1 {
+				t.Errorf("%s: a flag after <file> expected exit 1 (usage), got %d", resource, ec)
+			}
+			if stdout != "" {
+				t.Errorf("%s: stdout must stay empty, got %d bytes", resource, len(stdout))
+			}
+			if want := "Usage: pdfdebug dump " + resource; !contains(stderr, want) {
+				t.Errorf("%s: stderr should carry the usage line, got: %q", resource, stderr)
+			}
+		})
 	}
 }
 
