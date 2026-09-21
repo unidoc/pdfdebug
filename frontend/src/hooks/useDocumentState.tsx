@@ -29,16 +29,19 @@ export interface TreeNode {
    */
   typeName: string;
   /**
-   * Decoded value of a dictionary-entry scalar leaf; "" for dicts, arrays,
-   * streams, refs, error nodes and array-element scalars, whose value already
-   * lives in the label. Uncapped and unescaped: the row clamps it in CSS and
-   * escapes its control characters before rendering.
+   * What a scalar leaf says, decoded; "" for dicts, arrays, streams, refs and
+   * error nodes. An array element carries it too, even though its label
+   * already presents the same value clamped and escaped - the label is a row,
+   * this is the whole value. Uncapped and unescaped: the row clamps it in JS
+   * at TREE_VALUE_RENDER_CAP and escapes its control characters before
+   * rendering.
    */
   value: string;
   /**
-   * Byte-exact counterpart of value, sent only where decoding changed the
-   * content. Mirrored here to keep this type assignable to the generated
-   * binding; the GUI does not render it.
+   * Byte-exact stored form of value, sent whenever it says something value
+   * does not: every hex literal, and every literal carrying a PDF escape.
+   * Mirrored here to keep this type assignable to the generated binding; the
+   * GUI does not render it.
    */
   valueRaw: string;
 }

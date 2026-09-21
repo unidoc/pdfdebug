@@ -61,7 +61,7 @@ Invocation matrix (per fixture F in `find testdata -name "*.pdf"`, sorted):
     dump tree --json --resolve --resolve-depth 2 F
     dump xref --json F
     dump objects --json F
-    dump bytes --json F
+    dump plaintext --json F  (the alias: one handler, both binaries)
     dump metadata --json F
     dump signatures --json F
     dump embedded --json F
@@ -231,7 +231,10 @@ while IFS= read -r pdf; do
 	run_pair dump tree --json --resolve --resolve-depth 2 "$pdf"
 	run_pair dump xref --json "$pdf"
 	run_pair dump objects --json "$pdf"
-	run_pair dump bytes --json "$pdf"
+	# The alias, not `dump bytes`: this drives one handler through both binaries,
+	# including a baseline built before the resource was renamed. Becomes
+	# `dump bytes` when the alias is removed.
+	run_pair dump plaintext --json "$pdf"
 	run_pair dump metadata --json "$pdf"
 	run_pair dump signatures --json "$pdf"
 	run_pair dump embedded --json "$pdf"
