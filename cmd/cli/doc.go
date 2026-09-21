@@ -17,17 +17,25 @@
 // Stderr, per exit path (dump subcommands):
 //
 //	0 - usually empty. A structurally damaged but parseable file draws a JSON
-//	    warning object, and a non-fatal degradation draws a plain-text
-//	    `warning:` line (a failed --resolve in `dump tree` / `dump object`, an
-//	    unavailable Do classification in `dump stream`)
-//	1 - plain text: on the document-level dumps (bytes, xref, objects,
-//	    signatures) the usage line alone, and in `dump embedded` an `error:`
-//	    line above it. `dump stream` and `dump page` are the exception - they
-//	    report a rejected flag combination as JSON
+//	    warning object; a non-fatal degradation draws a plain-text line - a
+//	    `warning:` for a failed --resolve in `dump tree` / `dump object` and
+//	    for an unavailable Do classification in `dump stream --ops`, and a bare
+//	    "page has no content stream" note from `dump stream --ops`
+//	1 - plain text when the argument SHAPE is wrong (unparseable flags, a
+//	    missing --ref or <file>, an extra positional): the usage line, with an
+//	    `error:` line above it in `dump embedded` and the flag list below it in
+//	    `dump font`. A rejected flag VALUE is JSON instead - a malformed --ref
+//	    (object, font, image, source, reverserefs), an out-of-range --depth /
+//	    --resolve-depth / --page / --info / --forms-depth or an unknown
+//	    --section (tree, object, stream, page), and a mutually exclusive flag
+//	    pair in `dump stream` and `dump source`. The --ref/--name pair of
+//	    `dump embedded` is the one such rejection reported as plain text
 //	2 - a single JSON object carrying an `error` key, except where a payload
-//	    path reports its own failure as plain text: the raw `dump bytes` and
-//	    `dump source --raw` write failures, and `dump embedded --name` naming
-//	    no attachment
+//	    path reports its own failure as plain text: the write failures of the
+//	    raw `dump bytes`, of `dump source` on both --raw and the plain-text
+//	    default, and of `dump stream` on --raw and the no-content-stream note;
+//	    and `dump embedded --name` when the name matches no attachment, matches
+//	    several, or matches one carrying no /EmbeddedFile stream
 //
 // The deprecated `dump plaintext` alias prefixes a one-line deprecation notice
 // to stderr on every one of those paths, so under that spelling stderr taken as
@@ -36,8 +44,9 @@
 // Exit codes (dump subcommands):
 //
 //	0 - success
-//	1 - usage error (bad flags, missing file argument, and on the
-//	    document-level dumps an extra positional argument)
+//	1 - usage error (bad flags, missing file argument, and on `dump bytes`,
+//	    `dump xref`, `dump objects` and `dump signatures` an extra positional
+//	    argument; `dump metadata` and `dump embedded` still drop one)
 //	2 - runtime error (file not found, malformed PDF, decode failure, internal panic)
 //
 // The `validate` command uses a DIFFERENT three-way exit contract so CI can
