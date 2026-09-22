@@ -31,10 +31,10 @@ export interface TreeNode {
   /**
    * What a scalar leaf says, decoded; "" for dicts, arrays, streams, refs and
    * error nodes. An array element carries it too, even though its label
-   * already presents the same value clamped and escaped - the label is a row,
-   * this is the whole value. Uncapped and unescaped: the row escapes its
-   * control characters in JS and clamps the result at TREE_VALUE_RENDER_CAP
-   * before rendering.
+   * already presents the same value clamped to the plain-text row's ceiling -
+   * the label is one CLI row, this is the whole value. Uncapped and unescaped:
+   * every tree row, array elements included, escapes its control characters in
+   * JS and clamps the result at TREE_VALUE_RENDER_CAP before rendering.
    */
   value: string;
   /**

@@ -95,7 +95,9 @@ describe('clampDisplayValue', () => {
   });
 
   test('reports the same text the backend reports for the same value and limit', () => {
-    // Mirrors the backend's ClampDisplayValue table at the plain-text tree cap.
+    // Mirrors the backend's ClampDisplayValue table at the limit the CLI row
+    // passes. The agreement is per limit: a tree row here passes
+    // TREE_VALUE_RENDER_CAP instead, and reports its own counts.
     const cap = 80;
     expect(clampDisplayValue('x'.repeat(79), cap)).toBe('x'.repeat(79));
     expect(clampDisplayValue('x'.repeat(80), cap)).toBe('x'.repeat(80));
@@ -105,6 +107,15 @@ describe('clampDisplayValue', () => {
     );
     expect(clampDisplayValue(`a${'\t'.repeat(41)}`, cap)).toBe(
       `a${'\\t'.repeat(39)} [truncated: 79 of 83]`,
+    );
+  });
+
+  test('two limits over one value report two different emitted counts', () => {
+    const value = 'x'.repeat(5000);
+
+    expect(clampDisplayValue(value, 80)).toBe(`${'x'.repeat(80)} [truncated: 80 of 5000]`);
+    expect(clampDisplayValue(value, TREE_VALUE_RENDER_CAP)).toBe(
+      `${'x'.repeat(TREE_VALUE_RENDER_CAP)} [truncated: ${TREE_VALUE_RENDER_CAP} of 5000]`,
     );
   });
 });

@@ -47,12 +47,17 @@ export const TREE_VALUE_RENDER_CAP = 2000;
  * that fits is escaped whole and carries no marker, so a normal-sized row still
  * shows its full value on screen and in its title.
  *
- * The counting matches the backend's ClampDisplayValue unit for unit - escape
- * first, then cut on code points - so the GUI and the CLI report the same two
- * numbers for the same value. The cut lands on an escape-sequence boundary, so
- * it never separates a backslash from its letter, and once one unit does not
- * fit no later unit is emitted either: skipping a wide unit to fit a narrow one
- * behind it would reorder the text.
+ * The marker shape and the counting match the backend's ClampDisplayValue unit
+ * for unit - escape first, then cut on code points - so the same value clamped
+ * at the same limit yields the same two numbers on either surface. The limits
+ * differ: a tree row passes TREE_VALUE_RENDER_CAP here and the CLI row passes
+ * pdfcore.TreeValueCap, so one value can carry a marker on one surface, a
+ * marker naming a different N on the other, or none at all.
+ *
+ * The cut lands on an escape-sequence boundary, so it never separates a
+ * backslash from its letter, and once one unit does not fit no later unit is
+ * emitted either: skipping a wide unit to fit a narrow one behind it would
+ * reorder the text.
  */
 export function clampDisplayValue(value: string, limit: number): string {
   let out = '';

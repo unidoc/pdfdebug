@@ -176,9 +176,14 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
   // /<bareKey> rawKey adds nothing once the ref is visible.
   const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
 
-  // An array element's label IS its value, so the row shows it once. The full
-  // value still reaches the reader, as the label's title.
+  // An array element's label IS its value, so the row shows it once, in the
+  // label's place. The backend clamps that label to the CLI row's ceiling, so
+  // the row renders data.value at the GUI ceiling instead: one value, one pair
+  // of counts between the row and its title, and as much of it as a dictionary
+  // sibling shows. An element with no value of its own (a container, or an
+  // indirect ref the walker did not dereference) keeps its label.
   const labelCarriesValue = data.rawKey.startsWith('[');
+  const labelShowsValue = labelCarriesValue && data.value !== '';
 
   // Escaped once per render rather than once for the text and once for the
   // title: data.value is uncapped, and a multi-megabyte string literal would
@@ -230,12 +235,13 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         return <Icon size={14} className="text-text-muted mr-1.5 flex-shrink-0" aria-hidden="true" />;
       })()}
 
-      {/* Label */}
+      {/* Label. An array element renders its value here instead, so that span
+          takes the remaining width and ellipsizes the way the value span does. */}
       <span
-        className={`whitespace-nowrap flex-shrink-0 ${isError ? 'text-text-muted' : 'text-text'}`}
-        {...(labelCarriesValue && data.value !== '' ? { title: displayValue } : {})}
+        className={`${labelShowsValue ? 'min-w-0 truncate' : 'whitespace-nowrap flex-shrink-0'} ${isError ? 'text-text-muted' : 'text-text'}`}
+        {...(labelShowsValue ? { title: displayValue } : {})}
       >
-        {data.name}
+        {labelShowsValue ? displayValue : data.name}
       </span>
 
       {/* Scalar value: the only element that takes the remaining width and the
