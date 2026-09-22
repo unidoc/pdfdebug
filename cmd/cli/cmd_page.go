@@ -78,6 +78,14 @@ func runPageDump(args []string) int {
 		pretty:         *prettyFlag,
 	}
 
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, pageUsage) {
+		return 1
+	}
+
 	// --info is the required mode selector and must name a 1-based page.
 	if !flags.infoSet || flags.info < 1 {
 		writeJSONError(os.Stderr, "invalid --info: must be >= 1 (pages are 1-based)")
@@ -92,10 +100,6 @@ func runPageDump(args []string) int {
 	// value is still required when it IS set (a malformed arg is a usage error).
 	if flags.formsDepth < 0 {
 		writeJSONError(os.Stderr, "invalid --forms-depth: must be >= 0")
-		return 1
-	}
-
-	if !requirePositionals(fs, 1, pageUsage) {
 		return 1
 	}
 

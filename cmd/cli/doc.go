@@ -33,7 +33,11 @@
 //	    above the usage line. An absent mode selector is a missing flag
 //	    reported as JSON: no --info on `dump page`, no --page / --ref /
 //	    --xobject on `dump stream`, and no --page or --ref to own a
-//	    `dump stream --xobject`
+//	    `dump stream --xobject`. The shape check runs ahead of every
+//	    flag-value check, so an invocation wrong in both ways draws the usage
+//	    line: `dump page file.pdf --info 1` leaves the selector behind the
+//	    file, where the parser never sees it, and is reported as the shape
+//	    error it is rather than as an absent --info
 //	2 - a single JSON object carrying an `error` key, except where a payload
 //	    path reports its own failure as plain text: the write failures of the
 //	    raw `dump bytes`, of `dump source` on both --raw and the plain-text
