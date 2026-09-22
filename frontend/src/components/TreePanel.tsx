@@ -245,8 +245,10 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
       </span>
 
       {/* Scalar value: the only element that takes the remaining width and the
-          only one allowed to ellipsize. The value also lives in the title, so
-          what the row width elides is one hover away. */}
+          only one allowed to ellipsize. The title carries the same clamped
+          string, so hovering recovers what the row WIDTH elides but not what
+          the render cap dropped; past the cap, the detail panel and
+          `dump tree --json` hold the whole value. */}
       {data.value !== '' && !labelCarriesValue && (
         <span
           className="text-text-muted ml-1.5 min-w-0 truncate"
