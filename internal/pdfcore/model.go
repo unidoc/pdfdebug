@@ -367,8 +367,8 @@ type ImageData struct {
 	// pointer to "N G R" otherwise.
 	SMask *string `json:"smask"`
 	// AdobeMarker is one of the AdobeMarker* discriminators for the Adobe APP14
-	// outcome. It is empty when the walk was never reached: the node is not an
-	// image XObject, or the read stopped above it with Error set.
+	// outcome. It is empty when the walk was never reached, which means the image
+	// dictionary itself was never read: the node is not an image XObject.
 	AdobeMarker string `json:"adobeMarker"`
 	// AdobeTransform is the Adobe APP14 transform byte (0 none, 1 YCbCr,
 	// 2 YCCK), non-nil only when AdobeMarker is AdobeMarkerPresent. It is

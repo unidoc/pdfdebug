@@ -164,6 +164,15 @@ func TestScanAdobeMarker(t *testing.T) {
 			wantOutcome: AdobeMarkerUnparseable,
 		},
 		{
+			// The record was read in full and its identifier checked, so the
+			// transform is a fact about bytes that were there. Missing bytes
+			// after it do not retract it, and the file itself need not decode.
+			name:          "a chain truncated after a complete record still reports it",
+			raw:           append([]byte{0xFF, 0xD8}, adobeSegment(2)...),
+			wantOutcome:   AdobeMarkerPresent,
+			wantTransform: 2,
+		},
+		{
 			name:        "a chain that never reaches SOS fails closed",
 			raw:         append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}, make([]byte, 14)...),
 			wantOutcome: AdobeMarkerUnparseable,

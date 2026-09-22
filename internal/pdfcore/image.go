@@ -300,7 +300,10 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	// safeCall re-panics a runtime error by design. Absorbing it here keeps one
 	// unreadable image to a per-image error instead of ending the request. A
 	// well-formed document can reach this: a /DeviceN whose colorant array is an
-	// indirect reference opens cleanly and then fails the Array assertion.
+	// indirect reference opens cleanly and then fails the Array assertion. The
+	// message is HELD rather than returned here, so the sample-interpretation
+	// block below still runs for an image whose dictionary was read.
+	csFailure := ""
 	if lastFilter == "DCTDecode" {
 		err = func() (err error) {
 			defer func() {
@@ -318,22 +321,27 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 			})
 		}()
 		if err != nil {
-			result.Error = fmt.Sprintf("failed to determine color space components: %v", err)
-			return result, nil, "", nil
+			csFailure = fmt.Sprintf("failed to determine color space components: %v", err)
 		}
 	}
 
 	// Resolve the colour-component count once (a negative sentinel means it could
 	// not be resolved): the size estimate and the decode ceiling both need it but
 	// pick different fallbacks, so this avoids a second colour-space dereference.
-	resolvedComponents := declaredComponents(xrt, &sd, -1)
+	// A lookup that already faulted above stays at the sentinel instead of being
+	// repeated, so the same colour space is never dereferenced twice.
+	resolvedComponents := -1
+	if csFailure == "" {
+		resolvedComponents = declaredComponents(xrt, &sd, -1)
+	}
 
 	// Sample interpretation: whether the samples are read inverted, and the two
-	// switches that decide it. All of it is computed HERE, above the decode
-	// branch. A 4-component DCT stream with no Adobe APP14 is refused outright by
-	// Go's JPEG decoder, so renderImage returns with result.Error set on exactly
-	// the shape this reporting exists for; computed below the decode, every field
-	// would be null on the one file that most needs them.
+	// switches that decide it. All of it is computed HERE, above both returns
+	// below it: the colour-space failure and the decode branch. A 4-component DCT
+	// stream with no Adobe APP14 is refused outright by Go's JPEG decoder, so
+	// renderImage returns with result.Error set on exactly the shape this
+	// reporting exists for; computed below the decode, every field would be null
+	// on the one file that most needs them.
 	result.ImageMask = imageMask
 	result.SMask = readSMaskRef(&sd)
 
@@ -358,6 +366,14 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	result.AdobeMarker, result.AdobeTransform = adobeMarkerFromStream(&sd)
 	result.SampleInterpretation = sampleInterpretationVerdict(
 		result.ColorSpace, imageMask, resolvedComponents, result.Decode, decodeErr != nil, result.AdobeMarker)
+
+	// The colour-space lookup faulted: report it now that the reads above have
+	// run. The component count stayed at the sentinel, so the /Decode bound
+	// widened to maxComponents and the verdict classified on /Decode alone.
+	if csFailure != "" {
+		result.Error = csFailure
+		return result, nil, "", nil
+	}
 
 	// Size metadata for the frontend: the stored (encoded /Length) size and the
 	// honest decoded size the declared geometry implies (0 when unknown, one

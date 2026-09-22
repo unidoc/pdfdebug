@@ -248,6 +248,24 @@ func cmykImagePDF(raw []byte, extraEntries string, extra ...[]byte) []byte {
 	return imagePDF(dict, raw, extra...)
 }
 
+// deviceNImagePDF builds a DCTDecode image whose /DeviceN colour space names
+// its colorants through an INDIRECT reference. Every object exists, so the
+// document opens; pdfcpu's component lookup then asserts that entry is an Array
+// without dereferencing it and faults, so the component count for this image
+// cannot be resolved and the read carries a per-image error.
+// Objects 5 and 6 are the colorant array and the tint transform, so extra
+// objects a case adds start at 7.
+func deviceNImagePDF(raw []byte, extraEntries string, extra ...[]byte) []byte {
+	dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8 /BitsPerComponent 8" +
+		" /ColorSpace [/DeviceN 5 0 R /DeviceCMYK 6 0 R] /Filter /DCTDecode " + extraEntries
+	objs := [][]byte{
+		[]byte("5 0 obj\n[/Ink1 /Ink2 /Ink3 /Ink4]\nendobj\n"),
+		[]byte("6 0 obj\n<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0]" +
+			" /C1 [1 1 1 1] /N 1 >>\nendobj\n"),
+	}
+	return imagePDF(dict, raw, append(objs, extra...)...)
+}
+
 // flateImagePDF builds a single-component FlateDecode image: a stream with no
 // JPEG in it at all.
 func flateImagePDF(t *testing.T, extraEntries string, extra ...[]byte) []byte {

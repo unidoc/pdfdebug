@@ -7,7 +7,8 @@
 // transform - and the bug class is those three disagreeing. ICC profiles in
 // APP2, EXIF orientation in APP1 and everything else inside the file are out of
 // scope. No pixel is decoded here and no entropy-coded byte is read: the walk
-// hops marker to marker and stops at SOS.
+// hops marker to marker and stops at the Adobe record, or at SOS when there is
+// none.
 
 package pdfcore
 
@@ -30,9 +31,9 @@ const (
 	// AdobeMarkerPresent means an Adobe APP14 record was found and its transform
 	// byte is reported.
 	AdobeMarkerPresent = "present"
-	// AdobeMarkerUnparseable means the chain is malformed or hit a walk ceiling.
-	// Never reported as absent: a chain that could not be read is not a chain
-	// without a marker.
+	// AdobeMarkerUnparseable means the chain is malformed or hit a walk ceiling
+	// before any Adobe APP14 record was read. Never reported as absent: a chain
+	// that could not be read is not a chain without a marker.
 	AdobeMarkerUnparseable = "unparseable"
 	// AdobeMarkerNotExamined means DCTDecode sits behind another filter, so the
 	// stored bytes are not the JPEG and were not walked.
@@ -54,11 +55,19 @@ const adobeRecordBytes = 12
 // outcome. The transform is meaningful only when the outcome is
 // AdobeMarkerPresent.
 //
-// The walk is bounded by maxJPEGMarkerSegments and maxJPEGMarkerScanBytes and
-// fails closed: a declared length that runs past the end of the buffer, a length
-// below the two bytes the length field itself occupies, a 0x00 where a marker
-// code belongs, a chain that never reaches SOS, and either ceiling all yield
-// AdobeMarkerUnparseable rather than a silent AdobeMarkerAbsent.
+// The walk answers AdobeMarkerPresent the moment a complete, identifier-checked
+// record has been read, and does not look at what follows. A chain truncated
+// after the record still reports the transform it stated: the record is a fact
+// about bytes that were there, and retracting it because the rest of the file is
+// missing would throw away a known answer. A JPEG that reports present can still
+// fail to decode.
+//
+// The walk is bounded by maxJPEGMarkerSegments and maxJPEGMarkerScanBytes, and
+// where no record was read it fails closed: a declared length that runs past the
+// end of the buffer, a length below the two bytes the length field itself
+// occupies, a 0x00 where a marker code belongs, a chain that ends without
+// reaching SOS, and either ceiling all yield AdobeMarkerUnparseable rather than a
+// silent AdobeMarkerAbsent.
 func scanAdobeMarker(raw []byte) (outcome string, transform int) {
 	if len(raw) < 4 || raw[0] != 0xFF || raw[1] != 0xD8 {
 		return AdobeMarkerUnparseable, 0

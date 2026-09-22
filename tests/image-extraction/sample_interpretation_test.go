@@ -771,6 +771,43 @@ func TestFullFieldSetSurvivesAFailedDecode(t *testing.T) {
 	}
 }
 
+// The other read that ends with an error before the decode is a colour space
+// whose component lookup faults. The same fields have to survive it. The count
+// stays unresolved there, so the /Decode bound widens and the verdict comes from
+// /Decode alone even though a record is present - at a resolved four components
+// the same inputs would read "Normal (net)".
+
+func TestFullFieldSetSurvivesAnUnreadableColorSpace(t *testing.T) {
+	maskObj := []byte("7 0 obj\n<< /Type /XObject /Subtype /Image /Width 8 /Height 8" +
+		" /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 0 >>\nstream\n\nendstream\nendobj\n")
+	img, raw := dumpImageJSON(t, "unreadable-colorspace.pdf",
+		deviceNImagePDF(markerChain(adobeAPP14(2)), "/Decode [1 0 1 0 1 0 1 0] /SMask 7 0 R", maskObj))
+
+	if img.Error == "" {
+		t.Fatalf("expected a per-image error for a colour space the lookup cannot read")
+	}
+	if img.AdobeMarker != markerPresent {
+		t.Errorf("adobeMarker = %q, want %q", img.AdobeMarker, markerPresent)
+	}
+	if img.AdobeTransform == nil || *img.AdobeTransform != 2 {
+		t.Errorf("adobeTransform = %v, want 2", img.AdobeTransform)
+	}
+	if !sameFloats(img.Decode, []float64{1, 0, 1, 0, 1, 0, 1, 0}) {
+		t.Errorf("decode = %v, want the array read before the lookup faulted", img.Decode)
+	}
+	if img.SMask == nil || *img.SMask != "7 0 R" {
+		t.Errorf("smask = %v, want the reference read before the lookup faulted", img.SMask)
+	}
+	if img.SampleInterpretation != verdictInvertedDecode {
+		t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictInvertedDecode)
+	}
+	for _, key := range sampleInterpretationKeys {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("key %q is missing from a payload whose colour space could not be read", key)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // JSON is a contract: every key is emitted unconditionally with an explicit
 // null, on the full payload and on the metadata projection alike. The
