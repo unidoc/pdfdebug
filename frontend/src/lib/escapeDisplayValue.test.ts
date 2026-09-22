@@ -54,27 +54,57 @@ describe('escapeDisplayValue', () => {
 });
 
 describe('clampDisplayValue', () => {
-  test('escapes a value at or under the limit whole', () => {
+  test('escapes a value at or under the limit whole, with no marker', () => {
     expect(clampDisplayValue('a\nb', 10)).toBe('a\\nb');
     expect(clampDisplayValue('xxxxx', 5)).toBe('xxxxx');
   });
 
-  test('cuts a value over the limit and marks the cut', () => {
-    expect(clampDisplayValue('xxxxxx', 5)).toBe('xxxxx...');
+  test('marks a cut with the emitted and total counts', () => {
+    expect(clampDisplayValue('xxxxxx', 5)).toBe('xxxxx [truncated: 5 of 6]');
   });
 
-  test('escaping happens after the cut, so the result stays bounded', () => {
-    // Ten NULs escape to forty characters; only the first three are kept.
-    expect(clampDisplayValue('\x00'.repeat(10), 3)).toBe('\\x00\\x00\\x00...');
+  test('escaping happens before the cut, so both counts are escaped lengths', () => {
+    // Ten NULs escape to forty characters; a limit of ten fits two of them.
+    expect(clampDisplayValue('\x00'.repeat(10), 10)).toBe('\\x00\\x00 [truncated: 8 of 40]');
   });
 
-  test('never cuts an astral character in half', () => {
-    // Each emoji is two UTF-16 code units, so a limit of 3 lands mid-pair.
-    expect(clampDisplayValue('\u{1f600}\u{1f600}', 3)).toBe('\u{1f600}...');
+  test('an escape sequence is never halved', () => {
+    // The fifth tab would need two more characters than the limit leaves.
+    expect(clampDisplayValue('\t'.repeat(6), 9)).toBe('\\t\\t\\t\\t [truncated: 8 of 12]');
+  });
+
+  test('nothing after a unit that did not fit is emitted, so the text keeps its order', () => {
+    // The tab does not fit, and the "b" behind it must not jump the gap.
+    expect(clampDisplayValue('a\tb', 2)).toBe('a [truncated: 1 of 4]');
+  });
+
+  test('counts astral characters as one unit each, as the backend counts runes', () => {
+    expect(clampDisplayValue('\u{1f600}\u{1f600}', 1)).toBe('\u{1f600} [truncated: 1 of 2]');
+    expect(clampDisplayValue('\u{1f600}\u{1f600}', 2)).toBe('\u{1f600}\u{1f600}');
+  });
+
+  test('counts multi-byte text by code point, not by byte', () => {
+    expect(clampDisplayValue('中'.repeat(90), 80)).toBe(
+      `${'中'.repeat(80)} [truncated: 80 of 90]`,
+    );
   });
 
   test('the render cap leaves a normal-sized value intact', () => {
     const value = 'L'.repeat(500);
     expect(clampDisplayValue(value, TREE_VALUE_RENDER_CAP)).toBe(value);
+  });
+
+  test('reports the same text the backend reports for the same value and limit', () => {
+    // Mirrors the backend's ClampDisplayValue table at the plain-text tree cap.
+    const cap = 80;
+    expect(clampDisplayValue('x'.repeat(79), cap)).toBe('x'.repeat(79));
+    expect(clampDisplayValue('x'.repeat(80), cap)).toBe('x'.repeat(80));
+    expect(clampDisplayValue('x'.repeat(81), cap)).toBe(`${'x'.repeat(80)} [truncated: 80 of 81]`);
+    expect(clampDisplayValue('\t'.repeat(41), cap)).toBe(
+      `${'\\t'.repeat(40)} [truncated: 80 of 82]`,
+    );
+    expect(clampDisplayValue(`a${'\t'.repeat(41)}`, cap)).toBe(
+      `a${'\\t'.repeat(39)} [truncated: 79 of 83]`,
+    );
   });
 });

@@ -309,7 +309,8 @@ describe('single-line clamp', () => {
     const valueSpan = Array.from(row.querySelectorAll('span'))
       .find((s) => s.className.includes('truncate'));
 
-    const clamped = `${'M'.repeat(TREE_VALUE_RENDER_CAP)}...`;
+    // The marker names how much was dropped, in the shape the CLI row uses.
+    const clamped = `${'M'.repeat(TREE_VALUE_RENDER_CAP)} [truncated: ${TREE_VALUE_RENDER_CAP} of ${OVER_CAP_VALUE.length}]`;
     expect(valueSpan?.textContent).toBe(clamped);
     expect(valueSpan?.getAttribute('title')).toBe(clamped);
   });

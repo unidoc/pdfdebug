@@ -6,7 +6,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ### Added
 
-- The object tree now shows what a dictionary entry says, not just its type: `dump tree` rows read `RowSpan number = 2`, `--json` gains an additive `value` key on dictionary-entry scalar leaves, and the GUI tree row renders the value between the label and the `/Key` suffix. A `valueRaw` key carries the byte-exact stored form, emitted only where decoding changed the content
+- The object tree now shows what a dictionary entry says, not just its type: `dump tree` rows read `RowSpan number = 2`, `--json` gains an additive `value` key on every scalar leaf, array elements included, and the GUI tree row renders the value between the label and the `/Key` suffix. A `valueRaw` key carries the byte-exact stored form whenever it says something `value` does not - every hex literal, and every literal carrying a PDF escape. It is omitted only where the stored form is `value` itself or `value` wrapped in `()`, so its absence means the display form is the form on disk, not that decoding was a no-op
 
 ### Changed
 

@@ -220,11 +220,10 @@ type dumpFlags struct {
 // `dump tree file.pdf --json` as plain text at exit 0 while the caller waits
 // for JSON. An explicitly empty path (`dump tree ""`) satisfies the count but
 // names no file, so it is a shape error too, not a runtime "file not found".
-// Every want position is checked, because `diff` takes two. On a rejection it
-// writes usage to stderr and returns false; the caller supplies its own exit
-// code, which differs between the dump subcommands (1) and validate/diff (2).
-//
-// want is explicit rather than fixed at 1 because `diff` takes two files.
+// The empty check runs at every want position, because `diff` takes two files.
+// On a rejection it writes usage to stderr and returns false; the caller
+// supplies its own exit code, which differs between the dump subcommands (1)
+// and validate/diff (2).
 func requirePositionals(fs *flag.FlagSet, want int, usage string) bool {
 	if fs.NArg() != want {
 		fmt.Fprintln(os.Stderr, usage)
