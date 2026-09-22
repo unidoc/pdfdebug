@@ -17,6 +17,10 @@ import (
 //
 // The `dump` subcommands report a usage error as exit 1; `validate` and `diff`
 // use exit 2, their operational-error code.
+//
+// The shape check runs first on every command, ahead of any flag-value check,
+// so an invocation wrong both ways draws the usage line rather than a complaint
+// about a value whose operand the parser never got to.
 // ---------------------------------------------------------------------------
 
 // positionalCase describes one command's positional contract: the words that
@@ -30,29 +34,37 @@ type positionalCase struct {
 	// flag-after-file case moves it behind the file, so the selector has to be
 	// listed apart from argv rather than baked into it.
 	selector []string
-	file     string
-	files    int
-	usage    string
-	wantExit int
+	// badValue is the complete set of flags, written ahead of the file, that
+	// makes the invocation wrong a second way: a flag value the command
+	// rejects. nil for a command that checks no flag value before it runs.
+	badValue []string
+	// valueError is the text the badValue check writes when the shape is
+	// otherwise fine. The shape check runs first, so it must NOT appear when
+	// the invocation is wrong both ways.
+	valueError string
+	file       string
+	files      int
+	usage      string
+	wantExit   int
 }
 
 var positionalCases = []positionalCase{
-	{"dump tree", []string{"dump", "tree"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump tree", 1},
-	{"dump object", []string{"dump", "object"}, []string{"--ref", "1 0 R"}, "minimal.pdf", 1, "Usage: pdfdebug dump object", 1},
-	{"dump stream", []string{"dump", "stream"}, []string{"--page", "1"}, "content-stream.pdf", 1, "Usage: pdfdebug dump stream", 1},
-	{"dump page", []string{"dump", "page"}, []string{"--info", "1"}, "minimal.pdf", 1, "Usage: pdfdebug dump page", 1},
-	{"dump font", []string{"dump", "font"}, []string{"--ref", "4 0 R"}, "fonts-mixed.pdf", 1, "Usage: pdfdebug dump font", 1},
-	{"dump image", []string{"dump", "image"}, []string{"--ref", "4 0 R"}, "image-xobject.pdf", 1, "Usage: pdfdebug dump image", 1},
-	{"dump source", []string{"dump", "source"}, []string{"--ref", "1 0 R"}, "minimal.pdf", 1, "Usage: pdfdebug dump source", 1},
-	{"dump reverserefs", []string{"dump", "reverserefs"}, []string{"--ref", "2 0 R"}, "minimal.pdf", 1, "Usage: pdfdebug dump reverserefs", 1},
-	{"dump xref", []string{"dump", "xref"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump xref", 1},
-	{"dump objects", []string{"dump", "objects"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump objects", 1},
-	{"dump bytes", []string{"dump", "bytes"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump bytes", 1},
-	{"dump embedded", []string{"dump", "embedded"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump embedded", 1},
-	{"dump metadata", []string{"dump", "metadata"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump metadata", 1},
-	{"dump signatures", []string{"dump", "signatures"}, nil, "minimal.pdf", 1, "Usage: pdfdebug dump signatures", 1},
-	{"validate", []string{"validate"}, nil, "minimal.pdf", 1, "Usage: pdfdebug validate", 2},
-	{"diff", []string{"diff"}, nil, "minimal.pdf", 2, "Usage: pdfdebug diff", 2},
+	{"dump tree", []string{"dump", "tree"}, nil, []string{"--page", "0"}, "invalid --page", "minimal.pdf", 1, "Usage: pdfdebug dump tree", 1},
+	{"dump object", []string{"dump", "object"}, []string{"--ref", "1 0 R"}, []string{"--ref", "1 0 R", "--resolve-depth", "-1"}, "invalid --resolve-depth", "minimal.pdf", 1, "Usage: pdfdebug dump object", 1},
+	{"dump stream", []string{"dump", "stream"}, []string{"--page", "1"}, []string{"--page", "0"}, "invalid --page", "content-stream.pdf", 1, "Usage: pdfdebug dump stream", 1},
+	{"dump page", []string{"dump", "page"}, []string{"--info", "1"}, []string{"--info", "0"}, "invalid --info", "minimal.pdf", 1, "Usage: pdfdebug dump page", 1},
+	{"dump font", []string{"dump", "font"}, []string{"--ref", "4 0 R"}, []string{"--ref", "not a ref"}, "invalid reference format", "fonts-mixed.pdf", 1, "Usage: pdfdebug dump font", 1},
+	{"dump image", []string{"dump", "image"}, []string{"--ref", "4 0 R"}, []string{"--ref", "not a ref"}, "invalid reference format", "image-xobject.pdf", 1, "Usage: pdfdebug dump image", 1},
+	{"dump source", []string{"dump", "source"}, []string{"--ref", "1 0 R"}, []string{"--ref", "not a ref"}, "invalid reference format", "minimal.pdf", 1, "Usage: pdfdebug dump source", 1},
+	{"dump reverserefs", []string{"dump", "reverserefs"}, []string{"--ref", "2 0 R"}, []string{"--ref", "not a ref"}, "invalid reference format", "minimal.pdf", 1, "Usage: pdfdebug dump reverserefs", 1},
+	{"dump xref", []string{"dump", "xref"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump xref", 1},
+	{"dump objects", []string{"dump", "objects"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump objects", 1},
+	{"dump bytes", []string{"dump", "bytes"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump bytes", 1},
+	{"dump embedded", []string{"dump", "embedded"}, nil, []string{"--ref", "1 0 R", "--name", "attachment.xml"}, "mutually exclusive", "minimal.pdf", 1, "Usage: pdfdebug dump embedded", 1},
+	{"dump metadata", []string{"dump", "metadata"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump metadata", 1},
+	{"dump signatures", []string{"dump", "signatures"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump signatures", 1},
+	{"validate", []string{"validate"}, nil, []string{"--profile", "pdfa-9z"}, "unknown profile", "minimal.pdf", 1, "Usage: pdfdebug validate", 2},
+	{"diff", []string{"diff"}, nil, nil, "", "minimal.pdf", 2, "Usage: pdfdebug diff", 2},
 }
 
 // invocation returns the command words, its mode selector, then the case's file
@@ -79,6 +91,25 @@ func (c positionalCase) flagAfterFile(t *testing.T, n int) []string {
 	return append(args, trailing...)
 }
 
+// badValueOnly returns the command with its rejected flag value ahead of the
+// file and nothing else wrong, so the value check is the only one that can
+// fire. It is the baseline for wrongBothWays: without it a value check that had
+// quietly stopped rejecting anything would make that test pass for free.
+func (c positionalCase) badValueOnly(t *testing.T, n int) []string {
+	t.Helper()
+	args := append([]string{}, c.argv...)
+	args = append(args, c.badValue...)
+	return append(args, c.paths(t, n)...)
+}
+
+// wrongBothWays returns the command wrong in two ways at once: a flag value it
+// rejects ahead of the file, and a flag behind the file that arrives as a spare
+// positional. Both checks have something to report; the shape one goes first.
+func (c positionalCase) wrongBothWays(t *testing.T, n int) []string {
+	t.Helper()
+	return append(c.badValueOnly(t, n), "--json")
+}
+
 // paths returns the case's file path repeated n times.
 func (c positionalCase) paths(t *testing.T, n int) []string {
 	t.Helper()
@@ -91,7 +122,7 @@ func (c positionalCase) paths(t *testing.T, n int) []string {
 }
 
 // A valid invocation, with every flag written before the file, is left alone:
-// the usage line must not appear. This is the baseline the two rejection tests
+// the usage line must not appear. This is the baseline the rejection tests
 // below are measured against - without it a guard that rejected everything
 // would look correct.
 func TestPositionalArity_ValidInvocationIsNotAUsageError(t *testing.T) {
@@ -126,6 +157,60 @@ func TestPositionalArity_FlagAfterFileIsAUsageError(t *testing.T) {
 			}
 			if !strings.Contains(stderr, c.usage) {
 				t.Errorf("%s: stderr should carry the usage line, got: %q", c.name, stderr)
+			}
+		})
+	}
+}
+
+// A rejected flag value, with the shape otherwise correct, is reported as the
+// value error it is. This is what wrongBothWays below must NOT produce.
+func TestPositionalArity_BadFlagValueIsReportedWhenTheShapeIsRight(t *testing.T) {
+	bin := buildCLI(t)
+
+	for _, c := range positionalCases {
+		if c.badValue == nil {
+			continue
+		}
+		t.Run(c.name, func(t *testing.T) {
+			_, stderr, ec := runCLI(t, bin, c.badValueOnly(t, c.files)...)
+			if ec != c.wantExit {
+				t.Errorf("%s: a rejected flag value expected exit %d, got %d", c.name, c.wantExit, ec)
+			}
+			if !strings.Contains(stderr, c.valueError) {
+				t.Errorf("%s: stderr should carry %q, got: %q", c.name, c.valueError, stderr)
+			}
+		})
+	}
+}
+
+// An invocation wrong in BOTH ways - a flag value the command rejects AND a
+// flag written after the file - draws the usage line. Shape is checked first
+// across the whole surface, so the value error never reaches stderr: complaining
+// about a flag the parser did see, while staying silent about the operand shape
+// that stopped it seeing the rest, sends the caller after the wrong fix.
+//
+// Commands with no flag value to reject are skipped; they have no ordering to
+// pin.
+func TestPositionalArity_ShapeErrorWinsOverFlagValueError(t *testing.T) {
+	bin := buildCLI(t)
+
+	for _, c := range positionalCases {
+		if c.badValue == nil {
+			continue
+		}
+		t.Run(c.name, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, c.wrongBothWays(t, c.files)...)
+			if ec != c.wantExit {
+				t.Errorf("%s: wrong both ways expected exit %d, got %d", c.name, c.wantExit, ec)
+			}
+			if stdout != "" {
+				t.Errorf("%s: stdout must stay empty, got %d bytes", c.name, len(stdout))
+			}
+			if !strings.Contains(stderr, c.usage) {
+				t.Errorf("%s: stderr should carry the usage line, got: %q", c.name, stderr)
+			}
+			if strings.Contains(stderr, c.valueError) {
+				t.Errorf("%s: the shape error must win, but stderr carries %q: %q", c.name, c.valueError, stderr)
 			}
 		})
 	}

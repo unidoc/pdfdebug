@@ -32,6 +32,16 @@ func runObjectDump(args []string) int {
 		fmt.Fprintln(os.Stderr, objectUsage)
 		return 1
 	}
+
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, objectUsage) {
+		return 1
+	}
+	filePath := fs.Arg(0)
+
 	if *resolveDepthFlag < 0 {
 		writeJSONError(os.Stderr, "invalid --resolve-depth: must be >= 0")
 		return 1
@@ -42,11 +52,6 @@ func runObjectDump(args []string) int {
 		writeJSONError(os.Stderr, err.Error())
 		return 1
 	}
-
-	if !requirePositionals(fs, 1, objectUsage) {
-		return 1
-	}
-	filePath := fs.Arg(0)
 
 	return execObjectDump(filePath, objNum, genNum, *jsonFlag, *prettyFlag, *resolveFlag, *resolveDepthFlag)
 }

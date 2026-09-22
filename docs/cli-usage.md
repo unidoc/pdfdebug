@@ -22,8 +22,10 @@ Flags go before the file, not after it. Argument parsing stops at the first
 non-flag argument, so `dump tree file.pdf --json` would leave `--json` unparsed;
 the command rejects it with the usage line rather than quietly printing plain
 text. That covers a required selector too: `dump page file.pdf --info 1` is the
-same shape error, reported the same way, not a missing `--info`. Every command
-takes one file except `diff`, which takes two.
+same shape error, reported the same way, not a missing `--info`. A flag value
+the command would also reject changes nothing: `dump tree --page 0 file.pdf
+--json` draws the usage line, not the out-of-range `--page`. Every command takes
+one file except `diff`, which takes two.
 
 ## Commands
 

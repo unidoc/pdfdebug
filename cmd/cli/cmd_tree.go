@@ -52,6 +52,15 @@ func runTreeDump(args []string) int {
 		return 1
 	}
 
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, treeUsage) {
+		return 1
+	}
+	filePath := fs.Arg(0)
+
 	// Reject negative depth; treat as user error rather than silently clamping.
 	if flags.depth < 0 {
 		writeJSONError(os.Stderr, "invalid --depth: must be >= 0")
@@ -69,11 +78,6 @@ func runTreeDump(args []string) int {
 		writeJSONError(os.Stderr, "invalid --page: must be >= 1 (pages are 1-based)")
 		return 1
 	}
-
-	if !requirePositionals(fs, 1, treeUsage) {
-		return 1
-	}
-	filePath := fs.Arg(0)
 
 	pageNum := 0
 	if flags.pageSet {

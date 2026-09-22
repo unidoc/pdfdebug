@@ -33,11 +33,13 @@
 //	    above the usage line. An absent mode selector is a missing flag
 //	    reported as JSON: no --info on `dump page`, no --page / --ref /
 //	    --xobject on `dump stream`, and no --page or --ref to own a
-//	    `dump stream --xobject`. The shape check runs ahead of every
-//	    flag-value check, so an invocation wrong in both ways draws the usage
-//	    line: `dump page file.pdf --info 1` leaves the selector behind the
-//	    file, where the parser never sees it, and is reported as the shape
-//	    error it is rather than as an absent --info
+//	    `dump stream --xobject`. On every command the shape check runs ahead
+//	    of every flag-value check, so an invocation wrong in both ways draws
+//	    the usage line: `dump page file.pdf --info 1` leaves the selector
+//	    behind the file, where the parser never sees it, and is reported as
+//	    the shape error it is rather than as an absent --info, and
+//	    `dump tree --page 0 file.pdf --json` draws the usage line rather than
+//	    the out-of-range --page
 //	2 - a single JSON object carrying an `error` key, except where a payload
 //	    path reports its own failure as plain text: the write failures of the
 //	    raw `dump bytes`, of `dump source` on both --raw and the plain-text
@@ -66,5 +68,7 @@
 //	0 - ran successfully, no structural errors found (NOT a compliance/valid verdict)
 //	1 - ran successfully AND found >=1 structural error (the compliance-gate signal)
 //	2 - operational error (missing/unreadable file, a <file> operand other than
-//	    one non-empty path, unknown profile, view failure)
+//	    one non-empty path, unknown profile, view failure). The shape check
+//	    runs ahead of the profile check, as it does across the dump
+//	    subcommands
 package main
