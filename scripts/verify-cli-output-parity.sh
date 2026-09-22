@@ -158,10 +158,14 @@ mv "$BIN_HEAD.tmp" "$BIN_BASE" || die "cannot place baseline binary"
 # report the new one as an unknown resource on every fixture. Ask the binary
 # rather than assume: an empty operand reaches the dispatch table and stops at
 # the usage check, so nothing is opened and nothing is read.
+# The output is captured rather than piped into grep: under `set -o pipefail`
+# the pipeline would carry the binary's own non-zero exit, not grep's, and the
+# probe would always read as "recognised".
 BYTES_SPELLING_BASE=bytes
-if "$BIN_BASE" dump bytes "" 2>&1 | grep -q 'Unknown resource'; then
-	BYTES_SPELLING_BASE=plaintext
-fi
+probe_out=$("$BIN_BASE" dump bytes "" 2>&1 || true)
+case "$probe_out" in
+*'Unknown resource'*) BYTES_SPELLING_BASE=plaintext ;;
+esac
 echo "baseline byte dump: dump $BYTES_SPELLING_BASE"
 
 # --- corpus -----------------------------------------------------------------
