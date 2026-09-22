@@ -333,6 +333,10 @@ type FormRenderInfo struct {
 // frontend branches the three cases without parsing Error. StoredBytes is the
 // encoded stream length (the compressed size in the PDF); DecodedBytes is the
 // raw size the declared geometry implies once decoded (0 when unknown).
+//
+// The sample-interpretation fields (Decode through SampleInterpretation) report
+// whether the samples are read inverted, and they carry no omitempty: JSON is a
+// contract, so an absent /Decode emits "decode": null rather than vanishing.
 type ImageData struct {
 	NodeID           string `json:"nodeId"`
 	ObjectRef        string `json:"objectRef"`
@@ -348,8 +352,34 @@ type ImageData struct {
 	ThumbHeight      int    `json:"thumbHeight"`
 	StoredBytes      int64  `json:"storedBytes"`
 	DecodedBytes     int64  `json:"decodedBytes"`
-	Warning          string `json:"warning"`
-	Error            string `json:"error"`
+
+	// Decode is the /Decode array as written, nil when the key is absent or the
+	// array was rejected as malformed (a rejection also appends to Warning).
+	Decode []float64 `json:"decode"`
+	// ImageMask is the /ImageMask flag: a stencil mask carries no /ColorSpace and
+	// one 1-bit sample per pixel.
+	ImageMask bool `json:"imageMask"`
+	// SMask reports the image /SMask as presence plus its object reference; the
+	// mask image itself is never dereferenced. The pointer carries three states
+	// a plain string would collapse into two: nil for an absent key, a pointer to
+	// "" for a key present with no reference to report (a direct stream, or the
+	// /None name writers borrow from the ExtGState soft-mask entry), and a
+	// pointer to "N G R" otherwise.
+	SMask *string `json:"smask"`
+	// AdobeMarker is one of the AdobeMarker* discriminators for the Adobe APP14
+	// outcome. It is empty when the walk was never reached: the node is not an
+	// image XObject, or the read stopped above it with Error set.
+	AdobeMarker string `json:"adobeMarker"`
+	// AdobeTransform is the Adobe APP14 transform byte (0 none, 1 YCbCr,
+	// 2 YCCK), non-nil only when AdobeMarker is AdobeMarkerPresent. It is
+	// evidence shown beside the verdict and never an input to it.
+	AdobeTransform *int `json:"adobeTransform"`
+	// SampleInterpretation is the verdict joining Decode and AdobeMarker into one
+	// answer. Empty on the same reads that leave AdobeMarker empty.
+	SampleInterpretation string `json:"sampleInterpretation"`
+
+	Warning string `json:"warning"`
+	Error   string `json:"error"`
 }
 
 // ImageDescription is the decode-free pre-decode estimate for an image XObject:

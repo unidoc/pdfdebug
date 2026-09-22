@@ -1,0 +1,353 @@
+// Co-located unit tests for the sample-interpretation verdict:
+//
+//	sampleInterpretationVerdict(colorSpace string, imageMask bool, components int,
+//		decode []float64, decodeRejected bool, markerOutcome string) string
+//
+// A table over synthetic inputs, because the combination table is what is being
+// pinned and several of its rows have no decodable fixture: Go cannot encode a
+// four-component JPEG, and it refuses one that carries no Adobe record, so the
+// row that produces the visible negative is decided here and nowhere else.
+package pdfcore
+
+import "testing"
+
+var (
+	cmykDefault  = []float64{0, 1, 0, 1, 0, 1, 0, 1}
+	cmykInverted = []float64{1, 0, 1, 0, 1, 0, 1, 0}
+	cmykPartial  = []float64{1, 0, 0, 1, 0, 1, 0, 1}
+	rgbDefault   = []float64{0, 1, 0, 1, 0, 1}
+	rgbInverted  = []float64{1, 0, 1, 0, 1, 0}
+	rgbPartial   = []float64{1, 0, 0, 1, 0, 1}
+)
+
+func TestSampleInterpretation(t *testing.T) {
+	cases := []struct {
+		name           string
+		colorSpace     string
+		imageMask      bool
+		components     int
+		decode         []float64
+		decodeRejected bool
+		marker         string
+		want           string
+	}{
+		// The combination table at four components, where both switches are live.
+		{
+			name:       "no marker and no array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "no marker and the default array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykDefault,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "a marker with the default array inverts once in a decoder that honours it",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNormalMarker,
+		},
+		{
+			name:       "an inverting array and a marker cancel out",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNormalNet,
+		},
+		{
+			name:       "an inverting array with no marker is the negative",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictInvertedNoMark,
+		},
+		{
+			name:       "a partial inversion is non-default, never normal",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykPartial,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNonDefault,
+		},
+		{
+			name:       "a partial inversion beside a marker is still non-default",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykPartial,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNonDefault,
+		},
+		{
+			// A stream that is not a JPEG has no marker chain, so the verdict
+			// must not name one: there is nothing for a reader to go and check.
+			name:       "a four-component stream that is not DCT reads from the array alone",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictInvertedDecode,
+		},
+		{
+			name:       "a four-component stream that is not DCT with the default array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykDefault,
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNormalDefault,
+		},
+
+		// The default and the full inversion are both defined per component, so
+		// an array with the wrong number of pairs is neither.
+		{
+			name:       "four components with a single inverting pair is not a full inversion",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     []float64{1, 0},
+			marker:     AdobeMarkerPresent,
+			want:       verdictNonDefault,
+		},
+		{
+			name:       "four components with a single identity pair is not the default array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     []float64{0, 1},
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNonDefault,
+		},
+		{
+			name:       "three components carrying four pairs is neither",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNonDefault,
+		},
+		{
+			name:       "an odd-length array leaves a pair dangling and is neither",
+			components: -1,
+			decode:     []float64{0, 1, 0},
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNonDefault,
+		},
+
+		// A rejected array is stored as nothing, which is the same nil an absent
+		// key leaves. It must not read as the default: the file does set the
+		// array, and what it sets is what could not be read.
+		{
+			name:           "a rejected array does not read as the default",
+			colorSpace:     "DeviceRGB",
+			components:     3,
+			decodeRejected: true,
+			marker:         AdobeMarkerAbsent,
+			want:           verdictNonDefault,
+		},
+		{
+			name:           "a rejected array at four components with no marker",
+			colorSpace:     "DeviceCMYK",
+			components:     4,
+			decodeRejected: true,
+			marker:         AdobeMarkerAbsent,
+			want:           verdictNonDefault,
+		},
+		{
+			name:           "a rejected array at four components beside a marker",
+			colorSpace:     "DeviceCMYK",
+			components:     4,
+			decodeRejected: true,
+			marker:         AdobeMarkerPresent,
+			want:           verdictNonDefault,
+		},
+		{
+			name:           "an unreadable chain still outranks a rejected array",
+			colorSpace:     "DeviceCMYK",
+			components:     4,
+			decodeRejected: true,
+			marker:         AdobeMarkerUnparseable,
+			want:           verdictUnknownChain,
+		},
+
+		// An unreadable marker outranks any verdict that would depend on it:
+		// whether a compensating inversion exists is precisely what is unknown.
+		{
+			name:       "an unreadable chain outranks an inverting array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerUnparseable,
+			want:       verdictUnknownChain,
+		},
+		{
+			name:       "an unreadable chain outranks the default array too",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykDefault,
+			marker:     AdobeMarkerUnparseable,
+			want:       verdictUnknownChain,
+		},
+		{
+			name:       "unreachable JPEG bytes outrank an inverting array",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerNotExamined,
+			want:       verdictUnknownReach,
+		},
+
+		// Below four components the marker never inverts anything, so it never
+		// reaches the verdict - including the two Unknown outcomes.
+		{
+			name:       "three components with a marker and no array",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "three components with a marker and the default array",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			decode:     rgbDefault,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "three components with a marker and an inverting array",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			decode:     rgbInverted,
+			marker:     AdobeMarkerPresent,
+			want:       verdictInvertedDecode,
+		},
+		{
+			name:       "three components with a partial inversion",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			decode:     rgbPartial,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNonDefault,
+		},
+		{
+			name:       "an unreadable chain below four components does not reach the verdict",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			decode:     rgbInverted,
+			marker:     AdobeMarkerUnparseable,
+			want:       verdictInvertedDecode,
+		},
+		{
+			name:       "unreachable bytes below four components do not reach the verdict",
+			colorSpace: "DeviceRGB",
+			components: 3,
+			marker:     AdobeMarkerNotExamined,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "one component with a marker and an inverting array",
+			colorSpace: "DeviceGray",
+			components: 1,
+			decode:     []float64{1, 0},
+			marker:     AdobeMarkerPresent,
+			want:       verdictInvertedDecode,
+		},
+
+		// An unresolved component count is not four components. Widening the guess
+		// here would invent an inversion rather than a ceiling.
+		{
+			name:       "an unresolved component count does not take the marker arm",
+			components: -1,
+			marker:     AdobeMarkerPresent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "an unresolved component count with an inverting array",
+			components: -1,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerPresent,
+			want:       verdictInvertedDecode,
+		},
+		{
+			name:       "an unresolved component count with an unreadable chain",
+			components: -1,
+			decode:     cmykInverted,
+			marker:     AdobeMarkerUnparseable,
+			want:       verdictInvertedDecode,
+		},
+
+		// A stencil mask is one component whatever else the dictionary says.
+		{
+			name:      "a stencil mask with no array",
+			imageMask: true,
+			marker:    AdobeMarkerNotApplicable,
+			want:      verdictNormalDefault,
+		},
+		{
+			name:      "a stencil mask with an inverting array",
+			imageMask: true,
+			decode:    []float64{1, 0},
+			marker:    AdobeMarkerNotApplicable,
+			want:      verdictInvertedDecode,
+		},
+		{
+			name:       "a stencil mask claiming four components is still one",
+			imageMask:  true,
+			components: 4,
+			decode:     []float64{1, 0},
+			marker:     AdobeMarkerPresent,
+			want:       verdictInvertedDecode,
+		},
+
+		// Indexed and Lab are not classified: their defaults are not [0 1], so the
+		// identity test would call an ordinary array an inversion.
+		{
+			name:       "an Indexed image",
+			colorSpace: "Indexed",
+			components: 1,
+			decode:     []float64{0, 255},
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNotClassified,
+		},
+		{
+			name:       "an Indexed image whose array happens to be the identity",
+			colorSpace: "Indexed",
+			components: 1,
+			decode:     []float64{0, 1},
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNotClassified,
+		},
+		{
+			name:       "a Lab image",
+			colorSpace: "Lab",
+			components: 3,
+			decode:     []float64{0, 100, -100, 100, -100, 100},
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNotClassified,
+		},
+		{
+			name:       "a Lab image with no array",
+			colorSpace: "Lab",
+			components: 3,
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNotClassified,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := sampleInterpretationVerdict(tc.colorSpace, tc.imageMask, tc.components, tc.decode,
+				tc.decodeRejected, tc.marker)
+			if got != tc.want {
+				t.Errorf("verdict = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+

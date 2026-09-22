@@ -230,12 +230,23 @@ describe('lying-stream refusal is a finding, not a consent prompt', () => {
       colorSpace: 'DeviceGray',
       estimatedBytes: 64,
     });
+    // The refusal happens below the dictionary read, so the backend carries the
+    // full metadata set on this path.
     mockGetImageData.mockResolvedValue({
       nodeId: 'obj:0:7',
       kind: 'ceiling-refusal',
       base64: '',
       width: 8,
       height: 8,
+      colorSpace: 'DeviceGray',
+      bitsPerComponent: 8,
+      filter: 'FlateDecode',
+      decode: [1, 0],
+      imageMask: false,
+      smask: '5 0 R',
+      adobeMarker: 'not-applicable',
+      adobeTransform: null,
+      sampleInterpretation: 'Inverted by /Decode',
       error: 'image data too large (the stream inflates past what it declares)',
     });
   });
@@ -245,6 +256,22 @@ describe('lying-stream refusal is a finding, not a consent prompt', () => {
 
     expect(await screen.findByTestId('image-preview-finding')).toBeInTheDocument();
     expect(screen.queryByTestId('image-preview-proceed')).not.toBeInTheDocument();
+  });
+
+  // The dictionary was read, so the rows it produced are shown beside the
+  // refusal, the same rows the CLI prints for the same object.
+  test('still shows the metadata rows beside the refusal', async () => {
+    renderImageNode();
+
+    expect(await screen.findByTestId('image-preview-finding')).toBeInTheDocument();
+    expect(screen.getByTestId('image-preview-interpretation')).toHaveTextContent(
+      'Inverted by /Decode'
+    );
+    expect(screen.getByTestId('image-preview-decode')).toHaveTextContent('[1 0]');
+    expect(screen.getByTestId('image-preview-smask')).toHaveTextContent('5 0 R');
+    expect(screen.getByTestId('image-preview-metadata')).toHaveTextContent('DeviceGray');
+    // The refusal message is the finding above, not a second error row.
+    expect(screen.queryByTestId('image-preview-error')).not.toBeInTheDocument();
   });
 });
 

@@ -26,10 +26,42 @@ interface ImagePreviewProps {
   storedBytes?: number;
   /** Decoded size the declared geometry implies (raw, in memory). 0 = unknown. */
   decodedBytes?: number;
+  /** The /Decode array as written; null or absent when the key is not set. */
+  decode?: number[] | null;
+  /** The /ImageMask flag: a stencil mask, one 1-bit sample per pixel. */
+  imageMask?: boolean;
+  /**
+   * The image /SMask: null or absent for no key, "" for a mask present with no
+   * object reference to report, "N G R" otherwise.
+   */
+  smask?: string | null;
+  /** Adobe APP14 outcome: not-applicable, absent, present, unparseable, not-examined. */
+  adobeMarker?: string;
+  /** Adobe APP14 transform byte; meaningful only when adobeMarker is "present". */
+  adobeTransform?: number | null;
+  /** The verdict joining /Decode and the Adobe marker into one answer. */
+  sampleInterpretation?: string;
   /** Backend-direct save of the full-resolution image. Absent = no save action. */
   onSave?: () => void;
   /** Inline save-failure message shown under the save action. */
   saveError?: string;
+}
+
+/**
+ * Renders an Adobe APP14 transform byte with its meaning beside the number.
+ * A bare number only helps a reader who already knows what it means.
+ */
+function adobeTransformText(transform: number): string {
+  switch (transform) {
+    case 0:
+      return 'None (transform 0)';
+    case 1:
+      return 'YCbCr (transform 1)';
+    case 2:
+      return 'YCCK (transform 2)';
+    default:
+      return `Unknown (transform ${transform})`;
+  }
 }
 
 /** Renders an image preview with metadata, a subtle downsampled-preview cue, a
@@ -48,6 +80,12 @@ export function ImagePreview({
   thumbHeight = 0,
   storedBytes = 0,
   decodedBytes = 0,
+  decode = null,
+  imageMask = false,
+  smask = null,
+  adobeMarker = '',
+  adobeTransform = null,
+  sampleInterpretation = '',
   onSave,
   saveError,
 }: ImagePreviewProps) {
@@ -146,6 +184,37 @@ export function ImagePreview({
             <div data-testid="image-preview-size">
               <span className="text-text-secondary">Size: </span>
               {sizeText}
+            </div>
+          )}
+          {/* The verdict is unconditional: "checked, nothing here" is a real
+              answer and has to be distinguishable from "the tool did not look".
+              The rows below it are evidence and structure, shown only when they
+              carry something. */}
+          <div data-testid="image-preview-interpretation">
+            <span className="text-text-secondary">Interpretation: </span>
+            {sampleInterpretation || '-'}
+          </div>
+          {decode && decode.length > 0 && (
+            <div data-testid="image-preview-decode">
+              <span className="text-text-secondary">Decode: </span>[{decode.join(' ')}]
+            </div>
+          )}
+          {adobeMarker === 'present' && adobeTransform !== null && adobeTransform !== undefined && (
+            <div data-testid="image-preview-adobe-transform">
+              <span className="text-text-secondary">Adobe Transform: </span>
+              {adobeTransformText(adobeTransform)}
+            </div>
+          )}
+          {smask !== null && smask !== undefined && (
+            <div data-testid="image-preview-smask">
+              <span className="text-text-secondary">Soft Mask: </span>
+              {smask || 'present (no reference)'}
+            </div>
+          )}
+          {imageMask && (
+            <div data-testid="image-preview-image-mask">
+              <span className="text-text-secondary">Stencil Mask: </span>
+              true
             </div>
           )}
         </div>

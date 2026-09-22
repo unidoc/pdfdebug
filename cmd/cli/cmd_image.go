@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
@@ -106,21 +107,116 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 
 // printImagePlain renders ImageData as an aligned key/value block (omitting the
 // base64 payload). A populated error/warning field is surfaced as its own row.
+//
+// Error does not suppress the block. A 4-component DCT stream with no Adobe
+// APP14 is refused by the JPEG decoder, and a /DeviceN whose colorant array is
+// an indirect reference fails the colour-space lookup: both arrive with Error
+// set after the geometry has been read, so stopping there would print an error
+// and nothing else on exactly the files this view exists for.
+//
+// The empty object reference discriminates the node whose image dictionary was
+// never read - an error node, a non-stream object, or a wrong /Subtype - where
+// there is genuinely nothing else to print. Those returns build an ImageData
+// without ObjectRef; every path that reaches the dictionary sets it, so the test
+// is true by construction rather than a side effect of how far the read got.
+//
+// The verdict row is unconditional: "checked, nothing here" is a real answer and
+// has to be distinguishable from "the tool did not look". The structural rows
+// are conditional, because nobody opens this view asking about them.
 func printImagePlain(out io.Writer, img *pdfcore.ImageData) error {
 	var w kvWriter
 	w.Add("Object", img.ObjectRef)
 	if img.Error != "" {
-		w.Add("Error", img.Error)
-		return w.Render(out)
+		// pdfcpu's messages end with a newline. The row is no longer the last one
+		// in the block, so an untrimmed value opens a blank line inside it.
+		w.Add("Error", strings.TrimSpace(img.Error))
+		if img.ObjectRef == "" {
+			return w.Render(out)
+		}
 	}
-	w.Add("MimeType", img.MimeType)
+	// MimeType is set by the render, so it is empty on every row the error arm
+	// falls through to. The dash is what this writer says for a value that is
+	// not there.
+	w.Add("MimeType", dashIfEmpty(img.MimeType))
 	w.Addf("Width", "%d", img.Width)
 	w.Addf("Height", "%d", img.Height)
 	w.Add("ColorSpace", dashIfEmpty(img.ColorSpace))
 	w.Add("BitsPerComponent", strconv.Itoa(img.BitsPerComponent))
 	w.Add("Filter", dashIfEmpty(img.Filter))
+	if size := imageSizeText(img); size != "" {
+		w.Add("Size", size)
+	}
+	w.Add("Interpretation", dashIfEmpty(img.SampleInterpretation))
+	if len(img.Decode) > 0 {
+		w.Add("Decode", formatDecodeArray(img.Decode))
+	}
+	if img.AdobeMarker == pdfcore.AdobeMarkerPresent && img.AdobeTransform != nil {
+		w.Add("AdobeTransform", adobeTransformText(*img.AdobeTransform))
+	}
+	if img.SMask != nil {
+		w.Add("SMask", smaskText(*img.SMask))
+	}
+	if img.ImageMask {
+		w.Add("ImageMask", "true")
+	}
 	if img.Warning != "" {
 		w.Add("Warning", img.Warning)
 	}
 	return w.Render(out)
+}
+
+// imageSizeText composes the stored size with the decoded estimate after it,
+// each half only when it is non-zero, matching how the panel composes the same
+// row. The two surfaces use different precision for the decoded half and are not
+// expected to match byte for byte.
+func imageSizeText(img *pdfcore.ImageData) string {
+	decoded := ""
+	if img.DecodedBytes > 0 {
+		decoded = "~" + humanizeBytes(img.DecodedBytes) + " in memory"
+	}
+	if img.StoredBytes <= 0 {
+		return decoded
+	}
+	if decoded == "" {
+		return humanizeBytes(img.StoredBytes)
+	}
+	return humanizeBytes(img.StoredBytes) + " (" + decoded + ")"
+}
+
+// formatDecodeArray renders a /Decode array as its literal space-separated
+// numbers, so the row is the evidence behind the verdict rather than a summary
+// of it.
+func formatDecodeArray(values []float64) string {
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = strconv.FormatFloat(v, 'g', -1, 64)
+	}
+	return strings.Join(parts, " ")
+}
+
+// smaskText renders the image /SMask value. An empty reference means the key is
+// present with nothing to point at - a direct stream, or the /None name writers
+// borrow from the ExtGState entry - and is said in words rather than as the dash
+// this writer uses for a value that is not there at all.
+func smaskText(ref string) string {
+	if ref == "" {
+		return "present (no reference)"
+	}
+	return ref
+}
+
+// adobeTransformText renders an Adobe APP14 transform byte with its meaning
+// beside the number, never as a bare number: the number only helps a reader who
+// already knows what it means.
+func adobeTransformText(transform int) string {
+	name := "Unknown"
+	switch transform {
+	case 0:
+		name = "None"
+	case 1:
+		name = "YCbCr"
+	case 2:
+		name = "YCCK"
+	}
+	return fmt.Sprintf("%s (transform %d)", name, transform)
 }

@@ -1026,7 +1026,14 @@ function DetailPanelInner() {
                         {imageData.error}
                       </div>
                     )}
-                    {imageData && imageData.kind !== 'ceiling-refusal' && (
+                    {/* The refusal is a finding, but the dictionary was read and
+                        its rows are the point of the panel, so the metadata block
+                        mounts on that path too - matching what the CLI prints for
+                        the same object. The refusal message is already rendered
+                        above, so the error prop is cleared rather than repeated,
+                        and no save action is offered: the save re-renders through
+                        the same ceiling and would fail the same way. */}
+                    {imageData && (
                       <ImagePreview
                         base64={imageData.base64}
                         mimeType={imageData.mimeType}
@@ -1039,9 +1046,15 @@ function DetailPanelInner() {
                         thumbHeight={imageData.thumbHeight}
                         storedBytes={imageData.storedBytes}
                         decodedBytes={imageData.decodedBytes}
+                        decode={imageData.decode}
+                        imageMask={imageData.imageMask}
+                        smask={imageData.smask}
+                        adobeMarker={imageData.adobeMarker}
+                        adobeTransform={imageData.adobeTransform}
+                        sampleInterpretation={imageData.sampleInterpretation}
                         warning={imageData.warning}
-                        error={imageData.error}
-                        onSave={handleSaveImage}
+                        error={imageData.kind === 'ceiling-refusal' ? '' : imageData.error}
+                        onSave={imageData.kind === 'ceiling-refusal' ? undefined : handleSaveImage}
                         saveError={imageSaveError ?? undefined}
                       />
                     )}
