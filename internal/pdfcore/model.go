@@ -30,9 +30,11 @@ type TreeNode struct {
 	Value string `json:"value"`
 	// ValueRaw is Value's byte-exact stored form, written whenever it says
 	// something Value does not: every hex literal, and every literal carrying a
-	// PDF escape. It is omitted only where the stored form is Value itself or
-	// Value wrapped in literal-string delimiters, so its presence means the
-	// display form is not the form on disk.
+	// PDF escape. It stays empty where the stored form is Value itself or Value
+	// wrapped in literal-string delimiters, so a non-empty ValueRaw means the
+	// display form is not the form on disk. The field has no omitempty because
+	// the generated binding types it as required; the CLI's own output struct
+	// carries the omitempty that drops the key from --json.
 	ValueRaw string `json:"valueRaw"`
 }
 

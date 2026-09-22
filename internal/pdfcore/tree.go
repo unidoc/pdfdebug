@@ -281,10 +281,10 @@ func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object, binary b
 		ChildCount:  childCount,
 		IconHint:    iconHint(bareKey, nodeType, obj),
 	}
-	// Every scalar leaf, array element included: Label presents an element's
-	// value clamped and escaped for a row, so it is the only copy a reader
-	// sees, and a machine reading --json would otherwise have no way back to
-	// the full value. Containers and refs have no scalar to show.
+	// Every scalar leaf, array element included. An element's Label presents
+	// the same value clamped and escaped to fit a row; Value is the whole of
+	// it, so a machine reading --json has a way back to the full value.
+	// Containers and refs have no scalar to show.
 	if nodeType == "scalar" {
 		node.Value, node.ValueRaw = scalarNodeValue(obj, binary)
 	}
