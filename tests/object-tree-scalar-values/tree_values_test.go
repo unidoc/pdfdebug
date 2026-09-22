@@ -104,15 +104,46 @@ func TestArrayElement_RowShapeIsUnchanged(t *testing.T) {
 	}
 }
 
-func TestArrayElement_CarriesNoValueKeyInJSON(t *testing.T) {
+func TestArrayElement_CarriesItsValueInJSONAlongsideTheLabel(t *testing.T) {
 	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
 	elem := nodeAt(t, root, "/Arrays", "/Nums", "[0]")
 
 	if elem.Label != "0" {
 		t.Errorf("array element label = %q, want %q", elem.Label, "0")
 	}
-	if v, ok := value(elem); ok {
-		t.Errorf("array element carries value %q; its value already lives in label", v)
+	if got := mustValue(t, elem); got != "0" {
+		t.Errorf("array element value = %q, want %q", got, "0")
+	}
+}
+
+// The label is clamped and escaped for a row, so on a long or a decoded element
+// it is lossy. The value key is the only way back to what the element says.
+
+func TestArrayElement_ValueKeyRecoversWhatTheLabelElided(t *testing.T) {
+	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
+	elem := nodeAt(t, root, "/Arrays", "/LongStrs", "[0]")
+
+	want := strings.Repeat("x", 81)
+	if got := mustValue(t, elem); got != want {
+		t.Errorf("long array element value = %q, want the full %d-rune string", got, len(want))
+	}
+	if elem.Label == want {
+		t.Errorf("long array element label was not clamped: %q", elem.Label)
+	}
+}
+
+func TestArrayElement_ValueKeyCarriesTheDecodedTextAndItsRawForm(t *testing.T) {
+	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
+	elem := nodeAt(t, root, "/Arrays", "/Strs", "[0]")
+
+	if got := mustValue(t, elem); got != eText {
+		t.Errorf("array string element value = %q, want the decoded %q", got, eText)
+	}
+	raw, ok := valueRaw(elem)
+	if !ok {
+		t.Errorf("array string element emits no valueRaw although its stored form is an escaped literal")
+	} else if raw != eLiteral {
+		t.Errorf("array string element valueRaw = %q, want %q", raw, eLiteral)
 	}
 }
 

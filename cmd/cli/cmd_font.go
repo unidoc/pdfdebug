@@ -42,8 +42,11 @@ Example: pdfdebug dump font --glyphs --ref "6 0 R" input.pdf`
 		fmt.Fprintln(os.Stderr, usage)
 		return 1
 	}
-	if *refFlag == "" || fs.Arg(0) == "" {
+	if *refFlag == "" {
 		fmt.Fprintln(os.Stderr, usage)
+		return 1
+	}
+	if !requirePositionals(fs, 1, usage) {
 		return 1
 	}
 

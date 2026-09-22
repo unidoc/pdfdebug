@@ -18,6 +18,15 @@ pdfdebug <command> [subcommand] [flags] <file.pdf>
 
 Most inspection lives under `dump`. `validate` and `diff` are top-level peers.
 
+Flags go before the file, not after it. Argument parsing stops at the first
+non-flag argument, so `dump tree file.pdf --json` would leave `--json` unparsed;
+the command rejects it with the usage line rather than quietly printing plain
+text. That covers a required selector too: `dump page file.pdf --info 1` is the
+same shape error, reported the same way, not a missing `--info`. A flag value
+the command would also reject changes nothing: `dump tree --page 0 file.pdf
+--json` draws the usage line, not the out-of-range `--page`. Every command takes
+one file except `diff`, which takes two.
+
 ## Commands
 
 | Command | What it shows | Key flags |
@@ -32,12 +41,16 @@ Most inspection lives under `dump`. `validate` and `diff` are top-level peers.
 | `dump source` | The reserialized object source (PDF syntax) | `--ref`, `--raw` |
 | `dump reverserefs` | Inbound references (who points at this object) | `--ref` |
 | `dump xref` | The cross-reference table | - |
-| `dump plaintext` | Document bytes as decoded text | - |
+| `dump bytes` | Raw document bytes, not extracted page text | - |
 | `dump embedded` | Embedded/associated files; extracts one's bytes to stdout | `--ref`/`--name` |
 | `dump metadata` | The `/Info` dictionary fields and the XMP packet | - |
 | `dump signatures` | Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict) | - |
 | `validate` | Bounded structural conformance checks; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found; 2 = operational error) | `--profile` |
 | `diff` | Path-aligned structural diff of two PDFs; returns a three-way exit status (0 = identical; 1 = differ; 2 = operational error) | `--full` |
+
+`dump bytes` was called `dump plaintext`. The old spelling still works, prints
+a deprecation notice on stderr, and is removed in 0.6.0. It dumps the document's
+raw bytes; for the prose on the pages, use `pdftotext`.
 
 `validate` runs structural checks only, not full conformance; for an
 authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and

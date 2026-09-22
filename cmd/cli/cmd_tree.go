@@ -22,14 +22,15 @@ type treeNodeOutput struct {
 	IconHint    string `json:"iconHint,omitempty"`
 	PdfRef      string `json:"pdfRef,omitempty"`
 	TypeName    string `json:"typeName,omitempty"`
-	// Value is the decoded scalar value of a dictionary-entry leaf, uncapped
-	// and unescaped: truncating or escaping the machine contract would degrade
-	// what --json exists for. Omitted for containers, refs, error nodes and
-	// array-element scalars, whose value already lives in Label, so the key's
-	// presence means "this is a dictionary scalar, and here is what it says".
+	// Value is the decoded scalar value of a leaf, uncapped and unescaped:
+	// truncating or escaping the machine contract would degrade what --json
+	// exists for. Omitted for containers, refs and error nodes, so the key's
+	// presence means "this is a scalar, and here is what it says". Array
+	// elements carry it as well as their Label; the plain-text row does not
+	// repeat it.
 	Value string `json:"value,omitempty"`
-	// ValueRaw is Value's byte-exact counterpart, emitted only where decoding
-	// changed the content.
+	// ValueRaw is Value's byte-exact stored form, emitted wherever it says
+	// something Value does not.
 	ValueRaw string            `json:"valueRaw,omitempty"`
 	Error    string            `json:"error,omitempty"`
 	Children []*treeNodeOutput `json:"children,omitempty"`
@@ -40,13 +41,25 @@ type treeNodeOutput struct {
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
 
+// treeUsage is the one-line usage string for the tree dump subcommand.
+const treeUsage = "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>"
+
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
 	fs, flags, err := parseDumpFlags("dump tree", args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
+		fmt.Fprintln(os.Stderr, treeUsage)
 		return 1
 	}
+
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, treeUsage) {
+		return 1
+	}
+	filePath := fs.Arg(0)
 
 	// Reject negative depth; treat as user error rather than silently clamping.
 	if flags.depth < 0 {
@@ -63,12 +76,6 @@ func runTreeDump(args []string) int {
 	// is a usage error; an absent --page roots at the catalog.
 	if flags.pageSet && flags.page < 1 {
 		writeJSONError(os.Stderr, "invalid --page: must be >= 1 (pages are 1-based)")
-		return 1
-	}
-
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
@@ -157,7 +164,7 @@ func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
 		b.WriteByte(' ')
 		b.WriteString(meta)
 	}
-	if n.Value != "" {
+	if n.Value != "" && !labelCarriesValue(n) {
 		b.WriteString(" = ")
 		b.WriteString(pdfcore.ClampDisplayValue(n.Value, pdfcore.TreeValueCap))
 	}
@@ -170,6 +177,14 @@ func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
 	for _, c := range n.Children {
 		writeTreeNode(b, c, depth+1)
 	}
+}
+
+// labelCarriesValue reports whether a row's Label already presents the node's
+// value. An array element's rawKey is its index, "[0]", and its label is the
+// rendered value, so the row prints the value once rather than twice; a
+// dictionary entry's rawKey is "/Key" and its label is the key name.
+func labelCarriesValue(n *treeNodeOutput) bool {
+	return strings.HasPrefix(n.RawKey, "[")
 }
 
 // treeNodeTypeMeta returns the trailing type classifier for a tree row: the

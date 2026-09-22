@@ -35,6 +35,14 @@ func runValidate(args []string) int {
 		return 2
 	}
 
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, validateUsage) {
+		return 2
+	}
+
 	profile := *profileFlag
 	// An unknown profile is a usage error - list the valid profiles to
 	// stderr, no partial run, operational exit (2).
@@ -43,12 +51,7 @@ func runValidate(args []string) int {
 		return 2
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, validateUsage)
-		return 2
-	}
-	return execValidate(filePath, profile, *jsonFlag, *prettyFlag)
+	return execValidate(fs.Arg(0), profile, *jsonFlag, *prettyFlag)
 }
 
 // execValidate opens the PDF, runs the profile's rule set, and renders the

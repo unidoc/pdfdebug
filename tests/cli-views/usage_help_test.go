@@ -40,7 +40,7 @@ func TestHelp_ListsNewSubcommands(t *testing.T) {
 		"dump reverserefs",
 		"dump xref",
 		"dump objects",
-		"dump plaintext",
+		"dump bytes",
 	}
 	for _, cmd := range newCommands {
 		if !strings.Contains(help, cmd) {
@@ -57,8 +57,7 @@ func TestHelp_ListsNewSubcommands(t *testing.T) {
 // ---------------------------------------------------------------------------
 // The Examples block shows working invocations for at least `dump
 // reverserefs`, `dump xref`, and one flag-bearing case (`dump image
-// --metadata` OR `dump plaintext --json`) so the non-default flags are
-// discoverable.
+// --metadata`) so the non-default flags are discoverable.
 // ---------------------------------------------------------------------------
 
 func TestHelp_ExamplesCoverNewCommands(t *testing.T) {
@@ -82,10 +81,8 @@ func TestHelp_ExamplesCoverNewCommands(t *testing.T) {
 	if !strings.Contains(examples, "dump xref") {
 		t.Errorf("Examples block missing a `dump xref` invocation")
 	}
-	flagExample := strings.Contains(examples, "dump image --metadata") ||
-		strings.Contains(examples, "dump plaintext --json")
-	if !flagExample {
-		t.Errorf("Examples block should show a flag-bearing case (dump image --metadata or dump plaintext --json)")
+	if !strings.Contains(examples, "dump image --metadata") {
+		t.Errorf("Examples block should show a flag-bearing case (dump image --metadata)")
 	}
 }
 

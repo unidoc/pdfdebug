@@ -281,28 +281,25 @@ func buildTreeNode(id, rawKey, bareKey string, obj pdfcpu_types.Object, binary b
 		ChildCount:  childCount,
 		IconHint:    iconHint(bareKey, nodeType, obj),
 	}
-	// Dictionary-entry scalar leaves only. An array element's value already
-	// lives in its label, and containers and refs have no scalar to show.
-	if bareKey != "" && nodeType == "scalar" {
+	// Every scalar leaf, array element included. An element's Label presents
+	// the same value clamped and escaped to fit a row; Value is the whole of
+	// it, so a machine reading --json has a way back to the full value.
+	// Containers and refs have no scalar to show.
+	if nodeType == "scalar" {
 		node.Value, node.ValueRaw = scalarNodeValue(obj, binary)
 	}
 	return node
 }
 
-// scalarNodeValue renders a dictionary-entry scalar leaf: the display value,
-// and the byte-exact counterpart only where it says something the display value
-// does not. A raw counterpart equal to the display value would carry no
-// information, which is the case for a string whose decode is empty and whose
-// display therefore falls back to the stored form (a BOM-only <FEFF>).
+// scalarNodeValue renders a scalar leaf: the display value, and the byte-exact
+// counterpart only where it says something the display value does not.
 func scalarNodeValue(obj pdfcpu_types.Object, binary bool) (value, raw string) {
 	if binary && isStringObject(obj) {
 		return binaryStringSummary(obj), ""
 	}
 	value = scalarText(obj)
-	if decodeChangedContent(obj) {
-		if r := scalarRaw(obj); r != value {
-			raw = r
-		}
+	if rawCounterpartNeeded(obj, value) {
+		raw = scalarRaw(obj)
 	}
 	return value, raw
 }

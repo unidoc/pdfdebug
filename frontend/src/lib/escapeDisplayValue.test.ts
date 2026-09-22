@@ -7,7 +7,7 @@
  * Run: cd frontend && npx vitest run src/lib/escapeDisplayValue.test.ts
  */
 import { describe, test, expect } from 'vitest';
-import { escapeDisplayValue } from './escapeDisplayValue';
+import { clampDisplayValue, escapeDisplayValue, TREE_VALUE_RENDER_CAP } from './escapeDisplayValue';
 
 describe('escapeDisplayValue', () => {
   test('leaves ordinary text untouched', () => {
@@ -50,5 +50,72 @@ describe('escapeDisplayValue', () => {
   test('passes multi-byte and astral characters through whole', () => {
     expect(escapeDisplayValue('\u4e2d\u6587')).toBe('\u4e2d\u6587');
     expect(escapeDisplayValue('\u{1f600}')).toBe('\u{1f600}');
+  });
+});
+
+describe('clampDisplayValue', () => {
+  test('escapes a value at or under the limit whole, with no marker', () => {
+    expect(clampDisplayValue('a\nb', 10)).toBe('a\\nb');
+    expect(clampDisplayValue('xxxxx', 5)).toBe('xxxxx');
+  });
+
+  test('marks a cut with the emitted and total counts', () => {
+    expect(clampDisplayValue('xxxxxx', 5)).toBe('xxxxx [truncated: 5 of 6]');
+  });
+
+  test('escaping happens before the cut, so both counts are escaped lengths', () => {
+    // Ten NULs escape to forty characters; a limit of ten fits two of them.
+    expect(clampDisplayValue('\x00'.repeat(10), 10)).toBe('\\x00\\x00 [truncated: 8 of 40]');
+  });
+
+  test('an escape sequence is never halved', () => {
+    // The fifth tab would need two more characters than the limit leaves.
+    expect(clampDisplayValue('\t'.repeat(6), 9)).toBe('\\t\\t\\t\\t [truncated: 8 of 12]');
+  });
+
+  test('nothing after a unit that did not fit is emitted, so the text keeps its order', () => {
+    // The tab does not fit, and the "b" behind it must not jump the gap.
+    expect(clampDisplayValue('a\tb', 2)).toBe('a [truncated: 1 of 4]');
+  });
+
+  test('counts astral characters as one unit each, as the backend counts runes', () => {
+    expect(clampDisplayValue('\u{1f600}\u{1f600}', 1)).toBe('\u{1f600} [truncated: 1 of 2]');
+    expect(clampDisplayValue('\u{1f600}\u{1f600}', 2)).toBe('\u{1f600}\u{1f600}');
+  });
+
+  test('counts multi-byte text by code point, not by byte', () => {
+    expect(clampDisplayValue('中'.repeat(90), 80)).toBe(
+      `${'中'.repeat(80)} [truncated: 80 of 90]`,
+    );
+  });
+
+  test('the render cap leaves a normal-sized value intact', () => {
+    const value = 'L'.repeat(500);
+    expect(clampDisplayValue(value, TREE_VALUE_RENDER_CAP)).toBe(value);
+  });
+
+  test('reports the same text the backend reports for the same value and limit', () => {
+    // Mirrors the backend's ClampDisplayValue table at the limit the CLI row
+    // passes. The agreement is per limit: a tree row here passes
+    // TREE_VALUE_RENDER_CAP instead, and reports its own counts.
+    const cap = 80;
+    expect(clampDisplayValue('x'.repeat(79), cap)).toBe('x'.repeat(79));
+    expect(clampDisplayValue('x'.repeat(80), cap)).toBe('x'.repeat(80));
+    expect(clampDisplayValue('x'.repeat(81), cap)).toBe(`${'x'.repeat(80)} [truncated: 80 of 81]`);
+    expect(clampDisplayValue('\t'.repeat(41), cap)).toBe(
+      `${'\\t'.repeat(40)} [truncated: 80 of 82]`,
+    );
+    expect(clampDisplayValue(`a${'\t'.repeat(41)}`, cap)).toBe(
+      `a${'\\t'.repeat(39)} [truncated: 79 of 83]`,
+    );
+  });
+
+  test('two limits over one value report two different emitted counts', () => {
+    const value = 'x'.repeat(5000);
+
+    expect(clampDisplayValue(value, 80)).toBe(`${'x'.repeat(80)} [truncated: 80 of 5000]`);
+    expect(clampDisplayValue(value, TREE_VALUE_RENDER_CAP)).toBe(
+      `${'x'.repeat(TREE_VALUE_RENDER_CAP)} [truncated: ${TREE_VALUE_RENDER_CAP} of 5000]`,
+    );
   });
 });

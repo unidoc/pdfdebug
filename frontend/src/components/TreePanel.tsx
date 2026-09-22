@@ -8,7 +8,7 @@ import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
-import { escapeDisplayValue } from '../lib/escapeDisplayValue';
+import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 
 /**
  * Per-row transient state (which node is mid-load, which is flashing) delivered
@@ -176,6 +176,23 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
   // /<bareKey> rawKey adds nothing once the ref is visible.
   const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
 
+  // An array element's label IS its value, so the row shows it once, in the
+  // label's place. The backend clamps that label to the CLI row's ceiling, so
+  // the row renders data.value at the GUI ceiling instead: one value, one pair
+  // of counts between the row and its title, and as much of it as a dictionary
+  // sibling shows. An element with no value of its own (a container, or an
+  // indirect ref the walker did not dereference) keeps its label.
+  const labelCarriesValue = data.rawKey.startsWith('[');
+  const labelShowsValue = labelCarriesValue && data.value !== '';
+
+  // Escaped once per render rather than once for the text and once for the
+  // title: data.value is uncapped, and a multi-megabyte string literal would
+  // otherwise be walked twice and put whole into a DOM attribute.
+  const displayValue = useMemo(
+    () => clampDisplayValue(data.value, TREE_VALUE_RENDER_CAP),
+    [data.value],
+  );
+
   const rowClasses = [
     'flex items-center h-[28px] text-sm font-ui cursor-pointer',
     isFlashing ? 'bg-surface-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
@@ -218,17 +235,26 @@ function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<TreeNodeDat
         return <Icon size={14} className="text-text-muted mr-1.5 flex-shrink-0" aria-hidden="true" />;
       })()}
 
-      {/* Label */}
-      <span className={`whitespace-nowrap flex-shrink-0 ${isError ? 'text-text-muted' : 'text-text'}`}>{data.name}</span>
+      {/* Label. An array element renders its value here instead, so that span
+          takes the remaining width and ellipsizes the way the value span does. */}
+      <span
+        className={`${labelShowsValue ? 'min-w-0 truncate' : 'whitespace-nowrap flex-shrink-0'} ${isError ? 'text-text-muted' : 'text-text'}`}
+        {...(labelShowsValue ? { title: displayValue } : {})}
+      >
+        {labelShowsValue ? displayValue : data.name}
+      </span>
 
       {/* Scalar value: the only element that takes the remaining width and the
-          only one allowed to ellipsize. The full value lives in the title. */}
-      {data.value !== '' && (
+          only one allowed to ellipsize. The title carries the same clamped
+          string, so hovering recovers what the row WIDTH elides but not what
+          the render cap dropped; past the cap, the detail panel and
+          `dump tree --json` hold the whole value. */}
+      {data.value !== '' && !labelCarriesValue && (
         <span
           className="text-text-muted ml-1.5 min-w-0 truncate"
-          title={escapeDisplayValue(data.value)}
+          title={displayValue}
         >
-          {escapeDisplayValue(data.value)}
+          {displayValue}
         </span>
       )}
 

@@ -3,17 +3,24 @@
  * not only what type it is.
  *
  * Source contract (backend):
- *   - TreeNode.value: the decoded, escaped display form for a dictionary-entry
- *     scalar leaf; "" (or absent) for dicts, arrays, streams, refs, error nodes
- *     and array-element scalars, whose value already lives in the label.
+ *   - TreeNode.value: the decoded, uncapped, unescaped value of a scalar leaf,
+ *     array elements included; "" for dicts, arrays, streams, refs and error
+ *     nodes.
+ *   - TreeNode.label for an array-element scalar is that same value clamped to
+ *     the plain-text row's 80-rune ceiling, which the CLI row needs and the GUI
+ *     row does not.
  *
  * Render contract:
  *   - Order, left to right: label, value, rawKey, [N G R], /T:TypeName.
  *   - The value is the only element that takes the remaining width and the only
  *     one allowed to ellipsize (min-w-0 + truncate); the three suffixes keep
  *     flex-shrink-0 and are never dropped.
- *   - The full, uncapped value lives in the value span's own title attribute.
- *     No rune count in the DOM.
+ *   - The value on screen and in the title is clamped to a render ceiling, so
+ *     a multi-megabyte string literal is neither escaped nor written into a DOM
+ *     attribute whole. A normal-sized value reaches the title intact.
+ *   - An array element renders its value in the label's place, at the same
+ *     ceiling, so the row shows it once and the row and title report one pair
+ *     of counts. An element carrying no value of its own keeps its label.
  *
  * Run: cd frontend && npx vitest run \
  * src/components/TreePanel.scalarValues.test.tsx
@@ -27,6 +34,7 @@ import {
   type AppAction,
 } from '../hooks/useDocumentState';
 import { TreePanel } from './TreePanel';
+import { TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 
 // --- Mocks (mirrors TreePanel.test.tsx setup) ---
 
@@ -76,6 +84,7 @@ type AnyNode = Record<string, unknown>;
 
 const DECODED_ALT = 'Rapport cell';
 const LONG_VALUE = 'L'.repeat(500);
+const OVER_CAP_VALUE = 'M'.repeat(TREE_VALUE_RENDER_CAP + 500);
 
 const catalogNode: AnyNode = {
   id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
@@ -113,6 +122,41 @@ const controlScalar: AnyNode = {
   error: '', objectRef: '', typeName: '', value: 'don\u0092t\nstop',
 };
 
+// An array element: its label is the rendered value, so the row must not show
+// the same text twice.
+const arrayElement: AnyNode = {
+  id: 'arr:dict:root:Nums:0', label: '612', rawKey: '[0]', nodeType: 'scalar',
+  valueType: 'number', hasChildren: false, childCount: 0, iconHint: 'default',
+  error: '', objectRef: '', typeName: '', value: '612',
+};
+
+// An array element past both ceilings: the label arrives clamped at the
+// plain-text row's 80, the value uncapped.
+const LONG_ARRAY_VALUE = 'A'.repeat(5000);
+const longArrayElement: AnyNode = {
+  id: 'arr:dict:root:Names:0',
+  label: `${'A'.repeat(80)} [truncated: 80 of 5000]`,
+  rawKey: '[0]', nodeType: 'scalar', valueType: 'string', hasChildren: false,
+  childCount: 0, iconHint: 'default', error: '', objectRef: '', typeName: '',
+  value: LONG_ARRAY_VALUE,
+};
+
+// An array element the walker did not dereference: it carries no value of its
+// own, so the row keeps the label the backend gave it.
+const refArrayElement: AnyNode = {
+  id: 'obj:0:12', label: 'Page', rawKey: '[1]', nodeType: 'ref',
+  valueType: 'reference', hasChildren: true, childCount: -1, iconHint: 'page',
+  error: '', objectRef: '12 0 R', typeName: 'Page', value: '',
+};
+
+// A value past the render ceiling: the row clamps it rather than escaping and
+// storing megabytes per render.
+const overCapScalar: AnyNode = {
+  id: 'dict:root:Blob', label: 'Blob', rawKey: '/Blob', nodeType: 'scalar',
+  valueType: 'string', hasChildren: false, childCount: 0, iconHint: 'default',
+  error: '', objectRef: '', typeName: '', value: OVER_CAP_VALUE,
+};
+
 // A container: no value, and the row must not gain an empty segment.
 const containerNode: AnyNode = {
   id: 'dict:root:A', label: 'A', rawKey: '/A', nodeType: 'dict', valueType: '',
@@ -128,7 +172,8 @@ const openAction: AppAction = {
     filePath: '/test.pdf',
     rootNode: catalogNode as unknown as AppAction['payload']['rootNode'],
     rootChildren: [
-      altScalar, rowSpanScalar, pressuredRow, controlScalar, containerNode,
+      altScalar, rowSpanScalar, pressuredRow, controlScalar, arrayElement,
+      longArrayElement, refArrayElement, overCapScalar, containerNode,
     ] as unknown as AppAction['payload']['rootChildren'],
   },
 };
@@ -273,11 +318,71 @@ describe('single-line clamp', () => {
     expect(typeSpan?.className).toContain('flex-shrink-0');
   });
 
-  test('the full uncapped value lives in the title attribute, with no rune count in the DOM', async () => {
+  test('a normal-sized value reaches the title intact, with no rune count in the DOM', async () => {
     const rows = await openTree();
     const row = rowById(rows, 'obj:0:9');
 
     expect(screen.getByTitle(LONG_VALUE)).toBeTruthy();
     expect(row.textContent).not.toContain('[truncated');
+  });
+
+  test('a value past the render ceiling is clamped on screen and in the title', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'dict:root:Blob');
+    const valueSpan = Array.from(row.querySelectorAll('span'))
+      .find((s) => s.className.includes('truncate'));
+
+    // The marker names how much was dropped, in the shape the CLI row uses.
+    const clamped = `${'M'.repeat(TREE_VALUE_RENDER_CAP)} [truncated: ${TREE_VALUE_RENDER_CAP} of ${OVER_CAP_VALUE.length}]`;
+    expect(valueSpan?.textContent).toBe(clamped);
+    expect(valueSpan?.getAttribute('title')).toBe(clamped);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Array elements
+// ---------------------------------------------------------------------------
+
+describe('array element rows', () => {
+  test('the value is rendered once, in the label position', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'arr:dict:root:Nums:0');
+
+    expect(row.textContent).toContain('612');
+    expect(row.textContent).not.toContain('612612');
+    // One ellipsizing element, the value, as on a dictionary-entry row.
+    expect(row.querySelectorAll('.truncate')).toHaveLength(1);
+  });
+
+  test('a value that fits reaches the title intact', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'arr:dict:root:Nums:0');
+    const valueSpan = Array.from(row.querySelectorAll('span'))
+      .find((s) => s.textContent === '612');
+
+    expect(valueSpan?.getAttribute('title')).toBe('612');
+  });
+
+  test('the row and the title report one clamp, at the render ceiling', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'arr:dict:root:Names:0');
+    const valueSpan = Array.from(row.querySelectorAll('span'))
+      .find((s) => s.className.includes('truncate'));
+
+    const clamped = `${'A'.repeat(TREE_VALUE_RENDER_CAP)} [truncated: ${TREE_VALUE_RENDER_CAP} of ${LONG_ARRAY_VALUE.length}]`;
+    expect(valueSpan?.textContent).toBe(clamped);
+    expect(valueSpan?.getAttribute('title')).toBe(clamped);
+    // The backend's 80-rune label is the CLI row's clamp and must not surface.
+    expect(row.textContent).not.toContain('truncated: 80 of 5000');
+    expect(row.querySelectorAll('.truncate')).toHaveLength(1);
+  });
+
+  test('an element carrying no value of its own keeps its label', async () => {
+    const rows = await openTree();
+    const row = rowById(rows, 'obj:0:12');
+
+    expect(row.textContent).toContain('Page');
+    expect(row.textContent).toContain('[12 0 R]');
+    expect(row.querySelectorAll('.truncate')).toHaveLength(0);
   });
 });

@@ -63,6 +63,14 @@ func runStreamDump(args []string) int {
 		ref:     *refFlag,
 	}
 
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, streamUsage) {
+		return 1
+	}
+
 	// --raw / --ops / --json select mutually-exclusive payloads/formats. --raw
 	// (decoded bytes) and --ops (NDJSON) are payload selectors; --json is the
 	// structured-JSON format. The --raw/--ops conflict is preexisting; the
@@ -111,13 +119,7 @@ func runStreamDump(args []string) int {
 		}
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, streamUsage)
-		return 1
-	}
-
-	return execStreamDump(filePath, flags)
+	return execStreamDump(fs.Arg(0), flags)
 }
 
 // execStreamDump opens the PDF, resolves the target content-stream node from

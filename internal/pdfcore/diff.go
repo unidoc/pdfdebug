@@ -185,7 +185,7 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 
 	var root *DiffNode
 	err = safeCall(func() error {
-		root = dc.diffPresent("/Root", leftCat, rightCat, 0, leftVisited, rightVisited)
+		root = dc.diffPresent("/Root", leftCat, rightCat, false, 0, leftVisited, rightVisited)
 		return nil
 	})
 	if err != nil {
@@ -208,8 +208,10 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 // dereferenced to their resolved form). depth is the total recursion depth
 // (ref follows plus direct dict/array nesting) below the catalog;
 // leftVisited/rightVisited are the per-side path-scoped visited sets used to cut
-// back-edges (e.g. /Parent).
-func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
+// back-edges (e.g. /Parent). binary marks a value reached through a key whose
+// string content is carved out of decoding (a signature /Contents), so the diff
+// summarizes it the way the tree and the detail view do.
+func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object, binary bool, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
 	lk := resolvedNodeType(left)
 	rk := resolvedNodeType(right)
 
@@ -221,8 +223,8 @@ func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object,
 			Path:         path,
 			Status:       "changed",
 			Kind:         rk,
-			LeftSummary:  diffSummarize(left),
-			RightSummary: diffSummarize(right),
+			LeftSummary:  diffSummarize(left, binary),
+			RightSummary: diffSummarize(right, binary),
 		}
 	}
 
@@ -232,9 +234,9 @@ func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object,
 	case "array":
 		la, _ := left.(pdfcpu_types.Array)
 		ra, _ := right.(pdfcpu_types.Array)
-		return dc.diffArray(path, la, ra, depth, leftVisited, rightVisited)
+		return dc.diffArray(path, la, ra, binary, depth, leftVisited, rightVisited)
 	default: // scalar (and unresolved ref summaries)
-		return scalarLeaf(path, lk, left, right)
+		return scalarLeaf(path, lk, left, right, binary)
 	}
 }
 
@@ -246,17 +248,35 @@ func (dc *diffContext) diffPresent(path string, left, right pdfcpu_types.Object,
 // are decoded. Comparing decoded forms would report byte-different strings as
 // unchanged: <FEFF0041> and (A) both decode to "A", and pdfcpu's hex escape
 // quirk makes <415C42> and <4142> both decode to "AB".
-func scalarLeaf(path, kind string, left, right pdfcpu_types.Object) *DiffNode {
+//
+// Those same collisions would then print the identical text on both sides of a
+// changed row, so a changed node whose two decoded summaries are equal falls
+// back to the byte-exact renderings: the common case stays readable and the
+// collision case says what actually differs. The fallback keeps the carve-out:
+// a binary string still renders as its stand-in, so two signatures whose only
+// difference is inside the DER stay a changed row carrying two matching
+// stand-ins rather than the blob. The carve-out is re-derived per key inside a
+// resolved dict, which is what a ref cut (cycle, depth cap, cross-path dedup)
+// hands this function.
+func scalarLeaf(path, kind string, left, right pdfcpu_types.Object, binary bool) *DiffNode {
+	leftSummary := diffSummarize(left, binary)
+	rightSummary := diffSummarize(right, binary)
+	leftRaw := diffCompare(left)
+	rightRaw := diffCompare(right)
 	status := "unchanged"
-	if diffCompare(left) != diffCompare(right) {
+	if leftRaw != rightRaw {
 		status = "changed"
+		if leftSummary == rightSummary {
+			leftSummary = summarizeWith(left, binary, diffFallbackScalar)
+			rightSummary = summarizeWith(right, binary, diffFallbackScalar)
+		}
 	}
 	return &DiffNode{
 		Path:         path,
 		Status:       status,
 		Kind:         kind,
-		LeftSummary:  diffSummarize(left),
-		RightSummary: diffSummarize(right),
+		LeftSummary:  leftSummary,
+		RightSummary: rightSummary,
 	}
 }
 
@@ -284,14 +304,18 @@ func (dc *diffContext) diffDict(path string, ld, rd pdfcpu_types.Dict, kind stri
 		lv, lok := ld[k]
 		rv, rok := rd[k]
 		childPath := path + "/" + k
+		// The carve-out is decided on whichever side carries the signature
+		// shape: a dictionary that gained /ByteRange on the right must not spill
+		// its DER onto the row because the left side was not yet a signature.
+		binary := binaryStringKey(ld, k) || binaryStringKey(rd, k)
 		var child *DiffNode
 		switch {
 		case lok && rok:
-			child = dc.diffChild(childPath, lv, rv, depth, leftVisited, rightVisited)
+			child = dc.diffChild(childPath, lv, rv, binary, depth, leftVisited, rightVisited)
 		case lok:
-			child = dc.singleSided(childPath, dc.left, lv, "removed")
+			child = dc.singleSided(childPath, dc.left, lv, binary, "removed")
 		default:
-			child = dc.singleSided(childPath, dc.right, rv, "added")
+			child = dc.singleSided(childPath, dc.right, rv, binary, "added")
 		}
 		node.Children = append(node.Children, child)
 		if child.Status != "unchanged" {
@@ -310,7 +334,9 @@ func (dc *diffContext) diffDict(path string, ld, rd pdfcpu_types.Dict, kind stri
 
 // diffArray diffs two arrays index-by-index. Trailing elements on the longer
 // side are added/removed. The array node is changed when any element differs.
-func (dc *diffContext) diffArray(path string, la, ra pdfcpu_types.Array, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
+// binary is inherited by every element: a signature /Cert may hold an array of
+// strings, and those elements have no key of their own.
+func (dc *diffContext) diffArray(path string, la, ra pdfcpu_types.Array, binary bool, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
 	node := &DiffNode{Path: path, Kind: "array"}
 	n := len(la)
 	if len(ra) > n {
@@ -322,11 +348,11 @@ func (dc *diffContext) diffArray(path string, la, ra pdfcpu_types.Array, depth i
 		var child *DiffNode
 		switch {
 		case i < len(la) && i < len(ra):
-			child = dc.diffChild(childPath, la[i], ra[i], depth, leftVisited, rightVisited)
+			child = dc.diffChild(childPath, la[i], ra[i], binary, depth, leftVisited, rightVisited)
 		case i < len(la):
-			child = dc.singleSided(childPath, dc.left, la[i], "removed")
+			child = dc.singleSided(childPath, dc.left, la[i], binary, "removed")
 		default:
-			child = dc.singleSided(childPath, dc.right, ra[i], "added")
+			child = dc.singleSided(childPath, dc.right, ra[i], binary, "added")
 		}
 		node.Children = append(node.Children, child)
 		if child.Status != "unchanged" {
@@ -351,7 +377,7 @@ func (dc *diffContext) diffArray(path string, la, ra pdfcpu_types.Array, depth i
 // already diffed on another path is cut via the global visitedPairs dedup. A
 // cut or depth-capped ref is compared by shallow value summary only, then the
 // path-scoped entry is popped on unwind (so a diamond is not mislabeled).
-func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
+func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, binary bool, depth int, leftVisited, rightVisited map[string]bool) *DiffNode {
 	lKey := refVisitKeyOf(lv)
 	rKey := refVisitKeyOf(rv)
 	leftCycle := lKey != "" && leftVisited[lKey]
@@ -375,13 +401,13 @@ func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth 
 	// multi-page PDF to a false non-identical). Only the depth cap is
 	// truncation.
 	if leftCycle || rightCycle {
-		return scalarLeaf(path, "ref", lres, rres)
+		return scalarLeaf(path, "ref", lres, rres, binary)
 	}
 	// Depth cap: the subtree below maxResolveDepth is ABANDONED unwalked, so the
 	// shallow summary can hide a deeper difference. Mark it truncated so the run
 	// cannot claim "identical" while a difference was left unexplored.
 	if nextDepth > maxResolveDepth {
-		leaf := scalarLeaf(path, "ref", lres, rres)
+		leaf := scalarLeaf(path, "ref", lres, rres, binary)
 		leaf.Truncated = true
 		// Record the ref-pair (both sides indirect) so reconcileTruncation can
 		// clear this mark if the SAME pair is fully walked on a shallower path:
@@ -407,7 +433,7 @@ func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth 
 	if lKey != "" && rKey != "" {
 		pairKey := lKey + "|" + rKey
 		if dc.visitedPairs[pairKey] {
-			return scalarLeaf(path, "ref", lres, rres)
+			return scalarLeaf(path, "ref", lres, rres, binary)
 		}
 		dc.visitedPairs[pairKey] = true
 	}
@@ -421,7 +447,7 @@ func (dc *diffContext) diffChild(path string, lv, rv pdfcpu_types.Object, depth 
 		rightVisited[rKey] = true
 		defer delete(rightVisited, rKey)
 	}
-	return dc.diffPresent(path, lres, rres, nextDepth, leftVisited, rightVisited)
+	return dc.diffPresent(path, lres, rres, binary, nextDepth, leftVisited, rightVisited)
 }
 
 // refVisitKey returns the "num:gen" path-visited key for an indirect ref.
@@ -441,9 +467,9 @@ func refVisitKeyOf(obj pdfcpu_types.Object) string {
 // singleSided builds an added/removed leaf node for a value present on only one
 // side. The present side carries a summary; the absent side is "". The value is
 // dereferenced so the summary reflects the target object, not a bare ref.
-func (dc *diffContext) singleSided(path string, doc *DocumentState, val pdfcpu_types.Object, status string) *DiffNode {
+func (dc *diffContext) singleSided(path string, doc *DocumentState, val pdfcpu_types.Object, binary bool, status string) *DiffNode {
 	resolved := dereferenceIfRef(doc, val)
-	summary := diffSummarize(resolved)
+	summary := diffSummarize(resolved, binary)
 	node := &DiffNode{Path: path, Status: status, Kind: resolvedNodeType(resolved)}
 	if status == "added" {
 		node.RightSummary = summary
@@ -580,20 +606,52 @@ func infoEqual(a, b map[string]string) bool {
 // number-independent "<ref>" token, NOT "N G R" - object numbers are not stable
 // across files, so embedding them would make a renumbered-but-identical pair
 // compare as changed at cut points (defeating the path-alignment guarantee).
-func diffSummarize(obj pdfcpu_types.Object) string {
-	return summarizeWith(obj, scalarText)
+// binary marks a value reached through a key that carves its string content out
+// of decoding, so a signature /Contents summarizes as "<binary, N bytes>" here
+// exactly as it does on the tree and detail surfaces. A nested dict summary
+// re-derives the flag per key from the dict it is summarizing; an array element
+// inherits its array's.
+func diffSummarize(obj pdfcpu_types.Object, binary bool) string {
+	return summarizeWith(obj, binary, diffDisplayScalar)
 }
 
 // diffCompare renders the byte-exact counterpart of diffSummarize, and is the
 // only rendering the changed/unchanged decision may use. Keeping the decode out
 // of it is what stops a decode collision from hiding a real byte difference.
 func diffCompare(obj pdfcpu_types.Object) string {
-	return summarizeWith(obj, scalarRaw)
+	return summarizeWith(obj, false, diffCompareScalar)
+}
+
+// diffDisplayScalar renders a scalar for a displayed summary: a carved-out
+// binary string as its fixed-width stand-in, every other scalar decoded.
+func diffDisplayScalar(obj pdfcpu_types.Object, binary bool) string {
+	if binary && isStringObject(obj) {
+		return binaryStringSummary(obj)
+	}
+	return scalarText(obj)
+}
+
+// diffCompareScalar renders a scalar for the changed/unchanged decision. The
+// carve-out is a display concern, so the flag is ignored and two signatures
+// still compare on their bytes.
+func diffCompareScalar(obj pdfcpu_types.Object, _ bool) string {
+	return scalarRaw(obj)
+}
+
+// diffFallbackScalar renders a scalar for scalarLeaf's decode-collision
+// fallback: a carved-out binary string as its fixed-width stand-in, every other
+// scalar byte-exact. It is diffCompareScalar with the carve-out kept, so a blob
+// the display surfaces stand down cannot return through the fallback.
+func diffFallbackScalar(obj pdfcpu_types.Object, binary bool) string {
+	if binary && isStringObject(obj) {
+		return binaryStringSummary(obj)
+	}
+	return scalarRaw(obj)
 }
 
 // summarizeWith is diffSummarize's body, parameterized by the scalar renderer
 // so the displayed and the compared summary differ in exactly one place.
-func summarizeWith(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Object) string) string {
+func summarizeWith(obj pdfcpu_types.Object, binary bool, renderScalar func(pdfcpu_types.Object, bool) string) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.Dict:
 		return dictSummary(v, renderScalar)
@@ -604,16 +662,18 @@ func summarizeWith(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Objec
 	case pdfcpu_types.XRefStreamDict:
 		return dictSummary(v.StreamDict.Dict, renderScalar) + " stream"
 	case pdfcpu_types.Array:
-		return arraySummary(v, renderScalar)
+		return arraySummary(v, binary, renderScalar)
 	case pdfcpu_types.IndirectRef:
 		return "<ref>"
 	default:
-		return renderScalar(obj)
+		return renderScalar(obj, binary)
 	}
 }
 
-// dictSummary renders a shallow "<< /K v ... >>" repr with sorted keys.
-func dictSummary(d pdfcpu_types.Dict, renderScalar func(pdfcpu_types.Object) string) string {
+// dictSummary renders a shallow "<< /K v ... >>" repr with sorted keys. Each
+// entry's carve-out is decided from the dict being summarized, so a signature
+// dict shown one level up still stands its /Contents down.
+func dictSummary(d pdfcpu_types.Dict, renderScalar func(pdfcpu_types.Object, bool) string) string {
 	keys := make([]string, 0, len(d))
 	for k := range d {
 		keys = append(keys, k)
@@ -625,19 +685,20 @@ func dictSummary(d pdfcpu_types.Dict, renderScalar func(pdfcpu_types.Object) str
 		b.WriteString(" /")
 		b.WriteString(k)
 		b.WriteString(" ")
-		b.WriteString(shallowValue(d[k], renderScalar))
+		b.WriteString(shallowValue(d[k], binaryStringKey(d, k), renderScalar))
 	}
 	b.WriteString(" >>")
 	return b.String()
 }
 
-// arraySummary renders a shallow "[ e1 e2 ... ]" repr.
-func arraySummary(a pdfcpu_types.Array, renderScalar func(pdfcpu_types.Object) string) string {
+// arraySummary renders a shallow "[ e1 e2 ... ]" repr. Every element inherits
+// the array's carve-out, a signature /Cert array being the case that needs it.
+func arraySummary(a pdfcpu_types.Array, binary bool, renderScalar func(pdfcpu_types.Object, bool) string) string {
 	var b strings.Builder
 	b.WriteString("[")
 	for _, e := range a {
 		b.WriteString(" ")
-		b.WriteString(shallowValue(e, renderScalar))
+		b.WriteString(shallowValue(e, binary, renderScalar))
 	}
 	b.WriteString(" ]")
 	return b.String()
@@ -648,7 +709,7 @@ func arraySummary(a pdfcpu_types.Array, renderScalar func(pdfcpu_types.Object) s
 // keeping summaries bounded and comparison cheap. Indirect refs render as a
 // number-independent "<ref>" token (see diffSummarize) so a cut-point summary
 // comparison stays renumber-invariant.
-func shallowValue(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Object) string) string {
+func shallowValue(obj pdfcpu_types.Object, binary bool, renderScalar func(pdfcpu_types.Object, bool) string) string {
 	switch obj.(type) {
 	case pdfcpu_types.Dict, pdfcpu_types.StreamDict, pdfcpu_types.ObjectStreamDict, pdfcpu_types.XRefStreamDict:
 		return "<<...>>"
@@ -657,6 +718,6 @@ func shallowValue(obj pdfcpu_types.Object, renderScalar func(pdfcpu_types.Object
 	case pdfcpu_types.IndirectRef:
 		return "<ref>"
 	default:
-		return renderScalar(obj)
+		return renderScalar(obj, binary)
 	}
 }

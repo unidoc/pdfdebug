@@ -24,8 +24,8 @@ type cmdInvocation struct {
 //   - parseDocViewFlags: objects, xref
 //   - parseByRefFlags:   font, image, source, reverserefs
 //
-// Plaintext is excluded here (its default is RAW bytes by design, covered in
-// plaintext_test.go). stream --ops/--raw payload axis is covered in
+// `dump bytes` is excluded here (its default is RAW bytes by design, covered in
+// bytes_test.go). stream --ops/--raw payload axis is covered in
 // stream_test.go.
 func formatCommands(t *testing.T) []cmdInvocation {
 	return []cmdInvocation{

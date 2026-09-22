@@ -20,15 +20,21 @@ type TreeNode struct {
 	// "Page", "Font"), "" when the dict has no /Type entry or the node is not
 	// a dict. The frontend dedups this against the semantic label.
 	TypeName string `json:"typeName"`
-	// Value is what a dictionary-entry scalar leaf says, decoded: a text string
-	// per ISO 32000-1 7.9.2.2, a binary-carrying string as a "<binary, N bytes>"
-	// summary, every other scalar in its stored form. Empty for dicts, arrays,
-	// streams, refs, error nodes and array-element scalars, whose value already
-	// lives in Label. Uncapped and unescaped; the plain-text presenters clamp it.
+	// Value is what a scalar leaf says, decoded: a text string per ISO 32000-1
+	// 7.9.2.2, a binary-carrying string as a "<binary, N bytes>" summary, every
+	// other scalar in its stored form. Empty for dicts, arrays, streams, refs
+	// and error nodes. Uncapped and unescaped; the plain-text presenters clamp
+	// it. An array element carries it too, even though its Label already
+	// presents the same value clamped and escaped - Label is a row, Value is
+	// the whole value.
 	Value string `json:"value"`
-	// ValueRaw is Value's byte-exact counterpart, written only where decoding
-	// changed the content. Its absence therefore means the decode was a no-op,
-	// rather than duplicating every node.
+	// ValueRaw is Value's byte-exact stored form, written whenever it says
+	// something Value does not: every hex literal, and every literal carrying a
+	// PDF escape. It stays empty where the stored form is Value itself or Value
+	// wrapped in literal-string delimiters, so a non-empty ValueRaw means the
+	// display form is not the form on disk. The field has no omitempty because
+	// the generated binding types it as required; the CLI's own output struct
+	// carries the omitempty that drops the key from --json.
 	ValueRaw string `json:"valueRaw"`
 }
 

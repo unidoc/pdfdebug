@@ -101,22 +101,31 @@ func TestScalarTextDecodesStringsAndLeavesOtherScalarsAlone(t *testing.T) {
 	}
 }
 
-func TestDecodeChangedContentComparesContentNotRenderedForm(t *testing.T) {
+// The raw counterpart is suppressed only where the stored form is the display
+// value, or the display value inside literal-string delimiters. Anything that
+// cannot be reconstructed from the display value alone keeps its raw form: a
+// hex literal is not recoverable from "en-US", and neither is an escape.
+
+func TestRawCounterpartNeededSuppressesOnlyTheRecoverableForms(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		obj  pdfcpu_types.Object
 		want bool
 	}{
-		{"ascii literal decodes to itself", pdfcpu_types.StringLiteral("en-US"), false},
-		{"ascii hex decodes to itself", pdfcpu_types.HexLiteral("4142"), false},
-		{"utf16be hex changes the bytes", pdfcpu_types.HexLiteral("FEFF00410042"), true},
-		{"escaped utf16be literal changes the bytes", pdfcpu_types.StringLiteral(`\376\377\000A`), true},
-		{"name is not a string", pdfcpu_types.Name("Table"), false},
-		{"integer is not a string", pdfcpu_types.Integer(2), false},
+		{"ascii literal is its own display value in delimiters", pdfcpu_types.StringLiteral("en-US"), false},
+		{"ascii hex cannot be reconstructed from the text", pdfcpu_types.HexLiteral("4142"), true},
+		{"hex encoding of an ascii literal keeps its raw form", pdfcpu_types.HexLiteral("656E2D5553"), true},
+		{"literal carrying a pdf escape keeps its raw form", pdfcpu_types.StringLiteral(`a\(b`), true},
+		{"utf16be hex keeps its raw form", pdfcpu_types.HexLiteral("FEFF00410042"), true},
+		{"escaped utf16be literal keeps its raw form", pdfcpu_types.StringLiteral(`\376\377\000A`), true},
+		{"empty literal renders as its stored form", pdfcpu_types.StringLiteral(""), false},
+		{"bom only renders as its stored form", pdfcpu_types.HexLiteral("FEFF"), false},
+		{"name renders identically either way", pdfcpu_types.Name("Table"), false},
+		{"integer renders identically either way", pdfcpu_types.Integer(2), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := decodeChangedContent(tc.obj); got != tc.want {
-				t.Errorf("decodeChangedContent = %v, want %v", got, tc.want)
+			if got := rawCounterpartNeeded(tc.obj, scalarText(tc.obj)); got != tc.want {
+				t.Errorf("rawCounterpartNeeded = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -303,14 +312,17 @@ func TestEverySurfaceRendersAScalarTheSameWay(t *testing.T) {
 			if entry.Display != value {
 				t.Errorf("detail Display = %q, want the tree row's value %q", entry.Display, value)
 			}
-			if got := diffSummarize(tc.obj); got != value {
+			if got := diffSummarize(tc.obj, false); got != value {
 				t.Errorf("diff summary = %q, want the tree row's value %q", got, value)
 			}
-			// An array element carries its value in the label, already escaped
-			// and capped the way the plain-text presenter treats a dictionary
-			// scalar's value.
+			// An array element presents its value in the label, escaped and
+			// capped the way the plain-text presenter treats a dictionary
+			// scalar's value, and carries the whole value alongside it.
 			if got, want := semanticLabel("", tc.obj), ClampDisplayValue(value, TreeValueCap); got != want {
 				t.Errorf("array element label = %q, want the presented row value %q", got, want)
+			}
+			if got := buildTreeNode("arr:dict:obj:0:8:Nums:0", "[0]", "", tc.obj, false).Value; got != value {
+				t.Errorf("array element value = %q, want the full value %q", got, value)
 			}
 
 			raw := scalarRaw(tc.obj)
@@ -347,8 +359,12 @@ func TestEverySurfaceSummarizesACarvedOutStringTheSameWay(t *testing.T) {
 			if element.Label != want {
 				t.Errorf("array element label = %q, want %q", element.Label, want)
 			}
-			if element.Value != "" {
-				t.Errorf("array element value = %q, want it empty: the value lives in the label", element.Value)
+			if element.Value != want {
+				t.Errorf("array element value = %q, want %q", element.Value, want)
+			}
+
+			if got := diffSummarize(tc.obj, true); got != want {
+				t.Errorf("diff summary = %q, want %q: the carve-out holds on the diff surface too", got, want)
 			}
 
 			entry := valueEntryFromObject(tc.obj, true)

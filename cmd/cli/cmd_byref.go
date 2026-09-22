@@ -57,11 +57,11 @@ func parseByRefFlags(resource string, args []string, withRaw, withMetadata bool)
 		fmt.Fprintln(os.Stderr, usage)
 		return "", byRefFlags{}, false
 	}
-	filePath = fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, usage)
+	// Exactly one positional argument, the file.
+	if !requirePositionals(fs, 1, usage) {
 		return "", byRefFlags{}, false
 	}
+	filePath = fs.Arg(0)
 
 	f = byRefFlags{ref: *refFlag, json: *jsonFlag, pretty: *prettyFlag}
 	if rawFlag != nil {

@@ -35,10 +35,9 @@ func runDiff(args []string) int {
 		return 2
 	}
 
-	// Exactly two positional args. Guard empty, reject a single arg or a
-	// third arg - a usage error is operational (exit 2), never a partial run.
-	if fs.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, diffUsage)
+	// Exactly two positional args. A missing, single or third file is a usage
+	// error, which here is operational (exit 2), never a partial run.
+	if !requirePositionals(fs, 2, diffUsage) {
 		return 2
 	}
 	return execDiff(fs.Arg(0), fs.Arg(1), *jsonFlag, *prettyFlag, *fullFlag)
