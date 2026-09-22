@@ -214,18 +214,27 @@ type dumpFlags struct {
 }
 
 // requirePositionals reports whether fs holds exactly want positional
-// arguments. Go's flag package stops parsing at the first non-flag argument, so
-// a flag written after the file path arrives here as an extra positional;
-// accepting it silently would run `dump tree file.pdf --json` as plain text at
-// exit 0 while the caller waits for JSON. On a mismatch it writes usage to
-// stderr and returns false; the caller supplies its own exit code, which
-// differs between the dump subcommands (1) and validate/diff (2).
+// arguments and none of them is empty. Go's flag package stops parsing at the
+// first non-flag argument, so a flag written after the file path arrives here
+// as an extra positional; accepting it silently would run
+// `dump tree file.pdf --json` as plain text at exit 0 while the caller waits
+// for JSON. An explicitly empty path (`dump tree ""`) satisfies the count but
+// names no file, so it is a shape error too, not a runtime "file not found".
+// Every want position is checked, because `diff` takes two. On a rejection it
+// writes usage to stderr and returns false; the caller supplies its own exit
+// code, which differs between the dump subcommands (1) and validate/diff (2).
 //
 // want is explicit rather than fixed at 1 because `diff` takes two files.
 func requirePositionals(fs *flag.FlagSet, want int, usage string) bool {
 	if fs.NArg() != want {
 		fmt.Fprintln(os.Stderr, usage)
 		return false
+	}
+	for i := range want {
+		if fs.Arg(i) == "" {
+			fmt.Fprintln(os.Stderr, usage)
+			return false
+		}
 	}
 	return true
 }

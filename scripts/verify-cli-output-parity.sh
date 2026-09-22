@@ -61,7 +61,7 @@ Invocation matrix (per fixture F in `find testdata -name "*.pdf"`, sorted):
     dump tree --json --resolve --resolve-depth 2 F
     dump xref --json F
     dump objects --json F
-    dump plaintext --json F  (the alias: one handler, both binaries)
+    dump bytes --json F  (spelled `dump plaintext` against a pre-rename baseline)
     dump metadata --json F
     dump signatures --json F
     dump embedded --json F
@@ -173,15 +173,18 @@ refs_for() {
 		| sed -n 's/.*"objNum":\([0-9]*\),"gen":\([0-9]*\),"status":"in-use".*/\1 \2/p'
 }
 
-# run_one <artifact> <binary> <args...>
-# Appends a header naming the invocation, then the exit code, then stdout and
-# stderr verbatim. The exit code is part of the artifact so a changed exit code
-# fails the diff even when the bytes match.
+# run_one <artifact> <binary> <label> <args...>
+# Appends the label as a header naming the invocation, then the exit code, then
+# stdout and stderr verbatim. The exit code is part of the artifact so a changed
+# exit code fails the diff even when the bytes match. The label is separate from
+# the argv so the one row that spells a resource differently per binary can
+# still head both artifacts identically.
 JSON_INVOCATIONS=0
 TXT_INVOCATIONS=0
 run_one() {
 	art="$1"; shift
 	bin="$1"; shift
+	label="$1"; shift
 	# stdout and stderr are captured to separate files and emitted with `cat`,
 	# not through command substitution. `$(...)` strips every trailing newline,
 	# so a regression that drops the CLI's final newline would have compared
@@ -191,7 +194,7 @@ run_one() {
 	"$bin" "$@" >"$TMP_OUT" 2>"$TMP_ERR"
 	code=$?
 	{
-		printf '===== %s\n' "$*"
+		printf '===== %s\n' "$label"
 		printf 'exit=%d\n' "$code"
 		printf 'stdout-bytes=%s\n' "$(wc -c <"$TMP_OUT" | tr -d ' ')"
 		printf 'stderr-bytes=%s\n' "$(wc -c <"$TMP_ERR" | tr -d ' ')"
@@ -204,16 +207,30 @@ run_one() {
 
 # run_pair <args...> -- same invocation through both binaries, JSON artifacts.
 run_pair() {
-	run_one "$ART_BASE" "$BIN_BASE" "$@"
-	run_one "$ART_HEAD" "$BIN_HEAD" "$@"
+	run_one "$ART_BASE" "$BIN_BASE" "$*" "$@"
+	run_one "$ART_HEAD" "$BIN_HEAD" "$*" "$@"
 	JSON_INVOCATIONS=$((JSON_INVOCATIONS + 1))
 }
 
 # run_pair_txt <args...> -- same, into the plain-text (signal-only) artifacts.
 run_pair_txt() {
-	run_one "$ART_BASE_TXT" "$BIN_BASE" "$@"
-	run_one "$ART_HEAD_TXT" "$BIN_HEAD" "$@"
+	run_one "$ART_BASE_TXT" "$BIN_BASE" "$*" "$@"
+	run_one "$ART_HEAD_TXT" "$BIN_HEAD" "$*" "$@"
 	TXT_INVOCATIONS=$((TXT_INVOCATIONS + 1))
+}
+
+# run_pair_bytes <args...> -- the byte-dump handler through both binaries, each
+# under its own canonical spelling: `dump bytes` on the working tree, the
+# pre-rename `dump plaintext` on the baseline. Driving one spelling through both
+# would put the deprecation notice on exactly one side's stderr, which run_one
+# captures, so every fixture would differ on stderr alone. Both rows are
+# labelled `dump bytes` so the differing argv is not itself a diff. Holds only
+# while the baseline predates the rename; afterwards this is `run_pair dump
+# bytes ...`.
+run_pair_bytes() {
+	run_one "$ART_BASE" "$BIN_BASE" "dump bytes $*" dump plaintext "$@"
+	run_one "$ART_HEAD" "$BIN_HEAD" "dump bytes $*" dump bytes "$@"
+	JSON_INVOCATIONS=$((JSON_INVOCATIONS + 1))
 }
 
 : > "$ART_BASE"
@@ -231,10 +248,9 @@ while IFS= read -r pdf; do
 	run_pair dump tree --json --resolve --resolve-depth 2 "$pdf"
 	run_pair dump xref --json "$pdf"
 	run_pair dump objects --json "$pdf"
-	# The alias, not `dump bytes`: this drives one handler through both binaries,
-	# including a baseline built before the resource was renamed. Becomes
-	# `dump bytes` when the alias is removed.
-	run_pair dump plaintext --json "$pdf"
+	# Per-binary spelling: the working tree's `dump bytes` against the
+	# baseline's `dump plaintext`. See run_pair_bytes.
+	run_pair_bytes --json "$pdf"
 	run_pair dump metadata --json "$pdf"
 	run_pair dump signatures --json "$pdf"
 	run_pair dump embedded --json "$pdf"

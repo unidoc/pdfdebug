@@ -139,11 +139,15 @@ func TestPositionalArity_DiffUsageNamesTwoFiles(t *testing.T) {
 }
 
 // `--` ends flag parsing, so a path that begins with a dash is still reachable,
-// and the terminator itself is not counted as a positional.
+// and the terminator itself is not counted as a positional. The path is passed
+// relative, with the command's working directory set to the file's own
+// directory, so the argv element really does begin with a dash - an absolute
+// path would start with a slash and exercise nothing.
 func TestPositionalArity_DashTerminatedPathIsAccepted(t *testing.T) {
 	bin := buildCLI(t)
-	dashPath := filepath.Join(t.TempDir(), "-leading-dash.pdf")
-	copyTestdataFile(t, "minimal.pdf", dashPath)
+	dir := t.TempDir()
+	const dashPath = "-leading-dash.pdf"
+	copyTestdataFile(t, "minimal.pdf", filepath.Join(dir, dashPath))
 
 	for _, c := range []struct {
 		name  string
@@ -155,12 +159,48 @@ func TestPositionalArity_DashTerminatedPathIsAccepted(t *testing.T) {
 		{"diff", []string{"diff", "--", dashPath, dashPath}, "Usage: pdfdebug diff"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			stdout, stderr, _ := runCLI(t, bin, c.argv...)
+			stdout, stderr, _ := runCLIIn(t, dir, bin, c.argv...)
 			if strings.Contains(stderr, c.usage) {
 				t.Errorf("%s: a -- terminated path was rejected as a usage error, stderr: %q", c.name, stderr)
 			}
 			if stdout == "" {
 				t.Errorf("%s: expected output for a readable file, got none", c.name)
+			}
+		})
+	}
+}
+
+// An explicitly empty operand, `dump tree ""`, names no file. It satisfies the
+// positional count, so the guard has to reject the value as well: the same
+// usage line and exit code a missing operand draws, not a fall-through to the
+// runtime path reporting the empty string as a file that was not found. The
+// second `diff` operand covers a position other than the first.
+func TestPositionalArity_EmptyFileOperandIsAUsageError(t *testing.T) {
+	bin := buildCLI(t)
+	path := filepath.Join(testdataDir(t), "minimal.pdf")
+
+	for _, c := range []struct {
+		name     string
+		argv     []string
+		usage    string
+		wantExit int
+	}{
+		{"dump tree", []string{"dump", "tree", ""}, "Usage: pdfdebug dump tree", 1},
+		{"dump bytes", []string{"dump", "bytes", ""}, "Usage: pdfdebug dump bytes", 1},
+		{"validate", []string{"validate", ""}, "Usage: pdfdebug validate", 2},
+		{"diff first operand", []string{"diff", "", path}, "Usage: pdfdebug diff", 2},
+		{"diff second operand", []string{"diff", path, ""}, "Usage: pdfdebug diff", 2},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			stdout, stderr, ec := runCLI(t, bin, c.argv...)
+			if ec != c.wantExit {
+				t.Errorf("%s: an empty <file> expected exit %d, got %d", c.name, c.wantExit, ec)
+			}
+			if stdout != "" {
+				t.Errorf("%s: stdout must stay empty, got %d bytes", c.name, len(stdout))
+			}
+			if !strings.Contains(stderr, c.usage) {
+				t.Errorf("%s: stderr should carry the usage line, got: %q", c.name, stderr)
 			}
 		})
 	}

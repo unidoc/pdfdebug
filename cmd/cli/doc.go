@@ -48,10 +48,11 @@
 // Exit codes (dump subcommands):
 //
 //	0 - success
-//	1 - usage error (bad flags, or a positional count other than the one
-//	    <file> every dump subcommand takes - a missing file, a second file, or
-//	    a flag written after the file, which Go's flag package delivers as a
-//	    positional rather than parsing it)
+//	1 - usage error (bad flags, or a <file> operand that is not exactly the one
+//	    non-empty path every dump subcommand takes - a missing file, an empty
+//	    path such as `dump tree ""`, a second file, or a flag written after the
+//	    file, which Go's flag package delivers as a positional rather than
+//	    parsing it)
 //	2 - runtime error (file not found, malformed PDF, decode failure, internal panic)
 //
 // The `validate` command uses a DIFFERENT three-way exit contract so CI can
@@ -60,6 +61,6 @@
 //
 //	0 - ran successfully, no structural errors found (NOT a compliance/valid verdict)
 //	1 - ran successfully AND found >=1 structural error (the compliance-gate signal)
-//	2 - operational error (missing/unreadable file, a positional count other
-//	    than one, unknown profile, view failure)
+//	2 - operational error (missing/unreadable file, a <file> operand other than
+//	    one non-empty path, unknown profile, view failure)
 package main

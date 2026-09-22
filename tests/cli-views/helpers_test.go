@@ -79,10 +79,18 @@ func buildCLI(t *testing.T) string {
 }
 
 // runCLI executes the CLI binary with args and returns stdout, stderr,
-// and the exit code.
+// and the exit code. The child inherits the test process's working directory.
 func runCLI(t *testing.T, binPath string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
+	return runCLIIn(t, "", binPath, args...)
+}
+
+// runCLIIn is runCLI with the child's working directory set to dir (empty means
+// inherit), so a test can pass a relative path such as ./-leading-dash.pdf.
+func runCLIIn(t *testing.T, dir, binPath string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
 	cmd := exec.Command(binPath, args...)
+	cmd.Dir = dir
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
