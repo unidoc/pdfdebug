@@ -21,12 +21,14 @@ import (
 // a bug report.
 const (
 	verdictNormalDefault  = "Normal (default)"
-	verdictNormalMarker   = "Normal (Adobe APP14 present; a decoder that honours it inverts once)"
-	verdictNormalNet      = "Normal (net): /Decode inverts and Adobe APP14 inverts again"
+	verdictNormalAdobe    = "Normal: /Decode compensates for Adobe-inverted CMYK"
+	verdictInvertedAdobe  = "Inverted: Adobe CMYK is stored inverted and no /Decode compensates"
 	verdictInvertedNoMark = "Inverted: /Decode inverts, no Adobe APP14 marker"
 	verdictInvertedDecode = "Inverted by /Decode"
 	verdictNonDefault     = "Non-default /Decode"
 	verdictNotClassified  = "Not classified: /Decode on an Indexed or Lab image is not a simple inversion"
+	verdictUnknownDecode  = "Unknown: /Decode array unreadable"
+	verdictUnknownArity   = "Unknown: /Decode not checkable (colour-component count unresolved)"
 	verdictUnknownChain   = "Unknown: JPEG marker chain unreadable"
 	verdictUnknownReach   = "Unknown: JPEG bytes not reachable (DCTDecode behind another filter)"
 )
@@ -453,15 +455,15 @@ func TestVerdictAtFourComponents(t *testing.T) {
 			want: verdictNormalDefault,
 		},
 		{
-			name: "a marker with the default array inverts once in a decoder that honours it",
+			name: "a marker with no array reads the stored inversion with nothing to compensate",
 			raw:  markerChain(adobeAPP14(2)),
-			want: verdictNormalMarker,
+			want: verdictInvertedAdobe,
 		},
 		{
-			name:    "an inverting array and a marker cancel out",
+			name:    "an inverting array beside a marker compensates for the stored inversion",
 			raw:     markerChain(adobeAPP14(2)),
 			entries: "/Decode [1 0 1 0 1 0 1 0]",
-			want:    verdictNormalNet,
+			want:    verdictNormalAdobe,
 		},
 		{
 			name:    "an inverting array with no marker is the negative",
@@ -571,8 +573,8 @@ func TestRejectedDecodeArrayIsNotReportedAsTheDefault(t *testing.T) {
 			if !isJSONNull(raw, "decode") {
 				t.Fatalf("expected an explicit null decode, got %s", string(raw["decode"]))
 			}
-			if img.SampleInterpretation != verdictNonDefault {
-				t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictNonDefault)
+			if img.SampleInterpretation != verdictUnknownDecode {
+				t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictUnknownDecode)
 			}
 			if !strings.Contains(strings.ToLower(img.Warning), "decode") {
 				t.Errorf("expected a warning naming the rejected array, got %q", img.Warning)
@@ -647,9 +649,9 @@ func TestTransformValueDoesNotBranchTheVerdict(t *testing.T) {
 	for _, transform := range []byte{0, 1, 2} {
 		img, _ := dumpImageJSON(t, "transform.pdf",
 			cmykImagePDF(markerChain(adobeAPP14(transform)), ""))
-		if img.SampleInterpretation != verdictNormalMarker {
+		if img.SampleInterpretation != verdictInvertedAdobe {
 			t.Errorf("transform %d: sampleInterpretation = %q, want %q",
-				transform, img.SampleInterpretation, verdictNormalMarker)
+				transform, img.SampleInterpretation, verdictInvertedAdobe)
 		}
 		if img.AdobeTransform == nil || *img.AdobeTransform != int(transform) {
 			t.Errorf("transform %d: adobeTransform = %v, want it reported as evidence",
@@ -713,6 +715,57 @@ func TestIndexedAndLabAreNotClassified(t *testing.T) {
 	}
 }
 
+// The carve-out is about an array that is there. With no /Decode key at all
+// there is nothing to misclassify, and a verdict naming an array the file does
+// not set sends a reader looking for one.
+func TestIndexedAndLabWithNoArrayReadAsTheDefault(t *testing.T) {
+	cases := []struct {
+		name    string
+		entries string
+	}{
+		{
+			name:    "an Indexed image",
+			entries: "/ColorSpace [/Indexed /DeviceRGB 1 <FFFFFF000000>] /BitsPerComponent 8",
+		},
+		{
+			name: "a Lab image",
+			entries: "/ColorSpace [/Lab << /WhitePoint [0.9505 1 1.089] /Range [-100 100 -100 100] >>]" +
+				" /BitsPerComponent 8",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8 /Filter /FlateDecode " + tc.entries
+			img, raw := dumpImageJSON(t, "no-array.pdf", imagePDF(dict, zlibBytes(t, make([]byte, 64))))
+			if !isJSONNull(raw, "decode") {
+				t.Fatalf("expected an absent decode key, got %s", string(raw["decode"]))
+			}
+			if img.SampleInterpretation != verdictNormalDefault {
+				t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictNormalDefault)
+			}
+		})
+	}
+}
+
+// An unresolved colour-component count cannot be measured against, so an array
+// of any length is neither the default nor a full inversion. The read bound
+// widens rather than rejecting, so a two-entry array on a four-colorant
+// /DeviceN is stored and reaches the verdict.
+func TestDecodeArrayWithAnUnresolvedComponentCountIsNotClassified(t *testing.T) {
+	maskObj := []byte("7 0 obj\n<< /Type /XObject /Subtype /Image /Width 8 /Height 8" +
+		" /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 0 >>\nstream\n\nendstream\nendobj\n")
+	img, _ := dumpImageJSON(t, "unresolved-arity.pdf",
+		deviceNImagePDF(markerChain(), "/Decode [1 0]", maskObj))
+
+	if !sameFloats(img.Decode, []float64{1, 0}) {
+		t.Fatalf("decode = %v, want the array as written", img.Decode)
+	}
+	if img.SampleInterpretation != verdictUnknownArity {
+		t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictUnknownArity)
+	}
+}
+
 // A stencil mask is one component whatever else the dictionary says, and its
 // identity array is [0 1].
 func TestStencilMaskVerdict(t *testing.T) {
@@ -773,9 +826,11 @@ func TestFullFieldSetSurvivesAFailedDecode(t *testing.T) {
 
 // The other read that ends with an error before the decode is a colour space
 // whose component lookup faults. The same fields have to survive it. The count
-// stays unresolved there, so the /Decode bound widens and the verdict comes from
-// /Decode alone even though a record is present - at a resolved four components
-// the same inputs would read "Normal (net)".
+// stays unresolved there, so the /Decode bound widens to the maximum and the
+// arity of the array cannot be checked: the array is still reported, and the
+// verdict says the count is what is missing rather than asserting an inversion
+// it cannot establish. At a resolved four components beside this record the same
+// array reads as the compensated normal.
 
 func TestFullFieldSetSurvivesAnUnreadableColorSpace(t *testing.T) {
 	maskObj := []byte("7 0 obj\n<< /Type /XObject /Subtype /Image /Width 8 /Height 8" +
@@ -798,8 +853,8 @@ func TestFullFieldSetSurvivesAnUnreadableColorSpace(t *testing.T) {
 	if img.SMask == nil || *img.SMask != "7 0 R" {
 		t.Errorf("smask = %v, want the reference read before the lookup faulted", img.SMask)
 	}
-	if img.SampleInterpretation != verdictInvertedDecode {
-		t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictInvertedDecode)
+	if img.SampleInterpretation != verdictUnknownArity {
+		t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictUnknownArity)
 	}
 	for _, key := range sampleInterpretationKeys {
 		if _, ok := raw[key]; !ok {
@@ -917,6 +972,45 @@ func TestPlainTextConditionalRows(t *testing.T) {
 		out = dumpImagePlain(t, "mask-row.pdf", stencilMaskPDF(""), "4 0 R")
 		if !strings.Contains(out, "ImageMask:") {
 			t.Errorf("expected an ImageMask row for a stencil mask:\n%s", out)
+		}
+	})
+}
+
+// The marker outcome is a row of its own on every DCT image. Only the transform
+// was printed before, and only where a record was found, so an unreadable chain
+// on an RGB JPEG - which never reaches the verdict - left no trace outside
+// --json.
+func TestPlainTextPrintsTheMarkerOutcomeForEveryDCTImage(t *testing.T) {
+	jpegBytes := rgbJPEG(t)
+
+	cases := []struct {
+		name string
+		raw  []byte
+		want string
+	}{
+		{name: "a chain walked to SOS with no record", raw: jpegBytes, want: markerAbsent},
+		{name: "a record found", raw: spliceAfterAPP0(t, jpegBytes, adobeAPP14(2)), want: markerPresent},
+		{name: "a chain that could not be read", raw: truncatedChain(), want: markerUnparseable},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := dumpImagePlain(t, "marker-row.pdf", rgbImagePDF(tc.raw, ""), "4 0 R")
+			if !strings.Contains(out, "AdobeMarker:") {
+				t.Fatalf("expected an AdobeMarker row:\n%s", out)
+			}
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("expected the outcome %q in the block:\n%s", tc.want, out)
+			}
+		})
+	}
+
+	t.Run("a stream that is not a JPEG has no outcome to report", func(t *testing.T) {
+		dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8" +
+			" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode"
+		out := dumpImagePlain(t, "flate-marker.pdf", imagePDF(dict, zlibBytes(t, make([]byte, 192))), "4 0 R")
+		if strings.Contains(out, "AdobeMarker:") {
+			t.Errorf("an AdobeMarker row appears for a stream with no marker chain:\n%s", out)
 		}
 	})
 }

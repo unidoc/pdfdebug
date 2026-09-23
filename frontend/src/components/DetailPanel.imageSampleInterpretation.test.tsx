@@ -140,7 +140,7 @@ describe('the verdict and its evidence reach the panel', () => {
       smask: '12 0 R',
       adobeMarker: 'present',
       adobeTransform: 2,
-      sampleInterpretation: 'Normal (net): /Decode inverts and Adobe APP14 inverts again',
+      sampleInterpretation: 'Normal: /Decode compensates for Adobe-inverted CMYK',
     });
   });
 
@@ -148,9 +148,7 @@ describe('the verdict and its evidence reach the panel', () => {
     renderImageNode();
 
     const verdict = await screen.findByTestId('image-preview-interpretation');
-    expect(verdict).toHaveTextContent(
-      'Normal (net): /Decode inverts and Adobe APP14 inverts again'
-    );
+    expect(verdict).toHaveTextContent('Normal: /Decode compensates for Adobe-inverted CMYK');
   });
 
   test('the array, the transform and the soft mask reference are rendered beside it', async () => {
@@ -160,6 +158,7 @@ describe('the verdict and its evidence reach the panel', () => {
     expect(screen.getByTestId('image-preview-decode').textContent).toMatch(
       /1\D+0\D+1\D+0\D+1\D+0\D+1\D+0/
     );
+    expect(screen.getByTestId('image-preview-adobe-marker')).toHaveTextContent('present');
     expect(screen.getByTestId('image-preview-adobe-transform')).toHaveTextContent(
       'YCCK (transform 2)'
     );

@@ -108,6 +108,55 @@ func TestPrintImagePlainErrorRowDoesNotBreakTheBlock(t *testing.T) {
 	}
 }
 
+// The marker outcome is a row of its own on every DCT image. Only the transform
+// was printed before, and only where a record was found, so an absent or
+// unreadable chain left no trace in the plain block at all - and below four
+// components the marker never enters the verdict either.
+func TestPrintImagePlainReportsTheMarkerOutcome(t *testing.T) {
+	for _, outcome := range []string{
+		pdfcore.AdobeMarkerAbsent,
+		pdfcore.AdobeMarkerPresent,
+		pdfcore.AdobeMarkerUnparseable,
+		pdfcore.AdobeMarkerNotExamined,
+	} {
+		t.Run(outcome, func(t *testing.T) {
+			var out strings.Builder
+			if err := printImagePlain(&out, &pdfcore.ImageData{
+				ObjectRef:            "4 0 R",
+				AdobeMarker:          outcome,
+				SampleInterpretation: "Normal (default)",
+			}); err != nil {
+				t.Fatalf("printImagePlain: %v", err)
+			}
+			value, ok := imageRowValue(out.String(), "AdobeMarker")
+			if !ok {
+				t.Fatalf("expected a marker row:\n%s", out.String())
+			}
+			if value != outcome {
+				t.Errorf("marker row = %q, want %q", value, outcome)
+			}
+		})
+	}
+}
+
+// A stream with no marker chain has no outcome to report, and a node whose
+// dictionary was never read has nothing at all.
+func TestPrintImagePlainOmitsTheMarkerRowWithoutAChain(t *testing.T) {
+	for _, outcome := range []string{pdfcore.AdobeMarkerNotApplicable, ""} {
+		var out strings.Builder
+		if err := printImagePlain(&out, &pdfcore.ImageData{
+			ObjectRef:            "4 0 R",
+			AdobeMarker:          outcome,
+			SampleInterpretation: "Normal (default)",
+		}); err != nil {
+			t.Fatalf("printImagePlain: %v", err)
+		}
+		if value, ok := imageRowValue(out.String(), "AdobeMarker"); ok {
+			t.Errorf("outcome %q earns no marker row, got %q", outcome, value)
+		}
+	}
+}
+
 // The transform byte is reported with its meaning beside the number. A bare
 // number only helps a reader who already knows what it means, and an
 // unassigned value is still reported as written rather than dropped.

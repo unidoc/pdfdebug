@@ -150,6 +150,15 @@ func printImagePlain(out io.Writer, img *pdfcore.ImageData) error {
 	if len(img.Decode) > 0 {
 		w.Add("Decode", formatDecodeArray(img.Decode))
 	}
+	// The marker outcome is shown for every DCT image, not only where a record
+	// was found: "absent", "unparseable" and "not-examined" are answers a reader
+	// acts on, and below four components the marker never enters the verdict, so
+	// without this row an unreadable chain leaves no trace outside --json. The
+	// empty zero value means the dictionary was never read; "not-applicable"
+	// means the stream is not a JPEG, and neither is a marker outcome to report.
+	if img.AdobeMarker != "" && img.AdobeMarker != pdfcore.AdobeMarkerNotApplicable {
+		w.Add("AdobeMarker", img.AdobeMarker)
+	}
 	if img.AdobeMarker == pdfcore.AdobeMarkerPresent && img.AdobeTransform != nil {
 		w.Add("AdobeTransform", adobeTransformText(*img.AdobeTransform))
 	}

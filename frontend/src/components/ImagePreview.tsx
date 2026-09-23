@@ -199,6 +199,17 @@ export function ImagePreview({
               <span className="text-text-secondary">Decode: </span>[{decode.join(' ')}]
             </div>
           )}
+          {/* The marker outcome is shown for every DCT image, not only where a
+              record was found: "absent", "unparseable" and "not-examined" are
+              answers a reader acts on, and below four components the marker
+              never enters the verdict. The empty zero value means the dictionary
+              was never read; "not-applicable" means the stream is not a JPEG. */}
+          {adobeMarker !== '' && adobeMarker !== 'not-applicable' && (
+            <div data-testid="image-preview-adobe-marker">
+              <span className="text-text-secondary">Adobe Marker: </span>
+              {adobeMarker}
+            </div>
+          )}
           {adobeMarker === 'present' && adobeTransform !== null && adobeTransform !== undefined && (
             <div data-testid="image-preview-adobe-transform">
               <span className="text-text-secondary">Adobe Transform: </span>

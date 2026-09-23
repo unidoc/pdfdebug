@@ -48,19 +48,27 @@ func TestSampleInterpretation(t *testing.T) {
 			want:       verdictNormalDefault,
 		},
 		{
-			name:       "a marker with the default array inverts once in a decoder that honours it",
+			name:       "a marker with no array reads the stored inversion with nothing to compensate",
 			colorSpace: "DeviceCMYK",
 			components: 4,
 			marker:     AdobeMarkerPresent,
-			want:       verdictNormalMarker,
+			want:       verdictInvertedAdobe,
 		},
 		{
-			name:       "an inverting array and a marker cancel out",
+			name:       "a marker with the default array reads the stored inversion too",
+			colorSpace: "DeviceCMYK",
+			components: 4,
+			decode:     cmykDefault,
+			marker:     AdobeMarkerPresent,
+			want:       verdictInvertedAdobe,
+		},
+		{
+			name:       "an inverting array beside a marker compensates for the stored inversion",
 			colorSpace: "DeviceCMYK",
 			components: 4,
 			decode:     cmykInverted,
 			marker:     AdobeMarkerPresent,
-			want:       verdictNormalNet,
+			want:       verdictNormalAdobe,
 		},
 		{
 			name:       "an inverting array with no marker is the negative",
@@ -133,7 +141,8 @@ func TestSampleInterpretation(t *testing.T) {
 		},
 		{
 			name:       "an odd-length array leaves a pair dangling and is neither",
-			components: -1,
+			colorSpace: "DeviceRGB",
+			components: 3,
 			decode:     []float64{0, 1, 0},
 			marker:     AdobeMarkerNotApplicable,
 			want:       verdictNonDefault,
@@ -148,7 +157,7 @@ func TestSampleInterpretation(t *testing.T) {
 			components:     3,
 			decodeRejected: true,
 			marker:         AdobeMarkerAbsent,
-			want:           verdictNonDefault,
+			want:           verdictUnknownDecode,
 		},
 		{
 			name:           "a rejected array at four components with no marker",
@@ -156,7 +165,7 @@ func TestSampleInterpretation(t *testing.T) {
 			components:     4,
 			decodeRejected: true,
 			marker:         AdobeMarkerAbsent,
-			want:           verdictNonDefault,
+			want:           verdictUnknownDecode,
 		},
 		{
 			name:           "a rejected array at four components beside a marker",
@@ -164,7 +173,7 @@ func TestSampleInterpretation(t *testing.T) {
 			components:     4,
 			decodeRejected: true,
 			marker:         AdobeMarkerPresent,
-			want:           verdictNonDefault,
+			want:           verdictUnknownDecode,
 		},
 		{
 			name:           "an unreadable chain still outranks a rejected array",
@@ -268,18 +277,28 @@ func TestSampleInterpretation(t *testing.T) {
 			want:       verdictNormalDefault,
 		},
 		{
-			name:       "an unresolved component count with an inverting array",
+			// The arity test needs a component count. Without one an inverting
+			// array cannot be shown to invert every component, so a definite
+			// inversion verdict is not warranted.
+			name:       "an unresolved component count with an inverting array is not a definite inversion",
 			components: -1,
 			decode:     cmykInverted,
 			marker:     AdobeMarkerPresent,
-			want:       verdictInvertedDecode,
+			want:       verdictUnknownArity,
+		},
+		{
+			name:       "an unresolved component count with a two-entry array on an unknown colour space",
+			components: -1,
+			decode:     []float64{1, 0},
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictUnknownArity,
 		},
 		{
 			name:       "an unresolved component count with an unreadable chain",
 			components: -1,
 			decode:     cmykInverted,
 			marker:     AdobeMarkerUnparseable,
-			want:       verdictInvertedDecode,
+			want:       verdictUnknownArity,
 		},
 
 		// A stencil mask is one component whatever else the dictionary says.
@@ -332,11 +351,29 @@ func TestSampleInterpretation(t *testing.T) {
 			want:       verdictNotClassified,
 		},
 		{
-			name:       "a Lab image with no array",
+			// An absent array is the default whatever the colour space, so the
+			// carve-out must not answer with a sentence about an array that is
+			// not there.
+			name:       "an Indexed image with no array reads as the default",
+			colorSpace: "Indexed",
+			components: 1,
+			marker:     AdobeMarkerNotApplicable,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "a Lab image with no array reads as the default",
 			colorSpace: "Lab",
 			components: 3,
 			marker:     AdobeMarkerNotApplicable,
-			want:       verdictNotClassified,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:           "a rejected array on an Indexed image is still not classified",
+			colorSpace:     "Indexed",
+			components:     1,
+			decodeRejected: true,
+			marker:         AdobeMarkerNotApplicable,
+			want:           verdictNotClassified,
 		},
 	}
 
@@ -350,4 +387,3 @@ func TestSampleInterpretation(t *testing.T) {
 		})
 	}
 }
-

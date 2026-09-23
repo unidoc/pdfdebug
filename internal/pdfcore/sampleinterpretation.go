@@ -13,12 +13,14 @@ package pdfcore
 // a bug report, and these strings are meant to be pasted into one.
 const (
 	verdictNormalDefault  = "Normal (default)"
-	verdictNormalMarker   = "Normal (Adobe APP14 present; a decoder that honours it inverts once)"
-	verdictNormalNet      = "Normal (net): /Decode inverts and Adobe APP14 inverts again"
+	verdictNormalAdobe    = "Normal: /Decode compensates for Adobe-inverted CMYK"
+	verdictInvertedAdobe  = "Inverted: Adobe CMYK is stored inverted and no /Decode compensates"
 	verdictInvertedNoMark = "Inverted: /Decode inverts, no Adobe APP14 marker"
 	verdictInvertedDecode = "Inverted by /Decode"
 	verdictNonDefault     = "Non-default /Decode"
 	verdictNotClassified  = "Not classified: /Decode on an Indexed or Lab image is not a simple inversion"
+	verdictUnknownDecode  = "Unknown: /Decode array unreadable"
+	verdictUnknownArity   = "Unknown: /Decode not checkable (colour-component count unresolved)"
 	verdictUnknownChain   = "Unknown: JPEG marker chain unreadable"
 	verdictUnknownReach   = "Unknown: JPEG bytes not reachable (DCTDecode behind another filter)"
 )
@@ -31,27 +33,41 @@ const (
 // decodeRejected says the key is present but its array was rejected as
 // malformed, and markerOutcome is one of the AdobeMarker* discriminators.
 //
-// Four rules carry the logic:
+// Five rules carry the logic:
 //
-//   - A rejected array is neither the identity nor a full inversion. Nothing is
-//     stored for it, and the nil that leaves behind is the same nil an absent
-//     key leaves; reading it as the default would answer "checked, nothing here"
-//     on a file that does set the array and whose setting could not be read.
+//   - An Adobe APP14 CMYK JPEG stores INVERTED CMYK. Neither poppler nor mupdf
+//     un-inverts it in the codec, so the identity /Decode renders the negative
+//     and /Decode [1 0 1 0 1 0 1 0] is what renders it correctly. Measured on
+//     both renderers against a CMYK JPEG carrying transform 2; the story records
+//     the numbers.
 //
-//   - The marker arm fires only at four components. Go inverts on the marker in
-//     applyBlack, which only a 4-component JPEG reaches; on 1 or 3 components the
-//     transform selects a colour transform and inverts nothing. Photoshop writes
-//     an Adobe APP14 into ordinary RGB JPEGs, so a rule that fires below four
-//     components mislabels a very large share of real images. An unresolved
-//     component count is not four components.
-//   - Presence decides, not the transform value. Every valid Adobe record
-//     inverts a 4-component stream; the number only chooses between YCCK-to-CMYK
-//     and a direct interleave. The transform is evidence, never an input.
-//   - Indexed and Lab are not classified. Their default /Decode is [0 2^bpc - 1]
-//     and their /Range respectively, so the [0 1] identity test would call a
-//     perfectly ordinary array an inversion.
+//   - The marker arm fires only at four components. The stored inversion, and
+//     Go's un-inversion of it in applyBlack, live in the 4-component path alone;
+//     on 1 or 3 components the transform selects a colour transform and inverts
+//     nothing. Photoshop writes an Adobe APP14 into ordinary RGB JPEGs, so a
+//     rule that fires below four components mislabels a very large share of real
+//     images. An unresolved component count is not four components.
+//
+//   - Presence decides, not the transform value. Every valid Adobe record marks
+//     a 4-component stream as inverted; the number only chooses between
+//     YCCK-to-CMYK and a direct interleave. The transform is evidence, never an
+//     input.
+//
+//   - An array that is there but cannot be established says so. A rejected array
+//     stores nothing, and the nil that leaves behind is the same nil an absent
+//     key leaves; an array whose arity cannot be checked because the component
+//     count was never resolved is neither the default nor an inversion. Reading
+//     either as the default would answer "checked, nothing here" on a file that
+//     does set the array.
+//
+//   - Indexed and Lab are not classified when they carry an array. Their default
+//     /Decode is [0 2^bpc - 1] and their /Range respectively, so the [0 1]
+//     identity test would call a perfectly ordinary array an inversion. With no
+//     array at all there is nothing to misclassify: an absent key is the default
+//     whatever the colour space.
 func sampleInterpretationVerdict(colorSpace string, imageMask bool, components int, decode []float64, decodeRejected bool, markerOutcome string) string {
-	if !imageMask && (colorSpace == "Indexed" || colorSpace == "Lab") {
+	decodePresent := decodeRejected || len(decode) > 0
+	if !imageMask && decodePresent && (colorSpace == "Indexed" || colorSpace == "Lab") {
 		return verdictNotClassified
 	}
 
@@ -59,34 +75,46 @@ func sampleInterpretationVerdict(colorSpace string, imageMask bool, components i
 	if imageMask {
 		components = 1
 	}
-	identity, inverted := decodePattern(decode, components)
-	if decodeRejected {
-		identity, inverted = false, false
-	}
-
-	if components != 4 {
-		return decodeOnlyVerdict(identity, inverted)
-	}
+	fourComponents := components == 4
 
 	// Four components: the marker is live, and an outcome that could not be read
 	// outranks any verdict that would depend on it. Whether a compensating
 	// inversion exists is precisely what is unknown there.
-	switch markerOutcome {
-	case AdobeMarkerUnparseable:
-		return verdictUnknownChain
-	case AdobeMarkerNotExamined:
-		return verdictUnknownReach
-	case AdobeMarkerPresent:
+	if fourComponents {
+		switch markerOutcome {
+		case AdobeMarkerUnparseable:
+			return verdictUnknownChain
+		case AdobeMarkerNotExamined:
+			return verdictUnknownReach
+		}
+	}
+
+	// The array is set and what it says cannot be established. readDecodeArray's
+	// bound is an upper one, so an array of the wrong arity is stored rather than
+	// rejected, and without a component count the arity cannot be checked at all.
+	if decodeRejected {
+		return verdictUnknownDecode
+	}
+	if len(decode) > 0 && components <= 0 {
+		return verdictUnknownArity
+	}
+
+	identity, inverted := decodePattern(decode, components)
+
+	if fourComponents && markerOutcome == AdobeMarkerPresent {
 		switch {
-		case identity:
-			return verdictNormalMarker
 		case inverted:
-			return verdictNormalNet
+			return verdictNormalAdobe
+		case identity:
+			return verdictInvertedAdobe
 		}
 		return verdictNonDefault
-	case AdobeMarkerAbsent:
-		// A chain that was walked to SOS and carries no record. Only here does
-		// the absence of a marker answer anything, so only here is it named.
+	}
+	if fourComponents && markerOutcome == AdobeMarkerAbsent {
+		// A chain that was walked to SOS and carries no record. A 4-component DCT
+		// stream with no Adobe record stores direct CMYK, so the identity array is
+		// normal and an inverting one is the negative. Only here does the absence
+		// of a marker answer anything, so only here is it named.
 		switch {
 		case identity:
 			return verdictNormalDefault
@@ -95,8 +123,8 @@ func sampleInterpretationVerdict(colorSpace string, imageMask bool, components i
 		}
 		return verdictNonDefault
 	}
-	// No marker question to join: the stream is not a DCT image, so there is no
-	// chain and naming one would describe a JPEG that does not exist.
+	// No marker question to join: below four components the marker inverts
+	// nothing, and on a stream that is not a DCT image there is no chain at all.
 	return decodeOnlyVerdict(identity, inverted)
 }
 
@@ -119,14 +147,14 @@ func decodeOnlyVerdict(identity, inverted bool) string {
 //
 // Both patterns are defined per component, so an array carrying a different
 // number of pairs than the image has components matches neither, and neither
-// does an odd-length array with a pair left dangling. components is the
-// resolved count and is negative when it could not be resolved, which is the
-// one case where the arity cannot be checked.
+// does an odd-length array with a pair left dangling. components is the resolved
+// count; a non-empty array with an unresolved count never reaches here, because
+// an arity that cannot be checked is its own verdict.
 func decodePattern(decode []float64, components int) (identity, inverted bool) {
 	if len(decode) == 0 {
 		return true, false
 	}
-	if len(decode)%2 != 0 || (components > 0 && len(decode) != 2*components) {
+	if len(decode) != 2*components {
 		return false, false
 	}
 	identity, inverted = true, true

@@ -94,6 +94,29 @@ describe('the decode array is evidence beside the verdict', () => {
   });
 });
 
+describe('the marker outcome is a row of its own on every DCT image', () => {
+  test.each(['absent', 'present', 'unparseable', 'not-examined'])(
+    'shows the outcome %s, which is otherwise invisible outside --json',
+    (outcome) => {
+      render(<ImagePreview {...bareImage} adobeMarker={outcome} />);
+
+      expect(screen.getByTestId('image-preview-adobe-marker')).toHaveTextContent(outcome);
+    }
+  );
+
+  test('is hidden for a stream that is not a JPEG, which has no chain to report', () => {
+    render(<ImagePreview {...bareImage} filter="FlateDecode" adobeMarker="not-applicable" />);
+
+    expect(screen.queryByTestId('image-preview-adobe-marker')).toBeNull();
+  });
+
+  test('is hidden when the dictionary was never read', () => {
+    render(<ImagePreview {...bareImage} adobeMarker="" />);
+
+    expect(screen.queryByTestId('image-preview-adobe-marker')).toBeNull();
+  });
+});
+
 describe('the Adobe transform row follows the marker outcome', () => {
   test('is shown with its meaning and its number when a record was found', () => {
     render(<ImagePreview {...bareImage} adobeMarker="present" adobeTransform={2} />);
