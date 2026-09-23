@@ -57,6 +57,28 @@ const (
 	// of the document. A source within this bound on both sides ships unchanged.
 	maxThumbnailEdge = 2048
 
+	// maxJPEGMarkerSegments and maxJPEGMarkerScanBytes bound the Adobe APP14
+	// marker walk. An Adobe record sits near the head of the file - writers put
+	// it with the other application segments, ahead of the tables - so neither
+	// ceiling is a limit on where a real record is found; they bound a malformed
+	// chain that would otherwise be walked to the end of a large stream. A chain
+	// that hits either is unparseable, never absent.
+	//
+	// Both ceilings are sized for the same head of the file, and a CMYK JPEG is
+	// what sets that size. Photoshop writes the Adobe record after the APP2 ICC
+	// chain and the APP13 resource block, and a CMYK output profile is large -
+	// the FOGRA set runs past a megabyte - so a ceiling that stops inside the ICC
+	// chain reports the chain unreadable on exactly the well-formed files this
+	// walk exists for. A maximal ICC chain is 255 APP2 chunks of up to 65535
+	// bytes, near 16.7 MB, and the byte ceiling clears that with room for the
+	// resource block and an EXIF thumbnail. The segment ceiling counts every
+	// marker the walk steps over, including the standalone ones, so it also
+	// bounds the loop, and 512 clears those same 255 chunks with the tables
+	// around them. Neither ceiling costs a read: the walk hops segment to segment
+	// inside bytes already held in memory and never touches a pixel.
+	maxJPEGMarkerSegments  = 512
+	maxJPEGMarkerScanBytes = 20 * 1024 * 1024
+
 	// jpegThumbnailQuality is the JPEG encoder quality (1-100) for a downsampled
 	// preview whose scaled result is opaque. Balanced for line-art and text
 	// scans, where JPEG ringing shows more than on photos: 80 stays legible while

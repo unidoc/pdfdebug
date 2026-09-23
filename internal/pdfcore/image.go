@@ -300,7 +300,10 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	// safeCall re-panics a runtime error by design. Absorbing it here keeps one
 	// unreadable image to a per-image error instead of ending the request. A
 	// well-formed document can reach this: a /DeviceN whose colorant array is an
-	// indirect reference opens cleanly and then fails the Array assertion.
+	// indirect reference opens cleanly and then fails the Array assertion. The
+	// message is HELD rather than returned here, so the sample-interpretation
+	// block below still runs for an image whose dictionary was read.
+	csFailure := ""
 	if lastFilter == "DCTDecode" {
 		err = func() (err error) {
 			defer func() {
@@ -318,19 +321,59 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 			})
 		}()
 		if err != nil {
-			result.Error = fmt.Sprintf("failed to determine color space components: %v", err)
-			return result, nil, "", nil
+			csFailure = fmt.Sprintf("failed to determine color space components: %v", err)
 		}
 	}
 
 	// Resolve the colour-component count once (a negative sentinel means it could
 	// not be resolved): the size estimate and the decode ceiling both need it but
 	// pick different fallbacks, so this avoids a second colour-space dereference.
-	resolvedComponents := declaredComponents(xrt, &sd, -1)
+	// A lookup that already faulted above stays at the sentinel instead of being
+	// repeated, so the same colour space is never dereferenced twice.
+	resolvedComponents := -1
+	if csFailure == "" {
+		resolvedComponents = declaredComponents(xrt, &sd, -1)
+	}
+
+	// Sample interpretation: whether the samples are read inverted, and the two
+	// switches that decide it. All of it is computed HERE, above both returns
+	// below it: the colour-space failure and the decode branch. A 4-component DCT
+	// stream with no Adobe APP14 is refused outright by Go's JPEG decoder, so
+	// renderImage returns with result.Error set on exactly the shape this
+	// reporting exists for; computed below the decode, every field would be null
+	// on the one file that most needs them.
+	result.ImageMask = imageMask
+	result.SMask = readSMaskRef(&sd)
+
+	// The /Decode bound is two entries per colour component. A stencil mask is
+	// one component whatever else the dictionary says; an unresolved colour space
+	// widens to maxComponents rather than rejecting the array, matching the
+	// widen-rather-than-reject posture of the decode ceiling.
+	decodeComponents := resolvedComponents
+	if imageMask {
+		decodeComponents = 1
+	}
+	decodeBound := 2 * maxComponents
+	if decodeComponents > 0 {
+		decodeBound = 2 * decodeComponents
+	}
+	decodeArr, decodeErr := readDecodeArray(xrt, &sd, decodeBound)
+	if decodeErr != nil {
+		result.Warning = appendWarning(result.Warning, fmt.Sprintf("decode array metadata: %v", decodeErr))
+	}
+	result.Decode = decodeArr
+
+	result.AdobeMarker, result.AdobeTransform = adobeMarkerFromStream(&sd)
+	result.SampleInterpretation = sampleInterpretationVerdict(
+		result.ColorSpace, imageMask, resolvedComponents, result.Decode, decodeErr != nil, result.AdobeMarker)
 
 	// Size metadata for the frontend: the stored (encoded /Length) size and the
 	// honest decoded size the declared geometry implies (0 when unknown, one
-	// sample per pixel for masks and Indexed images).
+	// sample per pixel for masks and Indexed images). Computed above the
+	// colour-space-failure return like the sample-interpretation block: the
+	// stored length is the length of bytes already in hand and needs no component
+	// count, and the decoded estimate answers 0 rather than a guess when the
+	// count is the sentinel.
 	result.StoredBytes = int64(len(sd.Raw))
 	sizeBits := result.BitsPerComponent
 	if imageMask {
@@ -338,6 +381,14 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	}
 	result.DecodedBytes = estimatedDecodedBytes(result.Width, result.Height, sizeBits,
 		sizeEstimateComponents(result.ColorSpace, imageMask, resolvedComponents))
+
+	// The colour-space lookup faulted: report it now that the reads above have
+	// run. The component count stayed at the sentinel, so the /Decode bound
+	// widened to maxComponents and the verdict classified on /Decode alone.
+	if csFailure != "" {
+		result.Error = csFailure
+		return result, nil, "", nil
+	}
 
 	// Decode under a ceiling derived from the geometry the dictionary declares,
 	// so a compressed bitmap cannot inflate far past the size it claims before
@@ -477,6 +528,128 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	}
 
 	return result, imgBytes, format, nil
+}
+
+// readSMaskRef reports the image /SMask as presence plus its object reference,
+// without dereferencing the mask image. nil means the key is absent; a pointer
+// to "" means present with no reference to report, which covers a direct stream
+// and the /None name writers borrow from the ExtGState soft-mask entry. Neither
+// is interpreted further: an image /SMask is a different entry from the
+// ExtGState one and is not classified like it.
+func readSMaskRef(sd *pdfcpu_types.StreamDict) *string {
+	obj, found := sd.Find("SMask")
+	if !found {
+		return nil
+	}
+	if ref, ok := obj.(pdfcpu_types.IndirectRef); ok {
+		s := refString(ref)
+		return &s
+	}
+	present := ""
+	return &present
+}
+
+// readDecodeArray reads the image dictionary's /Decode array, bounded to bound
+// entries. An absent key, and a key whose value reads as the null object, both
+// yield a nil array and no error. An array longer than
+// the bound, of odd or zero length, or carrying an element that is not a number
+// is malformed: it yields a nil array and an error, and nothing is stored in
+// part. An indirect array, and an indirect element inside it, both resolve.
+func readDecodeArray(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, bound int) ([]float64, error) {
+	var values []float64
+	var malformed error
+	err := safeCall(func() error {
+		obj, found := sd.Find("Decode")
+		if !found {
+			return nil
+		}
+		deref, e := xrt.Dereference(obj)
+		if e != nil {
+			return e
+		}
+		if deref == nil {
+			// The null object, which a reference to a free or undefined object
+			// also reads as, is equivalent to omitting the key (ISO 32000-1
+			// 7.3.9, 7.3.10). Calling it malformed would report a non-default
+			// array on a file that sets none.
+			return nil
+		}
+		arr, ok := deref.(pdfcpu_types.Array)
+		if !ok {
+			malformed = fmt.Errorf("/Decode is not an array")
+			return nil
+		}
+		if len(arr) == 0 || len(arr)%2 != 0 {
+			malformed = fmt.Errorf("/Decode has %d entries; it must be a non-empty pair per component", len(arr))
+			return nil
+		}
+		if len(arr) > bound {
+			malformed = fmt.Errorf("/Decode has %d entries, over the %d this color space allows", len(arr), bound)
+			return nil
+		}
+		out := make([]float64, len(arr))
+		for i, el := range arr {
+			elem, e := xrt.Dereference(el)
+			if e != nil {
+				return e
+			}
+			f, ok := numericValue(elem)
+			if !ok {
+				malformed = fmt.Errorf("/Decode entry %d is not a number", i)
+				return nil
+			}
+			out[i] = f
+		}
+		values = out
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return values, malformed
+}
+
+// numericValue returns a PDF number's value, reporting false for any other
+// object type.
+func numericValue(o pdfcpu_types.Object) (float64, bool) {
+	switch v := o.(type) {
+	case pdfcpu_types.Integer:
+		return float64(v.Value()), true
+	case pdfcpu_types.Float:
+		return v.Value(), true
+	}
+	return 0, false
+}
+
+// adobeMarkerFromStream reports the Adobe APP14 outcome for an image stream,
+// with the transform byte when a record was found.
+//
+// The walk runs on sd.Raw, the stream as stored, and only when DCTDecode is the
+// SOLE filter. With anything in front of it - /Filter [/ASCII85Decode
+// /DCTDecode] is legal - the stored bytes are the outer encoding rather than the
+// JPEG, so the outcome is not-examined: walking them anyway would report a
+// confident "no marker" on exactly the kind of file that gets inspected.
+// sd.Content is never the right input either: pdfcpu decodes a 4-component DCT
+// stream to a gob-framed image, and passes a 3-component one through unchanged.
+func adobeMarkerFromStream(sd *pdfcpu_types.StreamDict) (string, *int) {
+	isDCT := false
+	for _, f := range sd.FilterPipeline {
+		if f.Name == "DCTDecode" {
+			isDCT = true
+			break
+		}
+	}
+	if !isDCT {
+		return AdobeMarkerNotApplicable, nil
+	}
+	if len(sd.FilterPipeline) != 1 {
+		return AdobeMarkerNotExamined, nil
+	}
+	outcome, transform := scanAdobeMarker(sd.Raw)
+	if outcome != AdobeMarkerPresent {
+		return outcome, nil
+	}
+	return outcome, &transform
 }
 
 // declaredComponents returns the colour-component count pdfcpu derives from the
