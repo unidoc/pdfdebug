@@ -269,11 +269,39 @@ func TestSampleInterpretation(t *testing.T) {
 		},
 
 		// An unresolved component count is not four components. Widening the guess
-		// here would invent an inversion rather than a ceiling.
+		// here would invent an inversion rather than a ceiling. It is not the
+		// default either: whether the marker arm applies is exactly what is
+		// missing, so the answer is an unknown of its own.
 		{
 			name:       "an unresolved component count does not take the marker arm",
 			components: -1,
 			marker:     AdobeMarkerPresent,
+			want:       verdictUnknownMarker,
+		},
+		{
+			name:       "an unresolved component count with an unreadable chain and no array",
+			components: -1,
+			marker:     AdobeMarkerUnparseable,
+			want:       verdictUnknownMarker,
+		},
+		{
+			name:       "an unresolved component count with unreachable JPEG bytes and no array",
+			components: -1,
+			marker:     AdobeMarkerNotExamined,
+			want:       verdictUnknownMarker,
+		},
+		{
+			// A chain walked to SOS with no record reads the same at any component
+			// count, so nothing is unknown and the default stands.
+			name:       "an unresolved component count beside a chain carrying no record",
+			components: -1,
+			marker:     AdobeMarkerAbsent,
+			want:       verdictNormalDefault,
+		},
+		{
+			name:       "an unresolved component count on a stream that is not DCT",
+			components: -1,
+			marker:     AdobeMarkerNotApplicable,
 			want:       verdictNormalDefault,
 		},
 		{
@@ -368,12 +396,24 @@ func TestSampleInterpretation(t *testing.T) {
 			want:       verdictNormalDefault,
 		},
 		{
-			name:           "a rejected array on an Indexed image is still not classified",
+			// The carve-out is about an array that is there to look at. An array
+			// that could not be read at all is unreadable whatever the colour
+			// space, and saying it is "not a simple inversion" asserts a
+			// well-formed array nobody ever saw.
+			name:           "a rejected array on an Indexed image reads as unreadable",
 			colorSpace:     "Indexed",
 			components:     1,
 			decodeRejected: true,
 			marker:         AdobeMarkerNotApplicable,
-			want:           verdictNotClassified,
+			want:           verdictUnknownDecode,
+		},
+		{
+			name:           "a rejected array on a Lab image reads as unreadable",
+			colorSpace:     "Lab",
+			components:     3,
+			decodeRejected: true,
+			marker:         AdobeMarkerNotApplicable,
+			want:           verdictUnknownDecode,
 		},
 	}
 

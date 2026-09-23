@@ -29,6 +29,7 @@ const (
 	verdictNotClassified  = "Not classified: /Decode on an Indexed or Lab image is not a simple inversion"
 	verdictUnknownDecode  = "Unknown: /Decode array unreadable"
 	verdictUnknownArity   = "Unknown: /Decode not checkable (colour-component count unresolved)"
+	verdictUnknownMarker  = "Unknown: Adobe APP14 marker not checkable (colour-component count unresolved)"
 	verdictUnknownChain   = "Unknown: JPEG marker chain unreadable"
 	verdictUnknownReach   = "Unknown: JPEG bytes not reachable (DCTDecode behind another filter)"
 )
@@ -351,6 +352,13 @@ func TestAdobeMarkerWalkOnMalformedChains(t *testing.T) {
 			wantOutcome: markerAbsent,
 		},
 		{
+			// The identifier is there and the record is not. Reporting absent
+			// would call a chain that could not be read a chain with no marker.
+			name:        "an Adobe APP14 too short to hold the record fails closed",
+			raw:         markerChain(truncatedAdobeAPP14()),
+			wantOutcome: markerUnparseable,
+		},
+		{
 			name:        "a declared length running past the end fails closed",
 			raw:         truncatedChain(),
 			wantOutcome: markerUnparseable,
@@ -662,19 +670,30 @@ func TestTransformValueDoesNotBranchTheVerdict(t *testing.T) {
 
 // An unresolved component count is not a four-component stream, so the marker
 // arm does not fire on it. Widening the guess here would invent an inversion
-// rather than a ceiling.
+// rather than a ceiling. It is not the plain default either: whether the marker
+// applies is exactly what the missing count decides, and the default would read
+// as a confident "checked, nothing here" on a stream that may be a stored-
+// inverted Adobe CMYK JPEG.
 func TestUnresolvedComponentCountDoesNotTakeTheMarkerArm(t *testing.T) {
 	// No /ColorSpace at all and no ImageMask: the component count cannot be
 	// resolved from the dictionary.
 	dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8" +
 		" /BitsPerComponent 8 /Filter /DCTDecode"
 	img, _ := dumpImageJSON(t, "unresolved.pdf", imagePDF(dict, markerChain(adobeAPP14(2))))
-	if img.SampleInterpretation != verdictNormalDefault {
-		t.Errorf("sampleInterpretation = %q, want %q: an unresolved component count is not four components",
-			img.SampleInterpretation, verdictNormalDefault)
+	if img.SampleInterpretation != verdictUnknownMarker {
+		t.Errorf("sampleInterpretation = %q, want %q: an unresolved component count neither fires the marker arm nor reads as the default",
+			img.SampleInterpretation, verdictUnknownMarker)
 	}
 	if img.AdobeTransform == nil || *img.AdobeTransform != 2 {
 		t.Errorf("adobeTransform = %v, want the transform reported as evidence beside the verdict", img.AdobeTransform)
+	}
+
+	// A chain walked to SOS with no record reads the same at any component
+	// count, so the unresolved count leaves nothing undecided.
+	noRecord, _ := dumpImageJSON(t, "unresolved-no-record.pdf", imagePDF(dict, markerChain(foreignAPP14())))
+	if noRecord.SampleInterpretation != verdictNormalDefault {
+		t.Errorf("sampleInterpretation = %q, want %q: with no record the count cannot change the answer",
+			noRecord.SampleInterpretation, verdictNormalDefault)
 	}
 }
 
@@ -710,6 +729,41 @@ func TestIndexedAndLabAreNotClassified(t *testing.T) {
 			}
 			if isJSONNull(raw, "decode") {
 				t.Errorf("the array is still shown for an unclassified colour space, got a null decode")
+			}
+		})
+	}
+}
+
+// The carve-out speaks about an array that was read. An array the reader
+// rejected is unreadable whatever the colour space, and "not a simple
+// inversion" would assert a well-formed array that nobody ever saw - on a
+// payload whose decode is null, leaving the warning as the only trace.
+func TestARejectedArrayOnAnUnclassifiedColorSpaceReadsAsUnreadable(t *testing.T) {
+	cases := []struct {
+		name    string
+		entries string
+	}{
+		{
+			name: "an Indexed image",
+			entries: "/ColorSpace [/Indexed /DeviceRGB 1 <FFFFFF000000>]" +
+				" /BitsPerComponent 8 /Decode [0 1 2]",
+		},
+		{
+			name: "a Lab image",
+			entries: "/ColorSpace [/Lab << /WhitePoint [0.9505 1 1.089] /Range [-100 100 -100 100] >>]" +
+				" /BitsPerComponent 8 /Decode [0 100 -100]",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8 /Filter /FlateDecode " + tc.entries
+			img, raw := dumpImageJSON(t, "rejected-unclassified.pdf", imagePDF(dict, zlibBytes(t, make([]byte, 64))))
+			if !isJSONNull(raw, "decode") {
+				t.Fatalf("expected the rejected array to be stored as nothing, got %s", string(raw["decode"]))
+			}
+			if img.SampleInterpretation != verdictUnknownDecode {
+				t.Errorf("sampleInterpretation = %q, want %q", img.SampleInterpretation, verdictUnknownDecode)
 			}
 		})
 	}
@@ -860,6 +914,15 @@ func TestFullFieldSetSurvivesAnUnreadableColorSpace(t *testing.T) {
 		if _, ok := raw[key]; !ok {
 			t.Errorf("key %q is missing from a payload whose colour space could not be read", key)
 		}
+	}
+	// The stored length is the length of bytes already in hand and needs no
+	// component count. The decoded estimate does need one, and answers 0 rather
+	// than a guess while it is unresolved.
+	if img.StoredBytes <= 0 {
+		t.Errorf("storedBytes = %d, want the encoded stream length, which the colour space does not decide", img.StoredBytes)
+	}
+	if img.DecodedBytes != 0 {
+		t.Errorf("decodedBytes = %d, want 0: the estimate has no component count to stand on", img.DecodedBytes)
 	}
 }
 

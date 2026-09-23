@@ -121,9 +121,20 @@ func TestScanAdobeMarker(t *testing.T) {
 			wantOutcome: AdobeMarkerAbsent,
 		},
 		{
-			name:        "an APP14 too short to hold the record is skipped",
+			// The payload cannot carry the five identifier bytes, so it is not an
+			// Adobe record and is skipped like any other APP14.
+			name:        "an APP14 too short to carry the identifier is skipped",
 			raw:         chain([]byte{0xFF, 0xEE, 0x00, 0x06, 'A', 'd', 'o', 'b'}),
 			wantOutcome: AdobeMarkerAbsent,
+		},
+		{
+			// The identifier is there and the record is not. Answering absent
+			// here would report a chain that could not be read as a chain with
+			// no marker, and at four components that is a confident normal on a
+			// stream that may be stored inverted.
+			name:        "an Adobe APP14 too short to hold the record fails closed",
+			raw:         chain([]byte{0xFF, 0xEE, 0x00, 0x08, 'A', 'd', 'o', 'b', 'e', 0x00}),
+			wantOutcome: AdobeMarkerUnparseable,
 		},
 		{
 			name:          "a record behind other segments is still found",

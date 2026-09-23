@@ -31,9 +31,10 @@ const (
 	// AdobeMarkerPresent means an Adobe APP14 record was found and its transform
 	// byte is reported.
 	AdobeMarkerPresent = "present"
-	// AdobeMarkerUnparseable means the chain is malformed or hit a walk ceiling
-	// before any Adobe APP14 record was read. Never reported as absent: a chain
-	// that could not be read is not a chain without a marker.
+	// AdobeMarkerUnparseable means the chain is malformed, carries an Adobe APP14
+	// too short to hold its own record, or hit a walk ceiling before any Adobe
+	// APP14 record was read. Never reported as absent: a chain that could not be
+	// read is not a chain without a marker.
 	AdobeMarkerUnparseable = "unparseable"
 	// AdobeMarkerNotExamined means DCTDecode sits behind another filter, so the
 	// stored bytes are not the JPEG and were not walked.
@@ -46,8 +47,9 @@ const (
 var adobeIdentifier = []byte("Adobe")
 
 // adobeRecordBytes is the payload an Adobe APP14 record occupies: the five-byte
-// identifier, a version word, two flag words and the transform byte. A shorter
-// APP14 is skipped rather than read past.
+// identifier, a version word, two flag words and the transform byte. A payload
+// carrying the identifier in fewer bytes than this is a malformed Adobe record
+// and fails closed rather than being read past.
 const adobeRecordBytes = 12
 
 // scanAdobeMarker walks raw as a JPEG marker chain and reports whether it
@@ -66,7 +68,8 @@ const adobeRecordBytes = 12
 // where no record was read it fails closed: a declared length that runs past the
 // end of the buffer, a length below the two bytes the length field itself
 // occupies, a 0x00 where a marker code belongs, a chain that ends without
-// reaching SOS, and either ceiling all yield AdobeMarkerUnparseable rather than a
+// reaching SOS, an APP14 carrying the Adobe identifier in too few bytes to hold
+// the record, and either ceiling all yield AdobeMarkerUnparseable rather than a
 // silent AdobeMarkerAbsent.
 func scanAdobeMarker(raw []byte) (outcome string, transform int) {
 	if len(raw) < 4 || raw[0] != 0xFF || raw[1] != 0xD8 {
@@ -126,7 +129,15 @@ func scanAdobeMarker(raw []byte) (outcome string, transform int) {
 			return AdobeMarkerUnparseable, 0
 		}
 		payload := raw[i+2 : end]
-		if marker == 0xEE && len(payload) >= adobeRecordBytes && bytes.HasPrefix(payload, adobeIdentifier) {
+		// The identifier decides whether this is an Adobe record, the length only
+		// whether the record is whole. A payload too short to carry the five
+		// identifier bytes fails the prefix test and is skipped like any other
+		// non-Adobe APP14; one that carries the identifier and stops short of the
+		// record is a malformed Adobe record and fails closed.
+		if marker == 0xEE && bytes.HasPrefix(payload, adobeIdentifier) {
+			if len(payload) < adobeRecordBytes {
+				return AdobeMarkerUnparseable, 0
+			}
 			return AdobeMarkerPresent, int(payload[adobeRecordBytes-1])
 		}
 		i = end

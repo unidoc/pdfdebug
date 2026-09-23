@@ -21,6 +21,7 @@ const (
 	verdictNotClassified  = "Not classified: /Decode on an Indexed or Lab image is not a simple inversion"
 	verdictUnknownDecode  = "Unknown: /Decode array unreadable"
 	verdictUnknownArity   = "Unknown: /Decode not checkable (colour-component count unresolved)"
+	verdictUnknownMarker  = "Unknown: Adobe APP14 marker not checkable (colour-component count unresolved)"
 	verdictUnknownChain   = "Unknown: JPEG marker chain unreadable"
 	verdictUnknownReach   = "Unknown: JPEG bytes not reachable (DCTDecode behind another filter)"
 )
@@ -48,6 +49,14 @@ const (
 //     rule that fires below four components mislabels a very large share of real
 //     images. An unresolved component count is not four components.
 //
+//   - An unresolved count leaves it unknown whether the marker applies at all,
+//     and that is its own answer rather than the default. The arm would fire at
+//     four components and not below, so a count that was never resolved decides
+//     nothing; reporting the plain default there would answer "checked, nothing
+//     here" on a file that may well be a stored-inverted Adobe CMYK JPEG. Only
+//     the outcomes that would change the answer reach it: absent and
+//     not-applicable read the same at any component count.
+//
 //   - Presence decides, not the transform value. Every valid Adobe record marks
 //     a 4-component stream as inverted; the number only chooses between
 //     YCCK-to-CMYK and a direct interleave. The transform is evidence, never an
@@ -60,17 +69,14 @@ const (
 //     either as the default would answer "checked, nothing here" on a file that
 //     does set the array.
 //
-//   - Indexed and Lab are not classified when they carry an array. Their default
-//     /Decode is [0 2^bpc - 1] and their /Range respectively, so the [0 1]
-//     identity test would call a perfectly ordinary array an inversion. With no
-//     array at all there is nothing to misclassify: an absent key is the default
-//     whatever the colour space.
+//   - Indexed and Lab are not classified when they carry a readable array. Their
+//     default /Decode is [0 2^bpc - 1] and their /Range respectively, so the
+//     [0 1] identity test would call a perfectly ordinary array an inversion.
+//     With no array at all there is nothing to misclassify: an absent key is the
+//     default whatever the colour space. An array that could not be read at all
+//     is unreadable whatever the colour space, so the rejection is answered
+//     first: the carve-out is about an array that is there to look at.
 func sampleInterpretationVerdict(colorSpace string, imageMask bool, components int, decode []float64, decodeRejected bool, markerOutcome string) string {
-	decodePresent := decodeRejected || len(decode) > 0
-	if !imageMask && decodePresent && (colorSpace == "Indexed" || colorSpace == "Lab") {
-		return verdictNotClassified
-	}
-
 	// A stencil mask is one component whatever else the dictionary says.
 	if imageMask {
 		components = 1
@@ -89,14 +95,31 @@ func sampleInterpretationVerdict(colorSpace string, imageMask bool, components i
 		}
 	}
 
-	// The array is set and what it says cannot be established. readDecodeArray's
-	// bound is an upper one, so an array of the wrong arity is stored rather than
-	// rejected, and without a component count the arity cannot be checked at all.
+	// The array is set and could not be read. Answered before the colour space is
+	// consulted: an unreadable array is unreadable on Indexed and Lab too.
 	if decodeRejected {
 		return verdictUnknownDecode
 	}
+
+	// A readable array on a colour space whose default is not [0 1].
+	if !imageMask && len(decode) > 0 && (colorSpace == "Indexed" || colorSpace == "Lab") {
+		return verdictNotClassified
+	}
+
+	// readDecodeArray's bound is an upper one, so an array of the wrong arity is
+	// stored rather than rejected, and without a component count the arity cannot
+	// be checked at all.
 	if len(decode) > 0 && components <= 0 {
 		return verdictUnknownArity
+	}
+
+	// No array, and no count to say whether the marker arm applies. Reached only
+	// with an empty array, the arity answer above having taken every other shape.
+	if components <= 0 {
+		switch markerOutcome {
+		case AdobeMarkerPresent, AdobeMarkerUnparseable, AdobeMarkerNotExamined:
+			return verdictUnknownMarker
+		}
 	}
 
 	identity, inverted := decodePattern(decode, components)

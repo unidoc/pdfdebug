@@ -361,10 +361,17 @@ func foreignAPP14() []byte {
 	}
 }
 
-// shortAPP14 returns an APP14 whose payload is four bytes: too short to hold
-// the Adobe record, so it is skipped rather than read past.
+// shortAPP14 returns an APP14 whose payload is four bytes: too short to carry
+// the five-byte identifier, so it is not an Adobe record and is skipped.
 func shortAPP14() []byte {
 	return []byte{0xFF, 0xEE, 0x00, 0x06, 'A', 'd', 'o', 'b'}
+}
+
+// truncatedAdobeAPP14 returns an APP14 carrying the Adobe identifier in a
+// payload too short to hold the record. It is a malformed Adobe record rather
+// than somebody else's segment, so it fails closed instead of being skipped.
+func truncatedAdobeAPP14() []byte {
+	return []byte{0xFF, 0xEE, 0x00, 0x08, 'A', 'd', 'o', 'b', 'e', 0x00}
 }
 
 // spliceAfterAPP0 inserts a segment directly after the JFIF APP0 of an encoded

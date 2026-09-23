@@ -367,17 +367,13 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	result.SampleInterpretation = sampleInterpretationVerdict(
 		result.ColorSpace, imageMask, resolvedComponents, result.Decode, decodeErr != nil, result.AdobeMarker)
 
-	// The colour-space lookup faulted: report it now that the reads above have
-	// run. The component count stayed at the sentinel, so the /Decode bound
-	// widened to maxComponents and the verdict classified on /Decode alone.
-	if csFailure != "" {
-		result.Error = csFailure
-		return result, nil, "", nil
-	}
-
 	// Size metadata for the frontend: the stored (encoded /Length) size and the
 	// honest decoded size the declared geometry implies (0 when unknown, one
-	// sample per pixel for masks and Indexed images).
+	// sample per pixel for masks and Indexed images). Computed above the
+	// colour-space-failure return like the sample-interpretation block: the
+	// stored length is the length of bytes already in hand and needs no component
+	// count, and the decoded estimate answers 0 rather than a guess when the
+	// count is the sentinel.
 	result.StoredBytes = int64(len(sd.Raw))
 	sizeBits := result.BitsPerComponent
 	if imageMask {
@@ -385,6 +381,14 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	}
 	result.DecodedBytes = estimatedDecodedBytes(result.Width, result.Height, sizeBits,
 		sizeEstimateComponents(result.ColorSpace, imageMask, resolvedComponents))
+
+	// The colour-space lookup faulted: report it now that the reads above have
+	// run. The component count stayed at the sentinel, so the /Decode bound
+	// widened to maxComponents and the verdict classified on /Decode alone.
+	if csFailure != "" {
+		result.Error = csFailure
+		return result, nil, "", nil
+	}
 
 	// Decode under a ceiling derived from the geometry the dictionary declares,
 	// so a compressed bitmap cannot inflate far past the size it claims before
