@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -128,19 +127,23 @@ func (s *Service) SetDownloadPaused(paused bool) {
 // "no update" and stays silent on the automatic path.
 func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error) {
 	res, err := s.checker.Check(ctx, s.version)
-	s.record(res, err)
+	s.record(ctx, res, err)
 	return res, err
 }
 
-// CheckForUpdateAtStartup is the automatic launch check. When the shared
-// record is fresh and says nothing is newer than the running version it
-// answers from the record with no request; otherwise it runs CheckForUpdate.
-// A fresh record that names a newer version still goes live, because the
-// record carries no release notes or download asset to show.
+// CheckForUpdateAtStartup is the automatic launch check. When a check
+// succeeded within the TTL and its latest version is not newer than the
+// running version it answers from the record with no request; otherwise it
+// runs CheckForUpdate. A failed attempt never counts, a record that names a
+// newer version still goes live because it carries no release notes or
+// download asset, and a prerelease build always goes live because the record
+// holds stable versions only.
 func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Result, error) {
-	if snap, ok := s.loadSnapshot(); ok && snap.Fresh(time.Now(), updatecheck.CacheTTL) {
-		if _, newer := snap.Notice(s.version); !newer {
-			return updatecheck.Result{InstalledVersion: s.version}, nil
+	if v, ok := updatecheck.CheckableVersion(s.version); ok && semver.Prerelease(v) == "" {
+		if snap, ok := s.loadSnapshot(); ok && snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
+			if _, newer := snap.Notice(s.version); !newer {
+				return updatecheck.Result{InstalledVersion: s.version}, nil
+			}
 		}
 	}
 	return s.CheckForUpdate(ctx)
@@ -154,44 +157,47 @@ func (s *Service) loadSnapshot() (updatecheck.Snapshot, bool) {
 	return s.cache.Load()
 }
 
-// record stores the outcome of a live check. A failed check advances
-// checked_at and keeps the previous latest version. A successful one stores
-// the newest release whose tag carries no SemVer prerelease suffix, or, when
-// no such release is newer, the running version itself provided it is a
-// stable release. A dev or non-SemVer build stores nothing, and a store error
+// record stores the outcome of a live check. Every check advances
+// checked_at. A successful one also stores the newest stable tag the server
+// listed and advances succeeded_at; a failed one, or a success whose stable
+// tag could not be learned, keeps the previous latest version and
+// succeeded_at. A dev or non-SemVer build stores nothing, and a store error
 // is ignored.
-func (s *Service) record(res updatecheck.Result, err error) {
+func (s *Service) record(ctx context.Context, res updatecheck.Result, err error) {
 	if s.cache == nil {
 		return
 	}
-	v := s.version
-	if !strings.HasPrefix(v, "v") {
-		v = "v" + v
-	}
-	if !semver.IsValid(v) {
+	if _, ok := updatecheck.CheckableVersion(s.version); !ok {
 		return
 	}
-	prev, _ := s.cache.Load()
-	next := updatecheck.Snapshot{CheckedAt: time.Now(), LatestVersion: prev.LatestVersion}
+	now := time.Now()
+	next, _ := s.cache.Load()
+	next.CheckedAt = now
 	if err == nil {
-		// res.Releases holds every release newer than the running version,
-		// newest first; the first without a prerelease suffix is the latest
-		// stable. With none, a stable running version is itself the latest.
-		stable := ""
-		for _, r := range res.Releases {
-			if semver.Prerelease("v"+strings.TrimPrefix(r.TagName, "v")) == "" {
-				stable = r.TagName
-				break
+		if latest, ok := s.latestStable(ctx, res); ok {
+			next.SucceededAt = now
+			if latest != "" {
+				next.LatestVersion = latest
 			}
-		}
-		switch {
-		case stable != "":
-			next.LatestVersion = stable
-		case semver.Prerelease(v) == "":
-			next.LatestVersion = v
 		}
 	}
 	_ = s.cache.Store(next)
+}
+
+// latestStable returns the newest stable tag the release server listed. When
+// res holds a stable release newer than the running version that is it;
+// otherwise one releases page is fetched, because the running version itself
+// may not be published and res only lists newer releases. "" with ok true
+// means the server listed no stable release.
+func (s *Service) latestStable(ctx context.Context, res updatecheck.Result) (string, bool) {
+	// res.Releases is newest first.
+	for _, r := range res.Releases {
+		if tag, ok := updatecheck.CheckableVersion(r.TagName); ok && semver.Prerelease(tag) == "" {
+			return tag, true
+		}
+	}
+	tag, err := s.checker.LatestStable(ctx)
+	return tag, err == nil
 }
 
 // DownloadUpdate downloads assetURL, verifies it against sumsURL, moves the

@@ -383,6 +383,30 @@ func TestAttemptRecordIsWrittenBeforeTheRequest(t *testing.T) {
 	}
 }
 
+func TestOnlyASuccessfulRefreshAdvancesSucceededAt(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	h.seed(t, h.now.Add(-48*time.Hour), "v0.5.0")
+	before, _ := h.env.cache.Load()
+	failed := func(context.Context) (string, error) { return "", errors.New("offline") }
+	if _, err := refreshSnapshot(t.Context(), h.env.cache, failed, h.now); err == nil {
+		t.Fatal("a failed request reported success")
+	}
+	stored, _ := h.env.cache.Load()
+	if !stored.SucceededAt.Equal(before.SucceededAt) {
+		t.Errorf("succeeded_at = %v after a failed refresh, want %v kept", stored.SucceededAt, before.SucceededAt)
+	}
+	later := h.now.Add(time.Minute)
+	ok := func(context.Context) (string, error) { return "v0.6.0", nil }
+	snap, err := refreshSnapshot(t.Context(), h.env.cache, ok, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, _ = h.env.cache.Load()
+	if !stored.SucceededAt.Equal(later) || !snap.SucceededAt.Equal(later) || stored.LatestVersion != "v0.6.0" {
+		t.Errorf("after a successful refresh: stored %+v, returned %+v", stored, snap)
+	}
+}
+
 func TestNullDevicePipesAndFilesAreNotTerminals(t *testing.T) {
 	null, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {

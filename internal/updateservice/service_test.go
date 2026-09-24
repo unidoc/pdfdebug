@@ -67,22 +67,35 @@ func TestExplicitCheckStoresTheNewerRelease(t *testing.T) {
 	}
 }
 
-func TestExplicitCheckWithNothingNewerStoresTheRunningVersion(t *testing.T) {
-	srv, _ := releasesServer(t, "v0.5.0", "v0.4.0")
-	s, c := testService(t, srv, "0.5.0")
-	if _, err := s.CheckForUpdate(t.Context()); err != nil {
-		t.Fatal(err)
+func TestExplicitCheckWithNothingNewerStoresWhatTheServerListed(t *testing.T) {
+	cases := []struct {
+		name, running string
+	}{
+		{"running version is published", "0.5.0"},
+		{"running version is not published yet", "0.6.0"},
 	}
-	snap, ok := c.Load()
-	if !ok || snap.LatestVersion != "v0.5.0" {
-		t.Errorf("stored %+v, %v; want the running version as v0.5.0", snap, ok)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			srv, _ := releasesServer(t, "v0.5.0", "v0.4.0")
+			s, cache := testService(t, srv, c.running)
+			if _, err := s.CheckForUpdate(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			snap, ok := cache.Load()
+			if !ok || snap.LatestVersion != "v0.5.0" {
+				t.Errorf("stored %+v, %v; want the server's latest v0.5.0", snap, ok)
+			}
+			if !snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
+				t.Error("succeeded_at was not advanced by a successful check")
+			}
+		})
 	}
 }
 
-func TestPrereleaseBuildWithNothingNewerKeepsThePreviousLatest(t *testing.T) {
-	srv, _ := releasesServer(t, "v0.5.0")
+func TestPrereleaseBuildWithNothingNewerStoresTheLatestStable(t *testing.T) {
+	srv, _ := releasesServer(t, "v0.6.0-rc2", "v0.5.0")
 	s, c := testService(t, srv, "0.6.0-rc1")
-	if err := c.Store(updatecheck.Snapshot{CheckedAt: time.Now().Add(-48 * time.Hour), LatestVersion: "v0.5.0"}); err != nil {
+	if err := c.Store(updatecheck.Snapshot{CheckedAt: time.Now().Add(-48 * time.Hour), LatestVersion: "v0.4.0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CheckForUpdate(t.Context()); err != nil {
@@ -90,10 +103,10 @@ func TestPrereleaseBuildWithNothingNewerKeepsThePreviousLatest(t *testing.T) {
 	}
 	snap, _ := c.Load()
 	if snap.LatestVersion != "v0.5.0" {
-		t.Errorf("latest = %q, want v0.5.0 kept for a prerelease build", snap.LatestVersion)
+		t.Errorf("latest = %q, want v0.5.0 learned for a prerelease build", snap.LatestVersion)
 	}
-	if !snap.Fresh(time.Now(), updatecheck.CacheTTL) {
-		t.Error("checked_at was not advanced")
+	if !snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
+		t.Error("succeeded_at was not advanced")
 	}
 }
 
@@ -101,7 +114,7 @@ func TestFailedCheckAdvancesCheckedAtAndKeepsLastKnownGood(t *testing.T) {
 	srv, _ := failingServer(t)
 	s, c := testService(t, srv, "0.4.0")
 	seeded := time.Now().Add(-48 * time.Hour)
-	if err := c.Store(updatecheck.Snapshot{CheckedAt: seeded, LatestVersion: "v0.5.0"}); err != nil {
+	if err := c.Store(updatecheck.Snapshot{CheckedAt: seeded, SucceededAt: seeded, LatestVersion: "v0.5.0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CheckForUpdateAtStartup(t.Context()); err == nil {
@@ -111,12 +124,51 @@ func TestFailedCheckAdvancesCheckedAtAndKeepsLastKnownGood(t *testing.T) {
 	if snap.LatestVersion != "v0.5.0" || !snap.CheckedAt.After(seeded) {
 		t.Errorf("stored %+v; want v0.5.0 kept and checked_at advanced", snap)
 	}
+	if !snap.SucceededAt.Equal(seeded) {
+		t.Errorf("succeeded_at = %v, want the seeded %v kept by a failed check", snap.SucceededAt, seeded)
+	}
+}
+
+func TestStartupGoesLiveAfterAFailedAttempt(t *testing.T) {
+	srv, hits := releasesServer(t, "v0.6.0")
+	s, c := testService(t, srv, "0.5.0")
+	if err := c.Store(updatecheck.Snapshot{
+		CheckedAt:     time.Now().Add(-time.Minute),
+		SucceededAt:   time.Now().Add(-48 * time.Hour),
+		LatestVersion: "v0.5.0",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.CheckForUpdateAtStartup(t.Context())
+	if err != nil || !res.UpdateAvailable {
+		t.Errorf("startup = %+v, %v; want the live result", res, err)
+	}
+	if n := hits.Load(); n != 1 {
+		t.Errorf("%d requests, want 1", n)
+	}
+}
+
+func TestPrereleaseBuildStartupAlwaysGoesLive(t *testing.T) {
+	srv, hits := releasesServer(t, "v0.6.0-rc2")
+	s, c := testService(t, srv, "0.6.0-rc1")
+	now := time.Now()
+	if err := c.Store(updatecheck.Snapshot{CheckedAt: now, SucceededAt: now, LatestVersion: "v0.5.0"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.CheckForUpdateAtStartup(t.Context())
+	if err != nil || !res.UpdateAvailable {
+		t.Errorf("startup = %+v, %v; want rc2 from the live check", res, err)
+	}
+	if n := hits.Load(); n == 0 {
+		t.Error("a prerelease build answered startup from the record")
+	}
 }
 
 func TestStartupWithAFreshCurrentRecordMakesNoRequest(t *testing.T) {
 	srv, hits := releasesServer(t, "v0.6.0")
 	s, c := testService(t, srv, "0.5.0")
-	if err := c.Store(updatecheck.Snapshot{CheckedAt: time.Now().Add(-time.Hour), LatestVersion: "v0.5.0"}); err != nil {
+	hourAgo := time.Now().Add(-time.Hour)
+	if err := c.Store(updatecheck.Snapshot{CheckedAt: hourAgo, SucceededAt: hourAgo, LatestVersion: "v0.5.0"}); err != nil {
 		t.Fatal(err)
 	}
 	res, err := s.CheckForUpdateAtStartup(t.Context())
@@ -145,8 +197,9 @@ func TestStartupGoesLiveWhenTheFreshRecordNamesANewerVersion(t *testing.T) {
 
 func TestExplicitCheckIgnoresAFreshRecord(t *testing.T) {
 	srv, hits := releasesServer(t, "v0.5.0")
-	s, c := testService(t, srv, "0.5.0")
-	if err := c.Store(updatecheck.Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err != nil {
+	s, c := testService(t, srv, "0.4.0")
+	now := time.Now()
+	if err := c.Store(updatecheck.Snapshot{CheckedAt: now, SucceededAt: now, LatestVersion: "v0.5.0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CheckForUpdate(t.Context()); err != nil {
@@ -222,7 +275,7 @@ func TestUnflaggedPrereleaseTagIsNotStoredAsLatest(t *testing.T) {
 		want string
 	}{
 		{"stable release behind the rc", []string{"v0.7.0-rc1", "v0.6.0"}, "v0.6.0"},
-		{"only the rc is newer", []string{"v0.7.0-rc1"}, "v0.5.0"},
+		{"only the rc is listed", []string{"v0.7.0-rc1"}, "v0.4.0"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

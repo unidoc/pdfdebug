@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/mod/semver"
-
 	"unidoc-pdf-debugger/internal/updatecheck"
 )
 
@@ -68,16 +66,10 @@ func newNoticeEnv() *noticeEnv {
 	}
 }
 
-// checkableVersion reports whether v can be compared against a release: not
-// the dev sentinel and valid SemVer with or without a leading "v".
+// checkableVersion reports whether v can be compared against a release.
 func checkableVersion(v string) bool {
-	if v == "dev" {
-		return false
-	}
-	if !strings.HasPrefix(v, "v") {
-		v = "v" + v
-	}
-	return semver.IsValid(v)
+	_, ok := updatecheck.CheckableVersion(v)
+	return ok
 }
 
 // optedOut reports whether either opt-out variable is present.
@@ -147,31 +139,33 @@ func machineFormat(args []string) bool {
 var errRefreshPanicked = errors.New("update refresh panicked")
 
 // refreshSnapshot records an attempt, then asks latest for the newest stable
-// tag and records that. The attempt record goes first and carries the previous
-// latest version, so a failed or slow request still advances checked_at; if
-// the attempt cannot be written the request is never made. A success that
-// finds no tag keeps the previous latest version. It returns the record as it
-// stands afterwards. A panic is recovered and reported as an error.
+// tag and records that. The attempt record goes first and advances only
+// checked_at, so a failed, slow or interrupted request still throttles the
+// next retry but is never mistaken for an answer; if the attempt cannot be
+// written the request is never made. A success advances succeeded_at, and one
+// that finds no tag keeps the previous latest version. It returns the record
+// as it stands afterwards. A panic is recovered and reported as an error.
 func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(context.Context) (string, error), now time.Time) (snap updatecheck.Snapshot, err error) {
-	prev, _ := cache.Load()
 	defer func() {
 		if recover() != nil {
-			snap, err = prev, errRefreshPanicked
+			err = errRefreshPanicked
 		}
 	}()
-	if err := cache.Store(updatecheck.Snapshot{CheckedAt: now, LatestVersion: prev.LatestVersion}); err != nil {
-		return prev, err
+	snap, _ = cache.Load()
+	snap.CheckedAt = now
+	if err := cache.Store(snap); err != nil {
+		return snap, err
 	}
-	attempt := updatecheck.Snapshot{Schema: 1, CheckedAt: now, LatestVersion: prev.LatestVersion}
 	tag, err := latest(ctx)
 	if err != nil {
-		return attempt, err
+		return snap, err
 	}
-	if tag == "" {
-		return attempt, nil
+	snap.SucceededAt = now
+	if tag != "" {
+		snap.LatestVersion = tag
 	}
-	_ = cache.Store(updatecheck.Snapshot{CheckedAt: now, LatestVersion: tag})
-	return updatecheck.Snapshot{Schema: 1, CheckedAt: now, LatestVersion: tag}, nil
+	_ = cache.Store(snap)
+	return snap, nil
 }
 
 // pendingNotice is the end-of-run notice for one ordinary command, with its
@@ -200,12 +194,8 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 	p.ctx, p.cancel = context.WithTimeout(context.Background(), refreshTimeout)
 	p.done = make(chan updatecheck.Snapshot, 1)
 	go func() {
-		result := p.snap
-		defer func() {
-			_ = recover()
-			p.done <- result
-		}()
-		result, _ = refreshSnapshot(p.ctx, env.cache, env.latest, env.now())
+		result, _ := refreshSnapshot(p.ctx, env.cache, env.latest, env.now())
+		p.done <- result
 	}()
 	return p
 }

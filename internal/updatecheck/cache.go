@@ -35,19 +35,35 @@ const (
 // it was last asked. It holds no installed version and no derived "update
 // available" flag, because one machine can run a GUI and a standalone CLI at
 // different versions; each binary compares LatestVersion against its own.
+//
+// CheckedAt is the last attempt and throttles retries; SucceededAt is the last
+// check that got an answer and is what makes LatestVersion trustworthy. A
+// failed or interrupted attempt advances CheckedAt only.
 type Snapshot struct {
 	Schema        int       `json:"schema"`
 	CheckedAt     time.Time `json:"checked_at"`
+	SucceededAt   time.Time `json:"succeeded_at"`
 	LatestVersion string    `json:"latest_version"`
 }
 
-// Fresh reports whether the snapshot was taken less than ttl before now. The
+// Fresh reports whether the last attempt was less than ttl before now. The
 // zero Snapshot and a CheckedAt in the future are both stale.
 func (s Snapshot) Fresh(now time.Time, ttl time.Duration) bool {
-	if s.CheckedAt.IsZero() || s.CheckedAt.After(now) {
+	return within(s.CheckedAt, now, ttl)
+}
+
+// Confirmed reports whether the last successful check was less than ttl
+// before now, so LatestVersion can stand in for a live answer. A zero or
+// future SucceededAt is not confirmed.
+func (s Snapshot) Confirmed(now time.Time, ttl time.Duration) bool {
+	return within(s.SucceededAt, now, ttl)
+}
+
+func within(t, now time.Time, ttl time.Duration) bool {
+	if t.IsZero() || t.After(now) {
 		return false
 	}
-	return now.Sub(s.CheckedAt) < ttl
+	return now.Sub(t) < ttl
 }
 
 // Notice reports whether LatestVersion is newer than installedVersion. latest
@@ -213,7 +229,9 @@ func (c *Cache) write(path, pattern string, v any) error {
 
 // readJSON decodes the file at path into v, reporting false on any failure.
 // It holds the mutex because on Windows an open reader makes a concurrent
-// rename onto the same file fail.
+// rename onto the same file fail. The mutex covers this process only; a
+// reader in another process can still fail a rename here, which the caller
+// sees as a failed store.
 func (c *Cache) readJSON(path string, v any) bool {
 	c.mu.Lock()
 	data, err := os.ReadFile(path)
@@ -222,6 +240,17 @@ func (c *Cache) readJSON(path string, v any) bool {
 		return false
 	}
 	return json.Unmarshal(data, v) == nil
+}
+
+// CheckableVersion reports whether a build version can be compared against a
+// release: not the "dev" sentinel and valid SemVer with or without a leading
+// "v". It returns the version in canonical form.
+func CheckableVersion(v string) (string, bool) {
+	if v == devVersion {
+		return "", false
+	}
+	c, ok := canonicalVersion(v)
+	return c, ok && c != ""
 }
 
 // canonicalVersion returns v with a leading "v", or "" for an empty v. ok is

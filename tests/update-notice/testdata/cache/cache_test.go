@@ -183,8 +183,8 @@ func TestCacheRecordHoldsOnlyServerFacts(t *testing.T) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	if strings.Join(keys, ",") != "checked_at,latest_version,schema" {
-		t.Errorf("record keys = %v, want exactly checked_at, latest_version, schema", keys)
+	if strings.Join(keys, ",") != "checked_at,latest_version,schema,succeeded_at" {
+		t.Errorf("record keys = %v, want exactly checked_at, latest_version, schema, succeeded_at", keys)
 	}
 	if raw["schema"] != float64(1) {
 		t.Errorf("schema = %v, want 1", raw["schema"])

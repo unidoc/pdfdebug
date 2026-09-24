@@ -127,8 +127,13 @@ terminal and `CI` rules. The check is recorded in the cache before the request
 is sent, so when the cache directory cannot be written `--version` makes no
 request and reports that the check failed.
 
+`--version` also refreshes the cache, so running it is the way to pick up a
+new release before the day is up.
+
 The cache is shared with the desktop app, so a check made by either one serves
-both:
+both. It keeps the last attempt apart from the last successful check: a failed
+attempt stops the CLI retrying for a day, but the desktop app's launch check
+only skips the network when a check actually succeeded in the last 24 hours:
 
 - macOS: `~/Library/Caches/pdfdebug/updatecheck.json`
 - Linux: `~/.cache/pdfdebug/updatecheck.json`

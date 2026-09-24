@@ -39,6 +39,7 @@ func seed(t *testing.T, checkedAt time.Time, latest string) {
 	data, _ := json.Marshal(map[string]any{
 		"schema":         1,
 		"checked_at":     checkedAt.UTC().Format(time.RFC3339Nano),
+		"succeeded_at":   checkedAt.UTC().Format(time.RFC3339Nano),
 		"latest_version": latest,
 	})
 	if err := os.WriteFile(path, data, 0o600); err != nil {

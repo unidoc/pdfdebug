@@ -240,6 +240,53 @@ func TestFreshEitherSideOfTheTTL(t *testing.T) {
 	}
 }
 
+func TestConfirmedFollowsTheLastSuccessNotTheLastAttempt(t *testing.T) {
+	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	failed := Snapshot{Schema: 1, CheckedAt: at, SucceededAt: at.Add(-48 * time.Hour)}
+	if !failed.Fresh(at.Add(time.Hour), CacheTTL) {
+		t.Error("a recent attempt did not count as fresh")
+	}
+	if failed.Confirmed(at.Add(time.Hour), CacheTTL) {
+		t.Error("a recent failed attempt counted as confirmed")
+	}
+	ok := Snapshot{Schema: 1, CheckedAt: at, SucceededAt: at}
+	if !ok.Confirmed(at.Add(CacheTTL-time.Nanosecond), CacheTTL) {
+		t.Error("unconfirmed just inside the TTL")
+	}
+	if ok.Confirmed(at.Add(CacheTTL), CacheTTL) {
+		t.Error("confirmed at the TTL")
+	}
+	if ok.Confirmed(at.Add(-time.Minute), CacheTTL) {
+		t.Error("a succeeded_at in the future counted as confirmed")
+	}
+}
+
+func TestSucceededAtRoundTrips(t *testing.T) {
+	c, _ := tempCache(t)
+	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	if err := c.Store(Snapshot{CheckedAt: at.Add(time.Hour), SucceededAt: at, LatestVersion: "0.5.0"}); err != nil {
+		t.Fatal(err)
+	}
+	s, ok := c.Load()
+	if !ok || !s.SucceededAt.Equal(at) || !s.CheckedAt.Equal(at.Add(time.Hour)) {
+		t.Errorf("Load = %+v, %v; want both timestamps kept apart", s, ok)
+	}
+}
+
+func TestCheckableVersion(t *testing.T) {
+	cases := map[string]string{"0.5.0": "v0.5.0", "v0.5.0": "v0.5.0", " 0.5.0 ": "v0.5.0", "0.6.0-rc1": "v0.6.0-rc1"}
+	for in, want := range cases {
+		if got, ok := CheckableVersion(in); !ok || got != want {
+			t.Errorf("CheckableVersion(%q) = %q, %v; want %q", in, got, ok, want)
+		}
+	}
+	for _, in := range []string{"dev", "", "abc", "1.2.3.4"} {
+		if got, ok := CheckableVersion(in); ok {
+			t.Errorf("CheckableVersion(%q) = %q, true; want not checkable", in, got)
+		}
+	}
+}
+
 func TestNoticeAgainstInstalledVersions(t *testing.T) {
 	s := Snapshot{Schema: 1, CheckedAt: time.Now(), LatestVersion: "v0.5.0"}
 	for installed, want := range map[string]bool{
