@@ -76,10 +76,13 @@ func TestExplicitCheckWithNothingNewerStoresWhatTheServerListed(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			srv, _ := releasesServer(t, "v0.5.0", "v0.4.0")
+			srv, hits := releasesServer(t, "v0.5.0", "v0.4.0")
 			s, cache := testService(t, srv, c.running)
 			if _, err := s.CheckForUpdate(t.Context()); err != nil {
 				t.Fatal(err)
+			}
+			if n := hits.Load(); n != 1 {
+				t.Errorf("%d requests, want 1: the check's own page carries the latest stable", n)
 			}
 			snap, ok := cache.Load()
 			if !ok || snap.LatestVersion != "v0.5.0" {

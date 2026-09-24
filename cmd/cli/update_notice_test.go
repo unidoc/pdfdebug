@@ -133,7 +133,7 @@ func TestNoticeLeadingBlankLineOnOrdinaryCommands(t *testing.T) {
 
 func TestNoticeDegradesToPlainLinesWhenTheBoxDoesNotFit(t *testing.T) {
 	plain := "Update available: 0.4.0 -> 0.5.0\nhttps://github.com/unidoc/pdfdebug/releases\n"
-	for width, want := range map[int]string{0: referenceBox, 49: referenceBox, 120: referenceBox, 48: plain, 20: plain} {
+	for width, want := range map[int]string{0: referenceBox, 50: referenceBox, 120: referenceBox, 49: plain, 48: plain, 20: plain} {
 		var b bytes.Buffer
 		writeNotice(&b, "0.4.0", "0.5.0", width, false)
 		if b.String() != want {
@@ -166,11 +166,48 @@ func TestFinishedRefreshWinsWhenTheCommandOutlastsTheDeadline(t *testing.T) {
 		cancel()
 		done := make(chan updatecheck.Snapshot, 1)
 		done <- updatecheck.Snapshot{Schema: 1, CheckedAt: h.now, LatestVersion: "v0.5.0"}
-		p := &pendingNotice{env: h.env, active: true, done: done, ctx: ctx, cancel: cancel}
+		answered := make(chan struct{})
+		close(answered)
+		p := &pendingNotice{env: h.env, active: true, done: done, answered: answered, ctx: ctx, cancel: cancel}
 		p.finish()
 		if got := h.stderr.String(); got != "\n"+referenceBox {
 			t.Fatalf("iteration %d: stderr = %q, want the box from the finished refresh", i, got)
 		}
+	}
+}
+
+func TestAnsweredRefreshIsAwaitedPastTheDeadline(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	answered := make(chan struct{})
+	close(answered)
+	done := make(chan updatecheck.Snapshot, 1)
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		done <- updatecheck.Snapshot{Schema: 1, CheckedAt: h.now, LatestVersion: "v0.5.0"}
+	}()
+	p := &pendingNotice{env: h.env, active: true, done: done, answered: answered, ctx: ctx, cancel: cancel}
+	p.finish()
+	if got := h.stderr.String(); got != "\n"+referenceBox {
+		t.Errorf("stderr = %q, want the box from the refresh still writing its record", got)
+	}
+}
+
+func TestUnansweredRefreshIsNotAwaitedPastTheDeadline(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	p := &pendingNotice{env: h.env, active: true, done: make(chan updatecheck.Snapshot, 1), answered: make(chan struct{}), ctx: ctx, cancel: cancel}
+	finished := make(chan struct{})
+	go func() {
+		p.finish()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(time.Second):
+		t.Fatal("finish waited on a server call that never returned")
 	}
 }
 
@@ -298,22 +335,28 @@ func TestNoticeShowsOncePerVersionWithOneRearmAfterAWeek(t *testing.T) {
 	}
 }
 
-func TestShownStateInTheFutureWaitsAWeekPastIt(t *testing.T) {
+func TestShownStateInTheFutureIsPulledBackToNow(t *testing.T) {
 	h := newHarness(t, "0.4.0")
 	h.seed(t, h.now, "v0.5.0")
-	future := h.now.Add(48 * time.Hour)
+	future := h.now.Add(5 * 365 * 24 * time.Hour)
 	if err := h.env.cache.StoreShown(updatecheck.Shown{Version: "v0.5.0", FirstShownAt: future}); err != nil {
 		t.Fatal(err)
 	}
-	h.now = h.now.Add(8 * 24 * time.Hour)
+	if h.notice("dump", "tree", "f.pdf") != "" {
+		t.Error("printed while correcting a future first_shown_at")
+	}
+	if shown, ok := h.env.cache.LoadShown(); !ok || !shown.FirstShownAt.Equal(h.now) {
+		t.Errorf("shown-state = %+v, %v; want first_shown_at pulled back to %v", shown, ok, h.now)
+	}
+	h.now = h.now.Add(6 * 24 * time.Hour)
 	h.seed(t, h.now, "v0.5.0")
 	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("re-armed before a week past the future first_shown_at")
+		t.Error("re-armed before a week past the corrected first_shown_at")
 	}
-	h.now = future.Add(7 * 24 * time.Hour)
+	h.now = h.now.Add(24 * time.Hour)
 	h.seed(t, h.now, "v0.5.0")
 	if h.notice("dump", "tree", "f.pdf") == "" {
-		t.Error("did not re-arm a week past the future first_shown_at")
+		t.Error("did not re-arm a week past the corrected first_shown_at")
 	}
 }
 

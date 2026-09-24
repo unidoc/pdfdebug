@@ -171,6 +171,29 @@ func (c *Cache) Store(s Snapshot) error {
 	return c.write(c.path, "updatecheck-*.tmp", s)
 }
 
+// RecordAttempt advances checked_at to now and keeps the rest of the stored
+// record. Call it before asking the server, so a failed, slow or interrupted
+// request still throttles the next retry without counting as an answer. It
+// returns the record as written, or as loaded when the write fails.
+func (c *Cache) RecordAttempt(now time.Time) (Snapshot, error) {
+	s, _ := c.Load()
+	s.CheckedAt = now
+	return s, c.Store(s)
+}
+
+// RecordSuccess records an answer from the server at now: checked_at and
+// succeeded_at advance, and latest replaces the stored latest version unless
+// it is "". The returned record is the one written, even when the write fails.
+func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
+	s, _ := c.Load()
+	s.CheckedAt = now
+	s.SucceededAt = now
+	if latest != "" {
+		s.LatestVersion = latest
+	}
+	return s, c.Store(s)
+}
+
 // LoadShown returns the stored notice state, with the same load-as-absent
 // rules as Load.
 func (c *Cache) LoadShown() (Shown, bool) {
@@ -231,9 +254,6 @@ func (c *Cache) write(path, pattern string, v any) error {
 	if _, err := tmp.Write(data); err != nil {
 		return err
 	}
-	if err := tmp.Chmod(0o600); err != nil {
-		return err
-	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
@@ -289,17 +309,22 @@ func canonicalVersion(v string) (string, bool) {
 	return n, true
 }
 
-// LatestStable fetches one page of releases and returns the highest tag that
-// is valid SemVer, not a draft, not flagged prerelease and carries no SemVer
-// prerelease suffix. It never follows rel="next". A page with no qualifying
-// tag returns "" and no error. The caller bounds it through ctx.
+// LatestStable fetches one page of releases and returns the highest stable
+// tag on it. It never follows rel="next". A page with no stable tag returns ""
+// and no error. The caller bounds it through ctx.
 func (c *Checker) LatestStable(ctx context.Context) (string, error) {
 	url := fmt.Sprintf("%s%s?per_page=%d", strings.TrimRight(c.BaseURL, "/"), releasesPath, perPage)
 	page, _, err := c.fetchPage(ctx, url)
 	if err != nil {
 		return "", err
 	}
-	best := ""
+	return highestStable("", page), nil
+}
+
+// highestStable returns the higher of best and every stable tag in page, in
+// canonical form. A stable tag is valid SemVer, not a draft, not flagged
+// prerelease and carries no SemVer prerelease suffix.
+func highestStable(best string, page []githubRelease) string {
 	for _, r := range page {
 		if r.Draft || r.Prerelease {
 			continue
@@ -312,5 +337,5 @@ func (c *Checker) LatestStable(ctx context.Context) (string, error) {
 			best = tag
 		}
 	}
-	return best, nil
+	return best
 }

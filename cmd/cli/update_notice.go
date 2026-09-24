@@ -139,32 +139,24 @@ func machineFormat(args []string) bool {
 var errRefreshPanicked = errors.New("update refresh panicked")
 
 // refreshSnapshot records an attempt, then asks latest for the newest stable
-// tag and records that. The attempt record goes first and advances only
-// checked_at, so a failed, slow or interrupted request still throttles the
-// next retry but is never mistaken for an answer; if the attempt cannot be
-// written the request is never made. A success advances succeeded_at, and one
-// that finds no tag keeps the previous latest version. It returns the record
-// as it stands afterwards. A panic is recovered and reported as an error.
+// tag and records the answer. If the attempt cannot be written the request is
+// never made. It returns the record as it stands afterwards. A panic is
+// recovered and reported as an error.
 func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(context.Context) (string, error), now time.Time) (snap updatecheck.Snapshot, err error) {
 	defer func() {
 		if recover() != nil {
 			err = errRefreshPanicked
 		}
 	}()
-	snap, _ = cache.Load()
-	snap.CheckedAt = now
-	if err := cache.Store(snap); err != nil {
+	snap, err = cache.RecordAttempt(now)
+	if err != nil {
 		return snap, err
 	}
 	tag, err := latest(ctx)
 	if err != nil {
 		return snap, err
 	}
-	snap.SucceededAt = now
-	if tag != "" {
-		snap.LatestVersion = tag
-	}
-	_ = cache.Store(snap)
+	snap, _ = cache.RecordSuccess(now, tag)
 	return snap, nil
 }
 
@@ -175,8 +167,10 @@ type pendingNotice struct {
 	active bool
 	snap   updatecheck.Snapshot
 	done   chan updatecheck.Snapshot
-	ctx    context.Context
-	cancel context.CancelFunc
+	// answered is closed once the server call returns, answer or not.
+	answered chan struct{}
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // startNotice evaluates the guards and, when the record is stale or absent,
@@ -193,8 +187,13 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 	}
 	p.ctx, p.cancel = context.WithTimeout(context.Background(), refreshTimeout)
 	p.done = make(chan updatecheck.Snapshot, 1)
+	p.answered = make(chan struct{})
+	latest := func(ctx context.Context) (string, error) {
+		defer close(p.answered)
+		return env.latest(ctx)
+	}
 	go func() {
-		result, _ := refreshSnapshot(p.ctx, env.cache, env.latest, env.now())
+		result, _ := refreshSnapshot(p.ctx, env.cache, latest, env.now())
 		p.done <- result
 	}()
 	return p
@@ -208,16 +207,17 @@ func (p *pendingNotice) finish() {
 		return
 	}
 	if p.done != nil {
-		// A refresh that finished before the deadline wins even when the
-		// command outlasted the deadline and both channels are ready.
+		// Past the deadline, a refresh whose server call already returned is
+		// only writing the record, which takes milliseconds; waiting for it
+		// keeps the answer and leaves no temp file behind at exit.
 		select {
 		case s := <-p.done:
 			p.snap = s
-		default:
+		case <-p.ctx.Done():
 			select {
-			case s := <-p.done:
-				p.snap = s
-			case <-p.ctx.Done():
+			case <-p.answered:
+				p.snap = <-p.done
+			default:
 			}
 		}
 		p.cancel()
@@ -233,27 +233,33 @@ func (p *pendingNotice) finish() {
 // it as shown. It reports true only when the record was written, so an
 // unwritable cache directory never prints.
 func (p *pendingNotice) markShown(latest string) bool {
-	now := p.env.now()
-	prev, ok := p.env.cache.LoadShown()
-	next, due := nextShown(prev, ok, latest, now)
-	if !due {
+	next, due, write := nextShown(p.env.cache, latest, p.env.now())
+	if !write {
 		return false
 	}
-	return p.env.cache.StoreShown(next) == nil
+	return p.env.cache.StoreShown(next) == nil && due
 }
 
 // nextShown applies the once-per-version rule with one re-arm a week after
-// the first showing. A first_shown_at in the future counts as just shown.
-func nextShown(prev updatecheck.Shown, ok bool, latest string, now time.Time) (updatecheck.Shown, bool) {
+// the first showing, reading the stored state from cache. due reports that
+// the notice should print; write reports that the returned state must be
+// stored, which is also the case for a first_shown_at in the future: it is
+// pulled back to now without printing, so a clock that was wrong at the first
+// showing delays the re-arm by one week, not until the clock catches up.
+func nextShown(cache *updatecheck.Cache, latest string, now time.Time) (next updatecheck.Shown, due, write bool) {
 	target := "v" + strings.TrimPrefix(latest, "v")
-	if !ok || prev.Version != target {
-		return updatecheck.Shown{Version: target, FirstShownAt: now}, true
-	}
-	if prev.Rearmed || prev.FirstShownAt.After(now) || now.Sub(prev.FirstShownAt) < rearmAfter {
-		return prev, false
+	prev, ok := cache.LoadShown()
+	switch {
+	case !ok || prev.Version != target:
+		return updatecheck.Shown{Version: target, FirstShownAt: now}, true, true
+	case prev.FirstShownAt.After(now):
+		prev.FirstShownAt = now
+		return prev, false, true
+	case prev.Rearmed || now.Sub(prev.FirstShownAt) < rearmAfter:
+		return prev, false, false
 	}
 	prev.Rearmed = true
-	return prev, true
+	return prev, true, true
 }
 
 // writeNotice prints the update notice to w: a framed box sized to its longest
@@ -273,7 +279,8 @@ func writeNotice(w io.Writer, installed, latest string, width int, leadingBlank 
 }
 
 // noticeBox renders lines inside a +-| frame with two spaces of padding each
-// side, or as plain lines when the frame would exceed a known width.
+// side, or as plain lines when the frame would reach a known width: a row
+// that fills the last column wraps early on terminals without deferred wrap.
 func noticeBox(lines []string, width int) string {
 	longest := 0
 	for _, l := range lines {
@@ -281,7 +288,7 @@ func noticeBox(lines []string, width int) string {
 	}
 	inner := longest + 4
 	var b strings.Builder
-	if width > 0 && inner+2 > width {
+	if width > 0 && inner+2 >= width {
 		for _, l := range lines {
 			b.WriteString(l + "\n")
 		}
@@ -330,8 +337,7 @@ func runVersion(env *noticeEnv) int {
 		// The box counts as shown under the same rule as the end-of-run notice:
 		// a new version is recorded, a due re-arm is spent, and an earlier
 		// showing of the same version keeps its date.
-		prev, ok := env.cache.LoadShown()
-		if next, due := nextShown(prev, ok, latest, env.now()); due {
+		if next, _, write := nextShown(env.cache, latest, env.now()); write {
 			_ = env.cache.StoreShown(next)
 		}
 		writeNotice(env.stderr, env.version, latest, env.width, false)

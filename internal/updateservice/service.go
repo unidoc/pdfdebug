@@ -85,10 +85,7 @@ type Service struct {
 // download-progress events; it may be nil in tests. Check results are shared
 // with the CLI through the record at updatecheck.DefaultPath.
 func NewUpdateService(app *application.App, version string) *Service {
-	path, err := updatecheck.DefaultPath()
-	if err != nil {
-		path = ""
-	}
+	path, _ := updatecheck.DefaultPath()
 	return newService(app, version, path)
 }
 
@@ -107,10 +104,7 @@ func newService(app *application.App, version, cachePath string) *Service {
 			})
 		}
 	}
-	cache, err := updatecheck.Open(cachePath)
-	if err != nil {
-		cache = nil
-	}
+	cache, _ := updatecheck.Open(cachePath)
 	return &Service{app: app, version: version, checker: checker, pause: gate, cache: cache}
 }
 
@@ -127,7 +121,7 @@ func (s *Service) SetDownloadPaused(paused bool) {
 // "no update" and stays silent on the automatic path.
 func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error) {
 	res, err := s.checker.Check(ctx, s.version)
-	s.record(ctx, res, err)
+	s.record(res, err)
 	return res, err
 }
 
@@ -157,13 +151,10 @@ func (s *Service) loadSnapshot() (updatecheck.Snapshot, bool) {
 	return s.cache.Load()
 }
 
-// record stores the outcome of a live check. Every check advances
-// checked_at. A successful one also stores the newest stable tag the server
-// listed and advances succeeded_at; a failed one, or a success whose stable
-// tag could not be learned, keeps the previous latest version and
-// succeeded_at. A dev or non-SemVer build stores nothing, and a store error
-// is ignored.
-func (s *Service) record(ctx context.Context, res updatecheck.Result, err error) {
+// record stores the outcome of a live check: an answer records res's latest
+// stable tag, and a failure records only the attempt. A dev or non-SemVer
+// build stores nothing, and a store error is ignored.
+func (s *Service) record(res updatecheck.Result, err error) {
 	if s.cache == nil {
 		return
 	}
@@ -171,33 +162,11 @@ func (s *Service) record(ctx context.Context, res updatecheck.Result, err error)
 		return
 	}
 	now := time.Now()
-	next, _ := s.cache.Load()
-	next.CheckedAt = now
-	if err == nil {
-		if latest, ok := s.latestStable(ctx, res); ok {
-			next.SucceededAt = now
-			if latest != "" {
-				next.LatestVersion = latest
-			}
-		}
+	if err != nil {
+		_, _ = s.cache.RecordAttempt(now)
+		return
 	}
-	_ = s.cache.Store(next)
-}
-
-// latestStable returns the newest stable tag the release server listed. When
-// res holds a stable release newer than the running version that is it;
-// otherwise one releases page is fetched, because the running version itself
-// may not be published and res only lists newer releases. "" with ok true
-// means the server listed no stable release.
-func (s *Service) latestStable(ctx context.Context, res updatecheck.Result) (string, bool) {
-	// res.Releases is newest first.
-	for _, r := range res.Releases {
-		if tag, ok := updatecheck.CheckableVersion(r.TagName); ok && semver.Prerelease(tag) == "" {
-			return tag, true
-		}
-	}
-	tag, err := s.checker.LatestStable(ctx)
-	return tag, err == nil
+	_, _ = s.cache.RecordSuccess(now, res.LatestStable)
 }
 
 // DownloadUpdate downloads assetURL, verifies it against sumsURL, moves the

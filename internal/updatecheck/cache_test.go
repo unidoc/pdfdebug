@@ -424,6 +424,101 @@ func TestLatestStableReadsOnePageAndSkipsUnstableTags(t *testing.T) {
 	}
 }
 
+func TestCheckReportsTheLatestStableTagItSaw(t *testing.T) {
+	page := []githubRelease{
+		{TagName: "v0.5.0"},
+		{TagName: "v0.9.0", Draft: true},
+		{TagName: "v0.8.0", Prerelease: true},
+		{TagName: "v0.7.0-rc1"},
+		{TagName: "0.6.1"},
+	}
+	cases := []struct {
+		installed, want string
+	}{
+		{"0.5.0", "v0.6.1"},
+		{"0.6.1", "v0.6.1"},
+		{"0.7.0", "v0.6.1"},
+	}
+	for _, c := range cases {
+		var hits atomic.Int32
+		srv := releasePage(t, &hits, page)
+		res, err := testChecker(srv).Check(t.Context(), c.installed)
+		if err != nil {
+			t.Fatalf("Check(%s): %v", c.installed, err)
+		}
+		if res.LatestStable != c.want {
+			t.Errorf("Check(%s).LatestStable = %q, want %s", c.installed, res.LatestStable, c.want)
+		}
+	}
+}
+
+func TestLatestStableIsNotSentToTheFrontend(t *testing.T) {
+	data, err := json.Marshal(Result{LatestStable: "v0.6.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "v0.6.1") {
+		t.Errorf("Result JSON carries LatestStable: %s", data)
+	}
+}
+
+func TestRecordAttemptAdvancesOnlyCheckedAt(t *testing.T) {
+	c, _ := tempCache(t)
+	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	if err := c.Store(Snapshot{CheckedAt: at, SucceededAt: at, LatestVersion: "v0.5.0"}); err != nil {
+		t.Fatal(err)
+	}
+	later := at.Add(time.Hour)
+	got, err := c.RecordAttempt(later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, _ := c.Load()
+	for name, s := range map[string]Snapshot{"returned": got, "stored": stored} {
+		if !s.CheckedAt.Equal(later) || !s.SucceededAt.Equal(at) || s.LatestVersion != "v0.5.0" {
+			t.Errorf("%s = %+v; want checked_at %v, succeeded_at and latest kept", name, s, later)
+		}
+	}
+}
+
+func TestRecordSuccessAdvancesBothAndKeepsLatestOnAnEmptyTag(t *testing.T) {
+	c, _ := tempCache(t)
+	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	if err := c.Store(Snapshot{CheckedAt: at, SucceededAt: at, LatestVersion: "v0.5.0"}); err != nil {
+		t.Fatal(err)
+	}
+	later := at.Add(time.Hour)
+	for _, step := range []struct{ tag, want string }{{"", "v0.5.0"}, {"0.6.0", "v0.6.0"}} {
+		tag, want := step.tag, step.want
+		if _, err := c.RecordSuccess(later, tag); err != nil {
+			t.Fatal(err)
+		}
+		s, _ := c.Load()
+		if !s.CheckedAt.Equal(later) || !s.SucceededAt.Equal(later) || s.LatestVersion != want {
+			t.Errorf("after RecordSuccess(%q): %+v; want both at %v, latest %s", tag, s, later, want)
+		}
+	}
+}
+
+func TestRecordSuccessReturnsTheRecordWhenTheWriteFails(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Open(filepath.Join(blocker, "pdfdebug", "updatecheck.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	s, err := c.RecordSuccess(now, "v0.6.0")
+	if err == nil {
+		t.Fatal("a write under a regular file reported success")
+	}
+	if s.LatestVersion != "v0.6.0" || !s.SucceededAt.Equal(now) {
+		t.Errorf("returned %+v; want the answer even though it was not written", s)
+	}
+}
+
 func TestLatestStableEmptyPageAndSlowServer(t *testing.T) {
 	var hits atomic.Int32
 	srv := releasePage(t, &hits, []githubRelease{})
