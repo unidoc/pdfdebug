@@ -16,7 +16,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { Browser, Events } from '@wailsio/runtime';
 import { ArrowDownToLine, ArrowUpCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
-import { CheckForUpdate, DownloadUpdate, SetDownloadPaused } from '../../bindings/unidoc-pdf-debugger/internal/updateservice/service';
+import { CheckForUpdate, CheckForUpdateAtStartup, DownloadUpdate, SetDownloadPaused } from '../../bindings/unidoc-pdf-debugger/internal/updateservice/service';
 import type { Result } from '../../bindings/unidoc-pdf-debugger/internal/updatecheck/models';
 import { useUpdatePreference } from '../hooks/useUpdatePreference';
 import { UPDATE_VERIFY_ESCALATE_AFTER } from '../lib/updateConstants';
@@ -121,7 +121,9 @@ export function UpdateNotifier(): JSX.Element | null {
   const runCheck = useCallback(async (isManual: boolean) => {
     setCheckError(false);
     try {
-      const res = await CheckForUpdate();
+      // The automatic check may be answered from the shared cache; the Help
+      // menu check always goes live.
+      const res = await (isManual ? CheckForUpdate() : CheckForUpdateAtStartup());
       setResult(res);
       if (res.updateAvailable && res.releases.length > 0) {
         setExpanded({ [res.releases[0].tagName]: true });

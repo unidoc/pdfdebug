@@ -674,9 +674,10 @@ func main() {
 			app.Event.Emit("tab:prev", nil)
 		})
 
-	// Help menu: on-demand update check. The frontend runs the bound check and
-	// surfaces the result (including up-to-date / unreachable messages, which the
-	// silent automatic path omits).
+	// Help menu: on-demand update check. The frontend runs the live bound check
+	// (CheckForUpdate) and surfaces the result, including the up-to-date and
+	// unreachable messages that the silent, cache-gated automatic path
+	// (CheckForUpdateAtStartup) omits.
 	helpMenu := menu.AddSubmenu("Help")
 	helpMenu.Add("Check for Updates...").
 		OnClick(func(ctx *application.Context) {
