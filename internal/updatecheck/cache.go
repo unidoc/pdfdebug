@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,20 @@ const (
 	cacheFileName = "updatecheck.json"
 	// shownFileName is the CLI notice state, kept next to the record.
 	shownFileName = "updatenotice.json"
+	// renameRetryDelay is the pause between rename attempts.
+	renameRetryDelay = 20 * time.Millisecond
 )
+
+// renameAttempts is how many times write tries the final rename. On Windows a
+// reader in another process holding the record open fails the rename until it
+// closes the file, which for a record this small is milliseconds; elsewhere a
+// rename failure is not transient.
+var renameAttempts = func() int {
+	if runtime.GOOS == "windows" {
+		return 5
+	}
+	return 1
+}()
 
 // Snapshot is the shared check record: what the release server said and when
 // it was last asked. It holds no installed version and no derived "update
@@ -102,6 +116,9 @@ type Shown struct {
 type Cache struct {
 	path string
 	mu   sync.Mutex
+	// rename and attempts are os.Rename and renameAttempts, replaced in tests.
+	rename   func(oldpath, newpath string) error
+	attempts int
 }
 
 // DefaultPath returns xdg.CacheHome/pdfdebug/updatecheck.json. It never
@@ -121,7 +138,7 @@ func Open(path string) (*Cache, error) {
 	if path == "" || !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("cache path %q is not an absolute path", path)
 	}
-	return &Cache{path: path}, nil
+	return &Cache{path: path, rename: os.Rename, attempts: renameAttempts}, nil
 }
 
 // Load returns the stored record. A missing, unreadable, corrupt or truncated
@@ -220,7 +237,14 @@ func (c *Cache) write(path, pattern string, v any) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	for i := 1; ; i++ {
+		err = c.rename(tmpPath, path)
+		if err == nil || i >= c.attempts {
+			break
+		}
+		time.Sleep(renameRetryDelay)
+	}
+	if err != nil {
 		return err
 	}
 	renamed = true
@@ -230,8 +254,7 @@ func (c *Cache) write(path, pattern string, v any) error {
 // readJSON decodes the file at path into v, reporting false on any failure.
 // It holds the mutex because on Windows an open reader makes a concurrent
 // rename onto the same file fail. The mutex covers this process only; a
-// reader in another process can still fail a rename here, which the caller
-// sees as a failed store.
+// reader in another process is what write's rename retry is for.
 func (c *Cache) readJSON(path string, v any) bool {
 	c.mu.Lock()
 	data, err := os.ReadFile(path)

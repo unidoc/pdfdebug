@@ -3,12 +3,14 @@ package updatecheck
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -48,6 +50,16 @@ func entries(t *testing.T, dir string) []string {
 		names = append(names, e.Name())
 	}
 	return names
+}
+
+// assertNoTempFiles fails when dir still holds a write's temp file.
+func assertNoTempFiles(t *testing.T, dir string) {
+	t.Helper()
+	for _, name := range entries(t, dir) {
+		if strings.HasSuffix(name, ".tmp") {
+			t.Errorf("temp file %s left in %s", name, dir)
+		}
+	}
 }
 
 // DefaultPath reads the package variable xdg.CacheHome, so these cases
@@ -237,6 +249,56 @@ func TestFreshEitherSideOfTheTTL(t *testing.T) {
 	}
 	if (Snapshot{}).Fresh(at, CacheTTL) {
 		t.Error("the zero Snapshot counted as fresh")
+	}
+}
+
+func TestStoreRetriesARenameHeldOpenByAnotherReader(t *testing.T) {
+	c, path := tempCache(t)
+	c.attempts = 5
+	calls := 0
+	c.rename = func(oldpath, newpath string) error {
+		calls++
+		if calls < 3 {
+			return errors.New("sharing violation")
+		}
+		return os.Rename(oldpath, newpath)
+	}
+	if err := c.Store(Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err != nil {
+		t.Fatalf("Store after two failed renames: %v", err)
+	}
+	if calls != 3 {
+		t.Errorf("rename called %d times, want 3", calls)
+	}
+	if s, ok := c.Load(); !ok || s.LatestVersion != "v0.5.0" {
+		t.Errorf("Load = %+v, %v; want the stored record", s, ok)
+	}
+	assertNoTempFiles(t, filepath.Dir(path))
+}
+
+func TestStoreGivesUpAfterTheLastRenameAttempt(t *testing.T) {
+	c, path := tempCache(t)
+	c.attempts = 3
+	calls := 0
+	c.rename = func(string, string) error {
+		calls++
+		return errors.New("sharing violation")
+	}
+	if err := c.Store(Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err == nil {
+		t.Fatal("Store reported success with every rename failing")
+	}
+	if calls != 3 {
+		t.Errorf("rename called %d times, want 3", calls)
+	}
+	assertNoTempFiles(t, filepath.Dir(path))
+}
+
+func TestRenameIsRetriedOnlyOnWindows(t *testing.T) {
+	want := 1
+	if runtime.GOOS == "windows" {
+		want = 5
+	}
+	if renameAttempts != want {
+		t.Errorf("renameAttempts = %d on %s, want %d", renameAttempts, runtime.GOOS, want)
 	}
 }
 
