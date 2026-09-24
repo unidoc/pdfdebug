@@ -160,7 +160,6 @@ func TestInteractiveStaleRunRefreshesAndShowsTheNoticeInTheSameRun(t *testing.T)
 func TestFinishedRefreshWinsWhenTheCommandOutlastsTheDeadline(t *testing.T) {
 	h := newHarness(t, "0.4.0")
 	for i := 0; i < 50; i++ {
-		_ = os.Remove(filepath.Join(h.dir, "updatenotice.json"))
 		h.stderr.Reset()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -208,6 +207,36 @@ func TestUnansweredRefreshIsNotAwaitedPastTheDeadline(t *testing.T) {
 	case <-finished:
 	case <-time.After(time.Second):
 		t.Fatal("finish waited on a server call that never returned")
+	}
+}
+
+func TestNoticeShowsOnEveryEligibleRunFromTheCache(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	h.seed(t, h.now.Add(-time.Hour), "v0.5.0")
+	for i := 0; i < 3; i++ {
+		if got := h.notice("dump", "tree", "f.pdf"); got != "\n"+referenceBox {
+			t.Fatalf("run %d: stderr = %q, want the box", i+1, got)
+		}
+	}
+	if n := h.hits.Load(); n != 0 {
+		t.Errorf("%d requests, want 0 while the record is fresh", n)
+	}
+	if names, _ := os.ReadDir(h.dir); len(names) != 1 {
+		t.Errorf("cache dir holds %v, want only the record", names)
+	}
+}
+
+func TestVersionSpellingsCompareAsOneVersion(t *testing.T) {
+	h := newHarness(t, "v0.5.0")
+	if err := os.MkdirAll(h.dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"schema":1,"checked_at":"` + h.now.Format(time.RFC3339) + `","latest_version":"0.5.0"}`
+	if err := os.WriteFile(h.path, []byte(record), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.notice("dump", "tree", "f.pdf"); got != "" {
+		t.Errorf("stderr = %q; a v0.5.0 build told about 0.5.0", got)
 	}
 }
 
@@ -298,109 +327,6 @@ func TestMachineFormatDetection(t *testing.T) {
 		args := strings.Fields(line)
 		if got := machineFormat(args); got != want {
 			t.Errorf("machineFormat(%q) = %v, want %v", line, got, want)
-		}
-	}
-}
-
-func TestNoticeShowsOncePerVersionWithOneRearmAfterAWeek(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	start := h.now
-	h.seed(t, start, "v0.5.0")
-	steps := []struct {
-		after time.Duration
-		want  bool
-	}{
-		{0, true},
-		{time.Hour, false},
-		{6 * 24 * time.Hour, false},
-		{7 * 24 * time.Hour, true},
-		{8 * 24 * time.Hour, false},
-		{30 * 24 * time.Hour, false},
-	}
-	for _, s := range steps {
-		h.now = start.Add(s.after)
-		h.seed(t, h.now, "v0.5.0")
-		if got := h.notice("dump", "tree", "f.pdf") != ""; got != s.want {
-			t.Errorf("after %v: shown = %v, want %v", s.after, got, s.want)
-		}
-	}
-	h.now = start.Add(31 * 24 * time.Hour)
-	h.seed(t, h.now, "v0.6.0")
-	if h.notice("dump", "tree", "f.pdf") == "" {
-		t.Error("a new target version did not show")
-	}
-	h.now = h.now.Add(time.Hour)
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("the new target version showed twice")
-	}
-}
-
-func TestShownStateInTheFutureIsPulledBackToNow(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	h.seed(t, h.now, "v0.5.0")
-	future := h.now.Add(5 * 365 * 24 * time.Hour)
-	if err := h.env.cache.StoreShown(updatecheck.Shown{Version: "v0.5.0", FirstShownAt: future}); err != nil {
-		t.Fatal(err)
-	}
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("printed while correcting a future first_shown_at")
-	}
-	if shown, ok := h.env.cache.LoadShown(); !ok || !shown.FirstShownAt.Equal(h.now) {
-		t.Errorf("shown-state = %+v, %v; want first_shown_at pulled back to %v", shown, ok, h.now)
-	}
-	h.now = h.now.Add(6 * 24 * time.Hour)
-	h.seed(t, h.now, "v0.5.0")
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("re-armed before a week past the corrected first_shown_at")
-	}
-	h.now = h.now.Add(24 * time.Hour)
-	h.seed(t, h.now, "v0.5.0")
-	if h.notice("dump", "tree", "f.pdf") == "" {
-		t.Error("did not re-arm a week past the corrected first_shown_at")
-	}
-}
-
-func TestGUIAndCLIVersionSpellingsAreOneTarget(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	if err := os.MkdirAll(h.dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	record := `{"schema":1,"checked_at":"` + h.now.Format(time.RFC3339) + `","latest_version":"0.5.0"}`
-	if err := os.WriteFile(h.path, []byte(record), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if h.notice("dump", "tree", "f.pdf") == "" {
-		t.Fatal("first notice did not show")
-	}
-	h.seed(t, h.now, "v0.5.0")
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("0.5.0 and v0.5.0 counted as two targets")
-	}
-	shown := `{"schema":1,"version":"0.5.0","first_shown_at":"` + h.now.Format(time.RFC3339) + `","rearmed":false}`
-	if err := os.WriteFile(filepath.Join(h.dir, "updatenotice.json"), []byte(shown), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("a shown-state of 0.5.0 did not match a record of v0.5.0")
-	}
-}
-
-func TestUnwritableShownStatePrintsNothing(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission bits do not apply on Windows")
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("permission bits do not bind root")
-	}
-	h := newHarness(t, "0.4.0")
-	h.seed(t, h.now, "v0.5.0")
-	if err := os.Chmod(h.dir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(h.dir, 0o700) })
-	for range 3 {
-		if got := h.notice("dump", "tree", "f.pdf"); got != "" {
-			t.Fatalf("stderr = %q, want nothing when the shown-state cannot be written", got)
 		}
 	}
 }
@@ -648,30 +574,6 @@ func TestVersionPrintsTheBoxBeforeTheVersionLine(t *testing.T) {
 	}
 }
 
-func TestVersionBoxCountsAsShown(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	runVersion(h.env)
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("an ordinary command repeated the notice --version just showed")
-	}
-}
-
-func TestVersionBoxSpendsADueRearm(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	first := h.now.Add(-8 * 24 * time.Hour)
-	if err := h.env.cache.StoreShown(updatecheck.Shown{Version: "v0.5.0", FirstShownAt: first}); err != nil {
-		t.Fatal(err)
-	}
-	runVersion(h.env)
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("an ordinary command showed the re-arm right after --version showed the box")
-	}
-	shown, ok := h.env.cache.LoadShown()
-	if !ok || !shown.Rearmed || !shown.FirstShownAt.Equal(first) {
-		t.Errorf("shown-state = %+v, want the re-arm spent and first_shown_at kept", shown)
-	}
-}
-
 func TestDevAndOptedOutVersionTouchNoCache(t *testing.T) {
 	for name, h := range map[string]*harness{"dev": newHarness(t, "dev"), "opted out": newHarness(t, "0.4.0")} {
 		if name == "opted out" {
@@ -681,18 +583,6 @@ func TestDevAndOptedOutVersionTouchNoCache(t *testing.T) {
 		if dirExists(h.dir) {
 			t.Errorf("%s: --version created the cache directory", name)
 		}
-	}
-}
-
-func TestPlainFallbackCountsAsShown(t *testing.T) {
-	h := newHarness(t, "0.4.0")
-	h.env.width = 20
-	h.seed(t, h.now, "v0.5.0")
-	if got := h.notice("dump", "tree", "f.pdf"); got != "\nUpdate available: 0.4.0 -> 0.5.0\n"+releasesURL+"\n" {
-		t.Errorf("stderr = %q, want the two plain lines", got)
-	}
-	if h.notice("dump", "tree", "f.pdf") != "" {
-		t.Error("the plain fallback did not count as shown")
 	}
 }
 

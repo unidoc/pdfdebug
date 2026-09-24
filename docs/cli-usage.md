@@ -97,9 +97,9 @@ command's output, in a small box on stderr:
 +-----------------------------------------------+
 ```
 
-It appears once per new version, plus one reminder a week later, and then not
-again until a newer version comes out. If the terminal is narrower than the box,
-the same two lines print without the frame. It never goes to stdout and never
+It appears at the end of every interactive command for as long as the cached
+latest release is newer than the running build. If the terminal is narrower
+than the box, the same two lines print without the frame. It never goes to stdout and never
 changes an exit code.
 
 The notice only appears in an interactive session. Both stdout and stderr have
@@ -142,8 +142,7 @@ only skips the network when a check actually succeeded in the last 24 hours:
 An absolute `XDG_CACHE_HOME` replaces the base directory on all three; a
 relative one is ignored. On macOS an `XDG_CACHE_HOME` exported in a shell
 profile reaches the CLI but not a desktop app launched from Finder or the Dock,
-so the two then keep separate caches. The once-per-version state sits next to
-the cache in `updatenotice.json`.
+so the two then keep separate caches.
 
 ## Example
 

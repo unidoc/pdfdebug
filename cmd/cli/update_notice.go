@@ -16,9 +16,6 @@ import (
 const (
 	// refreshTimeout bounds a CLI refresh end to end: one releases page.
 	refreshTimeout = 1500 * time.Millisecond
-	// rearmAfter is the cooldown before a notice already shown for a version
-	// is shown one final time.
-	rearmAfter = 7 * 24 * time.Hour
 	// releasesURL is where the notice sends the user.
 	releasesURL = "https://github.com/unidoc/pdfdebug/releases"
 )
@@ -200,7 +197,8 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 }
 
 // finish waits for the refresh, bounded by its deadline, then prints the
-// notice if it is due. It never panics and never affects the exit code.
+// notice when the record names a newer version. It never panics and never
+// affects the exit code.
 func (p *pendingNotice) finish() {
 	defer func() { _ = recover() }()
 	if !p.active {
@@ -223,43 +221,10 @@ func (p *pendingNotice) finish() {
 		p.cancel()
 	}
 	latest, ok := p.snap.Notice(p.env.version)
-	if !ok || !p.markShown(latest) {
+	if !ok {
 		return
 	}
 	writeNotice(p.env.stderr, p.env.version, latest, p.env.width, true)
-}
-
-// markShown decides whether the notice for latest is due and, if so, records
-// it as shown. It reports true only when the record was written, so an
-// unwritable cache directory never prints.
-func (p *pendingNotice) markShown(latest string) bool {
-	next, due, write := nextShown(p.env.cache, latest, p.env.now())
-	if !write {
-		return false
-	}
-	return p.env.cache.StoreShown(next) == nil && due
-}
-
-// nextShown applies the once-per-version rule with one re-arm a week after
-// the first showing, reading the stored state from cache. due reports that
-// the notice should print; write reports that the returned state must be
-// stored, which is also the case for a first_shown_at in the future: it is
-// pulled back to now without printing, so a clock that was wrong at the first
-// showing delays the re-arm by one week, not until the clock catches up.
-func nextShown(cache *updatecheck.Cache, latest string, now time.Time) (next updatecheck.Shown, due, write bool) {
-	target := "v" + strings.TrimPrefix(latest, "v")
-	prev, ok := cache.LoadShown()
-	switch {
-	case !ok || prev.Version != target:
-		return updatecheck.Shown{Version: target, FirstShownAt: now}, true, true
-	case prev.FirstShownAt.After(now):
-		prev.FirstShownAt = now
-		return prev, false, true
-	case prev.Rearmed || now.Sub(prev.FirstShownAt) < rearmAfter:
-		return prev, false, false
-	}
-	prev.Rearmed = true
-	return prev, true, true
 }
 
 // writeNotice prints the update notice to w: a framed box sized to its longest
@@ -334,12 +299,6 @@ func runVersion(env *noticeEnv) int {
 		return 0
 	}
 	if latest, ok := snap.Notice(env.version); ok {
-		// The box counts as shown under the same rule as the end-of-run notice:
-		// a new version is recorded, a due re-arm is spent, and an earlier
-		// showing of the same version keeps its date.
-		if next, _, write := nextShown(env.cache, latest, env.now()); write {
-			_ = env.cache.StoreShown(next)
-		}
 		writeNotice(env.stderr, env.version, latest, env.width, false)
 		_, _ = io.WriteString(env.stdout, line)
 		return 0

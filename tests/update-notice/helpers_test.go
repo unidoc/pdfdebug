@@ -241,11 +241,6 @@ func snapshotPath(xdg string) string {
 	return filepath.Join(xdg, "pdfdebug", "updatecheck.json")
 }
 
-// shownStatePath is the notice's once-per-version state file, next to the record.
-func shownStatePath(xdg string) string {
-	return filepath.Join(xdg, "pdfdebug", "updatenotice.json")
-}
-
 // seedSnapshot writes a schema-1 record of a successful check at checkedAt under
 // xdg and returns its exact bytes.
 func seedSnapshot(t *testing.T, xdg string, checkedAt time.Time, latest string) []byte {

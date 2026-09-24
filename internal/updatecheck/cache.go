@@ -22,14 +22,10 @@ const CacheTTL = 24 * time.Hour
 const (
 	// cacheSchema is the only record schema Load accepts.
 	cacheSchema = 1
-	// shownSchema is the only shown-state schema LoadShown accepts.
-	shownSchema = 1
 	// cacheDirName is the per-user directory under xdg.CacheHome.
 	cacheDirName = "pdfdebug"
 	// cacheFileName is the shared check record.
 	cacheFileName = "updatecheck.json"
-	// shownFileName is the CLI notice state, kept next to the record.
-	shownFileName = "updatenotice.json"
 	// renameRetryDelay is the pause between rename attempts.
 	renameRetryDelay = 20 * time.Millisecond
 )
@@ -99,20 +95,9 @@ func (s Snapshot) Notice(installedVersion string) (latest string, available bool
 	return strings.TrimPrefix(target, "v"), true
 }
 
-// Shown is the CLI's once-per-version notice state: the target version last
-// announced, when it was first shown, and whether the one-time re-arm has
-// been spent.
-type Shown struct {
-	Schema       int       `json:"schema"`
-	Version      string    `json:"version"`
-	FirstShownAt time.Time `json:"first_shown_at"`
-	Rearmed      bool      `json:"rearmed"`
-}
-
-// Cache reads and writes the shared check record and the notice state. Both
-// files live in one directory; the mutex serialises reads and writes inside a
-// process, and cross-process writes are last-writer-wins through an atomic
-// rename.
+// Cache reads and writes the shared check record. The mutex serialises reads
+// and writes inside a process, and cross-process writes are last-writer-wins
+// through an atomic rename.
 type Cache struct {
 	path string
 	mu   sync.Mutex
@@ -132,7 +117,7 @@ func DefaultPath() (string, error) {
 }
 
 // Open returns a Cache for the record at path, an absolute file path such as
-// DefaultPath returns. The notice state lives next to it. Open does not touch
+// DefaultPath returns. Open does not touch
 // the disk; the first Store creates the directory.
 func Open(path string) (*Cache, error) {
 	if path == "" || !filepath.IsAbs(path) {
@@ -192,37 +177,6 @@ func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
 		s.LatestVersion = latest
 	}
 	return s, c.Store(s)
-}
-
-// LoadShown returns the stored notice state, with the same load-as-absent
-// rules as Load.
-func (c *Cache) LoadShown() (Shown, bool) {
-	var s Shown
-	if !c.readJSON(c.shownPath(), &s) || s.Schema != shownSchema {
-		return Shown{}, false
-	}
-	v, ok := canonicalVersion(s.Version)
-	if !ok || v == "" {
-		return Shown{}, false
-	}
-	s.Version = v
-	return s, true
-}
-
-// StoreShown writes the notice state atomically, with Version in canonical
-// form. An empty or non-SemVer Version is refused.
-func (c *Cache) StoreShown(s Shown) error {
-	v, ok := canonicalVersion(s.Version)
-	if !ok || v == "" {
-		return fmt.Errorf("shown version %q is not valid SemVer", s.Version)
-	}
-	s.Schema = shownSchema
-	s.Version = v
-	return c.write(c.shownPath(), "updatenotice-*.tmp", s)
-}
-
-func (c *Cache) shownPath() string {
-	return filepath.Join(filepath.Dir(c.path), shownFileName)
 }
 
 // write marshals v and replaces path through a temp file in the same

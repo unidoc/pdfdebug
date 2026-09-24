@@ -99,9 +99,6 @@ func TestOpenRejectsEmptyAndRelativePathsAndTouchesNothing(t *testing.T) {
 	if _, ok := c.Load(); ok {
 		t.Error("Load of a missing file reported a record")
 	}
-	if _, ok := c.LoadShown(); ok {
-		t.Error("LoadShown of a missing file reported a state")
-	}
 	if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
 		t.Errorf("Open or Load created the directory (stat err %v)", err)
 	}
@@ -176,9 +173,6 @@ func TestStoreIntoUnwritableDirFailsAndLeavesNothing(t *testing.T) {
 	}
 	if err := c.Store(Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err == nil {
 		t.Error("Store into a read-only directory succeeded")
-	}
-	if err := c.StoreShown(Shown{Version: "v0.5.0", FirstShownAt: time.Now()}); err == nil {
-		t.Error("StoreShown into a read-only directory succeeded")
 	}
 	if names := entries(t, dir); len(names) != 0 {
 		t.Errorf("failed stores left %v", names)
@@ -367,29 +361,6 @@ func TestNoticeAgainstInstalledVersions(t *testing.T) {
 	}
 }
 
-func TestShownStateRoundTripsInCanonicalForm(t *testing.T) {
-	c, path := tempCache(t)
-	now := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
-	if err := c.StoreShown(Shown{Version: "0.5.0", FirstShownAt: now, Rearmed: true}); err != nil {
-		t.Fatalf("StoreShown: %v", err)
-	}
-	s, ok := c.LoadShown()
-	if !ok || s.Version != "v0.5.0" || !s.FirstShownAt.Equal(now) || !s.Rearmed {
-		t.Errorf("LoadShown = %+v, %v", s, ok)
-	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(path), "updatenotice.json")); err != nil {
-		t.Errorf("shown state is not next to the record: %v", err)
-	}
-	if err := c.StoreShown(Shown{Version: ""}); err == nil {
-		t.Error("StoreShown accepted an empty version")
-	}
-
-	writeRaw(t, filepath.Join(filepath.Dir(path), "updatenotice.json"), `{"schema":9,"version":"v0.5.0"}`)
-	if _, ok := c.LoadShown(); ok {
-		t.Error("an unknown shown-state schema loaded")
-	}
-}
-
 func releasePage(t *testing.T, hits *atomic.Int32, body []githubRelease) *httptest.Server {
 	t.Helper()
 	var srv *httptest.Server
@@ -538,25 +509,6 @@ func TestLatestStableEmptyPageAndSlowServer(t *testing.T) {
 	}
 	if d := time.Since(start); d > 2*time.Second {
 		t.Errorf("LatestStable took %v past a 200ms deadline", d)
-	}
-}
-
-func TestLoadShownTreatsBadVersionsAsAbsent(t *testing.T) {
-	for name, body := range map[string]string{
-		"empty version": `{"schema":1,"version":"","first_shown_at":"2026-09-20T10:00:00Z"}`,
-		"blank version": `{"schema":1,"version":"  ","first_shown_at":"2026-09-20T10:00:00Z"}`,
-		"no version":    `{"schema":1,"first_shown_at":"2026-09-20T10:00:00Z"}`,
-		"non-semver":    `{"schema":1,"version":"banana","first_shown_at":"2026-09-20T10:00:00Z"}`,
-		"truncated":     `{"schema":1,"version":"v0.5`,
-		"no schema":     `{"version":"v0.5.0","first_shown_at":"2026-09-20T10:00:00Z"}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			c, path := tempCache(t)
-			writeRaw(t, filepath.Join(filepath.Dir(path), "updatenotice.json"), body)
-			if s, ok := c.LoadShown(); ok {
-				t.Errorf("LoadShown = %+v, want absent", s)
-			}
-		})
 	}
 }
 

@@ -38,7 +38,7 @@ func pipedCases(t *testing.T) []cliCase {
 
 // With both streams piped, a pending update changes nothing: stdout, stderr and
 // the exit code match the opted-out run byte for byte, the record is not
-// rewritten, no shown-state file appears, and nothing leaves the machine.
+// rewritten and nothing leaves the machine.
 func TestPipedRunsWithUpdatePendingMatchTheOptedOutRun(t *testing.T) {
 	bin := buildCLI(t, releasedVersion)
 	for _, c := range pipedCases(t) {
@@ -74,9 +74,6 @@ func TestPipedRunsWithUpdatePendingMatchTheOptedOutRun(t *testing.T) {
 			}
 			if !bytes.Equal(after, seeded) {
 				t.Errorf("a piped run rewrote the record\nbefore %s\nafter  %s", seeded, after)
-			}
-			if _, err := os.Stat(shownStatePath(xdg)); !os.IsNotExist(err) {
-				t.Errorf("a piped run created the shown-state file (stat err = %v)", err)
 			}
 			if n := tw.count(); n != 0 {
 				t.Errorf("piped run made %d outbound requests, want 0", n)
@@ -293,9 +290,6 @@ func TestVersionWithOptOutSaysTheCheckIsDisabled(t *testing.T) {
 					}
 					if !bytes.Equal(after, before) {
 						t.Errorf("--version with the opt-out rewrote the record\nbefore %s\nafter  %s", before, after)
-					}
-					if _, err := os.Stat(shownStatePath(xdg)); !os.IsNotExist(err) {
-						t.Errorf("--version with the opt-out created the shown-state file (stat err = %v)", err)
 					}
 				})
 			}
