@@ -79,13 +79,19 @@ func (e *noticeEnv) eligible(args []string) bool {
 	if _, ok := updatecheck.CheckableVersion(e.version); !ok {
 		return false
 	}
-	if _, ok := e.lookupEnv("CI"); ok {
-		return false
-	}
-	if e.optedOut() || !e.stdoutTTY || !e.stderrTTY {
+	if !e.interactive() || e.optedOut() {
 		return false
 	}
 	return !machineFormat(args) && e.cache != nil
+}
+
+// interactive reports whether a person is at a terminal: stdout and stderr
+// are both terminals and CI is unset.
+func (e *noticeEnv) interactive() bool {
+	if _, ok := e.lookupEnv("CI"); ok {
+		return false
+	}
+	return e.stdoutTTY && e.stderrTTY
 }
 
 // machineFormat reports whether args select an output a program reads rather
@@ -270,12 +276,18 @@ func noticeBox(lines []string, width int) string {
 	return b.String()
 }
 
-// runVersion handles --version and -v. Stdout carries only the version line;
-// the outcome goes to stderr. A checkable, not opted-out build runs a live
-// bounded refresh first and then shows the box, says the build is current, or
-// says the check failed. The terminal and CI guards do not apply here.
+// runVersion handles --version and -v. Stdout carries only the version line.
+// Outside an interactive session (a pipe, a redirect or CI) that is all it
+// does: no request, no stderr, no cache write. In a terminal a checkable, not
+// opted-out build runs a live bounded refresh, then on stderr shows the box,
+// says the build is current, or says the check failed; a failed check still
+// shows the box when the desktop app's record confirms a newer release.
 func runVersion(env *noticeEnv) int {
 	line := fmt.Sprintf("pdfdebug version %s\n", env.version)
+	if !env.interactive() {
+		_, _ = io.WriteString(env.stdout, line)
+		return 0
+	}
 	_, checkable := updatecheck.CheckableVersion(env.version)
 	switch {
 	case !checkable:
@@ -289,13 +301,16 @@ func runVersion(env *noticeEnv) int {
 	}
 
 	checked := false
-	var snap updatecheck.Snapshot
+	var snap, peer updatecheck.Snapshot
 	if env.cache != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
 		s, err := refreshSnapshot(ctx, env.cache, env.latest, env.now())
 		cancel()
-		peer, _ := env.cache.LoadPeer()
+		peer, _ = env.cache.LoadPeer()
 		snap, checked = updatecheck.Newer(s, peer), err == nil
+	}
+	if !checked && peer.Confirmed(env.now(), updatecheck.CacheTTL) {
+		snap, checked = peer, true
 	}
 	if !checked {
 		_, _ = io.WriteString(env.stdout, line)

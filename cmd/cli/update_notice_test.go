@@ -594,10 +594,18 @@ func TestVersionOutcomes(t *testing.T) {
 		{name: "dev build", version: "dev", wantStderr: "pdfdebug: update checks are skipped for development builds\n"},
 		{name: "opted out", version: "0.4.0", setup: func(t *testing.T, h *harness) { h.vars["NO_UPDATE_NOTIFIER"] = "" },
 			wantStderr: "pdfdebug: update check disabled (PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set)\n"},
-		{name: "piped and in CI", version: "0.4.0", setup: func(t *testing.T, h *harness) {
-			h.env.stdoutTTY, h.env.stderrTTY = false, false
-			h.vars["CI"] = "true"
+		{name: "check failed, app confirms newer", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"})
 		}, wantStderr: referenceBox, wantHits: 1},
+		{name: "check failed, app record unconfirmed", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.5.0"})
+		}, wantStderr: "pdfdebug: could not check for updates\n", wantHits: 1},
+		{name: "check failed, app confirms current", version: "0.5.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"})
+		}, wantStderr: "pdfdebug: no newer release is available\n", wantHits: 1},
 	}
 	for _, c := range cases {
 		for _, flag := range []string{"--version", "-v"} {
@@ -617,6 +625,44 @@ func TestVersionOutcomes(t *testing.T) {
 				}
 				if n := h.hits.Load(); n != c.wantHits {
 					t.Errorf("%d requests, want %d", n, c.wantHits)
+				}
+			})
+		}
+	}
+}
+
+func TestVersionOutsideATerminalPrintsOnlyTheVersionLine(t *testing.T) {
+	cases := map[string]struct {
+		version string
+		setup   func(h *harness)
+	}{
+		"stdout piped":       {"0.4.0", func(h *harness) { h.env.stdoutTTY = false }},
+		"stderr redirected":  {"0.4.0", func(h *harness) { h.env.stderrTTY = false }},
+		"CI set":             {"0.4.0", func(h *harness) { h.vars["CI"] = "false" }},
+		"dev build piped":    {"dev", func(h *harness) { h.env.stdoutTTY = false }},
+		"opted out in CI":    {"0.4.0", func(h *harness) { h.vars["CI"] = ""; h.vars["NO_UPDATE_NOTIFIER"] = "1" }},
+		"update pending, CI": {"0.4.0", func(h *harness) { h.vars["CI"] = "true"; h.seed(t, h.now.Add(-time.Hour), "v0.5.0") }},
+	}
+	for name, c := range cases {
+		for _, flag := range []string{"--version", "-v"} {
+			t.Run(name+" "+flag, func(t *testing.T) {
+				h := newHarness(t, c.version)
+				c.setup(h)
+				before, _ := os.ReadFile(h.path)
+				if code := run(h.env, []string{"pdfdebug", flag}); code != 0 {
+					t.Errorf("exit = %d, want 0", code)
+				}
+				if want := "pdfdebug version " + c.version + "\n"; h.stdout.String() != want {
+					t.Errorf("stdout = %q, want %q", h.stdout.String(), want)
+				}
+				if got := h.stderr.String(); got != "" {
+					t.Errorf("stderr = %q, want nothing", got)
+				}
+				if n := h.hits.Load(); n != 0 {
+					t.Errorf("%d requests, want 0", n)
+				}
+				if after, _ := os.ReadFile(h.path); !bytes.Equal(before, after) {
+					t.Errorf("the CLI record changed: %q -> %q", before, after)
 				}
 			})
 		}

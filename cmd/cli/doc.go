@@ -57,8 +57,9 @@
 // --ops or --raw, a raw `dump bytes` / `dump plaintext` or `dump embedded`
 // extraction, when CI, PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set,
 // or when stdout or stderr is not a terminal, and it never changes the exit
-// code. `--version` / `-v` keeps stdout to the version line and states the
-// update-check outcome on stderr.
+// code. `--version` / `-v` keeps stdout to the version line; in a terminal it
+// also states the update-check outcome on stderr, and outside one (a pipe, a
+// redirect or CI) it writes nothing else.
 //
 // Exit codes (dump subcommands):
 //

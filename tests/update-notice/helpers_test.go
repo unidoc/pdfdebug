@@ -296,25 +296,3 @@ func assertNoNotice(t *testing.T, label string, stderr []byte) {
 		}
 	}
 }
-
-// stderrLines splits stderr into its non-empty lines.
-func stderrLines(stderr []byte) []string {
-	var lines []string
-	for _, l := range strings.Split(strings.ReplaceAll(string(stderr), "\r\n", "\n"), "\n") {
-		if strings.TrimSpace(l) != "" {
-			lines = append(lines, l)
-		}
-	}
-	return lines
-}
-
-// assertASCII fails on any non-ASCII byte.
-func assertASCII(t *testing.T, label string, b []byte) {
-	t.Helper()
-	for i, c := range b {
-		if c > 0x7f {
-			t.Errorf("%s: non-ASCII byte 0x%02x at offset %d", label, c, i)
-			return
-		}
-	}
-}

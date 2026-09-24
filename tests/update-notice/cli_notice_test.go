@@ -201,98 +201,63 @@ func TestUncheckableBuildsTouchNoCache(t *testing.T) {
 	}
 }
 
-// --version on a dev build keeps stdout to the version line and says on stderr,
-// in one line, that update checks are skipped for development builds.
-func TestVersionOnDevBuildSaysChecksAreSkipped(t *testing.T) {
-	bin := buildCLI(t, "")
-	for _, flag := range []string{"--version", "-v"} {
-		t.Run(flag, func(t *testing.T) {
-			tw := newTripwire(t)
-			xdg := t.TempDir()
-			out, errOut, code := runCLI(t, bin, merge(tw.env(), map[string]string{"XDG_CACHE_HOME": xdg}), flag)
-			if code != 0 {
-				t.Errorf("exit code = %d, want 0", code)
-			}
-			if string(out) != "pdfdebug version dev\n" {
-				t.Errorf("stdout = %q, want exactly the version line", out)
-			}
-			lines := stderrLines(errOut)
-			if len(lines) != 1 {
-				t.Fatalf("stderr has %d lines, want exactly one saying checks are skipped for dev builds:\n%s", len(lines), errOut)
-			}
-			if !strings.Contains(strings.ToLower(lines[0]), "dev") {
-				t.Errorf("stderr line %q does not mention development builds", lines[0])
-			}
-			assertNoNotice(t, flag, errOut)
-			assertASCII(t, flag+" stderr", errOut)
-			assertDirEmpty(t, xdg)
-			if n := tw.count(); n != 0 {
-				t.Errorf("%d outbound requests, want 0", n)
-			}
-		})
+// --version with stdout and stderr piped prints exactly the version line: no
+// stderr, no request and no cache write, whether the build is dev, opted out,
+// or a released build with a fresh record advertising a newer version.
+func TestPipedVersionPrintsOnlyTheVersionLine(t *testing.T) {
+	type build struct {
+		version, want string
 	}
-}
-
-// --version with either opt-out variable present, whatever its value, makes no
-// request, writes no cache, keeps stdout to the version line, and says on
-// stderr, in one line, that the check is disabled. It shows no box even when a
-// fresh record advertises a newer version.
-func TestVersionWithOptOutSaysTheCheckIsDisabled(t *testing.T) {
-	bin := buildCLI(t, releasedVersion)
-	optOuts := []map[string]string{
-		{"PDFDEBUG_NO_UPDATE_CHECK": "1"},
-		{"PDFDEBUG_NO_UPDATE_CHECK": ""},
-		{"PDFDEBUG_NO_UPDATE_CHECK": "false"},
-		{"NO_UPDATE_NOTIFIER": "1"},
-		{"NO_UPDATE_NOTIFIER": "0"},
+	dev := build{"", "pdfdebug version dev\n"}
+	released := build{releasedVersion, "pdfdebug version " + releasedVersion + "\n"}
+	cases := []struct {
+		name   string
+		build  build
+		env    map[string]string
+		seeded bool
+	}{
+		{"dev build", dev, nil, false},
+		{"opted out", released, map[string]string{"PDFDEBUG_NO_UPDATE_CHECK": ""}, true},
+		{"NO_UPDATE_NOTIFIER set", released, map[string]string{"NO_UPDATE_NOTIFIER": "0"}, false},
+		{"update pending", released, nil, true},
+		{"empty cache", released, nil, false},
 	}
-	for _, flag := range []string{"--version", "-v"} {
-		for _, opt := range optOuts {
-			var label string
-			for k, v := range opt {
-				label = flag + " " + k + "=" + v
-			}
-			for _, seeded := range []bool{false, true} {
-				name := label + " empty cache"
-				if seeded {
-					name = label + " fresh record"
+	for _, c := range cases {
+		bin := buildCLI(t, c.build.version)
+		for _, flag := range []string{"--version", "-v"} {
+			name := c.name + " " + flag
+			t.Run(name, func(t *testing.T) {
+				tw := newTripwire(t)
+				xdg := t.TempDir()
+				var before []byte
+				if c.seeded {
+					before = seedSnapshot(t, xdg, time.Now().Add(-time.Hour), newerVersion)
 				}
-				t.Run(name, func(t *testing.T) {
-					tw := newTripwire(t)
-					xdg := t.TempDir()
-					var before []byte
-					if seeded {
-						before = seedSnapshot(t, xdg, time.Now().Add(-time.Hour), newerVersion)
-					}
-					out, errOut, code := runCLI(t, bin, merge(tw.env(), opt, map[string]string{"XDG_CACHE_HOME": xdg}), flag)
-					if code != 0 {
-						t.Errorf("exit code = %d, want 0", code)
-					}
-					if string(out) != "pdfdebug version "+releasedVersion+"\n" {
-						t.Errorf("stdout = %q, want exactly the version line", out)
-					}
-					lines := stderrLines(errOut)
-					if len(lines) != 1 {
-						t.Errorf("stderr has %d lines, want exactly one saying the check is disabled:\n%s", len(lines), errOut)
-					}
-					assertNoNotice(t, name, errOut)
-					assertASCII(t, name+" stderr", errOut)
-					if n := tw.count(); n != 0 {
-						t.Errorf("%d outbound requests with the opt-out set, want 0", n)
-					}
-					if !seeded {
-						assertDirEmpty(t, xdg)
-						return
-					}
-					after, err := os.ReadFile(snapshotPath(xdg))
-					if err != nil {
-						t.Fatal(err)
-					}
-					if !bytes.Equal(after, before) {
-						t.Errorf("--version with the opt-out rewrote the record\nbefore %s\nafter  %s", before, after)
-					}
-				})
-			}
+				out, errOut, code := runCLI(t, bin, merge(tw.env(), c.env, map[string]string{"XDG_CACHE_HOME": xdg}), flag)
+				if code != 0 {
+					t.Errorf("exit code = %d, want 0", code)
+				}
+				if string(out) != c.build.want {
+					t.Errorf("stdout = %q, want exactly %q", out, c.build.want)
+				}
+				if len(errOut) != 0 {
+					t.Errorf("stderr = %q, want nothing outside a terminal", errOut)
+				}
+				if n := tw.count(); n != 0 {
+					t.Errorf("%d outbound requests, want 0", n)
+				}
+				if !c.seeded {
+					assertDirEmpty(t, xdg)
+					return
+				}
+				after, err := os.ReadFile(snapshotPath(xdg))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(after, before) {
+					t.Errorf("piped --version rewrote the record\nbefore %s\nafter  %s", before, after)
+				}
+			})
 		}
 	}
 }

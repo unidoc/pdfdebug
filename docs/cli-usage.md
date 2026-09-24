@@ -120,16 +120,21 @@ of releases alongside its own work and, once its output is done, waits for that
 fetch for at most 1.5 seconds from the start of the run; a failed fetch is
 silent and is not retried for another day.
 
-`--version` is the one command that checks live. It prints the box before the
-version line when an update exists, and otherwise says on stderr that no newer
-release is available or that the check failed. It skips the check on
-development builds and when either opt-out variable is set, and it ignores the
-terminal and `CI` rules. The check is recorded in the cache before the request
-is sent, so when the cache directory cannot be written `--version` makes no
-request and reports that the check failed.
+In a terminal, `--version` is the one command that always checks live, even
+when the cache is fresh, so running it is the way to pick up a new release
+before the day is up. It prints the box before the version line when an update
+exists, and otherwise says on stderr that no newer release is available or that
+the check failed. When its own check fails but the desktop app confirmed a
+release in the last day, it answers from the app's record instead. It skips the
+check on development builds and when either opt-out variable is set, and says
+so on stderr. The check is recorded in the cache before the request is sent, so
+when the cache directory cannot be written `--version` makes no request and
+reports that the check failed.
 
-`--version` also refreshes the cache, so running it is the way to pick up a
-new release before the day is up.
+Outside a terminal - stdout or stderr piped or redirected, or `CI` set -
+`--version` prints only the version line: no request, nothing on stderr, and
+no cache write. `v=$(pdfdebug --version 2>&1)` captures exactly
+`pdfdebug version X`.
 
 The CLI and the desktop app each keep their own record in one cache directory,
 so either works without the other installed and neither overwrites the other.
