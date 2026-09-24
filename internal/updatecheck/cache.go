@@ -81,15 +81,12 @@ func within(t, now time.Time, ttl time.Duration) bool {
 // valid SemVer and installedVersion must not be the "dev" sentinel; nothing
 // that fails validation is ever returned.
 func (s Snapshot) Notice(installedVersion string) (latest string, available bool) {
-	if installedVersion == devVersion {
+	installed, ok := CheckableVersion(installedVersion)
+	if !ok {
 		return "", false
 	}
-	installed := normalizeVersion(installedVersion)
-	target := normalizeVersion(s.LatestVersion)
-	if !semver.IsValid(installed) || !semver.IsValid(target) {
-		return "", false
-	}
-	if semver.Compare(target, installed) <= 0 {
+	target, ok := canonicalVersion(s.LatestVersion)
+	if !ok || target == "" || semver.Compare(target, installed) <= 0 {
 		return "", false
 	}
 	return strings.TrimPrefix(target, "v"), true
@@ -131,7 +128,13 @@ func Open(path string) (*Cache, error) {
 // absent. It never returns an error and never writes output.
 func (c *Cache) Load() (Snapshot, bool) {
 	var s Snapshot
-	if !c.readJSON(c.path, &s) || s.Schema != cacheSchema {
+	// The mutex covers the read because on Windows an open reader makes a
+	// concurrent rename onto the file fail; readers in other processes are
+	// what write's rename retry is for.
+	c.mu.Lock()
+	data, err := os.ReadFile(c.path)
+	c.mu.Unlock()
+	if err != nil || json.Unmarshal(data, &s) != nil || s.Schema != cacheSchema {
 		return Snapshot{}, false
 	}
 	latest, ok := canonicalVersion(s.LatestVersion)
@@ -153,7 +156,7 @@ func (c *Cache) Store(s Snapshot) error {
 	}
 	s.Schema = cacheSchema
 	s.LatestVersion = latest
-	return c.write(c.path, "updatecheck-*.tmp", s)
+	return c.write(s)
 }
 
 // RecordAttempt advances checked_at to now and keeps the rest of the stored
@@ -179,21 +182,21 @@ func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
 	return s, c.Store(s)
 }
 
-// write marshals v and replaces path through a temp file in the same
+// write marshals s and replaces the record through a temp file in the same
 // directory. The temp file is removed on every failure path.
-func (c *Cache) write(path, pattern string, v any) error {
-	data, err := json.Marshal(v)
+func (c *Cache) write(s Snapshot) error {
+	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(c.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, pattern)
+	tmp, err := os.CreateTemp(dir, "updatecheck-*.tmp")
 	if err != nil {
 		return err
 	}
@@ -212,7 +215,7 @@ func (c *Cache) write(path, pattern string, v any) error {
 		return err
 	}
 	for i := 1; ; i++ {
-		err = c.rename(tmpPath, path)
+		err = c.rename(tmpPath, c.path)
 		if err == nil || i >= c.attempts {
 			break
 		}
@@ -223,20 +226,6 @@ func (c *Cache) write(path, pattern string, v any) error {
 	}
 	renamed = true
 	return nil
-}
-
-// readJSON decodes the file at path into v, reporting false on any failure.
-// It holds the mutex because on Windows an open reader makes a concurrent
-// rename onto the same file fail. The mutex covers this process only; a
-// reader in another process is what write's rename retry is for.
-func (c *Cache) readJSON(path string, v any) bool {
-	c.mu.Lock()
-	data, err := os.ReadFile(path)
-	c.mu.Unlock()
-	if err != nil {
-		return false
-	}
-	return json.Unmarshal(data, v) == nil
 }
 
 // CheckableVersion reports whether a build version can be compared against a

@@ -87,8 +87,8 @@ change between releases. For stable, parseable output (scripts, agents), pass
 
 ## Update notice
 
-When a newer release exists, `pdfdebug` says so once, at the end of a
-command's output, in a small box on stderr:
+When a newer release exists, `pdfdebug` says so at the end of a command's
+output, in a small box on stderr:
 
 ```
 +-----------------------------------------------+

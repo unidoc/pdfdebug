@@ -63,12 +63,6 @@ func newNoticeEnv() *noticeEnv {
 	}
 }
 
-// checkableVersion reports whether v can be compared against a release.
-func checkableVersion(v string) bool {
-	_, ok := updatecheck.CheckableVersion(v)
-	return ok
-}
-
 // optedOut reports whether either opt-out variable is present.
 func (e *noticeEnv) optedOut() bool {
 	for _, k := range optOutVars {
@@ -82,7 +76,7 @@ func (e *noticeEnv) optedOut() bool {
 // eligible reports whether an ordinary command may refresh the cache and show
 // the notice. args excludes the program name.
 func (e *noticeEnv) eligible(args []string) bool {
-	if !checkableVersion(e.version) {
+	if _, ok := updatecheck.CheckableVersion(e.version); !ok {
 		return false
 	}
 	if _, ok := e.lookupEnv("CI"); ok {
@@ -274,8 +268,9 @@ func noticeBox(lines []string, width int) string {
 // says the check failed. The terminal and CI guards do not apply here.
 func runVersion(env *noticeEnv) int {
 	line := fmt.Sprintf("pdfdebug version %s\n", env.version)
+	_, checkable := updatecheck.CheckableVersion(env.version)
 	switch {
-	case !checkableVersion(env.version):
+	case !checkable:
 		_, _ = io.WriteString(env.stdout, line)
 		_, _ = fmt.Fprintln(env.stderr, "pdfdebug: update checks are skipped for development builds")
 		return 0
