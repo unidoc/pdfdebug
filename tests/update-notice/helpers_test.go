@@ -236,9 +236,9 @@ func testdataPDF(t *testing.T, name string) string {
 	return filepath.Join(projectRoot(t), "testdata", name)
 }
 
-// snapshotPath is where the CLI resolves the shared record under an XDG cache base.
+// snapshotPath is where the CLI resolves its own record under an XDG cache base.
 func snapshotPath(xdg string) string {
-	return filepath.Join(xdg, "pdfdebug", "updatecheck.json")
+	return filepath.Join(xdg, "pdfdebug", "updatecheck-cli.json")
 }
 
 // seedSnapshot writes a schema-1 record of a successful check at checkedAt under

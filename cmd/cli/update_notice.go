@@ -46,8 +46,8 @@ func newNoticeEnv() *noticeEnv {
 	outTTY, _ := terminalInfo(os.Stdout)
 	errTTY, width := terminalInfo(os.Stderr)
 	var cache *updatecheck.Cache
-	if path, err := updatecheck.DefaultPath(); err == nil {
-		cache, _ = updatecheck.Open(path)
+	if dir, err := updatecheck.DefaultDir(); err == nil {
+		cache, _ = updatecheck.Open(dir, updatecheck.SurfaceCLI)
 	}
 	return &noticeEnv{
 		version:   version,
@@ -156,8 +156,11 @@ func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(
 type pendingNotice struct {
 	env    *noticeEnv
 	active bool
-	snap   updatecheck.Snapshot
-	done   chan updatecheck.Snapshot
+	// snap is the record the notice reads: whichever of the CLI's own record
+	// and the desktop app's names the higher latest version.
+	snap updatecheck.Snapshot
+	peer updatecheck.Snapshot
+	done chan updatecheck.Snapshot
 	// answered is closed once the server call returns, answer or not.
 	answered chan struct{}
 	ctx      context.Context
@@ -172,8 +175,13 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 		return p
 	}
 	p.active = true
-	p.snap, _ = env.cache.Load()
-	if p.snap.Fresh(env.now(), updatecheck.CacheTTL) {
+	own, _ := env.cache.Load()
+	p.peer, _ = env.cache.LoadPeer()
+	p.snap = updatecheck.Newer(own, p.peer)
+	// A desktop-app check that succeeded within the TTL walked every release
+	// page, so it spares the CLI its own refresh.
+	now := env.now()
+	if own.Fresh(now, updatecheck.CacheTTL) || p.peer.Confirmed(now, updatecheck.CacheTTL) {
 		return p
 	}
 	p.ctx, p.cancel = context.WithTimeout(context.Background(), refreshTimeout)
@@ -184,8 +192,8 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 		return env.latest(ctx)
 	}
 	go func() {
-		result, _ := refreshSnapshot(p.ctx, env.cache, latest, env.now())
-		p.done <- result
+		result, _ := refreshSnapshot(p.ctx, env.cache, latest, now)
+		p.done <- updatecheck.Newer(result, p.peer)
 	}()
 	return p
 }
@@ -286,7 +294,8 @@ func runVersion(env *noticeEnv) int {
 		ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
 		s, err := refreshSnapshot(ctx, env.cache, env.latest, env.now())
 		cancel()
-		snap, checked = s, err == nil
+		peer, _ := env.cache.LoadPeer()
+		snap, checked = updatecheck.Newer(s, peer), err == nil
 	}
 	if !checked {
 		_, _ = io.WriteString(env.stdout, line)

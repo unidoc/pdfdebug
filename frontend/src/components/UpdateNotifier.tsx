@@ -121,8 +121,8 @@ export function UpdateNotifier(): JSX.Element | null {
   const runCheck = useCallback(async (isManual: boolean) => {
     setCheckError(false);
     try {
-      // The automatic check may be answered from the shared cache; the Help
-      // menu check always goes live.
+      // The automatic check may be answered from the app's cache record;
+      // the Help menu check always goes live.
       const res = await (isManual ? CheckForUpdate() : CheckForUpdateAtStartup());
       setResult(res);
       if (res.updateAvailable && res.releases.length > 0) {

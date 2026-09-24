@@ -27,7 +27,7 @@ func cacheBase(t *testing.T) string {
 }
 
 func recordFile(t *testing.T) string {
-	return filepath.Join(cacheBase(t), "pdfdebug", "updatecheck.json")
+	return filepath.Join(cacheBase(t), "pdfdebug", "updatecheck-app.json")
 }
 
 func seed(t *testing.T, checkedAt time.Time, latest string) {
@@ -49,7 +49,7 @@ func seed(t *testing.T, checkedAt time.Time, latest string) {
 
 func load(t *testing.T) (updatecheck.Snapshot, bool) {
 	t.Helper()
-	c, err := updatecheck.Open(recordFile(t))
+	c, err := updatecheck.Open(filepath.Dir(recordFile(t)), updatecheck.SurfaceApp)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

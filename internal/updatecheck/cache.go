@@ -19,13 +19,36 @@ import (
 // use the same value.
 const CacheTTL = 24 * time.Hour
 
+// Surface names the binary that owns a record. Each surface writes only its
+// own record, so the desktop app and the CLI never overwrite each other, and
+// either one works when the other is not installed.
+type Surface string
+
+const (
+	// SurfaceApp is the desktop app, whose check walks every release page.
+	SurfaceApp Surface = "app"
+	// SurfaceCLI is the command-line tool, whose refresh reads one page.
+	SurfaceCLI Surface = "cli"
+)
+
+// peer returns the other surface.
+func (s Surface) peer() Surface {
+	if s == SurfaceApp {
+		return SurfaceCLI
+	}
+	return SurfaceApp
+}
+
+// fileName is the surface's record file name.
+func (s Surface) fileName() string {
+	return "updatecheck-" + string(s) + ".json"
+}
+
 const (
 	// cacheSchema is the only record schema Load accepts.
 	cacheSchema = 1
 	// cacheDirName is the per-user directory under xdg.CacheHome.
 	cacheDirName = "pdfdebug"
-	// cacheFileName is the shared check record.
-	cacheFileName = "updatecheck.json"
 	// renameRetryDelay is the pause between rename attempts.
 	renameRetryDelay = 20 * time.Millisecond
 )
@@ -41,8 +64,8 @@ var renameAttempts = func() int {
 	return 1
 }()
 
-// Snapshot is the shared check record: what the release server said and when
-// it was last asked. It holds no installed version and no derived "update
+// Snapshot is one surface's check record: what the release server said and
+// when it was last asked. It holds no installed version and no derived "update
 // available" flag, because one machine can run a GUI and a standalone CLI at
 // different versions; each binary compares LatestVersion against its own.
 //
@@ -92,47 +115,67 @@ func (s Snapshot) Notice(installedVersion string) (latest string, available bool
 	return strings.TrimPrefix(target, "v"), true
 }
 
-// Cache reads and writes the shared check record. The mutex serialises reads
-// and writes inside a process, and cross-process writes are last-writer-wins
+// Cache reads and writes its surface's record and reads the peer surface's.
+// Both live in one per-user directory. The mutex serialises reads and writes
+// inside a process; processes of the same surface are last-writer-wins
 // through an atomic rename.
 type Cache struct {
-	path string
-	mu   sync.Mutex
+	path     string
+	peerPath string
+	mu       sync.Mutex
 	// rename and attempts are os.Rename and renameAttempts, replaced in tests.
 	rename   func(oldpath, newpath string) error
 	attempts int
 }
 
-// DefaultPath returns xdg.CacheHome/pdfdebug/updatecheck.json. It never
-// touches the disk, and errors only when xdg.CacheHome is empty or relative.
-func DefaultPath() (string, error) {
+// DefaultDir returns xdg.CacheHome/pdfdebug. It never touches the disk, and
+// errors only when xdg.CacheHome is empty or relative.
+func DefaultDir() (string, error) {
 	base := xdg.CacheHome
 	if base == "" || !filepath.IsAbs(base) {
 		return "", fmt.Errorf("cache home %q is not an absolute path", base)
 	}
-	return filepath.Join(base, cacheDirName, cacheFileName), nil
+	return filepath.Join(base, cacheDirName), nil
 }
 
-// Open returns a Cache for the record at path, an absolute file path such as
-// DefaultPath returns. Open does not touch
-// the disk; the first Store creates the directory.
-func Open(path string) (*Cache, error) {
-	if path == "" || !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("cache path %q is not an absolute path", path)
+// Open returns the Cache for surface own in dir, an absolute directory such
+// as DefaultDir returns. Open does not touch the disk; the first Store
+// creates the directory.
+func Open(dir string, own Surface) (*Cache, error) {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return nil, fmt.Errorf("cache dir %q is not an absolute path", dir)
 	}
-	return &Cache{path: path, rename: os.Rename, attempts: renameAttempts}, nil
+	if own != SurfaceApp && own != SurfaceCLI {
+		return nil, fmt.Errorf("unknown cache surface %q", own)
+	}
+	return &Cache{
+		path:     filepath.Join(dir, own.fileName()),
+		peerPath: filepath.Join(dir, own.peer().fileName()),
+		rename:   os.Rename,
+		attempts: renameAttempts,
+	}, nil
 }
 
-// Load returns the stored record. A missing, unreadable, corrupt or truncated
-// file, an unknown schema, or a latest version that is not SemVer all load as
-// absent. It never returns an error and never writes output.
+// Load returns this surface's record. A missing, unreadable, corrupt or
+// truncated file, an unknown schema, or a latest version that is not SemVer
+// all load as absent. It never returns an error and never writes output.
 func (c *Cache) Load() (Snapshot, bool) {
+	return c.load(c.path)
+}
+
+// LoadPeer returns the other surface's record under the same rules as Load.
+// It is absent when the other surface is not installed or has never checked.
+func (c *Cache) LoadPeer() (Snapshot, bool) {
+	return c.load(c.peerPath)
+}
+
+func (c *Cache) load(path string) (Snapshot, bool) {
 	var s Snapshot
 	// The mutex covers the read because on Windows an open reader makes a
 	// concurrent rename onto the file fail; readers in other processes are
 	// what write's rename retry is for.
 	c.mu.Lock()
-	data, err := os.ReadFile(c.path)
+	data, err := os.ReadFile(path)
 	c.mu.Unlock()
 	if err != nil || json.Unmarshal(data, &s) != nil || s.Schema != cacheSchema {
 		return Snapshot{}, false
@@ -145,7 +188,7 @@ func (c *Cache) Load() (Snapshot, bool) {
 	return s, true
 }
 
-// Store writes s atomically, setting the schema itself and writing
+// Store writes this surface's record atomically, setting the schema itself and writing
 // LatestVersion in canonical form (leading "v") or empty. A non-empty
 // LatestVersion that is not valid SemVer is refused and nothing is written.
 // Callers treat any error as "no cache".
@@ -196,7 +239,7 @@ func (c *Cache) write(s Snapshot) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, "updatecheck-*.tmp")
+	tmp, err := os.CreateTemp(dir, strings.TrimSuffix(filepath.Base(c.path), ".json")+"-*.tmp")
 	if err != nil {
 		return err
 	}
@@ -226,6 +269,17 @@ func (c *Cache) write(s Snapshot) error {
 	}
 	renamed = true
 	return nil
+}
+
+// Newer returns whichever of a and b names the higher latest version, and a
+// when they tie or neither names a valid one.
+func Newer(a, b Snapshot) Snapshot {
+	av, _ := canonicalVersion(a.LatestVersion)
+	bv, _ := canonicalVersion(b.LatestVersion)
+	if bv != "" && (av == "" || semver.Compare(bv, av) > 0) {
+		return b
+	}
+	return a
 }
 
 // CheckableVersion reports whether a build version can be compared against a

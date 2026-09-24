@@ -113,8 +113,9 @@ Presence is what counts: `PDFDEBUG_NO_UPDATE_CHECK=0` and `CI=false` still turn
 it off. The desktop app's "check automatically" preference lives in the app and
 does not affect the CLI.
 
-Ordinary commands read the answer from a cache. When the cache is missing or
-more than a day old and the session is interactive, a command fetches one page
+Ordinary commands read the answer from a cache. When neither the CLI nor the
+desktop app has checked successfully in the last day and the session is
+interactive, a command fetches one page
 of releases alongside its own work and, once its output is done, waits for that
 fetch for at most 1.5 seconds from the start of the run; a failed fetch is
 silent and is not retried for another day.
@@ -130,14 +131,20 @@ request and reports that the check failed.
 `--version` also refreshes the cache, so running it is the way to pick up a
 new release before the day is up.
 
-The cache is shared with the desktop app, so a check made by either one serves
-both. It keeps the last attempt apart from the last successful check: a failed
-attempt stops the CLI retrying for a day, but the desktop app's launch check
-only skips the network when a check actually succeeded in the last 24 hours:
+The CLI and the desktop app each keep their own record in one cache directory,
+so either works without the other installed and neither overwrites the other.
+The CLI writes `updatecheck-cli.json`; the app writes `updatecheck-app.json`.
+The CLI also reads the app's record: the notice uses whichever of the two names
+the newer release, and a successful app check in the last day spares the CLI
+its own fetch. The app reads only its own record, because the CLI's fetch sees
+one page of releases and can miss one the app's full check finds. Each record
+keeps the last attempt apart from the last successful check, so a failed
+attempt stops the CLI retrying for a day without counting as an answer. The
+directory is:
 
-- macOS: `~/Library/Caches/pdfdebug/updatecheck.json`
-- Linux: `~/.cache/pdfdebug/updatecheck.json`
-- Windows: `%LOCALAPPDATA%\cache\pdfdebug\updatecheck.json`
+- macOS: `~/Library/Caches/pdfdebug/`
+- Linux: `~/.cache/pdfdebug/`
+- Windows: `%LOCALAPPDATA%\cache\pdfdebug\`
 
 An absolute `XDG_CACHE_HOME` replaces the base directory on all three; a
 relative one is ignored. On macOS an `XDG_CACHE_HOME` exported in a shell

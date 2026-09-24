@@ -21,12 +21,12 @@ import (
 
 func tempCache(t *testing.T) (*Cache, string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "pdfdebug", "updatecheck.json")
-	c, err := Open(path)
+	dir := filepath.Join(t.TempDir(), "pdfdebug")
+	c, err := Open(dir, SurfaceCLI)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	return c, path
+	return c, filepath.Join(dir, "updatecheck-cli.json")
 }
 
 func writeRaw(t *testing.T, path, body string) {
@@ -62,38 +62,41 @@ func assertNoTempFiles(t *testing.T, dir string) {
 	}
 }
 
-// DefaultPath reads the package variable xdg.CacheHome, so these cases
+// DefaultDir reads the package variable xdg.CacheHome, so these cases
 // mutate it and must not run in parallel.
-func TestDefaultPathJoinsCacheHomeAndRejectsUnusableBases(t *testing.T) {
+func TestDefaultDirJoinsCacheHomeAndRejectsUnusableBases(t *testing.T) {
 	orig := xdg.CacheHome
 	t.Cleanup(func() { xdg.CacheHome = orig })
 
 	base := t.TempDir()
 	xdg.CacheHome = base
-	got, err := DefaultPath()
+	got, err := DefaultDir()
 	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
+		t.Fatalf("DefaultDir: %v", err)
 	}
-	if want := filepath.Join(base, "pdfdebug", "updatecheck.json"); got != want {
-		t.Errorf("DefaultPath = %q, want %q", got, want)
+	if want := filepath.Join(base, "pdfdebug"); got != want {
+		t.Errorf("DefaultDir = %q, want %q", got, want)
 	}
 	if names := entries(t, base); len(names) != 0 {
-		t.Errorf("DefaultPath created %v", names)
+		t.Errorf("DefaultDir created %v", names)
 	}
 
 	for _, bad := range []string{"", "relative/cache"} {
 		xdg.CacheHome = bad
-		if p, err := DefaultPath(); err == nil {
-			t.Errorf("DefaultPath with CacheHome %q = %q, want an error", bad, p)
+		if p, err := DefaultDir(); err == nil {
+			t.Errorf("DefaultDir with CacheHome %q = %q, want an error", bad, p)
 		}
 	}
 }
 
 func TestOpenRejectsEmptyAndRelativePathsAndTouchesNothing(t *testing.T) {
-	for _, p := range []string{"", "updatecheck.json"} {
-		if _, err := Open(p); err == nil {
+	for _, p := range []string{"", "pdfdebug"} {
+		if _, err := Open(p, SurfaceCLI); err == nil {
 			t.Errorf("Open(%q) succeeded, want an error", p)
 		}
+	}
+	if _, err := Open(t.TempDir(), Surface("gui")); err == nil {
+		t.Error("Open with an unknown surface succeeded")
 	}
 	c, path := tempCache(t)
 	if _, ok := c.Load(); ok {
@@ -140,8 +143,8 @@ func TestStoreCanonicalisesAndRoundTrips(t *testing.T) {
 	if !ok || s.Schema != 1 || !s.CheckedAt.Equal(now) || s.LatestVersion != "v0.5.0" {
 		t.Errorf("Load = %+v, %v; want schema 1, %v, v0.5.0", s, ok, now)
 	}
-	if names := entries(t, filepath.Dir(path)); len(names) != 1 || names[0] != "updatecheck.json" {
-		t.Errorf("directory holds %v, want only updatecheck.json", names)
+	if names := entries(t, filepath.Dir(path)); len(names) != 1 || names[0] != "updatecheck-cli.json" {
+		t.Errorf("directory holds %v, want only updatecheck-cli.json", names)
 	}
 }
 
@@ -167,7 +170,7 @@ func TestStoreIntoUnwritableDirFailsAndLeavesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
-	c, err := Open(filepath.Join(dir, "updatecheck.json"))
+	c, err := Open(dir, SurfaceCLI)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,6 +296,69 @@ func TestRenameIsRetriedOnlyOnWindows(t *testing.T) {
 	}
 	if renameAttempts != want {
 		t.Errorf("renameAttempts = %d on %s, want %d", renameAttempts, runtime.GOOS, want)
+	}
+}
+
+func TestEachSurfaceWritesOnlyItsOwnRecordAndReadsThePeer(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "pdfdebug")
+	app, err := Open(dir, SurfaceApp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli, err := Open(dir, SurfaceCLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cli.LoadPeer(); ok {
+		t.Error("LoadPeer reported a record with the desktop app never having checked")
+	}
+	now := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	if _, err := app.RecordSuccess(now, "v0.6.0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cli.RecordSuccess(now, "v0.5.0"); err != nil {
+		t.Fatal(err)
+	}
+	if names := entries(t, dir); strings.Join(names, ",") != "updatecheck-app.json,updatecheck-cli.json" {
+		t.Errorf("directory holds %v, want one record per surface", names)
+	}
+	for name, got := range map[string]func() (Snapshot, bool){
+		"app Load": app.Load, "cli LoadPeer": cli.LoadPeer,
+	} {
+		if s, ok := got(); !ok || s.LatestVersion != "v0.6.0" {
+			t.Errorf("%s = %+v, %v; want the app's v0.6.0", name, s, ok)
+		}
+	}
+	for name, got := range map[string]func() (Snapshot, bool){
+		"cli Load": cli.Load, "app LoadPeer": app.LoadPeer,
+	} {
+		if s, ok := got(); !ok || s.LatestVersion != "v0.5.0" {
+			t.Errorf("%s = %+v, %v; want the CLI's v0.5.0", name, s, ok)
+		}
+	}
+}
+
+func TestNewerPicksTheHigherLatestVersion(t *testing.T) {
+	a := Snapshot{LatestVersion: "v0.5.0"}
+	b := Snapshot{LatestVersion: "v0.6.0"}
+	none := Snapshot{}
+	bad := Snapshot{LatestVersion: "garbage"}
+	cases := []struct {
+		name       string
+		x, y, want Snapshot
+	}{
+		{"second higher", a, b, b},
+		{"first higher", b, a, b},
+		{"tie keeps the first", a, Snapshot{LatestVersion: "0.5.0", Schema: 9}, a},
+		{"empty second", a, none, a},
+		{"empty first", none, a, a},
+		{"invalid second", a, bad, a},
+		{"both empty", none, none, none},
+	}
+	for _, c := range cases {
+		if got := Newer(c.x, c.y); got != c.want {
+			t.Errorf("%s: Newer = %+v, want %+v", c.name, got, c.want)
+		}
 	}
 }
 
@@ -476,7 +542,7 @@ func TestRecordSuccessReturnsTheRecordWhenTheWriteFails(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, err := Open(filepath.Join(blocker, "pdfdebug", "updatecheck.json"))
+	c, err := Open(filepath.Join(blocker, "pdfdebug"), SurfaceCLI)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +586,7 @@ func TestStoreOntoADirectoryFailsAndRemovesTheTempFile(t *testing.T) {
 	if err := c.Store(Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err == nil {
 		t.Fatal("Store replaced a non-empty directory")
 	}
-	if names := entries(t, filepath.Dir(path)); len(names) != 1 || names[0] != "updatecheck.json" {
+	if names := entries(t, filepath.Dir(path)); len(names) != 1 || names[0] != "updatecheck-cli.json" {
 		t.Errorf("a failed rename left %v, want only the blocking directory", names)
 	}
 	if _, ok := c.Load(); ok {

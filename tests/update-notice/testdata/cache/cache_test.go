@@ -20,12 +20,15 @@ import (
 
 func recordPath(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(t.TempDir(), "updatecheck.json")
+	return filepath.Join(t.TempDir(), "updatecheck-cli.json")
 }
 
 func openCache(t *testing.T, path string) *updatecheck.Cache {
 	t.Helper()
-	c, err := updatecheck.Open(path)
+	if filepath.Base(path) != "updatecheck-cli.json" {
+		t.Fatalf("openCache wants the CLI record path, got %q", path)
+	}
+	c, err := updatecheck.Open(filepath.Dir(path), updatecheck.SurfaceCLI)
 	if err != nil {
 		t.Fatalf("Open(%q): %v", path, err)
 	}
@@ -49,25 +52,25 @@ func dirNames(t *testing.T, dir string) []string {
 func assertOnlyRecord(t *testing.T, dir string) {
 	t.Helper()
 	names := dirNames(t, dir)
-	if len(names) != 1 || names[0] != "updatecheck.json" {
-		t.Errorf("expected only updatecheck.json in %s, found %v", dir, names)
+	if len(names) != 1 || names[0] != "updatecheck-cli.json" {
+		t.Errorf("expected only updatecheck-cli.json in %s, found %v", dir, names)
 	}
 }
 
-func TestCacheDefaultPathFollowsXDGCacheHomeAndCreatesNothing(t *testing.T) {
+func TestCacheDefaultDirFollowsXDGCacheHomeAndCreatesNothing(t *testing.T) {
 	base := os.Getenv("XDG_CACHE_HOME")
 	if base == "" {
 		t.Fatal("harness must run with XDG_CACHE_HOME set to an empty temp dir")
 	}
-	got, err := updatecheck.DefaultPath()
+	got, err := updatecheck.DefaultDir()
 	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
+		t.Fatalf("DefaultDir: %v", err)
 	}
-	want := filepath.Join(base, "pdfdebug", "updatecheck.json")
+	want := filepath.Join(base, "pdfdebug")
 	if got != want {
-		t.Errorf("DefaultPath = %q, want %q", got, want)
+		t.Errorf("DefaultDir = %q, want %q", got, want)
 	}
-	c := openCache(t, got)
+	c := openCache(t, filepath.Join(got, "updatecheck-cli.json"))
 	if _, ok := c.Load(); ok {
 		t.Error("Load on a never-written default path reported a record")
 	}
@@ -77,8 +80,8 @@ func TestCacheDefaultPathFollowsXDGCacheHomeAndCreatesNothing(t *testing.T) {
 }
 
 func TestCacheOpenRejectsEmptyAndRelativePaths(t *testing.T) {
-	for _, p := range []string{"", "updatecheck.json", filepath.Join("pdfdebug", "updatecheck.json")} {
-		if c, err := updatecheck.Open(p); err == nil {
+	for _, p := range []string{"", "pdfdebug", filepath.Join("cache", "pdfdebug")} {
+		if c, err := updatecheck.Open(p, updatecheck.SurfaceCLI); err == nil {
 			t.Errorf("Open(%q) = %v, nil; want an error", p, c)
 		}
 	}
@@ -86,7 +89,7 @@ func TestCacheOpenRejectsEmptyAndRelativePaths(t *testing.T) {
 
 func TestCacheOpenAndLoadTouchNoDisk(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "pdfdebug")
-	c := openCache(t, filepath.Join(dir, "updatecheck.json"))
+	c := openCache(t, filepath.Join(dir, "updatecheck-cli.json"))
 	if _, ok := c.Load(); ok {
 		t.Error("Load on a missing file reported a record")
 	}
@@ -241,7 +244,7 @@ func TestCacheStoreCreatesPrivateDirAndFile(t *testing.T) {
 		t.Skip("POSIX permission bits do not apply on Windows")
 	}
 	dir := filepath.Join(t.TempDir(), "pdfdebug")
-	path := filepath.Join(dir, "updatecheck.json")
+	path := filepath.Join(dir, "updatecheck-cli.json")
 	if err := openCache(t, path).Store(updatecheck.Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err != nil {
 		t.Fatalf("Store: %v", err)
 	}
@@ -274,7 +277,7 @@ func TestCacheStoreIntoUnwritableDirFailsCleanly(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
 
-	c := openCache(t, filepath.Join(dir, "updatecheck.json"))
+	c := openCache(t, filepath.Join(dir, "updatecheck-cli.json"))
 	if err := c.Store(updatecheck.Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err == nil {
 		t.Error("Store into a read-only directory reported success")
 	}

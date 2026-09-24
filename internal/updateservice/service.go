@@ -74,7 +74,7 @@ type Service struct {
 	version string
 	checker *updatecheck.Checker
 	pause   *pauseGate
-	// cache is the shared check record; nil when its path could not be
+	// cache is the app's check record; nil when its directory could not be
 	// resolved, in which case every cache touch is a no-op.
 	cache *updatecheck.Cache
 }
@@ -82,16 +82,17 @@ type Service struct {
 // NewUpdateService returns a Service that reports updates newer than version.
 // version is the ldflag-injected build version ("dev" for untagged builds, for
 // which the check is skipped and no network call is made). app is used to emit
-// download-progress events; it may be nil in tests. Check results are shared
-// with the CLI through the record at updatecheck.DefaultPath.
+// download-progress events; it may be nil in tests. Check results are stored
+// as the app's record under updatecheck.DefaultDir, where the CLI also reads
+// them.
 func NewUpdateService(app *application.App, version string) *Service {
-	path, _ := updatecheck.DefaultPath()
-	return newService(app, version, path)
+	dir, _ := updatecheck.DefaultDir()
+	return newService(app, version, dir)
 }
 
-// newService builds the Service with its cache at cachePath. An unusable path
-// leaves the cache nil.
-func newService(app *application.App, version, cachePath string) *Service {
+// newService builds the Service with its cache in cacheDir. An unusable
+// directory leaves the cache nil.
+func newService(app *application.App, version, cacheDir string) *Service {
 	checker := updatecheck.New()
 	gate := newPauseGate()
 	checker.WaitIfPaused = gate.wait
@@ -104,7 +105,7 @@ func newService(app *application.App, version, cachePath string) *Service {
 			})
 		}
 	}
-	cache, _ := updatecheck.Open(cachePath)
+	cache, _ := updatecheck.Open(cacheDir, updatecheck.SurfaceApp)
 	return &Service{app: app, version: version, checker: checker, pause: gate, cache: cache}
 }
 
@@ -116,8 +117,8 @@ func (s *Service) SetDownloadPaused(paused bool) {
 }
 
 // CheckForUpdate runs the cumulative release check for the running version and
-// platform, always live, and records the outcome in the cache shared with the
-// CLI. Errors are returned for logging; the frontend treats any error as
+// platform, always live, and records the outcome as the app's record, which
+// the CLI also reads. Errors are returned for logging; the frontend treats any error as
 // "no update" and stays silent on the automatic path.
 func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error) {
 	res, err := s.checker.Check(ctx, s.version)
@@ -143,7 +144,9 @@ func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Resu
 	return s.CheckForUpdate(ctx)
 }
 
-// loadSnapshot reads the shared record; a nil cache loads as absent.
+// loadSnapshot reads the app's own record; a nil cache loads as absent. The
+// CLI's record is never read here: its one-page refresh can miss a release
+// that the app's full walk finds.
 func (s *Service) loadSnapshot() (updatecheck.Snapshot, bool) {
 	if s.cache == nil {
 		return updatecheck.Snapshot{}, false

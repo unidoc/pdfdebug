@@ -96,7 +96,7 @@ type Result struct {
 	SumsURL          string         `json:"sumsUrl"`
 	// LatestStable is the highest stable tag seen on the pages Check walked,
 	// newer than installedVersion or not, in canonical form; "" when none was
-	// seen. It feeds the shared cache and is not sent to the frontend.
+	// seen. It feeds the app's cache record and is not sent to the frontend.
 	LatestStable string `json:"-"`
 }
 

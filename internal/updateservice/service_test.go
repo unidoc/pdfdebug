@@ -43,11 +43,11 @@ func failingServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
 // testService builds a Service against srv with its cache in a temp dir.
 func testService(t *testing.T, srv *httptest.Server, version string) (*Service, *updatecheck.Cache) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "pdfdebug", "updatecheck.json")
-	s := newService(nil, version, path)
+	dir := filepath.Join(t.TempDir(), "pdfdebug")
+	s := newService(nil, version, dir)
 	s.checker.BaseURL = srv.URL
 	s.checker.Client = srv.Client()
-	c, err := updatecheck.Open(path)
+	c, err := updatecheck.Open(dir, updatecheck.SurfaceApp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,9 +213,41 @@ func TestExplicitCheckIgnoresAFreshRecord(t *testing.T) {
 	}
 }
 
+func TestStartupIgnoresAConfirmedCLIRecord(t *testing.T) {
+	srv, hits := releasesServer(t, "v0.6.0", "v0.5.0")
+	dir := filepath.Join(t.TempDir(), "pdfdebug")
+	s := newService(nil, "0.5.0", dir)
+	s.checker.BaseURL = srv.URL
+	s.checker.Client = srv.Client()
+	app, err := updatecheck.Open(dir, updatecheck.SurfaceApp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli, err := updatecheck.Open(dir, updatecheck.SurfaceCLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cli.RecordSuccess(time.Now(), "v0.5.0"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.CheckForUpdateAtStartup(t.Context())
+	if err != nil || !res.UpdateAvailable {
+		t.Errorf("startup = %+v, %v; want the live result", res, err)
+	}
+	if n := hits.Load(); n != 1 {
+		t.Errorf("%d requests, want 1: a CLI record must not stand in for the app's check", n)
+	}
+	if snap, ok := app.Load(); !ok || snap.LatestVersion != "v0.6.0" {
+		t.Errorf("app record = %+v, %v; want v0.6.0", snap, ok)
+	}
+	if snap, _ := cli.Load(); snap.LatestVersion != "v0.5.0" {
+		t.Errorf("CLI record = %+v; the app must not write it", snap)
+	}
+}
+
 func TestNilCacheLeavesBothChecksWorking(t *testing.T) {
 	srv, hits := releasesServer(t, "v0.6.0")
-	s := newService(nil, "0.5.0", "relative/updatecheck.json")
+	s := newService(nil, "0.5.0", "relative/pdfdebug")
 	if s.cache != nil {
 		t.Fatal("a relative cache path produced a cache")
 	}
@@ -240,7 +272,7 @@ func TestUnwritableCacheDirLeavesBothChecksWorking(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := newService(nil, "0.5.0", filepath.Join(blocker, "pdfdebug", "updatecheck.json"))
+	s := newService(nil, "0.5.0", filepath.Join(blocker, "pdfdebug"))
 	s.checker.BaseURL = srv.URL
 	s.checker.Client = srv.Client()
 	if res, err := s.CheckForUpdateAtStartup(t.Context()); err != nil || !res.UpdateAvailable {
@@ -254,7 +286,7 @@ func TestUnwritableCacheDirLeavesBothChecksWorking(t *testing.T) {
 func TestDevBuildStoresNothing(t *testing.T) {
 	srv, hits := releasesServer(t, "v0.6.0")
 	dir := t.TempDir()
-	s := newService(nil, "dev", filepath.Join(dir, "pdfdebug", "updatecheck.json"))
+	s := newService(nil, "dev", filepath.Join(dir, "pdfdebug"))
 	s.checker.BaseURL = srv.URL
 	s.checker.Client = srv.Client()
 	if _, err := s.CheckForUpdateAtStartup(t.Context()); err != nil {

@@ -54,7 +54,7 @@ func newHarness(t *testing.T, version string) *harness {
 		tag:    "v0.5.0",
 		status: http.StatusOK,
 	}
-	h.path = filepath.Join(h.dir, "updatecheck.json")
+	h.path = filepath.Join(h.dir, "updatecheck-cli.json")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.hits.Add(1)
 		if h.status != http.StatusOK {
@@ -64,7 +64,7 @@ func newHarness(t *testing.T, version string) *harness {
 		_ = json.NewEncoder(w).Encode([]map[string]any{{"tag_name": h.tag}})
 	}))
 	t.Cleanup(srv.Close)
-	cache, err := updatecheck.Open(h.path)
+	cache, err := updatecheck.Open(h.dir, updatecheck.SurfaceCLI)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +89,18 @@ func newHarness(t *testing.T, version string) *harness {
 func (h *harness) seed(t *testing.T, checkedAt time.Time, latest string) {
 	t.Helper()
 	if err := h.env.cache.Store(updatecheck.Snapshot{CheckedAt: checkedAt, LatestVersion: latest}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedApp writes the desktop app's record in the harness cache directory.
+func (h *harness) seedApp(t *testing.T, s updatecheck.Snapshot) {
+	t.Helper()
+	app, err := updatecheck.Open(h.dir, updatecheck.SurfaceApp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Store(s); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -223,6 +235,53 @@ func TestNoticeShowsOnEveryEligibleRunFromTheCache(t *testing.T) {
 	}
 	if names, _ := os.ReadDir(h.dir); len(names) != 1 {
 		t.Errorf("cache dir holds %v, want only the record", names)
+	}
+}
+
+func TestConfirmedAppRecordSparesTheRefreshAndDrivesTheNotice(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"})
+	if got := h.notice("dump", "tree", "f.pdf"); got != "\n"+referenceBox {
+		t.Errorf("stderr = %q, want the box from the app's record", got)
+	}
+	if n := h.hits.Load(); n != 0 {
+		t.Errorf("%d requests, want 0 while the app's check is confirmed", n)
+	}
+	if _, err := os.Stat(h.path); !os.IsNotExist(err) {
+		t.Errorf("the CLI wrote its own record without refreshing (stat err %v)", err)
+	}
+}
+
+func TestUnconfirmedAppRecordDoesNotSpareTheRefresh(t *testing.T) {
+	h := newHarness(t, "0.4.0")
+	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Minute), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.4.0"})
+	if got := h.notice("dump", "tree", "f.pdf"); got != "\n"+referenceBox {
+		t.Errorf("stderr = %q, want the box from the CLI's own refresh", got)
+	}
+	if n := h.hits.Load(); n != 1 {
+		t.Errorf("%d requests, want 1", n)
+	}
+}
+
+func TestNoticeShowsTheHigherOfTheCLIAndAppRecords(t *testing.T) {
+	const box060 = "+-----------------------------------------------+\n" +
+		"|  Update available: 0.4.0 -> 0.6.0             |\n" +
+		"|  https://github.com/unidoc/pdfdebug/releases  |\n" +
+		"+-----------------------------------------------+\n"
+	h := newHarness(t, "0.4.0")
+	h.seed(t, h.now.Add(-time.Hour), "v0.5.0")
+	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-48 * time.Hour), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.6.0"})
+	if got := h.notice("dump", "tree", "f.pdf"); got != "\n"+box060 {
+		t.Errorf("stderr = %q, want the app's higher 0.6.0", got)
+	}
+	h.stderr.Reset()
+	h.stdout.Reset()
+	runVersion(h.env)
+	if got := h.stderr.String(); got != box060 {
+		t.Errorf("--version stderr = %q, want the app's higher 0.6.0 after the CLI refresh found 0.5.0", got)
+	}
+	if snap, _ := h.env.cache.Load(); snap.LatestVersion != "v0.5.0" {
+		t.Errorf("CLI record = %+v; the app's version must not be copied into it", snap)
 	}
 }
 
@@ -655,8 +714,8 @@ func TestProductionNoticeEnvResolvesTheCacheAndTouchesNoDisk(t *testing.T) {
 	if err := env.cache.Store(updatecheck.Snapshot{CheckedAt: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
-	if !dirExists(filepath.Join(base, "pdfdebug", "updatecheck.json")) {
-		t.Error("the cache does not live at the default path")
+	if !dirExists(filepath.Join(base, "pdfdebug", "updatecheck-cli.json")) {
+		t.Error("the CLI record does not live at the default path")
 	}
 
 	xdg.CacheHome = "relative"
