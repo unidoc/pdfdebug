@@ -47,7 +47,7 @@ func TestGUIServiceUsesTheSharedCache(t *testing.T) {
 		{test: "TestServiceStartupFreshAndCurrentMakesNoRequest", wantRequest: false},
 		{test: "TestServiceStartupFreshButNewerGoesLive", wantRequest: true},
 		{test: "TestServiceStartupStaleGoesLiveAndKeepsLastKnownGood", wantRequest: true},
-		{test: "TestServiceExplicitCheckStaysLiveAndRecordsTheAttempt", wantRequest: true},
+		{test: "TestServiceExplicitCheckStaysLiveAndLeavesTheRecordOnFailure", wantRequest: true},
 		{test: "TestServiceDevBuildTouchesNothing", wantRequest: false},
 		{test: "TestServiceUnusableCacheLeavesChecksWorking", anyRequest: true, unusableBase: true},
 	}

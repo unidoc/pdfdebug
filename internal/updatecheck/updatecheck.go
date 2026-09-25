@@ -246,17 +246,13 @@ func (c *Checker) collectNewer(ctx context.Context, installed string) ([]githubR
 		if err != nil {
 			return nil, "", err
 		}
-		latestStable = highestStable(latestStable, batch)
 		for _, r := range batch {
-			if r.Prerelease || r.Draft {
+			tag, ok := stableTag(r)
+			if !ok {
 				continue
 			}
-			tag := normalizeVersion(r.TagName)
-			// A SemVer prerelease suffix excludes a release even when GitHub's
-			// prerelease flag was not set, matching highestStable, so the
-			// cached and live answers agree.
-			if !semver.IsValid(tag) || semver.Prerelease(tag) != "" {
-				continue
+			if latestStable == "" || semver.Compare(tag, latestStable) > 0 {
+				latestStable = tag
 			}
 			if semver.Compare(tag, installed) > 0 {
 				kept = append(kept, r)

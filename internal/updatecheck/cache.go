@@ -25,7 +25,8 @@ const CacheTTL = 24 * time.Hour
 type Surface string
 
 const (
-	// SurfaceApp is the desktop app, whose check walks every release page.
+	// SurfaceApp is the desktop app, whose check walks up to maxPages release
+	// pages.
 	SurfaceApp Surface = "app"
 	// SurfaceCLI is the command-line tool, whose refresh reads one page.
 	SurfaceCLI Surface = "cli"
@@ -51,6 +52,9 @@ const (
 	cacheDirName = "pdfdebug"
 	// renameRetryDelay is the pause between rename attempts.
 	renameRetryDelay = 20 * time.Millisecond
+	// staleTempAge is how old a leftover temp file must be before a write
+	// removes it. A write in flight in another process is milliseconds old.
+	staleTempAge = time.Hour
 )
 
 // renameAttempts is how many times write tries the final rename. On Windows a
@@ -116,16 +120,16 @@ func (s Snapshot) Notice(installedVersion string) (latest string, available bool
 }
 
 // Cache reads and writes its surface's record and reads the peer surface's.
-// Both live in one per-user directory. The mutex serialises reads and writes
-// inside a process; processes of the same surface are last-writer-wins
-// through an atomic rename.
+// Both live in one per-user directory. The mutex serialises every read, write
+// and load-then-store inside a process; processes of the same surface are
+// last-writer-wins through an atomic rename.
 type Cache struct {
 	path     string
 	peerPath string
-	mu       sync.Mutex
-	// update serialises RecordAttempt and RecordSuccess, each a load then a
-	// store, so one cannot overwrite the other's fields inside a process.
-	update sync.Mutex
+	// mu also covers reads because on Windows an open reader makes a
+	// concurrent rename onto the file fail; readers in other processes are
+	// what write's rename retry is for.
+	mu sync.Mutex
 	// rename and attempts are os.Rename and renameAttempts, replaced in tests.
 	rename   func(oldpath, newpath string) error
 	attempts int
@@ -163,23 +167,59 @@ func Open(dir string, own Surface) (*Cache, error) {
 // truncated file, an unknown schema, or a latest version that is not SemVer
 // all load as absent. It never returns an error and never writes output.
 func (c *Cache) Load() (Snapshot, bool) {
-	return c.load(c.path)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return load(c.path)
 }
 
 // LoadPeer returns the other surface's record under the same rules as Load.
 // It is absent when the other surface is not installed or has never checked.
 func (c *Cache) LoadPeer() (Snapshot, bool) {
-	return c.load(c.peerPath)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return load(c.peerPath)
 }
 
-func (c *Cache) load(path string) (Snapshot, bool) {
-	var s Snapshot
-	// The mutex covers the read because on Windows an open reader makes a
-	// concurrent rename onto the file fail; readers in other processes are
-	// what write's rename retry is for.
+// Store writes this surface's record atomically, setting the schema itself
+// and writing LatestVersion in canonical form (leading "v") or empty. A
+// non-empty LatestVersion that is not valid SemVer is refused and nothing is
+// written. Callers treat any error as "no cache".
+func (c *Cache) Store(s Snapshot) error {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.store(s)
+}
+
+// RecordAttempt advances checked_at to now and keeps the rest of the stored
+// record. Call it before asking the server, so a failed, slow or interrupted
+// request still throttles the next retry without counting as an answer. It
+// returns the record as written, or as loaded when the write fails.
+func (c *Cache) RecordAttempt(now time.Time) (Snapshot, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s, _ := load(c.path)
+	s.CheckedAt = now
+	return s, c.store(s)
+}
+
+// RecordSuccess records an answer from the server at now: checked_at and
+// succeeded_at advance, and latest replaces the stored latest version unless
+// it is "". The returned record is the one written, even when the write fails.
+func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s, _ := load(c.path)
+	s.CheckedAt = now
+	s.SucceededAt = now
+	if latest != "" {
+		s.LatestVersion = latest
+	}
+	return s, c.store(s)
+}
+
+func load(path string) (Snapshot, bool) {
+	var s Snapshot
 	data, err := os.ReadFile(path)
-	c.mu.Unlock()
 	if err != nil || json.Unmarshal(data, &s) != nil || s.Schema != cacheSchema {
 		return Snapshot{}, false
 	}
@@ -191,11 +231,8 @@ func (c *Cache) load(path string) (Snapshot, bool) {
 	return s, true
 }
 
-// Store writes this surface's record atomically, setting the schema itself and writing
-// LatestVersion in canonical form (leading "v") or empty. A non-empty
-// LatestVersion that is not valid SemVer is refused and nothing is written.
-// Callers treat any error as "no cache".
-func (c *Cache) Store(s Snapshot) error {
+// store validates s and writes it; the caller holds c.mu.
+func (c *Cache) store(s Snapshot) error {
 	latest, ok := canonicalVersion(s.LatestVersion)
 	if !ok {
 		return fmt.Errorf("latest version %q is not valid SemVer", s.LatestVersion)
@@ -205,48 +242,22 @@ func (c *Cache) Store(s Snapshot) error {
 	return c.write(s)
 }
 
-// RecordAttempt advances checked_at to now and keeps the rest of the stored
-// record. Call it before asking the server, so a failed, slow or interrupted
-// request still throttles the next retry without counting as an answer. It
-// returns the record as written, or as loaded when the write fails.
-func (c *Cache) RecordAttempt(now time.Time) (Snapshot, error) {
-	c.update.Lock()
-	defer c.update.Unlock()
-	s, _ := c.Load()
-	s.CheckedAt = now
-	return s, c.Store(s)
-}
-
-// RecordSuccess records an answer from the server at now: checked_at and
-// succeeded_at advance, and latest replaces the stored latest version unless
-// it is "". The returned record is the one written, even when the write fails.
-func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
-	c.update.Lock()
-	defer c.update.Unlock()
-	s, _ := c.Load()
-	s.CheckedAt = now
-	s.SucceededAt = now
-	if latest != "" {
-		s.LatestVersion = latest
-	}
-	return s, c.Store(s)
-}
-
 // write marshals s and replaces the record through a temp file in the same
-// directory. The temp file is removed on every failure path.
+// directory. The temp file is removed on every failure path, and temp files
+// from this surface older than staleTempAge, left by a process that died
+// mid-write, are removed first. The caller holds c.mu.
 func (c *Cache) write(s Snapshot) error {
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	dir := filepath.Dir(c.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, strings.TrimSuffix(filepath.Base(c.path), ".json")+"-*.tmp")
+	pattern := strings.TrimSuffix(filepath.Base(c.path), ".json") + "-*.tmp"
+	removeStaleTemps(dir, pattern, time.Now())
+	tmp, err := os.CreateTemp(dir, pattern)
 	if err != nil {
 		return err
 	}
@@ -276,6 +287,20 @@ func (c *Cache) write(s Snapshot) error {
 	}
 	renamed = true
 	return nil
+}
+
+// removeStaleTemps deletes files in dir matching pattern whose modification
+// time is at least staleTempAge before now. Errors are ignored.
+func removeStaleTemps(dir, pattern string, now time.Time) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if ok, _ := filepath.Match(pattern, e.Name()); !ok || e.IsDir() {
+			continue
+		}
+		if info, err := e.Info(); err == nil && now.Sub(info.ModTime()) >= staleTempAge {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 // Newer returns whichever of a and b names the higher latest version, and a
@@ -326,20 +351,27 @@ func (c *Checker) LatestStable(ctx context.Context) (string, error) {
 }
 
 // highestStable returns the higher of best and every stable tag in page, in
-// canonical form. A stable tag is valid SemVer, not a draft, not flagged
-// prerelease and carries no SemVer prerelease suffix.
+// canonical form.
 func highestStable(best string, page []githubRelease) string {
 	for _, r := range page {
-		if r.Draft || r.Prerelease {
-			continue
-		}
-		tag := normalizeVersion(r.TagName)
-		if !semver.IsValid(tag) || semver.Prerelease(tag) != "" {
-			continue
-		}
-		if best == "" || semver.Compare(tag, best) > 0 {
+		if tag, ok := stableTag(r); ok && (best == "" || semver.Compare(tag, best) > 0) {
 			best = tag
 		}
 	}
 	return best
+}
+
+// stableTag returns r's tag in canonical form when r counts as a stable
+// release: valid SemVer, not a draft, not flagged prerelease, and with no
+// SemVer prerelease suffix even when the flag was left unset. The live check
+// and the cache both use it, so they agree on what an update is.
+func stableTag(r githubRelease) (string, bool) {
+	if r.Draft || r.Prerelease {
+		return "", false
+	}
+	tag := normalizeVersion(r.TagName)
+	if !semver.IsValid(tag) || semver.Prerelease(tag) != "" {
+		return "", false
+	}
+	return tag, true
 }

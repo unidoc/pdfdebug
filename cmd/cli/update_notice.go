@@ -135,6 +135,16 @@ func machineFormat(args []string) bool {
 // errRefreshPanicked reports a refresh that panicked and was recovered.
 var errRefreshPanicked = errors.New("update refresh panicked")
 
+// confirmedPeer returns the desktop app's record when its last successful
+// check is within the TTL, and the zero Snapshot otherwise, so a stale app
+// record never outvotes a fresher CLI answer.
+func confirmedPeer(cache *updatecheck.Cache, now time.Time) updatecheck.Snapshot {
+	if peer, ok := cache.LoadPeer(); ok && peer.Confirmed(now, updatecheck.CacheTTL) {
+		return peer
+	}
+	return updatecheck.Snapshot{}
+}
+
 // askLatest calls latest, reporting a panic as an error.
 func askLatest(ctx context.Context, latest func(context.Context) (string, error)) (tag string, err error) {
 	defer func() {
@@ -147,19 +157,14 @@ func askLatest(ctx context.Context, latest func(context.Context) (string, error)
 
 // refreshSnapshot records an attempt, then asks latest for the newest stable
 // tag and records the answer. If the attempt cannot be written the request is
-// never made. It returns the record as it stands afterwards. A panic is
-// recovered and reported as an error.
-func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(context.Context) (string, error), now time.Time) (snap updatecheck.Snapshot, err error) {
-	defer func() {
-		if recover() != nil {
-			err = errRefreshPanicked
-		}
-	}()
-	snap, err = cache.RecordAttempt(now)
+// never made. It returns the record as it stands afterwards. A panic in
+// latest is reported as an error.
+func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(context.Context) (string, error), now time.Time) (updatecheck.Snapshot, error) {
+	snap, err := cache.RecordAttempt(now)
 	if err != nil {
 		return snap, err
 	}
-	tag, err := latest(ctx)
+	tag, err := askLatest(ctx, latest)
 	if err != nil {
 		return snap, err
 	}
@@ -172,7 +177,7 @@ func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(
 type pendingNotice struct {
 	env *noticeEnv
 	// snap is the record the notice reads: whichever of the CLI's own record
-	// and the desktop app's names the higher latest version.
+	// and a confirmed desktop-app record names the higher latest version.
 	snap updatecheck.Snapshot
 	peer updatecheck.Snapshot
 	done chan updatecheck.Snapshot
@@ -190,11 +195,11 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 		return p
 	}
 	own, _ := env.cache.Load()
-	p.peer, _ = env.cache.LoadPeer()
-	p.snap = updatecheck.Newer(own, p.peer)
-	// A desktop-app check that succeeded within the TTL walked every release
-	// page, so it spares the CLI its own refresh.
 	now := env.now()
+	p.peer = confirmedPeer(env.cache, now)
+	p.snap = updatecheck.Newer(own, p.peer)
+	// A desktop-app check that succeeded within the TTL walked up to five
+	// release pages, more than the CLI's one, so it spares the CLI's refresh.
 	if own.Fresh(now, updatecheck.CacheTTL) || p.peer.Confirmed(now, updatecheck.CacheTTL) {
 		return p
 	}
@@ -220,7 +225,8 @@ func (p *pendingNotice) finish() {
 	if p.done != nil {
 		// Past the deadline, a refresh whose server call already returned is
 		// only writing the record, which takes milliseconds; waiting for it
-		// keeps the answer and leaves no temp file behind at exit.
+		// keeps the answer. A write cut off by exit leaves a temp file that
+		// the next write removes once it is stale.
 		select {
 		case s := <-p.done:
 			p.snap = s
@@ -290,30 +296,36 @@ func noticeBox(lines []string, width int) string {
 // desktop app's record was confirmed within the TTL, from the higher of the
 // CLI's and the app's records, as an ordinary command would.
 func runVersion(env *noticeEnv) int {
-	line := fmt.Sprintf("pdfdebug version %s\n", env.version)
-	if !env.interactive() {
-		_, _ = io.WriteString(env.stdout, line)
-		return 0
+	message, box := versionOutcome(env)
+	if box != "" {
+		writeNotice(env.stderr, env.version, box, env.width, false)
 	}
-	_, checkable := updatecheck.CheckableVersion(env.version)
-	switch {
-	case !checkable:
-		_, _ = io.WriteString(env.stdout, line)
-		_, _ = fmt.Fprintln(env.stderr, "pdfdebug: update checks are skipped for development builds")
-		return 0
-	case env.optedOut():
-		_, _ = io.WriteString(env.stdout, line)
-		_, _ = fmt.Fprintln(env.stderr, "pdfdebug: update check disabled (PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set)")
-		return 0
+	_, _ = fmt.Fprintf(env.stdout, "pdfdebug version %s\n", env.version)
+	if message != "" {
+		_, _ = fmt.Fprintln(env.stderr, "pdfdebug: "+message)
 	}
+	return 0
+}
 
+// versionOutcome runs --version's check and returns either the newer version
+// to box or the one-line message to print, or neither outside a terminal.
+func versionOutcome(env *noticeEnv) (message, box string) {
+	if !env.interactive() {
+		return "", ""
+	}
+	if _, ok := updatecheck.CheckableVersion(env.version); !ok {
+		return "update checks are skipped for development builds", ""
+	}
+	if env.optedOut() {
+		return "update check disabled (PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set)", ""
+	}
 	// Unlike an ordinary command, --version asks the server even when the
 	// attempt cannot be recorded: it is an explicit request, not a retry.
 	now := env.now()
 	var own, peer updatecheck.Snapshot
 	if env.cache != nil {
 		own, _ = env.cache.RecordAttempt(now)
-		peer, _ = env.cache.LoadPeer()
+		peer = confirmedPeer(env.cache, now)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
 	tag, err := askLatest(ctx, env.latest)
@@ -326,21 +338,14 @@ func runVersion(env *noticeEnv) int {
 			own.LatestVersion = tag
 		}
 	}
-	snap := updatecheck.Newer(own, peer)
 	if !checked && peer.Confirmed(now, updatecheck.CacheTTL) {
 		checked = true
 	}
 	if !checked {
-		_, _ = io.WriteString(env.stdout, line)
-		_, _ = fmt.Fprintln(env.stderr, "pdfdebug: could not check for updates")
-		return 0
+		return "could not check for updates", ""
 	}
-	if latest, ok := snap.Notice(env.version); ok {
-		writeNotice(env.stderr, env.version, latest, env.width, false)
-		_, _ = io.WriteString(env.stdout, line)
-		return 0
+	if latest, ok := updatecheck.Newer(own, peer).Notice(env.version); ok {
+		return "", latest
 	}
-	_, _ = io.WriteString(env.stdout, line)
-	_, _ = fmt.Fprintln(env.stderr, "pdfdebug: no newer release is available")
-	return 0
+	return "no newer release is available", ""
 }

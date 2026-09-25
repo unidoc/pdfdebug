@@ -85,8 +85,8 @@ func TestServiceStartupFreshButNewerGoesLive(t *testing.T) {
 	_, _ = s.CheckForUpdateAtStartup(ctx(t))
 }
 
-// A stale record sends startup live; the failed check advances checked_at and
-// keeps the last-known-good latest version.
+// A stale record sends startup live; the failed check leaves the record as it
+// was, since only successes are recorded.
 func TestServiceStartupStaleGoesLiveAndKeepsLastKnownGood(t *testing.T) {
 	seeded := time.Now().Add(-48 * time.Hour)
 	seed(t, seeded, "v0.5.0")
@@ -105,13 +105,14 @@ func TestServiceStartupStaleGoesLiveAndKeepsLastKnownGood(t *testing.T) {
 	if snap.LatestVersion != "v0.5.0" {
 		t.Errorf("latest_version = %q after a failed check, want v0.5.0 kept", snap.LatestVersion)
 	}
-	if !snap.CheckedAt.After(seeded.Add(time.Hour)) {
-		t.Errorf("checked_at = %v, want it advanced past the seeded %v", snap.CheckedAt, seeded)
+	if !snap.CheckedAt.Equal(seeded) {
+		t.Errorf("checked_at = %v, want the seeded %v kept by a failed check", snap.CheckedAt, seeded)
 	}
 }
 
-// The explicit check ignores a fresh record and goes live, then records the attempt.
-func TestServiceExplicitCheckStaysLiveAndRecordsTheAttempt(t *testing.T) {
+// The explicit check ignores a fresh record and goes live; its failure is not
+// recorded.
+func TestServiceExplicitCheckStaysLiveAndLeavesTheRecordOnFailure(t *testing.T) {
 	seeded := time.Now().Add(-time.Hour)
 	seed(t, seeded, "v0.5.0")
 	s := updateservice.NewUpdateService(nil, "0.5.0")
@@ -125,8 +126,8 @@ func TestServiceExplicitCheckStaysLiveAndRecordsTheAttempt(t *testing.T) {
 	if snap.LatestVersion != "v0.5.0" {
 		t.Errorf("latest_version = %q after a failed check, want v0.5.0 kept", snap.LatestVersion)
 	}
-	if !snap.CheckedAt.After(seeded.Add(30 * time.Minute)) {
-		t.Errorf("checked_at = %v, want it advanced past the seeded %v", snap.CheckedAt, seeded)
+	if !snap.CheckedAt.Equal(seeded) {
+		t.Errorf("checked_at = %v, want the seeded %v kept by a failed check", snap.CheckedAt, seeded)
 	}
 }
 

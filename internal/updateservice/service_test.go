@@ -113,7 +113,7 @@ func TestPrereleaseBuildWithNothingNewerStoresTheLatestStable(t *testing.T) {
 	}
 }
 
-func TestFailedCheckAdvancesCheckedAtAndKeepsLastKnownGood(t *testing.T) {
+func TestFailedCheckLeavesTheRecordUntouched(t *testing.T) {
 	srv, _ := failingServer(t)
 	s, c := testService(t, srv, "0.4.0")
 	seeded := time.Now().Add(-48 * time.Hour)
@@ -124,11 +124,8 @@ func TestFailedCheckAdvancesCheckedAtAndKeepsLastKnownGood(t *testing.T) {
 		t.Fatal("a failing server returned no error")
 	}
 	snap, _ := c.Load()
-	if snap.LatestVersion != "v0.5.0" || !snap.CheckedAt.After(seeded) {
-		t.Errorf("stored %+v; want v0.5.0 kept and checked_at advanced", snap)
-	}
-	if !snap.SucceededAt.Equal(seeded) {
-		t.Errorf("succeeded_at = %v, want the seeded %v kept by a failed check", snap.SucceededAt, seeded)
+	if snap.LatestVersion != "v0.5.0" || !snap.CheckedAt.Equal(seeded) || !snap.SucceededAt.Equal(seeded) {
+		t.Errorf("stored %+v; want the seeded record unchanged by a failed check", snap)
 	}
 }
 

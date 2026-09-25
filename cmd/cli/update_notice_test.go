@@ -270,7 +270,7 @@ func TestNoticeShowsTheHigherOfTheCLIAndAppRecords(t *testing.T) {
 		"+-----------------------------------------------+\n"
 	h := newHarness(t, "0.4.0")
 	h.seed(t, h.now.Add(-time.Hour), "v0.5.0")
-	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-48 * time.Hour), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.6.0"})
+	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-2 * time.Hour), SucceededAt: h.now.Add(-2 * time.Hour), LatestVersion: "v0.6.0"})
 	if got := h.notice("dump", "tree", "f.pdf"); got != "\n"+box060 {
 		t.Errorf("stderr = %q, want the app's higher 0.6.0", got)
 	}
@@ -282,6 +282,22 @@ func TestNoticeShowsTheHigherOfTheCLIAndAppRecords(t *testing.T) {
 	}
 	if snap, _ := h.env.cache.Load(); snap.LatestVersion != "v0.5.0" {
 		t.Errorf("CLI record = %+v; the app's version must not be copied into it", snap)
+	}
+}
+
+func TestStaleAppRecordNeverOutvotesTheCLI(t *testing.T) {
+	h := newHarness(t, "0.5.0")
+	h.seed(t, h.now.Add(-time.Hour), "v0.5.0")
+	h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-30 * 24 * time.Hour), SucceededAt: h.now.Add(-30 * 24 * time.Hour), LatestVersion: "v0.6.0"})
+	if got := h.notice("dump", "tree", "f.pdf"); got != "" {
+		t.Errorf("stderr = %q; a month-old app record overrode the CLI's fresh answer", got)
+	}
+	h.tag = "v0.5.0"
+	h.stderr.Reset()
+	h.stdout.Reset()
+	runVersion(h.env)
+	if want := "pdfdebug: no newer release is available\n"; h.stderr.String() != want {
+		t.Errorf("--version stderr = %q, want %q", h.stderr.String(), want)
 	}
 }
 

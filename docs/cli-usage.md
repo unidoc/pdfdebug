@@ -138,10 +138,12 @@ no cache write. `v=$(pdfdebug --version 2>&1)` captures exactly
 The CLI and the desktop app each keep their own record in one cache directory,
 so either works without the other installed and neither overwrites the other.
 The CLI writes `updatecheck-cli.json`; the app writes `updatecheck-app.json`.
-The CLI also reads the app's record: the notice uses whichever of the two names
-the newer release, and a successful app check in the last day spares the CLI
-its own fetch. The app reads only its own record, because the CLI's fetch sees
-one page of releases and can miss one the app's full check finds. Each record
+The CLI also reads the app's record when the app's last successful check was
+within the last day: the notice then uses whichever of the two names the newer
+release, and that app check spares the CLI its own fetch. An older app record
+is ignored. The app reads only its own record, because the CLI's fetch sees one
+page of releases and can miss one that the app's check, which reads up to five
+pages, finds. Each record
 keeps the last attempt apart from the last successful check, so a failed
 attempt stops the CLI retrying for a day without counting as an answer. The
 directory is:

@@ -377,6 +377,37 @@ func TestConcurrentAttemptsNeverDropASuccess(t *testing.T) {
 	}
 }
 
+func TestStoreRemovesStaleTempFilesOfItsOwnSurfaceOnly(t *testing.T) {
+	c, path := tempCache(t)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-2 * staleTempAge)
+	files := map[string]time.Time{
+		"updatecheck-cli-111.tmp": old,
+		"updatecheck-cli-222.tmp": time.Now(),
+		"updatecheck-app-333.tmp": old,
+		"notes.tmp":               old,
+	}
+	for name, mtime := range files {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mtime, mtime); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.Store(Snapshot{CheckedAt: time.Now(), LatestVersion: "v0.5.0"}); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(entries(t, dir), ",")
+	if want := "notes.tmp,updatecheck-app-333.tmp,updatecheck-cli-222.tmp,updatecheck-cli.json"; got != want {
+		t.Errorf("directory holds %s, want %s", got, want)
+	}
+}
+
 func TestConfirmedFollowsTheLastSuccessNotTheLastAttempt(t *testing.T) {
 	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
 	failed := Snapshot{Schema: 1, CheckedAt: at, SucceededAt: at.Add(-48 * time.Hour)}

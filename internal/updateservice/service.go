@@ -132,8 +132,8 @@ func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error
 // a newer version still goes live because it carries no release notes or
 // download asset.
 func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Result, error) {
-	if _, ok := updatecheck.CheckableVersion(s.version); ok {
-		if snap, ok := s.loadSnapshot(); ok && snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
+	if _, ok := updatecheck.CheckableVersion(s.version); ok && s.cache != nil {
+		if snap, ok := s.cache.Load(); ok && snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
 			if _, newer := snap.Notice(s.version); !newer {
 				return updatecheck.Result{InstalledVersion: s.version}, nil
 			}
@@ -142,32 +142,19 @@ func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Resu
 	return s.CheckForUpdate(ctx)
 }
 
-// loadSnapshot reads the app's own record; a nil cache loads as absent. The
-// CLI's record is never read here: its one-page refresh can miss a release
-// that the app's full walk finds.
-func (s *Service) loadSnapshot() (updatecheck.Snapshot, bool) {
-	if s.cache == nil {
-		return updatecheck.Snapshot{}, false
-	}
-	return s.cache.Load()
-}
-
-// record stores the outcome of a live check: an answer records res's latest
-// stable tag, and a failure records only the attempt. A dev or non-SemVer
-// build stores nothing, and a store error is ignored.
+// record stores a successful live check as the app's record. A failure is
+// not recorded: only succeeded_at and the latest version are read back, by
+// the startup gate here and by the CLI. The CLI's record is never read here,
+// because its one-page refresh can miss a release this walk finds. A dev or
+// non-SemVer build stores nothing, and a store error is ignored.
 func (s *Service) record(res updatecheck.Result, err error) {
-	if s.cache == nil {
+	if s.cache == nil || err != nil {
 		return
 	}
 	if _, ok := updatecheck.CheckableVersion(s.version); !ok {
 		return
 	}
-	now := time.Now()
-	if err != nil {
-		_, _ = s.cache.RecordAttempt(now)
-		return
-	}
-	_, _ = s.cache.RecordSuccess(now, res.LatestStable)
+	_, _ = s.cache.RecordSuccess(time.Now(), res.LatestStable)
 }
 
 // DownloadUpdate downloads assetURL, verifies it against sumsURL, moves the
