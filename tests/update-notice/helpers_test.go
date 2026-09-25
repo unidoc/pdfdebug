@@ -128,9 +128,31 @@ func merge(ms ...map[string]string) map[string]string {
 	return out
 }
 
+var (
+	goCacheOnce sync.Once
+	goCache     string
+	goCacheErr  error
+)
+
+// hostGoCache returns this process's go build cache directory.
+func hostGoCache(t *testing.T) string {
+	t.Helper()
+	goCacheOnce.Do(func() {
+		out, err := exec.Command("go", "env", "GOCACHE").Output()
+		goCache, goCacheErr = strings.TrimSpace(string(out)), err
+	})
+	if goCacheErr != nil || goCache == "" {
+		t.Fatalf("go env GOCACHE: %q, %v", goCache, goCacheErr)
+	}
+	return goCache
+}
+
 // runHarness copies testdata/<name>/*.go into a fresh dot-prefixed dir inside
 // the main module and runs `go test -count=1 -run <run> .` there with the given
-// extra environment. GOPROXY=off keeps the go command itself off the network.
+// extra environment. GOPROXY=off keeps the go command itself off the network,
+// and GOCACHE is pinned to the host's build cache: on Linux the go command
+// otherwise puts it under XDG_CACHE_HOME, which the harnesses point at the
+// directory whose contents they assert on.
 func runHarness(t *testing.T, name string, extra map[string]string, run string) (string, error) {
 	t.Helper()
 	root := projectRoot(t)
@@ -164,7 +186,7 @@ func runHarness(t *testing.T, name string, extra map[string]string, run string) 
 	args = append(args, ".")
 	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
-	cmd.Env = childEnv(merge(map[string]string{"GOPROXY": "off", "GOTOOLCHAIN": "local"}, extra))
+	cmd.Env = childEnv(merge(map[string]string{"GOPROXY": "off", "GOTOOLCHAIN": "local", "GOCACHE": hostGoCache(t)}, extra))
 	raw, runErr := cmd.CombinedOutput()
 	if runErr == nil && strings.Contains(string(raw), "no tests to run") {
 		t.Fatalf("harness %s matched no test for -run %q:\n%s", name, run, raw)
