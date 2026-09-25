@@ -16,7 +16,6 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"golang.org/x/mod/semver"
 
 	"unidoc-pdf-debugger/internal/updatecheck"
 )
@@ -129,12 +128,11 @@ func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error
 // CheckForUpdateAtStartup is the automatic launch check. When a check
 // succeeded within the TTL and its latest version is not newer than the
 // running version it answers from the record with no request; otherwise it
-// runs CheckForUpdate. A failed attempt never counts, a record that names a
-// newer version still goes live because it carries no release notes or
-// download asset, and a prerelease build always goes live because the record
-// holds stable versions only.
+// runs CheckForUpdate. A failed attempt never counts, and a record that names
+// a newer version still goes live because it carries no release notes or
+// download asset.
 func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Result, error) {
-	if v, ok := updatecheck.CheckableVersion(s.version); ok && semver.Prerelease(v) == "" {
+	if _, ok := updatecheck.CheckableVersion(s.version); ok {
 		if snap, ok := s.loadSnapshot(); ok && snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
 			if _, newer := snap.Notice(s.version); !newer {
 				return updatecheck.Result{InstalledVersion: s.version}, nil

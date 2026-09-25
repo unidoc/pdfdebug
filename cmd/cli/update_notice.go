@@ -135,6 +135,16 @@ func machineFormat(args []string) bool {
 // errRefreshPanicked reports a refresh that panicked and was recovered.
 var errRefreshPanicked = errors.New("update refresh panicked")
 
+// askLatest calls latest, reporting a panic as an error.
+func askLatest(ctx context.Context, latest func(context.Context) (string, error)) (tag string, err error) {
+	defer func() {
+		if recover() != nil {
+			tag, err = "", errRefreshPanicked
+		}
+	}()
+	return latest(ctx)
+}
+
 // refreshSnapshot records an attempt, then asks latest for the newest stable
 // tag and records the answer. If the attempt cannot be written the request is
 // never made. It returns the record as it stands afterwards. A panic is
@@ -160,8 +170,7 @@ func refreshSnapshot(ctx context.Context, cache *updatecheck.Cache, latest func(
 // pendingNotice is the end-of-run notice for one ordinary command, with its
 // refresh (if any) running alongside the command.
 type pendingNotice struct {
-	env    *noticeEnv
-	active bool
+	env *noticeEnv
 	// snap is the record the notice reads: whichever of the CLI's own record
 	// and the desktop app's names the higher latest version.
 	snap updatecheck.Snapshot
@@ -180,7 +189,6 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 	if !env.eligible(args) {
 		return p
 	}
-	p.active = true
 	own, _ := env.cache.Load()
 	p.peer, _ = env.cache.LoadPeer()
 	p.snap = updatecheck.Newer(own, p.peer)
@@ -209,9 +217,6 @@ func startNotice(env *noticeEnv, args []string) *pendingNotice {
 // affects the exit code.
 func (p *pendingNotice) finish() {
 	defer func() { _ = recover() }()
-	if !p.active {
-		return
-	}
 	if p.done != nil {
 		// Past the deadline, a refresh whose server call already returned is
 		// only writing the record, which takes milliseconds; waiting for it
@@ -279,9 +284,11 @@ func noticeBox(lines []string, width int) string {
 // runVersion handles --version and -v. Stdout carries only the version line.
 // Outside an interactive session (a pipe, a redirect or CI) that is all it
 // does: no request, no stderr, no cache write. In a terminal a checkable, not
-// opted-out build runs a live bounded refresh, then on stderr shows the box,
-// says the build is current, or says the check failed; a failed check still
-// shows the box when the desktop app's record confirms a newer release.
+// opted-out build runs a live bounded check, then on stderr shows the box,
+// says the build is current, or says the check failed. The check is made even
+// when the cache cannot be written. A failed check still answers when the
+// desktop app's record was confirmed within the TTL, from the higher of the
+// CLI's and the app's records, as an ordinary command would.
 func runVersion(env *noticeEnv) int {
 	line := fmt.Sprintf("pdfdebug version %s\n", env.version)
 	if !env.interactive() {
@@ -300,17 +307,28 @@ func runVersion(env *noticeEnv) int {
 		return 0
 	}
 
-	checked := false
-	var snap, peer updatecheck.Snapshot
+	// Unlike an ordinary command, --version asks the server even when the
+	// attempt cannot be recorded: it is an explicit request, not a retry.
+	now := env.now()
+	var own, peer updatecheck.Snapshot
 	if env.cache != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
-		s, err := refreshSnapshot(ctx, env.cache, env.latest, env.now())
-		cancel()
+		own, _ = env.cache.RecordAttempt(now)
 		peer, _ = env.cache.LoadPeer()
-		snap, checked = updatecheck.Newer(s, peer), err == nil
 	}
-	if !checked && peer.Confirmed(env.now(), updatecheck.CacheTTL) {
-		snap, checked = peer, true
+	ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
+	tag, err := askLatest(ctx, env.latest)
+	cancel()
+	checked := err == nil
+	if checked {
+		if env.cache != nil {
+			own, _ = env.cache.RecordSuccess(now, tag)
+		} else if tag != "" {
+			own.LatestVersion = tag
+		}
+	}
+	snap := updatecheck.Newer(own, peer)
+	if !checked && peer.Confirmed(now, updatecheck.CacheTTL) {
+		checked = true
 	}
 	if !checked {
 		_, _ = io.WriteString(env.stdout, line)

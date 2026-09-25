@@ -180,7 +180,8 @@ func (c *Checker) downloadHTTPClient() *http.Client {
 }
 
 // Check lists releases, keeps those strictly newer than installedVersion by
-// SemVer (excluding prereleases and drafts), and returns them newest-first with
+// SemVer (excluding drafts, releases flagged prerelease, and tags with a SemVer
+// prerelease suffix), and returns them newest-first with
 // the resolved download asset for the running platform from the newest release.
 //
 // It skips the network entirely when installedVersion is the "dev" sentinel. Any
@@ -251,7 +252,10 @@ func (c *Checker) collectNewer(ctx context.Context, installed string) ([]githubR
 				continue
 			}
 			tag := normalizeVersion(r.TagName)
-			if !semver.IsValid(tag) {
+			// A SemVer prerelease suffix excludes a release even when GitHub's
+			// prerelease flag was not set, matching highestStable, so the
+			// cached and live answers agree.
+			if !semver.IsValid(tag) || semver.Prerelease(tag) != "" {
 				continue
 			}
 			if semver.Compare(tag, installed) > 0 {

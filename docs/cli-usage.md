@@ -124,12 +124,11 @@ In a terminal, `--version` is the one command that always checks live, even
 when the cache is fresh, so running it is the way to pick up a new release
 before the day is up. It prints the box before the version line when an update
 exists, and otherwise says on stderr that no newer release is available or that
-the check failed. When its own check fails but the desktop app confirmed a
-release in the last day, it answers from the app's record instead. It skips the
-check on development builds and when either opt-out variable is set, and says
-so on stderr. The check is recorded in the cache before the request is sent, so
-when the cache directory cannot be written `--version` makes no request and
-reports that the check failed.
+the check failed. It checks even when the cache directory cannot be written.
+When its own check fails but the desktop app confirmed a release in the last
+day, it answers from the higher of the CLI's and the app's records instead. It
+skips the check on development builds and when either opt-out variable is set,
+and says so on stderr.
 
 Outside a terminal - stdout or stderr piped or redirected, or `CI` set -
 `--version` prints only the version line: no request, nothing on stderr, and

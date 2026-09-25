@@ -123,6 +123,9 @@ type Cache struct {
 	path     string
 	peerPath string
 	mu       sync.Mutex
+	// update serialises RecordAttempt and RecordSuccess, each a load then a
+	// store, so one cannot overwrite the other's fields inside a process.
+	update sync.Mutex
 	// rename and attempts are os.Rename and renameAttempts, replaced in tests.
 	rename   func(oldpath, newpath string) error
 	attempts int
@@ -207,6 +210,8 @@ func (c *Cache) Store(s Snapshot) error {
 // request still throttles the next retry without counting as an answer. It
 // returns the record as written, or as loaded when the write fails.
 func (c *Cache) RecordAttempt(now time.Time) (Snapshot, error) {
+	c.update.Lock()
+	defer c.update.Unlock()
 	s, _ := c.Load()
 	s.CheckedAt = now
 	return s, c.Store(s)
@@ -216,6 +221,8 @@ func (c *Cache) RecordAttempt(now time.Time) (Snapshot, error) {
 // succeeded_at advance, and latest replaces the stored latest version unless
 // it is "". The returned record is the one written, even when the write fails.
 func (c *Cache) RecordSuccess(now time.Time, latest string) (Snapshot, error) {
+	c.update.Lock()
+	defer c.update.Unlock()
 	s, _ := c.Load()
 	s.CheckedAt = now
 	s.SucceededAt = now

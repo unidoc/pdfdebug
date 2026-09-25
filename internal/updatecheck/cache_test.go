@@ -362,6 +362,21 @@ func TestNewerPicksTheHigherLatestVersion(t *testing.T) {
 	}
 }
 
+func TestConcurrentAttemptsNeverDropASuccess(t *testing.T) {
+	c, _ := tempCache(t)
+	for i := 0; i < 50; i++ {
+		now := time.Date(2026, 9, 20, 10, 0, i, 0, time.UTC)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer wg.Done(); _, _ = c.RecordSuccess(now, "v0.6.0") }()
+		go func() { defer wg.Done(); _, _ = c.RecordAttempt(now) }()
+		wg.Wait()
+		if s, _ := c.Load(); !s.SucceededAt.Equal(now) || s.LatestVersion != "v0.6.0" {
+			t.Fatalf("iteration %d: %+v; a concurrent attempt dropped the success", i, s)
+		}
+	}
+}
+
 func TestConfirmedFollowsTheLastSuccessNotTheLastAttempt(t *testing.T) {
 	at := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
 	failed := Snapshot{Schema: 1, CheckedAt: at, SucceededAt: at.Add(-48 * time.Hour)}

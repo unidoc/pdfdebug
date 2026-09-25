@@ -179,7 +179,7 @@ func TestFinishedRefreshWinsWhenTheCommandOutlastsTheDeadline(t *testing.T) {
 		done <- updatecheck.Snapshot{Schema: 1, CheckedAt: h.now, LatestVersion: "v0.5.0"}
 		answered := make(chan struct{})
 		close(answered)
-		p := &pendingNotice{env: h.env, active: true, done: done, answered: answered, ctx: ctx, cancel: cancel}
+		p := &pendingNotice{env: h.env, done: done, answered: answered, ctx: ctx, cancel: cancel}
 		p.finish()
 		if got := h.stderr.String(); got != "\n"+referenceBox {
 			t.Fatalf("iteration %d: stderr = %q, want the box from the finished refresh", i, got)
@@ -198,7 +198,7 @@ func TestAnsweredRefreshIsAwaitedPastTheDeadline(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		done <- updatecheck.Snapshot{Schema: 1, CheckedAt: h.now, LatestVersion: "v0.5.0"}
 	}()
-	p := &pendingNotice{env: h.env, active: true, done: done, answered: answered, ctx: ctx, cancel: cancel}
+	p := &pendingNotice{env: h.env, done: done, answered: answered, ctx: ctx, cancel: cancel}
 	p.finish()
 	if got := h.stderr.String(); got != "\n"+referenceBox {
 		t.Errorf("stderr = %q, want the box from the refresh still writing its record", got)
@@ -209,7 +209,7 @@ func TestUnansweredRefreshIsNotAwaitedPastTheDeadline(t *testing.T) {
 	h := newHarness(t, "0.4.0")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	p := &pendingNotice{env: h.env, active: true, done: make(chan updatecheck.Snapshot, 1), answered: make(chan struct{}), ctx: ctx, cancel: cancel}
+	p := &pendingNotice{env: h.env, done: make(chan updatecheck.Snapshot, 1), answered: make(chan struct{}), ctx: ctx, cancel: cancel}
 	finished := make(chan struct{})
 	go func() {
 		p.finish()
@@ -590,7 +590,18 @@ func TestVersionOutcomes(t *testing.T) {
 		{name: "check failed", version: "0.4.0", setup: func(t *testing.T, h *harness) { h.status = http.StatusForbidden },
 			wantStderr: "pdfdebug: could not check for updates\n", wantHits: 1},
 		{name: "no cache", version: "0.4.0", setup: func(t *testing.T, h *harness) { h.env.cache = nil },
-			wantStderr: "pdfdebug: could not check for updates\n"},
+			wantStderr: referenceBox, wantHits: 1},
+		{name: "unwritable cache", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			blocker := filepath.Join(t.TempDir(), "not-a-dir")
+			if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			c, err := updatecheck.Open(filepath.Join(blocker, "pdfdebug"), updatecheck.SurfaceCLI)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h.env.cache = c
+		}, wantStderr: referenceBox, wantHits: 1},
 		{name: "dev build", version: "dev", wantStderr: "pdfdebug: update checks are skipped for development builds\n"},
 		{name: "opted out", version: "0.4.0", setup: func(t *testing.T, h *harness) { h.vars["NO_UPDATE_NOTIFIER"] = "" },
 			wantStderr: "pdfdebug: update check disabled (PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set)\n"},
@@ -602,6 +613,11 @@ func TestVersionOutcomes(t *testing.T) {
 			h.status = http.StatusForbidden
 			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.5.0"})
 		}, wantStderr: "pdfdebug: could not check for updates\n", wantHits: 1},
+		{name: "check failed, CLI record newer than the confirmed app record", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			h.seed(t, h.now.Add(-48*time.Hour), "v0.5.0")
+			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.4.0"})
+		}, wantStderr: referenceBox, wantHits: 1},
 		{name: "check failed, app confirms current", version: "0.5.0", setup: func(t *testing.T, h *harness) {
 			h.status = http.StatusForbidden
 			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"})

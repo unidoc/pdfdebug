@@ -151,19 +151,23 @@ func TestStartupGoesLiveAfterAFailedAttempt(t *testing.T) {
 	}
 }
 
-func TestPrereleaseBuildStartupAlwaysGoesLive(t *testing.T) {
-	srv, hits := releasesServer(t, "v0.6.0-rc2")
+func TestPrereleaseBuildStartupMatchesTheLiveCheck(t *testing.T) {
+	srv, hits := releasesServer(t, "v0.6.0-rc2", "v0.5.0")
 	s, c := testService(t, srv, "0.6.0-rc1")
 	now := time.Now()
 	if err := c.Store(updatecheck.Snapshot{CheckedAt: now, SucceededAt: now, LatestVersion: "v0.5.0"}); err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.CheckForUpdateAtStartup(t.Context())
-	if err != nil || !res.UpdateAvailable {
-		t.Errorf("startup = %+v, %v; want rc2 from the live check", res, err)
+	cached, err := s.CheckForUpdateAtStartup(t.Context())
+	if err != nil || cached.UpdateAvailable {
+		t.Errorf("startup = %+v, %v; want no update from the record", cached, err)
 	}
-	if n := hits.Load(); n == 0 {
-		t.Error("a prerelease build answered startup from the record")
+	if n := hits.Load(); n != 0 {
+		t.Errorf("%d requests, want 0 while the record is confirmed", n)
+	}
+	live, err := s.CheckForUpdate(t.Context())
+	if err != nil || live.UpdateAvailable {
+		t.Errorf("live = %+v, %v; an unflagged rc tag must not be offered as an update", live, err)
 	}
 }
 

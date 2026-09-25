@@ -177,6 +177,16 @@ var (
 	buildBins = map[string]string{}
 )
 
+// TestMain removes the CLI builds once every test has run; they are shared
+// across tests, so no single test can clean them up.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	for _, bin := range buildBins {
+		_ = os.RemoveAll(filepath.Dir(bin))
+	}
+	os.Exit(code)
+}
+
 // buildCLI compiles the CLI once per version. An empty version builds without
 // -ldflags, which leaves the "dev" sentinel in place.
 func buildCLI(t *testing.T, version string) string {
