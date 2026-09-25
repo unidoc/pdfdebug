@@ -13,13 +13,22 @@ import { UpdateNotifier } from './UpdateNotifier';
 import { UPDATE_PREF_STORAGE_KEY } from '../lib/updateConstants';
 
 const mockCheck = vi.hoisted(() => vi.fn());
+const mockLiveCall = vi.hoisted(() => vi.fn());
+const mockStartupCall = vi.hoisted(() => vi.fn());
 const mockDownload = vi.hoisted(() => vi.fn());
 const mockSetPaused = vi.hoisted(() => vi.fn());
 const eventHandlers = vi.hoisted(() => new Map<string, (data: unknown) => void>());
 const mockOpenURL = vi.hoisted(() => vi.fn<(url: string) => Promise<void>>());
 
 vi.mock('../../bindings/unidoc-pdf-debugger/internal/updateservice/service', () => ({
-  CheckForUpdate: () => mockCheck(),
+  CheckForUpdate: () => {
+    mockLiveCall();
+    return mockCheck();
+  },
+  CheckForUpdateAtStartup: () => {
+    mockStartupCall();
+    return mockCheck();
+  },
   DownloadUpdate: (url: string, name: string, sums: string) => mockDownload(url, name, sums),
   SetDownloadPaused: (paused: boolean) => mockSetPaused(paused),
 }));
@@ -52,6 +61,8 @@ function result(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mockCheck.mockReset();
+  mockLiveCall.mockReset();
+  mockStartupCall.mockReset();
   mockDownload.mockReset();
   mockOpenURL.mockReset().mockResolvedValue(undefined);
   mockSetPaused.mockReset();
@@ -311,5 +322,16 @@ describe('UpdateNotifier', () => {
 
     eventHandlers.get('update:check-requested')?.(null);
     expect(await screen.findByText(/running the latest version/)).toBeInTheDocument();
+  });
+
+  test('the automatic check uses the startup binding and the Help menu uses the live one', async () => {
+    mockCheck.mockResolvedValue(result({ updateAvailable: false, releases: [], latestVersion: '' }));
+    render(<UpdateNotifier />);
+    await waitFor(() => expect(mockStartupCall).toHaveBeenCalledTimes(1));
+    expect(mockLiveCall).not.toHaveBeenCalled();
+
+    eventHandlers.get('update:check-requested')?.(null);
+    await waitFor(() => expect(mockLiveCall).toHaveBeenCalledTimes(1));
+    expect(mockStartupCall).toHaveBeenCalledTimes(1);
   });
 });

@@ -85,6 +85,78 @@ change between releases. For stable, parseable output (scripts, agents), pass
 - `--help` / `-h` - show usage. Every command also accepts `--help`.
 - `--version` / `-v` - show version information.
 
+## Update notice
+
+When a newer release exists, `pdfdebug` says so at the end of a command's
+output, in a small box on stderr:
+
+```
++-----------------------------------------------+
+|  Update available: 0.4.0 -> 0.5.0             |
+|  https://github.com/unidoc/pdfdebug/releases  |
++-----------------------------------------------+
+```
+
+It appears at the end of every interactive command for as long as the cached
+latest release is newer than the running build. If the terminal is narrower
+than the box, the same two lines print without the frame. It never goes to stdout and never
+changes an exit code.
+
+The notice only appears in an interactive session. Both stdout and stderr have
+to be terminals, so piping to a pager (`| less`) or redirecting to a file
+(`> out.txt`) turns it off. It is also off when `CI` is set, under `--json`,
+`--ops` and `--raw`, for the raw bytes of `dump bytes`, and when `dump embedded
+--ref` or `--name` writes an attachment to stdout.
+
+To turn it off entirely, set `PDFDEBUG_NO_UPDATE_CHECK` or `NO_UPDATE_NOTIFIER`.
+Presence is what counts: `PDFDEBUG_NO_UPDATE_CHECK=0` and `CI=false` still turn
+it off. The desktop app's "check automatically" preference lives in the app and
+does not affect the CLI.
+
+Ordinary commands read the answer from a cache. When neither the CLI nor the
+desktop app has checked successfully in the last day and the session is
+interactive, a command fetches one page
+of releases alongside its own work and, once its output is done, waits for that
+fetch for at most 1.5 seconds from the start of the run; a failed fetch is
+silent and is not retried for another day.
+
+In a terminal, `--version` is the one command that always checks live, even
+when the cache is fresh, so running it is the way to pick up a new release
+before the day is up. It prints the box before the version line when an update
+exists, and otherwise says on stderr that no newer release is available or that
+the check failed. It checks even when the cache directory cannot be written.
+When its own check fails but the desktop app confirmed a release in the last
+day, it answers from the higher of the CLI's and the app's records instead. It
+skips the check on development builds and when either opt-out variable is set,
+and says so on stderr.
+
+Outside a terminal - stdout or stderr piped or redirected, or `CI` set -
+`--version` prints only the version line: no request, nothing on stderr, and
+no cache write. `v=$(pdfdebug --version 2>&1)` captures exactly
+`pdfdebug version X`.
+
+The CLI and the desktop app each keep their own record in one cache directory,
+so either works without the other installed and neither overwrites the other.
+The CLI writes `updatecheck-cli.json`; the app writes `updatecheck-app.json`.
+The CLI also reads the app's record when the app's last successful check was
+within the last day: the notice then uses whichever of the two names the newer
+release, and that app check spares the CLI its own fetch. An older app record
+is ignored. The app reads only its own record, because the CLI's fetch sees one
+page of releases and can miss one that the app's check, which reads up to five
+pages, finds. Each record
+keeps the last attempt apart from the last successful check, so a failed
+attempt stops the CLI retrying for a day without counting as an answer. The
+directory is:
+
+- macOS: `~/Library/Caches/pdfdebug/`
+- Linux: `~/.cache/pdfdebug/`
+- Windows: `%LOCALAPPDATA%\cache\pdfdebug\`
+
+An absolute `XDG_CACHE_HOME` replaces the base directory on all three; a
+relative one is ignored. On macOS an `XDG_CACHE_HOME` exported in a shell
+profile reaches the CLI but not a desktop app launched from Finder or the Dock,
+so the two then keep separate caches.
+
 ## Example
 
 ```bash

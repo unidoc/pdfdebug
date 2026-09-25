@@ -94,6 +94,10 @@ type Result struct {
 	DownloadURL      string         `json:"downloadUrl"`
 	DownloadName     string         `json:"downloadName"`
 	SumsURL          string         `json:"sumsUrl"`
+	// LatestStable is the highest stable tag seen on the pages Check walked,
+	// newer than installedVersion or not, in canonical form; "" when none was
+	// seen. It feeds the app's cache record and is not sent to the frontend.
+	LatestStable string `json:"-"`
 }
 
 // githubRelease is the subset of the GitHub release JSON the check consumes.
@@ -176,7 +180,8 @@ func (c *Checker) downloadHTTPClient() *http.Client {
 }
 
 // Check lists releases, keeps those strictly newer than installedVersion by
-// SemVer (excluding prereleases and drafts), and returns them newest-first with
+// SemVer (excluding drafts, releases flagged prerelease, and tags with a SemVer
+// prerelease suffix), and returns them newest-first with
 // the resolved download asset for the running platform from the newest release.
 //
 // It skips the network entirely when installedVersion is the "dev" sentinel. Any
@@ -194,10 +199,11 @@ func (c *Checker) Check(ctx context.Context, installedVersion string) (Result, e
 		return result, fmt.Errorf("installed version %q is not valid SemVer", installedVersion)
 	}
 
-	releases, err := c.collectNewer(ctx, installed)
+	releases, latestStable, err := c.collectNewer(ctx, installed)
 	if err != nil {
 		return result, err
 	}
+	result.LatestStable = latestStable
 	if len(releases) == 0 {
 		return result, nil
 	}
@@ -230,21 +236,23 @@ func (c *Checker) Check(ctx context.Context, installedVersion string) (Result, e
 // by creation time, not SemVer, so a newer release can sit behind an
 // out-of-order older hotfix (the same reason results are sorted by SemVer, not
 // published_at). The page cap bounds a pathological "many versions behind" walk.
-func (c *Checker) collectNewer(ctx context.Context, installed string) ([]githubRelease, error) {
+// It also returns the highest stable tag seen on any walked page.
+func (c *Checker) collectNewer(ctx context.Context, installed string) ([]githubRelease, string, error) {
 	url := fmt.Sprintf("%s%s?per_page=%d", strings.TrimRight(c.BaseURL, "/"), releasesPath, perPage)
 	var kept []githubRelease
+	latestStable := ""
 	for page := 0; page < maxPages && url != ""; page++ {
 		batch, next, err := c.fetchPage(ctx, url)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		for _, r := range batch {
-			if r.Prerelease || r.Draft {
+			tag, ok := stableTag(r)
+			if !ok {
 				continue
 			}
-			tag := normalizeVersion(r.TagName)
-			if !semver.IsValid(tag) {
-				continue
+			if latestStable == "" || semver.Compare(tag, latestStable) > 0 {
+				latestStable = tag
 			}
 			if semver.Compare(tag, installed) > 0 {
 				kept = append(kept, r)
@@ -252,7 +260,7 @@ func (c *Checker) collectNewer(ctx context.Context, installed string) ([]githubR
 		}
 		url = next
 	}
-	return kept, nil
+	return kept, latestStable, nil
 }
 
 // fetchPage requests one releases page and returns the decoded entries plus the
