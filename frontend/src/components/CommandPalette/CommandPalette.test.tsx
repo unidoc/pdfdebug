@@ -50,7 +50,6 @@ vi.mock(
     GetAncestorPath: (...args: unknown[]) => mockGetAncestorPath(...args),
     GetObjectIndex: (...args: unknown[]) => mockGetObjectIndex(...args),
     GetReverseRefs: vi.fn(),
-    GoToPage: vi.fn(),
     GetContentStream: vi.fn(),
     GetImageData: vi.fn(),
     DescribeImage: vi.fn().mockResolvedValue({ width: 0, height: 0, colorSpace: '', estimatedBytes: 0 }),

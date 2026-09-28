@@ -69,6 +69,7 @@ vi.mock(
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
     GetObjectDetail: vi.fn(),
+    GetPageIndex: vi.fn(),
   })
 );
 
