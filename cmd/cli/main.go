@@ -21,74 +21,89 @@ const deprecatedPlaintextNotice = `pdfdebug: "dump plaintext" is deprecated and 
 func main() {
 	// Suppress pdfcpu's internal log output so stderr stays clean for JSON errors.
 	log.SetOutput(io.Discard)
+	os.Exit(run(newNoticeEnv(), os.Args))
+}
 
-	if len(os.Args) < 2 {
+// run executes one invocation and returns its exit code. --version and -v
+// report the version and a live update check; every other command runs with
+// the end-of-run update notice, which never changes the code dispatch returns.
+func run(env *noticeEnv, args []string) int {
+	if len(args) >= 2 && (args[1] == "--version" || args[1] == "-v") {
+		return runVersion(env)
+	}
+	pending := startNotice(env, args[1:])
+	code := dispatch(args)
+	pending.finish()
+	return code
+}
+
+// dispatch routes args (program name first) to a command handler and returns
+// its exit code.
+func dispatch(args []string) int {
+	if len(args) < 2 {
 		printUsage(os.Stderr)
-		os.Exit(1)
+		return 1
 	}
 
-	switch os.Args[1] {
+	switch args[1] {
 	case "--help", "-h", "help":
 		printUsage(os.Stderr)
-		os.Exit(0)
-	case "--version", "-v":
-		_, _ = fmt.Fprintf(os.Stdout, "pdfdebug version %s\n", version)
-		os.Exit(0)
+		return 0
 	case "validate":
-		os.Exit(runValidate(os.Args[2:]))
+		return runValidate(args[2:])
 	case "diff":
-		os.Exit(runDiff(os.Args[2:]))
+		return runDiff(args[2:])
 	case "dump":
-		if len(os.Args) < 3 {
+		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump <resource> [flags] <file>")
-			os.Exit(1)
+			return 1
 		}
-		resource := os.Args[2]
-		remaining := os.Args[3:]
+		resource := args[2]
+		remaining := args[3:]
 		switch resource {
 		case "tree":
-			os.Exit(runTreeDump(remaining))
+			return runTreeDump(remaining)
 		case "object":
-			os.Exit(runObjectDump(remaining))
+			return runObjectDump(remaining)
 		case "stream":
-			os.Exit(runStreamDump(remaining))
+			return runStreamDump(remaining)
 		case "page":
-			os.Exit(runPageDump(remaining))
+			return runPageDump(remaining)
 		case "font":
-			os.Exit(runFontDump(remaining))
+			return runFontDump(remaining)
 		case "image":
-			os.Exit(runImageDump(remaining))
+			return runImageDump(remaining)
 		case "source":
-			os.Exit(runSourceDump(remaining))
+			return runSourceDump(remaining)
 		case "reverserefs":
-			os.Exit(runReverseRefsDump(remaining))
+			return runReverseRefsDump(remaining)
 		case "xref":
-			os.Exit(runXRefDump(remaining))
+			return runXRefDump(remaining)
 		case "objects":
-			os.Exit(runObjectsDump(remaining))
+			return runObjectsDump(remaining)
 		case "bytes":
-			os.Exit(runBytesDump(remaining))
+			return runBytesDump(remaining)
 		case "plaintext":
 			// Deprecated alias. The notice is written here rather than inside the
 			// handler so it fires on a usage error too, and on stderr so piped
 			// stdout (a machine format) stays clean.
 			fmt.Fprintln(os.Stderr, deprecatedPlaintextNotice)
-			os.Exit(runBytesDump(remaining))
+			return runBytesDump(remaining)
 		case "embedded":
-			os.Exit(runEmbeddedDump(remaining))
+			return runEmbeddedDump(remaining)
 		case "metadata":
-			os.Exit(runMetadataDump(remaining))
+			return runMetadataDump(remaining)
 		case "signatures":
-			os.Exit(runSignaturesDump(remaining))
+			return runSignaturesDump(remaining)
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown resource: %s\n", resource)
 			printUsage(os.Stderr)
-			os.Exit(1)
+			return 1
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[1])
 		printUsage(os.Stderr)
-		os.Exit(1)
+		return 1
 	}
 }
 

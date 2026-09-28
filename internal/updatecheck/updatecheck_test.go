@@ -112,6 +112,7 @@ func TestCheckExcludesPrereleaseAndDraft(t *testing.T) {
 		_, _ = fmt.Fprint(w, releasesJSON(t, []githubRelease{
 			{TagName: "v2.0.0-rc1", Prerelease: true},
 			{TagName: "v1.9.0", Draft: true},
+			{TagName: "v1.8.0-rc.1"},
 			{TagName: "v1.5.0"},
 		}))
 	}))

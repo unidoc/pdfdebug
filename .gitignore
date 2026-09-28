@@ -70,3 +70,6 @@ build/windows/*
 # Locally-built binaries at repo root (real artifacts go to bin/)
 /unidoc-pdf-debugger
 /pdfdebug
+
+# Acceptance-suite harness copies in the module root (left behind when a run is killed)
+/.acc-*/

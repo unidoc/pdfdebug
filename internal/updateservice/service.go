@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/adrg/xdg"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -72,13 +73,25 @@ type Service struct {
 	version string
 	checker *updatecheck.Checker
 	pause   *pauseGate
+	// cache is the app's check record; nil when its directory could not be
+	// resolved, in which case every cache touch is a no-op.
+	cache *updatecheck.Cache
 }
 
 // NewUpdateService returns a Service that reports updates newer than version.
 // version is the ldflag-injected build version ("dev" for untagged builds, for
 // which the check is skipped and no network call is made). app is used to emit
-// download-progress events; it may be nil in tests.
+// download-progress events; it may be nil in tests. Check results are stored
+// as the app's record under updatecheck.DefaultDir, where the CLI also reads
+// them.
 func NewUpdateService(app *application.App, version string) *Service {
+	dir, _ := updatecheck.DefaultDir()
+	return newService(app, version, dir)
+}
+
+// newService builds the Service with its cache in cacheDir. An unusable
+// directory leaves the cache nil.
+func newService(app *application.App, version, cacheDir string) *Service {
 	checker := updatecheck.New()
 	gate := newPauseGate()
 	checker.WaitIfPaused = gate.wait
@@ -91,7 +104,8 @@ func NewUpdateService(app *application.App, version string) *Service {
 			})
 		}
 	}
-	return &Service{app: app, version: version, checker: checker, pause: gate}
+	cache, _ := updatecheck.Open(cacheDir, updatecheck.SurfaceApp)
+	return &Service{app: app, version: version, checker: checker, pause: gate, cache: cache}
 }
 
 // SetDownloadPaused pauses or resumes an in-flight download. Pausing stops
@@ -102,10 +116,45 @@ func (s *Service) SetDownloadPaused(paused bool) {
 }
 
 // CheckForUpdate runs the cumulative release check for the running version and
-// platform. Errors are returned for logging; the frontend treats any error as
+// platform, always live, and records the outcome as the app's record, which
+// the CLI also reads. Errors are returned for logging; the frontend treats any error as
 // "no update" and stays silent on the automatic path.
 func (s *Service) CheckForUpdate(ctx context.Context) (updatecheck.Result, error) {
-	return s.checker.Check(ctx, s.version)
+	res, err := s.checker.Check(ctx, s.version)
+	s.record(res, err)
+	return res, err
+}
+
+// CheckForUpdateAtStartup is the automatic launch check. When a check
+// succeeded within the TTL and its latest version is not newer than the
+// running version it answers from the record with no request; otherwise it
+// runs CheckForUpdate. A failed attempt never counts, and a record that names
+// a newer version still goes live because it carries no release notes or
+// download asset.
+func (s *Service) CheckForUpdateAtStartup(ctx context.Context) (updatecheck.Result, error) {
+	if _, ok := updatecheck.CheckableVersion(s.version); ok && s.cache != nil {
+		if snap, ok := s.cache.Load(); ok && snap.Confirmed(time.Now(), updatecheck.CacheTTL) {
+			if _, newer := snap.Notice(s.version); !newer {
+				return updatecheck.Result{InstalledVersion: s.version}, nil
+			}
+		}
+	}
+	return s.CheckForUpdate(ctx)
+}
+
+// record stores a successful live check as the app's record. A failure is
+// not recorded: only succeeded_at and the latest version are read back, by
+// the startup gate here and by the CLI. The CLI's record is never read here,
+// because its one-page refresh can miss a release this walk finds. A dev or
+// non-SemVer build stores nothing, and a store error is ignored.
+func (s *Service) record(res updatecheck.Result, err error) {
+	if s.cache == nil || err != nil {
+		return
+	}
+	if _, ok := updatecheck.CheckableVersion(s.version); !ok {
+		return
+	}
+	_, _ = s.cache.RecordSuccess(time.Now(), res.LatestStable)
 }
 
 // DownloadUpdate downloads assetURL, verifies it against sumsURL, moves the
