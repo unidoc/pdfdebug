@@ -451,7 +451,7 @@ func TestHelpListsDumpPages(t *testing.T) {
 // Walk rules whose fixtures pdfcpu refuses to open (a /Kids cycle, a kid that
 // is not a dictionary or dangles, a /Page with no /Type, malformed /MediaBox and
 // /Rotate values, /Contents elements that are not references), the lazy cache
-// and its invalidation, and the service wrapper, are covered in package.
+// and the service wrapper are covered in package.
 // ---------------------------------------------------------------------------
 
 func TestPageIndexUnitCoverageExists(t *testing.T) {
@@ -460,10 +460,6 @@ func TestPageIndexUnitCoverageExists(t *testing.T) {
 
 func TestLazyCacheUnitCoverageExists(t *testing.T) {
 	runGoTest(t, "^Test.*LazyCache", "./internal/pdfcore/")
-}
-
-func TestIndexInvalidationUnitCoverageExists(t *testing.T) {
-	runGoTest(t, "^Test.*InvalidateIndexes", "./internal/pdfcore/")
 }
 
 func TestServiceWrapperUnitCoverageExists(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 // GetObjectIndex returns the full xref-derived object index for the document
 // in tabID. Lazy-built on first call and cached on the per-tab DocumentState;
-// a re-Open under the same tabID resets the cache (invalidateIndexes).
+// a re-Open under the same tabID replaces the DocumentState, and with it the cache.
 //
 // pdfcpu's XRefTable.Table is map[int]*XRefTableEntry keyed by object number,
 // so only one entry per ObjNum is enumerable here -- the multi-generation

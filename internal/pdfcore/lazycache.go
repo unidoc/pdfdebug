@@ -2,7 +2,7 @@ package pdfcore
 
 import "sync"
 
-// lazyCache holds a value built on first use and kept until reset. The mutex
+// lazyCache holds a value built on first use and kept for its lifetime. The mutex
 // covers the build, so concurrent callers share one build. A failed build is
 // not cached; the next get retries.
 //
@@ -29,15 +29,6 @@ func (c *lazyCache[T]) get(build func() (T, error)) (T, error) {
 	c.value = v
 	c.built = true
 	return v, nil
-}
-
-// reset drops the cached value so the next get rebuilds.
-func (c *lazyCache[T]) reset() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	var zero T
-	c.value = zero
-	c.built = false
 }
 
 // isBuilt reports whether a value is cached.

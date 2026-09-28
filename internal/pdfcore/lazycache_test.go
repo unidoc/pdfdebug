@@ -36,21 +36,6 @@ func TestLazyCacheDoesNotCacheErrors(t *testing.T) {
 	}
 }
 
-func TestLazyCacheResetForcesARebuild(t *testing.T) {
-	var c lazyCache[int]
-	n := 0
-	build := func() (int, error) { n++; return n, nil }
-	first, _ := c.get(build)
-	c.reset()
-	if c.isBuilt() {
-		t.Fatal("reset left the value cached")
-	}
-	second, _ := c.get(build)
-	if first != 1 || second != 2 {
-		t.Errorf("got %d then %d, want 1 then 2", first, second)
-	}
-}
-
 func TestLazyCacheConcurrentGetsShareOneBuild(t *testing.T) {
 	var c lazyCache[int]
 	var builds atomic.Int32

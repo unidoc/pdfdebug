@@ -13,8 +13,8 @@ import (
 // page leaf of the page tree in document order, plus an unnumbered entry
 // (PageNum 0, Err set) for every page-tree entry that is not a page. Built by a
 // single depth-first walk from the catalog's /Pages on first call and cached on
-// the per-tab DocumentState; a re-Open under the same tabID resets the cache
-// (invalidateIndexes). A malformed page tree yields rows carrying Err, never a
+// the per-tab DocumentState; a re-Open under the same tabID replaces the
+// DocumentState, and with it the cache. A malformed page tree yields rows carrying Err, never a
 // failed call. A document with no pages returns a non-nil empty slice.
 func (ins *Inspector) GetPageIndex(tabID string) ([]*PageIndexEntry, error) {
 	doc, err := ins.GetDocument(tabID)

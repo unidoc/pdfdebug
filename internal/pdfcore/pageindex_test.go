@@ -490,7 +490,7 @@ func TestPageIndexConcurrentWithObjectIndexAndChildren(t *testing.T) {
 	wg.Wait()
 }
 
-func TestInvalidateIndexesOnReopenUnderTheSameTab(t *testing.T) {
+func TestPageIndexIsFreshAfterReopenUnderTheSameTab(t *testing.T) {
 	ins := NewInspector()
 	onePage := rawPDF(
 		rawObj{1, rawCatalog},
@@ -505,45 +505,28 @@ func TestInvalidateIndexesOnReopenUnderTheSameTab(t *testing.T) {
 	)
 	openValidatedFile(t, ins, "tab", onePage)
 	t.Cleanup(func() { _ = ins.Close("tab") })
-	prior, _ := ins.GetDocument("tab")
-	if _, err := ins.GetPageIndex("tab"); err != nil {
-		t.Fatal(err)
+	if entries, err := ins.GetPageIndex("tab"); err != nil || len(entries) != 1 {
+		t.Fatalf("first document: %d rows, err %v; want 1", len(entries), err)
 	}
-	if _, err := ins.GetObjectIndex("tab"); err != nil {
+	firstObjects, err := ins.GetObjectIndex("tab")
+	if err != nil {
 		t.Fatal(err)
-	}
-	if !prior.pageIndex.isBuilt() || !prior.objectIndex.isBuilt() {
-		t.Fatal("both indexes should be built before the re-Open")
 	}
 
 	openValidatedFile(t, ins, "tab", twoPages)
-	if prior.pageIndex.isBuilt() || prior.objectIndex.isBuilt() {
-		t.Error("re-Open must reset both indexes on the prior document")
-	}
 	entries, err := ins.GetPageIndex("tab")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(entries) != 2 {
-		t.Errorf("the new document's index has %d rows, want 2", len(entries))
+		t.Errorf("the re-opened document's index has %d rows, want 2", len(entries))
 	}
-}
-
-func TestInvalidateIndexesResetsBothCaches(t *testing.T) {
-	ins, tabID := openMultipage(t)
-	if _, err := ins.GetPageIndex(tabID); err != nil {
+	objects, err := ins.GetObjectIndex("tab")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ins.GetObjectIndex(tabID); err != nil {
-		t.Fatal(err)
-	}
-	doc, _ := ins.GetDocument(tabID)
-	doc.invalidateIndexes()
-	if doc.pageIndex.isBuilt() || doc.objectIndex.isBuilt() {
-		t.Error("invalidateIndexes left an index cached")
-	}
-	if entries, err := ins.GetPageIndex(tabID); err != nil || len(entries) == 0 {
-		t.Errorf("rebuild after invalidateIndexes: %d rows, err %v", len(entries), err)
+	if len(objects) != len(firstObjects)+1 {
+		t.Errorf("the re-opened document's object index has %d entries, want %d", len(objects), len(firstObjects)+1)
 	}
 }
 

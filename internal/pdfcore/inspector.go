@@ -71,9 +71,8 @@ type DocumentState struct {
 	revRefsBuildFailed bool
 
 	// objectIndex caches the per-tab GetObjectIndex result and pageIndex the
-	// GetPageIndex result. Both are lazy on first call and reset together by
-	// invalidateIndexes when a re-Open under the same tabID replaces this
-	// DocumentState.
+	// GetPageIndex result. Both are lazy on first call; a re-Open under the
+	// same tabID replaces this DocumentState, so the new one starts empty.
 	objectIndex lazyCache[[]*ObjectIndexEntry]
 	pageIndex   lazyCache[[]*PageIndexEntry]
 
@@ -193,12 +192,6 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	ins.documents[tabID] = doc
 	ins.mu.Unlock()
 
-	// Reset the prior document's indexes outside ins.mu so a long index build
-	// on it cannot stall other tabs' GetDocument calls.
-	if prior != nil {
-		prior.invalidateIndexes()
-	}
-
 	return &DocumentInfo{
 		TabID:     tabID,
 		FileName:  filepath.Base(filePath),
@@ -252,13 +245,6 @@ func closeDocLocked(doc *DocumentState) {
 	if doc.closeCancel != nil {
 		doc.closeCancel()
 	}
-}
-
-// invalidateIndexes drops every cached index on d: the object index and the
-// page index. It takes only the caches' own mutexes, never pdfMu.
-func (d *DocumentState) invalidateIndexes() {
-	d.objectIndex.reset()
-	d.pageIndex.reset()
 }
 
 // GetDocument returns the DocumentState for a tab, or ErrDocumentNotFound.
