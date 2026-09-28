@@ -115,15 +115,21 @@ func (w *pageWalker) deref(o pdfcpu_types.Object) pdfcpu_types.Object {
 }
 
 // visitNode classifies a page-tree node and either descends into it or emits
-// its row. First match wins: a node with /Kids is an intermediate whatever its
-// /Type; /Type /Pages without /Kids is an unnumbered error row; anything else
-// is a page leaf.
+// its row, the way viewers number pages. First match wins: /Type /Page is a
+// page leaf even with /Kids; a node with /Kids is an intermediate; /Type
+// /Pages without /Kids is an unnumbered error row; anything else is a page
+// leaf.
 func (w *pageWalker) visitNode(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) {
+	typ := nameOf(w.deref(d["Type"]))
+	if typ == "Page" {
+		w.visitLeaf(d, ref, inherited)
+		return
+	}
 	if kids, hasKids := d.Find("Kids"); hasKids {
 		w.visitIntermediate(d, ref, kids, inherited)
 		return
 	}
-	if nameOf(w.deref(d["Type"])) == "Pages" {
+	if typ == "Pages" {
 		w.entries = append(w.entries, errorRow(ref, "/Pages node has no /Kids"))
 		return
 	}
@@ -233,6 +239,9 @@ func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 		errs = append(errs, "page has no /Type")
 	case nameOf(t) != "Page":
 		errs = append(errs, fmt.Sprintf("page has /Type %s, want /Page", typeValueLabel(t)))
+	}
+	if _, ok := d.Find("Kids"); ok {
+		errs = append(errs, "page has a /Kids entry; its kids are not walked")
 	}
 
 	own := func(key string) pdfcpu_types.Object {

@@ -52,8 +52,8 @@ const catalog = "<< /Type /Catalog /Pages 2 0 R >>"
 
 // Content payloads with known lengths.
 const (
-	contentA = "0 0 m 10 10 l S"       // 15 bytes
-	contentB = "q 1 0 0 1 5 5 cm Q"    // 18 bytes
+	contentA = "0 0 m 10 10 l S"        // 15 bytes
+	contentB = "q 1 0 0 1 5 5 cm Q"     // 18 bytes
 	contentC = "BT /F1 12 Tf (x) Tj ET" // 22 bytes
 )
 
@@ -131,8 +131,8 @@ func duplicatePagePDF() []byte {
 	)
 }
 
-// pageWithKidsPDF has a /Type /Page node (obj 3) that carries /Kids, so it is
-// walked as an intermediate; its kid obj 4 is the only page.
+// pageWithKidsPDF has a /Type /Page node (obj 3) that also carries /Kids;
+// viewers number it as page 1 and never reach its kid obj 4.
 func pageWithKidsPDF() []byte {
 	return assemblePDF(
 		pdfObj{1, catalog},

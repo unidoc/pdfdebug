@@ -247,10 +247,28 @@ func TestPageIndexClassification(t *testing.T) {
 		rawObj{7, "<< /Type /Page /Parent 2 0 R >>"},
 	)
 	checkRows(t, entries, []rowShape{
-		{1, 4, ""},                         // /Type /Page with /Kids is walked as an intermediate
+		{1, 3, "page has a /Kids entry"},   // /Type /Page is a page even with /Kids; its kids are not walked
 		{0, 5, "/Pages node has no /Kids"}, // unnumbered
 		{2, 7, ""},                         // /Kids [] yields nothing
 	})
+}
+
+func TestPageIndexPageWithStrayKidsKeepsLaterNumbering(t *testing.T) {
+	entries := rawPageIndex(t,
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 " + box + " >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /Kids [] >>"},
+		rawObj{4, "<< /Type /Page /Parent 2 0 R /Kids 7 >>"},
+		rawObj{5, "<< /Type /Page /Parent 2 0 R >>"},
+	)
+	checkRows(t, entries, []rowShape{
+		{1, 3, "page has a /Kids entry"},
+		{2, 4, "page has a /Kids entry"},
+		{3, 5, ""},
+	})
+	if entries[0].MediaBox != [4]float64{0, 0, 612, 792} {
+		t.Errorf("page with an empty /Kids lost its inherited /MediaBox: %v", entries[0].MediaBox)
+	}
 }
 
 func TestPageIndexDuplicatePageVersusSharedSubtree(t *testing.T) {

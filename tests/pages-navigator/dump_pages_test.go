@@ -235,10 +235,11 @@ func TestPageTreeClassification(t *testing.T) {
 		name    string
 		pdf     []byte
 		wantObj []int
+		wantErr []string
 	}{
-		{"a /Type /Page node carrying /Kids is walked as an intermediate", pageWithKidsPDF(), []int{4}},
-		{"an empty /Kids yields no rows", emptyKidsPDF(), []int{4}},
-		{"a root /Pages with no /Type is still an intermediate", untypedRootPDF(), []int{3, 4}},
+		{"a /Type /Page node carrying /Kids is a page and its kids are not walked", pageWithKidsPDF(), []int{3}, []string{"page has a /Kids entry"}},
+		{"an empty /Kids yields no rows", emptyKidsPDF(), []int{4}, []string{""}},
+		{"a root /Pages with no /Type is still an intermediate", untypedRootPDF(), []int{3, 4}, []string{"", ""}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -248,9 +249,10 @@ func TestPageTreeClassification(t *testing.T) {
 			}
 			for i, obj := range c.wantObj {
 				e := entries[i]
-				if e.PageNum != i+1 || e.ObjNum != obj || e.Err != "" {
-					t.Errorf("entry %d: page %d obj %d error %q, want page %d obj %d and no error",
-						i, e.PageNum, e.ObjNum, e.Err, i+1, obj)
+				errOK := e.Err == c.wantErr[i] || (c.wantErr[i] != "" && strings.Contains(e.Err, c.wantErr[i]))
+				if e.PageNum != i+1 || e.ObjNum != obj || !errOK {
+					t.Errorf("entry %d: page %d obj %d error %q, want page %d obj %d and error %q",
+						i, e.PageNum, e.ObjNum, e.Err, i+1, obj, c.wantErr[i])
 				}
 			}
 		})
