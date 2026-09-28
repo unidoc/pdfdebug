@@ -564,6 +564,43 @@ describe('reveals from outside the tree', () => {
     await waitFor(() => expect(state.tabs[0].selectedNodeId).toBe('obj:0:2'));
     expect(state.tabs[0].pendingNavTarget).toBeNull();
   });
+
+  test('a pane shrinking to zero on collapse keeps both trees mounted', async () => {
+    const observers: { cb: ResizeObserverCallback; target: Element; self: ResizeObserver }[] = [];
+    class ResizableObserver {
+      cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+      }
+      observe(target: Element) {
+        const self = this as unknown as ResizeObserver;
+        observers.push({ cb: this.cb, target, self });
+        this.cb([{ target, contentRect: { width: 300, height: 600 } as DOMRectReadOnly } as ResizeObserverEntry], self);
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    (globalThis as Record<string, unknown>).ResizeObserver = ResizableObserver;
+    mockGetPageIndex.mockResolvedValue([
+      { pageNum: 1, objNum: 3, gen: 0, nodeId: 'obj:0:3', contentNodeId: '', mediaBox: [0, 0, 612, 792], rotate: 0, inherited: 0, annotCount: 0, contentLen: -1, error: '' },
+    ]);
+
+    renderLayout();
+    openTab();
+    act(() => dispatch({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } }));
+    const structureRow = await within(screen.getByTestId('tree-panel')).findByText('Pages');
+    const pagesPanel = panelFor(tab('Pages'));
+    const pageRow = await within(pagesPanel).findByText(/^1:/);
+
+    act(() => {
+      for (const o of observers) {
+        o.cb([{ target: o.target, contentRect: { width: 0, height: 0 } as DOMRectReadOnly } as ResizeObserverEntry], o.self);
+      }
+    });
+
+    expect(structureRow.isConnected).toBe(true);
+    expect(pageRow.isConnected).toBe(true);
+  });
 });
 
 describe('panel sizes with the rail present', () => {

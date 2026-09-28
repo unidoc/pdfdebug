@@ -75,7 +75,11 @@ export function TreePanel() {
 
   // Container sizing for react-arborist
   const containerRef = useRef<HTMLDivElement>(null);
+  // dimensions holds the last non-zero size, so a collapsed (zero-sized) pane
+  // keeps the Tree mounted with its expansion, scroll and focus; hasSize is
+  // the current reading.
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [hasSize, setHasSize] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -83,10 +87,10 @@ export function TreePanel() {
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
+        const { width, height } = entry.contentRect;
+        const sized = width > 0 && height > 0;
+        setHasSize(sized);
+        if (sized) setDimensions({ width, height });
       }
     });
     ro.observe(el);
@@ -139,9 +143,11 @@ export function TreePanel() {
     };
   }, []);
 
-  // The arborist Tree renders only while the container has a size and there
-  // is data; a reveal waits for it so its scrollTo and open calls land.
-  const treeReady = dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0;
+  // The arborist Tree mounts once the container has had a size and there is
+  // data, and stays mounted while collapsed. A reveal waits for the container
+  // to be sized now, so its scrollTo and open calls land on a visible tree.
+  const treeMounted = dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0;
+  const treeReady = treeMounted && hasSize;
 
   // Navigate to a cross-reference target: fetch ancestor path, expand each
   // ancestor (including intermediate dict/arr nodes), scroll to the target,
@@ -372,7 +378,7 @@ export function TreePanel() {
         Document Structure
       </div>
       <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
-        {treeReady && (
+        {treeMounted && (
           <RowStateContext.Provider value={rowState}>
           <Tree<TreeNodeData>
             key={activeTabId ?? ''}

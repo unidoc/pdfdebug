@@ -136,9 +136,12 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // Keep the last non-zero size so a collapsed pane leaves the Tree mounted.
     const ro = new ResizeObserver((items) => {
       const item = items[0];
-      if (item) setDimensions({ width: item.contentRect.width, height: item.contentRect.height });
+      if (!item) return;
+      const { width, height } = item.contentRect;
+      if (width > 0 && height > 0) setDimensions({ width, height });
     });
     ro.observe(el);
     return () => ro.disconnect();
