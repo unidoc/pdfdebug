@@ -125,8 +125,8 @@ when the cache is fresh, so running it is the way to pick up a new release
 before the day is up. It prints the box before the version line when an update
 exists, and otherwise says on stderr that no newer release is available or that
 the check failed. It checks even when the cache directory cannot be written.
-When its own check fails but the desktop app confirmed a release in the last
-day, it answers from the higher of the CLI's and the app's records instead. It
+When its own check fails but the CLI or the desktop app checked successfully in
+the last day, it answers from the higher of the two records instead. It
 skips the check on development builds and when either opt-out variable is set,
 and says so on stderr.
 

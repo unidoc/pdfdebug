@@ -293,8 +293,8 @@ func noticeBox(lines []string, width int) string {
 // opted-out build runs a live bounded check, then on stderr shows the box,
 // says the build is current, or says the check failed. The check is made even
 // when the cache cannot be written. A failed check still answers when the
-// desktop app's record was confirmed within the TTL, from the higher of the
-// CLI's and the app's records, as an ordinary command would.
+// CLI's own record or the desktop app's was confirmed within the TTL, from the
+// higher of the two, as an ordinary command would.
 func runVersion(env *noticeEnv) int {
 	message, box := versionOutcome(env)
 	if box != "" {
@@ -338,7 +338,9 @@ func versionOutcome(env *noticeEnv) (message, box string) {
 			own.LatestVersion = tag
 		}
 	}
-	if !checked && peer.Confirmed(now, updatecheck.CacheTTL) {
+	// A failed live check still answers from a record either surface
+	// confirmed within the TTL, as an ordinary command would.
+	if !checked && (own.Confirmed(now, updatecheck.CacheTTL) || peer.Confirmed(now, updatecheck.CacheTTL)) {
 		checked = true
 	}
 	if !checked {

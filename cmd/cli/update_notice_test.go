@@ -634,6 +634,18 @@ func TestVersionOutcomes(t *testing.T) {
 			h.seed(t, h.now.Add(-48*time.Hour), "v0.5.0")
 			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.4.0"})
 		}, wantStderr: referenceBox, wantHits: 1},
+		{name: "check failed, CLI's own record confirmed, no app", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			if err := h.env.cache.Store(updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"}); err != nil {
+				t.Fatal(err)
+			}
+		}, wantStderr: referenceBox, wantHits: 1},
+		{name: "check failed, CLI's own record unconfirmed, no app", version: "0.4.0", setup: func(t *testing.T, h *harness) {
+			h.status = http.StatusForbidden
+			if err := h.env.cache.Store(updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-48 * time.Hour), LatestVersion: "v0.5.0"}); err != nil {
+				t.Fatal(err)
+			}
+		}, wantStderr: "pdfdebug: could not check for updates\n", wantHits: 1},
 		{name: "check failed, app confirms current", version: "0.5.0", setup: func(t *testing.T, h *harness) {
 			h.status = http.StatusForbidden
 			h.seedApp(t, updatecheck.Snapshot{CheckedAt: h.now.Add(-time.Hour), SucceededAt: h.now.Add(-time.Hour), LatestVersion: "v0.5.0"})
