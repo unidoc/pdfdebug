@@ -78,8 +78,8 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 
 // GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
 // its FIRST content stream. Returns empty string (no error) when the page has
-// no Contents entry. Bound in pdfservice.Service (GoToPage), so its signature
-// is preserved; callers wanting the whole page content use GetPageContentStream.
+// no Contents entry. Callers wanting the whole page content use
+// GetPageContentStream.
 func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
 	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
 	if err != nil {

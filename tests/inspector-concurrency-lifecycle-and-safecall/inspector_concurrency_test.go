@@ -312,7 +312,7 @@ func extractFunctionBodyTopLevel(t *testing.T, src, name string) string {
 	return tail[:end+1]
 }
 
-// pdfserviceWrappedMethods is the pinned list of 16 PDFService methods
+// pdfserviceWrappedMethods is the pinned list of 15 PDFService methods
 // that MUST begin with `defer recoverRuntimePanic("<Name>", &err)`. Methods
 // outside this list (OpenFileDialog, CloseDocument, GetPlainText,
 // GetPlainTextSize) MUST NOT be wrapped.
@@ -329,7 +329,6 @@ var pdfserviceWrappedMethods = []string{
 	"GetFontView",
 	"GetObjectSource",
 	"GetReverseRefs",
-	"GoToPage",
 	"GetObjectIndex",
 	"GetPageIndex",
 	"GetXRefTable",

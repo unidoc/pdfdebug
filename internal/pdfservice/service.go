@@ -42,7 +42,6 @@ type inspectorAPI interface {
 	GetFontView(tabID string, nodeID string) (*pdfcore.FontView, error)
 	GetObjectSource(tabID string, nodeID string) (string, error)
 	GetReverseRefs(tabID string, nodeID string) ([]pdfcore.ReverseRef, error)
-	GetPageContentStreamNodeID(tabID string, pageNum int) (string, error)
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
 	GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
@@ -316,20 +315,6 @@ func (s *PDFService) GetReverseRefs(tabID string, nodeID string) ([]*pdfcore.Rev
 			out[i] = &rr
 		}
 		result = out
-	}()
-	return result, err
-}
-
-// GoToPage resolves a 1-based page number to the node ID of that page's
-// content stream, suitable for the frontend to dispatch as a NAVIGATE_TO_REF
-// target. Returns an error if the page number is out of range, the page has
-// no content stream, or the document/tab is unknown.
-func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
-	var result string
-	var err error
-	func() {
-		defer recoverRuntimePanic("GoToPage", &err)
-		result, err = s.inspector.GetPageContentStreamNodeID(tabID, pageNum)
 	}()
 	return result, err
 }
