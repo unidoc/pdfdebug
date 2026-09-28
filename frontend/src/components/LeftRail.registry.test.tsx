@@ -1,8 +1,8 @@
 /**
  * The rail renders from its destination registry. With a three-entry registry
  * the rail shows three items, and every positional behaviour - order, roving
- * focus bounds, Cmd/Ctrl+digit, the panel switch and the persisted view id -
- * follows the array without any other edit.
+ * focus bounds, Cmd/Ctrl+digit and the panel switch - follows the array
+ * without any other edit.
  *
  * Run: cd frontend && npx vitest run src/components/LeftRail.registry.test.tsx
  */
@@ -168,9 +168,4 @@ describe('rail driven by a three-entry registry', () => {
     expect(tab('Images')).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('a persisted third view id is restored', () => {
-    window.localStorage.setItem(RAIL_KEY, JSON.stringify({ view: 'images', collapsed: false }));
-    renderLayout();
-    expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
-  });
 });

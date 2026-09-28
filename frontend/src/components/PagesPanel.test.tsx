@@ -461,15 +461,18 @@ describe('per-tab cache', () => {
     renderLayout();
     openTab('tab-1');
     await showPages(user);
+    // Opening a file lands on Structure, so each open is followed by showing Pages.
     openTab('tab-2');
-    await waitFor(() => expect(mockGetPageIndex).toHaveBeenCalledWith('tab-2'));
+    await showPages(user);
+    expect(mockGetPageIndex).toHaveBeenCalledWith('tab-2');
     act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } }));
     await waitFor(() => expect(within(panelFor('Pages')).getAllByTestId('tree-node').length).toBeGreaterThan(0));
     expect(mockGetPageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(1);
 
     act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
     openTab('tab-1');
-    await waitFor(() => expect(mockGetPageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2));
+    await showPages(user);
+    expect(mockGetPageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2);
   });
 
   test('a tab opened while Structure is active is not fetched until Pages is shown', async () => {

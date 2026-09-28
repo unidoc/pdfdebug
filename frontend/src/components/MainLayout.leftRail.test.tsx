@@ -421,22 +421,22 @@ describe('collapse', () => {
     const user = userEvent.setup();
     const view = renderLayout();
     await user.click(tab('Structure'));
-    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ view: 'structure', collapsed: true });
+    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ collapsed: true });
     view.unmount();
     const stored = JSON.parse(window.localStorage.getItem(WINDOW_KEY) ?? '{}');
     expect(stored.panelSizes?.collapsed).toBeUndefined();
   });
 
-  test('a persisted collapsed state starts collapsed', () => {
+  test('a persisted collapsed state starts collapsed, on Structure', () => {
     window.localStorage.setItem(RAIL_KEY, JSON.stringify({ view: 'pages', collapsed: true }));
     renderLayout();
     expect(isCollapsed()).toBe(true);
-    expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('an unknown persisted view id resolves to the first destination', () => {
-    window.localStorage.setItem(RAIL_KEY, JSON.stringify({ view: 'bookmarks', collapsed: false }));
+  test('an unknown view id resolves to the first destination', () => {
     renderLayout();
+    act(() => dispatch({ type: 'SELECT_LEFT_VIEW', payload: { view: 'bookmarks' } }));
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
     expect(panelFor(tab('Structure'))).not.toHaveClass('invisible');
   });

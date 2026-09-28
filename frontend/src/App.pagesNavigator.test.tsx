@@ -226,9 +226,6 @@ describe('Cmd/Ctrl+G opens the Pages navigator', () => {
     pressCmdG();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryAllByRole('tablist').filter((l) => l.getAttribute('aria-orientation') === 'vertical')).toHaveLength(0);
-    // The rail is not rendered without a document, so check the persisted view:
-    // switching it here would open the next document on Pages.
-    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? '{}').view).toBe('structure');
   });
 });
 
@@ -256,6 +253,5 @@ describe('the native Go to Page menu item opens the Pages navigator', () => {
     act(() => emitEvent('navigate:goToPage'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(mockGetPageIndex).not.toHaveBeenCalled();
-    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? '{}').view).toBe('structure');
   });
 });

@@ -1,6 +1,6 @@
 /**
  * @file The left rail's destination registry. The rail's items, their order,
- * keyboard bounds, Cmd/Ctrl+digit shortcuts, the persisted view id and the
+ * keyboard bounds, Cmd/Ctrl+digit shortcuts, the selected view id and the
  * left panel's contents all derive from this array; adding a destination is
  * one entry here.
  */
@@ -17,7 +17,7 @@ export interface LeftRailPanelProps {
 
 /** One left-rail destination: a navigator that fills the left panel. */
 export interface LeftRailDestination {
-  /** Stable id, persisted as the selected view. */
+  /** Stable id, held in app state as the selected view. */
   id: string;
   /** Always-visible text label under the icon. */
   label: string;

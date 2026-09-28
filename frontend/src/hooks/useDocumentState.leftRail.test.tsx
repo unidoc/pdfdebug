@@ -70,10 +70,10 @@ describe('left rail initial state', () => {
     expect(state.pagesJumpFocusVersion).toBe(0);
   });
 
-  test('seeds from the persisted view and collapse flag', () => {
+  test('seeds the persisted collapse flag but always starts on Structure', () => {
     window.localStorage.setItem(RAIL_KEY, JSON.stringify({ view: 'pages', collapsed: true }));
     mount();
-    expect(state.leftView).toBe('pages');
+    expect(state.leftView).toBe('structure');
     expect(state.leftPanelCollapsed).toBe(true);
   });
 
@@ -81,9 +81,7 @@ describe('left rail initial state', () => {
     ['not JSON', '{nope'],
     ['a JSON string', '"pages"'],
     ['null', 'null'],
-    ['an empty view id', JSON.stringify({ view: '', collapsed: false })],
-    ['a non-string view', JSON.stringify({ view: 2, collapsed: false })],
-    ['a non-boolean collapsed flag', JSON.stringify({ view: 'pages', collapsed: 'yes' })],
+    ['a non-boolean collapsed flag', JSON.stringify({ collapsed: 'yes' })],
     ['a missing collapsed flag', JSON.stringify({ view: 'pages' })],
   ])('falls back to Structure, expanded, when the stored value is %s', (_label, raw) => {
     window.localStorage.setItem(RAIL_KEY, raw);
@@ -187,13 +185,45 @@ describe('the retired Go to Page modal state', () => {
   });
 });
 
+describe('opening a file starts on Structure', () => {
+  test('a new tab switches the view back to Structure and keeps the collapse flag', () => {
+    mount();
+    openTab('a', 2);
+    send({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } });
+    send({ type: 'TOGGLE_LEFT_PANEL' });
+    openTab('b', 3);
+    expect(state.activeTabId).toBe('b');
+    expect(state.leftView).toBe('structure');
+    expect(state.leftPanelCollapsed).toBe(true);
+  });
+
+  test('re-opening an already open file switches the view back to Structure', () => {
+    mount();
+    openTab('a', 2);
+    openTab('b', 3);
+    send({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } });
+    send({ type: 'OPEN_DOCUMENT', payload: { tabId: 'dup', fileName: 'a.pdf', filePath: '/tmp/a.pdf', pageCount: 2, rootNode: catalogNode, rootChildren: [] } });
+    expect(state.activeTabId).toBe('a');
+    expect(state.leftView).toBe('structure');
+  });
+
+  test('switching tabs keeps the current view', () => {
+    mount();
+    openTab('a', 2);
+    openTab('b', 3);
+    send({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } });
+    send({ type: 'ACTIVATE_TAB', payload: { tabId: 'a' } });
+    expect(state.leftView).toBe('pages');
+  });
+});
+
 describe('left rail persistence', () => {
-  test('writes the view and collapse flag on change', () => {
+  test('writes only the collapse flag on change', () => {
     mount();
     send({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } });
-    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ view: 'pages', collapsed: false });
+    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ collapsed: false });
     send({ type: 'TOGGLE_LEFT_PANEL' });
-    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ view: 'pages', collapsed: true });
+    expect(JSON.parse(window.localStorage.getItem(RAIL_KEY) ?? 'null')).toEqual({ collapsed: true });
   });
 
   test('survives a remount', () => {
@@ -202,7 +232,7 @@ describe('left rail persistence', () => {
     send({ type: 'TOGGLE_LEFT_PANEL' });
     first.unmount();
     mount();
-    expect(state.leftView).toBe('pages');
+    expect(state.leftView).toBe('structure');
     expect(state.leftPanelCollapsed).toBe(true);
   });
 

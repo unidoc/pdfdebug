@@ -102,8 +102,8 @@ export interface AppState {
   documentWarning: string | null;
   /**
    * Id of the left-rail destination filling the left panel. App-level, not
-   * per tab. Held as a plain string; the rail resolves an unknown id to its
-   * first destination.
+   * per tab, not persisted; OPEN_DOCUMENT resets it to Structure. Held as a
+   * plain string; the rail resolves an unknown id to its first destination.
    */
   leftView: string;
   /** True while the left panel is collapsed to the rail alone. */
@@ -229,6 +229,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
           return {
             ...state,
             activeTabId: existing.tabId,
+            leftView: 'structure',
             documentError: null,
             documentWarning,
             batchOpenCompleted,
@@ -267,6 +268,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: [...state.tabs, newTab],
         activeTabId: action.payload.tabId,
+        leftView: 'structure',
         documentError: null,
         documentWarning,
         batchOpenCompleted,
@@ -584,47 +586,38 @@ const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 
 // --- Provider ---
 
-/** localStorage key holding the left rail's `{ view, collapsed }`. */
+/** localStorage key holding the left rail's `{ collapsed }` flag. */
 export const LEFT_RAIL_STORAGE_KEY = 'unidoc-pdf-debugger:left-rail';
 
-interface LeftRailPrefs {
-  view: string;
-  collapsed: boolean;
-}
-
-const DEFAULT_LEFT_RAIL: LeftRailPrefs = { view: 'structure', collapsed: false };
-
-// Reads the persisted rail state. Anything but a non-empty string view and a
-// boolean collapsed flag, or a storage that throws, gives the default.
-function readLeftRail(): LeftRailPrefs {
+// Reads the persisted collapse flag. Anything but a boolean `collapsed`, or a
+// storage that throws, gives false. The view is not persisted: the app and
+// every opened file start on Structure.
+function readLeftRailCollapsed(): boolean {
   try {
     const raw = window.localStorage.getItem(LEFT_RAIL_STORAGE_KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
       if (parsed !== null && typeof parsed === 'object') {
-        const { view, collapsed } = parsed as Record<string, unknown>;
-        if (typeof view === 'string' && view !== '' && typeof collapsed === 'boolean') {
-          return { view, collapsed };
-        }
+        const { collapsed } = parsed as Record<string, unknown>;
+        if (typeof collapsed === 'boolean') return collapsed;
       }
     }
   } catch {
     // Unreadable storage falls back to the default.
   }
-  return DEFAULT_LEFT_RAIL;
+  return false;
 }
 
-function writeLeftRail(prefs: LeftRailPrefs): void {
+function writeLeftRailCollapsed(collapsed: boolean): void {
   try {
-    window.localStorage.setItem(LEFT_RAIL_STORAGE_KEY, JSON.stringify(prefs));
+    window.localStorage.setItem(LEFT_RAIL_STORAGE_KEY, JSON.stringify({ collapsed }));
   } catch {
     // Ignore write failures (private mode, blocked storage).
   }
 }
 
 function initAppState(base: AppState): AppState {
-  const rail = readLeftRail();
-  return { ...base, leftView: rail.view, leftPanelCollapsed: rail.collapsed };
+  return { ...base, leftPanelCollapsed: readLeftRailCollapsed() };
 }
 
 /** Context provider that makes app state and dispatch available to the tree. */
@@ -632,8 +625,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState, initAppState);
 
   useEffect(() => {
-    writeLeftRail({ view: state.leftView, collapsed: state.leftPanelCollapsed });
-  }, [state.leftView, state.leftPanelCollapsed]);
+    writeLeftRailCollapsed(state.leftPanelCollapsed);
+  }, [state.leftPanelCollapsed]);
 
   return (
     <AppStateContext.Provider value={state}>
