@@ -13,7 +13,9 @@ import {
   toTreeNodeData,
   deriveOpenState,
   findDisplayId,
+  findNode,
   updateNodeChildren,
+  useLazyChildren,
   type TreeNodeData,
 } from './treeRows';
 
@@ -58,11 +60,6 @@ export function TreePanel() {
   if (activeTabId && treeDataCache.current[activeTabId]) {
     openState = treeDataCache.current[activeTabId].openState;
   }
-  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
-  // timerRef delays the loading spinner by 200ms to avoid flicker on fast loads
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // requestRef is a generation counter to cancel stale child-fetch responses
-  const requestRef = useRef<number>(0);
   // Refs mirror state for use inside async callbacks without stale closures.
   // useLatest keeps .current synced to the latest render value (#28); the
   // imperative treeDataRef writes inside async flows below still apply because
@@ -136,13 +133,6 @@ export function TreePanel() {
   // selectedNodeIdRef is now mirrored during render via useLatest (#28); the
   // dedicated sync effect is no longer needed.
 
-  // Cleanup pending timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
   // The arborist Tree mounts once the container has had a size and there is
   // data, and stays mounted while collapsed. A reveal waits for the container
   // to be sized now, so its scrollTo and open calls land on a visible tree.
@@ -164,16 +154,8 @@ export function TreePanel() {
         if (cancelled) return;
 
         // Search by backendId since ancestor path contains backend IDs
-        function findByBackendId(data: TreeNodeData[], backendId: string): TreeNodeData | null {
-          for (const n of data) {
-            if (n.backendId === backendId) return n;
-            if (n.children) {
-              const found = findByBackendId(n.children, backendId);
-              if (found) return found;
-            }
-          }
-          return null;
-        }
+        const findByBackendId = (data: TreeNodeData[], backendId: string) =>
+          findNode(data, (n) => n.backendId === backendId);
 
         // Expand a single node: fetch children if not loaded, open in tree.
         // Updates treeDataRef directly so subsequent reads within this async
@@ -284,60 +266,18 @@ export function TreePanel() {
   }, [navError, dispatch]);
 
   /** Lazy-load children when a node is expanded for the first time. */
-  const handleToggle = useCallback(async (id: string) => {
-    if (!activeTabId) return;
-
-    // Find the node in tree data to check if children need loading
-    function findNode(data: TreeNodeData[], nodeId: string): TreeNodeData | null {
-      for (const n of data) {
-        if (n.id === nodeId) return n;
-        if (n.children) {
-          const found = findNode(n.children, nodeId);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
-    const node = findNode(treeDataRef.current, id);
-    if (!node) return;
-
-    // Only fetch if opening and children haven't been loaded yet
-    if (Array.isArray(node.children) && node.children.length === 0) {
-      // Cancel any pending timer
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setLoadingNodeId(null);
-
-      const generation = ++requestRef.current;
-      timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
-
-      try {
-        // Use backendId for API call, display id for tree state updates
-        const children = await GetChildren(activeTabId, node.backendId);
-        if (requestRef.current !== generation) return;
-        const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
-        setTreeData((prev) => {
-          const updated = updateNodeChildren(prev, id, mapped);
-          treeDataRef.current = updated;
-          if (activeTabId) {
-            const os = deriveOpenState(updated);
-            treeDataCache.current[activeTabId] = { data: updated, openState: os };
-          }
-          return updated;
-        });
-      } catch {
-        // Fetch failed -- keep children as [] so the node stays expandable
-        // and the user can retry by toggling again.
-      } finally {
-        if (requestRef.current === generation) {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = null;
-          setLoadingNodeId(null);
-        }
-      }
-    }
-    // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
-  }, [activeTabId, treeDataRef]);
+  const { loadingNodeId, toggle: handleToggle } = useLazyChildren(
+    activeTabId,
+    (id) => findNode(treeDataRef.current, (n) => n.id === id),
+    (tabId, id, mapped) => {
+      setTreeData((prev) => {
+        const updated = updateNodeChildren(prev, id, mapped);
+        treeDataRef.current = updated;
+        treeDataCache.current[tabId] = { data: updated, openState: deriveOpenState(updated) };
+        return updated;
+      });
+    },
+  );
 
   /** Dispatch SELECT_NODE on single-node selection. Uses backendId for API calls. */
   const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {

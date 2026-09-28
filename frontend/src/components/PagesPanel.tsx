@@ -7,8 +7,8 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
-import { GetChildren, GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { useAppDispatch, useAppState, type TreeNode } from '../hooks/useDocumentState';
+import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
 import {
@@ -16,8 +16,9 @@ import {
   RowStateContext,
   deriveOpenState,
   findDisplayId,
-  toTreeNodeData,
+  findNode,
   updateNodeChildren,
+  useLazyChildren,
   type TreeNodeData,
 } from './treeRows';
 
@@ -81,15 +82,8 @@ function buildRows(entries: PageIndexEntry[]): TreeNodeData[] {
   });
 }
 
-function findNode(data: TreeNodeData[], id: string): TreeNodeData | null {
-  for (const n of data) {
-    if (n.id === id) return n;
-    if (n.children) {
-      const found = findNode(n.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
+function findById(data: TreeNodeData[], id: string): TreeNodeData | null {
+  return findNode(data, (n) => n.id === id);
 }
 
 /**
@@ -118,10 +112,8 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestRef = useRef(0);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [jumpText, setJumpText] = useState('');
   const [jumpError, setJumpError] = useState<string | null>(null);
@@ -185,7 +177,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   }, [tabIdKey]);
 
   useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
   }, []);
 
   // A focus request (Cmd+G, Navigate > Go to Page) focuses the jump field
@@ -199,43 +191,27 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     el.select();
   }, [pagesJumpFocusVersion]);
 
-  const handleToggle = useCallback(async (id: string) => {
-    const tabId = activeTabId;
-    if (!tabId) return;
-    const current = cache.current[tabId];
-    const node = current ? findNode(current.data, id) : null;
-    if (!node || !Array.isArray(node.children) || node.children.length > 0) return;
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setLoadingNodeId(null);
-    const generation = ++requestRef.current;
-    timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
-    try {
-      const children = await GetChildren(tabId, node.backendId);
-      if (requestRef.current !== generation) return;
+  const { loadingNodeId, toggle: handleToggle } = useLazyChildren(
+    activeTabId,
+    (id) => {
+      const current = activeTabId ? cache.current[activeTabId] : undefined;
+      return current ? findById(current.data, id) : null;
+    },
+    (tabId, id, mapped) => {
       const target = cache.current[tabId];
       if (!target) return;
-      const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
       target.data = updateNodeChildren(target.data, id, mapped);
       target.openState = deriveOpenState(target.data);
       bump();
-    } catch {
-      // Keep children [] so the row stays expandable and a retry refetches.
-    } finally {
-      if (requestRef.current === generation) {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = null;
-        setLoadingNodeId(null);
-      }
-    }
-  }, [activeTabId]);
+    },
+  );
 
   // The row last selected here, so a page listed twice keeps the highlight
   // on the listing the user picked rather than the first one.
   const [pickedDisplayId, setPickedDisplayId] = useState<string | null>(null);
   const selectionDisplayId = useMemo(() => {
     if (!selectedNodeId || !data) return undefined;
-    if (pickedDisplayId && findNode(data, pickedDisplayId)?.backendId === selectedNodeId) return pickedDisplayId;
+    if (pickedDisplayId && findById(data, pickedDisplayId)?.backendId === selectedNodeId) return pickedDisplayId;
     return findDisplayId(data, selectedNodeId);
   }, [selectedNodeId, data, pickedDisplayId]);
   const selectionRef = useLatest(selectionDisplayId);
@@ -271,8 +247,12 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const pageTotal = numbered.length;
 
   function flash(displayId: string) {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     setFlashNodeId(displayId);
-    setTimeout(() => setFlashNodeId(null), 100);
+    flashTimerRef.current = setTimeout(() => {
+      flashTimerRef.current = null;
+      setFlashNodeId(null);
+    }, 100);
   }
 
   function handleJumpKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -321,8 +301,9 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   }
 
   const openMenu = useCallback((displayId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const node = dataRef.current ? findNode(dataRef.current, displayId) : null;
-    if (!node || node.backendId === '') return;
+    const node = dataRef.current ? findById(dataRef.current, displayId) : null;
+    // Unnumbered rows and error children have nothing the Structure tree can reveal.
+    if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return;
     treeRef.current?.select(displayId);
     setMenu({ x, y, backendId: node.backendId, returnFocus });
   }, [dataRef]);
@@ -392,7 +373,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     if (!menu) return;
     const target = menu.backendId;
     setMenu(null);
-    dispatch({ type: 'SELECT_LEFT_VIEW', payload: { view: 'structure' } });
+    // NAVIGATE_TO_REF also switches the rail to Structure and un-collapses it.
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: target } });
   }
 

@@ -805,3 +805,79 @@ describe('header count', () => {
     expect(panel.textContent).not.toContain('1 pages');
   });
 });
+
+describe('expanding a second row before the first returns', () => {
+  test('both rows receive their children', async () => {
+    const user = userEvent.setup();
+    let resolveFirst: (v: unknown) => void = () => {};
+    const thirdPageChildren = [{ ...pageChildren[0], id: 'dict:obj:0:14:Contents', objectRef: '15 0 R' }];
+    mockGetChildren.mockImplementation((_tab: string, id: string) =>
+      id === 'obj:0:3'
+        ? new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+        : Promise.resolve(thirdPageChildren),
+    );
+    renderLayout();
+    openTab();
+    const panel = await showPages(user);
+    await user.click(within(rowByText(panel, '1: Page')).getByText('>'));
+    await user.click(within(rowByText(panel, '3: Page')).getByText('>'));
+    await waitFor(() => expect(rowByText(panel, '[15 0 R]')).toBeDefined());
+
+    await act(async () => resolveFirst(pageChildren));
+    await waitFor(() => expect(rowByText(panel, '[4 0 R]')).toBeDefined());
+  });
+});
+
+describe('Show node in tree on an error child', () => {
+  test('right-clicking an error row inside an expanded page opens no menu', async () => {
+    const user = userEvent.setup();
+    mockGetChildren.mockResolvedValue([
+      {
+        id: 'error:obj:0:3:Resources',
+        label: 'Resources',
+        rawKey: '/Resources',
+        nodeType: 'error',
+        valueType: '',
+        hasChildren: false,
+        childCount: 0,
+        iconHint: 'default',
+        error: 'cannot resolve /Resources',
+      },
+    ]);
+    renderLayout();
+    openTab();
+    const panel = await showPages(user);
+    await user.click(within(rowByText(panel, '1: Page')).getByText('>'));
+    const errorRow = await waitFor(() => rowByText(panel, 'Resources'));
+    fireEvent.contextMenu(errorRow);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+describe('jump flash', () => {
+  test('a second jump within the flash window keeps its own full flash', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    const panel = await showPages(user);
+    const field = jumpField(panel);
+    const flashing = (text: string) => rowByText(panel, text).className.includes('ring-2');
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(field, { target: { value: '1' } });
+      fireEvent.keyDown(field, { key: 'Enter' });
+      act(() => vi.advanceTimersByTime(60));
+      fireEvent.change(field, { target: { value: '3' } });
+      fireEvent.keyDown(field, { key: 'Enter' });
+      act(() => vi.advanceTimersByTime(60));
+      expect(flashing('3: Page')).toBe(true);
+      act(() => vi.advanceTimersByTime(50));
+      expect(flashing('3: Page')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

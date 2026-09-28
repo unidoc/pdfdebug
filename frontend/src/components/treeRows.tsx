@@ -1,13 +1,15 @@
 /**
  * @file Tree row pieces shared by the Structure tree and the Pages navigator:
- * the react-arborist data shape, its builders and updaters, and the row
- * renderer. Both navigators render rows through NodeRenderer so they read
+ * the react-arborist data shape, its builders, lookups and updaters, the
+ * lazy child loader, and the row renderer. Both navigators render rows through NodeRenderer so they read
  * identically.
  */
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { NodeRendererProps } from 'react-arborist';
+import { GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import type { TreeNode } from '../hooks/useDocumentState';
+import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 
 /**
@@ -119,16 +121,80 @@ export function deriveOpenState(data: TreeNodeData[]): Record<string, boolean> {
   return state;
 }
 
-/** Map a backend node id to its react-arborist display id by walking the tree. */
-export function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
+/** Depth-first search for the first node matching `match`. */
+export function findNode(data: TreeNodeData[], match: (node: TreeNodeData) => boolean): TreeNodeData | null {
   for (const n of data) {
-    if (n.backendId === backendId) return n.id;
+    if (match(n)) return n;
     if (n.children) {
-      const found = findDisplayId(n.children, backendId);
+      const found = findNode(n.children, match);
       if (found) return found;
     }
   }
-  return undefined;
+  return null;
+}
+
+/** Map a backend node id to its react-arborist display id by walking the tree. */
+export function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
+  return findNode(data, (n) => n.backendId === backendId)?.id;
+}
+
+/**
+ * Lazy-loads a row's children the first time it is expanded. Each row keeps
+ * its own request generation, so expanding a second row before the first
+ * returns does not discard the first row's children; re-expanding the same
+ * row supersedes its earlier request. The spinner shows after 200ms for the
+ * most recent request only. `getNode` finds a row by display id in the
+ * current tab's data; `applyChildren` stores the fetched children for the tab
+ * the request was made in.
+ */
+export function useLazyChildren(
+  tabId: string | null,
+  getNode: (id: string) => TreeNodeData | null,
+  applyChildren: (tabId: string, id: string, children: TreeNodeData[]) => void,
+): { loadingNodeId: string | null; toggle: (id: string) => Promise<void> } {
+  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
+  // Delays the spinner by 200ms to avoid flicker on fast loads.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spinnerOwner = useRef<object | null>(null);
+  const generations = useRef(new Map<string, number>());
+  const getNodeRef = useLatest(getNode);
+  const applyRef = useLatest(applyChildren);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const toggle = useCallback(async (id: string) => {
+    if (!tabId) return;
+    const node = getNodeRef.current(id);
+    if (!node || !Array.isArray(node.children) || node.children.length > 0) return;
+
+    const key = `${tabId}\n${id}`;
+    const generation = (generations.current.get(key) ?? 0) + 1;
+    generations.current.set(key, generation);
+    const owner = {};
+    spinnerOwner.current = owner;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setLoadingNodeId(null);
+    timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
+    try {
+      const children = await GetChildren(tabId, node.backendId);
+      if (generations.current.get(key) !== generation) return;
+      const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
+      applyRef.current(tabId, id, mapped);
+    } catch {
+      // Keep children [] so the row stays expandable and a retry refetches.
+    } finally {
+      if (spinnerOwner.current === owner) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = null;
+        spinnerOwner.current = null;
+        setLoadingNodeId(null);
+      }
+    }
+  }, [tabId, getNodeRef, applyRef]);
+
+  return { loadingNodeId, toggle };
 }
 
 /** Recursively find a node by ID and replace its children immutably. */
