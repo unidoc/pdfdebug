@@ -2,7 +2,7 @@
 //
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
-// source, reverserefs, xref, objects, bytes, embedded, metadata, and
+// source, reverserefs, xref, objects, pages, bytes, embedded, metadata, and
 // signatures, plus the top-level `validate` command (bounded structural
 // PDF/A-1b and PDF/UA-1 conformance checks).
 //
@@ -17,7 +17,8 @@
 // Stderr, per exit path (dump subcommands):
 //
 //	0 - usually empty. A structurally damaged but parseable file draws a JSON
-//	    warning object; a non-fatal degradation draws a plain-text line - a
+//	    warning object, and so does `dump pages` when the page tree's leaf
+//	    count disagrees with the root /Count; a non-fatal degradation draws a plain-text line - a
 //	    `warning:` for a failed --resolve in `dump tree` / `dump object` and
 //	    for an unavailable Do classification in `dump stream --ops`, and a bare
 //	    "page has no content stream" note from `dump stream --ops`

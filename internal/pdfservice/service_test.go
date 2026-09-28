@@ -575,3 +575,32 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 	}
 }
 
+
+func TestGetPageIndexDelegatesToInspector(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	got, err := svc.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPageIndex: %v", err)
+	}
+	want, err := svc.inspector.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("inspector GetPageIndex: %v", err)
+	}
+	if len(got) == 0 || len(got) != len(want) || got[0] != want[0] {
+		t.Errorf("service returned %d entries, inspector %d; want the same cached slice", len(got), len(want))
+	}
+	if len(got) != info.PageCount {
+		t.Errorf("got %d entries for a %d-page document", len(got), info.PageCount)
+	}
+}
+
+func TestGetPageIndexUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	if _, err := svc.GetPageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}

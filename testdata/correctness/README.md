@@ -201,10 +201,10 @@ one extracted stream's bytes must instead compare against the concatenation.
 - `/Contents` given as an indirect ref to an array (`/Contents 6 0 R` where obj6
   is `[4 0 R 5 0 R]`): errors visibly (`node is not a stream object`, exit 2)
   rather than concatenating - pdfcpu does not pre-dereference `/Contents`.
-- GUI "Go to Page" still lands on the first content stream alone: `GoToPage`
-  returns `GetPageContentStreamNodeID` (a single tree node) and `DetailPanel`
-  fetches it via `GetContentStream`. `GetPageContentStream` is not yet bound
-  into `pdfservice`, so the concatenation fix is CLI-only for now.
+- The GUI has no whole-page content view. Go to Page (Cmd+G) now opens the
+  Pages navigator, whose rows are the `/Page` dicts; a page's content streams
+  are its `/Contents` children, each shown on its own. `GetPageContentStream`
+  is not bound into `pdfservice`, so the concatenation fix is CLI-only for now.
 
 ## text-string-encoding.pdf
 

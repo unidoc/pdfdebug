@@ -44,6 +44,7 @@ type inspectorAPI interface {
 	GetReverseRefs(tabID string, nodeID string) ([]pdfcore.ReverseRef, error)
 	GetPageContentStreamNodeID(tabID string, pageNum int) (string, error)
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
+	GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
 	GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error)
 	GetPlainTextSize(tabID string) (int64, error)
@@ -342,6 +343,20 @@ func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, 
 	func() {
 		defer recoverRuntimePanic("GetObjectIndex", &err)
 		result, err = s.inspector.GetObjectIndex(tabID)
+	}()
+	return result, err
+}
+
+// GetPageIndex returns the page index for the document in tabID: one entry per
+// page leaf in document order, plus unnumbered rows for page-tree entries that
+// are not pages. Powers the Pages navigator. Lazy on first call, cached per
+// document state.
+func (s *PDFService) GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error) {
+	var result []*pdfcore.PageIndexEntry
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetPageIndex", &err)
+		result, err = s.inspector.GetPageIndex(tabID)
 	}()
 	return result, err
 }

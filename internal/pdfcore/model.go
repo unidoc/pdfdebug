@@ -49,6 +49,38 @@ type ObjectIndexEntry struct {
 	NodeID    string `json:"nodeId"`    // "obj:<gen>:<num>" for reachable; "" for free/orphan
 }
 
+// PageIndexEntry is one row in the per-document page index produced by
+// Inspector.GetPageIndex: a page leaf of the page tree in document order, or an
+// unnumbered row for a page-tree entry that is not a page. It carries object
+// references and dictionary-level scalars only, never stream bytes.
+type PageIndexEntry struct {
+	PageNum       int        `json:"pageNum"`       // 1-based; 0 on a row that is not a page
+	ObjNum        int        `json:"objNum"`        // 0 when the row has no object reference
+	Gen           int        `json:"gen"`           // generation of ObjNum
+	NodeID        string     `json:"nodeId"`        // the /Page dict node, "obj:<gen>:<num>"; "" without a reference
+	ContentNodeID string     `json:"contentNodeId"` // first /Contents stream node; "" when there is none
+	MediaBox      [4]float64 `json:"mediaBox"`      // own or inherited; zero when missing or malformed
+	Rotate        int        `json:"rotate"`        // own or inherited /Rotate, as stored
+	Inherited     uint8      `json:"inherited"`     // Inherited* bits for attributes taken from an ancestor
+	AnnotCount    int        `json:"annotCount"`    // length of /Annots; 0 when absent
+	ContentLen    int64      `json:"contentLen"`    // sum of /Length over /Contents; -1 when unreadable
+	Err           string     `json:"error"`         // "" when the row resolved cleanly
+}
+
+// Bits of PageIndexEntry.Inherited, one per inheritable page attribute
+// (ISO 32000-1 7.7.3.4). A set bit means the page declares no value of its
+// own and the value came from a /Pages ancestor.
+const (
+	// InheritedResources marks a /Resources taken from an ancestor.
+	InheritedResources uint8 = 1 << iota
+	// InheritedMediaBox marks a /MediaBox taken from an ancestor.
+	InheritedMediaBox
+	// InheritedCropBox marks a /CropBox taken from an ancestor.
+	InheritedCropBox
+	// InheritedRotate marks a /Rotate taken from an ancestor.
+	InheritedRotate
+)
+
 // ObjectDetail holds the full inspection data for a single PDF object.
 type ObjectDetail struct {
 	NodeID      string          `json:"nodeId"`

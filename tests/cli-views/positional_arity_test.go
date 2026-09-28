@@ -59,6 +59,7 @@ var positionalCases = []positionalCase{
 	{"dump reverserefs", []string{"dump", "reverserefs"}, []string{"--ref", "2 0 R"}, []string{"--ref", "not a ref"}, "invalid reference format", "minimal.pdf", 1, "Usage: pdfdebug dump reverserefs", 1},
 	{"dump xref", []string{"dump", "xref"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump xref", 1},
 	{"dump objects", []string{"dump", "objects"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump objects", 1},
+	{"dump pages", []string{"dump", "pages"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump pages", 1},
 	{"dump bytes", []string{"dump", "bytes"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump bytes", 1},
 	{"dump embedded", []string{"dump", "embedded"}, nil, []string{"--ref", "1 0 R", "--name", "attachment.xml"}, "mutually exclusive", "minimal.pdf", 1, "Usage: pdfdebug dump embedded", 1},
 	{"dump metadata", []string{"dump", "metadata"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump metadata", 1},
