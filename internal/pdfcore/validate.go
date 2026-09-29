@@ -698,20 +698,19 @@ const maxDeviceColorFormDepth = 8
 // firewall; veraPDF is the authoritative oracle.
 func documentUsesDeviceColor(doc *DocumentState) bool {
 	// Pages come from the page-index walk, so a /Type /Page carrying /Kids is
-	// scanned as the page it is.
-	var pages []*pageLeaf
-	_ = safeCall(func() error {
-		pages = allPages(doc.PDFContext)
-		return nil
-	})
-	for _, page := range pages {
-		pageDict := page.dict
-		for _, sd := range pageContentStreams(doc, pageDict) {
+	// scanned as the page it is, with its inherited /Resources.
+	// A walk that failed part way still lists the pages it reached.
+	t, _ := doc.pageTree()
+	for _, page := range t.leaves {
+		if page.err != nil {
+			continue
+		}
+		for _, sd := range pageContentStreams(doc, page.dict) {
 			if streamUsesDeviceColor(sd) {
 				return true
 			}
 		}
-		if formsUseDeviceColor(doc, asDict(dereference(doc, pageDict["Resources"])), 0) {
+		if formsUseDeviceColor(doc, asDict(dereference(doc, page.attrs.resources)), 0) {
 			return true
 		}
 	}

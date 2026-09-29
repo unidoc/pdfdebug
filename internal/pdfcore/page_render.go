@@ -55,22 +55,20 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 	// attributes (MediaBox, CropBox, Rotate, Resources) down the /Pages
 	// ancestors. A missing page reads "page N not found"; a page whose
 	// attributes cannot be read names the attribute instead.
-	var leaf *pageLeaf
-	var inh *pdfcpu_model.InheritedPageAttrs
-	var attrErr error
-	err = safeCall(func() error {
-		leaf = findPage(doc.PDFContext, pageNum)
-		if leaf == nil {
-			return nil
-		}
-		inh, attrErr = inheritedPageAttrs(doc.PDFContext, leaf)
-		return nil
-	})
+	leaf, err := doc.findPage(pageNum)
 	if err != nil {
-		return nil, fmt.Errorf("page %d: %w", pageNum, wrapPDFError(err))
+		return nil, fmt.Errorf("page %d: %w", pageNum, err)
 	}
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
+	}
+	var inh *pdfcpu_model.InheritedPageAttrs
+	var attrErr error
+	if err := safeCall(func() error {
+		inh, attrErr = inheritedPageAttrs(doc.PDFContext, leaf)
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("page %d: %w", pageNum, wrapPDFError(err))
 	}
 	if attrErr != nil {
 		return nil, fmt.Errorf("page %d: %w", pageNum, attrErr)

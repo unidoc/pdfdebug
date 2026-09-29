@@ -14,29 +14,75 @@ import (
 // (PageNum 0, Err set) for every page-tree entry that is not a page. Built by a
 // single depth-first walk from the catalog's /Pages on first call and cached on
 // the per-tab DocumentState; a re-Open under the same tabID replaces the
-// DocumentState, and with it the cache. A malformed page tree yields rows
-// carrying Err, never a failed call. A document with no pages returns a non-nil empty slice.
+// DocumentState, and with it the cache. A malformed page tree, including a
+// node pdfcpu fails to read, yields rows carrying Err, not a failed call. A
+// document with no pages returns a non-nil empty slice.
 func (ins *Inspector) GetPageIndex(tabID string) ([]*PageIndexEntry, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
 	// Serialize pdfcpu access. Outer lock; the pageIndex cache mutex (inner)
-	// guards the cached slice.
+	// guards the cached walk.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	return doc.pageIndex.get(func() ([]*PageIndexEntry, error) {
-		var entries []*PageIndexEntry
-		err := safeCall(func() error {
-			entries = buildPageIndex(doc.PDFContext)
+	t, err := doc.pageTree()
+	if err != nil {
+		return nil, err
+	}
+	return t.entries, nil
+}
+
+// pageTree is the result of one page-tree walk: the index rows, and every
+// numbered page in document order, so leaves[n-1] is page n. err is set only
+// when the walk failed outside any page-tree node (each node is read under its
+// own guard); leaves then holds the pages reached before the failure.
+type pageTree struct {
+	entries []*PageIndexEntry
+	leaves  []*pageLeaf
+	err     error
+}
+
+// pageTree returns the cached walk of d's page tree, building it on first
+// use. A walk that failed part way is cached too, with its error, so the
+// failure is paid once per document: the build itself never returns an error
+// (lazyCache would not cache one), the failure travels in the value. The
+// returned tree is never nil. Callers hold pdfMu.
+func (d *DocumentState) pageTree() (*pageTree, error) {
+	t, _ := d.pageIndex.get(func() (*pageTree, error) {
+		w := newPageWalker(d.PDFContext)
+		t := &pageTree{}
+		if err := safeCall(func() error {
+			w.walk()
 			return nil
-		})
-		if err != nil {
-			return nil, wrapPDFError(err)
+		}); err != nil {
+			t.err = wrapPDFError(err)
 		}
-		return entries, nil
+		t.entries, t.leaves = w.entries, w.leaves
+		return t, nil
 	})
+	return t, t.err
+}
+
+// findPage returns page pageNum as GetPageIndex numbers it, so page-number
+// lookups agree with `dump pages` and with viewers (a /Type /Page carrying
+// /Kids is still a page). Nil when no page has that number. After a walk that
+// failed part way, a page it reached still resolves and a later number returns
+// the walk's error. Callers hold pdfMu.
+func (d *DocumentState) findPage(pageNum int) (*pageLeaf, error) {
+	if pageNum < 1 {
+		return nil, nil
+	}
+	t, err := d.pageTree()
+	if pageNum <= len(t.leaves) {
+		leaf := t.leaves[pageNum-1]
+		if leaf.err != nil {
+			return nil, leaf.err
+		}
+		return leaf, nil
+	}
+	return nil, err
 }
 
 // maxPageTreeDepth caps how many intermediate nodes one descent path may
@@ -45,13 +91,38 @@ func (ins *Inspector) GetPageIndex(tabID string) ([]*PageIndexEntry, error) {
 // safeCall cannot recover.
 const maxPageTreeDepth = 1024
 
-// pageAttrs holds the nearest-ancestor value of each inheritable page
-// attribute (ISO 32000-1 7.7.3.4); nil when no ancestor declares it.
+// pageAttrs holds the resolved value of each inheritable page attribute (ISO
+// 32000-1 7.7.3.4) in effect at a node; nil when neither the node nor an
+// ancestor declares it. unresolvedAt names, per attribute in inheritableAttrs
+// order, the nearest node whose own entry resolves to nothing (a missing or
+// null object) when no nearer node supplies a value; "" otherwise.
 type pageAttrs struct {
-	resources pdfcpu_types.Object
-	mediaBox  pdfcpu_types.Object
-	cropBox   pdfcpu_types.Object
-	rotate    pdfcpu_types.Object
+	resources    pdfcpu_types.Object
+	mediaBox     pdfcpu_types.Object
+	cropBox      pdfcpu_types.Object
+	rotate       pdfcpu_types.Object
+	unresolvedAt [4]string
+}
+
+// Positions of the inheritable attributes in inheritableAttrs and
+// pageAttrs.unresolvedAt.
+const (
+	attrResources = iota
+	attrMediaBox
+	attrCropBox
+	attrRotate
+)
+
+// inheritableAttrs gives each inheritable attribute's key and Inherited bit,
+// indexed by the attr constants.
+var inheritableAttrs = [4]struct {
+	key string
+	bit uint8
+}{
+	attrResources: {"Resources", InheritedResources},
+	attrMediaBox:  {"MediaBox", InheritedMediaBox},
+	attrCropBox:   {"CropBox", InheritedCropBox},
+	attrRotate:    {"Rotate", InheritedRotate},
 }
 
 // pageWalker carries the state of one page-tree walk.
@@ -70,44 +141,20 @@ type pageWalker struct {
 	next      int
 	// depth counts the intermediate nodes on the current descent path.
 	depth int
-	// want, when positive, is the page number findPage is looking for; the
-	// walk records that page in found and stops descending.
-	want  int
-	found *pageLeaf
-	// collect makes the walk record every numbered page in leaves instead of
-	// building rows (allPages).
-	collect bool
-	leaves  []*pageLeaf
+	// leaves holds every numbered page in document order.
+	leaves []*pageLeaf
 }
 
-// pageLeaf is one numbered page found by findPage: its dictionary, its
+// pageLeaf is one numbered page from the page-tree walk: its dictionary, its
 // reference (nil for a direct dictionary) and each inheritable attribute in
 // effect - the page's own value, else the nearest ancestor's, else nil.
 type pageLeaf struct {
 	dict  pdfcpu_types.Dict
 	ref   *pdfcpu_types.IndirectRef
 	attrs pageAttrs
-}
-
-// findPage returns the page numbered pageNum by the same walk and numbering
-// as GetPageIndex, so page-number lookups agree with `dump pages` and with
-// viewers (a /Type /Page carrying /Kids is still a page). Nil when no page has
-// that number. Callers hold pdfMu and wrap the call in safeCall.
-func findPage(ctx *pdfcpu_model.Context, pageNum int) *pageLeaf {
-	if pageNum < 1 {
-		return nil
-	}
-	w := newPageWalker(ctx)
-	w.want = pageNum
-	w.walk()
-	return w.found
-}
-
-// buildPageIndex walks the page tree of ctx from the catalog's /Pages. No
-// /Pages, or a /Pages that is not a dictionary, yields an empty slice.
-func buildPageIndex(ctx *pdfcpu_model.Context) []*PageIndexEntry {
-	w := newPageWalker(ctx)
-	return w.walk()
+	// err is set when pdfcpu failed while reading the page; attrs is then
+	// incomplete and lookups report err.
+	err error
 }
 
 func newPageWalker(ctx *pdfcpu_model.Context) *pageWalker {
@@ -120,35 +167,50 @@ func newPageWalker(ctx *pdfcpu_model.Context) *pageWalker {
 	}
 }
 
-// walk visits the page tree from the catalog's /Pages and returns the rows.
-func (w *pageWalker) walk() []*PageIndexEntry {
+// walk visits the page tree from the catalog's /Pages, filling w.entries and
+// w.leaves. No /Pages, or a /Pages that is not a dictionary, yields neither.
+func (w *pageWalker) walk() {
 	ctx := w.ctx
 	if ctx == nil || ctx.XRefTable == nil {
-		return w.entries
+		return
 	}
 	catalog, err := ctx.Catalog()
 	if err != nil || catalog == nil {
-		return w.entries
+		return
 	}
 	rootObj, found := catalog.Find("Pages")
 	if !found || rootObj == nil {
-		return w.entries
+		return
 	}
 	var ref *pdfcpu_types.IndirectRef
 	if r, ok := rootObj.(pdfcpu_types.IndirectRef); ok {
 		ref = &r
 	}
-	root, ok := w.deref(rootObj).(pdfcpu_types.Dict)
+	root, ok := derefIn(w.ctx, rootObj).(pdfcpu_types.Dict)
 	if !ok {
-		return w.entries
+		return
 	}
-	w.visitNode(root, ref, pageAttrs{})
-	return w.entries
+	guard(func() { w.visitNode(root, ref, pageAttrs{}) }, func(msg string) {
+		w.entries = append(w.entries, errorRow(ref, "the page tree could not be read: "+msg))
+	})
 }
 
-// deref resolves o, returning nil for a dangling reference or a resolve error.
-func (w *pageWalker) deref(o pdfcpu_types.Object) pdfcpu_types.Object {
-	v, err := w.ctx.Dereference(o)
+// guard runs fn and, when pdfcpu panics inside it, reports the panic through
+// fail and returns, so one unreadable node does not end the page-tree walk.
+// Go runtime errors are not recovered (see safeCall).
+func guard(fn func(), fail func(msg string)) {
+	if err := safeCall(func() error {
+		fn()
+		return nil
+	}); err != nil {
+		fail(err.Error())
+	}
+}
+
+// derefIn resolves o in ctx, returning nil for a dangling reference or a
+// resolve error.
+func derefIn(ctx *pdfcpu_model.Context, o pdfcpu_types.Object) pdfcpu_types.Object {
+	v, err := ctx.Dereference(o)
 	if err != nil {
 		return nil
 	}
@@ -161,7 +223,7 @@ func (w *pageWalker) deref(o pdfcpu_types.Object) pdfcpu_types.Object {
 // /Pages without /Kids is an unnumbered error row; anything else is a page
 // leaf.
 func (w *pageWalker) visitNode(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) {
-	typ := nameOf(w.deref(d["Type"]))
+	typ := nameOf(derefIn(w.ctx, d["Type"]))
 	if typ == "Page" {
 		w.visitLeaf(d, ref, inherited)
 		return
@@ -198,31 +260,21 @@ func (w *pageWalker) visitIntermediate(d pdfcpu_types.Dict, ref *pdfcpu_types.In
 		defer delete(w.onPath, num)
 	}
 
-	kids, ok := w.deref(kidsObj).(pdfcpu_types.Array)
+	kids, ok := derefIn(w.ctx, kidsObj).(pdfcpu_types.Array)
 	if !ok {
-		w.entries = append(w.entries, errorRow(ref, fmt.Sprintf("/Kids is not an array: %s", typeLabel(w.deref(kidsObj)))))
+		w.entries = append(w.entries, errorRow(ref, fmt.Sprintf("/Kids is not an array: %s", typeLabel(derefIn(w.ctx, kidsObj)))))
 		return
 	}
 
-	frame := inherited
-	if v, ok := d.Find("Resources"); ok && v != nil {
-		frame.resources = v
-	}
-	if v, ok := d.Find("MediaBox"); ok && v != nil {
-		frame.mediaBox = v
-	}
-	if v, ok := d.Find("CropBox"); ok && v != nil {
-		frame.cropBox = v
-	}
-	if v, ok := d.Find("Rotate"); ok && v != nil {
-		frame.rotate = v
-	}
-
+	frame, _, _ := effectiveAttrs(w.ctx, d, ref, inherited)
 	for i, kid := range kids {
-		if w.found != nil {
-			return
-		}
-		w.visitKid(i, kid, frame)
+		guard(func() { w.visitKid(i, kid, frame) }, func(msg string) {
+			var kidRef *pdfcpu_types.IndirectRef
+			if r, ok := kid.(pdfcpu_types.IndirectRef); ok {
+				kidRef = &r
+			}
+			w.entries = append(w.entries, errorRow(kidRef, fmt.Sprintf("/Kids entry %d could not be read: %s", i, msg)))
+		})
 	}
 }
 
@@ -247,7 +299,7 @@ func (w *pageWalker) visitKid(index int, kid pdfcpu_types.Object, inherited page
 		w.entries = append(w.entries, errorRow(&ref, fmt.Sprintf("/Kids entry %d (%s) points at an ancestor: page tree cycle", index, ref.String())))
 		return
 	}
-	resolved := w.deref(ref)
+	resolved := derefIn(w.ctx, ref)
 	if resolved == nil {
 		w.entries = append(w.entries, errorRow(&ref, fmt.Sprintf("/Kids entry %d (%s) is a dangling reference", index, ref.String())))
 		return
@@ -260,27 +312,33 @@ func (w *pageWalker) visitKid(index int, kid pdfcpu_types.Object, inherited page
 	w.visitNode(d, &ref, inherited)
 }
 
-// visitLeaf numbers a page leaf and records its attributes. Problems on the
-// page set Err without unnumbering it. When findPage is looking for a page,
-// leaves before it are only counted and the wanted one is captured.
+// visitLeaf numbers a page leaf and records it in w.leaves together with its
+// row, so a page resolves by number exactly when the index lists it. Problems
+// on the page set Err without unnumbering it; a pdfcpu panic while reading the
+// page keeps its number and marks both the row and the leaf.
 func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) {
 	w.next++
-	eff := effectiveAttrs(d, inherited)
-	if w.collect {
-		w.leaves = append(w.leaves, &pageLeaf{dict: d, ref: ref, attrs: eff})
-		return
-	}
-	if w.want > 0 {
-		if w.next == w.want && w.found == nil {
-			w.found = &pageLeaf{dict: d, ref: ref, attrs: eff}
-		}
-		return
-	}
-
 	e := &PageIndexEntry{PageNum: w.next}
-	var errs []string
 	if ref != nil {
 		setRef(e, ref)
+	}
+	leaf := &pageLeaf{dict: d, ref: ref}
+	guard(func() { w.fillLeaf(d, ref, inherited, e, leaf) }, func(msg string) {
+		e.Err = "page could not be read: " + msg
+		leaf.err = fmt.Errorf("page %d could not be read: %s", e.PageNum, msg)
+	})
+	w.leaves = append(w.leaves, leaf)
+	w.entries = append(w.entries, e)
+}
+
+// fillLeaf reads a page's attributes into its row e and its leaf.
+func (w *pageWalker) fillLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs, e *PageIndexEntry, leaf *pageLeaf) {
+	eff, inheritedBits, ownUnresolved := effectiveAttrs(w.ctx, d, ref, inherited)
+	leaf.attrs = eff
+	e.Inherited = inheritedBits
+
+	var errs []string
+	if ref != nil {
 		num := ref.ObjectNumber.Value()
 		if first, seen := w.firstPage[num]; seen {
 			errs = append(errs, fmt.Sprintf("page object also listed as page %d", first))
@@ -291,7 +349,7 @@ func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 		errs = append(errs, "page is a direct dictionary, not an indirect reference")
 	}
 
-	switch t := w.deref(d["Type"]); {
+	switch t := derefIn(w.ctx, d["Type"]); {
 	case t == nil:
 		errs = append(errs, "page has no /Type")
 	case nameOf(t) != "Page":
@@ -301,36 +359,37 @@ func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 		errs = append(errs, "page has a /Kids entry; its kids are not walked")
 	}
 
-	// An attribute is inherited when the page has none of its own and an
-	// ancestor supplies one.
-	for _, a := range []struct {
-		key      string
-		ancestor pdfcpu_types.Object
-		bit      uint8
-	}{
-		{"Resources", inherited.resources, InheritedResources},
-		{"MediaBox", inherited.mediaBox, InheritedMediaBox},
-		{"CropBox", inherited.cropBox, InheritedCropBox},
-		{"Rotate", inherited.rotate, InheritedRotate},
-	} {
-		if ownEntry(d, a.key) == nil && a.ancestor != nil {
-			e.Inherited |= a.bit
+	for i, a := range inheritableAttrs {
+		at := eff.unresolvedAt[i]
+		if at == "" {
+			continue
 		}
+		msg := fmt.Sprintf("/%s on %s resolves to nothing", a.key, at)
+		if ownUnresolved&a.bit != 0 {
+			msg = fmt.Sprintf("/%s resolves to nothing", a.key)
+		}
+		if inheritedBits&a.bit != 0 {
+			msg += "; inherited value used"
+		}
+		errs = append(errs, msg)
 	}
 
 	if eff.mediaBox == nil {
-		errs = append(errs, "no /MediaBox, own or inherited")
-	} else if box, ok := w.rect(eff.mediaBox); ok {
+		// An entry that resolves to nothing has already been named above.
+		if eff.unresolvedAt[attrMediaBox] == "" {
+			errs = append(errs, "no /MediaBox, own or inherited")
+		}
+	} else if box, ok := readRect(w.ctx, eff.mediaBox); ok {
 		e.MediaBox = box
 	} else {
 		errs = append(errs, "/MediaBox is not an array of four numbers")
 	}
 
 	if eff.rotate != nil {
-		n, integer, ok := w.rotation(eff.rotate)
+		n, integer, ok := readRotation(w.ctx, eff.rotate)
 		switch {
 		case !ok:
-			errs = append(errs, "/Rotate is not an integer")
+			errs = append(errs, "/Rotate is not a number")
 		case !integer:
 			e.Rotate = n
 			errs = append(errs, fmt.Sprintf("/Rotate is not an integer; read as %d", n))
@@ -339,14 +398,13 @@ func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 		}
 	}
 
-	if annots, ok := w.deref(ownEntry(d, "Annots")).(pdfcpu_types.Array); ok {
+	if annots, ok := derefIn(w.ctx, ownEntry(d, "Annots")).(pdfcpu_types.Array); ok {
 		e.AnnotCount = len(annots)
 	}
 
 	errs = append(errs, w.contents(ownEntry(d, "Contents"), e)...)
 
 	e.Err = strings.Join(errs, "; ")
-	w.entries = append(w.entries, e)
 }
 
 // ownEntry returns d's own value for key, nil when absent.
@@ -358,28 +416,52 @@ func ownEntry(d pdfcpu_types.Dict, key string) pdfcpu_types.Object {
 	return v
 }
 
-// effectiveAttrs applies page-attribute inheritance: each attribute is the
-// page's own value, else the nearest ancestor's, else nil.
-func effectiveAttrs(d pdfcpu_types.Dict, inherited pageAttrs) pageAttrs {
-	pick := func(key string, ancestor pdfcpu_types.Object) pdfcpu_types.Object {
-		if v := ownEntry(d, key); v != nil {
-			return v
+// effectiveAttrs applies page-attribute inheritance at node d (reference ref,
+// nil for a direct dictionary): each attribute is the node's own value, else
+// the nearest ancestor's, else nil, stored resolved (readers still dereference
+// elements inside an array). An own entry that resolves to nothing (a missing
+// or null object, which ISO 32000-1 7.3.10 reads as null) counts as absent, so
+// the ancestor's value applies; the node is recorded in unresolvedAt so a page
+// row can name it. bits reports which attributes came from an ancestor, and
+// ownUnresolved which of d's own entries resolved to nothing.
+func effectiveAttrs(ctx *pdfcpu_model.Context, d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) (eff pageAttrs, bits, ownUnresolved uint8) {
+	eff.unresolvedAt = inherited.unresolvedAt
+	pick := func(i int, ancestor pdfcpu_types.Object) pdfcpu_types.Object {
+		a := inheritableAttrs[i]
+		if v := ownEntry(d, a.key); v != nil {
+			if r := derefIn(ctx, v); r != nil {
+				eff.unresolvedAt[i] = ""
+				return r
+			}
+			ownUnresolved |= a.bit
+			eff.unresolvedAt[i] = nodeLabel(ref)
+		}
+		if ancestor != nil {
+			bits |= a.bit
 		}
 		return ancestor
 	}
-	return pageAttrs{
-		resources: pick("Resources", inherited.resources),
-		mediaBox:  pick("MediaBox", inherited.mediaBox),
-		cropBox:   pick("CropBox", inherited.cropBox),
-		rotate:    pick("Rotate", inherited.rotate),
-	}
+	eff.resources = pick(attrResources, inherited.resources)
+	eff.mediaBox = pick(attrMediaBox, inherited.mediaBox)
+	eff.cropBox = pick(attrCropBox, inherited.cropBox)
+	eff.rotate = pick(attrRotate, inherited.rotate)
+	return eff, bits, ownUnresolved
 }
 
-// rotation reads /Rotate. An integer is taken as is; a real is rounded to the
-// nearest integer and reported as not an integer. ok is false for anything
+// nodeLabel names a page-tree node for a message: its reference, or "a direct
+// dictionary" when it has none.
+func nodeLabel(ref *pdfcpu_types.IndirectRef) string {
+	if ref == nil {
+		return "a direct dictionary"
+	}
+	return refString(*ref)
+}
+
+// readRotation reads /Rotate. An integer is taken as is; a real is rounded to
+// the nearest integer and reported as not an integer. ok is false for anything
 // that is not a number.
-func (w *pageWalker) rotation(o pdfcpu_types.Object) (n int, integer, ok bool) {
-	switch v := w.deref(o).(type) {
+func readRotation(ctx *pdfcpu_model.Context, o pdfcpu_types.Object) (n int, integer, ok bool) {
+	switch v := derefIn(ctx, o).(type) {
 	case pdfcpu_types.Integer:
 		return v.Value(), true, true
 	case pdfcpu_types.Float:
@@ -392,16 +474,6 @@ func (w *pageWalker) rotation(o pdfcpu_types.Object) (n int, integer, ok bool) {
 	return 0, false, false
 }
 
-// allPages returns every numbered page in document order by the same walk and
-// numbering as GetPageIndex, in one pass. Callers hold pdfMu and wrap the call
-// in safeCall.
-func allPages(ctx *pdfcpu_model.Context) []*pageLeaf {
-	w := newPageWalker(ctx)
-	w.collect = true
-	w.walk()
-	return w.leaves
-}
-
 // inheritedPageAttrs resolves a found page's effective attributes into
 // pdfcpu's InheritedPageAttrs shape: the /Resources dictionary, the /MediaBox
 // and /CropBox rectangles (nil when absent), and /Rotate (a real rounded to the
@@ -409,10 +481,8 @@ func allPages(ctx *pdfcpu_model.Context) []*pageLeaf {
 // reads them. A present but malformed attribute is an error. Callers hold
 // pdfMu and wrap the call in safeCall.
 func inheritedPageAttrs(ctx *pdfcpu_model.Context, leaf *pageLeaf) (*pdfcpu_model.InheritedPageAttrs, error) {
-	w := &pageWalker{ctx: ctx}
 	out := &pdfcpu_model.InheritedPageAttrs{}
-	// A /Resources that resolves to nothing (a dangling reference) is absent.
-	if r := w.deref(leaf.attrs.resources); r != nil {
+	if r := derefIn(ctx, leaf.attrs.resources); r != nil {
 		d, ok := r.(pdfcpu_types.Dict)
 		if !ok {
 			return nil, fmt.Errorf("/Resources is not a dictionary")
@@ -423,7 +493,7 @@ func inheritedPageAttrs(ctx *pdfcpu_model.Context, leaf *pageLeaf) (*pdfcpu_mode
 		if o == nil {
 			return nil, nil
 		}
-		v, ok := w.rect(o)
+		v, ok := readRect(ctx, o)
 		if !ok {
 			return nil, fmt.Errorf("/%s is not an array of four numbers", name)
 		}
@@ -437,7 +507,7 @@ func inheritedPageAttrs(ctx *pdfcpu_model.Context, leaf *pageLeaf) (*pdfcpu_mode
 		return nil, err
 	}
 	if leaf.attrs.rotate != nil {
-		n, _, ok := w.rotation(leaf.attrs.rotate)
+		n, _, ok := readRotation(ctx, leaf.attrs.rotate)
 		if !ok {
 			return nil, fmt.Errorf("/Rotate is not a number")
 		}
@@ -446,17 +516,17 @@ func inheritedPageAttrs(ctx *pdfcpu_model.Context, leaf *pageLeaf) (*pdfcpu_mode
 	return out, nil
 }
 
-// rect reads a rectangle of four finite numbers, dereferencing the array and
+// readRect reads a rectangle of four finite numbers, dereferencing the array and
 // each element when indirect. A NaN or infinite element fails, since it cannot
 // be encoded as JSON.
-func (w *pageWalker) rect(o pdfcpu_types.Object) ([4]float64, bool) {
+func readRect(ctx *pdfcpu_model.Context, o pdfcpu_types.Object) ([4]float64, bool) {
 	var box [4]float64
-	arr, ok := w.deref(o).(pdfcpu_types.Array)
+	arr, ok := derefIn(ctx, o).(pdfcpu_types.Array)
 	if !ok || len(arr) != 4 {
 		return box, false
 	}
 	for i, el := range arr {
-		switch v := w.deref(el).(type) {
+		switch v := derefIn(ctx, el).(type) {
 		case pdfcpu_types.Integer:
 			box[i] = float64(v.Value())
 		case pdfcpu_types.Float:
@@ -484,7 +554,7 @@ func (w *pageWalker) contents(obj pdfcpu_types.Object, e *PageIndexEntry) []stri
 	var elems pdfcpu_types.Array
 	switch v := obj.(type) {
 	case pdfcpu_types.IndirectRef:
-		switch r := w.deref(v).(type) {
+		switch r := derefIn(w.ctx, v).(type) {
 		case pdfcpu_types.StreamDict:
 			e.ContentNodeID = nodeIDForRef(v)
 			e.ContentLen = w.streamLength(r)
@@ -514,7 +584,7 @@ func (w *pageWalker) contents(obj pdfcpu_types.Object, e *PageIndexEntry) []stri
 			errs = append(errs, fmt.Sprintf("/Contents element %d is not an indirect reference: %s", i, typeLabel(el)))
 			continue
 		}
-		sd, ok := w.deref(ref).(pdfcpu_types.StreamDict)
+		sd, ok := derefIn(w.ctx, ref).(pdfcpu_types.StreamDict)
 		if !ok {
 			errs = append(errs, fmt.Sprintf("/Contents element %d (%s) is not a stream", i, ref.String()))
 			continue
@@ -543,7 +613,7 @@ func (w *pageWalker) streamLength(sd pdfcpu_types.StreamDict) int64 {
 	if !ok {
 		return -1
 	}
-	n, ok := w.deref(v).(pdfcpu_types.Integer)
+	n, ok := derefIn(w.ctx, v).(pdfcpu_types.Integer)
 	if !ok || n.Value() < 0 {
 		return -1
 	}

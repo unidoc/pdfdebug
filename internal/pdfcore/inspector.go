@@ -71,10 +71,11 @@ type DocumentState struct {
 	revRefsBuildFailed bool
 
 	// objectIndex caches the per-tab GetObjectIndex result and pageIndex the
-	// GetPageIndex result. Both are lazy on first call; a re-Open under the
-	// same tabID replaces this DocumentState, so the new one starts empty.
+	// page-tree walk behind GetPageIndex and page-number lookups. Both are lazy
+	// on first call; a re-Open under the same tabID replaces this
+	// DocumentState, so the new one starts empty.
 	objectIndex lazyCache[[]*ObjectIndexEntry]
-	pageIndex   lazyCache[[]*PageIndexEntry]
+	pageIndex   lazyCache[*pageTree]
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced

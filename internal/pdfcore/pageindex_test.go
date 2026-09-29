@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -308,7 +309,7 @@ func TestPageIndexMalformedAttributes(t *testing.T) {
 		{2, 4, "/MediaBox is not an array of four numbers"},
 		{3, 5, "/Rotate is not an integer; read as 2"},
 		{4, 6, "no /MediaBox"},
-		{5, 7, "no /Type; no /MediaBox, own or inherited; /Rotate is not an integer"},
+		{5, 7, "no /Type; no /MediaBox, own or inherited; /Rotate is not a number"},
 	})
 	if entries[0].MediaBox != [4]float64{} || entries[4].Rotate != 0 {
 		t.Errorf("malformed values are left zero: %+v %+v", *entries[0], *entries[4])
@@ -470,7 +471,7 @@ func TestPageIndexIsCachedAcrossCalls(t *testing.T) {
 	}
 	doc, _ := ins.GetDocument(tabID)
 	builds := 0
-	if _, err := doc.pageIndex.get(func() ([]*PageIndexEntry, error) { builds++; return nil, nil }); err != nil {
+	if _, err := doc.pageIndex.get(func() (*pageTree, error) { builds++; return &pageTree{}, nil }); err != nil {
 		t.Fatal(err)
 	}
 	if builds != 0 {
@@ -710,13 +711,13 @@ func TestFindPageNumbersLikeThePageIndex(t *testing.T) {
 		rawObj{6, "<< /Type /Page /Parent 2 0 R >>"},
 	))
 	for pageNum, wantObj := range map[int]int{1: 3, 2: 5, 3: 6} {
-		leaf := findPage(doc.PDFContext, pageNum)
+		leaf := mustFindPage(t, doc, pageNum)
 		if leaf == nil || leaf.ref == nil || leaf.ref.ObjectNumber.Value() != wantObj {
 			t.Errorf("findPage(%d) = %+v, want obj %d", pageNum, leaf, wantObj)
 		}
 	}
 	for _, pageNum := range []int{0, -1, 4} {
-		if leaf := findPage(doc.PDFContext, pageNum); leaf != nil {
+		if leaf := mustFindPage(t, doc, pageNum); leaf != nil {
 			t.Errorf("findPage(%d) = obj %v, want nil", pageNum, leaf.ref)
 		}
 	}
@@ -729,7 +730,7 @@ func TestInheritedPageAttrsTakeTheNearestValue(t *testing.T) {
 		rawObj{3, "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R] /Count 1 /MediaBox [0 0 100 200] >>"},
 		rawObj{4, "<< /Type /Page /Parent 3 0 R /Rotate 179.6 /CropBox [1 2 3 4] >>"},
 	))
-	leaf := findPage(doc.PDFContext, 1)
+	leaf := mustFindPage(t, doc, 1)
 	if leaf == nil {
 		t.Fatal("page 1 not found")
 	}
@@ -758,14 +759,14 @@ func TestInheritedPageAttrsAbsentAndMalformed(t *testing.T) {
 		rawObj{3, "<< /Type /Page /Parent 2 0 R >>"},
 		rawObj{4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612] >>"},
 	))
-	inh, err := inheritedPageAttrs(doc.PDFContext, findPage(doc.PDFContext, 1))
+	inh, err := inheritedPageAttrs(doc.PDFContext, mustFindPage(t, doc, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if inh.MediaBox != nil || inh.CropBox != nil || inh.Resources != nil || inh.Rotate != 0 {
 		t.Errorf("a page with nothing declared anywhere = %+v, want all zero", inh)
 	}
-	if _, err := inheritedPageAttrs(doc.PDFContext, findPage(doc.PDFContext, 2)); err == nil || !strings.Contains(err.Error(), "/MediaBox is not an array of four numbers") {
+	if _, err := inheritedPageAttrs(doc.PDFContext, mustFindPage(t, doc, 2)); err == nil || !strings.Contains(err.Error(), "/MediaBox is not an array of four numbers") {
 		t.Errorf("a three-element /MediaBox: err %v, want a /MediaBox error", err)
 	}
 }
@@ -831,14 +832,14 @@ func TestInheritedPageAttrsRejectANonFiniteBox(t *testing.T) {
 		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
 		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"},
 	))
-	leaf := findPage(doc.PDFContext, 1)
+	leaf := *mustFindPage(t, doc, 1)
 	leaf.attrs.mediaBox = pdfcpu_types.Array{pdfcpu_types.Integer(0), pdfcpu_types.Integer(0), pdfcpu_types.Float(math.Inf(1)), pdfcpu_types.Integer(792)}
-	if _, err := inheritedPageAttrs(doc.PDFContext, leaf); err == nil || !strings.Contains(err.Error(), "/MediaBox") {
+	if _, err := inheritedPageAttrs(doc.PDFContext, &leaf); err == nil || !strings.Contains(err.Error(), "/MediaBox") {
 		t.Errorf("an infinite /MediaBox element: err %v, want a /MediaBox error", err)
 	}
 }
 
-func TestAllPagesListsEveryPageInOrder(t *testing.T) {
+func TestPageTreeLeavesListEveryPageInOrder(t *testing.T) {
 	_, doc := openUnvalidated(t, rawPDF(
 		rawObj{1, rawCatalog},
 		rawObj{2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 " + box + " >>"},
@@ -846,11 +847,199 @@ func TestAllPagesListsEveryPageInOrder(t *testing.T) {
 		rawObj{4, "<< /Type /Page /Parent 3 0 R >>"},
 		rawObj{5, "<< /Type /Page /Parent 2 0 R >>"},
 	))
+	tree, err := doc.pageTree()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var got []int
-	for _, p := range allPages(doc.PDFContext) {
+	for _, p := range tree.leaves {
 		got = append(got, p.ref.ObjectNumber.Value())
 	}
 	if fmt.Sprint(got) != "[3 5]" {
-		t.Errorf("allPages = %v, want [3 5]", got)
+		t.Errorf("leaves = %v, want [3 5]", got)
+	}
+}
+
+func mustFindPage(t *testing.T, doc *DocumentState, pageNum int) *pageLeaf {
+	t.Helper()
+	leaf, err := doc.findPage(pageNum)
+	if err != nil {
+		t.Fatalf("findPage(%d): %v", pageNum, err)
+	}
+	return leaf
+}
+
+func TestFindPageReusesTheCachedWalk(t *testing.T) {
+	ins, tabID := openMultipage(t)
+	doc, _ := ins.GetDocument(tabID)
+	first := mustFindPage(t, doc, 1)
+	entries, err := ins.GetPageIndex(tabID)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("GetPageIndex: %d rows, %v", len(entries), err)
+	}
+	if again := mustFindPage(t, doc, 1); again != first {
+		t.Error("a second lookup walked the tree again instead of reading the cached walk")
+	}
+}
+
+func TestADanglingOwnAttributeFallsBackToTheAncestor(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] /Rotate 90 /Resources << /Font << >> >> >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox 99 0 R /Rotate 98 0 R /Resources 97 0 R >>"},
+	))
+	entries, err := ins.GetPageIndex("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkRows(t, entries, []rowShape{{1, 3, "resolves to nothing"}})
+	e := entries[0]
+	if want := "/Resources resolves to nothing; inherited value used; /MediaBox resolves to nothing; inherited value used; /Rotate resolves to nothing; inherited value used"; e.Err != want {
+		t.Errorf("Err = %q\nwant %q", e.Err, want)
+	}
+	if e.MediaBox != [4]float64{0, 0, 612, 792} || e.Rotate != 90 {
+		t.Errorf("dangling own values must inherit: MediaBox %v Rotate %d", e.MediaBox, e.Rotate)
+	}
+	if want := InheritedResources | InheritedMediaBox | InheritedRotate; e.Inherited != want {
+		t.Errorf("Inherited = %d, want %d", e.Inherited, want)
+	}
+	inh, err := inheritedPageAttrs(doc.PDFContext, mustFindPage(t, doc, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inh.MediaBox == nil || inh.MediaBox.Width() != 612 || inh.Rotate != 90 {
+		t.Errorf("dump page attributes must inherit past a dangling own value: %+v", inh)
+	}
+	if _, ok := inh.Resources.Find("Font"); !ok {
+		t.Errorf("Resources = %v, want the ancestor's dictionary", inh.Resources)
+	}
+}
+
+func TestADanglingOwnAttributeWithNoAncestorIsNamed(t *testing.T) {
+	entries := rawPageIndex(t,
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox 99 0 R /Rotate 98 0 R >>"},
+	)
+	if want := "/MediaBox resolves to nothing; /Rotate resolves to nothing"; entries[0].Err != want {
+		t.Errorf("Err = %q\nwant %q", entries[0].Err, want)
+	}
+	if entries[0].Inherited != 0 {
+		t.Errorf("nothing was inherited, got bitmask %d", entries[0].Inherited)
+	}
+}
+
+func TestAPartialWalkStillServesThePagesItReached(t *testing.T) {
+	ins, tabID := openMultipage(t)
+	doc, _ := ins.GetDocument(tabID)
+	w := newPageWalker(doc.PDFContext)
+	w.walk()
+	if len(w.leaves) < 2 {
+		t.Fatalf("fixture needs at least two pages, has %d", len(w.leaves))
+	}
+	boom := errors.New("walk failed")
+	if _, err := doc.pageIndex.get(func() (*pageTree, error) {
+		return &pageTree{leaves: w.leaves[:1], err: boom}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if first, err := doc.findPage(1); err != nil || first == nil {
+		t.Errorf("findPage(1) after a partial walk = %v, %v; want the page it reached", first, err)
+	}
+	if _, err := doc.findPage(2); !errors.Is(err, boom) {
+		t.Errorf("findPage(2) past the partial walk err = %v, want the walk's error", err)
+	}
+	if leaf, err := doc.findPage(0); leaf != nil || err != nil {
+		t.Errorf("findPage(0) = %v, %v; want nil, nil so callers report the page as not found", leaf, err)
+	}
+	if _, err := ins.GetPageIndex(tabID); !errors.Is(err, boom) {
+		t.Errorf("GetPageIndex after a partial walk err = %v, want the cached walk error", err)
+	}
+	for name, call := range map[string]func() error{
+		"GetPageNode":              func() error { _, err := ins.GetPageNode(tabID, 2); return err },
+		"pageContentStreamNodeIDs": func() error { _, err := ins.pageContentStreamNodeIDs(tabID, 2); return err },
+		"PageRenderInfo":           func() error { _, err := ins.PageRenderInfo(tabID, 2, PageRenderOpts{}); return err },
+	} {
+		if err := call(); err == nil || !strings.HasPrefix(err.Error(), "page 2: ") || !errors.Is(err, boom) {
+			t.Errorf("%s(2) err = %v, want it to start with \"page 2: \" and wrap the walk error", name, err)
+		}
+	}
+}
+
+func TestAnUnresolvedAttributeOnAnIntermediateIsNamedOnItsPages(t *testing.T) {
+	cases := []struct {
+		name, root, want string
+		box              [4]float64
+	}{
+		{"no value above it", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "/MediaBox on 3 0 R resolves to nothing", [4]float64{}},
+		{"a value above it", "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] >>", "/MediaBox on 3 0 R resolves to nothing; inherited value used", [4]float64{0, 0, 612, 792}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			entries := rawPageIndex(t,
+				rawObj{1, rawCatalog},
+				rawObj{2, c.root},
+				rawObj{3, "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R 5 0 R] /Count 2 /MediaBox 99 0 R >>"},
+				rawObj{4, "<< /Type /Page /Parent 3 0 R >>"},
+				rawObj{5, "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 100 100] >>"},
+			)
+			if len(entries) != 2 {
+				t.Fatalf("got %d rows, want 2", len(entries))
+			}
+			if entries[0].Err != c.want || entries[0].MediaBox != c.box {
+				t.Errorf("page relying on 3 0 R: Err %q MediaBox %v; want %q %v", entries[0].Err, entries[0].MediaBox, c.want, c.box)
+			}
+			if entries[1].Err != "" {
+				t.Errorf("a page with its own /MediaBox does not rely on 3 0 R: Err %q", entries[1].Err)
+			}
+		})
+	}
+}
+
+func TestGuardTurnsAPdfcpuPanicIntoAFailure(t *testing.T) {
+	var got string
+	ran := false
+	guard(func() { panic("corrupt object stream") }, func(msg string) { got = msg })
+	guard(func() { ran = true }, func(string) { t.Error("fail called without a panic") })
+	if !strings.Contains(got, "corrupt object stream") {
+		t.Errorf("fail message = %q, want the panic value", got)
+	}
+	if !ran {
+		t.Error("fn did not run")
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("a Go runtime error must not be recovered")
+		}
+	}()
+	var m map[string]int
+	guard(func() { m["x"] = 1 }, func(string) {})
+}
+
+func TestAPageThatCouldNotBeReadReportsItsError(t *testing.T) {
+	ins, tabID := openMultipage(t)
+	doc, _ := ins.GetDocument(tabID)
+	w := newPageWalker(doc.PDFContext)
+	w.walk()
+	if len(w.leaves) < 2 {
+		t.Fatalf("fixture needs at least two pages, has %d", len(w.leaves))
+	}
+	broken := *w.leaves[0]
+	broken.err = errors.New("page 1 could not be read: pdf parsing panic: boom")
+	leaves := append([]*pageLeaf{&broken}, w.leaves[1:]...)
+	if _, err := doc.pageIndex.get(func() (*pageTree, error) {
+		return &pageTree{entries: w.entries, leaves: leaves}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := doc.findPage(1); err == nil || !strings.Contains(err.Error(), "could not be read") {
+		t.Errorf("findPage(1) err = %v, want the page's read error", err)
+	}
+	if leaf, err := doc.findPage(2); err != nil || leaf == nil {
+		t.Errorf("findPage(2) = %v, %v; the pages after an unreadable one still resolve", leaf, err)
+	}
+	if _, err := ins.GetPageNode(tabID, 1); err == nil || !strings.HasPrefix(err.Error(), "page 1: ") {
+		t.Errorf("GetPageNode(1) err = %v, want a page 1: error", err)
 	}
 }

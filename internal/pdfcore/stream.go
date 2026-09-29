@@ -26,13 +26,9 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var leaf *pageLeaf
-	err = safeCall(func() error {
-		leaf = findPage(doc.PDFContext, pageNum)
-		return nil
-	})
+	leaf, err := doc.findPage(pageNum)
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, fmt.Errorf("page %d: %w", pageNum, err)
 	}
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
@@ -151,13 +147,9 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var leaf *pageLeaf
-	err = safeCall(func() error {
-		leaf = findPage(doc.PDFContext, pageNum)
-		return nil
-	})
+	leaf, err := doc.findPage(pageNum)
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, fmt.Errorf("page %d: %w", pageNum, err)
 	}
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)

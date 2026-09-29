@@ -503,3 +503,24 @@ func TestValidate_DeviceColorOnAPageCarryingKids(t *testing.T) {
 		t.Errorf("output-intent rule must fire for device color on a page carrying /Kids:\n%+v", res.Problems)
 	}
 }
+
+func TestValidate_DeviceColorInAFormFromInheritedResources(t *testing.T) {
+	// The page has no /Resources of its own; the form XObject that fills with
+	// device RGB comes from the parent /Pages.
+	withColor := assemblexref(
+		"%PDF-1.4\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << /XObject << /Fm0 5 0 R >> >> >>\nendobj\n\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n\n",
+		"4 0 obj\n<< /Length 7 >>\nstream\n/Fm0 Do\nendstream\nendobj\n\n",
+		"5 0 obj\n<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 21 >>\nstream\n1 0 0 rg 0 0 10 10 re f\nendstream\nendobj\n\n",
+	)
+	ins, tabID := writeTempPDF(t, "color-inherited.pdf", withColor)
+	res, err := ins.Validate(tabID, ProfilePDFA1B)
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if problemByRule(res.Problems, "output-intent") == nil {
+		t.Errorf("output-intent rule must fire for device color in a form reached through inherited /Resources:\n%+v", res.Problems)
+	}
+}
