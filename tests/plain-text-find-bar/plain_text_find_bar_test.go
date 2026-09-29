@@ -375,14 +375,14 @@ func TestFindColorTokens(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestNoCmdGRebinding asserts useFindBar.ts does not bind Cmd+G / Ctrl+G for
-// Find-Next. App.jsx owns that combo for Open Go to Page, so the only Find-Next
-// keystroke is F3 / Shift+F3.
+// Find-Next. App.jsx owns that combo for the Pages navigator's jump field, so
+// the only Find-Next keystroke is F3 / Shift+F3.
 func TestNoCmdGRebinding(t *testing.T) {
 	src := readSource(t, "frontend/src/hooks/useFindBar.ts")
 	// Use a literal lowercase-and-uppercase form check; either is a regression.
 	for _, forbidden := range []string{`e.key === 'g'`, `e.key === 'G'`, `key: 'g'`, `key: 'G'`} {
 		if strings.Contains(src, forbidden) {
-			t.Errorf("useFindBar.ts must NOT bind %q (Cmd+G is owned by App.jsx for Open Go to Page; Find-Next is F3 only)", forbidden)
+			t.Errorf("useFindBar.ts must NOT bind %q (Cmd+G is owned by App.jsx for the Pages jump field; Find-Next is F3 only)", forbidden)
 		}
 	}
 	// F3 binding must be present.

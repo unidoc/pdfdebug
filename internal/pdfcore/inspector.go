@@ -25,7 +25,8 @@ import (
 //     acquires pdfMu for the duration of the pdfcpu call sequence.
 //
 //   - pdfMu MUST be acquired BEFORE any per-feature mutex (streamMu,
-//     objectIndexMu, xrefTableMu) when the feature path calls into pdfcpu.
+//     xrefTableMu, and the mutexes inside the objectIndex and pageIndex lazy
+//     caches) when the feature path calls into pdfcpu.
 //
 //   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
 //     into pdfcpu inside its critical section.
@@ -69,11 +70,12 @@ type DocumentState struct {
 	reverseRefs        map[[2]int][]ReverseRef
 	revRefsBuildFailed bool
 
-	// objectIndex caches the per-tab GetObjectIndex result. Lazy on first call;
-	// invalidated implicitly when the DocumentState pointer is replaced by a
-	// re-Open under the same tabID.
-	objectIndexMu    sync.Mutex
-	objectIndexCache []*ObjectIndexEntry
+	// objectIndex caches the per-tab GetObjectIndex result and pageIndex the
+	// page-tree walk behind GetPageIndex and page-number lookups. Both are lazy
+	// on first call; a re-Open under the same tabID replaces this
+	// DocumentState, so the new one starts empty.
+	objectIndex lazyCache[[]*ObjectIndexEntry]
+	pageIndex   lazyCache[*pageTree]
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced
@@ -184,7 +186,8 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	// tabID collision would let the prior plaintext read complete naturally.
 	// closeDocLocked does NOT acquire ins.mu (we hold it); calling the public
 	// Close would self-deadlock since Go mutexes are not reentrant.
-	if prior, ok := ins.documents[tabID]; ok && prior != nil {
+	prior, ok := ins.documents[tabID]
+	if ok && prior != nil {
 		closeDocLocked(prior)
 	}
 	ins.documents[tabID] = doc

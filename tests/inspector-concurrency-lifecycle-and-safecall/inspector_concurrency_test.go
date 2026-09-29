@@ -108,6 +108,7 @@ var pdfMuRequiredMethods = []string{
 	"GetObjectSource",
 	"GetReverseRefs",
 	"GetObjectIndex",
+	"GetPageIndex",
 	"GetXRefTable",
 }
 
@@ -128,6 +129,7 @@ var methodFileMap = map[string]string{
 	"GetObjectSource":            "internal/pdfcore/objectsource.go",
 	"GetReverseRefs":             "internal/pdfcore/reverserefs.go",
 	"GetObjectIndex":             "internal/pdfcore/objectindex.go",
+	"GetPageIndex":               "internal/pdfcore/pageindex.go",
 	"GetXRefTable":               "internal/pdfcore/xreftable.go",
 }
 
@@ -327,8 +329,8 @@ var pdfserviceWrappedMethods = []string{
 	"GetFontView",
 	"GetObjectSource",
 	"GetReverseRefs",
-	"GoToPage",
 	"GetObjectIndex",
+	"GetPageIndex",
 	"GetXRefTable",
 }
 

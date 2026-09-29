@@ -9,9 +9,8 @@ import (
 )
 
 // GetObjectIndex returns the full xref-derived object index for the document
-// in tabID. Lazy-built on first call, cached on the per-tab DocumentState so
-// re-Open under the same tabID transparently invalidates (the DocumentState
-// pointer is replaced).
+// in tabID. Lazy-built on first call and cached on the per-tab DocumentState;
+// a re-Open under the same tabID replaces the DocumentState, and with it the cache.
 //
 // pdfcpu's XRefTable.Table is map[int]*XRefTableEntry keyed by object number,
 // so only one entry per ObjNum is enumerable here -- the multi-generation
@@ -21,28 +20,23 @@ func (ins *Inspector) GetObjectIndex(tabID string) ([]*ObjectIndexEntry, error) 
 	if err != nil {
 		return nil, err
 	}
-	// Serialize pdfcpu access. Outer lock; objectIndexMu (inner) guards the
-	// cache. buildObjectIndex walks XRefTable.Table and dereferences
-	// indirect refs to compute the reachable set.
+	// Serialize pdfcpu access. Outer lock; the objectIndex cache mutex (inner)
+	// guards the cached slice. buildObjectIndex walks XRefTable.Table and
+	// dereferences indirect refs to compute the reachable set.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	doc.objectIndexMu.Lock()
-	defer doc.objectIndexMu.Unlock()
-	if doc.objectIndexCache != nil {
-		return doc.objectIndexCache, nil
-	}
-
-	var entries []*ObjectIndexEntry
-	err = safeCall(func() error {
-		entries = buildObjectIndex(doc)
-		return nil
+	return doc.objectIndex.get(func() ([]*ObjectIndexEntry, error) {
+		var entries []*ObjectIndexEntry
+		err := safeCall(func() error {
+			entries = buildObjectIndex(doc)
+			return nil
+		})
+		if err != nil {
+			return nil, wrapPDFError(err)
+		}
+		return entries, nil
 	})
-	if err != nil {
-		return nil, wrapPDFError(err)
-	}
-	doc.objectIndexCache = entries
-	return entries, nil
 }
 
 // buildObjectIndex walks pdfcpu's XRefTable, computes a reachable-set via BFS

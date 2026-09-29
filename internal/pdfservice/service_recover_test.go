@@ -86,3 +86,33 @@ func TestServiceRecoversRuntimeError(t *testing.T) {
 	// docs the contract.
 	_ = strings.Contains("pdfservice: runtime.Error in", "GetTreeRoot")
 }
+
+// pageIndexPanickingInspector panics with a runtime.Error from GetPageIndex.
+type pageIndexPanickingInspector struct {
+	pdfcore.Inspector
+}
+
+// GetPageIndex forces a nil-pointer dereference.
+func (p *pageIndexPanickingInspector) GetPageIndex(_ string) ([]*pdfcore.PageIndexEntry, error) {
+	var doc *pdfcore.DocumentState
+	_ = doc.PDFContext
+	return nil, nil
+}
+
+func TestServiceGetPageIndexRecoversRuntimeError(t *testing.T) {
+	svc := NewPDFService(nil)
+	svc.inspector = &pageIndexPanickingInspector{}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("GetPageIndex propagated a panic instead of recovering it: %v", r)
+		}
+	}()
+
+	result, err := svc.GetPageIndex("any-tab-id")
+	if !errors.Is(err, pdfcore.ErrMalformedPDF) {
+		t.Errorf("err = %v, want errors.Is(err, ErrMalformedPDF)", err)
+	}
+	if result != nil {
+		t.Errorf("result = %v, want nil on a recovered panic", result)
+	}
+}

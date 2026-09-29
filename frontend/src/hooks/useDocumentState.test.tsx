@@ -6,7 +6,7 @@
  * since these are pure reducer logic at the lowest viable test layer.
  */
 import { render, screen, act } from '@testing-library/react';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { AppProvider, useAppState, useAppDispatch, type AppAction } from './useDocumentState';
 
 // Helper component that exposes state and a dispatch trigger
@@ -1209,78 +1209,52 @@ describe('multi-PDF drop: reducer integrates with backend events', () => {
 });
 
 // ---------------------------------------------------------------------------
-// OPEN_GO_TO_PAGE / CLOSE_GO_TO_PAGE reducer paths
+// FOCUS_PAGES_JUMP reducer paths
 // ---------------------------------------------------------------------------
 
-function GoToPageInspector({ pageCount, openAction }: { pageCount: number; openAction: AppAction }) {
+function PagesJumpInspector({ openAction }: { openAction: AppAction }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   return (
     <div>
-      <span data-testid="goto-open">{String(state.goToPageOpen)}</span>
+      <span data-testid="left-view">{state.leftView}</span>
+      <span data-testid="focus-version">{state.pagesJumpFocusVersion}</span>
       <button data-testid="open-doc" onClick={() => dispatch(openAction)}>open</button>
-      <button data-testid="open-goto" onClick={() => dispatch({ type: 'OPEN_GO_TO_PAGE' })}>open-goto</button>
-      <button data-testid="close-goto" onClick={() => dispatch({ type: 'CLOSE_GO_TO_PAGE' })}>close-goto</button>
-      <span data-testid="page-count">{state.tabs[0]?.pageCount ?? -1}</span>
-      <span data-testid="page-count-fallback">{pageCount}</span>
+      <button data-testid="focus-jump" onClick={() => dispatch({ type: 'FOCUS_PAGES_JUMP' })}>focus-jump</button>
     </div>
   );
 }
 
-describe('Go to Page dialog state', () => {
-  test('initial state has goToPageOpen = false', () => {
-    render(
-      <AppProvider>
-        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
-      </AppProvider>
-    );
-    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+describe('Pages jump focus request', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem('unidoc-pdf-debugger:left-rail');
   });
 
-  test('OPEN_GO_TO_PAGE is a no-op when no document is loaded', () => {
+  test('FOCUS_PAGES_JUMP is a no-op when no document is loaded', () => {
     render(
       <AppProvider>
-        <GoToPageInspector pageCount={0} openAction={{ type: 'CLOSE_GO_TO_PAGE' }} />
+        <PagesJumpInspector openAction={{ type: 'DISMISS_ERROR' }} />
       </AppProvider>
     );
-    act(() => screen.getByTestId('open-goto').click());
-    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+    act(() => screen.getByTestId('focus-jump').click());
+    expect(screen.getByTestId('left-view').textContent).toBe('structure');
+    expect(screen.getByTestId('focus-version').textContent).toBe('0');
   });
 
-  test('OPEN_GO_TO_PAGE is a no-op when active tab has pageCount = 0', () => {
+  test('FOCUS_PAGES_JUMP selects Pages on a tab whose pageCount is 0', () => {
     const open: AppAction = {
       type: 'OPEN_DOCUMENT',
       payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 0, rootNode: catalogNode, rootChildren: childNodes },
     };
     render(
       <AppProvider>
-        <GoToPageInspector pageCount={0} openAction={open} />
+        <PagesJumpInspector openAction={open} />
       </AppProvider>
     );
     act(() => screen.getByTestId('open-doc').click());
-    expect(screen.getByTestId('page-count').textContent).toBe('0');
-    act(() => screen.getByTestId('open-goto').click());
-    expect(screen.getByTestId('goto-open').textContent).toBe('false');
-  });
-
-  test('OPEN_GO_TO_PAGE flips goToPageOpen to true when a document with pages is active; CLOSE flips it back', () => {
-    const open: AppAction = {
-      type: 'OPEN_DOCUMENT',
-      payload: { tabId: 't1', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 5, rootNode: catalogNode, rootChildren: childNodes },
-    };
-    render(
-      <AppProvider>
-        <GoToPageInspector pageCount={5} openAction={open} />
-      </AppProvider>
-    );
-    act(() => screen.getByTestId('open-doc').click());
-    expect(screen.getByTestId('page-count').textContent).toBe('5');
-
-    act(() => screen.getByTestId('open-goto').click());
-    expect(screen.getByTestId('goto-open').textContent).toBe('true');
-
-    act(() => screen.getByTestId('close-goto').click());
-    expect(screen.getByTestId('goto-open').textContent).toBe('false');
+    act(() => screen.getByTestId('focus-jump').click());
+    expect(screen.getByTestId('left-view').textContent).toBe('pages');
+    expect(screen.getByTestId('focus-version').textContent).toBe('1');
   });
 });
 

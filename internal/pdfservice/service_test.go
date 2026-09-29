@@ -459,52 +459,6 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// GoToPage exposes the pdfcore page-content-stream resolver to
-// the Wails service layer. Valid page resolves to a non-empty node ID;
-// out-of-range and unknown-tab paths surface as errors that map to user-facing
-// error messages on the frontend.
-
-func TestGoToPageValid(t *testing.T) {
-	svc := NewPDFService(nil)
-	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
-	if err != nil {
-		t.Fatalf("OpenFile failed: %v", err)
-	}
-	defer func() { _ = svc.CloseDocument(info.TabID) }()
-
-	nodeID, err := svc.GoToPage(info.TabID, 1)
-	if err != nil {
-		t.Fatalf("GoToPage(1) returned error: %v", err)
-	}
-	if nodeID == "" {
-		t.Error("GoToPage(1) returned empty node ID")
-	}
-}
-
-func TestGoToPageOutOfRange(t *testing.T) {
-	svc := NewPDFService(nil)
-	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
-	if err != nil {
-		t.Fatalf("OpenFile failed: %v", err)
-	}
-	defer func() { _ = svc.CloseDocument(info.TabID) }()
-
-	if _, err := svc.GoToPage(info.TabID, 9999); err == nil {
-		t.Fatal("GoToPage with out-of-range page should error, got nil")
-	}
-}
-
-func TestGoToPageUnknownTab(t *testing.T) {
-	svc := NewPDFService(nil)
-	_, err := svc.GoToPage("does-not-exist", 1)
-	if err == nil {
-		t.Fatal("GoToPage with unknown tab should error, got nil")
-	}
-	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
-		t.Errorf("err = %v, want errors.Is(...,ErrDocumentNotFound)", err)
-	}
-}
-
 // --- GetXRefTable + GetPlainText tests ---
 
 func TestGetXRefTableValid(t *testing.T) {
@@ -575,3 +529,32 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 	}
 }
 
+
+func TestGetPageIndexDelegatesToInspector(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	got, err := svc.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPageIndex: %v", err)
+	}
+	want, err := svc.inspector.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("inspector GetPageIndex: %v", err)
+	}
+	if len(got) == 0 || len(got) != len(want) || got[0] != want[0] {
+		t.Errorf("service returned %d entries, inspector %d; want the same cached slice", len(got), len(want))
+	}
+	if len(got) != info.PageCount {
+		t.Errorf("got %d entries for a %d-page document", len(got), info.PageCount)
+	}
+}
+
+func TestGetPageIndexUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	if _, err := svc.GetPageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}

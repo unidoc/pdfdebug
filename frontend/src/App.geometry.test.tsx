@@ -90,6 +90,7 @@ vi.mock(
     // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
+    GetPageIndex: vi.fn(),
   }),
 );
 

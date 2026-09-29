@@ -1359,6 +1359,82 @@ describe('Tree expansion state preserved across tab switches', () => {
   });
 });
 
+describe('A child load that finishes after a tab switch', () => {
+  test('updates only its own tab and leaves the displayed tab alone', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    let resolveChildren: (v: unknown) => void = () => {};
+    mockGetChildren.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveChildren = resolve;
+        }),
+    );
+
+    // tab-2 is another document with the same node IDs, as real documents have.
+    const catalogNodeB = { ...catalogNode, label: 'Catalog B' };
+
+    function TwoTabs() {
+      const dispatch = useAppDispatch();
+      const state = useAppState();
+      return (
+        <div>
+          <button
+            data-testid="open-tab1"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/a.pdf', rootNode: catalogNode, rootChildren: childNodes },
+              })
+            }
+          />
+          <button
+            data-testid="open-tab2"
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_DOCUMENT',
+                payload: { tabId: 'tab-2', fileName: 'b.pdf', filePath: '/b.pdf', rootNode: catalogNodeB, rootChildren: childNodes },
+              })
+            }
+          />
+          <button
+            data-testid="activate-tab1"
+            onClick={() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } })}
+          />
+          <span data-testid="active-tab">{state.activeTabId ?? 'null'}</span>
+          <TreePanel />
+        </div>
+      );
+    }
+
+    render(
+      <AppProvider>
+        <TwoTabs />
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('open-tab1').click());
+    await waitFor(() => expect(screen.getByText('Pages')).toBeInTheDocument());
+    const pagesRow = screen.getByText('Pages').closest('[data-testid="tree-node"]');
+    await user.click(pagesRow!);
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(mockGetChildren).toHaveBeenCalledWith('tab-1', 'obj:0:2'));
+
+    act(() => screen.getByTestId('open-tab2').click());
+    await waitFor(() => expect(screen.getByText('Catalog B')).toBeInTheDocument());
+
+    await act(async () => resolveChildren(pagesChildren));
+    expect(screen.queryByText('Page 1')).not.toBeInTheDocument();
+
+    act(() => screen.getByTestId('activate-tab1').click());
+    await waitFor(() => expect(screen.getByTestId('active-tab').textContent).toBe('tab-1'));
+    await waitFor(() => expect(screen.getByText('Page 1')).toBeInTheDocument());
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Catalog B')).not.toBeInTheDocument();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Supplemental: Tree cache cleanup on tab close
 //

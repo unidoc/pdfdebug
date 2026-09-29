@@ -14,7 +14,6 @@ import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
-import { GoToPageDialog } from './components/GoToPageDialog'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { UpdateNotifier } from './components/UpdateNotifier'
@@ -150,8 +149,10 @@ function AppContent() {
       dispatch({ type: 'NAVIGATE_FORWARD' })
     })
 
+    // The Navigate > Go to Page menu item opens the Pages navigator's jump
+    // field. The reducer ignores it when no document is open.
     const offGoToPage = Events.On('navigate:goToPage', () => {
-      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+      dispatch({ type: 'FOCUS_PAGES_JUMP' })
     })
 
     const offPaletteOpen = Events.On('palette:open', () => {
@@ -368,11 +369,12 @@ function AppContent() {
     }
   }, [saveWindowGeometry])
 
-  // Cmd+G (macOS) / Ctrl+G (Win/Linux) opens the Go to Page dialog. Skip
-  // when focus is in a text input/area so the shortcut never steals typing,
-  // and skip when no document is loaded (the reducer is also a no-op).
-  // The native menu item in main.go also emits navigate:goToPage; this
-  // listener exists so the shortcut works even before the menu is opened.
+  // Cmd+G (macOS) / Ctrl+G (Win/Linux) switches the left rail to Pages,
+  // un-collapses the left panel and focuses the Pages jump field. Skip when
+  // focus is in a text input/area so the shortcut never steals typing, and
+  // skip when no document is loaded (the reducer is also a no-op). The
+  // native menu item in main.go also emits navigate:goToPage; this listener
+  // exists so the shortcut works even before the menu is opened.
   useEffect(() => {
     /** @param {EventTarget | null} target */
     function isInTextField(target) {
@@ -391,7 +393,7 @@ function AppContent() {
       if (isInTextField(e.target)) return
       if (!hasDocument) return
       e.preventDefault()
-      dispatch({ type: 'OPEN_GO_TO_PAGE' })
+      dispatch({ type: 'FOCUS_PAGES_JUMP' })
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -417,7 +419,6 @@ function AppContent() {
       <div className="flex-1 min-h-0">
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>
-      <GoToPageDialog />
       <BatchOpenDialog />
       <CommandPalette />
       <UpdateNotifier />

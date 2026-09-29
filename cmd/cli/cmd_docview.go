@@ -8,10 +8,10 @@ import (
 )
 
 // docViewFlags holds the parsed flags common to the document-level dump
-// subcommands (xref, objects, bytes, signatures). None take --ref.
+// subcommands (xref, objects, pages, bytes, signatures). None take --ref.
 type docViewFlags struct {
 	pretty bool
-	json   bool // opt into JSON: structured for xref/objects/signatures, the text wrapper for bytes
+	json   bool // opt into JSON: structured for xref/objects/pages/signatures, the text wrapper for bytes
 }
 
 // parseDocViewFlags builds and parses a FlagSet for a document-level dump

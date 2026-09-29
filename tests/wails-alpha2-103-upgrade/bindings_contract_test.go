@@ -29,8 +29,9 @@ import (
 //	TreePanel.tsx          : GetChildren, GetAncestorPath
 //	TabBar.tsx             : CloseDocument
 //	useObjectIndex.ts      : GetObjectIndex
+//	PagesPanel.tsx         : GetChildren, GetPageIndex
 //	usePDFService.ts       : OpenFile, GetTreeRoot, GetChildren, CloseDocument,
-//	                         OpenFileDialog, GoToPage
+//	                         OpenFileDialog
 //
 // If the dev adds/removes a frontend import in the same change, this list moves
 // WITH the real consumer dependency -- which is exactly the contract we want,
@@ -51,7 +52,7 @@ var consumerBoundMethods = []string{
 	"OpenFile",
 	"GetTreeRoot",
 	"OpenFileDialog",
-	"GoToPage",
+	"GetPageIndex",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

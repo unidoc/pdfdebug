@@ -86,20 +86,24 @@ func TestTreePanelHasTestID(t *testing.T) {
 	}
 }
 
-// TreePanel has data-testid="tree-node" on node rows
+// treeRowsFile holds NodeRenderer, the row shared by the Structure tree and
+// the Pages navigator; the row markup and its styling classes live there.
+const treeRowsFile = "frontend/src/components/treeRows.tsx"
+
+// The tree row has data-testid="tree-node" and data-node-id
 func TestTreePanelHasNodeTestID(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
+	if !fileExists(t, treeRowsFile) {
+		t.Skip("treeRows.tsx does not exist yet")
 	}
 
-	content := readFile(t, "frontend/src/components/TreePanel.tsx")
+	content := readFile(t, treeRowsFile)
 
 	if !strings.Contains(content, `data-testid="tree-node"`) {
-		t.Error("TreePanel.tsx missing data-testid=\"tree-node\" on node rows")
+		t.Error("treeRows.tsx missing data-testid=\"tree-node\" on node rows")
 	}
 
 	if !strings.Contains(content, `data-node-id`) {
-		t.Error("TreePanel.tsx missing data-node-id attribute on node rows")
+		t.Error("treeRows.tsx missing data-node-id attribute on node rows")
 	}
 }
 
@@ -171,22 +175,22 @@ func TestTabStateHasSelectedNodeId(t *testing.T) {
 // Error node rendering support
 // ---------------------------------------------------------------------------
 
-// TreePanel handles error nodes with text-error styling
+// The tree row styles error nodes with text-error
 func TestTreePanelErrorNodeStyling(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
+	if !fileExists(t, treeRowsFile) {
+		t.Skip("treeRows.tsx does not exist yet")
 	}
 
-	content := readFile(t, "frontend/src/components/TreePanel.tsx")
+	content := readFile(t, treeRowsFile)
 
 	// Error nodes must have text-error for warning icon
 	if !strings.Contains(content, "text-error") {
-		t.Error("TreePanel.tsx must use text-error class for error node warning icon")
+		t.Error("treeRows.tsx must use text-error class for error node warning icon")
 	}
 
 	// Error nodes must have text-text-muted for label
 	if !strings.Contains(content, "text-text-muted") {
-		t.Error("TreePanel.tsx must use text-text-muted class for error node label")
+		t.Error("treeRows.tsx must use text-text-muted class for error node label")
 	}
 }
 
@@ -194,20 +198,20 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 // Selected node highlight styling
 // ---------------------------------------------------------------------------
 
-// TreePanel has bg-surface-selected for selected node
+// The tree row has bg-surface-selected for the selected node
 func TestTreePanelSelectedStyling(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
+	if !fileExists(t, treeRowsFile) {
+		t.Skip("treeRows.tsx does not exist yet")
 	}
 
-	content := readFile(t, "frontend/src/components/TreePanel.tsx")
+	content := readFile(t, treeRowsFile)
 
 	if !strings.Contains(content, "bg-surface-selected") {
-		t.Error("TreePanel.tsx must use bg-surface-selected for selected node")
+		t.Error("treeRows.tsx must use bg-surface-selected for selected node")
 	}
 
 	if !strings.Contains(content, "border-") {
-		t.Error("TreePanel.tsx must have left border accent on selected node")
+		t.Error("treeRows.tsx must have left border accent on selected node")
 	}
 }
 
@@ -215,16 +219,16 @@ func TestTreePanelSelectedStyling(t *testing.T) {
 // Hover state
 // ---------------------------------------------------------------------------
 
-// TreePanel has bg-surface-hover for hover state
+// The tree row has bg-surface-hover for the hover state
 func TestTreePanelHoverStyling(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
+	if !fileExists(t, treeRowsFile) {
+		t.Skip("treeRows.tsx does not exist yet")
 	}
 
-	content := readFile(t, "frontend/src/components/TreePanel.tsx")
+	content := readFile(t, treeRowsFile)
 
 	if !strings.Contains(content, "bg-surface-hover") {
-		t.Error("TreePanel.tsx must use bg-surface-hover for hover state")
+		t.Error("treeRows.tsx must use bg-surface-hover for hover state")
 	}
 }
 

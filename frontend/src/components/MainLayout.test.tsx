@@ -3,7 +3,7 @@
  *
  * MainLayout uses TreePanel instead of an inline static list.
  */
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AppProvider,
@@ -44,6 +44,7 @@ vi.mock(
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
     GetObjectDetail: vi.fn(),
+    GetPageIndex: vi.fn(),
   })
 );
 
@@ -156,9 +157,11 @@ describe('MainLayout tree content', () => {
 
     act(() => screen.getByTestId('dispatch').click());
 
-    expect(screen.getByText('Catalog')).toBeInTheDocument();
-    expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.getByText('Pages')).toBeInTheDocument();
+    // The rail and the Pages panel also say "Pages"; scope to the tree.
+    const tree = within(screen.getByTestId('tree-panel'));
+    expect(tree.getByText('Catalog')).toBeInTheDocument();
+    expect(tree.getByText('Type')).toBeInTheDocument();
+    expect(tree.getByText('Pages')).toBeInTheDocument();
   });
 
   test('uses TreePanel component with react-arborist tree', () => {

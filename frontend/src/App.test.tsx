@@ -65,6 +65,7 @@ vi.mock(
     // never throws on the new export (the picker only calls it after a second
     // file is chosen).
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
+    GetPageIndex: vi.fn(),
   })
 );
 

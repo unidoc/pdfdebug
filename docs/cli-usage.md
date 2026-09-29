@@ -34,6 +34,7 @@ one file except `diff`, which takes two.
 | `dump tree` | The PDF object tree from the Catalog down | `--depth`, `--resolve` |
 | `dump object` | A single indirect object by reference | `--ref`, `--resolve` |
 | `dump objects` | The object index (every object in the document) | - |
+| `dump pages` | The page index (every page leaf of the page tree, in document order) | - |
 | `dump stream` | A decoded content stream (page, object, or XObject) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
 | `dump page` | Assembled per-page render info **(EXPERIMENTAL)** | `--info N`, `--section`, `--forms-recursive` |
 | `dump font` | A font view (encoding, CMap, glyph mapping, health) | `--ref`, `--glyphs` |
@@ -51,6 +52,17 @@ one file except `diff`, which takes two.
 `dump bytes` was called `dump plaintext`. The old spelling still works, prints
 a deprecation notice on stderr, and is removed in 0.6.0. It dumps the document's
 raw bytes; for the prose on the pages, use `pdftotext`.
+
+`dump pages` prints one row per page: its number, the `/Page` object's
+reference, the MediaBox, `/Rotate` as stored, which of `/Resources`,
+`/MediaBox`, `/CropBox` and `/Rotate` came from a `/Pages` ancestor, the
+`/Annots` count, and the summed `/Length` of its content streams (read from the
+stream dictionaries, never decoded; -1 when a `/Length` is missing, negative
+or not an integer, when the sum overflows, or when `/Contents` is malformed). Anything in the page tree that is not a page, such as a null `/Kids`
+entry or a cycle, gets a row with `-` for the page number and a message in
+ERROR, so page numbers after it still match what a viewer shows. When the
+number of page leaves differs from the root `/Count`, a JSON warning naming
+both goes to stderr and the command still exits 0.
 
 `validate` runs structural checks only, not full conformance; for an
 authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and

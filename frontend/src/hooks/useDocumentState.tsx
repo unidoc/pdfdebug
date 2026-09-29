@@ -2,7 +2,7 @@
  * @file Global application state via React context + useReducer.
  * Manages document tabs, node selection, navigation, and error banners.
  */
-import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
 
 // --- Types ---
 
@@ -100,7 +100,19 @@ export interface AppState {
   activeTabId: string | null;
   documentError: string | null;
   documentWarning: string | null;
-  goToPageOpen: boolean;
+  /**
+   * Id of the left-rail destination filling the left panel. App-level, not
+   * per tab, not persisted; OPEN_DOCUMENT resets it to Structure. Held as a
+   * plain string; the rail resolves an unknown id to its first destination.
+   */
+  leftView: string;
+  /** True while the left panel is collapsed to the rail alone. */
+  leftPanelCollapsed: boolean;
+  /**
+   * Monotonic counter bumped by FOCUS_PAGES_JUMP. The Pages panel focuses its
+   * jump field whenever it changes.
+   */
+  pagesJumpFocusVersion: number;
   // Dialog visibility for an in-flight multi-file open. Set true on
   // BATCH_OPEN_START, false on BATCH_OPEN_COMPLETE.
   batchOpenActive: boolean;
@@ -143,8 +155,9 @@ export type AppAction =
   | { type: 'DISMISS_WARNING' }
   | { type: 'NAVIGATE_BACK' }
   | { type: 'NAVIGATE_FORWARD' }
-  | { type: 'OPEN_GO_TO_PAGE' }
-  | { type: 'CLOSE_GO_TO_PAGE' }
+  | { type: 'SELECT_LEFT_VIEW'; payload: { view: string } }
+  | { type: 'TOGGLE_LEFT_PANEL' }
+  | { type: 'FOCUS_PAGES_JUMP' }
   | { type: 'BATCH_OPEN_START'; payload: { total: number } }
   | { type: 'BATCH_OPEN_CANCEL' }
   | { type: 'BATCH_OPEN_COMPLETE' }
@@ -159,7 +172,9 @@ const initialState: AppState = {
   activeTabId: null,
   documentError: null,
   documentWarning: null,
-  goToPageOpen: false,
+  leftView: 'structure',
+  leftPanelCollapsed: false,
+  pagesJumpFocusVersion: 0,
   batchOpenActive: false,
   batchOpenTotal: 0,
   batchOpenCompleted: 0,
@@ -214,6 +229,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
           return {
             ...state,
             activeTabId: existing.tabId,
+            leftView: 'structure',
             documentError: null,
             documentWarning,
             batchOpenCompleted,
@@ -252,6 +268,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tabs: [...state.tabs, newTab],
         activeTabId: action.payload.tabId,
+        leftView: 'structure',
         documentError: null,
         documentWarning,
         batchOpenCompleted,
@@ -367,8 +384,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'NAVIGATE_TO_REF': {
       if (state.activeTabId === null) return state;
+      // The reveal runs in the Structure tree, so show it: a reveal into a
+      // hidden or collapsed tree would move nothing on screen.
       return {
         ...state,
+        leftView: 'structure',
+        leftPanelCollapsed: false,
         tabs: state.tabs.map((tab) =>
           tab.tabId === state.activeTabId
             ? { ...tab, pendingNavTarget: action.payload.targetNodeId, navError: null }
@@ -465,16 +486,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
         }),
       };
     }
-    case 'OPEN_GO_TO_PAGE': {
-      // No-op when no document is loaded; the dialog needs an active tab and
-      // a positive pageCount to be useful.
-      if (state.activeTabId === null) return state;
-      const active = state.tabs.find((t) => t.tabId === state.activeTabId);
-      if (!active || active.pageCount <= 0) return state;
-      return { ...state, goToPageOpen: true };
+    case 'SELECT_LEFT_VIEW': {
+      return { ...state, leftView: action.payload.view, leftPanelCollapsed: false };
     }
-    case 'CLOSE_GO_TO_PAGE': {
-      return { ...state, goToPageOpen: false };
+    case 'TOGGLE_LEFT_PANEL': {
+      return { ...state, leftPanelCollapsed: !state.leftPanelCollapsed };
+    }
+    case 'FOCUS_PAGES_JUMP': {
+      // Needs a document; not gated on pageCount, which is 0 when /Count
+      // could not be read even though the file may have pages.
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        leftView: 'pages',
+        leftPanelCollapsed: false,
+        pagesJumpFocusVersion: state.pagesJumpFocusVersion + 1,
+      };
     }
     case 'BATCH_OPEN_START': {
       return {
@@ -559,9 +586,47 @@ const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 
 // --- Provider ---
 
+/** localStorage key holding the left rail's `{ collapsed }` flag. */
+export const LEFT_RAIL_STORAGE_KEY = 'unidoc-pdf-debugger:left-rail';
+
+// Reads the persisted collapse flag. Anything but a boolean `collapsed`, or a
+// storage that throws, gives false. The view is not persisted: the app and
+// every opened file start on Structure.
+function readLeftRailCollapsed(): boolean {
+  try {
+    const raw = window.localStorage.getItem(LEFT_RAIL_STORAGE_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed !== null && typeof parsed === 'object') {
+        const { collapsed } = parsed as Record<string, unknown>;
+        if (typeof collapsed === 'boolean') return collapsed;
+      }
+    }
+  } catch {
+    // Unreadable storage falls back to the default.
+  }
+  return false;
+}
+
+function writeLeftRailCollapsed(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(LEFT_RAIL_STORAGE_KEY, JSON.stringify({ collapsed }));
+  } catch {
+    // Ignore write failures (private mode, blocked storage).
+  }
+}
+
+function initAppState(base: AppState): AppState {
+  return { ...base, leftPanelCollapsed: readLeftRailCollapsed() };
+}
+
 /** Context provider that makes app state and dispatch available to the tree. */
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [state, dispatch] = useReducer(appReducer, initialState, initAppState);
+
+  useEffect(() => {
+    writeLeftRailCollapsed(state.leftPanelCollapsed);
+  }, [state.leftPanelCollapsed]);
 
   return (
     <AppStateContext.Provider value={state}>

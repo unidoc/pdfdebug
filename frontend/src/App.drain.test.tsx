@@ -58,7 +58,7 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   GetChildren: (...a: unknown[]) => mockGetChildren(...a),
   CloseDocument: (...a: unknown[]) => mockCloseDocument(...a),
   OpenFileDialog: vi.fn(),
-  GoToPage: vi.fn(),
+  GetPageIndex: vi.fn(),
   ConsumePendingOpenFiles: (...a: unknown[]) => {
     callOrder.push('ConsumePendingOpenFiles');
     return mockConsume(...a);

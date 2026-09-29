@@ -81,6 +81,8 @@ func dispatch(args []string) int {
 			return runXRefDump(remaining)
 		case "objects":
 			return runObjectsDump(remaining)
+		case "pages":
+			return runPagesDump(remaining)
 		case "bytes":
 			return runBytesDump(remaining)
 		case "plaintext":
@@ -124,6 +126,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  dump reverserefs [--json] --ref \"N G R\" <file>    Dump inbound refs (who points at this object)")
 	_, _ = fmt.Fprintln(w, "  dump xref [--json] <file>                         Dump the cross-reference table")
 	_, _ = fmt.Fprintln(w, "  dump objects [--json] <file>                      Dump the object index (plural: every object)")
+	_, _ = fmt.Fprintln(w, "  dump pages [--json] <file>                        Dump the page index (plural: every page leaf, with MediaBox, inheritance and errors)")
 	_, _ = fmt.Fprintln(w, "  dump bytes [--json] <file>                        Dump raw document bytes, not extracted page text (use pdftotext for page prose; --json wraps the decoded text)")
 	_, _ = fmt.Fprintln(w, "  dump embedded [--json] [--ref \"N G R\" | --name NAME] <file>  List embedded/associated files; --ref/--name extracts one's raw bytes to stdout")
 	_, _ = fmt.Fprintln(w, "  dump metadata [--json] <file>                     Dump the /Info dictionary fields and the XMP metadata packet")
@@ -162,6 +165,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump reverserefs --ref \"4 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump objects file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump pages file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump bytes file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --ref \"4 0 R\" file.pdf > factur-x.xml")
