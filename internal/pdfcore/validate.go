@@ -697,21 +697,15 @@ const maxDeviceColorFormDepth = 8
 // that under-reports (never falsely flags), consistent with the structural
 // firewall; veraPDF is the authoritative oracle.
 func documentUsesDeviceColor(doc *DocumentState) bool {
-	n := doc.PageCount
-	if n <= 0 {
-		return false
-	}
-	xrt := doc.PDFContext.XRefTable
-	for p := 1; p <= n; p++ {
-		var pageDict pdfcpu_types.Dict
-		_ = safeCall(func() error {
-			pd, _, _, e := xrt.PageDict(p, false)
-			pageDict = pd
-			return e
-		})
-		if pageDict == nil {
-			continue
-		}
+	// Pages come from the page-index walk, so a /Type /Page carrying /Kids is
+	// scanned as the page it is.
+	var pages []*pageLeaf
+	_ = safeCall(func() error {
+		pages = allPages(doc.PDFContext)
+		return nil
+	})
+	for _, page := range pages {
+		pageDict := page.dict
 		for _, sd := range pageContentStreams(doc, pageDict) {
 			if streamUsesDeviceColor(sd) {
 				return true

@@ -837,3 +837,20 @@ func TestInheritedPageAttrsRejectANonFiniteBox(t *testing.T) {
 		t.Errorf("an infinite /MediaBox element: err %v, want a /MediaBox error", err)
 	}
 }
+
+func TestAllPagesListsEveryPageInOrder(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 " + box + " >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /Kids [4 0 R] >>"},
+		rawObj{4, "<< /Type /Page /Parent 3 0 R >>"},
+		rawObj{5, "<< /Type /Page /Parent 2 0 R >>"},
+	))
+	var got []int
+	for _, p := range allPages(doc.PDFContext) {
+		got = append(got, p.ref.ObjectNumber.Value())
+	}
+	if fmt.Sprint(got) != "[3 5]" {
+		t.Errorf("allPages = %v, want [3 5]", got)
+	}
+}

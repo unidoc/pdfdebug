@@ -483,3 +483,23 @@ func TestValidate_DirectOpenActionReported(t *testing.T) {
 		t.Errorf("direct /OpenAction message should name /OpenAction, got %q", p.Message)
 	}
 }
+
+func TestValidate_DeviceColorOnAPageCarryingKids(t *testing.T) {
+	// The only page is a /Type /Page that also carries an empty /Kids; its
+	// device RGB fill must still be scanned.
+	withColor := assemblexref(
+		"%PDF-1.4\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /Kids [] /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n\n",
+		"4 0 obj\n<< /Length 21 >>\nstream\n1 0 0 rg 0 0 10 10 re f\nendstream\nendobj\n\n",
+	)
+	ins, tabID := writeTempPDF(t, "color-kids.pdf", withColor)
+	res, err := ins.Validate(tabID, ProfilePDFA1B)
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if problemByRule(res.Problems, "output-intent") == nil {
+		t.Errorf("output-intent rule must fire for device color on a page carrying /Kids:\n%+v", res.Problems)
+	}
+}

@@ -74,6 +74,10 @@ type pageWalker struct {
 	// walk records that page in found and stops descending.
 	want  int
 	found *pageLeaf
+	// collect makes the walk record every numbered page in leaves instead of
+	// building rows (allPages).
+	collect bool
+	leaves  []*pageLeaf
 }
 
 // pageLeaf is one numbered page found by findPage: its dictionary, its
@@ -262,6 +266,10 @@ func (w *pageWalker) visitKid(index int, kid pdfcpu_types.Object, inherited page
 func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) {
 	w.next++
 	eff := effectiveAttrs(d, inherited)
+	if w.collect {
+		w.leaves = append(w.leaves, &pageLeaf{dict: d, ref: ref, attrs: eff})
+		return
+	}
 	if w.want > 0 {
 		if w.next == w.want && w.found == nil {
 			w.found = &pageLeaf{dict: d, ref: ref, attrs: eff}
@@ -382,6 +390,16 @@ func (w *pageWalker) rotation(o pdfcpu_types.Object) (n int, integer, ok bool) {
 		return int(math.Round(f)), false, true
 	}
 	return 0, false, false
+}
+
+// allPages returns every numbered page in document order by the same walk and
+// numbering as GetPageIndex, in one pass. Callers hold pdfMu and wrap the call
+// in safeCall.
+func allPages(ctx *pdfcpu_model.Context) []*pageLeaf {
+	w := newPageWalker(ctx)
+	w.collect = true
+	w.walk()
+	return w.leaves
 }
 
 // inheritedPageAttrs resolves a found page's effective attributes into
