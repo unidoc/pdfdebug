@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/bits"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -339,7 +340,8 @@ func TestIndirectAttributeValues(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Walk order matches the page resolution the rest of the tool uses: the Nth
-// numbered row names the same object `dump tree --page N` resolves.
+// numbered row names the same object `dump tree --page N` and
+// `dump page --info N` resolve, including a /Type /Page that carries /Kids.
 // ---------------------------------------------------------------------------
 
 func TestWalkOrderMatchesPageResolution(t *testing.T) {
@@ -351,6 +353,8 @@ func TestWalkOrderMatchesPageResolution(t *testing.T) {
 		"duplicate-page.pdf":       writeFixture(t, "duplicate-page.pdf", duplicatePagePDF()),
 		"empty-kids.pdf":           writeFixture(t, "empty-kids.pdf", emptyKidsPDF()),
 		"contents.pdf":             writeFixture(t, "contents.pdf", contentsPDF()),
+		"page-with-kids.pdf":       writeFixture(t, "page-with-kids.pdf", pageWithKidsPDF()),
+		"page-with-empty-kids.pdf": writeFixture(t, "page-with-empty-kids.pdf", pageWithEmptyKidsPDF()),
 	}
 	for name, path := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -362,6 +366,11 @@ func TestWalkOrderMatchesPageResolution(t *testing.T) {
 			for i, e := range pages {
 				if want := pageNodeIDFromTree(t, path, i+1); e.NodeID != want {
 					t.Errorf("numbered row %d names %q, dump tree --page %d resolves %q", i+1, e.NodeID, i+1, want)
+				}
+				ref := fmt.Sprintf("%d %d R", e.ObjNum, e.Gen)
+				stdout, stderr, code := runCLI(t, "dump", "page", "--info", strconv.Itoa(i+1), path)
+				if code != 0 || !strings.Contains(stdout, "PageRef:  "+ref) {
+					t.Errorf("dump page --info %d: exit %d, want PageRef %s\nstdout: %s\nstderr: %s", i+1, code, ref, stdout, stderr)
 				}
 			}
 		})

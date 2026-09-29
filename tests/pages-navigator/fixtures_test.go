@@ -142,6 +142,18 @@ func pageWithKidsPDF() []byte {
 	)
 }
 
+// pageWithEmptyKidsPDF has three pages, the first a /Type /Page carrying an
+// empty /Kids; viewers number it page 1.
+func pageWithEmptyKidsPDF() []byte {
+	return assemblePDF(
+		pdfObj{1, catalog},
+		pdfObj{2, "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 612 792] >>"},
+		pdfObj{3, "<< /Type /Page /Parent 2 0 R /Kids [] >>"},
+		pdfObj{4, "<< /Type /Page /Parent 2 0 R >>"},
+		pdfObj{5, "<< /Type /Page /Parent 2 0 R >>"},
+	)
+}
+
 // emptyKidsPDF has an intermediate with /Kids [] ahead of the only page.
 func emptyKidsPDF() []byte {
 	return assemblePDF(

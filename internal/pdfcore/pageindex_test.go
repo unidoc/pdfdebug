@@ -306,12 +306,15 @@ func TestPageIndexMalformedAttributes(t *testing.T) {
 	checkRows(t, entries, []rowShape{
 		{1, 3, "/MediaBox is not an array of four numbers"},
 		{2, 4, "/MediaBox is not an array of four numbers"},
-		{3, 5, "/Rotate is not an integer"},
+		{3, 5, "/Rotate is not an integer; read as 2"},
 		{4, 6, "no /MediaBox"},
 		{5, 7, "no /Type; no /MediaBox, own or inherited; /Rotate is not an integer"},
 	})
-	if entries[0].MediaBox != [4]float64{} || entries[2].Rotate != 0 {
-		t.Errorf("malformed values are left zero: %+v %+v", *entries[0], *entries[2])
+	if entries[0].MediaBox != [4]float64{} || entries[4].Rotate != 0 {
+		t.Errorf("malformed values are left zero: %+v %+v", *entries[0], *entries[4])
+	}
+	if entries[2].Rotate != 2 {
+		t.Errorf("a real /Rotate is rounded, as dump page reads it: got %d, want 2", entries[2].Rotate)
 	}
 	if entries[2].MediaBox != [4]float64{0, 0, 612, 792} {
 		t.Errorf("a bad /Rotate does not disturb MediaBox: %v", entries[2].MediaBox)
@@ -694,5 +697,143 @@ func TestPageIndexDirectDictPageIsNumberedWithoutAReference(t *testing.T) {
 	}
 	if direct.MediaBox != [4]float64{0, 0, 612, 792} || direct.Inherited != InheritedMediaBox || direct.Rotate != 90 {
 		t.Errorf("a direct page still resolves own and inherited attributes: %+v", *direct)
+	}
+}
+
+func TestFindPageNumbersLikeThePageIndex(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 5 0 R 6 0 R] /Count 3 " + box + " >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /Kids [4 0 R] >>"},
+		rawObj{4, "<< /Type /Page /Parent 3 0 R >>"},
+		rawObj{5, "<< /Type /Page /Parent 2 0 R /Kids [] >>"},
+		rawObj{6, "<< /Type /Page /Parent 2 0 R >>"},
+	))
+	for pageNum, wantObj := range map[int]int{1: 3, 2: 5, 3: 6} {
+		leaf := findPage(doc.PDFContext, pageNum)
+		if leaf == nil || leaf.ref == nil || leaf.ref.ObjectNumber.Value() != wantObj {
+			t.Errorf("findPage(%d) = %+v, want obj %d", pageNum, leaf, wantObj)
+		}
+	}
+	for _, pageNum := range []int{0, -1, 4} {
+		if leaf := findPage(doc.PDFContext, pageNum); leaf != nil {
+			t.Errorf("findPage(%d) = obj %v, want nil", pageNum, leaf.ref)
+		}
+	}
+}
+
+func TestInheritedPageAttrsTakeTheNearestValue(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] /CropBox [9 9 99 99] /Rotate 90 /Resources << /Font << >> >> >>"},
+		rawObj{3, "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R] /Count 1 /MediaBox [0 0 100 200] >>"},
+		rawObj{4, "<< /Type /Page /Parent 3 0 R /Rotate 179.6 /CropBox [1 2 3 4] >>"},
+	))
+	leaf := findPage(doc.PDFContext, 1)
+	if leaf == nil {
+		t.Fatal("page 1 not found")
+	}
+	inh, err := inheritedPageAttrs(doc.PDFContext, leaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inh.MediaBox == nil || inh.MediaBox.Width() != 100 || inh.MediaBox.Height() != 200 {
+		t.Errorf("MediaBox = %v, want the nearest ancestor's 0 0 100 200", inh.MediaBox)
+	}
+	if inh.CropBox == nil || inh.CropBox.LL.X != 1 || inh.CropBox.UR.Y != 4 {
+		t.Errorf("CropBox = %v, want the page's own 1 2 3 4", inh.CropBox)
+	}
+	if inh.Rotate != 180 {
+		t.Errorf("Rotate = %d, want the page's 179.6 rounded to 180", inh.Rotate)
+	}
+	if _, ok := inh.Resources.Find("Font"); !ok {
+		t.Errorf("Resources = %v, want the root's dictionary", inh.Resources)
+	}
+}
+
+func TestInheritedPageAttrsAbsentAndMalformed(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R >>"},
+		rawObj{4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612] >>"},
+	))
+	inh, err := inheritedPageAttrs(doc.PDFContext, findPage(doc.PDFContext, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inh.MediaBox != nil || inh.CropBox != nil || inh.Resources != nil || inh.Rotate != 0 {
+		t.Errorf("a page with nothing declared anywhere = %+v, want all zero", inh)
+	}
+	if _, err := inheritedPageAttrs(doc.PDFContext, findPage(doc.PDFContext, 2)); err == nil || !strings.Contains(err.Error(), "/MediaBox is not an array of four numbers") {
+		t.Errorf("a three-element /MediaBox: err %v, want a /MediaBox error", err)
+	}
+}
+
+func TestPageNumberLookupsResolveAPageCarryingKids(t *testing.T) {
+	ins, _ := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 " + box + " >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /Kids [] /Contents 4 0 R >>"},
+		rawObj{4, rawStream("0 0 m")},
+		rawObj{5, "<< /Type /Page /Parent 2 0 R >>"},
+	))
+	node, err := ins.GetPageNode("raw", 1)
+	if err != nil || node.ObjectRef != "3 0 R" {
+		t.Errorf("GetPageNode(1) = %+v, %v; want 3 0 R", node, err)
+	}
+	ids, err := ins.pageContentStreamNodeIDs("raw", 1)
+	if err != nil || len(ids) != 1 || ids[0] != "obj:0:4" {
+		t.Errorf("pageContentStreamNodeIDs(1) = %v, %v; want [obj:0:4]", ids, err)
+	}
+	info, err := ins.PageRenderInfo("raw", 1, PageRenderOpts{})
+	if err != nil || info.PageRef != "3 0 R" {
+		t.Errorf("PageRenderInfo(1) = %+v, %v; want PageRef 3 0 R", info, err)
+	}
+	if _, err := ins.GetPageNode("raw", 3); err == nil || err.Error() != "page 3 not found" {
+		t.Errorf("GetPageNode(3) err = %v, want page 3 not found", err)
+	}
+	if _, err := ins.pageContentStreamNodeIDs("raw", 3); err == nil || err.Error() != "page 3 not found" {
+		t.Errorf("pageContentStreamNodeIDs(3) err = %v, want page 3 not found", err)
+	}
+}
+
+func TestPageNumberLookupsRejectADirectPageDictionary(t *testing.T) {
+	ins, _ := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [<< /Type /Page /Parent 2 0 R >>] /Count 1 " + box + " >>"},
+	))
+	for name, call := range map[string]func() error{
+		"GetPageNode":    func() error { _, err := ins.GetPageNode("raw", 1); return err },
+		"PageRenderInfo": func() error { _, err := ins.PageRenderInfo("raw", 1, PageRenderOpts{}); return err },
+	} {
+		if err := call(); err == nil || !strings.Contains(err.Error(), "not found: the page is a direct dictionary") {
+			t.Errorf("%s err = %v, want a direct-dictionary not found error", name, err)
+		}
+	}
+}
+
+func TestPageRenderInfoNamesAMalformedAttributeRatherThanAMissingPage(t *testing.T) {
+	ins, _ := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612] >>"},
+	))
+	_, err := ins.PageRenderInfo("raw", 1, PageRenderOpts{})
+	if err == nil || strings.Contains(err.Error(), "not found") || !strings.Contains(err.Error(), "page 1: /MediaBox is not an array of four numbers") {
+		t.Errorf("err = %v, want page 1: /MediaBox is not an array of four numbers", err)
+	}
+}
+
+func TestInheritedPageAttrsRejectANonFiniteBox(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"},
+	))
+	leaf := findPage(doc.PDFContext, 1)
+	leaf.attrs.mediaBox = pdfcpu_types.Array{pdfcpu_types.Integer(0), pdfcpu_types.Integer(0), pdfcpu_types.Float(math.Inf(1)), pdfcpu_types.Integer(792)}
+	if _, err := inheritedPageAttrs(doc.PDFContext, leaf); err == nil || !strings.Contains(err.Error(), "/MediaBox") {
+		t.Errorf("an infinite /MediaBox element: err %v, want a /MediaBox error", err)
 	}
 }

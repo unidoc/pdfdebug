@@ -51,25 +51,34 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	// PageDict resolves the page dict AND its inherited attributes (MediaBox,
-	// CropBox, Rotate, Resources) walking up /Pages ancestors - the classic
-	// inheritance gotcha is handled by pdfcpu here.
-	var pageDict pdfcpu_types.Dict
-	var indRef *pdfcpu_types.IndirectRef
+	// findPage numbers pages like GetPageIndex and carries the inherited
+	// attributes (MediaBox, CropBox, Rotate, Resources) down the /Pages
+	// ancestors. A missing page reads "page N not found"; a page whose
+	// attributes cannot be read names the attribute instead.
+	var leaf *pageLeaf
 	var inh *pdfcpu_model.InheritedPageAttrs
+	var attrErr error
 	err = safeCall(func() error {
-		var e error
-		pageDict, indRef, inh, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
+		leaf = findPage(doc.PDFContext, pageNum)
+		if leaf == nil {
+			return nil
+		}
+		inh, attrErr = inheritedPageAttrs(doc.PDFContext, leaf)
+		return nil
 	})
 	if err != nil {
-		// pdfcpu's "page not found" surfaces here for out-of-range pages; keep the
-		// "not found" wording so the CLI exit-code mapping is stable.
-		return nil, fmt.Errorf("page %d not found: %w", pageNum, err)
+		return nil, fmt.Errorf("page %d: %w", pageNum, wrapPDFError(err))
 	}
-	if pageDict == nil || indRef == nil {
+	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
+	if attrErr != nil {
+		return nil, fmt.Errorf("page %d: %w", pageNum, attrErr)
+	}
+	if leaf.ref == nil {
+		return nil, fmt.Errorf("page %d not found: the page is a direct dictionary with no object reference", pageNum)
+	}
+	indRef := leaf.ref
 
 	info := &PageRenderInfo{
 		Page:    pageNum,
@@ -79,8 +88,8 @@ func (ins *Inspector) PageRenderInfo(tabID string, pageNum int, opts PageRenderO
 	info.MediaBox = rectToSlice(inh.MediaBox)
 	info.CropBox = rectToSlice(inh.CropBox)
 
-	// Resolve the page's /Resources. PageDict already resolved the inherited
-	// /Resources dict; classify its ExtGState/XObject/Pattern/Shading sub-dicts.
+	// inheritedPageAttrs resolved the effective /Resources dict (own or nearest
+	// ancestor); classify its ExtGState/XObject/Pattern/Shading sub-dicts.
 	res := classifyResources(doc, inh.Resources)
 	info.ExtGStates = res.extGStates
 	info.XObjects = res.xobjects

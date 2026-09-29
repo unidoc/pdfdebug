@@ -14,8 +14,8 @@ import (
 // (PageNum 0, Err set) for every page-tree entry that is not a page. Built by a
 // single depth-first walk from the catalog's /Pages on first call and cached on
 // the per-tab DocumentState; a re-Open under the same tabID replaces the
-// DocumentState, and with it the cache. A malformed page tree yields rows carrying Err, never a
-// failed call. A document with no pages returns a non-nil empty slice.
+// DocumentState, and with it the cache. A malformed page tree yields rows
+// carrying Err, never a failed call. A document with no pages returns a non-nil empty slice.
 func (ins *Inspector) GetPageIndex(tabID string) ([]*PageIndexEntry, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -70,18 +70,55 @@ type pageWalker struct {
 	next      int
 	// depth counts the intermediate nodes on the current descent path.
 	depth int
+	// want, when positive, is the page number findPage is looking for; the
+	// walk records that page in found and stops descending.
+	want  int
+	found *pageLeaf
+}
+
+// pageLeaf is one numbered page found by findPage: its dictionary, its
+// reference (nil for a direct dictionary) and each inheritable attribute in
+// effect - the page's own value, else the nearest ancestor's, else nil.
+type pageLeaf struct {
+	dict  pdfcpu_types.Dict
+	ref   *pdfcpu_types.IndirectRef
+	attrs pageAttrs
+}
+
+// findPage returns the page numbered pageNum by the same walk and numbering
+// as GetPageIndex, so page-number lookups agree with `dump pages` and with
+// viewers (a /Type /Page carrying /Kids is still a page). Nil when no page has
+// that number. Callers hold pdfMu and wrap the call in safeCall.
+func findPage(ctx *pdfcpu_model.Context, pageNum int) *pageLeaf {
+	if pageNum < 1 {
+		return nil
+	}
+	w := newPageWalker(ctx)
+	w.want = pageNum
+	w.walk()
+	return w.found
 }
 
 // buildPageIndex walks the page tree of ctx from the catalog's /Pages. No
 // /Pages, or a /Pages that is not a dictionary, yields an empty slice.
 func buildPageIndex(ctx *pdfcpu_model.Context) []*PageIndexEntry {
-	w := &pageWalker{
+	w := newPageWalker(ctx)
+	return w.walk()
+}
+
+func newPageWalker(ctx *pdfcpu_model.Context) *pageWalker {
+	return &pageWalker{
 		ctx:       ctx,
 		entries:   []*PageIndexEntry{},
 		onPath:    map[int]bool{},
 		walked:    map[int]bool{},
 		firstPage: map[int]int{},
 	}
+}
+
+// walk visits the page tree from the catalog's /Pages and returns the rows.
+func (w *pageWalker) walk() []*PageIndexEntry {
+	ctx := w.ctx
 	if ctx == nil || ctx.XRefTable == nil {
 		return w.entries
 	}
@@ -178,6 +215,9 @@ func (w *pageWalker) visitIntermediate(d pdfcpu_types.Dict, ref *pdfcpu_types.In
 	}
 
 	for i, kid := range kids {
+		if w.found != nil {
+			return
+		}
 		w.visitKid(i, kid, frame)
 	}
 }
@@ -217,9 +257,18 @@ func (w *pageWalker) visitKid(index int, kid pdfcpu_types.Object, inherited page
 }
 
 // visitLeaf numbers a page leaf and records its attributes. Problems on the
-// page set Err without unnumbering it.
+// page set Err without unnumbering it. When findPage is looking for a page,
+// leaves before it are only counted and the wanted one is captured.
 func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) {
 	w.next++
+	eff := effectiveAttrs(d, inherited)
+	if w.want > 0 {
+		if w.next == w.want && w.found == nil {
+			w.found = &pageLeaf{dict: d, ref: ref, attrs: eff}
+		}
+		return
+	}
+
 	e := &PageIndexEntry{PageNum: w.next}
 	var errs []string
 	if ref != nil {
@@ -244,50 +293,139 @@ func (w *pageWalker) visitLeaf(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 		errs = append(errs, "page has a /Kids entry; its kids are not walked")
 	}
 
-	own := func(key string) pdfcpu_types.Object {
-		v, ok := d.Find(key)
-		if !ok {
-			return nil
+	// An attribute is inherited when the page has none of its own and an
+	// ancestor supplies one.
+	for _, a := range []struct {
+		key      string
+		ancestor pdfcpu_types.Object
+		bit      uint8
+	}{
+		{"Resources", inherited.resources, InheritedResources},
+		{"MediaBox", inherited.mediaBox, InheritedMediaBox},
+		{"CropBox", inherited.cropBox, InheritedCropBox},
+		{"Rotate", inherited.rotate, InheritedRotate},
+	} {
+		if ownEntry(d, a.key) == nil && a.ancestor != nil {
+			e.Inherited |= a.bit
 		}
-		return v
-	}
-	pick := func(key string, ancestor pdfcpu_types.Object, bit uint8) pdfcpu_types.Object {
-		if v := own(key); v != nil {
-			return v
-		}
-		if ancestor != nil {
-			e.Inherited |= bit
-		}
-		return ancestor
 	}
 
-	pick("Resources", inherited.resources, InheritedResources)
-	pick("CropBox", inherited.cropBox, InheritedCropBox)
-
-	if mb := pick("MediaBox", inherited.mediaBox, InheritedMediaBox); mb == nil {
+	if eff.mediaBox == nil {
 		errs = append(errs, "no /MediaBox, own or inherited")
-	} else if box, ok := w.rect(mb); ok {
+	} else if box, ok := w.rect(eff.mediaBox); ok {
 		e.MediaBox = box
 	} else {
 		errs = append(errs, "/MediaBox is not an array of four numbers")
 	}
 
-	if rot := pick("Rotate", inherited.rotate, InheritedRotate); rot != nil {
-		if n, ok := w.deref(rot).(pdfcpu_types.Integer); ok {
-			e.Rotate = n.Value()
-		} else {
+	if eff.rotate != nil {
+		n, integer, ok := w.rotation(eff.rotate)
+		switch {
+		case !ok:
 			errs = append(errs, "/Rotate is not an integer")
+		case !integer:
+			e.Rotate = n
+			errs = append(errs, fmt.Sprintf("/Rotate is not an integer; read as %d", n))
+		default:
+			e.Rotate = n
 		}
 	}
 
-	if annots, ok := w.deref(own("Annots")).(pdfcpu_types.Array); ok {
+	if annots, ok := w.deref(ownEntry(d, "Annots")).(pdfcpu_types.Array); ok {
 		e.AnnotCount = len(annots)
 	}
 
-	errs = append(errs, w.contents(own("Contents"), e)...)
+	errs = append(errs, w.contents(ownEntry(d, "Contents"), e)...)
 
 	e.Err = strings.Join(errs, "; ")
 	w.entries = append(w.entries, e)
+}
+
+// ownEntry returns d's own value for key, nil when absent.
+func ownEntry(d pdfcpu_types.Dict, key string) pdfcpu_types.Object {
+	v, ok := d.Find(key)
+	if !ok {
+		return nil
+	}
+	return v
+}
+
+// effectiveAttrs applies page-attribute inheritance: each attribute is the
+// page's own value, else the nearest ancestor's, else nil.
+func effectiveAttrs(d pdfcpu_types.Dict, inherited pageAttrs) pageAttrs {
+	pick := func(key string, ancestor pdfcpu_types.Object) pdfcpu_types.Object {
+		if v := ownEntry(d, key); v != nil {
+			return v
+		}
+		return ancestor
+	}
+	return pageAttrs{
+		resources: pick("Resources", inherited.resources),
+		mediaBox:  pick("MediaBox", inherited.mediaBox),
+		cropBox:   pick("CropBox", inherited.cropBox),
+		rotate:    pick("Rotate", inherited.rotate),
+	}
+}
+
+// rotation reads /Rotate. An integer is taken as is; a real is rounded to the
+// nearest integer and reported as not an integer. ok is false for anything
+// that is not a number.
+func (w *pageWalker) rotation(o pdfcpu_types.Object) (n int, integer, ok bool) {
+	switch v := w.deref(o).(type) {
+	case pdfcpu_types.Integer:
+		return v.Value(), true, true
+	case pdfcpu_types.Float:
+		f := v.Value()
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return 0, false, false
+		}
+		return int(math.Round(f)), false, true
+	}
+	return 0, false, false
+}
+
+// inheritedPageAttrs resolves a found page's effective attributes into
+// pdfcpu's InheritedPageAttrs shape: the /Resources dictionary, the /MediaBox
+// and /CropBox rectangles (nil when absent), and /Rotate (a real rounded to the
+// nearest integer). Rectangles and /Rotate are read exactly as GetPageIndex
+// reads them. A present but malformed attribute is an error. Callers hold
+// pdfMu and wrap the call in safeCall.
+func inheritedPageAttrs(ctx *pdfcpu_model.Context, leaf *pageLeaf) (*pdfcpu_model.InheritedPageAttrs, error) {
+	w := &pageWalker{ctx: ctx}
+	out := &pdfcpu_model.InheritedPageAttrs{}
+	// A /Resources that resolves to nothing (a dangling reference) is absent.
+	if r := w.deref(leaf.attrs.resources); r != nil {
+		d, ok := r.(pdfcpu_types.Dict)
+		if !ok {
+			return nil, fmt.Errorf("/Resources is not a dictionary")
+		}
+		out.Resources = d
+	}
+	box := func(name string, o pdfcpu_types.Object) (*pdfcpu_types.Rectangle, error) {
+		if o == nil {
+			return nil, nil
+		}
+		v, ok := w.rect(o)
+		if !ok {
+			return nil, fmt.Errorf("/%s is not an array of four numbers", name)
+		}
+		return pdfcpu_types.NewRectangle(v[0], v[1], v[2], v[3]), nil
+	}
+	var err error
+	if out.MediaBox, err = box("MediaBox", leaf.attrs.mediaBox); err != nil {
+		return nil, err
+	}
+	if out.CropBox, err = box("CropBox", leaf.attrs.cropBox); err != nil {
+		return nil, err
+	}
+	if leaf.attrs.rotate != nil {
+		n, _, ok := w.rotation(leaf.attrs.rotate)
+		if !ok {
+			return nil, fmt.Errorf("/Rotate is not a number")
+		}
+		out.Rotate = n
+	}
+	return out, nil
 }
 
 // rect reads a rectangle of four finite numbers, dereferencing the array and

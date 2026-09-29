@@ -23,6 +23,10 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - Plain-text scalar values are capped at 80 runes with a `[truncated: N of M]` marker, and control characters are escaped so one node is always exactly one output line. `--json` carries the full, unescaped value
 - Wails v3 alpha2.117 -> beta.18 and `@wailsio/runtime` alpha.79 -> beta.18, both pinned exact with no range specifier (library and runtime at the same patch). Moves onto the supported beta release channel; the `alpha2` line is no longer advertised in the Go module proxy. The bump itself leaves the bound API surface unchanged. The three per-release version-floor test suites are collapsed into one current-state contract at `tests/wails-version-contract/`
 
+### Fixed
+
+- `dump tree --page N`, `dump stream --page N` and `dump page --info N` now number pages the way `dump pages` and viewers do. A `/Type /Page` that also carries `/Kids` was unreachable (`page 1 not found`) or lost its number to its kid; it now resolves as the page. `validate` scans that page's content for device colour too. `dump tree --page` past the last page reports `page N not found` instead of `malformed PDF: pdfcpu: page not found`; `dump page --info` and `dump stream --page` keep their `page N out of range: document has M pages` check. `dump page --info` on a page whose `/MediaBox`, `/CropBox`, `/Rotate` or `/Resources` cannot be read names the attribute instead of calling the page not found, and a real-number `/Rotate` reads the same rounded value in `dump pages` as in `dump page`
+
 ### Refactored
 
 - Plain-text load cancellation now rides the request context that Wails v3 injects into bound methods: the Cancel button aborts the in-flight call, cancelling the Go-side context. Removes the separate `CancelPlainText` binding and the per-load cancel machinery (bound surface 29 -> 28). No user-visible change to the Cancel behavior

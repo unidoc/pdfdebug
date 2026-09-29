@@ -22,23 +22,22 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 	if err != nil {
 		return nil, err
 	}
-	// PageDict mutates the pdfcpu page-resolution cache; serialize.
+	// The page-tree walk dereferences through pdfcpu; serialize.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var pageDict pdfcpu_types.Dict
+	var leaf *pageLeaf
 	err = safeCall(func() error {
-		var e error
-		pageDict, _, _, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
+		leaf = findPage(doc.PDFContext, pageNum)
+		return nil
 	})
 	if err != nil {
 		return nil, wrapPDFError(err)
 	}
-
-	if pageDict == nil {
-		return nil, nil
+	if leaf == nil {
+		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
+	pageDict := leaf.dict
 
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
@@ -147,24 +146,26 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 	if err != nil {
 		return nil, err
 	}
-	// PageDict mutates the pdfcpu page-resolution cache; serialize, same as
+	// The page-tree walk dereferences through pdfcpu; serialize, same as
 	// GetPageContentStreamNodeID.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var pageDict pdfcpu_types.Dict
-	var indRef *pdfcpu_types.IndirectRef
+	var leaf *pageLeaf
 	err = safeCall(func() error {
-		var e error
-		pageDict, indRef, _, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
+		leaf = findPage(doc.PDFContext, pageNum)
+		return nil
 	})
 	if err != nil {
 		return nil, wrapPDFError(err)
 	}
-	if pageDict == nil || indRef == nil {
+	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
+	if leaf.ref == nil {
+		return nil, fmt.Errorf("page %d not found: the page is a direct dictionary with no object reference", pageNum)
+	}
+	pageDict, indRef := leaf.dict, leaf.ref
 
 	objNum := indRef.ObjectNumber.Value()
 	gen := indRef.GenerationNumber.Value()
