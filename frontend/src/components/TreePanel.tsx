@@ -67,6 +67,7 @@ export function TreePanel() {
   // the same value, so render-phase mirroring never clobbers a fresher write.
   const selectedNodeIdRef = useLatest(selectedNodeId);
   const treeDataRef = useLatest(treeData);
+  const activeTabIdRef = useLatest(activeTabId);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
 
@@ -270,6 +271,16 @@ export function TreePanel() {
     activeTabId,
     (id) => findNode(treeDataRef.current, (n) => n.id === id),
     (tabId, id, mapped) => {
+      // A load that finishes after a tab switch updates only its own tab's
+      // cache; the displayed tree belongs to another tab.
+      if (tabId !== activeTabIdRef.current) {
+        const cached = treeDataCache.current[tabId];
+        if (cached) {
+          const updated = updateNodeChildren(cached.data, id, mapped);
+          treeDataCache.current[tabId] = { data: updated, openState: deriveOpenState(updated) };
+        }
+        return;
+      }
       setTreeData((prev) => {
         const updated = updateNodeChildren(prev, id, mapped);
         treeDataRef.current = updated;
