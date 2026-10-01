@@ -228,7 +228,9 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 	if err != nil {
 		return nil, wrapPDFError(err)
 	}
-	if dc.canceled {
+	// Re-check rather than read the latch: a close during the last visit
+	// happens after the final per-node check.
+	if dc.stopped() {
 		return nil, errDiffCanceled
 	}
 
