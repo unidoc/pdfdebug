@@ -15,6 +15,8 @@ import {
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { formatBytes } from '../lib/formatBytes';
+import { ROW_SELECTED_FILL, TABLE_CELL_SELECTED_BAR, TABLE_ROW_IDLE } from './rowState';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One embedded file, mirroring `pdfcore.EmbeddedFile`. */
 interface EmbeddedFileData {
@@ -197,13 +199,13 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
               return (
                 <tr
                   key={key}
-                  className={`border-b border-border cursor-pointer hover:bg-surface-hover ${isSel ? 'bg-surface-hover' : ''}`}
+                  className={`border-b border-border cursor-pointer ${isSel ? ROW_SELECTED_FILL : TABLE_ROW_IDLE}`}
                   tabIndex={0}
                   data-testid={`embedded-row-${key}`}
                   onClick={() => setSelectedKey(key)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedKey(key); } }}
                 >
-                  <td className="px-2 py-1 text-left text-text">{f.name || '-'}</td>
+                  <td className={`px-2 py-1 text-left text-text ${isSel ? TABLE_CELL_SELECTED_BAR : ''}`}>{f.name || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.afRelationship || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.subtype || '-'}</td>
                   <td className="px-2 py-1 text-right text-text">{formatBytes(f.size)}</td>
@@ -240,7 +242,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-reveal-in-tree"
               onClick={handleReveal}
               disabled={!selected.embeddedFileNodeId}
@@ -249,7 +251,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
             </button>
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-save"
               onClick={handleSave}
               disabled={!selected.embeddedFileNodeId}

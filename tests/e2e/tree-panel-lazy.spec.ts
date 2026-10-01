@@ -98,9 +98,8 @@ test.describe('Tree Panel with Lazy-Loading Navigation', () => {
       appPage.locator('[data-testid="tree-panel"]')
     ).toContainText('Page', { timeout: 10000 });
 
-    // And: the selected node has visible highlight (bg-surface-selected)
-    // Verify the clicked node has selection styling
-    await expect(pagesNode).toHaveCSS('background-color', /./);
+    // And: the clicked node carries the row-selected fill (#dbeafe)
+    await expect(pagesNode).toHaveCSS('background-color', 'rgb(219, 234, 254)');
 
     // When: user selects a different node (Type -- a leaf node)
     const typeNode = appPage.locator('[data-testid="tree-node"][data-node-id="dict:root:Type"]');

@@ -6,6 +6,7 @@
  * image; only the pixels in the preview are reduced.
  */
 import { formatBytes } from '../lib/formatBytes';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** Props for the ImagePreview component. */
 interface ImagePreviewProps {
@@ -155,7 +156,7 @@ export function ImagePreview({
           {onSave && (
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+              className={`px-2 py-1 ${SMALL_BUTTON}`}
               data-testid="image-preview-save"
               onClick={onSave}
             >

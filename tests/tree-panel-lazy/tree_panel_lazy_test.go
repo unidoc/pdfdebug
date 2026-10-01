@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -195,40 +196,32 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Selected node highlight styling
+// Row state styling
 // ---------------------------------------------------------------------------
 
-// The tree row has bg-surface-selected for the selected node
-func TestTreePanelSelectedStyling(t *testing.T) {
+// treeRows.tsx takes its selected and idle row classes from the shared
+// rowState module and uses no armed fill. The rendered classes of the
+// selected, idle and flashing rows are checked by the DOM tests in
+// TreePanel.test.tsx and ReferenceNavigation.test.tsx.
+func TestTreePanelUsesSharedRowStateClasses(t *testing.T) {
 	if !fileExists(t, treeRowsFile) {
 		t.Skip("treeRows.tsx does not exist yet")
 	}
 
 	content := readFile(t, treeRowsFile)
 
-	if !strings.Contains(content, "bg-surface-selected") {
-		t.Error("treeRows.tsx must use bg-surface-selected for selected node")
+	if !regexp.MustCompile(`from\s+'\./rowState'`).MatchString(content) {
+		t.Error("treeRows.tsx must import its row-state classes from ./rowState")
 	}
-
-	if !strings.Contains(content, "border-") {
-		t.Error("treeRows.tsx must have left border accent on selected node")
+	for _, name := range []string{"ROW_SELECTED", "ROW_IDLE"} {
+		if !regexp.MustCompile(`\b` + name + `\b`).MatchString(content) {
+			t.Errorf("treeRows.tsx must use %s from ./rowState", name)
+		}
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Hover state
-// ---------------------------------------------------------------------------
-
-// The tree row has bg-surface-hover for the hover state
-func TestTreePanelHoverStyling(t *testing.T) {
-	if !fileExists(t, treeRowsFile) {
-		t.Skip("treeRows.tsx does not exist yet")
-	}
-
-	content := readFile(t, treeRowsFile)
-
-	if !strings.Contains(content, "bg-surface-hover") {
-		t.Error("treeRows.tsx must use bg-surface-hover for hover state")
+	for _, fill := range []string{"surface-selected", "surface-armed"} {
+		if strings.Contains(content, fill) {
+			t.Errorf("treeRows.tsx must not use %s; tree rows take the row-selected fill from ./rowState", fill)
+		}
 	}
 }
 

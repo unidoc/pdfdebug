@@ -147,4 +147,29 @@ describe('EmbeddedDataView', () => {
 
     expect(await screen.findByTestId('embedded-empty')).toBeInTheDocument();
   });
+
+  // The selected row takes the row-selected fill on the <tr> and the focus bar
+  // as an inset shadow on its first cell; unselected rows only hover grey.
+  test('selected row uses the row-selected fill and an inset focus bar on its first cell', async () => {
+    render(<EmbeddedDataView tabId="t1" active onNavigate={vi.fn()} />);
+    await waitFor(() => screen.getByText('factur-x.xml'));
+
+    fireEvent.click(screen.getByTestId('embedded-row-4 0 R'));
+
+    const selected = screen.getByTestId('embedded-row-4 0 R');
+    const selCls = selected.className.split(/\s+/);
+    expect(selCls).toContain('bg-row-selected');
+    expect(selCls).toContain('row-selected-text');
+    expect(selCls).not.toContain('bg-surface-hover');
+    expect(selCls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+    const firstCell = selected.querySelector('td')!;
+    expect(firstCell.className.split(/\s+/)).toContain('shadow-[inset_2px_0_0_var(--color-border-focus)]');
+
+    const other = screen.getByTestId('embedded-row-10 0 R');
+    const otherCls = other.className.split(/\s+/);
+    expect(otherCls).not.toContain('bg-row-selected');
+    expect(otherCls).not.toContain('bg-surface-hover');
+    expect(otherCls).toContain('hover:bg-surface-hover');
+    expect(other.querySelector('td')!.className).not.toContain('shadow-[inset');
+  });
 });

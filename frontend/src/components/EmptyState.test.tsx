@@ -71,7 +71,7 @@ describe('EmptyState drop zone', () => {
 
     // During drag-over with PDF, drop zone should have focus border class
     expect(dropZone.className).toContain('border-border-focus');
-    expect(dropZone.className).toContain('bg-surface-selected');
+    expect(dropZone.className).toContain('bg-surface-armed');
   });
 
   // ---------------------------------------------------------------------------
@@ -166,7 +166,7 @@ describe('EmptyState drop zone', () => {
 
     fireEvent.dragLeave(emptyState);
     expect(dropZone.className).toContain('border-border');
-    expect(dropZone.className).not.toContain('bg-surface-selected');
+    expect(dropZone.className).not.toContain('bg-surface-armed');
   });
 
   test('renders Open File button and shortcut hint', () => {

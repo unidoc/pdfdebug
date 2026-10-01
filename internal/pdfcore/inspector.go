@@ -92,9 +92,10 @@ type DocumentState struct {
 	// closeCtx is cancelled when the document is closed or re-Opened under the
 	// same tabID (closeDocLocked -> closeCancel). GetPlainText merges it into
 	// the read context so an in-flight chunked read bails within one chunk-read
-	// cycle and releases its file handle. Set once at Open and never
-	// reassigned; closeCancel is goroutine-safe and idempotent, so cancelling
-	// it needs no mutex and never touches plainTextMu.
+	// cycle and releases its file handle; DiffDocuments polls it per visited
+	// node. Set once at Open and never reassigned; closeCancel is
+	// goroutine-safe and idempotent, so cancelling it needs no mutex and never
+	// touches plainTextMu.
 	closeCtx    context.Context
 	closeCancel context.CancelFunc
 }
@@ -206,7 +207,9 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 // Close removes the document associated with tabID from the inspector. If a
 // GetPlainText load is in flight for this tab, cancelling doc.closeCtx makes
 // the read return context.Canceled within one chunk-read cycle and release its
-// file handle before the document is dropped.
+// file handle before the document is dropped. An in-flight DiffDocuments that
+// walks this document stops at its next visited node and releases both pdfMu
+// locks.
 //
 // Critical: cancelling closeCtx never acquires plainTextMu (which the read
 // goroutine holds for the entire I/O), so a close cannot deadlock against the
