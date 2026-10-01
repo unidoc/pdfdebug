@@ -565,7 +565,7 @@ describe('Target node flash animation', () => {
     delete (globalThis as Record<string, unknown>).ResizeObserver;
   });
 
-  test('target node receives flash highlight class after navigation', async () => {
+  test('target node receives the flash classes after navigation, then settles to the selected classes', async () => {
     vi.useFakeTimers();
 
     // GetAncestorPath returns path from root to target
@@ -573,19 +573,53 @@ describe('Target node flash animation', () => {
     // GetChildren for root already loaded via rootChildren
     mockGetChildren.mockResolvedValue([]);
 
+    function NavigateButton() {
+      const dispatch = useAppDispatch();
+      return (
+        <button
+          type="button"
+          data-testid="navigate"
+          onClick={() => dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: 'obj:0:2' } })}
+        />
+      );
+    }
+
     render(
       <AppProvider>
         <DispatchHelper action={openAction} />
         <TreePanel />
         <StateReader />
+        <NavigateButton />
       </AppProvider>
     );
 
-    // Checks only that TreePanel mounts under fake timers with a document open.
-    // The flash row classes are not asserted here; the tree-panel-lazy Go suite
-    // pins them in treeRows.tsx, and the flash itself needs E2E.
-    const treePanel = screen.getByTestId('tree-panel');
-    expect(treePanel).toBeInTheDocument();
+    const pagesRow = () => screen.getByText('Pages').closest('[data-testid="tree-node"]')!;
+    const classes = () => pagesRow().className.split(/\s+/);
+    expect(classes()).not.toContain('ring-2');
+
+    act(() => screen.getByTestId('navigate').click());
+    // Flush the reveal's awaited calls without letting the 100ms flash timer fire.
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    }
+
+    expect(screen.getByTestId('selected-node-id').textContent).toBe('obj:0:2');
+    const flashing = classes();
+    expect(flashing).toContain('ring-2');
+    expect(flashing).toContain('ring-border-focus');
+    expect(flashing).toContain('bg-row-selected');
+    expect(flashing).toContain('row-selected-text');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+
+    const settled = classes();
+    expect(settled).not.toContain('ring-2');
+    expect(settled).toContain('bg-row-selected');
+    expect(settled).toContain('border-l-border-focus');
 
     vi.useRealTimers();
   });

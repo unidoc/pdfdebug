@@ -2,10 +2,12 @@
  * Colour-token guard for row states and diff text.
  *
  * Reads style.css, parses the `:root` hex values and checks the contrast
- * floors between the selected-row fill, the focus bar, the hover fills and the
- * diff text colours, using WCAG 2.x relative luminance. It also checks every
- * new token is registered in `@theme inline`: an unregistered token generates
- * no utility class, so the component className assertions would still pass.
+ * floors between the selected-row fill, the focus bar, the hover fills, the
+ * tab hover divider and label, the diff text colours and the text colours that
+ * `.row-selected-text` redefines inside a selected row, using WCAG 2.x
+ * relative luminance. It also checks every new token is registered in
+ * `@theme inline`: an unregistered token generates no utility class, so the
+ * component className assertions would still pass.
  *
  * Run: cd frontend && npx vitest run src/themeTokens.test.ts
  */
@@ -13,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, test, expect } from 'vitest';
+import { ROW_SELECTED_FILL } from './components/rowState';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Comments are stripped so a commented-out declaration never counts, and a `}`
@@ -26,12 +29,19 @@ function block(selector: RegExp): string {
 
 const rootBlock = block(/:root\s*\{([^}]*)\}/);
 const themeInlineBlock = block(/@theme\s+inline\s*\{([^}]*)\}/);
+const selectedTextBlock = block(/\.row-selected-text\s*\{([^}]*)\}/);
 
 // Every declaration, last one wins as in the cascade, whatever its value.
-const rootValue: Record<string, string> = {};
-for (const m of rootBlock.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-  rootValue[m[1]] = m[2].trim().toLowerCase();
+function declarations(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of text.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    out[m[1]] = m[2].trim().toLowerCase();
+  }
+  return out;
 }
+
+const rootValue = declarations(rootBlock);
+const selectedTextValue = declarations(selectedTextBlock);
 
 const HEX6 = /^#[0-9a-f]{6}$/;
 
@@ -64,7 +74,9 @@ function expectFloor(fg: string, bg: string, floor: number) {
 
 const NEW_TOKENS = [
   '--color-row-selected',
+  '--color-surface-armed',
   '--color-tab-hover',
+  '--color-tab-hover-border',
   '--color-diff-added',
   '--color-diff-removed',
   '--color-diff-changed',
@@ -90,7 +102,7 @@ describe('token registration', () => {
     expect(re.test(themeInlineBlock), `@theme inline does not register ${name}: var(${name});`).toBe(true);
   });
 
-  test.each(['--color-tree-selected', '--color-tree-hover'])(
+  test.each(['--color-tree-selected', '--color-tree-hover', '--color-surface-selected'])(
     'unused token %s is gone from :root and @theme inline',
     (name) => {
       const re = new RegExp(`${name}\\s*:`);
@@ -144,6 +156,54 @@ describe('file-tab hover fill', () => {
   test('tab hover and active tab fill are different values', () => {
     expect(token('--color-tab-hover'), '--color-tab-hover equals --color-bg').not.toBe(token('--color-bg'));
   });
+
+  test('hovered tab divider stands out from the tab hover fill', () => {
+    expectFloor('--color-tab-hover-border', '--color-tab-hover', 1.15);
+  });
+
+  test('hovered tab divider and tab hover fill are different values', () => {
+    expect(token('--color-tab-hover-border'), '--color-tab-hover-border equals --color-tab-hover').not.toBe(
+      token('--color-tab-hover')
+    );
+  });
+
+  test('hovered tab label is readable on the tab hover fill', () => {
+    expectFloor('--color-text', '--color-tab-hover', 4.5);
+  });
+});
+
+describe('text inside a selected row', () => {
+  const typeTokens = Object.keys(rootValue).filter((n) => n.startsWith('--color-type-'));
+
+  test('the selected-row fill classes include the scoped text overrides', () => {
+    expect(ROW_SELECTED_FILL.split(/\s+/)).toContain('row-selected-text');
+    expect(selectedTextBlock.trim(), 'style.css has no .row-selected-text block').not.toBe('');
+  });
+
+  test.each(['--color-text-muted', '--color-text-secondary'])('%s is overridden inside a selected row', (name) => {
+    expect(selectedTextValue[name], `.row-selected-text does not redefine ${name}`).toBeDefined();
+  });
+
+  test('every override is a #rrggbb value of a :root token', () => {
+    for (const [name, value] of Object.entries(selectedTextValue)) {
+      expect(HEX6.test(value), `.row-selected-text ${name} is "${value}", expected #rrggbb`).toBe(true);
+      expect(rootValue[name], `.row-selected-text redefines ${name}, which :root does not declare`).toBeDefined();
+    }
+  });
+
+  test.each(Object.keys(selectedTextValue))('override %s is readable on the selected fill', (name) => {
+    const ratio = contrast(selectedTextValue[name], token('--color-row-selected'));
+    expect(
+      ratio,
+      `.row-selected-text ${name} (${selectedTextValue[name]}) is ${ratio.toFixed(2)}:1 on --color-row-selected`
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  test.each(typeTokens)('%s is readable on the selected fill, with or without an override', (name) => {
+    const value = selectedTextValue[name] ?? token(name);
+    const ratio = contrast(value, token('--color-row-selected'));
+    expect(ratio, `${name} (${value}) is ${ratio.toFixed(2)}:1 on --color-row-selected`).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe('diff text contrast', () => {
@@ -161,7 +221,7 @@ describe('unchanged tokens keep their values', () => {
     '--color-text-muted': '#94a3b8',
     '--color-text-secondary': '#64748b',
     '--color-surface-hover': '#f1f5f9',
-    '--color-surface-selected': '#eff6ff',
+    '--color-surface-armed': '#eff6ff',
     '--color-border': '#e2e8f0',
     '--color-border-focus': '#3b82f6',
     '--color-find-match': '#fef08a',

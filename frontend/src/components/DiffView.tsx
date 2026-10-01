@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { DiffDocuments } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { escapeDisplayValue } from '../lib/escapeDisplayValue';
+import { ROW_IDLE, ROW_IDLE_BAR, ROW_SELECTED } from './rowState';
 
 /** One node in the structural delta tree, mirroring `pdfcore.DiffNode`. */
 export interface DiffNodeData {
@@ -237,7 +238,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
 
   if (!result) {
     return (
-      <div className="p-3 text-text-muted text-sm" data-testid="diff-loading">
+      <div className="p-3 text-diff-context text-sm" data-testid="diff-loading">
         Computing structural diff...
       </div>
     );
@@ -270,7 +271,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           {identical ? 'No structural differences. ' : ''}
           {s.added} added, {s.removed} removed, {s.changed} changed
         </div>
-        <div className="text-text-muted mt-0.5">
+        <div className="text-diff-context mt-0.5">
           Page count: {s.pageCountLeft} -&gt; {s.pageCountRight}
           {s.versionChanged ? ' | /Version changed' : ''}
           {s.encryptionChanged ? ' | encryption changed' : ''}
@@ -286,7 +287,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
       </div>
 
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-surface flex-shrink-0">
-        <span className="text-xs text-text-muted">
+        <span className="text-xs text-diff-context">
           {changes.length} change{changes.length === 1 ? '' : 's'}
         </span>
         <button
@@ -326,10 +327,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 data-selected={node.path === selectedPath ? 'true' : 'false'}
                 onClick={() => setSelectedPath(node.path)}
                 className={
-                  'px-2 py-0.5 cursor-pointer whitespace-nowrap ' +
-                  (node.path === selectedPath
-                    ? 'bg-row-selected border-l-2 border-l-border-focus '
-                    : 'border-l-2 border-l-transparent hover:bg-surface-hover ') +
+                  `px-2 py-0.5 cursor-pointer whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE} ` +
                   (STATUS_CLASS[node.status] ?? '')
                 }
                 style={{ paddingLeft: `${depth * 12 + 8}px` }}
@@ -356,7 +354,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           })}
         </div>
 
-        {/* Right pane: the same visible nodes showing the right-hand value. */}
+        {/* Right pane: the same visible nodes showing the right-hand value, with the left pane's selection mirrored. */}
         <div
           className="flex-1 min-w-0 overflow-auto font-mono text-xs"
           data-testid="diff-tree-right"
@@ -365,7 +363,11 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
             <div
               key={node.path}
               data-status={node.status}
-              className={'px-2 py-0.5 whitespace-nowrap ' + (STATUS_CLASS[node.status] ?? '')}
+              data-selected={node.path === selectedPath ? 'true' : 'false'}
+              className={
+                `px-2 py-0.5 whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE_BAR} ` +
+                (STATUS_CLASS[node.status] ?? '')
+              }
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
             >
               <span>{diffMarker(node.status)} </span>
@@ -382,18 +384,18 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           data-testid="diff-detail"
         >
           <div className="text-text-secondary mb-1 break-all">{selectedNode.path}</div>
-          <div className="text-text-muted uppercase tracking-wide mb-1">{selectedNode.status}</div>
+          <div className="text-diff-context uppercase tracking-wide mb-1">{selectedNode.status}</div>
           {selectedNode.changedKeys && selectedNode.changedKeys.length > 0 && (
             <div className="mb-1">changed keys: {selectedNode.changedKeys.join(', ')}</div>
           )}
           {(selectedNode.leftSummary || selectedNode.rightSummary) && (
             <div className="flex flex-col gap-0.5">
               <div>
-                <span className="text-text-muted">left: </span>
+                <span className="text-diff-context">left: </span>
                 <span className="text-diff-removed break-all">{selectedNode.leftSummary ? escapeDisplayValue(selectedNode.leftSummary) : '(absent)'}</span>
               </div>
               <div>
-                <span className="text-text-muted">right: </span>
+                <span className="text-diff-context">right: </span>
                 <span className="text-diff-added break-all">{selectedNode.rightSummary ? escapeDisplayValue(selectedNode.rightSummary) : '(absent)'}</span>
               </div>
             </div>

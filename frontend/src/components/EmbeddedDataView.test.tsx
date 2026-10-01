@@ -159,6 +159,7 @@ describe('EmbeddedDataView', () => {
     const selected = screen.getByTestId('embedded-row-4 0 R');
     const selCls = selected.className.split(/\s+/);
     expect(selCls).toContain('bg-row-selected');
+    expect(selCls).toContain('row-selected-text');
     expect(selCls).not.toContain('bg-surface-hover');
     expect(selCls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
     const firstCell = selected.querySelector('td')!;

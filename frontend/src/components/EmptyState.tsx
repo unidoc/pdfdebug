@@ -170,7 +170,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   // which overrides transition-duration with !important -- no separate
   // motion-reduce: Tailwind variants needed.
   const dropZoneBorder = isDragOver
-    ? 'border-border-focus bg-surface-selected'
+    ? 'border-border-focus bg-surface-armed'
     : 'border-border';
 
   // Hint text content and color -- constant; the backend is authoritative for

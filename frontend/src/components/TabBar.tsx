@@ -103,7 +103,7 @@ export function TabBar() {
         {tabs.map((tab) => (
           <Tabs.Trigger key={tab.tabId} value={tab.tabId} asChild>
             <div
-              className="group flex items-center px-3 py-1.5 text-sm border-r border-border truncate max-w-[200px] bg-surface-hover text-text-secondary hover:bg-tab-hover cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus data-[state=active]:bg-bg data-[state=active]:text-text data-[state=active]:border-b-2 data-[state=active]:border-b-border-focus"
+              className="group flex items-center px-3 py-1.5 text-sm border-r border-border truncate max-w-[200px] bg-surface-hover text-text-secondary hover:bg-tab-hover hover:text-text data-[state=inactive]:hover:border-r-tab-hover-border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus data-[state=active]:bg-bg data-[state=active]:text-text data-[state=active]:border-b-2 data-[state=active]:border-b-border-focus"
               data-testid={`tab-${tab.tabId}`}
               title={tab.filePath || tab.fileName}
             >

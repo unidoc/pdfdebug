@@ -736,10 +736,11 @@ describe('SELECT_NODE dispatch on selection', () => {
     await waitFor(() => {
       // Re-query after re-render since react-window may replace DOM nodes
       const updatedNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
-      // Selected node uses the row-selected fill and the focus bar
+      // Selected node uses the row-selected fill, its readable-text overrides and the focus bar
       const cls = updatedNode!.className.split(/\s+/);
       expect(cls).toContain('bg-row-selected');
-      expect(cls).not.toContain('bg-surface-selected');
+      expect(cls).toContain('row-selected-text');
+      expect(cls).not.toContain('bg-surface-armed');
       expect(cls).toContain('border-l-border-focus');
     });
   });

@@ -280,9 +280,10 @@ describe('result row states', () => {
 
     const selCls = highlighted[0].className.split(/\s+/);
     expect(selCls).toContain('bg-row-selected');
+    expect(selCls).toContain('row-selected-text');
     expect(selCls).toContain('border-l-2');
     expect(selCls).toContain('border-l-border-focus');
-    expect(selCls).not.toContain('bg-surface-selected');
+    expect(selCls).not.toContain('bg-surface-armed');
     expect(selCls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
 
     for (const row of rows.filter((r) => r.getAttribute('aria-selected') !== 'true')) {

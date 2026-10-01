@@ -325,6 +325,7 @@ describe('DiffView row states and text colours', () => {
       expect(selected).not.toBeNull();
       const cls = classes(selected!);
       expect(cls).toContain('bg-row-selected');
+      expect(cls).toContain('row-selected-text');
       expect(cls).toContain('border-l-2');
       expect(cls).toContain('border-l-border-focus');
       expect(cls).not.toContain('bg-surface-hover');
@@ -418,9 +419,60 @@ describe('DiffView row states and text colours', () => {
     expect(classes(leftValue)).not.toContain('text-error');
     expect(classes(rightValue)).toContain('text-diff-added');
     expect(classes(rightValue)).not.toContain('text-success');
-    // Footer labels are chrome and keep the app-wide muted colour.
-    expect(classes(leftLabel)).toContain('text-text-muted');
-    expect(classes(rightLabel)).toContain('text-text-muted');
+    expect(classes(leftLabel)).toContain('text-diff-context');
+    expect(classes(leftLabel)).not.toContain('text-text-muted');
+    expect(classes(rightLabel)).toContain('text-diff-context');
+    expect(classes(rightLabel)).not.toContain('text-text-muted');
+  });
+
+  test('summary line, change counter and detail status use the diff context colour', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    const summary = await screen.findByTestId('diff-summary');
+    const pageCount = within(summary).getByText(/Page count:/);
+    const counter = screen.getByText(/^\d+ changes?$/);
+    fireEvent.click(screen.getByTestId('diff-next-change'));
+    const detail = await screen.findByTestId('diff-detail');
+    const status = within(detail).getByText('changed');
+
+    for (const el of [pageCount, counter, status]) {
+      expect(classes(el)).toContain('text-diff-context');
+      expect(classes(el)).not.toContain('text-text-muted');
+    }
+  });
+
+  test('right-pane row mirrors the left selection; other right rows keep a transparent bar', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-next-change'));
+
+    const left = screen.getByTestId('diff-tree-left');
+    const right = screen.getByTestId('diff-tree-right');
+    await waitFor(() => expect(left.querySelector('[data-selected="true"]')).not.toBeNull());
+    // The second span of a row holds its path.
+    const pathOf = (row: Element) => row.querySelectorAll('span')[1].textContent;
+    const selectedPath = pathOf(left.querySelector('[data-selected="true"]')!);
+
+    const rightRows = Array.from(right.children);
+    const rightSelected = rightRows.filter((r) => r.getAttribute('data-selected') === 'true');
+    expect(rightSelected.length).toBe(1);
+    expect(pathOf(rightSelected[0])).toBe(selectedPath);
+    const selCls = classes(rightSelected[0]);
+    expect(selCls).toContain('bg-row-selected');
+    expect(selCls).toContain('border-l-2');
+    expect(selCls).toContain('border-l-border-focus');
+    expect(selCls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+
+    const others = rightRows.filter((r) => r.getAttribute('data-selected') !== 'true');
+    expect(others.length).toBeGreaterThan(0);
+    for (const row of others) {
+      const cls = classes(row);
+      expect(cls).not.toContain('bg-row-selected');
+      expect(cls).toContain('border-l-2');
+      expect(cls).toContain('border-l-transparent');
+      expect(cls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+    }
   });
 
   test('load-failure banner keeps the app-wide error colour', async () => {
