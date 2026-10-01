@@ -68,6 +68,7 @@ func readStyleCSS(t *testing.T) string {
 // --color-row-selected, --color-tab-hover, --color-tab-hover-border,
 // --color-diff-added,
 // --color-diff-removed, --color-diff-changed, --color-diff-context,
+// the -on-selected text tokens that .row-selected-text maps onto,
 // --font-ui, --font-mono, --panel-padding, --tree-indent
 // ---------------------------------------------------------------------------
 
@@ -127,6 +128,15 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 		{"--color-diff-removed", "#b91c1c", false},
 		{"--color-diff-changed", "#92400e", false},
 		{"--color-diff-context", "#475569", false},
+		{"--color-text-muted-on-selected", "#475569", false},
+		{"--color-text-secondary-on-selected", "#475569", false},
+		{"--color-type-name-on-selected", "#115e59", false},
+		{"--color-type-string-on-selected", "#92400e", false},
+		{"--color-type-number-on-selected", "#1d4ed8", false},
+		{"--color-type-boolean-on-selected", "#9d174d", false},
+		{"--color-type-null-on-selected", "#475569", false},
+		{"--color-type-stream-on-selected", "#065f46", false},
+		{"--color-error-on-selected", "#b91c1c", false},
 		{"--font-ui", "", true},
 		{"--font-mono", "", true},
 		{"--panel-padding", "12px", false},

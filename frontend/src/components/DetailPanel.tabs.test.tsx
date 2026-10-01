@@ -660,9 +660,58 @@ describe('closing a diff', () => {
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-close'));
-    // eslint-disable-next-line no-console
 
     expect(await screen.findByTestId('diff-pick-file')).toBeInTheDocument();
     await waitFor(() => expect(pdfservice.CloseDocument).toHaveBeenCalledWith('diff-right-1'));
+  });
+
+  test('Close diff moves focus to the compare button', async () => {
+    renderDetailPanel([openAction]);
+    fireEvent.click(await screen.findByTestId('detail-tab-diff'));
+    fireEvent.click(screen.getByTestId('diff-pick-file'));
+
+    await screen.findByTestId('diff-next-change');
+    const close = screen.getByTestId('diff-close');
+    close.focus();
+    fireEvent.click(close);
+
+    const pick = await screen.findByTestId('diff-pick-file');
+    await waitFor(() => expect(document.activeElement).toBe(pick));
+  });
+
+  test('a document switch that clears the comparison leaves focus alone', async () => {
+    const { rerender } = render(
+      <AppProvider>
+        <DispatchHelper action={openAction} />
+        <DetailPanel />
+      </AppProvider>
+    );
+    fireEvent.click(await screen.findByTestId('detail-tab-diff'));
+    fireEvent.click(screen.getByTestId('diff-pick-file'));
+    await screen.findByTestId('diff-next-change');
+    screen.getByTestId('diff-close').focus();
+
+    const openSecond: AppAction = {
+      type: 'OPEN_DOCUMENT',
+      payload: {
+        tabId: 'tab-2',
+        fileName: 'second.pdf',
+        filePath: '/second.pdf',
+        rootNode: catalogNode,
+        rootChildren: [],
+      },
+    };
+    rerender(
+      <AppProvider>
+        <DispatchHelper action={openAction} />
+        <DispatchHelper action={openSecond} />
+        <DispatchHelper action={{ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } }} />
+        <DetailPanel />
+      </AppProvider>
+    );
+
+    const pick = await screen.findByTestId('diff-pick-file');
+    await waitFor(() => expect(pdfservice.CloseDocument).toHaveBeenCalledWith('diff-right-1'));
+    expect(document.activeElement).not.toBe(pick);
   });
 });

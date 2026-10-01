@@ -492,6 +492,28 @@ describe('DiffView row states and text colours', () => {
     expect(screen.getByTestId('diff-detail')).toBeInTheDocument();
   });
 
+  test('clicking a right-pane row scrolls the matching left-pane row into view', async () => {
+    const scrolled: Element[] = [];
+    const scrollIntoView = vi.fn(function (this: Element) {
+      scrolled.push(this);
+    });
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+      await screen.findByTestId('diff-next-change');
+
+      const left = screen.getByTestId('diff-tree-left');
+      const right = screen.getByTestId('diff-tree-right');
+      fireEvent.click(Array.from(right.children)[1]);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+      expect(scrolled).toEqual([Array.from(left.children)[1]]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   test('Close diff calls onClose from the loaded, loading and error states', async () => {
     const onClose = vi.fn();
     const { unmount } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={onClose} />);

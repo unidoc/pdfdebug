@@ -12,6 +12,7 @@ import { DiffDocuments } from '../../bindings/unidoc-pdf-debugger/internal/pdfse
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { escapeDisplayValue } from '../lib/escapeDisplayValue';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One node in the structural delta tree, mirroring `pdfcore.DiffNode`. */
 export interface DiffNodeData {
@@ -120,6 +121,11 @@ const STATUS_CLASS: Record<string, string> = {
   unchanged: 'text-diff-context',
 };
 
+/** Row classes shared by both panes: selection or idle state plus the status colour. */
+function rowClass(node: DiffNodeData, selected: boolean): string {
+  return `px-2 py-0.5 cursor-pointer whitespace-nowrap ${selected ? ROW_SELECTED : ROW_IDLE} ` + (STATUS_CLASS[node.status] ?? '');
+}
+
 /** One visible row: a node plus its indent depth. */
 interface FlatRow {
   node: DiffNodeData;
@@ -152,6 +158,8 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
   // on success so a fetch cancelled by a quick tab switch (or a failed one) can
   // retry on the next activation.
   const fetchedPairRef = useRef<string | null>(null);
+  // Left pane container; its children are the visible rows in `rows` order.
+  const leftPaneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!active || !leftTabId || !rightTabId) return;
@@ -234,7 +242,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
     <button
       type="button"
       data-testid="diff-close"
-      className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+      className={`px-2 py-0.5 ${SMALL_BUTTON}`}
       onClick={onClose}
     >
       Close diff
@@ -312,7 +320,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         <button
           type="button"
           data-testid="diff-prev-change"
-          className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer disabled:opacity-50"
+          className={`px-2 py-0.5 ${SMALL_BUTTON} disabled:opacity-50`}
           onClick={() => navChange(-1)}
           disabled={changes.length === 0}
         >
@@ -321,7 +329,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         <button
           type="button"
           data-testid="diff-next-change"
-          className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer disabled:opacity-50"
+          className={`px-2 py-0.5 ${SMALL_BUTTON} disabled:opacity-50`}
           onClick={() => navChange(1)}
           disabled={changes.length === 0}
         >
@@ -335,6 +343,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         <div
           className="flex-1 min-w-0 overflow-auto border-r border-border font-mono text-xs"
           data-testid="diff-tree-left"
+          ref={leftPaneRef}
         >
           {rows.map(({ node, depth }) => {
             const isLeaf = (node.children?.length ?? 0) === 0;
@@ -346,10 +355,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
                 data-status={node.status}
                 data-selected={node.path === selectedPath ? 'true' : 'false'}
                 onClick={() => setSelectedPath(node.path)}
-                className={
-                  `px-2 py-0.5 cursor-pointer whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE} ` +
-                  (STATUS_CLASS[node.status] ?? '')
-                }
+                className={rowClass(node, node.path === selectedPath)}
                 style={{ paddingLeft: `${depth * 12 + 8}px` }}
               >
                 {!isLeaf && (
@@ -379,16 +385,17 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
           className="flex-1 min-w-0 overflow-auto font-mono text-xs"
           data-testid="diff-tree-right"
         >
-          {rows.map(({ node, depth }) => (
+          {rows.map(({ node, depth }, i) => (
             <div
               key={node.path}
               data-status={node.status}
               data-selected={node.path === selectedPath ? 'true' : 'false'}
-              onClick={() => setSelectedPath(node.path)}
-              className={
-                `px-2 py-0.5 cursor-pointer whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE} ` +
-                (STATUS_CLASS[node.status] ?? '')
-              }
+              onClick={() => {
+                setSelectedPath(node.path);
+                // Both panes list the same rows, so the left row at index i is the same node.
+                leftPaneRef.current?.children[i]?.scrollIntoView({ block: 'nearest' });
+              }}
+              className={rowClass(node, node.path === selectedPath)}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
             >
               <span>{diffMarker(node.status)} </span>

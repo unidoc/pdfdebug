@@ -15,7 +15,7 @@ import {
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { formatBytes } from '../lib/formatBytes';
-import { TABLE_CELL_SELECTED_BAR, TABLE_ROW_IDLE, TABLE_ROW_SELECTED } from './rowState';
+import { ROW_SELECTED_FILL, TABLE_CELL_SELECTED_BAR, TABLE_ROW_IDLE } from './rowState';
 
 /** One embedded file, mirroring `pdfcore.EmbeddedFile`. */
 interface EmbeddedFileData {
@@ -198,7 +198,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
               return (
                 <tr
                   key={key}
-                  className={`border-b border-border cursor-pointer ${isSel ? TABLE_ROW_SELECTED : TABLE_ROW_IDLE}`}
+                  className={`border-b border-border cursor-pointer ${isSel ? ROW_SELECTED_FILL : TABLE_ROW_IDLE}`}
                   tabIndex={0}
                   data-testid={`embedded-row-${key}`}
                   onClick={() => setSelectedKey(key)}

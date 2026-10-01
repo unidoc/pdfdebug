@@ -17,13 +17,10 @@ export const ROW_IDLE_BAR = 'border-l-2 border-l-transparent';
 export const ROW_IDLE = `${ROW_IDLE_BAR} hover:bg-surface-hover`;
 
 /**
- * Selected table row. A `<tr>` border does not render under border-collapse,
- * so the fill goes on the row and the focus bar is an inset shadow on its
- * first cell (TABLE_CELL_SELECTED_BAR).
+ * Focus bar for the first cell of a selected table row. A `<tr>` border does
+ * not render under border-collapse, so a selected table row takes
+ * ROW_SELECTED_FILL on the row and this inset shadow on its first cell.
  */
-export const TABLE_ROW_SELECTED = ROW_SELECTED_FILL;
-
-/** Focus bar for the first cell of a selected table row. */
 export const TABLE_CELL_SELECTED_BAR = 'shadow-[inset_2px_0_0_var(--color-border-focus)]';
 
 /** Unselected clickable table row: grey hover fill. */

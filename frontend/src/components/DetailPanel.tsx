@@ -34,6 +34,7 @@ import { DocumentMetadataView } from './DocumentMetadataView';
 import { SignaturesView, type SignatureEntryData } from './SignaturesView';
 import { ValidateView } from './ValidateView';
 import { DiffView } from './DiffView';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /**
  * Matches indirect-object node IDs exactly (e.g. "obj:0:5"). Inline nodes
@@ -163,6 +164,11 @@ function DetailPanelInner() {
   // stale comparison from a previously-active tab.
   const [diffRightTabId, setDiffRightTabId] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
+  // Set by Close diff so the compare button takes focus once the picker
+  // replaces the unmounted Close diff button. Other paths that clear the
+  // comparison (document switch) leave focus alone.
+  const focusPickAfterCloseRef = useRef(false);
+  const diffPickButtonRef = useRef<HTMLButtonElement>(null);
   // Tracks whether the panel is still mounted so a diff file dialog that
   // resolves after unmount closes its backend document instead of leaking it
   // (the diffRightTabId cleanup effect only registers when state is set, which
@@ -201,6 +207,12 @@ function DetailPanelInner() {
         /* best-effort cleanup; a failed close must not break the UI */
       });
     };
+  }, [diffRightTabId]);
+
+  useEffect(() => {
+    if (diffRightTabId || !focusPickAfterCloseRef.current) return;
+    focusPickAfterCloseRef.current = false;
+    diffPickButtonRef.current?.focus();
   }, [diffRightTabId]);
 
   // One signature fetch per document tab. The result is passed
@@ -1182,8 +1194,9 @@ function DetailPanelInner() {
               <p>Compare this document against another PDF (structural, object-level diff - not a byte or pixel diff).</p>
               <button
                 type="button"
+                ref={diffPickButtonRef}
                 data-testid="diff-pick-file"
-                className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+                className={`px-2 py-1 ${SMALL_BUTTON}`}
                 onClick={handlePickDiffFile}
                 disabled={!activeTabId}
               >
@@ -1200,7 +1213,10 @@ function DetailPanelInner() {
               leftTabId={activeTabId ?? ''}
               rightTabId={diffRightTabId}
               active={detailView === 'diff'}
-              onClose={() => setDiffRightTabId(null)}
+              onClose={() => {
+                focusPickAfterCloseRef.current = true;
+                setDiffRightTabId(null);
+              }}
             />
           )}
         </Tabs.Content>

@@ -3,9 +3,9 @@
  *
  * Reads style.css, parses the `:root` hex values and checks the contrast
  * floors between the selected-row fill, the focus bar, the hover fills, the
- * tab hover divider and label, the diff text colours and the text colours that
- * `.row-selected-text` redefines inside a selected row, using WCAG 2.x
- * relative luminance. It also checks every new token is registered in
+ * tab hover divider and label, the diff text colours and the `-on-selected`
+ * text tokens that `.row-selected-text` maps onto inside a selected row, using
+ * WCAG 2.x relative luminance. It also checks every new token is registered in
  * `@theme inline`: an unregistered token generates no utility class, so the
  * component className assertions would still pass.
  *
@@ -172,35 +172,52 @@ describe('file-tab hover fill', () => {
   });
 });
 
+// Resolves a `.row-selected-text` override to the `:root` token it points at.
+function overrideTarget(name: string): string | undefined {
+  return selectedTextValue[name]?.match(/^var\(\s*(--[\w-]+)\s*\)$/)?.[1];
+}
+
 describe('text inside a selected row', () => {
-  const typeTokens = Object.keys(rootValue).filter((n) => n.startsWith('--color-type-'));
+  const typeTokens = Object.keys(rootValue).filter(
+    (n) => n.startsWith('--color-type-') && !n.endsWith('-on-selected')
+  );
 
   test('the selected-row fill classes include the scoped text overrides', () => {
     expect(ROW_SELECTED_FILL.split(/\s+/)).toContain('row-selected-text');
     expect(selectedTextBlock.trim(), 'style.css has no .row-selected-text block').not.toBe('');
   });
 
-  test.each(['--color-text-muted', '--color-text-secondary'])('%s is overridden inside a selected row', (name) => {
-    expect(selectedTextValue[name], `.row-selected-text does not redefine ${name}`).toBeDefined();
-  });
+  test.each(['--color-text-muted', '--color-text-secondary', '--color-error'])(
+    '%s is overridden inside a selected row',
+    (name) => {
+      expect(selectedTextValue[name], `.row-selected-text does not redefine ${name}`).toBeDefined();
+    }
+  );
 
-  test('every override is a #rrggbb value of a :root token', () => {
+  test('every override maps a :root token onto its -on-selected token', () => {
     for (const [name, value] of Object.entries(selectedTextValue)) {
-      expect(HEX6.test(value), `.row-selected-text ${name} is "${value}", expected #rrggbb`).toBe(true);
       expect(rootValue[name], `.row-selected-text redefines ${name}, which :root does not declare`).toBeDefined();
+      expect(value, `.row-selected-text ${name} is "${value}", expected var(${name}-on-selected)`).toBe(
+        `var(${name}-on-selected)`
+      );
     }
   });
 
   test.each(Object.keys(selectedTextValue))('override %s is readable on the selected fill', (name) => {
-    const ratio = contrast(selectedTextValue[name], token('--color-row-selected'));
-    expect(
-      ratio,
-      `.row-selected-text ${name} (${selectedTextValue[name]}) is ${ratio.toFixed(2)}:1 on --color-row-selected`
-    ).toBeGreaterThanOrEqual(4.5);
+    const target = overrideTarget(name) ?? `${name}-on-selected`;
+    expectFloor(target, '--color-row-selected', 4.5);
+  });
+
+  test('the error glyph colour is readable on the selected fill', () => {
+    expect(overrideTarget('--color-error'), '.row-selected-text does not override --color-error').toBe(
+      '--color-error-on-selected'
+    );
+    expectFloor('--color-error-on-selected', '--color-row-selected', 4.5);
   });
 
   test.each(typeTokens)('%s is readable on the selected fill, with or without an override', (name) => {
-    const value = selectedTextValue[name] ?? token(name);
+    const target = overrideTarget(name);
+    const value = target ? token(target) : token(name);
     const ratio = contrast(value, token('--color-row-selected'));
     expect(ratio, `${name} (${value}) is ${ratio.toFixed(2)}:1 on --color-row-selected`).toBeGreaterThanOrEqual(4.5);
   });
