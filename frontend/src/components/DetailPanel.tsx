@@ -1200,6 +1200,7 @@ function DetailPanelInner() {
               leftTabId={activeTabId ?? ''}
               rightTabId={diffRightTabId}
               active={detailView === 'diff'}
+              onClose={() => setDiffRightTabId(null)}
             />
           )}
         </Tabs.Content>

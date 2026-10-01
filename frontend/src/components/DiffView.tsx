@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { DiffDocuments } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { escapeDisplayValue } from '../lib/escapeDisplayValue';
-import { ROW_IDLE, ROW_IDLE_BAR, ROW_SELECTED } from './rowState';
+import { ROW_IDLE, ROW_SELECTED } from './rowState';
 
 /** One node in the structural delta tree, mirroring `pdfcore.DiffNode`. */
 export interface DiffNodeData {
@@ -56,6 +56,8 @@ export interface DiffViewProps {
   rightTabId: string;
   /** True when the diff view is active; the fetch runs on mount when active. */
   active: boolean;
+  /** Ends this comparison so another document can be picked. */
+  onClose: () => void;
 }
 
 /** Reports whether a node or any descendant is not "unchanged", or is a
@@ -134,11 +136,11 @@ function flatten(node: DiffNodeData, depth: number, expanded: Set<string>, out: 
 
 /**
  * Side-by-side structural diff view. Self-contained: fetches the delta for the
- * two tab IDs and renders it. The LEFT pane carries the interactive rows
- * (selection + status data attributes); the RIGHT pane mirrors the same visible
- * nodes showing the right-hand value.
+ * two tab IDs and renders it. Both panes show the same visible nodes and share
+ * one selection; the LEFT pane also owns expand/collapse. A Close diff button
+ * in every state hands control back through onClose.
  */
-export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
+export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewProps) {
   const [result, setResult] = useState<DiffResultData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -228,18 +230,35 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
     });
   }, []);
 
+  const closeButton = (
+    <button
+      type="button"
+      data-testid="diff-close"
+      className="px-2 py-0.5 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+      onClick={onClose}
+    >
+      Close diff
+    </button>
+  );
+
   if (error) {
     return (
-      <div className="p-3 text-error text-sm" data-testid="diff-error">
-        {error}
+      <div className="p-3 text-sm flex flex-col items-start gap-2">
+        <div className="text-error" data-testid="diff-error">
+          {error}
+        </div>
+        {closeButton}
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="p-3 text-diff-context text-sm" data-testid="diff-loading">
-        Computing structural diff...
+      <div className="p-3 text-sm flex flex-col items-start gap-2">
+        <div className="text-diff-context" data-testid="diff-loading">
+          Computing structural diff...
+        </div>
+        {closeButton}
       </div>
     );
   }
@@ -308,6 +327,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
         >
           Next change
         </button>
+        <div className="ml-auto">{closeButton}</div>
       </div>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
@@ -354,7 +374,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           })}
         </div>
 
-        {/* Right pane: the same visible nodes showing the right-hand value, with the left pane's selection mirrored. */}
+        {/* Right pane: the same visible nodes showing the right-hand value; clicking a row selects it in both panes. */}
         <div
           className="flex-1 min-w-0 overflow-auto font-mono text-xs"
           data-testid="diff-tree-right"
@@ -364,8 +384,9 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
               key={node.path}
               data-status={node.status}
               data-selected={node.path === selectedPath ? 'true' : 'false'}
+              onClick={() => setSelectedPath(node.path)}
               className={
-                `px-2 py-0.5 whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE_BAR} ` +
+                `px-2 py-0.5 cursor-pointer whitespace-nowrap ${node.path === selectedPath ? ROW_SELECTED : ROW_IDLE} ` +
                 (STATUS_CLASS[node.status] ?? '')
               }
               style={{ paddingLeft: `${depth * 12 + 8}px` }}

@@ -25,6 +25,7 @@ import {
   type AppAction,
 } from '../hooks/useDocumentState';
 import { DetailPanel } from './DetailPanel';
+import * as pdfservice from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 
 // Allotment is layout-only.
 vi.mock('allotment', () => {
@@ -633,5 +634,35 @@ describe('scrollTop survives tab toggle (Object pane)', () => {
     expect(objectPaneAfter).toBe(objectPaneBefore);
     // And the scrollTop we set earlier is still there.
     expect(objectPaneAfter.scrollTop).toBe(250);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Close diff returns the Diff tab to the picker and releases the comparison.
+// ---------------------------------------------------------------------------
+
+describe('closing a diff', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetObjectDetail.mockResolvedValue(pageDetail);
+    mockGetReverseRefs.mockResolvedValue([]);
+    mockGetXRefTable.mockResolvedValue(xrefSmall);
+    mockGetPlainText.mockResolvedValue(plainTextSmall);
+    vi.mocked(pdfservice.OpenFileDialog).mockResolvedValue(['/path/to/other.pdf'] as never);
+    vi.mocked(pdfservice.OpenFile).mockResolvedValue({ tabId: 'diff-right-1' } as never);
+    vi.mocked(pdfservice.CloseDocument).mockResolvedValue(undefined as never);
+  });
+
+  test('Close diff shows the picker again and closes the comparison document', async () => {
+    renderDetailPanel([openAction]);
+    fireEvent.click(await screen.findByTestId('detail-tab-diff'));
+    fireEvent.click(screen.getByTestId('diff-pick-file'));
+
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-close'));
+    // eslint-disable-next-line no-console
+
+    expect(await screen.findByTestId('diff-pick-file')).toBeInTheDocument();
+    await waitFor(() => expect(pdfservice.CloseDocument).toHaveBeenCalledWith('diff-right-1'));
   });
 });

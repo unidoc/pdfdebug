@@ -159,7 +159,7 @@ describe('DiffView', () => {
   // DiffView fetches DiffDocuments(left, right) and renders a summary
   // header with the added/removed/changed counts.
   test('fetches the diff and renders the summary counts', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await waitFor(() => expect(mockDiffDocuments).toHaveBeenCalledWith('left', 'right'));
     const summary = await screen.findByTestId('diff-summary');
@@ -174,7 +174,7 @@ describe('DiffView', () => {
 
   // Two synchronized tree panes are rendered.
   test('renders synchronized left and right tree panes', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-tree-left');
     expect(screen.getByTestId('diff-tree-left')).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe('DiffView', () => {
   // Nodes carry their status via data-status for color-coding; added and
   // changed statuses are both present.
   test('nodes expose data-status for color-coding', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-summary');
     const statuses = Array.from(container.querySelectorAll('[data-testid="diff-node"]')).map(
@@ -198,7 +198,7 @@ describe('DiffView', () => {
   // auto-expanded (the changed leaf value is visible; the unchanged-only
   // branch's unique leaf is not).
   test('unchanged subtrees collapse; change paths auto-expand', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-summary');
     // The changed MediaBox value is visible without interaction.
@@ -210,7 +210,7 @@ describe('DiffView', () => {
   // "next change" navigation selects a non-unchanged node; the selected node
   // carries data-selected="true".
   test('next-change selects the next changed node', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -225,7 +225,7 @@ describe('DiffView', () => {
   // Selecting a changed node shows the per-key/value detail (changed key
   // name + left-vs-right values).
   test('selecting a changed node shows key/value detail', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -242,7 +242,7 @@ describe('DiffView', () => {
 
   // The summary header surfaces the page-count change (1 -> 2).
   test('summary surfaces the page-count change', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const summary = await screen.findByTestId('diff-summary');
     expect(summary.textContent?.toLowerCase()).toContain('page');
@@ -255,7 +255,7 @@ describe('DiffView', () => {
   // rather than an empty view.
   test('identical documents show a zero-delta state', async () => {
     mockDiffDocuments.mockResolvedValue(identicalResult);
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const summary = await screen.findByTestId('diff-summary');
     expect(summary.textContent?.toLowerCase()).toMatch(/no differ|identical|0 added/);
@@ -266,7 +266,7 @@ describe('DiffView', () => {
   // that a broken second file does not take down the view.
   test('a failed diff surfaces the error state', async () => {
     mockDiffDocuments.mockRejectedValue(new Error('could not parse comparison file'));
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const err = await screen.findByTestId('diff-error');
     expect(err.textContent).toContain('could not parse comparison file');
@@ -278,7 +278,7 @@ describe('DiffView', () => {
   // node. With nothing selected yet, prev wraps to the LAST change - exercising
   // navChange(-1)'s distinct index/wrap path.
   test('prev-change selects a changed node', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-prev-change');
     fireEvent.click(screen.getByTestId('diff-prev-change'));
@@ -315,7 +315,7 @@ const allStatusResult = {
 
 describe('DiffView row states and text colours', () => {
   test('selected diff row uses the row-selected fill and focus bar, with no hover fill', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -334,7 +334,7 @@ describe('DiffView row states and text colours', () => {
   });
 
   test('unselected diff rows hover grey and keep a transparent 2px left border', async () => {
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -356,7 +356,7 @@ describe('DiffView row states and text colours', () => {
 
   test('left and right pane rows colour each status with the diff text tokens', async () => {
     mockDiffDocuments.mockResolvedValue(allStatusResult);
-    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-summary');
     const expected: Record<string, string> = {
@@ -383,7 +383,7 @@ describe('DiffView row states and text colours', () => {
   });
 
   test('row value summaries and the expand button use the diff context colour', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-summary');
     const leftValue = within(screen.getByTestId('diff-tree-left')).getByText('[0 0 612 792]');
@@ -404,7 +404,7 @@ describe('DiffView row states and text colours', () => {
   });
 
   test('detail footer shows left and right values in the diff removed and added colours', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -426,7 +426,7 @@ describe('DiffView row states and text colours', () => {
   });
 
   test('summary line, change counter and detail status use the diff context colour', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const summary = await screen.findByTestId('diff-summary');
     const pageCount = within(summary).getByText(/Page count:/);
@@ -441,8 +441,8 @@ describe('DiffView row states and text colours', () => {
     }
   });
 
-  test('right-pane row mirrors the left selection; other right rows keep a transparent bar', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+  test('right-pane row mirrors the left selection; other right rows hover grey with a transparent bar', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await screen.findByTestId('diff-next-change');
     fireEvent.click(screen.getByTestId('diff-next-change'));
@@ -471,13 +471,46 @@ describe('DiffView row states and text colours', () => {
       expect(cls).not.toContain('bg-row-selected');
       expect(cls).toContain('border-l-2');
       expect(cls).toContain('border-l-transparent');
-      expect(cls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+      expect(cls).toContain('hover:bg-surface-hover');
     }
+  });
+
+  test('clicking a right-pane row selects that path in both panes', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const right = screen.getByTestId('diff-tree-right');
+    const pathOf = (row: Element) => row.querySelectorAll('span')[1].textContent;
+    const target = Array.from(right.children)[1];
+    fireEvent.click(target);
+
+    await waitFor(() => expect(target.getAttribute('data-selected')).toBe('true'));
+    const leftSelected = left.querySelector('[data-selected="true"]');
+    expect(leftSelected).not.toBeNull();
+    expect(pathOf(leftSelected!)).toBe(pathOf(target));
+    expect(screen.getByTestId('diff-detail')).toBeInTheDocument();
+  });
+
+  test('Close diff calls onClose from the loaded, loading and error states', async () => {
+    const onClose = vi.fn();
+    const { unmount } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={onClose} />);
+    fireEvent.click(screen.getByTestId('diff-close'));
+    expect(screen.getByTestId('diff-loading')).toBeInTheDocument();
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-close'));
+    unmount();
+
+    mockDiffDocuments.mockRejectedValue(new Error('boom'));
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={onClose} />);
+    await screen.findByTestId('diff-error');
+    fireEvent.click(screen.getByTestId('diff-close'));
+    expect(onClose).toHaveBeenCalledTimes(3);
   });
 
   test('load-failure banner keeps the app-wide error colour', async () => {
     mockDiffDocuments.mockRejectedValue(new Error('boom'));
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const err = await screen.findByTestId('diff-error');
     expect(classes(err)).toContain('text-error');

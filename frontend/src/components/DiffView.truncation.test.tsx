@@ -77,7 +77,7 @@ describe('DiffView depth-cap truncation', () => {
   // differences / identical" banner -- the walk was bounded, so identity cannot
   // be claimed.
   test('suppresses the identical banner when a subtree was depth-capped', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const summary = await screen.findByTestId('diff-summary');
     const text = (summary.textContent ?? '').toLowerCase();
@@ -92,7 +92,7 @@ describe('DiffView depth-cap truncation', () => {
   // at the depth cap") AND the cut node's path, so it genuinely covers the
   // DiffView.tsx per-node marker branch rather than passing on the summary note.
   test('auto-expands to the depth-cap node and renders its row marker', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     await waitFor(() => expect(mockDiffDocuments).toHaveBeenCalled());
     await screen.findByTestId('diff-summary');
@@ -105,7 +105,7 @@ describe('DiffView depth-cap truncation', () => {
   });
 
   test('summary truncation note and per-row marker use the diff changed colour', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const note = await screen.findByTestId('diff-truncation-note');
     expect(note.className.split(/\s+/)).toContain('text-diff-changed');
