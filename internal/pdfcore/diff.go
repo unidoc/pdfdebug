@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -16,6 +17,14 @@ import (
 // arguments, or two tabs on the same file, can never interleave their
 // acquisitions.
 var diffLockOrderMu sync.Mutex
+
+// errDiffCanceled is returned by DiffDocuments when either document is closed
+// while the walk runs. It satisfies errors.Is(err, context.Canceled).
+var errDiffCanceled = fmt.Errorf("structural diff canceled: %w", context.Canceled)
+
+// diffVisitHook, when non-nil, runs at every cancellation check in the walk.
+// Tests set it to close a document at a known point mid-walk.
+var diffVisitHook func()
 
 // DiffResult is the top-level result of Inspector.DiffDocuments: the recursive
 // path-aligned delta tree rooted at the catalog, plus the document-level
@@ -112,6 +121,28 @@ type diffContext struct {
 	// back-edges (cycles) on the current ancestor path. See reconcileTruncation
 	// for why entry (vs full-walk) semantics still keep the truncation count honest.
 	visitedPairs map[string]bool
+	// canceled latches once either document's closeCtx is done. The walk then
+	// stops visiting children and DiffDocuments discards the partial tree.
+	canceled bool
+}
+
+// stopped reports whether either document has been closed since the walk
+// began. It is checked once per visited child, so a close stops the walk after
+// at most one more child per level on the current path.
+func (dc *diffContext) stopped() bool {
+	if diffVisitHook != nil {
+		diffVisitHook()
+	}
+	if !dc.canceled && (docClosed(dc.left) || docClosed(dc.right)) {
+		dc.canceled = true
+	}
+	return dc.canceled
+}
+
+// docClosed reports whether doc's closeCtx has been cancelled by Close or a
+// re-Open under the same tab ID.
+func docClosed(doc *DocumentState) bool {
+	return doc.closeCtx != nil && doc.closeCtx.Err() != nil
 }
 
 // DiffDocuments computes the path-aligned structural delta between two already
@@ -126,7 +157,9 @@ type diffContext struct {
 // DocumentStates; neither document is modified.
 //
 // Returns an error (never a panic) when either tab is unknown or a catalog read
-// fails, so a parse/load failure never crashes the session.
+// fails, so a parse/load failure never crashes the session. Closing either
+// document mid-walk stops the walk, releases both pdfMu locks and returns an
+// error satisfying errors.Is(err, context.Canceled).
 func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, error) {
 	leftDoc, err := ins.GetDocument(leftTabID)
 	if err != nil {
@@ -171,6 +204,10 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 	}
 
 	dc := &diffContext{left: leftDoc, right: rightDoc, visitedPairs: map[string]bool{}}
+	// A document closed while this call waited for the locks is not walked.
+	if dc.stopped() {
+		return nil, errDiffCanceled
+	}
 
 	// Seed each side's path-scoped visited set with its catalog object so a ref
 	// back to the catalog is caught as a back-edge (like resolve.go's guard).
@@ -190,6 +227,9 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 	})
 	if err != nil {
 		return nil, wrapPDFError(err)
+	}
+	if dc.canceled {
+		return nil, errDiffCanceled
 	}
 
 	// Clear depth-cap marks on pairs that were fully walked elsewhere before
@@ -301,6 +341,9 @@ func (dc *diffContext) diffDict(path string, ld, rd pdfcpu_types.Dict, kind stri
 
 	var changedKeys []string
 	for _, k := range keys {
+		if dc.stopped() {
+			break
+		}
 		lv, lok := ld[k]
 		rv, rok := rd[k]
 		childPath := path + "/" + k
@@ -344,6 +387,9 @@ func (dc *diffContext) diffArray(path string, la, ra pdfcpu_types.Array, binary 
 	}
 	changed := false
 	for i := 0; i < n; i++ {
+		if dc.stopped() {
+			break
+		}
 		childPath := fmt.Sprintf("%s[%d]", path, i)
 		var child *DiffNode
 		switch {
