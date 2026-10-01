@@ -129,7 +129,7 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 		{"--color-diff-changed", "#92400e", false},
 		{"--color-diff-context", "#475569", false},
 		{"--color-text-muted-on-selected", "#475569", false},
-		{"--color-text-secondary-on-selected", "#475569", false},
+		{"--color-text-secondary-on-selected", "#334155", false},
 		{"--color-type-name-on-selected", "#115e59", false},
 		{"--color-type-string-on-selected", "#92400e", false},
 		{"--color-type-number-on-selected", "#1d4ed8", false},

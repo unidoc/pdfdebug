@@ -208,6 +208,13 @@ describe('text inside a selected row', () => {
     expectFloor(target, '--color-row-selected', 4.5);
   });
 
+  test('secondary text stays darker than muted text inside a selected row', () => {
+    const secondary = token('--color-text-secondary-on-selected');
+    const muted = token('--color-text-muted-on-selected');
+    expect(secondary, 'secondary and muted collapse to one colour on the selected fill').not.toBe(muted);
+    expect(luminance(secondary), `secondary ${secondary} is not darker than muted ${muted}`).toBeLessThan(luminance(muted));
+  });
+
   test('the error glyph colour is readable on the selected fill', () => {
     expect(overrideTarget('--color-error'), '.row-selected-text does not override --color-error').toBe(
       '--color-error-on-selected'

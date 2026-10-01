@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Validate } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One structural problem, mirroring `pdfcore.Problem`. */
 export interface ValidateProblem {
@@ -202,7 +203,7 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
         <button
           type="button"
           data-testid="validate-run"
-          className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-50 disabled:cursor-not-allowed`}
           onClick={runChecks}
           disabled={running || !tabId}
         >

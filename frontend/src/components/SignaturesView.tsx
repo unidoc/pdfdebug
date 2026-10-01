@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
 export interface SignatureCertInfo {
@@ -217,7 +218,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
         <div className="mt-2">
           <button
             type="button"
-            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+            className={`px-2 py-1 ${SMALL_BUTTON}`}
             data-testid="signature-cert-chain"
             aria-expanded={chainOpen}
             onClick={() => setChainOpen((v) => !v)}
@@ -249,7 +250,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
       {revealTarget && (
         <button
           type="button"
-          className="mt-2 px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover cursor-pointer"
+          className={`mt-2 px-2 py-1 ${SMALL_BUTTON}`}
           data-testid="signature-reveal-in-tree"
           onClick={() => onNavigate(revealTarget)}
         >

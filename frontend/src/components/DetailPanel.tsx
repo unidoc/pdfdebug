@@ -1011,7 +1011,7 @@ function DetailPanelInner() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+                            className={`px-2 py-1 ${SMALL_BUTTON}`}
                             data-testid="image-preview-proceed"
                             onClick={handleProceedImage}
                           >
@@ -1019,7 +1019,7 @@ function DetailPanelInner() {
                           </button>
                           <button
                             type="button"
-                            className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover"
+                            className={`px-2 py-1 ${SMALL_BUTTON}`}
                             data-testid="image-preview-save"
                             onClick={handleSaveImage}
                           >

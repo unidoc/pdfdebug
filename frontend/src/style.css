@@ -176,7 +176,7 @@
   /* Text on the selected-row fill: each holds at least 4.5:1 on --color-row-selected.
      .row-selected-text maps the base tokens onto these. */
   --color-text-muted-on-selected: #475569;
-  --color-text-secondary-on-selected: #475569;
+  --color-text-secondary-on-selected: #334155;
   --color-type-name-on-selected: #115e59;
   --color-type-string-on-selected: #92400e;
   --color-type-number-on-selected: #1d4ed8;

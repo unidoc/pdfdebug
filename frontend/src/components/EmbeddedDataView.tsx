@@ -16,6 +16,7 @@ import {
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { formatBytes } from '../lib/formatBytes';
 import { ROW_SELECTED_FILL, TABLE_CELL_SELECTED_BAR, TABLE_ROW_IDLE } from './rowState';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One embedded file, mirroring `pdfcore.EmbeddedFile`. */
 interface EmbeddedFileData {
@@ -241,7 +242,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-reveal-in-tree"
               onClick={handleReveal}
               disabled={!selected.embeddedFileNodeId}
@@ -250,7 +251,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
             </button>
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-save"
               onClick={handleSave}
               disabled={!selected.embeddedFileNodeId}
