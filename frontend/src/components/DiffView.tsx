@@ -129,15 +129,6 @@ function rowClass(node: DiffNodeData, selected: boolean): string {
   );
 }
 
-/** Runs select on Enter or Space pressed on the row itself, not on a control inside it. */
-function onRowKey(e: KeyboardEvent<HTMLDivElement>, select: () => void) {
-  if (e.target !== e.currentTarget) return;
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    select();
-  }
-}
-
 /** One visible row: a node plus its indent depth. */
 interface FlatRow {
   node: DiffNodeData;
@@ -163,24 +154,44 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const pairKey = leftTabId && rightTabId ? `${leftTabId}::${rightTabId}` : null;
   // The Diff tab is forceMounted, so this component stays mounted across tab
   // switches and `active` toggles on every switch. Track the last SUCCESSFULLY
   // fetched (left,right) pair so a mere re-activation does not re-run the
   // expensive two-graph walk or reset the user's selection/expansion. Only set
-  // on success so a fetch cancelled by a quick tab switch (or a failed one) can
-  // retry on the next activation.
+  // on success so a failed fetch retries on the next activation.
   const fetchedPairRef = useRef<string | null>(null);
-  // Left pane container; its children are the visible rows in `rows` order.
+  // The pair whose DiffDocuments call is still running. A walk holds the
+  // documents' locks until it finishes, so a re-activation for the same pair
+  // waits for that call instead of queueing a second walk behind it.
+  const inFlightPairRef = useRef<string | null>(null);
+  // The pair currently shown; null once unmounted. A response for any other
+  // pair is stale and dropped.
+  const livePairRef = useRef<string | null>(null);
+  // Pane containers; their children are the visible rows in `rows` order.
   const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!active || !leftTabId || !rightTabId) return;
-    const pairKey = `${leftTabId}::${rightTabId}`;
-    if (fetchedPairRef.current === pairKey) return;
-    let cancelled = false;
+    livePairRef.current = pairKey;
+    return () => {
+      livePairRef.current = null;
+    };
+  }, [pairKey]);
+
+  // Not cancelled when the view goes inactive: the result of a walk that
+  // finishes on another tab is kept and shown on return.
+  useEffect(() => {
+    if (!active || !pairKey) return;
+    if (fetchedPairRef.current === pairKey || inFlightPairRef.current === pairKey) return;
+    inFlightPairRef.current = pairKey;
+    const settle = () => {
+      if (inFlightPairRef.current === pairKey) inFlightPairRef.current = null;
+      return livePairRef.current === pairKey;
+    };
     DiffDocuments(leftTabId, rightTabId)
       .then((res: unknown) => {
-        if (cancelled) return;
+        if (!settle()) return;
         fetchedPairRef.current = pairKey;
         const r = res as DiffResultData;
         setResult(r);
@@ -192,13 +203,10 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         setSelectedPath(null);
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (!settle()) return;
         setError(extractErrorMessage(err));
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [active, leftTabId, rightTabId]);
+  }, [active, pairKey, leftTabId, rightTabId]);
 
   const changes = useMemo(() => {
     if (!result?.root) return [];
@@ -249,6 +257,60 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
       return nextSet;
     });
   }, []);
+
+  // Keep the selected row visible in both panes after any selection change.
+  useEffect(() => {
+    if (!selectedPath) return;
+    for (const pane of [leftPaneRef.current, rightPaneRef.current]) {
+      const row = pane?.querySelector('[aria-selected="true"]');
+      if (row && typeof row.scrollIntoView === 'function') row.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedPath]);
+
+  // The one row per pane in the tab order: the selected row when visible,
+  // otherwise the first row.
+  const tabStopPath = rows.some((r) => r.node.path === selectedPath) ? selectedPath : rows[0]?.node.path;
+
+  /** Listbox keys on a row: arrows/Home/End move focus and selection within
+   *  the pane, Enter/Space select, and in the left pane ArrowRight/ArrowLeft
+   *  expand/collapse. Keys on a control inside the row are left to it. */
+  const onRowKeyDown = (e: KeyboardEvent<HTMLDivElement>, index: number, pane: HTMLDivElement | null, canToggle: boolean) => {
+    if (e.target !== e.currentTarget) return;
+    const node = rows[index].node;
+    const hasChildren = (node.children?.length ?? 0) > 0;
+    let target: number | null = null;
+    switch (e.key) {
+      case 'ArrowDown':
+        target = Math.min(index + 1, rows.length - 1);
+        break;
+      case 'ArrowUp':
+        target = Math.max(index - 1, 0);
+        break;
+      case 'Home':
+        target = 0;
+        break;
+      case 'End':
+        target = rows.length - 1;
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        setSelectedPath(node.path);
+        return;
+      case 'ArrowRight':
+      case 'ArrowLeft':
+        if (canToggle && hasChildren && expanded.has(node.path) === (e.key === 'ArrowLeft')) {
+          e.preventDefault();
+          toggle(node.path);
+        }
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    (pane?.children[target] as HTMLElement | undefined)?.focus();
+    setSelectedPath(rows[target].node.path);
+  };
 
   const closeButton = (
     <button
@@ -355,9 +417,11 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         <div
           className="flex-1 min-w-0 overflow-auto border-r border-border font-mono text-xs"
           data-testid="diff-tree-left"
+          role="listbox"
+          aria-label="Left document"
           ref={leftPaneRef}
         >
-          {rows.map(({ node, depth }) => {
+          {rows.map(({ node, depth }, i) => {
             const isLeaf = (node.children?.length ?? 0) === 0;
             const isExpanded = expanded.has(node.path);
             return (
@@ -366,16 +430,18 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
                 data-testid="diff-node"
                 data-status={node.status}
                 data-selected={node.path === selectedPath ? 'true' : 'false'}
-                aria-current={node.path === selectedPath ? 'true' : undefined}
-                tabIndex={0}
+                role="option"
+                aria-selected={node.path === selectedPath}
+                tabIndex={node.path === tabStopPath ? 0 : -1}
                 onClick={() => setSelectedPath(node.path)}
-                onKeyDown={(e) => onRowKey(e, () => setSelectedPath(node.path))}
+                onKeyDown={(e) => onRowKeyDown(e, i, leftPaneRef.current, true)}
                 className={rowClass(node, node.path === selectedPath)}
                 style={{ paddingLeft: `${depth * 12 + 8}px` }}
               >
                 {!isLeaf && (
                   <button
                     type="button"
+                    tabIndex={-1}
                     className="mr-1 text-diff-context"
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     onClick={(e) => {
@@ -399,22 +465,20 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         <div
           className="flex-1 min-w-0 overflow-auto font-mono text-xs"
           data-testid="diff-tree-right"
+          role="listbox"
+          aria-label="Right document"
+          ref={rightPaneRef}
         >
-          {rows.map(({ node, depth }, i) => {
-            const select = () => {
-              setSelectedPath(node.path);
-              // Both panes list the same rows, so the left row at index i is the same node.
-              leftPaneRef.current?.children[i]?.scrollIntoView({ block: 'nearest' });
-            };
-            return (
+          {rows.map(({ node, depth }, i) => (
             <div
               key={node.path}
               data-status={node.status}
               data-selected={node.path === selectedPath ? 'true' : 'false'}
-              aria-current={node.path === selectedPath ? 'true' : undefined}
-              tabIndex={0}
-              onClick={select}
-              onKeyDown={(e) => onRowKey(e, select)}
+              role="option"
+              aria-selected={node.path === selectedPath}
+              tabIndex={node.path === tabStopPath ? 0 : -1}
+              onClick={() => setSelectedPath(node.path)}
+              onKeyDown={(e) => onRowKeyDown(e, i, rightPaneRef.current, false)}
               className={rowClass(node, node.path === selectedPath)}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
             >
@@ -422,8 +486,7 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
               <span>{node.path}</span>
               {node.rightSummary ? <span className="text-diff-context"> {escapeDisplayValue(node.rightSummary)}</span> : null}
             </div>
-            );
-          })}
+          ))}
         </div>
       </div>
 

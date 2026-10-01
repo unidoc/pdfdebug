@@ -492,7 +492,7 @@ describe('DiffView row states and text colours', () => {
     expect(screen.getByTestId('diff-detail')).toBeInTheDocument();
   });
 
-  test('clicking a right-pane row scrolls the matching left-pane row into view', async () => {
+  test('a left select, a right select and a Next change scroll the selected row into view in both panes', async () => {
     const scrolled: Element[] = [];
     const scrollIntoView = vi.fn(function (this: Element) {
       scrolled.push(this);
@@ -502,19 +502,116 @@ describe('DiffView row states and text colours', () => {
     try {
       render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
       await screen.findByTestId('diff-next-change');
-
       const left = screen.getByTestId('diff-tree-left');
       const right = screen.getByTestId('diff-tree-right');
-      fireEvent.click(Array.from(right.children)[1]);
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
-      expect(scrolled).toEqual([Array.from(left.children)[1]]);
+      fireEvent.click(left.children[1]);
+      expect(scrolled).toEqual([left.children[1], right.children[1]]);
+
+      scrolled.length = 0;
+      fireEvent.click(right.children[2]);
+      expect(scrolled).toEqual([left.children[2], right.children[2]]);
+
+      scrolled.length = 0;
+      fireEvent.click(screen.getByTestId('diff-next-change'));
+      await waitFor(() => expect(scrolled.length).toBe(2));
+      const leftSelected = left.querySelector('[aria-selected="true"]');
+      expect(leftSelected).not.toBe(left.children[2]);
+      expect(scrolled).toEqual([leftSelected, right.querySelector('[aria-selected="true"]')]);
+      for (const call of scrollIntoView.mock.calls) expect(call).toEqual([{ block: 'nearest' }]);
     } finally {
       Element.prototype.scrollIntoView = original;
     }
   });
 
-  test('diff rows in both panes are focusable and select on Enter or Space', async () => {
+  test('each pane is a labelled listbox of options with aria-selected', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByRole('listbox', { name: 'Left document' });
+    const right = screen.getByRole('listbox', { name: 'Right document' });
+    expect(left).toBe(screen.getByTestId('diff-tree-left'));
+    expect(right).toBe(screen.getByTestId('diff-tree-right'));
+    const leftOptions = within(left).getAllByRole('option');
+    const rightOptions = within(right).getAllByRole('option');
+    expect(leftOptions.length).toBe(left.children.length);
+    expect(rightOptions.length).toBe(leftOptions.length);
+    for (const o of [...leftOptions, ...rightOptions]) {
+      expect(o.getAttribute('aria-selected')).toBe('false');
+      expect(o.hasAttribute('aria-current')).toBe(false);
+    }
+
+    fireEvent.click(rightOptions[1]);
+    expect(leftOptions[1].getAttribute('aria-selected')).toBe('true');
+    expect(rightOptions[1].getAttribute('aria-selected')).toBe('true');
+    expect(leftOptions.filter((o) => o.getAttribute('aria-selected') === 'true').length).toBe(1);
+  });
+
+  test('each pane has one tab stop: the first row, then the selected row', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const right = screen.getByTestId('diff-tree-right');
+    const tabStops = (pane: HTMLElement) =>
+      Array.from(pane.children)
+        .map((r, i) => ((r as HTMLElement).tabIndex === 0 ? i : -1))
+        .filter((i) => i >= 0);
+    const others = (pane: HTMLElement) =>
+      Array.from(pane.children).filter((r) => (r as HTMLElement).tabIndex !== 0).map((r) => (r as HTMLElement).tabIndex);
+    for (const pane of [left, right]) {
+      expect(tabStops(pane)).toEqual([0]);
+      expect(others(pane).every((t) => t === -1)).toBe(true);
+    }
+
+    fireEvent.click(right.children[2]);
+    for (const pane of [left, right]) {
+      expect(tabStops(pane)).toEqual([2]);
+      expect(others(pane).every((t) => t === -1)).toBe(true);
+    }
+    const toggles = Array.from(left.querySelectorAll('button'));
+    expect(toggles.length).toBeGreaterThan(0);
+    for (const b of toggles) expect(b.tabIndex).toBe(-1);
+  });
+
+  test('arrow keys, Home and End move focus and the shared selection within a pane', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const right = screen.getByTestId('diff-tree-right');
+    const rightRows = Array.from(right.children) as HTMLElement[];
+    const leftRows = Array.from(left.children) as HTMLElement[];
+    const last = rightRows.length - 1;
+    const selectedIndex = (pane: HTMLElement) =>
+      Array.from(pane.children).findIndex((r) => r.getAttribute('aria-selected') === 'true');
+
+    rightRows[0].focus();
+    fireEvent.keyDown(rightRows[0], { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rightRows[1]);
+    expect(selectedIndex(right)).toBe(1);
+    expect(selectedIndex(left)).toBe(1);
+
+    fireEvent.keyDown(rightRows[1], { key: 'End' });
+    expect(document.activeElement).toBe(rightRows[last]);
+    expect(selectedIndex(left)).toBe(last);
+
+    fireEvent.keyDown(rightRows[last], { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rightRows[last]);
+
+    fireEvent.keyDown(rightRows[last], { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(rightRows[last - 1]);
+    expect(selectedIndex(left)).toBe(last - 1);
+
+    fireEvent.keyDown(leftRows[last - 1], { key: 'Home' });
+    expect(document.activeElement).toBe(leftRows[0]);
+    expect(selectedIndex(right)).toBe(0);
+
+    fireEvent.keyDown(leftRows[0], { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(leftRows[0]);
+  });
+
+  test('diff rows in both panes select on Enter or Space', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
     await screen.findByTestId('diff-next-change');
 
@@ -523,26 +620,107 @@ describe('DiffView row states and text colours', () => {
     const pathOf = (row: Element) => row.querySelectorAll('span')[1].textContent;
     const leftRows = Array.from(left.children) as HTMLElement[];
     const rightRows = Array.from(right.children) as HTMLElement[];
-    for (const row of [...leftRows, ...rightRows]) expect(row.tabIndex).toBe(0);
 
     fireEvent.keyDown(rightRows[1], { key: 'Enter' });
-    await waitFor(() => expect(rightRows[1].getAttribute('aria-current')).toBe('true'));
-    expect(pathOf(left.querySelector('[aria-current="true"]')!)).toBe(pathOf(rightRows[1]));
+    await waitFor(() => expect(rightRows[1].getAttribute('aria-selected')).toBe('true'));
+    expect(pathOf(left.querySelector('[aria-selected="true"]')!)).toBe(pathOf(rightRows[1]));
 
     fireEvent.keyDown(leftRows[0], { key: ' ' });
-    await waitFor(() => expect(leftRows[0].getAttribute('aria-current')).toBe('true'));
-    expect(rightRows[1].getAttribute('aria-current')).toBeNull();
+    await waitFor(() => expect(leftRows[0].getAttribute('aria-selected')).toBe('true'));
+    expect(rightRows[1].getAttribute('aria-selected')).toBe('false');
   });
 
-  test('Enter on a row expand button toggles it without selecting the row', async () => {
+  test('ArrowRight expands and ArrowLeft collapses a left-pane row with children', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const optionFor = (path: string) => within(left).getByText(path).closest('[role="option"]')!;
+    const branch = optionFor('/Root/OpenAction');
+    const leaf = optionFor('/Root/Metadata');
+    const childShown = () => within(left).queryByText('/Root/OpenAction/S') !== null;
+    expect(childShown()).toBe(false);
+
+    fireEvent.keyDown(branch, { key: 'ArrowLeft' });
+    expect(childShown()).toBe(false);
+    fireEvent.keyDown(branch, { key: 'ArrowRight' });
+    expect(childShown()).toBe(true);
+    fireEvent.keyDown(branch, { key: 'ArrowRight' });
+    expect(childShown()).toBe(true);
+    fireEvent.keyDown(branch, { key: 'ArrowLeft' });
+    expect(childShown()).toBe(false);
+
+    const count = left.children.length;
+    fireEvent.keyDown(leaf, { key: 'ArrowRight' });
+    fireEvent.keyDown(leaf, { key: 'ArrowLeft' });
+    expect(left.children.length).toBe(count);
+    expect(branch.getAttribute('aria-selected')).toBe('false');
+  });
+
+  test('keys on a row expand button stay with the button and do not select or move', async () => {
     render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
     await screen.findByTestId('diff-next-change');
 
     const left = screen.getByTestId('diff-tree-left');
     const toggle = left.querySelector('button')!;
     const row = toggle.closest('[data-testid="diff-node"]')!;
-    fireEvent.keyDown(toggle, { key: 'Enter' });
-    expect(row.getAttribute('aria-current')).toBeNull();
+    const count = left.children.length;
+    toggle.focus();
+    for (const key of ['Enter', ' ', 'ArrowDown', 'End', 'ArrowLeft']) fireEvent.keyDown(toggle, { key });
+    expect(left.querySelector('[aria-selected="true"]')).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+    expect(left.children.length).toBe(count);
+
+    fireEvent.click(toggle);
+    expect(left.children.length).toBeLessThan(count);
+    expect(row.getAttribute('aria-selected')).toBe('false');
+  });
+
+  test('a fetch in flight survives a tab switch away and back and is not repeated', async () => {
+    let resolve!: (v: unknown) => void;
+    mockDiffDocuments.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { rerender } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    rerender(<DiffView leftTabId="left" rightTabId="right" active={false} onClose={() => {}} />);
+    rerender(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    expect(mockDiffDocuments).toHaveBeenCalledTimes(1);
+
+    resolve(diffResult);
+    expect(await screen.findByTestId('diff-summary')).toBeInTheDocument();
+    expect(mockDiffDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  test('a result that lands while the view is inactive is shown on return', async () => {
+    let resolve!: (v: unknown) => void;
+    mockDiffDocuments.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { rerender } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    rerender(<DiffView leftTabId="left" rightTabId="right" active={false} onClose={() => {}} />);
+    resolve(diffResult);
+    await screen.findByTestId('diff-summary');
+
+    rerender(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    expect(screen.getByTestId('diff-summary')).toBeInTheDocument();
+    expect(mockDiffDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  test('a pair change while a fetch is in flight discards the stale result', async () => {
+    let resolveFirst!: (v: unknown) => void;
+    let resolveSecond!: (v: unknown) => void;
+    mockDiffDocuments
+      .mockReturnValueOnce(new Promise((r) => (resolveFirst = r)))
+      .mockReturnValueOnce(new Promise((r) => (resolveSecond = r)));
+    const { rerender } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    rerender(<DiffView leftTabId="left" rightTabId="other" active onClose={() => {}} />);
+    expect(mockDiffDocuments).toHaveBeenCalledTimes(2);
+    expect(mockDiffDocuments).toHaveBeenLastCalledWith('left', 'other');
+
+    resolveFirst(diffResult);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByTestId('diff-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('diff-summary')).toBeNull();
+
+    resolveSecond(identicalResult);
+    const summary = await screen.findByTestId('diff-summary');
+    expect(summary.textContent).toMatch(/0 added, 0 removed, 0 changed/);
   });
 
   test('Close diff calls onClose from the loaded, loading and error states', async () => {
