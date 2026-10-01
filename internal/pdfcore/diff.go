@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -21,10 +22,6 @@ var diffLockOrderMu sync.Mutex
 // errDiffCanceled is returned by DiffDocuments when either document is closed
 // while the walk runs. It satisfies errors.Is(err, context.Canceled).
 var errDiffCanceled = fmt.Errorf("structural diff canceled: %w", context.Canceled)
-
-// diffVisitHook, when non-nil, runs at every cancellation check in the walk.
-// Tests set it to close a document at a known point mid-walk.
-var diffVisitHook func()
 
 // DiffResult is the top-level result of Inspector.DiffDocuments: the recursive
 // path-aligned delta tree rooted at the catalog, plus the document-level
@@ -121,22 +118,30 @@ type diffContext struct {
 	// back-edges (cycles) on the current ancestor path. See reconcileTruncation
 	// for why entry (vs full-walk) semantics still keep the truncation count honest.
 	visitedPairs map[string]bool
-	// canceled latches once either document's closeCtx is done. The walk then
-	// stops visiting children and DiffDocuments discards the partial tree.
-	canceled bool
+	// closed is set by a context.AfterFunc on either document's closeCtx. The
+	// walk then stops visiting children and DiffDocuments discards the partial
+	// tree.
+	closed atomic.Bool
+	// visitHook, when non-nil, runs at every cancellation check. Tests use it
+	// to close a document at a known point mid-walk.
+	visitHook func(*diffContext)
 }
 
 // stopped reports whether either document has been closed since the walk
-// began. It is checked once per visited child, so a close stops the walk after
-// at most one more child per level on the current path.
+// began. It is checked once per visited child and sees a close once the
+// AfterFunc has run, a moment after Close cancels closeCtx.
 func (dc *diffContext) stopped() bool {
-	if diffVisitHook != nil {
-		diffVisitHook()
+	if dc.visitHook != nil {
+		dc.visitHook(dc)
 	}
-	if !dc.canceled && (docClosed(dc.left) || docClosed(dc.right)) {
-		dc.canceled = true
-	}
-	return dc.canceled
+	return dc.closed.Load()
+}
+
+// stoppedNow is stopped plus a direct read of both closeCtx values, for the
+// checks before and after the walk: AfterFunc runs its function on its own
+// goroutine, so the flag can lag a close by a moment.
+func (dc *diffContext) stoppedNow() bool {
+	return dc.stopped() || docClosed(dc.left) || docClosed(dc.right)
 }
 
 // docClosed reports whether doc's closeCtx has been cancelled by Close or a
@@ -161,6 +166,12 @@ func docClosed(doc *DocumentState) bool {
 // document mid-walk stops the walk, releases both pdfMu locks and returns an
 // error satisfying errors.Is(err, context.Canceled).
 func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, error) {
+	return ins.diffDocuments(leftTabID, rightTabID, nil)
+}
+
+// diffDocuments is DiffDocuments with visitHook run at every cancellation
+// check of the walk.
+func (ins *Inspector) diffDocuments(leftTabID, rightTabID string, visitHook func(*diffContext)) (*DiffResult, error) {
 	leftDoc, err := ins.GetDocument(leftTabID)
 	if err != nil {
 		return nil, err
@@ -203,9 +214,15 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 		return nil, wrapPDFError(err)
 	}
 
-	dc := &diffContext{left: leftDoc, right: rightDoc, visitedPairs: map[string]bool{}}
+	dc := &diffContext{left: leftDoc, right: rightDoc, visitedPairs: map[string]bool{}, visitHook: visitHook}
+	for _, doc := range []*DocumentState{leftDoc, rightDoc} {
+		if doc.closeCtx != nil {
+			stop := context.AfterFunc(doc.closeCtx, func() { dc.closed.Store(true) })
+			defer stop()
+		}
+	}
 	// A document closed while this call waited for the locks is not walked.
-	if dc.stopped() {
+	if dc.stoppedNow() {
 		return nil, errDiffCanceled
 	}
 
@@ -228,9 +245,8 @@ func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, 
 	if err != nil {
 		return nil, wrapPDFError(err)
 	}
-	// Re-check rather than read the latch: a close during the last visit
-	// happens after the final per-node check.
-	if dc.stopped() {
+	// A close during the last visit happens after the final per-node check.
+	if dc.stoppedNow() {
 		return nil, errDiffCanceled
 	}
 

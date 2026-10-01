@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -12,9 +13,7 @@ import (
 func countDiffChecks(t *testing.T, ins *Inspector, l, r string) int {
 	t.Helper()
 	n := 0
-	diffVisitHook = func() { n++ }
-	defer func() { diffVisitHook = nil }()
-	if _, err := ins.DiffDocuments(l, r); err != nil {
+	if _, err := ins.diffDocuments(l, r, func(*diffContext) { n++ }); err != nil {
 		t.Fatalf("uncancelled DiffDocuments: %v", err)
 	}
 	return n
@@ -36,14 +35,18 @@ func TestDiff_CloseMidWalkCancels(t *testing.T) {
 	paused := make(chan struct{})
 	resume := make(chan struct{})
 	checks := 0
-	diffVisitHook = func() {
+	hook := func(dc *diffContext) {
 		checks++
 		if checks == closeAt {
 			close(paused)
 			<-resume
+			// The close reaches the walk through an AfterFunc on its own
+			// goroutine; wait for it so the next check is the first to see it.
+			for deadline := time.Now().Add(2 * time.Second); !dc.closed.Load() && time.Now().Before(deadline); {
+				runtime.Gosched()
+			}
 		}
 	}
-	defer func() { diffVisitHook = nil }()
 
 	type outcome struct {
 		res *DiffResult
@@ -51,7 +54,7 @@ func TestDiff_CloseMidWalkCancels(t *testing.T) {
 	}
 	done := make(chan outcome, 1)
 	go func() {
-		res, err := ins.DiffDocuments(l, r)
+		res, err := ins.diffDocuments(l, r, hook)
 		done <- outcome{res, err}
 	}()
 
