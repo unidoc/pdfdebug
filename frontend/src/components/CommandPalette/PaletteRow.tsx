@@ -18,7 +18,9 @@ export function PaletteRow({ entry, highlighted, breadcrumb, onClick, testId }: 
   const ref = `${entry.objNum} ${entry.gen} R`;
   const suffix = entry.free ? '(free)' : !entry.reachable ? '(orphan)' : '';
   const baseClass = 'px-3 py-1.5 cursor-pointer text-sm font-ui flex flex-col';
-  const stateClass = highlighted ? 'bg-surface-selected' : 'hover:bg-surface-hover';
+  const stateClass = highlighted
+    ? 'bg-row-selected border-l-2 border-l-border-focus'
+    : 'border-l-2 border-l-transparent hover:bg-surface-hover';
   const dimmedClass = entry.free || !entry.reachable ? 'text-text-muted italic' : 'text-text';
   return (
     <div

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -198,7 +199,8 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 // Selected node highlight styling
 // ---------------------------------------------------------------------------
 
-// The tree row has bg-surface-selected for the selected node
+// The flashing row gets the row-selected fill with a focus ring, and the
+// selected row gets the row-selected fill with a border-focus left bar
 func TestTreePanelSelectedStyling(t *testing.T) {
 	if !fileExists(t, treeRowsFile) {
 		t.Skip("treeRows.tsx does not exist yet")
@@ -206,12 +208,20 @@ func TestTreePanelSelectedStyling(t *testing.T) {
 
 	content := readFile(t, treeRowsFile)
 
-	if !strings.Contains(content, "bg-surface-selected") {
-		t.Error("treeRows.tsx must use bg-surface-selected for selected node")
+	// Each class string must sit behind its own condition, so swapping the
+	// flashing and selected branches fails.
+	flashRe := regexp.MustCompile(`(?m)^\s*isFlashing\s*\?\s*'bg-row-selected ring-2 ring-border-focus`)
+	if !flashRe.MatchString(content) {
+		t.Error("treeRows.tsx flashing row class must be gated by isFlashing and start with bg-row-selected ring-2 ring-border-focus")
 	}
 
-	if !strings.Contains(content, "border-") {
-		t.Error("treeRows.tsx must have left border accent on selected node")
+	selectedRe := regexp.MustCompile(`(?m)^\s*isSelected\s*&&\s*!isFlashing\s*\?\s*'bg-row-selected border-l-2 border-l-border-focus'`)
+	if !selectedRe.MatchString(content) {
+		t.Error("treeRows.tsx selected row class must be gated by isSelected && !isFlashing and be bg-row-selected border-l-2 border-l-border-focus")
+	}
+
+	if strings.Contains(content, "bg-surface-selected") {
+		t.Error("treeRows.tsx must not use bg-surface-selected; selected and flashing rows use bg-row-selected")
 	}
 }
 

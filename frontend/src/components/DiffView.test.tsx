@@ -290,3 +290,144 @@ describe('DiffView', () => {
     });
   });
 });
+
+/** Class tokens of an element, so `bg-x` never matches `hover:bg-x`. */
+function classes(el: Element): string[] {
+  return (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+}
+
+/** A removed object alongside the base fixture, so every status has a row. */
+const removedNode = {
+  path: '/Root/Outlines',
+  status: 'removed',
+  kind: 'dict',
+  changedKeys: [] as string[],
+  leftSummary: '<< /Type /Outlines >>',
+  rightSummary: '',
+  children: [],
+};
+
+const allStatusResult = {
+  ...diffResult,
+  summary: { ...diffResult.summary, removed: 1 },
+  root: { ...root, children: [...root.children, removedNode] },
+};
+
+describe('DiffView row states and text colours', () => {
+  test('selected diff row uses the row-selected fill and focus bar, with no hover fill', async () => {
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-next-change'));
+
+    await waitFor(() => {
+      const selected = container.querySelector('[data-testid="diff-node"][data-selected="true"]');
+      expect(selected).not.toBeNull();
+      const cls = classes(selected!);
+      expect(cls).toContain('bg-row-selected');
+      expect(cls).toContain('border-l-2');
+      expect(cls).toContain('border-l-border-focus');
+      expect(cls).not.toContain('bg-surface-hover');
+      expect(cls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+    });
+  });
+
+  test('unselected diff rows hover grey and keep a transparent 2px left border', async () => {
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-next-change'));
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="diff-node"][data-selected="true"]')).not.toBeNull()
+    );
+    const unselected = container.querySelectorAll('[data-testid="diff-node"][data-selected="false"]');
+    expect(unselected.length).toBeGreaterThan(0);
+    for (const row of Array.from(unselected)) {
+      const cls = classes(row);
+      expect(cls).not.toContain('bg-row-selected');
+      expect(cls).not.toContain('hover:bg-row-selected');
+      expect(cls).toContain('hover:bg-surface-hover');
+      expect(cls).toContain('border-l-2');
+      expect(cls).toContain('border-l-transparent');
+    }
+  });
+
+  test('left and right pane rows colour each status with the diff text tokens', async () => {
+    mockDiffDocuments.mockResolvedValue(allStatusResult);
+    const { container } = render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-summary');
+    const expected: Record<string, string> = {
+      added: 'text-diff-added',
+      removed: 'text-diff-removed',
+      changed: 'text-diff-changed',
+      unchanged: 'text-diff-context',
+    };
+    for (const paneId of ['diff-tree-left', 'diff-tree-right']) {
+      const pane = screen.getByTestId(paneId);
+      for (const [status, cls] of Object.entries(expected)) {
+        const rows = pane.querySelectorAll(`[data-status="${status}"]`);
+        expect(rows.length, `${paneId} has no ${status} row`).toBeGreaterThan(0);
+        for (const row of Array.from(rows)) {
+          const rowCls = classes(row);
+          expect(rowCls, `${paneId} ${status} row`).toContain(cls);
+          for (const old of ['text-success', 'text-error', 'text-warning', 'text-text-muted']) {
+            expect(rowCls, `${paneId} ${status} row still uses ${old}`).not.toContain(old);
+          }
+        }
+      }
+    }
+    expect(container.querySelectorAll('[data-testid="diff-node"]').length).toBeGreaterThan(0);
+  });
+
+  test('row value summaries and the expand button use the diff context colour', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-summary');
+    const leftValue = within(screen.getByTestId('diff-tree-left')).getByText('[0 0 612 792]');
+    const rightValue = within(screen.getByTestId('diff-tree-right')).getByText('[0 0 612 842]');
+    expect(classes(leftValue)).toContain('text-diff-context');
+    expect(classes(leftValue)).not.toContain('text-text-muted');
+    expect(classes(rightValue)).toContain('text-diff-context');
+    expect(classes(rightValue)).not.toContain('text-text-muted');
+
+    const toggles = within(screen.getByTestId('diff-tree-left')).getAllByRole('button', {
+      name: /^(Expand|Collapse)$/,
+    });
+    expect(toggles.length).toBeGreaterThan(0);
+    for (const t of toggles) {
+      expect(classes(t)).toContain('text-diff-context');
+      expect(classes(t)).not.toContain('text-text-muted');
+    }
+  });
+
+  test('detail footer shows left and right values in the diff removed and added colours', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    await screen.findByTestId('diff-next-change');
+    fireEvent.click(screen.getByTestId('diff-next-change'));
+
+    const detail = await screen.findByTestId('diff-detail');
+    await waitFor(() => expect(detail.textContent).toMatch(/left:/));
+    const leftLabel = within(detail).getByText('left:');
+    const rightLabel = within(detail).getByText('right:');
+    const leftValue = leftLabel.nextElementSibling!;
+    const rightValue = rightLabel.nextElementSibling!;
+    expect(classes(leftValue)).toContain('text-diff-removed');
+    expect(classes(leftValue)).not.toContain('text-error');
+    expect(classes(rightValue)).toContain('text-diff-added');
+    expect(classes(rightValue)).not.toContain('text-success');
+    // Footer labels are chrome and keep the app-wide muted colour.
+    expect(classes(leftLabel)).toContain('text-text-muted');
+    expect(classes(rightLabel)).toContain('text-text-muted');
+  });
+
+  test('load-failure banner keeps the app-wide error colour', async () => {
+    mockDiffDocuments.mockRejectedValue(new Error('boom'));
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    const err = await screen.findByTestId('diff-error');
+    expect(classes(err)).toContain('text-error');
+  });
+});

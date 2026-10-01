@@ -248,8 +248,8 @@ export function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<Tree
 
   const rowClasses = [
     'flex items-center h-[28px] text-sm font-ui cursor-pointer',
-    isFlashing ? 'bg-surface-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
-    isSelected && !isFlashing ? 'bg-surface-selected border-l-2 border-l-border-focus' : '',
+    isFlashing ? 'bg-row-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
+    isSelected && !isFlashing ? 'bg-row-selected border-l-2 border-l-border-focus' : '',
     !isSelected && !isFlashing ? 'border-l-2 border-l-transparent' : '',
     !isSelected && !isFlashing ? 'hover:bg-surface-hover' : '',
   ].join(' ');

@@ -736,9 +736,43 @@ describe('SELECT_NODE dispatch on selection', () => {
     await waitFor(() => {
       // Re-query after re-render since react-window may replace DOM nodes
       const updatedNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
-      // Selected node should have bg-surface-selected class
-      expect(updatedNode!.className).toContain('bg-surface-selected');
+      // Selected node uses the row-selected fill and the focus bar
+      const cls = updatedNode!.className.split(/\s+/);
+      expect(cls).toContain('bg-row-selected');
+      expect(cls).not.toContain('bg-surface-selected');
+      expect(cls).toContain('border-l-border-focus');
     });
+  });
+
+  test('unselected nodes hover grey with a transparent bar; the selected node has no hover fill', async () => {
+    const TreePanel = await importTreePanel();
+    const user = userEvent.setup();
+
+    render(
+      <AppProvider>
+        <DispatchAndRender action={openAction}>
+          <TreePanel />
+        </DispatchAndRender>
+      </AppProvider>
+    );
+
+    act(() => screen.getByTestId('dispatch').click());
+
+    const typeNode = screen.getByText('Type').closest('[data-testid="tree-node"]');
+    await user.click(typeNode!);
+
+    await waitFor(() => {
+      const selected = screen.getByText('Type').closest('[data-testid="tree-node"]')!.className.split(/\s+/);
+      expect(selected).toContain('bg-row-selected');
+      expect(selected.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+    });
+
+    const other = screen.getByText('Metadata').closest('[data-testid="tree-node"]')!.className.split(/\s+/);
+    expect(other).toContain('hover:bg-surface-hover');
+    expect(other).toContain('border-l-2');
+    expect(other).toContain('border-l-transparent');
+    expect(other).not.toContain('bg-row-selected');
+    expect(other).not.toContain('border-l-border-focus');
   });
 });
 

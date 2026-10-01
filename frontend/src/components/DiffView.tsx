@@ -111,10 +111,10 @@ function pathChain(node: DiffNodeData, targetPath: string, acc: string[]): strin
 
 /** Tailwind classes keyed by status for the row color-coding. */
 const STATUS_CLASS: Record<string, string> = {
-  added: 'text-success',
-  removed: 'text-error',
-  changed: 'text-warning',
-  unchanged: 'text-text-muted',
+  added: 'text-diff-added',
+  removed: 'text-diff-removed',
+  changed: 'text-diff-changed',
+  unchanged: 'text-diff-context',
 };
 
 /** One visible row: a node plus its indent depth. */
@@ -278,7 +278,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
           {s.xmpChanged ? ' | XMP changed' : ''}
         </div>
         {s.truncatedSubtrees > 0 && (
-          <div className="text-warning mt-0.5" data-testid="diff-truncation-note">
+          <div className="text-diff-changed mt-0.5" data-testid="diff-truncation-note">
             {s.truncatedSubtrees} subtree{s.truncatedSubtrees === 1 ? '' : 's'} truncated at the depth
             cap; deeper differences cannot be ruled out.
           </div>
@@ -326,8 +326,10 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 data-selected={node.path === selectedPath ? 'true' : 'false'}
                 onClick={() => setSelectedPath(node.path)}
                 className={
-                  'px-2 py-0.5 cursor-pointer whitespace-nowrap hover:bg-surface-hover ' +
-                  (node.path === selectedPath ? 'bg-surface-hover ' : '') +
+                  'px-2 py-0.5 cursor-pointer whitespace-nowrap ' +
+                  (node.path === selectedPath
+                    ? 'bg-row-selected border-l-2 border-l-border-focus '
+                    : 'border-l-2 border-l-transparent hover:bg-surface-hover ') +
                   (STATUS_CLASS[node.status] ?? '')
                 }
                 style={{ paddingLeft: `${depth * 12 + 8}px` }}
@@ -335,7 +337,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 {!isLeaf && (
                   <button
                     type="button"
-                    className="mr-1 text-text-muted"
+                    className="mr-1 text-diff-context"
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -347,8 +349,8 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
                 )}
                 <span>{diffMarker(node.status)} </span>
                 <span>{node.path}</span>
-                {node.leftSummary ? <span className="text-text-muted"> {escapeDisplayValue(node.leftSummary)}</span> : null}
-                {node.truncated ? <span className="text-warning"> [truncated: depth cap]</span> : null}
+                {node.leftSummary ? <span className="text-diff-context"> {escapeDisplayValue(node.leftSummary)}</span> : null}
+                {node.truncated ? <span className="text-diff-changed"> [truncated: depth cap]</span> : null}
               </div>
             );
           })}
@@ -368,7 +370,7 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
             >
               <span>{diffMarker(node.status)} </span>
               <span>{node.path}</span>
-              {node.rightSummary ? <span className="text-text-muted"> {escapeDisplayValue(node.rightSummary)}</span> : null}
+              {node.rightSummary ? <span className="text-diff-context"> {escapeDisplayValue(node.rightSummary)}</span> : null}
             </div>
           ))}
         </div>
@@ -388,11 +390,11 @@ export function DiffView({ leftTabId, rightTabId, active }: DiffViewProps) {
             <div className="flex flex-col gap-0.5">
               <div>
                 <span className="text-text-muted">left: </span>
-                <span className="text-error break-all">{selectedNode.leftSummary ? escapeDisplayValue(selectedNode.leftSummary) : '(absent)'}</span>
+                <span className="text-diff-removed break-all">{selectedNode.leftSummary ? escapeDisplayValue(selectedNode.leftSummary) : '(absent)'}</span>
               </div>
               <div>
                 <span className="text-text-muted">right: </span>
-                <span className="text-success break-all">{selectedNode.rightSummary ? escapeDisplayValue(selectedNode.rightSummary) : '(absent)'}</span>
+                <span className="text-diff-added break-all">{selectedNode.rightSummary ? escapeDisplayValue(selectedNode.rightSummary) : '(absent)'}</span>
               </div>
             </div>
           )}

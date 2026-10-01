@@ -581,18 +581,11 @@ describe('Target node flash animation', () => {
       </AppProvider>
     );
 
-    // Trigger navigation by dispatching NAVIGATE_TO_REF
-    // We need a component that dispatches the action
-    // Since we cannot easily dispatch after render with DispatchHelper,
-    // verify the TreePanel has flash infrastructure
+    // Checks only that TreePanel mounts under fake timers with a document open.
+    // The flash row classes are not asserted here; the tree-panel-lazy Go suite
+    // pins them in treeRows.tsx, and the flash itself needs E2E.
     const treePanel = screen.getByTestId('tree-panel');
     expect(treePanel).toBeInTheDocument();
-
-    // The TreePanel must contain the flash mechanism.
-    // This is a structural test -- the flash class bg-surface-selected + ring-2
-    // should be applied to the target node during the 100ms window.
-    // Full integration testing requires E2E. This test verifies the component
-    // renders and the flash infrastructure exists.
 
     vi.useRealTimers();
   });

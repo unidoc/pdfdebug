@@ -479,4 +479,28 @@ describe('TabBar component', () => {
     // All 3 tabs still exist (no tabs removed)
     expect(screen.getByTestId('tab-count').textContent).toBe('3');
   });
+
+  /**
+   * Every file tab carries the tab-hover hover class and the surface-hover
+   * rest fill, and keeps the active-state bg and blue underline classes.
+   * Checks class strings only, not which fill wins on the active tab.
+   */
+  test('every file tab carries the tab-hover class and the active bg and underline classes', () => {
+    render(
+      <AppProvider>
+        <SetupAndRenderTabBar tabCount={2} />
+      </AppProvider>
+    );
+
+    openTabs(2);
+
+    for (const id of ['tab-tab-1', 'tab-tab-2']) {
+      const cls = screen.getByTestId(id).className.split(/\s+/);
+      expect(cls).toContain('hover:bg-tab-hover');
+      expect(cls).not.toContain('hover:bg-surface-selected');
+      expect(cls).toContain('bg-surface-hover');
+      expect(cls).toContain('data-[state=active]:bg-bg');
+      expect(cls).toContain('data-[state=active]:border-b-border-focus');
+    }
+  });
 });

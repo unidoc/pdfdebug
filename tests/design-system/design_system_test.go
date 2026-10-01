@@ -43,7 +43,12 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// readStyleCSS reads frontend/src/style.css and returns its content.
+// cssCommentRe matches a CSS block comment.
+var cssCommentRe = regexp.MustCompile(`(?s)/\*.*?\*/`)
+
+// readStyleCSS reads frontend/src/style.css and returns its content with block
+// comments removed, so a commented-out declaration never counts and a `}`
+// inside a comment cannot end a block early.
 func readStyleCSS(t *testing.T) string {
 	t.Helper()
 	root := projectRoot(t)
@@ -52,7 +57,7 @@ func readStyleCSS(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to read frontend/src/style.css: %v", err)
 	}
-	return string(content)
+	return cssCommentRe.ReplaceAllString(string(content), "")
 }
 
 // ---------------------------------------------------------------------------
@@ -60,8 +65,9 @@ func readStyleCSS(t *testing.T) string {
 // --color-surface, --color-surface-hover,
 // --color-surface-selected, --color-text, --color-text-secondary,
 // --color-text-muted, --color-border, --color-border-focus,
-// --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
-// --panel-padding, --tree-indent
+// --color-row-selected, --color-tab-hover, --color-diff-added,
+// --color-diff-removed, --color-diff-changed, --color-diff-context,
+// --font-ui, --font-mono, --panel-padding, --tree-indent
 // ---------------------------------------------------------------------------
 
 func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
@@ -101,8 +107,12 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 		{"--color-text-muted", "#94a3b8", false},
 		{"--color-border", "#e2e8f0", false},
 		{"--color-border-focus", "#3b82f6", false},
-		{"--color-tree-selected", "#eff6ff", false},
-		{"--color-tree-hover", "#f1f5f9", false},
+		{"--color-row-selected", "#dbeafe", false},
+		{"--color-tab-hover", "#e2e8f0", false},
+		{"--color-diff-added", "#166534", false},
+		{"--color-diff-removed", "#b91c1c", false},
+		{"--color-diff-changed", "#92400e", false},
+		{"--color-diff-context", "#475569", false},
 		{"--font-ui", "", true},
 		{"--font-mono", "", true},
 		{"--panel-padding", "12px", false},
@@ -126,10 +136,11 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 			continue
 		}
 		if token.value != "" {
-			// Check the property has the expected value
+			// Check the property has exactly the expected value (case-insensitive,
+			// terminated by ';' so #e2e8f080 does not match #e2e8f0)
 			escapedProp := regexp.QuoteMeta(token.property)
 			escapedVal := regexp.QuoteMeta(token.value)
-			valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
+			valueRe := regexp.MustCompile(escapedProp + `\s*:\s*(?i:` + escapedVal + `)\s*;`)
 			if !valueRe.MatchString(searchContent) {
 				t.Errorf("root property %s does not have expected value %s", token.property, token.value)
 			}
@@ -433,8 +444,12 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 		"--color-text-muted",
 		"--color-border",
 		"--color-border-focus",
-		"--color-tree-selected",
-		"--color-tree-hover",
+		"--color-row-selected",
+		"--color-tab-hover",
+		"--color-diff-added",
+		"--color-diff-removed",
+		"--color-diff-changed",
+		"--color-diff-context",
 		"--color-type-name",
 		"--color-type-string",
 		"--color-type-number",

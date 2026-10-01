@@ -80,8 +80,12 @@
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
   --color-border-focus: var(--color-border-focus);
-  --color-tree-selected: var(--color-tree-selected);
-  --color-tree-hover: var(--color-tree-hover);
+  --color-row-selected: var(--color-row-selected);
+  --color-tab-hover: var(--color-tab-hover);
+  --color-diff-added: var(--color-diff-added);
+  --color-diff-removed: var(--color-diff-removed);
+  --color-diff-changed: var(--color-diff-changed);
+  --color-diff-context: var(--color-diff-context);
   --color-type-name: var(--color-type-name);
   --color-type-string: var(--color-type-string);
   --color-type-number: var(--color-type-number);
@@ -117,8 +121,22 @@
   --color-text-muted: #94a3b8;
   --color-border: #e2e8f0;
   --color-border-focus: #3b82f6;
-  --color-tree-selected: #eff6ff;
-  --color-tree-hover: #f1f5f9;
+
+  /* Row and tab states:
+     hover       - transient pointer state. Neutral grey fill, no bar. Never equal to selected.
+     selected    - the persistent current row. row-selected fill plus a 2px border-focus left bar in every panel
+                   (an inset shadow on the first cell in collapsed tables).
+     active      - a horizontal tab's current-view marker. Fill plus the blue bottom underline, never a blue fill.
+     find-match  - search highlight, yellow/amber. Never shares a token with the other three. */
+  --color-row-selected: #dbeafe;
+  /* Inactive file tabs already rest on surface-hover, so their hover needs a darker fill */
+  --color-tab-hover: #e2e8f0;
+
+  /* Diff text, darker than the semantic colours so it holds 4.5:1 on hover and selected rows */
+  --color-diff-added: #166534;
+  --color-diff-removed: #b91c1c;
+  --color-diff-changed: #92400e;
+  --color-diff-context: #475569;
 
   /* PDF value type colors */
   --color-type-name: #0d9488;

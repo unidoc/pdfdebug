@@ -197,13 +197,13 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
               return (
                 <tr
                   key={key}
-                  className={`border-b border-border cursor-pointer hover:bg-surface-hover ${isSel ? 'bg-surface-hover' : ''}`}
+                  className={`border-b border-border cursor-pointer ${isSel ? 'bg-row-selected' : 'hover:bg-surface-hover'}`}
                   tabIndex={0}
                   data-testid={`embedded-row-${key}`}
                   onClick={() => setSelectedKey(key)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedKey(key); } }}
                 >
-                  <td className="px-2 py-1 text-left text-text">{f.name || '-'}</td>
+                  <td className={`px-2 py-1 text-left text-text ${isSel ? 'shadow-[inset_2px_0_0_var(--color-border-focus)]' : ''}`}>{f.name || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.afRelationship || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.subtype || '-'}</td>
                   <td className="px-2 py-1 text-right text-text">{formatBytes(f.size)}</td>

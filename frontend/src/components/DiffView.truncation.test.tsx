@@ -103,4 +103,18 @@ describe('DiffView depth-cap truncation', () => {
     // note ("... truncated at the depth cap ...") does not contain.
     expect(screen.getAllByText(/\[truncated: depth cap\]/).length).toBeGreaterThan(0);
   });
+
+  test('summary truncation note and per-row marker use the diff changed colour', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active />);
+
+    const note = await screen.findByTestId('diff-truncation-note');
+    expect(note.className.split(/\s+/)).toContain('text-diff-changed');
+    expect(note.className.split(/\s+/)).not.toContain('text-warning');
+
+    const markers = screen.getAllByText(/\[truncated: depth cap\]/);
+    for (const m of markers) {
+      expect(m.className.split(/\s+/)).toContain('text-diff-changed');
+      expect(m.className.split(/\s+/)).not.toContain('text-warning');
+    }
+  });
 });

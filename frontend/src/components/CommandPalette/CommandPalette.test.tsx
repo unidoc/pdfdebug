@@ -263,6 +263,38 @@ describe('multi-match arrow navigation', () => {
   });
 });
 
+describe('result row states', () => {
+  test('highlighted result row uses the row-selected fill and focus bar; others hover grey', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    act(() => screen.getByTestId('bootstrap-open').click());
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    const input = await screen.findByTestId('command-palette-input');
+    await user.type(input, 'Font');
+
+    const rows = await screen.findAllByTestId('command-palette-row');
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    const highlighted = rows.filter((r) => r.getAttribute('aria-selected') === 'true');
+    expect(highlighted.length).toBe(1);
+
+    const selCls = highlighted[0].className.split(/\s+/);
+    expect(selCls).toContain('bg-row-selected');
+    expect(selCls).toContain('border-l-2');
+    expect(selCls).toContain('border-l-border-focus');
+    expect(selCls).not.toContain('bg-surface-selected');
+    expect(selCls.filter((c) => c.startsWith('hover:bg-'))).toEqual([]);
+
+    for (const row of rows.filter((r) => r.getAttribute('aria-selected') !== 'true')) {
+      const cls = row.className.split(/\s+/);
+      expect(cls).not.toContain('bg-row-selected');
+      expect(cls).toContain('hover:bg-surface-hover');
+      expect(cls).toContain('border-l-2');
+      expect(cls).toContain('border-l-transparent');
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Empty input shows per-tab recents (max 5)
 // ---------------------------------------------------------------------------
