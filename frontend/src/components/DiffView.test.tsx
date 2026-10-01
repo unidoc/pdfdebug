@@ -514,6 +514,37 @@ describe('DiffView row states and text colours', () => {
     }
   });
 
+  test('diff rows in both panes are focusable and select on Enter or Space', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const right = screen.getByTestId('diff-tree-right');
+    const pathOf = (row: Element) => row.querySelectorAll('span')[1].textContent;
+    const leftRows = Array.from(left.children) as HTMLElement[];
+    const rightRows = Array.from(right.children) as HTMLElement[];
+    for (const row of [...leftRows, ...rightRows]) expect(row.tabIndex).toBe(0);
+
+    fireEvent.keyDown(rightRows[1], { key: 'Enter' });
+    await waitFor(() => expect(rightRows[1].getAttribute('aria-current')).toBe('true'));
+    expect(pathOf(left.querySelector('[aria-current="true"]')!)).toBe(pathOf(rightRows[1]));
+
+    fireEvent.keyDown(leftRows[0], { key: ' ' });
+    await waitFor(() => expect(leftRows[0].getAttribute('aria-current')).toBe('true'));
+    expect(rightRows[1].getAttribute('aria-current')).toBeNull();
+  });
+
+  test('Enter on a row expand button toggles it without selecting the row', async () => {
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
+    await screen.findByTestId('diff-next-change');
+
+    const left = screen.getByTestId('diff-tree-left');
+    const toggle = left.querySelector('button')!;
+    const row = toggle.closest('[data-testid="diff-node"]')!;
+    fireEvent.keyDown(toggle, { key: 'Enter' });
+    expect(row.getAttribute('aria-current')).toBeNull();
+  });
+
   test('Close diff calls onClose from the loaded, loading and error states', async () => {
     const onClose = vi.fn();
     const { unmount } = render(<DiffView leftTabId="left" rightTabId="right" active onClose={onClose} />);

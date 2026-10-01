@@ -7,7 +7,7 @@
  * changes are visible without interaction. Selecting a change shows the
  * per-key/value detail. Structure only - not a byte or pixel diff.
  */
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from 'react';
 import { DiffDocuments } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { escapeDisplayValue } from '../lib/escapeDisplayValue';
@@ -123,7 +123,19 @@ const STATUS_CLASS: Record<string, string> = {
 
 /** Row classes shared by both panes: selection or idle state plus the status colour. */
 function rowClass(node: DiffNodeData, selected: boolean): string {
-  return `px-2 py-0.5 cursor-pointer whitespace-nowrap ${selected ? ROW_SELECTED : ROW_IDLE} ` + (STATUS_CLASS[node.status] ?? '');
+  return (
+    `px-2 py-0.5 cursor-pointer whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus ${selected ? ROW_SELECTED : ROW_IDLE} ` +
+    (STATUS_CLASS[node.status] ?? '')
+  );
+}
+
+/** Runs select on Enter or Space pressed on the row itself, not on a control inside it. */
+function onRowKey(e: KeyboardEvent<HTMLDivElement>, select: () => void) {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    select();
+  }
 }
 
 /** One visible row: a node plus its indent depth. */
@@ -354,7 +366,10 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
                 data-testid="diff-node"
                 data-status={node.status}
                 data-selected={node.path === selectedPath ? 'true' : 'false'}
+                aria-current={node.path === selectedPath ? 'true' : undefined}
+                tabIndex={0}
                 onClick={() => setSelectedPath(node.path)}
+                onKeyDown={(e) => onRowKey(e, () => setSelectedPath(node.path))}
                 className={rowClass(node, node.path === selectedPath)}
                 style={{ paddingLeft: `${depth * 12 + 8}px` }}
               >
@@ -385,16 +400,21 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
           className="flex-1 min-w-0 overflow-auto font-mono text-xs"
           data-testid="diff-tree-right"
         >
-          {rows.map(({ node, depth }, i) => (
+          {rows.map(({ node, depth }, i) => {
+            const select = () => {
+              setSelectedPath(node.path);
+              // Both panes list the same rows, so the left row at index i is the same node.
+              leftPaneRef.current?.children[i]?.scrollIntoView({ block: 'nearest' });
+            };
+            return (
             <div
               key={node.path}
               data-status={node.status}
               data-selected={node.path === selectedPath ? 'true' : 'false'}
-              onClick={() => {
-                setSelectedPath(node.path);
-                // Both panes list the same rows, so the left row at index i is the same node.
-                leftPaneRef.current?.children[i]?.scrollIntoView({ block: 'nearest' });
-              }}
+              aria-current={node.path === selectedPath ? 'true' : undefined}
+              tabIndex={0}
+              onClick={select}
+              onKeyDown={(e) => onRowKey(e, select)}
               className={rowClass(node, node.path === selectedPath)}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
             >
@@ -402,7 +422,8 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
               <span>{node.path}</span>
               {node.rightSummary ? <span className="text-diff-context"> {escapeDisplayValue(node.rightSummary)}</span> : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
