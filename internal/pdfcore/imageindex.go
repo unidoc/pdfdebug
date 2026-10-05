@@ -165,9 +165,7 @@ func (d *DocumentState) imageTree() (*imageTree, error) {
 // the document run between pages; the walker's own state is touched only by
 // this goroutine. A close of d is checked before every page.
 func (d *DocumentState) buildImageTree(w *imageWalker) (*imageTree, error) {
-	d.pdfMu.Lock()
-	pt, _ := d.pageTree()
-	d.pdfMu.Unlock()
+	pt := d.lockedPageTree()
 	w.pdfMu = &d.pdfMu
 	w.closed = func() bool { return docClosed(d) }
 	return w.build(pt)
@@ -328,13 +326,7 @@ func (w *imageWalker) build(pt *pageTree) (*imageTree, error) {
 		if leaf.ref != nil {
 			pageNodeIDs[i] = nodeIDForRef(*leaf.ref)
 		}
-		if w.pdfMu != nil {
-			w.pdfMu.Lock()
-		}
-		g := w.walkLeaf(leaf, i+1, pageNodeIDs[i])
-		if w.pdfMu != nil {
-			w.pdfMu.Unlock()
-		}
+		g := w.walkLeafLocked(leaf, i+1, pageNodeIDs[i])
 		if w.afterPage != nil {
 			w.afterPage(g.PageNum)
 		}
@@ -772,4 +764,23 @@ func pageRangeList(ranges [][2]int) string {
 // addErrorRow appends an error row carrying msg.
 func (w *imageWalker) addErrorRow(msg string) {
 	w.errRows = append(w.errRows, &ImageIndexEntry{Filters: []string{}, FirstPages: []int{}, FirstPageNodeIDs: []string{}, Err: msg})
+}
+
+// lockedPageTree returns d's cached page walk, holding pdfMu while it is
+// fetched or built.
+func (d *DocumentState) lockedPageTree() *pageTree {
+	d.pdfMu.Lock()
+	defer d.pdfMu.Unlock()
+	pt, _ := d.pageTree()
+	return pt
+}
+
+// walkLeafLocked runs walkLeaf with w.pdfMu held when it is set. The unlock is
+// deferred so a panic in the walk cannot leave the document locked.
+func (w *imageWalker) walkLeafLocked(leaf *pageLeaf, page int, nodeID string) ImagePageGroup {
+	if w.pdfMu != nil {
+		w.pdfMu.Lock()
+		defer w.pdfMu.Unlock()
+	}
+	return w.walkLeaf(leaf, page, nodeID)
 }

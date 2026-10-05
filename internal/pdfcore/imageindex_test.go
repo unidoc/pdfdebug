@@ -1980,3 +1980,17 @@ func TestImageIndexResourcesEntryThatFailsToResolveIsAnErrorRowAndInheritedResou
 		t.Errorf("page 1 row error %q, want %q", pages[0].Err, want)
 	}
 }
+
+func TestImageWalkPageLockIsReleasedWhenTheWalkPanics(t *testing.T) {
+	var mu sync.Mutex
+	w := newImageWalker(nil)
+	w.pdfMu = &mu
+	func() {
+		defer func() { _ = recover() }()
+		w.walkLeafLocked(nil, 1, "")
+	}()
+	if !mu.TryLock() {
+		t.Fatal("pdfMu is still held after a panic in the page walk")
+	}
+	mu.Unlock()
+}
