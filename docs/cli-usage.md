@@ -35,6 +35,7 @@ one file except `diff`, which takes two.
 | `dump object` | A single indirect object by reference | `--ref`, `--resolve` |
 | `dump objects` | The object index (every object in the document) | - |
 | `dump pages` | The page index (every page leaf of the page tree, in document order) | - |
+| `dump images` | The image index (every image XObject referenced from page resources, deduplicated) | - |
 | `dump stream` | A decoded content stream (page, object, or XObject) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
 | `dump page` | Assembled per-page render info **(EXPERIMENTAL)** | `--info N`, `--section`, `--forms-recursive` |
 | `dump font` | A font view (encoding, CMap, glyph mapping, health) | `--ref`, `--glyphs` |
@@ -63,6 +64,20 @@ entry or a cycle, gets a row with `-` for the page number and a message in
 ERROR, so page numbers after it still match what a viewer shows. When the
 number of page leaves differs from the root `/Count`, a JSON warning naming
 both goes to stderr and the command still exits 0.
+
+`dump images` prints one row per image XObject object, however many pages
+use it: its reference, `WxH`, BitsPerComponent, colour space, filters, a FLAGS
+column (`mask`, `SMask`, `Decode` for a `/Decode` that is not the plain
+identity, `APP14 t=N`, `warn`), the decoded size the dictionary implies, and
+PAGES as `<count>: <pages>`, the page list capped with `, ...`. Rows come in
+first-use page order, then by object number. An image counts as used on a page
+when it is referenced from the page's resources, inherited ones and nested Form
+XObjects included; content streams are not read, so it is not checked against
+`Do` operators. Inline images (`BI`/`ID`/`EI`) are not listed. No image is
+decoded. Where the walk stops (a Form XObject nested past the cap, the walk
+budget, an unreadable page tree) a row with `-` for the reference says so in
+ERROR, and the command still exits 0. A warning on a readable image, such as a
+rejected `/Decode`, shows in ERROR as `warning: ...`.
 
 `validate` runs structural checks only, not full conformance; for an
 authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and

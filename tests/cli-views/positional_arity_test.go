@@ -60,6 +60,7 @@ var positionalCases = []positionalCase{
 	{"dump xref", []string{"dump", "xref"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump xref", 1},
 	{"dump objects", []string{"dump", "objects"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump objects", 1},
 	{"dump pages", []string{"dump", "pages"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump pages", 1},
+	{"dump images", []string{"dump", "images"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump images", 1},
 	{"dump bytes", []string{"dump", "bytes"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump bytes", 1},
 	{"dump embedded", []string{"dump", "embedded"}, nil, []string{"--ref", "1 0 R", "--name", "attachment.xml"}, "mutually exclusive", "minimal.pdf", 1, "Usage: pdfdebug dump embedded", 1},
 	{"dump metadata", []string{"dump", "metadata"}, nil, nil, "", "minimal.pdf", 1, "Usage: pdfdebug dump metadata", 1},
