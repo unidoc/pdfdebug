@@ -20,7 +20,7 @@ import type { LeftRailPanelProps } from './leftRailDestinations';
 import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { RowContextMenu } from './RowContextMenu';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
-import { findById, RowStateContext } from './treeRows';
+import { findById, RowStateContext, useLazyLoad } from './treeRows';
 
 /** One row of the backend image index (pdfcore.ImageIndexEntry). */
 interface ImageEntry {
@@ -294,7 +294,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeIdRef = useLatest(selectedNodeId);
 
-  const { cache, entry, fetchError, bump, tabIdKey } = useTabCache<ImagesCache>(
+  const { cache, entry, fetchError, bump } = useTabCache<ImagesCache>(
     active,
     activeTabId,
     tabs.map((t) => t.tabId),
@@ -323,63 +323,31 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dimensions = useContainerSize(containerRef, activeTab !== undefined);
 
-  // Page lists past the first-pages cap: the latest request number per
-  // `${tabId}\n${rowId}`, so a late answer lands on the tab that asked and only
-  // the latest request applies. Numbers come from one counter, so they never
-  // repeat even after a key is evicted.
-  const generations = useRef(new Map<string, number>());
-  const lastGeneration = useRef(0);
+  // Page lists past the first-pages cap, fetched per row; a late answer lands
+  // on the tab that asked, and only the latest request per row applies.
+  const { loadingNodeId, load } = useLazyLoad(activeTabId);
 
-  // Drop the page-list requests of closed tabs.
-  useEffect(() => {
-    const live = new Set(tabIdKey.split(','));
-    for (const key of generations.current.keys()) {
-      if (!live.has(key.slice(0, key.indexOf('\n')))) generations.current.delete(key);
-    }
-  }, [tabIdKey]);
-
-  // The spinner shows after 200ms for the most recent request.
-  const [loadingRow, setLoadingRow] = useState<{ tabId: string; rowId: string } | null>(null);
-  const spinnerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spinnerOwner = useRef<object | null>(null);
-  useEffect(() => () => {
-    if (spinnerTimer.current) clearTimeout(spinnerTimer.current);
-  }, []);
-
-  const loadPages = useCallback(async (tabId: string, rowId: string, index: number, objNum: number) => {
-    const key = `${tabId}\n${rowId}`;
-    const generation = ++lastGeneration.current;
-    generations.current.set(key, generation);
-    const owner = {};
-    spinnerOwner.current = owner;
-    if (spinnerTimer.current) clearTimeout(spinnerTimer.current);
-    setLoadingRow(null);
-    spinnerTimer.current = setTimeout(() => setLoadingRow({ tabId, rowId }), 200);
-    try {
-      const pages: PageRef[] = ((await GetImagePages(tabId, objNum)) ?? []).filter((p) => p !== null);
-      if (generations.current.get(key) !== generation) return;
+  const loadPages = useCallback((tabId: string, rowId: string, index: number, objNum: number) => load(
+    tabId,
+    rowId,
+    () => GetImagePages(tabId, objNum),
+    (result) => {
       const target = cache.current[tabId];
       if (!target) return;
+      const pages: PageRef[] = (result ?? []).filter((p) => p !== null);
       target.fullPages = { ...target.fullPages, [index]: pages };
       target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
       bump();
-    } catch (err: unknown) {
+    },
+    (err) => {
       // The row shows the failure as its child; expanding it again refetches.
-      if (generations.current.get(key) !== generation) return;
       const target = cache.current[tabId];
       if (!target) return;
       target.pagesErrors = { ...target.pagesErrors, [index]: extractErrorMessage(err) };
       target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
       bump();
-    } finally {
-      if (spinnerOwner.current === owner) {
-        if (spinnerTimer.current) clearTimeout(spinnerTimer.current);
-        spinnerTimer.current = null;
-        spinnerOwner.current = null;
-        setLoadingRow(null);
-      }
-    }
-  }, [cache, bump]);
+    },
+  ), [load, cache, bump]);
 
   const handleToggle = useCallback((id: string) => {
     if (!activeTabId) return;
@@ -442,8 +410,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   }, [dispatch, selectedNodeIdRef, selectionRef]);
 
   const renderRow = useCallback((props: NodeRendererProps<ImageRowData>) => <ImageRow {...props} />, []);
-  // The spinner belongs to the tab whose request is pending.
-  const loadingNodeId = loadingRow && loadingRow.tabId === activeTabId ? loadingRow.rowId : null;
   const rowState = useMemo(() => ({ loadingNodeId, flashNodeId: null }), [loadingNodeId]);
 
   function setView(next: View) {

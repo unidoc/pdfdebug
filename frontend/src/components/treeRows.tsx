@@ -145,60 +145,95 @@ export function findDisplayId(data: TreeNodeData[], backendId: string): string |
 }
 
 /**
- * Lazy-loads a row's children the first time it is expanded. Each row keeps
- * its own request generation, so expanding a second row before the first
- * returns does not discard the first row's children; re-expanding the same
- * row supersedes its earlier request. The spinner shows after 200ms for the
- * most recent request only. `getNode` finds a row by display id in the
- * current tab's data; `applyChildren` stores the fetched children for the tab
- * the request was made in.
+ * Runs per-row lazy fetches for a panel. Each `${tabId}\n${rowId}` key keeps
+ * its latest request, so fetching a second row before the first returns does
+ * not discard the first row's answer, while re-fetching the same row
+ * supersedes its earlier request. Request numbers come from one counter and a
+ * key is dropped once its latest request settles, so a number never repeats
+ * for a key and a closed tab leaves nothing behind. The spinner shows after
+ * 200ms for the most recent request only, and only while its tab is
+ * `activeTabId`.
+ */
+export function useLazyLoad(activeTabId: string | null): {
+  loadingNodeId: string | null;
+  load: <T>(tabId: string, rowId: string, fetch: () => Promise<T>, apply: (value: T) => void, onError?: (err: unknown) => void) => Promise<void>;
+} {
+  const [loadingRow, setLoadingRow] = useState<{ tabId: string; rowId: string } | null>(null);
+  // Delays the spinner by 200ms to avoid flicker on fast loads.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spinnerOwner = useRef<object | null>(null);
+  const generations = useRef(new Map<string, number>());
+  const lastGeneration = useRef(0);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const load = useCallback(async <T,>(
+    tabId: string,
+    rowId: string,
+    fetch: () => Promise<T>,
+    apply: (value: T) => void,
+    onError?: (err: unknown) => void,
+  ) => {
+    const key = `${tabId}\n${rowId}`;
+    const generation = ++lastGeneration.current;
+    generations.current.set(key, generation);
+    const owner = {};
+    spinnerOwner.current = owner;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setLoadingRow(null);
+    timerRef.current = setTimeout(() => setLoadingRow({ tabId, rowId }), 200);
+    try {
+      const value = await fetch();
+      if (generations.current.get(key) === generation) apply(value);
+    } catch (err: unknown) {
+      if (generations.current.get(key) === generation) onError?.(err);
+    } finally {
+      if (generations.current.get(key) === generation) generations.current.delete(key);
+      if (spinnerOwner.current === owner) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = null;
+        spinnerOwner.current = null;
+        setLoadingRow(null);
+      }
+    }
+  }, []);
+
+  const loadingNodeId = loadingRow && loadingRow.tabId === activeTabId ? loadingRow.rowId : null;
+  return { loadingNodeId, load };
+}
+
+/**
+ * Lazy-loads a tree row's children from GetChildren the first time it is
+ * expanded, through {@link useLazyLoad}. `getNode` finds a row by display id
+ * in the current tab's data; `applyChildren` stores the fetched children for
+ * the tab the request was made in. A failed fetch keeps children [] so the
+ * row stays expandable and a retry refetches.
  */
 export function useLazyChildren(
   tabId: string | null,
   getNode: (id: string) => TreeNodeData | null,
   applyChildren: (tabId: string, id: string, children: TreeNodeData[]) => void,
 ): { loadingNodeId: string | null; toggle: (id: string) => Promise<void> } {
-  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
-  // Delays the spinner by 200ms to avoid flicker on fast loads.
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spinnerOwner = useRef<object | null>(null);
-  const generations = useRef(new Map<string, number>());
+  const { loadingNodeId, load } = useLazyLoad(tabId);
   const getNodeRef = useLatest(getNode);
   const applyRef = useLatest(applyChildren);
-
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
 
   const toggle = useCallback(async (id: string) => {
     if (!tabId) return;
     const node = getNodeRef.current(id);
     if (!node || !Array.isArray(node.children) || node.children.length > 0) return;
-
-    const key = `${tabId}\n${id}`;
-    const generation = (generations.current.get(key) ?? 0) + 1;
-    generations.current.set(key, generation);
-    const owner = {};
-    spinnerOwner.current = owner;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setLoadingNodeId(null);
-    timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
-    try {
-      const children = await GetChildren(tabId, node.backendId);
-      if (generations.current.get(key) !== generation) return;
-      const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
-      applyRef.current(tabId, id, mapped);
-    } catch {
-      // Keep children [] so the row stays expandable and a retry refetches.
-    } finally {
-      if (spinnerOwner.current === owner) {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = null;
-        spinnerOwner.current = null;
-        setLoadingNodeId(null);
-      }
-    }
-  }, [tabId, getNodeRef, applyRef]);
+    await load(
+      tabId,
+      id,
+      () => GetChildren(tabId, node.backendId),
+      (children) => {
+        const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
+        applyRef.current(tabId, id, mapped);
+      },
+    );
+  }, [tabId, getNodeRef, applyRef, load]);
 
   return { loadingNodeId, toggle };
 }

@@ -62,7 +62,6 @@ export function useTabCache<T>(active: boolean, activeTabId: string | null, tabI
     entry: activeTabId ? cache.current[activeTabId] : undefined,
     fetchError: activeTabId ? errors.current[activeTabId] : undefined,
     bump,
-    tabIdKey,
   };
 }
 
