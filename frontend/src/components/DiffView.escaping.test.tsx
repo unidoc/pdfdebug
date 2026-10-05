@@ -50,7 +50,7 @@ beforeEach(() => {
 
 describe('DiffView summary escaping', () => {
   test('the tree rows escape control characters on both sides', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const left = await screen.findByTestId('diff-tree-left');
     const right = screen.getByTestId('diff-tree-right');
@@ -60,7 +60,7 @@ describe('DiffView summary escaping', () => {
   });
 
   test('the selected-node detail escapes them too', async () => {
-    render(<DiffView leftTabId="left" rightTabId="right" active />);
+    render(<DiffView leftTabId="left" rightTabId="right" active onClose={() => {}} />);
 
     const rows = await screen.findAllByTestId('diff-node');
     const row = rows.find((r) => (r.textContent ?? '').includes('/Root/StructTreeRoot/Alt'));

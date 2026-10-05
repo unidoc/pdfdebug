@@ -11,6 +11,7 @@ import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, typ
 import type { TreeNode } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
+import { ROW_IDLE, ROW_SELECTED, ROW_SELECTED_FILL } from './rowState';
 
 /**
  * Per-row transient state (which node is mid-load, which is flashing) delivered
@@ -248,10 +249,9 @@ export function NodeRenderer({ node, style, dragHandle }: NodeRendererProps<Tree
 
   const rowClasses = [
     'flex items-center h-[28px] text-sm font-ui cursor-pointer',
-    isFlashing ? 'bg-surface-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
-    isSelected && !isFlashing ? 'bg-surface-selected border-l-2 border-l-border-focus' : '',
-    !isSelected && !isFlashing ? 'border-l-2 border-l-transparent' : '',
-    !isSelected && !isFlashing ? 'hover:bg-surface-hover' : '',
+    isFlashing ? `${ROW_SELECTED_FILL} ring-2 ring-border-focus border-l-2 border-l-transparent` : '',
+    isSelected && !isFlashing ? ROW_SELECTED : '',
+    !isSelected && !isFlashing ? ROW_IDLE : '',
   ].join(' ');
 
   return (

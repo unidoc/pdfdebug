@@ -169,7 +169,7 @@ export function FindBar(props: FindBarProps): JSX.Element {
             className={
               'px-2 py-0.5 rounded text-xs cursor-pointer ' +
               (caseSensitive
-                ? 'bg-surface-selected border border-border-focus text-text'
+                ? 'bg-surface-armed border border-border-focus text-text'
                 : 'bg-bg border border-border text-text-muted hover:bg-surface-hover')
             }
           >

@@ -74,14 +74,19 @@
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
   --color-surface-hover: var(--color-surface-hover);
-  --color-surface-selected: var(--color-surface-selected);
+  --color-surface-armed: var(--color-surface-armed);
   --color-text: var(--color-text);
   --color-text-secondary: var(--color-text-secondary);
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
   --color-border-focus: var(--color-border-focus);
-  --color-tree-selected: var(--color-tree-selected);
-  --color-tree-hover: var(--color-tree-hover);
+  --color-row-selected: var(--color-row-selected);
+  --color-tab-hover: var(--color-tab-hover);
+  --color-tab-hover-border: var(--color-tab-hover-border);
+  --color-diff-added: var(--color-diff-added);
+  --color-diff-removed: var(--color-diff-removed);
+  --color-diff-changed: var(--color-diff-changed);
+  --color-diff-context: var(--color-diff-context);
   --color-type-name: var(--color-type-name);
   --color-type-string: var(--color-type-string);
   --color-type-number: var(--color-type-number);
@@ -111,14 +116,33 @@
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
   --color-surface-hover: #f1f5f9;
-  --color-surface-selected: #eff6ff;
+  /* Armed: a control or drop zone that is engaged (find toggle on, file dragged over), not a selected row */
+  --color-surface-armed: #eff6ff;
   --color-text: #0f172a;
   --color-text-secondary: #64748b;
   --color-text-muted: #94a3b8;
   --color-border: #e2e8f0;
   --color-border-focus: #3b82f6;
-  --color-tree-selected: #eff6ff;
-  --color-tree-hover: #f1f5f9;
+
+  /* Row and tab states:
+     hover       - transient pointer state. Neutral grey fill, no bar. Never equal to selected.
+     selected    - the persistent current row. row-selected fill plus a 2px border-focus left bar in every panel
+                   (an inset shadow on the first cell in collapsed tables).
+     active      - a horizontal tab's current-view marker. Fill plus the blue bottom underline, never a blue fill.
+     armed       - an engaged toggle or drop zone. surface-armed fill plus a border-focus border. Not a row state.
+     find-match  - search highlight, yellow/amber. Never shares a token with the other states.
+     Text inside a selected row takes the darker colours from .row-selected-text below. */
+  --color-row-selected: #dbeafe;
+  /* Inactive file tabs already rest on surface-hover, so their hover needs a darker fill.
+     tab-hover equals border, so a hovered tab draws its right divider in tab-hover-border. */
+  --color-tab-hover: #e2e8f0;
+  --color-tab-hover-border: #cbd5e1;
+
+  /* Diff text, darker than the semantic colours so it holds 4.5:1 on hover and selected rows */
+  --color-diff-added: #166534;
+  --color-diff-removed: #b91c1c;
+  --color-diff-changed: #92400e;
+  --color-diff-context: #475569;
 
   /* PDF value type colors */
   --color-type-name: #0d9488;
@@ -149,6 +173,18 @@
   --color-success: #22c55e;
   --color-info: #3b82f6;
 
+  /* Text on the selected-row fill: each holds at least 4.5:1 on --color-row-selected.
+     .row-selected-text maps the base tokens onto these. */
+  --color-text-muted-on-selected: #475569;
+  --color-text-secondary-on-selected: #334155;
+  --color-type-name-on-selected: #115e59;
+  --color-type-string-on-selected: #92400e;
+  --color-type-number-on-selected: #1d4ed8;
+  --color-type-boolean-on-selected: #9d174d;
+  --color-type-null-on-selected: #475569;
+  --color-type-stream-on-selected: #065f46;
+  --color-error-on-selected: #b91c1c;
+
   /* Spacing tokens */
   --panel-padding: 12px;
   --tree-indent: 16px;
@@ -169,7 +205,22 @@ body {
    during OS-level file drags. This highlights the drop zone. */
 .file-drop-target-active [data-testid="drop-zone"] {
   border-color: var(--color-border-focus);
-  background-color: var(--color-surface-selected);
+  background-color: var(--color-surface-armed);
+}
+
+/* Text on the selected-row fill. Utilities read these variables, so pointing
+   them at the -on-selected tokens darkens muted, secondary, value-type and error
+   text inside a selected row to at least 4.5:1 on --color-row-selected. */
+.row-selected-text {
+  --color-text-muted: var(--color-text-muted-on-selected);
+  --color-text-secondary: var(--color-text-secondary-on-selected);
+  --color-type-name: var(--color-type-name-on-selected);
+  --color-type-string: var(--color-type-string-on-selected);
+  --color-type-number: var(--color-type-number-on-selected);
+  --color-type-boolean: var(--color-type-boolean-on-selected);
+  --color-type-null: var(--color-type-null-on-selected);
+  --color-type-stream: var(--color-type-stream-on-selected);
+  --color-error: var(--color-error-on-selected);
 }
 
 /* Reduced motion */

@@ -43,7 +43,12 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// readStyleCSS reads frontend/src/style.css and returns its content.
+// cssCommentRe matches a CSS block comment.
+var cssCommentRe = regexp.MustCompile(`(?s)/\*.*?\*/`)
+
+// readStyleCSS reads frontend/src/style.css and returns its content with block
+// comments removed, so a commented-out declaration never counts and a `}`
+// inside a comment cannot end a block early.
 func readStyleCSS(t *testing.T) string {
 	t.Helper()
 	root := projectRoot(t)
@@ -52,17 +57,32 @@ func readStyleCSS(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to read frontend/src/style.css: %v", err)
 	}
-	return string(content)
+	return cssCommentRe.ReplaceAllString(string(content), "")
 }
 
 // ---------------------------------------------------------------------------
 // CSS custom properties for design tokens defined on :root: --color-bg,
 // --color-surface, --color-surface-hover,
-// --color-surface-selected, --color-text, --color-text-secondary,
+// --color-surface-armed, --color-text, --color-text-secondary,
 // --color-text-muted, --color-border, --color-border-focus,
-// --color-tree-selected, --color-tree-hover, --font-ui, --font-mono,
-// --panel-padding, --tree-indent
+// --color-row-selected, --color-tab-hover, --color-tab-hover-border,
+// --color-diff-added,
+// --color-diff-removed, --color-diff-changed, --color-diff-context,
+// the -on-selected text tokens that .row-selected-text maps onto,
+// --font-ui, --font-mono, --panel-padding, --tree-indent
 // ---------------------------------------------------------------------------
+
+// lastDeclaration returns the value of the last declaration of prop in css,
+// lower-cased and trimmed, as the cascade applies it. ok is false when prop is
+// not declared.
+func lastDeclaration(css, prop string) (value string, ok bool) {
+	re := regexp.MustCompile(`(?:^|[^\w-])` + regexp.QuoteMeta(prop) + `\s*:\s*([^;]*);`)
+	matches := re.FindAllStringSubmatch(css, -1)
+	if len(matches) == 0 {
+		return "", false
+	}
+	return strings.ToLower(strings.TrimSpace(matches[len(matches)-1][1])), true
+}
 
 func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 	css := readStyleCSS(t)
@@ -95,14 +115,28 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 		{"--color-bg", "#f8fafc", false},
 		{"--color-surface", "#ffffff", false},
 		{"--color-surface-hover", "#f1f5f9", false},
-		{"--color-surface-selected", "#eff6ff", false},
+		{"--color-surface-armed", "#eff6ff", false},
 		{"--color-text", "#0f172a", false},
 		{"--color-text-secondary", "#64748b", false},
 		{"--color-text-muted", "#94a3b8", false},
 		{"--color-border", "#e2e8f0", false},
 		{"--color-border-focus", "#3b82f6", false},
-		{"--color-tree-selected", "#eff6ff", false},
-		{"--color-tree-hover", "#f1f5f9", false},
+		{"--color-row-selected", "#dbeafe", false},
+		{"--color-tab-hover", "#e2e8f0", false},
+		{"--color-tab-hover-border", "#cbd5e1", false},
+		{"--color-diff-added", "#166534", false},
+		{"--color-diff-removed", "#b91c1c", false},
+		{"--color-diff-changed", "#92400e", false},
+		{"--color-diff-context", "#475569", false},
+		{"--color-text-muted-on-selected", "#475569", false},
+		{"--color-text-secondary-on-selected", "#334155", false},
+		{"--color-type-name-on-selected", "#115e59", false},
+		{"--color-type-string-on-selected", "#92400e", false},
+		{"--color-type-number-on-selected", "#1d4ed8", false},
+		{"--color-type-boolean-on-selected", "#9d174d", false},
+		{"--color-type-null-on-selected", "#475569", false},
+		{"--color-type-stream-on-selected", "#065f46", false},
+		{"--color-error-on-selected", "#b91c1c", false},
 		{"--font-ui", "", true},
 		{"--font-mono", "", true},
 		{"--panel-padding", "12px", false},
@@ -126,12 +160,11 @@ func TestCSSCustomPropertiesDefinedOnRoot(t *testing.T) {
 			continue
 		}
 		if token.value != "" {
-			// Check the property has the expected value
-			escapedProp := regexp.QuoteMeta(token.property)
-			escapedVal := regexp.QuoteMeta(token.value)
-			valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
-			if !valueRe.MatchString(searchContent) {
-				t.Errorf("root property %s does not have expected value %s", token.property, token.value)
+			// The last declaration wins, so a later override of an expected
+			// value fails even when an earlier declaration matches.
+			got, _ := lastDeclaration(searchContent, token.property)
+			if got != strings.ToLower(token.value) {
+				t.Errorf("root property %s is %q, expected %s", token.property, got, token.value)
 			}
 		}
 	}
@@ -173,11 +206,8 @@ func TestPDFTypeAndSemanticColorsDefined(t *testing.T) {
 	}
 
 	for _, token := range pdfTypeTokens {
-		escapedProp := regexp.QuoteMeta(token.property)
-		escapedVal := regexp.QuoteMeta(token.value)
-		valueRe := regexp.MustCompile(escapedProp + `\s*:\s*` + escapedVal)
-		if !valueRe.MatchString(rootContent) {
-			t.Errorf("root missing or incorrect PDF type color: %s expected %s", token.property, token.value)
+		if got, _ := lastDeclaration(rootContent, token.property); got != token.value {
+			t.Errorf("root missing or incorrect PDF type color: %s is %q, expected %s", token.property, got, token.value)
 		}
 	}
 
@@ -427,14 +457,19 @@ func TestTailwindThemeInlineColors(t *testing.T) {
 		"--color-bg",
 		"--color-surface",
 		"--color-surface-hover",
-		"--color-surface-selected",
+		"--color-surface-armed",
 		"--color-text",
 		"--color-text-secondary",
 		"--color-text-muted",
 		"--color-border",
 		"--color-border-focus",
-		"--color-tree-selected",
-		"--color-tree-hover",
+		"--color-row-selected",
+		"--color-tab-hover",
+		"--color-tab-hover-border",
+		"--color-diff-added",
+		"--color-diff-removed",
+		"--color-diff-changed",
+		"--color-diff-context",
 		"--color-type-name",
 		"--color-type-string",
 		"--color-type-number",
