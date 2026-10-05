@@ -6,8 +6,9 @@ import "sync"
 // covers the build, so concurrent callers share one build. A failed build is
 // not cached; the next get retries.
 //
-// Callers that build from pdfcpu state must hold DocumentState.pdfMu around
-// get: the cache mutex is the inner lock.
+// Callers that build from pdfcpu state hold DocumentState.pdfMu around get,
+// so the cache mutex is the inner lock, except for the image index, whose
+// build takes pdfMu page by page itself (see the DocumentState lock order).
 type lazyCache[T any] struct {
 	mu    sync.Mutex
 	value T

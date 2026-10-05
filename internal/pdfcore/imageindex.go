@@ -1,12 +1,14 @@
 package pdfcore
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"reflect"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -27,6 +29,10 @@ const maxImageWalkEntries = 1_000_000
 // stay cheap in entries but multiply uses, so entries alone do not bound them.
 const maxImageWalkUses = 4_000_000
 
+// errImageIndexCanceled is returned when the document is closed while its
+// image walk is being built. It satisfies errors.Is(err, context.Canceled).
+var errImageIndexCanceled = fmt.Errorf("image index build canceled: %w", context.Canceled)
+
 // GetImageIndex returns the image index for the document in tabID: one entry
 // per image XObject referenced from page resources (directly, through
 // inherited /Resources, or through nested Form XObjects), deduplicated by
@@ -37,22 +43,23 @@ const maxImageWalkUses = 4_000_000
 // means declared in the page's resources; content streams are not parsed, so
 // inline images are not listed. Built on first call from the cached page-tree
 // walk, decode-free, and cached on the per-tab DocumentState; a re-Open under
-// the same tabID replaces the DocumentState, and with it the cache. A document
-// with no images returns a non-nil empty slice. The entries are copies, so a
-// caller may change them without touching the cache.
+// the same tabID replaces the DocumentState, and with it the cache. The build
+// holds pdfMu one page at a time, so other calls on the document run between
+// pages; once built, the index is read without pdfMu. A close during the build
+// ends it with an error that satisfies errors.Is(err, context.Canceled). A
+// document with no images returns a non-nil empty slice. The entries are
+// copies, so a caller may change them without touching the cache.
 func (ins *Inspector) GetImageIndex(tabID string) ([]*ImageIndexEntry, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	// Serialize pdfcpu access. Outer lock; the pageIndex and imageIndex cache
-	// mutexes (inner) guard the cached walks.
-	doc.pdfMu.Lock()
-	defer doc.pdfMu.Unlock()
-
-	entries := doc.imageTree().entries
-	out := make([]*ImageIndexEntry, len(entries))
-	for i, e := range entries {
+	t, err := doc.imageTree()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*ImageIndexEntry, len(t.entries))
+	for i, e := range t.entries {
 		out[i] = copyImageIndexEntry(e)
 	}
 	return out, nil
@@ -60,17 +67,18 @@ func (ins *Inspector) GetImageIndex(tabID string) ([]*ImageIndexEntry, error) {
 
 // GetImagePages returns every page, ascending, whose resources reference the
 // image with object number objNum, each with its /Page node id. It reads the
-// cached image walk, so it is the full list ImageIndexEntry.FirstPages caps.
-// An object number the index does not list is an error naming it.
+// cached image walk, so it is the full list ImageIndexEntry.FirstPages caps,
+// and builds that walk as GetImageIndex does when nothing is cached yet. An
+// object number the index does not list is an error naming it.
 func (ins *Inspector) GetImagePages(tabID string, objNum int) ([]ImagePageRef, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	doc.pdfMu.Lock()
-	defer doc.pdfMu.Unlock()
-
-	t := doc.imageTree()
+	t, err := doc.imageTree()
+	if err != nil {
+		return nil, err
+	}
 	pages, ok := t.pages[objNum]
 	if !ok {
 		return nil, fmt.Errorf("object %d is not an image in the image index", objNum)
@@ -88,18 +96,19 @@ func (ins *Inspector) GetImagePages(tabID string, objNum int) ([]ImagePageRef, e
 // to each. A page with no images that was walked to the end is left out, and
 // so is every page after the one the walk stopped at. An image reachable twice
 // within one page is listed once, under the first path found. Read from the
-// cached image walk; the groups are copies.
+// cached image walk, built as GetImageIndex does when nothing is cached yet;
+// the groups are copies.
 func (ins *Inspector) GetImagePageGroups(tabID string) ([]ImagePageGroup, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	doc.pdfMu.Lock()
-	defer doc.pdfMu.Unlock()
-
-	groups := doc.imageTree().groups
-	out := make([]ImagePageGroup, len(groups))
-	for i, g := range groups {
+	t, err := doc.imageTree()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ImagePageGroup, len(t.groups))
+	for i, g := range t.groups {
 		out[i] = g
 		out[i].Images = make([]ImagePageUse, len(g.Images))
 		for j, u := range g.Images {
@@ -139,15 +148,29 @@ type imageTree struct {
 }
 
 // imageTree returns the cached image walk of d, building it on first use.
-// The page walk is fetched before the image cache is entered, so the image
-// cache mutex is never held while waiting for the page cache mutex. The build
-// never fails; failures are error rows. Callers hold pdfMu.
-func (d *DocumentState) imageTree() *imageTree {
-	pt, _ := d.pageTree()
-	t, _ := d.imageIndex.get(func() (*imageTree, error) {
-		return newImageWalker(d.PDFContext).build(pt), nil
+// The imageIndex cache mutex covers the build, so concurrent callers wait on
+// one build, and a built walk is returned without touching pdfMu. The build
+// takes pdfMu itself, page by page (buildImageTree), so the image cache mutex
+// is taken before pdfMu and callers must not hold pdfMu. The build fails only
+// when the document is closed during it, and nothing is cached then; every
+// other failure is an error row.
+func (d *DocumentState) imageTree() (*imageTree, error) {
+	return d.imageIndex.get(func() (*imageTree, error) {
+		return d.buildImageTree(newImageWalker(d.PDFContext))
 	})
-	return t
+}
+
+// buildImageTree runs w over d's numbered pages. pdfMu is held while the page
+// walk is fetched and then for one page at a time, so other pdfcpu calls on
+// the document run between pages; the walker's own state is touched only by
+// this goroutine. A close of d is checked before every page.
+func (d *DocumentState) buildImageTree(w *imageWalker) (*imageTree, error) {
+	d.pdfMu.Lock()
+	pt, _ := d.pageTree()
+	d.pdfMu.Unlock()
+	w.pdfMu = &d.pdfMu
+	w.closed = func() bool { return docClosed(d) }
+	return w.build(pt)
 }
 
 // imageRecord is one deduplicated image and the pages referencing it, in
@@ -161,15 +184,18 @@ type imageRecord struct {
 // walk order, each once, with paths relative to that dictionary, whether
 // the walk was cut short, and the ids of the walk issues that cut it (an id
 // may repeat). height is the number of Form XObject levels the walk
-// entered below the dictionary, capped is set when the nesting cap stopped a
-// form in it, and cyclic when it skipped a form already being walked above.
+// entered below the dictionary, and capped is set when the nesting cap stopped
+// a form in it. guard lists the forms in the walk that another walk could
+// have above it, where they would be skipped as a cycle instead of entered:
+// forms whose walk the cap cut, which may hide a path back up, and forms in a
+// cycle that closes at the form whose walk this is. An id may repeat.
 type resWalk struct {
 	images     []ImagePageUse
 	incomplete bool
 	issues     []int
 	height     int
 	capped     bool
-	cyclic     bool
+	guard      []int
 }
 
 // pageResKey identifies a page's /XObject dictionary for the walk memo: the
@@ -182,18 +208,20 @@ type pageResKey struct {
 }
 
 // Kinds of walk issue: unreadable resources shared by pages, unreadable
-// resources of one page, an unreadable /XObject entry or form /Resources, and
-// a form not walked because of the nesting cap.
+// resources of one page, an unreadable /XObject entry or form /Resources, a
+// form not walked because of the nesting cap, and a page-tree node's
+// /Resources entry that failed to resolve.
 const (
 	issueSharedResources = iota
 	issuePageResources
 	issueXObject
 	issueDepth
+	issueResourcesEntry
 )
 
 // issueKey identifies the failing object behind a walk issue: res for shared
-// page resources, else num (the page for issuePageResources, the object number
-// otherwise).
+// page resources and for a page-tree node's /Resources entry, else num (the
+// page for issuePageResources, the object number otherwise).
 type issueKey struct {
 	kind int
 	res  pageResKey
@@ -219,6 +247,14 @@ type formWalk struct {
 // imageWalker carries the state of one image walk.
 type imageWalker struct {
 	ctx *pdfcpu_model.Context
+	// pdfMu, when set, is held for each page's walk and released between
+	// pages. closed, when set, reports a document close; the walk then ends
+	// before the next page.
+	pdfMu  *sync.Mutex
+	closed func() bool
+	// afterPage, when set, runs after each page's walk with pdfMu released.
+	// Tests use it to act between pages.
+	afterPage func(page int)
 	// budget is the number of /XObject entries the walk may examine.
 	budget   int
 	examined int
@@ -263,12 +299,16 @@ func newImageWalker(ctx *pdfcpu_model.Context) *imageWalker {
 // build walks every numbered page of pt and assembles the index, the page
 // lists and the groups. Every unnumbered page-tree error row becomes an
 // error row, and a page pdfcpu failed to read writes its error and is marked
-// incomplete, though its resources are still walked. Every other failure
-// writes one error row per failing object, naming every page it cut short. A
-// page-tree walk that failed part way still yields the pages it reached, plus
-// an error row naming the failure. Once the walk stops, later pages are not
-// walked and get no group; the stop's error row names them.
-func (w *imageWalker) build(pt *pageTree) *imageTree {
+// incomplete, though its resources are still walked. A page whose own or
+// inherited /Resources entry failed to resolve is marked incomplete, the
+// failing entry gets one error row naming every page it affected, and the
+// resources the page still has are walked. Every other failure writes one
+// error row per failing object, naming every page it cut short. A page-tree
+// walk that failed part way still yields the pages it reached, plus an error
+// row naming the failure. Once the walk stops, later pages are not walked and
+// get no group; the stop's error row names them. It fails only when closed
+// reports a close before a page.
+func (w *imageWalker) build(pt *pageTree) (*imageTree, error) {
 	for _, e := range pt.entries {
 		if e.PageNum != 0 || e.Err == "" {
 			continue
@@ -282,30 +322,21 @@ func (w *imageWalker) build(pt *pageTree) *imageTree {
 	groups := make([]ImagePageGroup, 0, len(pt.leaves))
 	pageNodeIDs := make([]string, len(pt.leaves))
 	for i, leaf := range pt.leaves {
+		if w.closed != nil && w.closed() {
+			return nil, errImageIndexCanceled
+		}
 		if leaf.ref != nil {
 			pageNodeIDs[i] = nodeIDForRef(*leaf.ref)
 		}
-		g := ImagePageGroup{PageNum: i + 1, NodeID: pageNodeIDs[i], Images: []ImagePageUse{}}
-		if leaf.err != nil {
-			w.addErrorRow(leaf.err.Error())
-			g.Incomplete = true
+		if w.pdfMu != nil {
+			w.pdfMu.Lock()
 		}
-		if !w.stopped && w.ctx != nil {
-			rw := w.walkPage(leaf.attrs.resources, g.PageNum)
-			g.Incomplete = g.Incomplete || rw.incomplete
-			if w.chargeUses(len(rw.images), g.PageNum) {
-				g.Images = append(g.Images, rw.images...)
-				for _, u := range rw.images {
-					if r := w.records[u.ObjNum]; r != nil {
-						r.pages = append(r.pages, g.PageNum)
-					}
-				}
-				for _, id := range rw.issues {
-					w.noteIssuePage(id, g.PageNum)
-				}
-			} else {
-				g.Incomplete = true
-			}
+		g := w.walkLeaf(leaf, i+1, pageNodeIDs[i])
+		if w.pdfMu != nil {
+			w.pdfMu.Unlock()
+		}
+		if w.afterPage != nil {
+			w.afterPage(g.PageNum)
 		}
 		if w.stopped && g.PageNum > w.stopPage {
 			continue
@@ -358,7 +389,44 @@ func (w *imageWalker) build(pt *pageTree) *imageTree {
 		return a.Gen - b.Gen
 	})
 	t.entries = append(t.entries, w.errRows...)
-	return t
+	return t, nil
+}
+
+// walkLeaf walks one numbered page, unless the walk has stopped, and returns
+// its group.
+func (w *imageWalker) walkLeaf(leaf *pageLeaf, page int, nodeID string) ImagePageGroup {
+	g := ImagePageGroup{PageNum: page, NodeID: nodeID, Images: []ImagePageUse{}}
+	if leaf.err != nil {
+		w.addErrorRow(leaf.err.Error())
+		g.Incomplete = true
+	}
+	if w.stopped || w.ctx == nil {
+		return g
+	}
+	if re := leaf.attrs.resourcesErr; re != nil {
+		g.Incomplete = true
+		w.noteIssuePage(w.issue(issueKey{kind: issueResourcesEntry, res: re.key}, page,
+			"/Resources of "+re.node+" for ", " could not be read: "+re.err.Error()), page)
+		if w.stopped {
+			return g
+		}
+	}
+	rw := w.walkPage(leaf.attrs.resources, page)
+	g.Incomplete = g.Incomplete || rw.incomplete
+	if !w.chargeUses(len(rw.images), page) {
+		g.Incomplete = true
+		return g
+	}
+	g.Images = append(g.Images, rw.images...)
+	for _, u := range rw.images {
+		if r := w.records[u.ObjNum]; r != nil {
+			r.pages = append(r.pages, page)
+		}
+	}
+	for _, id := range rw.issues {
+		w.noteIssuePage(id, page)
+	}
+	return g
 }
 
 // walkPage walks the resources of page, or returns the memoised walk of
@@ -417,8 +485,8 @@ func pageResourcesKey(res pdfcpu_types.Object) (pageResKey, bool) {
 // walk, so a diamond is walked once. stack maps each form being walked above
 // res to its position; a form on it is a cycle and is skipped. depth counts
 // the forms entered above res. low is the lowest stack position a skipped
-// cycle reached, math.MaxInt when none: the walk depends on those forms
-// being above it. err is set when the resources dictionary or its /XObject
+// cycle reached, math.MaxInt when none: the walk depends on the form at that
+// position being above it. err is set when the resources dictionary or its /XObject
 // dictionary fails to resolve; a missing, null or dangling one, or one that
 // is not a dictionary, contributes nothing.
 func (w *imageWalker) walkResources(res pdfcpu_types.Object, page, depth int, stack map[int]int) (rw resWalk, low int, err error) {
@@ -462,7 +530,6 @@ func (w *imageWalker) walkResources(res pdfcpu_types.Object, page, depth int, st
 		}
 		if pos, onStack := stack[num]; onStack {
 			low = min(low, pos)
-			rw.cyclic = true
 			continue
 		}
 		fail := func(msg string) {
@@ -509,11 +576,17 @@ func (w *imageWalker) visitXObject(ref pdfcpu_types.IndirectRef, key string, pag
 			return nil
 		}
 		seen[num] = true
-		child := w.walkForm(ref, sd, key, page, depth, stack, low)
+		child, up := w.walkForm(ref, sd, key, page, depth, stack, low)
 		rw.incomplete = rw.incomplete || child.incomplete
 		rw.capped = rw.capped || child.capped
-		rw.cyclic = rw.cyclic || child.cyclic
 		rw.height = max(rw.height, child.height+1)
+		if len(up) > 0 {
+			if !w.chargeUses(len(up), page) {
+				rw.incomplete = true
+				return nil
+			}
+			rw.guard = append(rw.guard, up...)
+		}
 		for _, id := range child.issues {
 			if !w.chargeUses(1, page) {
 				rw.incomplete = true
@@ -559,36 +632,31 @@ func (w *imageWalker) stop(msg string, page int) {
 }
 
 // walkForm walks a form's own /Resources (a form without one contributes
-// nothing), or returns its memoised walk. A memoised walk that skipped no
-// cycle and was not cut by the nesting cap is reused at any depth its height
-// still fits under the cap; one the cap cut is reused only at the depth it was
-// walked at. One that skipped a cycle depends on the forms being walked above
-// it, so it is reused only when the form is again entered straight from page
-// resources. A walk that skipped a cycle back to a form above this one is not
-// memoised at all; low carries the cycle up. A form whose resources cannot be
-// read is one walk issue, and the failure is memoised.
-func (w *imageWalker) walkForm(ref pdfcpu_types.IndirectRef, sd pdfcpu_types.StreamDict, key string, page, depth int, stack map[int]int, low *int) resWalk {
+// nothing), or returns its memoised walk. A memoised walk is reused only when
+// no form in its guard is being walked above, so a fresh walk would enter the
+// same forms and skip the same cycles. Then one the nesting cap did not cut
+// is reused at any depth its height still fits under the cap, and one the cap
+// cut only at the depth it was walked at, where the cap stops the same forms.
+// A walk that skipped a cycle back to a form above this one depends on that
+// form being above it, so it is not memoised; low carries the cycle up. A
+// form whose resources cannot be read is one walk issue, and the failure is
+// memoised. up lists the forms the caller adds to its own guard: this form
+// and its guard, when its walk was capped or depends on a form above it.
+func (w *imageWalker) walkForm(ref pdfcpu_types.IndirectRef, sd pdfcpu_types.StreamDict, key string, page, depth int, stack map[int]int, low *int) (rw resWalk, up []int) {
 	num := ref.ObjectNumber.Value()
 	memo, memoised := w.formMemo[num]
-	if memoised {
-		switch {
-		case depth == 0 && memo.depth == 0:
-			// No form above in either walk, so the context is the same.
-			return memo.rw
-		case memo.rw.cyclic:
-		case memo.rw.capped:
-			if memo.depth == depth {
-				return memo.rw
+	if memoised && !slices.ContainsFunc(memo.rw.guard, func(f int) bool { _, on := stack[f]; return on }) {
+		// The form's resources are walked at depth+1, so the deepest form in
+		// them is checked against the cap at depth+height.
+		if (memo.rw.capped && memo.depth == depth) || (!memo.rw.capped && depth+memo.rw.height < maxFormWalkDepth) {
+			if memo.rw.capped {
+				up = append([]int{num}, memo.rw.guard...)
 			}
-		case depth+memo.rw.height < maxFormWalkDepth:
-			// The form's resources are walked at depth+1, so the deepest
-			// form in them is checked against the cap at depth+height.
-			return memo.rw
+			return memo.rw, up
 		}
 	}
 	pos := len(stack)
 	stack[num] = pos
-	var rw resWalk
 	childLow := math.MaxInt
 	fail := func(msg string) {
 		rw = resWalk{incomplete: true, issues: []int{w.issue(issueKey{kind: issueXObject, num: num}, page,
@@ -601,12 +669,16 @@ func (w *imageWalker) walkForm(ref pdfcpu_types.IndirectRef, sd pdfcpu_types.Str
 		}
 	}, fail)
 	delete(stack, num)
-	if childLow < pos {
+	dependsAbove := childLow < pos
+	if dependsAbove {
 		*low = min(*low, childLow)
 	} else if !w.stopped && (!memoised || depth <= memo.depth) {
 		w.formMemo[num] = formWalk{rw: rw, depth: depth}
 	}
-	return rw
+	if dependsAbove || rw.capped {
+		up = append(slices.Clone(rw.guard), num)
+	}
+	return rw, up
 }
 
 // recordImage notes the image ref, reading its facts the first time it is

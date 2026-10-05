@@ -25,12 +25,17 @@ import (
 //     acquires pdfMu for the duration of the pdfcpu call sequence.
 //
 //   - pdfMu MUST be acquired BEFORE any per-feature mutex (streamMu,
-//     xrefTableMu, and the mutexes inside the objectIndex, pageIndex and
-//     imageIndex lazy caches) when the feature path calls into pdfcpu.
+//     xrefTableMu, and the mutexes inside the objectIndex and pageIndex lazy
+//     caches) when the feature path calls into pdfcpu.
 //
-//   - The image walk reads the page walk: imageTree takes and releases the
-//     pageIndex cache mutex before it takes the imageIndex one, so the two
-//     inner cache mutexes are never held together.
+//   - The imageIndex cache mutex is the one exception: it is taken BEFORE
+//     pdfMu. imageTree holds it for the whole image walk, so concurrent
+//     callers wait on one build, and the build takes and releases pdfMu
+//     itself for the page-walk fetch and then for one page at a time, so
+//     other calls on the document run between pages. Nothing takes the
+//     imageIndex mutex while holding pdfMu, and a built image walk is read
+//     without pdfMu. Order: imageIndex mutex, then pdfMu, then the pageIndex
+//     cache mutex.
 //
 //   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
 //     into pdfcpu inside its critical section.
@@ -99,9 +104,9 @@ type DocumentState struct {
 	// same tabID (closeDocLocked -> closeCancel). GetPlainText merges it into
 	// the read context so an in-flight chunked read bails within one chunk-read
 	// cycle and releases its file handle; DiffDocuments polls it per visited
-	// node. Set once at Open and never reassigned; closeCancel is
-	// goroutine-safe and idempotent, so cancelling it needs no mutex and never
-	// touches plainTextMu.
+	// node, and the image walk build before every page. Set once at Open and
+	// never reassigned; closeCancel is goroutine-safe and idempotent, so
+	// cancelling it needs no mutex and never touches plainTextMu.
 	closeCtx    context.Context
 	closeCancel context.CancelFunc
 }

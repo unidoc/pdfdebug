@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
@@ -96,12 +97,24 @@ const maxPageTreeDepth = 1024
 // ancestor declares it. unresolvedAt names, per attribute in inheritableAttrs
 // order, the nearest node whose own entry resolves to nothing (a missing or
 // null object) when no nearer node supplies a value; "" otherwise.
+// resourcesErr is set when such a node's own /Resources entry failed to
+// resolve with an error, as opposed to resolving to null or dangling.
 type pageAttrs struct {
 	resources    pdfcpu_types.Object
 	mediaBox     pdfcpu_types.Object
 	cropBox      pdfcpu_types.Object
 	rotate       pdfcpu_types.Object
 	unresolvedAt [4]string
+	resourcesErr *attrError
+}
+
+// attrError is a page-tree node's attribute entry that failed to resolve:
+// the node's label for messages, a key identifying the node (its object
+// number, or the identity of a direct dictionary), and the resolve error.
+type attrError struct {
+	node string
+	key  pageResKey
+	err  error
 }
 
 // Positions of the inheritable attributes in inheritableAttrs and
@@ -422,16 +435,30 @@ func ownEntry(d pdfcpu_types.Dict, key string) pdfcpu_types.Object {
 // elements inside an array). An own entry that resolves to nothing (a missing
 // or null object, which ISO 32000-1 7.3.10 reads as null) counts as absent, so
 // the ancestor's value applies; the node is recorded in unresolvedAt so a page
-// row can name it. bits reports which attributes came from an ancestor, and
+// row can name it. A /Resources entry whose resolve returned an error is also
+// recorded in resourcesErr, which a nearer node's resolved /Resources clears.
+// bits reports which attributes came from an ancestor, and
 // ownUnresolved which of d's own entries resolved to nothing.
 func effectiveAttrs(ctx *pdfcpu_model.Context, d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, inherited pageAttrs) (eff pageAttrs, bits, ownUnresolved uint8) {
 	eff.unresolvedAt = inherited.unresolvedAt
+	eff.resourcesErr = inherited.resourcesErr
 	pick := func(i int, ancestor pdfcpu_types.Object) pdfcpu_types.Object {
 		a := inheritableAttrs[i]
 		if v := ownEntry(d, a.key); v != nil {
-			if r := derefIn(ctx, v); r != nil {
+			r, err := ctx.Dereference(v)
+			if err == nil && r != nil {
 				eff.unresolvedAt[i] = ""
+				if i == attrResources {
+					eff.resourcesErr = nil
+				}
 				return r
+			}
+			if err != nil && i == attrResources {
+				key := pageResKey{dict: reflect.ValueOf(d).Pointer()}
+				if ref != nil {
+					key = pageResKey{num: ref.ObjectNumber.Value()}
+				}
+				eff.resourcesErr = &attrError{node: nodeLabel(ref), key: key, err: err}
 			}
 			ownUnresolved |= a.bit
 			eff.unresolvedAt[i] = nodeLabel(ref)

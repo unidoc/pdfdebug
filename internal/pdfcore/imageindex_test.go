@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -343,7 +345,7 @@ func TestImageIndexBudgetStopsTheWalkAndKeepsEarlierPages(t *testing.T) {
 	pt, _ := doc.pageTree()
 	w := newImageWalker(doc.PDFContext)
 	w.budget = 3
-	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := ins.GetImageIndex("raw")
@@ -437,7 +439,7 @@ func TestImageIndexFactsReadPanicKeepsTheEntry(t *testing.T) {
 	pt, _ := doc.pageTree()
 	w := newImageWalker(doc.PDFContext)
 	w.readFacts = func(*pdfcpu_model.XRefTable, *pdfcpu_types.StreamDict) imageDictFacts { panic("corrupt object stream") }
-	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := ins.GetImageIndex("raw")
@@ -996,7 +998,7 @@ func TestImageIndexBudgetSpentInsideAFormSkipsTheRestOfThePage(t *testing.T) {
 	pt, _ := doc.pageTree()
 	w := newImageWalker(doc.PDFContext)
 	w.budget = 2
-	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := ins.GetImageIndex("raw")
@@ -1027,7 +1029,7 @@ func TestReadImageDictFactsUnresolvableEntriesAreWarningsInReadOrder(t *testing.
 	}}
 
 	f := readImageDictFacts(doc.PDFContext.XRefTable, &sd)
-	want := "Width metadata: object stream damaged; imageMask metadata: object stream damaged; colorSpace metadata: object stream damaged"
+	want := "Width metadata: object stream damaged; ImageMask metadata: object stream damaged; ColorSpace metadata: object stream damaged"
 	if f.warning != want {
 		t.Errorf("warning %q, want %q", f.warning, want)
 	}
@@ -1083,7 +1085,7 @@ func TestReadImageDictFactsPanickingEntriesAreWarnings(t *testing.T) {
 	}}
 
 	f := readImageDictFacts(doc.PDFContext.XRefTable, &sd)
-	if want := "colorSpace metadata: pdf parsing panic: boom"; f.warning != want {
+	if want := "ColorSpace metadata: pdf parsing panic: boom"; f.warning != want {
 		t.Errorf("warning %q, want %q", f.warning, want)
 	}
 	if f.width != 4 || f.height != 2 {
@@ -1150,7 +1152,7 @@ func buildWithBudget(t *testing.T, doc *DocumentState, budget int) *imageWalker 
 	pt, _ := doc.pageTree()
 	w := newImageWalker(doc.PDFContext)
 	w.budget = budget
-	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 		t.Fatal(err)
 	}
 	return w
@@ -1377,7 +1379,7 @@ func TestImageIndexUseLimitStopsTheWalk(t *testing.T) {
 			pt, _ := doc.pageTree()
 			w := newImageWalker(doc.PDFContext)
 			w.useLimit = c.limit
-			if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+			if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 				t.Fatal(err)
 			}
 			if !w.stopped || w.uses > c.limit {
@@ -1556,7 +1558,7 @@ func TestImagePageGroupsLeaveOutAnUnreadablePageAfterTheStop(t *testing.T) {
 	pt := &pageTree{entries: pw.entries, leaves: pw.leaves}
 	w := newImageWalker(doc.PDFContext)
 	w.budget = 3
-	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt) }); err != nil {
 		t.Fatal(err)
 	}
 	entries, _ := ins.GetImageIndex("raw")
@@ -1696,5 +1698,285 @@ func TestPageRangeList(t *testing.T) {
 		if got := pageRangeList(c.ranges); got != c.want {
 			t.Errorf("pageRangeList(%v) = %q, want %q", c.ranges, got, c.want)
 		}
+	}
+}
+
+func TestImageIndexBuildLetsOtherCallsRunBetweenPages(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	w := newImageWalker(doc.PDFContext)
+	w.afterPage = func(page int) {
+		if page != 1 {
+			return
+		}
+		done := make(chan error, 1)
+		go func() {
+			_, err := ins.GetChildren("raw", "root")
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("GetChildren: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("GetChildren did not complete while the image walk was between pages")
+		}
+	}
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return doc.buildImageTree(w) }); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestImageIndexConcurrentCallerWaitsOnTheBuildInProgress(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	w := newImageWalker(doc.PDFContext)
+	// A width no other build would report marks entries from this build.
+	w.readFacts = func(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+		f := readImageDictFacts(xrt, sd)
+		f.width = 777
+		return f
+	}
+	type result struct {
+		entries []*ImageIndexEntry
+		err     error
+	}
+	got := make(chan result, 1)
+	w.afterPage = func(page int) {
+		switch page {
+		case 1:
+			go func() {
+				entries, err := ins.GetImageIndex("raw")
+				got <- result{entries, err}
+			}()
+		case 20:
+			select {
+			case <-got:
+				t.Error("GetImageIndex returned before the build in progress finished")
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
+	}
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return doc.buildImageTree(w) }); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case r := <-got:
+		if r.err != nil || len(r.entries) == 0 || r.entries[0].Width != 777 {
+			t.Errorf("GetImageIndex %+v, err %v; want the entries of the build in progress", r.entries, r.err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("GetImageIndex did not return after the build finished")
+	}
+}
+
+func TestImageIndexCloseDuringTheBuildStopsIt(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	w := newImageWalker(doc.PDFContext)
+	walked := 0
+	w.afterPage = func(page int) {
+		walked++
+		if page == 1 {
+			if err := ins.Close("raw"); err != nil {
+				t.Errorf("Close: %v", err)
+			}
+		}
+	}
+	_, err := doc.imageIndex.get(func() (*imageTree, error) { return doc.buildImageTree(w) })
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("build err %v, want context.Canceled", err)
+	}
+	if walked != 1 {
+		t.Errorf("walked %d pages, want the walk to stop after page 1", walked)
+	}
+	if doc.imageIndex.isBuilt() {
+		t.Error("a build stopped by a close was cached")
+	}
+}
+
+func TestImageIndexReadsOfABuiltIndexDoNotWaitForPdfMu(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	if _, err := ins.GetImageIndex("raw"); err != nil {
+		t.Fatal(err)
+	}
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+	done := make(chan error, 1)
+	go func() {
+		if _, err := ins.GetImagePages("raw", 5); err != nil {
+			done <- err
+			return
+		}
+		if _, err := ins.GetImagePageGroups("raw"); err != nil {
+			done <- err
+			return
+		}
+		_, err := ins.GetImageIndex("raw")
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("reads of the built index waited for pdfMu")
+	}
+}
+
+func TestImageIndexFormLadderOverASelfReferencingFormIsWalkedInLinearWork(t *testing.T) {
+	// A_k reaches A_k+1 through both B_k and C_k; the bottom form Z names
+	// itself and the image.
+	const levels = 14
+	a := func(k int) int { return 100 + 3*k }
+	objs := []rawObj{{1, rawCatalog}, {2, imgPages("", 3)}, {3, imgPage(fmt.Sprintf("/A %d 0 R", a(0)))}, {6, grayImg("")}}
+	for k := range levels {
+		objs = append(objs,
+			rawObj{a(k), formXObj(fmt.Sprintf("/B %d 0 R /C %d 0 R", a(k)+1, a(k)+2))},
+			rawObj{a(k) + 1, formXObj(fmt.Sprintf("/A %d 0 R", a(k+1)))},
+			rawObj{a(k) + 2, formXObj(fmt.Sprintf("/A %d 0 R", a(k+1)))},
+		)
+	}
+	objs = append(objs, rawObj{a(levels), formXObj(fmt.Sprintf("/Im 6 0 R /Self %d 0 R", a(levels)))})
+	ins, doc := openUnvalidated(t, rawPDF(objs...))
+	w := buildWithBudget(t, doc, maxImageWalkEntries)
+	// One page entry, two per A_k, one per B_k and C_k, and Z's two.
+	if want := 1 + 4*levels + 2; w.examined != want {
+		t.Errorf("examined %d entries, want %d", w.examined, want)
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	path := []string{}
+	for range levels {
+		path = append(path, "A", "B")
+	}
+	path = append(path, "A", "Im")
+	want := []ImagePageGroup{{PageNum: 1, NodeID: "obj:0:3", Images: []ImagePageUse{{ObjNum: 6, Path: path}}}}
+	if !reflect.DeepEqual(groups, want) {
+		t.Errorf("groups %+v, want %+v", groups, want)
+	}
+}
+
+func TestImageIndexFormInACycleIsNotReusedWhereAFormOfTheCycleIsAbove(t *testing.T) {
+	// F and G name each other and the image is in G. Page 1 reaches F
+	// through X, page 2 reaches G straight from its resources.
+	ins, _ := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages("", 3, 4)},
+		rawObj{3, imgPage("/X 9 0 R")},
+		rawObj{4, imgPage("/G 7 0 R")},
+		rawObj{6, formXObj("/G 7 0 R")},
+		rawObj{7, formXObj("/F 6 0 R /Im 10 0 R")},
+		rawObj{9, formXObj("/F 6 0 R")},
+		rawObj{10, grayImg("")},
+	))
+	groups, err := ins.GetImagePageGroups("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ImagePageGroup{
+		{PageNum: 1, NodeID: "obj:0:3", Images: []ImagePageUse{{ObjNum: 10, Path: []string{"X", "F", "G", "Im"}}}},
+		{PageNum: 2, NodeID: "obj:0:4", Images: []ImagePageUse{{ObjNum: 10, Path: []string{"G", "Im"}}}},
+	}
+	if !reflect.DeepEqual(groups, want) {
+		t.Errorf("groups %+v, want %+v", groups, want)
+	}
+}
+
+func TestImageIndexCappedFormWalkIsNotReusedWhereItsCycleIsAbove(t *testing.T) {
+	// Page 1 reaches H at depth 22 under a chain of 22 forms; H leads to X and
+	// the ten-form chain Y back to H, which passes the nesting cap. Page 2
+	// reaches X at depth 11 and H through Y at depth 22 again, where H's
+	// /X closes a cycle and nothing passes the cap.
+	const h, x, y, w1, w2 = 50, 51, 60, 100, 200
+	objs := []rawObj{
+		{1, rawCatalog},
+		{2, imgPages("", 3, 4)},
+		{3, imgPage(fmt.Sprintf("/W %d 0 R", w1))},
+		{4, imgPage(fmt.Sprintf("/W %d 0 R", w2))},
+		{6, grayImg("")},
+		{h, formXObj(fmt.Sprintf("/X %d 0 R", x))},
+		{x, formXObj(fmt.Sprintf("/ImX 6 0 R /Y %d 0 R", y))},
+	}
+	chain := func(base, n, end int, key string) {
+		for i := range n {
+			next := base + i + 1
+			k := "/W"
+			if i == n-1 {
+				next, k = end, key
+			}
+			objs = append(objs, rawObj{base + i, formXObj(fmt.Sprintf("%s %d 0 R", k, next))})
+		}
+	}
+	chain(y, 10, h, "/H")
+	chain(w1, 22, h, "/H")
+	chain(w2, 11, x, "/X")
+	ins, _ := openUnvalidated(t, rawPDF(objs...))
+	groups, err := ins.GetImagePageGroups("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 2 || !groups[0].Incomplete || groups[1].Incomplete {
+		t.Fatalf("groups %+v, want page 1 incomplete at the cap and page 2 complete", groups)
+	}
+	path := slices.Repeat([]string{"W"}, 11)
+	path = append(path, "X", "ImX")
+	if want := []ImagePageUse{{ObjNum: 6, Path: path}}; !reflect.DeepEqual(groups[1].Images, want) {
+		t.Errorf("page 2 images %+v, want %+v", groups[1].Images, want)
+	}
+	entries, _ := ins.GetImageIndex("raw")
+	for _, e := range entries {
+		if e.NodeID == "" && !strings.HasSuffix(e.Err, "on page 1; deeper forms were not walked") {
+			t.Errorf("error row %q, want only page 1 named", e.Err)
+		}
+	}
+}
+
+func TestImageIndexResourcesEntryThatFailsToResolveIsAnErrorRowAndInheritedResourcesAreWalked(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages("/Resources << /XObject << /Im0 5 0 R >> >>", 3, 4, 10)},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R " + box + " /Resources 9 0 R >>"},
+		rawObj{4, "<< /Type /Pages /Parent 2 0 R /Kids [6 0 R 7 0 R] /Count 2 /Resources 8 0 R >>"},
+		rawObj{5, grayImg("")},
+		rawObj{6, "<< /Type /Page /Parent 4 0 R " + box + " >>"},
+		rawObj{7, "<< /Type /Page /Parent 4 0 R " + box + " >>"},
+		rawObj{8, "<< >>"},
+		rawObj{9, "<< >>"},
+		rawObj{10, imgPage("/Im1 11 0 R")},
+		rawObj{11, grayImg("")},
+	))
+	damagedObject(t, doc, 8, errors.New("object stream damaged"), false)
+	damagedObject(t, doc, 9, errors.New("object stream damaged"), false)
+
+	entries, err := ins.GetImageIndex("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := entryObjNums(entries); !reflect.DeepEqual(got, []int{5, 11, 0, 0}) {
+		t.Fatalf("entries %v, want both images and one row per failing /Resources entry", got)
+	}
+	want := []string{
+		"/Resources of 3 0 R for page 1 could not be read: object stream damaged",
+		"/Resources of 4 0 R for pages 2-3 could not be read: object stream damaged",
+	}
+	for i, w := range want {
+		if entries[2+i].Err != w {
+			t.Errorf("row %d %q, want %q", 2+i, entries[2+i].Err, w)
+		}
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	if len(groups) != 4 {
+		t.Fatalf("groups %+v, want four", groups)
+	}
+	for _, g := range groups[:3] {
+		if !g.Incomplete || len(g.Images) != 1 || g.Images[0].ObjNum != 5 {
+			t.Errorf("page %d: %+v, want incomplete with the inherited image 5", g.PageNum, g)
+		}
+	}
+	if g := groups[3]; g.Incomplete || len(g.Images) != 1 || g.Images[0].ObjNum != 11 {
+		t.Errorf("page 4: %+v, want complete with its own image 11", g)
+	}
+	pages, _ := ins.GetPageIndex("raw")
+	if want := "/Resources resolves to nothing; inherited value used"; pages[0].Err != want {
+		t.Errorf("page 1 row error %q, want %q", pages[0].Err, want)
 	}
 }
