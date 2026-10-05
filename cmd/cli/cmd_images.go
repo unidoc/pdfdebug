@@ -80,8 +80,11 @@ func printImagesPlain(out io.Writer, index []*pdfcore.ImageIndexEntry) error {
 			pagesCell += ", ..."
 		}
 		errCell := e.Err
-		if errCell == "" && e.Warning != "" {
-			errCell = "warning: " + e.Warning
+		if e.Warning != "" {
+			if errCell != "" {
+				errCell += "; "
+			}
+			errCell += "warning: " + e.Warning
 		}
 		t.AddRow(
 			fmt.Sprintf("%d %d R", e.ObjNum, e.Gen),
@@ -98,7 +101,8 @@ func printImagesPlain(out io.Writer, index []*pdfcore.ImageIndexEntry) error {
 	return t.Render(out)
 }
 
-// imageFlags returns the badge words for an entry, in display order.
+// imageFlags returns the badge words for the plain FLAGS column, in display
+// order. A warning is not a flag here: its full text is in the ERROR column.
 func imageFlags(e *pdfcore.ImageIndexEntry) []string {
 	var flags []string
 	if e.ImageMask {
@@ -116,9 +120,6 @@ func imageFlags(e *pdfcore.ImageIndexEntry) []string {
 		} else {
 			flags = append(flags, "APP14")
 		}
-	}
-	if e.Warning != "" {
-		flags = append(flags, "warn")
 	}
 	return flags
 }

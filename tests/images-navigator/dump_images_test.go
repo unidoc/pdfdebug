@@ -384,8 +384,8 @@ func TestPlainTextFlags(t *testing.T) {
 func TestPlainTextWarningFallsBackIntoTheErrorColumn(t *testing.T) {
 	rows := parseTable(t, dumpImagesPlain(t, writeFixture(t, "malformed-decode.pdf", malformedDecodePDF())))
 	r := rowFor(t, rows, "5 0 R")
-	if r["FLAGS"] != "Decode,warn" {
-		t.Errorf("FLAGS %q, want %q", r["FLAGS"], "Decode,warn")
+	if r["FLAGS"] != "Decode" {
+		t.Errorf("FLAGS %q, want %q; the warning is shown in ERROR only", r["FLAGS"], "Decode")
 	}
 	if !strings.HasPrefix(r["ERROR"], "warning: decode array metadata") {
 		t.Errorf("ERROR %q must start with %q", r["ERROR"], "warning: decode array metadata")

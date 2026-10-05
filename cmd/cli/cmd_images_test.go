@@ -34,18 +34,18 @@ func TestImagesDumpPlainRows(t *testing.T) {
 	if len(lines) != 4 {
 		t.Fatalf("got %d lines, want header plus 3 rows:\n%s", len(lines), out.String())
 	}
-	for _, want := range []string{"5 0 R", "8x1", `"Dev\tGray"`, "FlateDecode,DCTDecode", "mask,SMask,Decode,APP14 t=2,warn", "17: 1,2,3, ...", "warning: Width metadata: bad"} {
+	for _, want := range []string{"5 0 R", "8x1", `"Dev\tGray"`, "FlateDecode,DCTDecode", "mask,SMask,Decode,APP14 t=2 ", "17: 1,2,3, ...", "warning: Width metadata: bad"} {
 		if !strings.Contains(lines[1], want) {
 			t.Errorf("row 1 missing %q: %q", want, lines[1])
 		}
 	}
-	for _, want := range []string{"6 1 R", "1: 2", "image dictionary could not be read: boom"} {
+	if strings.Contains(lines[1], "warn ") || strings.Contains(lines[1], ",warn") {
+		t.Errorf("a warning is not a FLAGS word in plain output: %q", lines[1])
+	}
+	for _, want := range []string{"6 1 R", "1: 2", "image dictionary could not be read: boom; warning: Width metadata: bad"} {
 		if !strings.Contains(lines[2], want) {
 			t.Errorf("row 2 missing %q: %q", want, lines[2])
 		}
-	}
-	if strings.Contains(lines[2], "warning:") {
-		t.Errorf("an entry error outranks its warning in the ERROR column: %q", lines[2])
 	}
 	if !strings.HasPrefix(lines[3], "-") || !strings.HasSuffix(lines[3], "image walk stopped") {
 		t.Errorf("error row %q, want - for the reference and the error last", lines[3])
