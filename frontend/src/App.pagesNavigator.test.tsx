@@ -72,6 +72,9 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: (...args: unknown[]) => mockGetPageIndex(...args),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 vi.mock('./components/UpdateNotifier', () => ({

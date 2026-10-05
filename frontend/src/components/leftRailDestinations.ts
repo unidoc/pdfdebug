@@ -5,9 +5,10 @@
  * one entry here.
  */
 import type { ComponentType } from 'react';
-import { ListTree, Files, type LucideIcon } from 'lucide-react';
+import { ListTree, Files, Images, type LucideIcon } from 'lucide-react';
 import { TreePanel } from './TreePanel';
 import { PagesPanel } from './PagesPanel';
+import { ImagesPanel } from './ImagesPanel';
 
 /** Props every destination panel receives. */
 export interface LeftRailPanelProps {
@@ -30,4 +31,5 @@ export interface LeftRailDestination {
 export const LEFT_RAIL_DESTINATIONS: readonly LeftRailDestination[] = [
   { id: 'structure', label: 'Structure', icon: ListTree, panel: TreePanel },
   { id: 'pages', label: 'Pages', icon: Files, panel: PagesPanel },
+  { id: 'images', label: 'Images', icon: Images, panel: ImagesPanel },
 ];

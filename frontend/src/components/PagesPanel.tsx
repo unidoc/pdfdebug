@@ -11,6 +11,7 @@ import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfser
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
+import { RowContextMenu, type RowMenuTarget } from './RowContextMenu';
 import {
   NodeRenderer,
   RowStateContext,
@@ -42,14 +43,6 @@ interface PagesCache {
   entries: PageIndexEntry[];
   data: TreeNodeData[];
   openState: Record<string, boolean>;
-}
-
-/** Open context menu: where it sits, the node it acts on, and the row to refocus. */
-interface MenuState {
-  x: number;
-  y: number;
-  backendId: string;
-  returnFocus: HTMLElement | null;
 }
 
 // Builds the top-level rows. A numbered page with a node id is an expandable
@@ -120,9 +113,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const jumpRef = useRef<HTMLInputElement>(null);
   const seenFocusVersion = useRef(pagesJumpFocusVersion);
 
-  const [menu, setMenu] = useState<MenuState | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuItemRef = useRef<HTMLButtonElement>(null);
+  const [menu, setMenu] = useState<RowMenuTarget | null>(null);
 
   const hasTab = activeTab !== undefined;
   useEffect(() => {
@@ -305,7 +296,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     // Unnumbered rows and error children have nothing the Structure tree can reveal.
     if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return;
     treeRef.current?.select(displayId);
-    setMenu({ x, y, backendId: node.backendId, returnFocus });
+    setMenu({ x, y, nodeId: node.backendId, returnFocus });
   }, [dataRef]);
 
   function handleContextMenu(e: MouseEvent<HTMLDivElement>) {
@@ -330,33 +321,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
   }
 
-  const menuStateRef = useLatest(menu);
-  const closeMenu = useCallback((restoreFocus: boolean) => {
-    const returnFocus = menuStateRef.current?.returnFocus;
-    setMenu(null);
-    if (restoreFocus) returnFocus?.focus();
-  }, [menuStateRef]);
-
-  useEffect(() => {
-    if (!menu) return;
-    menuItemRef.current?.focus();
-    function onKey(e: globalThis.KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeMenu(true);
-      }
-    }
-    function onPointerDown(e: PointerEvent) {
-      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
-      closeMenu(false);
-    }
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [menu, closeMenu]);
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
   // switch (Cmd+Left/Right, Cmd+W) or a view change closes it.
@@ -368,14 +333,6 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   useEffect(() => {
     setJumpError(null);
   }, [activeTabId]);
-
-  function showInTree() {
-    if (!menu) return;
-    const target = menu.backendId;
-    setMenu(null);
-    // NAVIGATE_TO_REF also switches the rail to Structure and un-collapses it.
-    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: target } });
-  }
 
   if (!activeTab) {
     return (
@@ -467,25 +424,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
           <div className="px-3 py-2 text-sm text-text-muted">This document has no pages.</div>
         )}
       </div>
-      {menu && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Page row actions"
-          className="fixed z-50 min-w-[160px] py-1 bg-surface border border-border rounded shadow-md text-sm"
-          style={{ left: menu.x, top: menu.y }}
-        >
-          <button
-            ref={menuItemRef}
-            type="button"
-            role="menuitem"
-            onClick={showInTree}
-            className="block w-full text-left px-3 py-1 text-text hover:bg-surface-hover focus:outline-none focus-visible:bg-surface-hover cursor-pointer"
-          >
-            Show node in tree
-          </button>
-        </div>
-      )}
+      {menu && <RowContextMenu target={menu} label="Page row actions" onClose={closeMenu} />}
     </div>
   );
 }

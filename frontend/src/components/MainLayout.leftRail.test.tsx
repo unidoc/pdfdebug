@@ -66,6 +66,9 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: (...args: unknown[]) => mockGetPageIndex(...args),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 class MockResizeObserver {
@@ -203,10 +206,10 @@ describe('rail placement', () => {
 });
 
 describe('rail items', () => {
-  test('renders Structure then Pages, each with a visible text label', () => {
+  test('renders Structure, Pages then Images, each with a visible text label', () => {
     renderLayout();
     const tabs = within(rail()).getAllByRole('tab');
-    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Structure', 'Pages']);
+    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Structure', 'Pages', 'Images']);
     for (const t of tabs) {
       const label = t.getAttribute('aria-label')!;
       const text = within(t).getByText(label);
@@ -256,9 +259,11 @@ describe('rail accessibility', () => {
     expect(tab('Pages')).toHaveAttribute('tabindex', '0');
     expect(tab('Structure')).toHaveAttribute('tabindex', '-1');
     await user.keyboard('{ArrowDown}');
+    expect(tab('Images')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
     expect(tab('Structure')).toHaveFocus();
     await user.keyboard('{ArrowUp}');
-    expect(tab('Pages')).toHaveFocus();
+    expect(tab('Images')).toHaveFocus();
   });
 
   test('Home and End jump to the first and last item', async () => {
@@ -266,8 +271,8 @@ describe('rail accessibility', () => {
     renderLayout();
     tab('Structure').focus();
     await user.keyboard('{End}');
-    expect(tab('Pages')).toHaveFocus();
-    expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Images')).toHaveFocus();
+    expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{Home}');
     expect(tab('Structure')).toHaveFocus();
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
@@ -485,7 +490,7 @@ describe('Cmd/Ctrl+digit shortcuts', () => {
 
   test('a digit past the registry length does nothing', () => {
     renderLayout();
-    pressDigit('3');
+    pressDigit('4');
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
   });
 

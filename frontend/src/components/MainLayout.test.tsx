@@ -45,6 +45,9 @@ vi.mock(
     OpenFileDialog: vi.fn(),
     GetObjectDetail: vi.fn(),
     GetPageIndex: vi.fn(),
+    GetImageIndex: vi.fn(),
+    GetImagePages: vi.fn(),
+    GetImagePageGroups: vi.fn(),
   })
 );
 

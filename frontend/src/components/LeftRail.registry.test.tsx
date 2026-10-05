@@ -63,6 +63,9 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: vi.fn().mockResolvedValue([]),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 class MockResizeObserver {

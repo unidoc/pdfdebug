@@ -91,6 +91,9 @@ vi.mock(
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
     GetPageIndex: vi.fn(),
+    GetImageIndex: vi.fn(),
+    GetImagePages: vi.fn(),
+    GetImagePageGroups: vi.fn(),
   }),
 );
 
