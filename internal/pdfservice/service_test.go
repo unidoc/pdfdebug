@@ -582,8 +582,9 @@ func TestGetImageIndexGetImagePagesAndGetImagePageGroupsDelegateToInspector(t *t
 		t.Errorf("GetImagePages = %v, %v; want %d pages", pages, err, got[0].PageCount)
 	}
 	groups, err := svc.GetImagePageGroups(info.TabID)
-	if err != nil || len(groups) != info.PageCount {
-		t.Errorf("GetImagePageGroups = %d groups, %v; want one per page (%d)", len(groups), err, info.PageCount)
+	wantGroups, _ := svc.inspector.GetImagePageGroups(info.TabID)
+	if err != nil || len(groups) == 0 || !reflect.DeepEqual(groups, wantGroups) {
+		t.Errorf("GetImagePageGroups = %+v, %v; want the inspector's groups %+v", groups, err, wantGroups)
 	}
 }
 

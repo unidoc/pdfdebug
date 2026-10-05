@@ -734,8 +734,8 @@ func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.
-// Used for image-metadata warnings by renderImage, readImageDictFacts and the
-// image index.
+// Used for image-metadata warnings by renderImage, readImageDictMetadata and
+// setImageFacts.
 func appendWarning(existing, addition string) string {
 	if existing == "" {
 		return addition
@@ -1043,9 +1043,12 @@ func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 		if pairs <= 0 {
 			pairs = len(f.decode) / 2
 		}
-		identity, _ := decodePattern(f.decode, pairs)
-		indexedOrLab := !f.imageMask && (f.colorSpace == "Indexed" || f.colorSpace == "Lab")
-		f.decodeNonDefault = !identity || indexedOrLab
+		if !f.imageMask && (f.colorSpace == "Indexed" || f.colorSpace == "Lab") {
+			f.decodeNonDefault = !decodeIsColorSpaceDefault(xrt, sd, f.colorSpace, f.bitsPerComponent, f.decode)
+		} else {
+			identity, _ := decodePattern(f.decode, pairs)
+			f.decodeNonDefault = !identity
+		}
 	}
 	if f.decodeErr != nil {
 		f.decodeNonDefault = true
@@ -1055,6 +1058,74 @@ func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 	f.sampleInterpretation = sampleInterpretationVerdict(
 		f.colorSpace, f.imageMask, f.components, f.decode, f.decodeErr != nil, f.adobeMarker)
 	return f
+}
+
+// decodeIsColorSpaceDefault reports whether decode is the default /Decode of
+// an Indexed or Lab image: [0 2^bpc-1] for Indexed, and [0 100 amin amax bmin
+// bmax] for Lab with the a* and b* ranges from the colour space's /Range,
+// [-100 100 -100 100] when it has none. It reports false when the default
+// cannot be worked out.
+func decodeIsColorSpaceDefault(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, colorSpace string, bpc int, decode []float64) bool {
+	switch colorSpace {
+	case "Indexed":
+		return bpc >= 1 && bpc <= 16 && len(decode) == 2 && decode[0] == 0 && decode[1] == float64(int(1)<<bpc-1)
+	case "Lab":
+		rng, ok := labRange(xrt, sd)
+		return ok && len(decode) == 6 && decode[0] == 0 && decode[1] == 100 &&
+			decode[2] == rng[0] && decode[3] == rng[1] && decode[4] == rng[2] && decode[5] == rng[3]
+	}
+	return false
+}
+
+// labRange reads the /Range of the image's [/Lab <<...>>] colour space,
+// [-100 100 -100 100] when the dictionary has none. ok is false when the
+// colour space is not such an array or /Range is not four numbers.
+func labRange(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (rng [4]float64, ok bool) {
+	err := safeCall(func() error {
+		csObj, _ := sd.Find("ColorSpace")
+		cs, e := xrt.Dereference(csObj)
+		if e != nil {
+			return e
+		}
+		arr, isArr := cs.(pdfcpu_types.Array)
+		if !isArr || len(arr) < 2 {
+			return nil
+		}
+		dObj, e := xrt.Dereference(arr[1])
+		if e != nil {
+			return e
+		}
+		d, isDict := dObj.(pdfcpu_types.Dict)
+		if !isDict {
+			return nil
+		}
+		rObj, e := xrt.Dereference(ownEntry(d, "Range"))
+		if e != nil {
+			return e
+		}
+		if rObj == nil {
+			rng, ok = [4]float64{-100, 100, -100, 100}, true
+			return nil
+		}
+		r, isArr := rObj.(pdfcpu_types.Array)
+		if !isArr || len(r) != 4 {
+			return nil
+		}
+		for i, el := range r {
+			v, e := xrt.Dereference(el)
+			if e != nil {
+				return e
+			}
+			n, isNum := numericValue(v)
+			if !isNum {
+				return nil
+			}
+			rng[i] = n
+		}
+		ok = true
+		return nil
+	})
+	return rng, ok && err == nil
 }
 
 // readImageDecode reads the image's /Decode array bounded to two entries per

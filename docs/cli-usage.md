@@ -67,8 +67,9 @@ both goes to stderr and the command still exits 0.
 
 `dump images` prints one row per image XObject object, however many pages
 use it: its reference, `WxH`, BitsPerComponent, colour space, filters, a FLAGS
-column (`mask`, `SMask`, `Decode` for a `/Decode` that is not the plain
-identity, `APP14 t=N`), the decoded size the dictionary implies, and
+column (`mask`, `SMask`, `Decode` for a `/Decode` that is not the colour
+space's default, `APP14 t=N`; the default is `[0 1]` per component,
+`[0 2^bpc-1]` for Indexed, and `[0 100]` plus the `/Range` for Lab), the decoded size the dictionary implies, and
 PAGES as `<count>: <pages>`, the page list capped with `, ...`. Rows come in
 first-use page order, then by object number. An image counts as used on a page
 when it is referenced from the page's resources, inherited ones and nested Form
@@ -76,7 +77,7 @@ XObjects included; content streams are not read, so it is not checked against
 `Do` operators. Inline images (`BI`/`ID`/`EI`) are not listed. No image is
 decoded. Where the walk stops (a Form XObject nested past the cap, the walk
 budget, an unreadable page tree) a row with `-` for the reference says so in
-ERROR, and the command still exits 0. A warning on a readable image, such as a
+ERROR, naming the pages left unwalked, and the command still exits 0. A warning on a readable image, such as a
 rejected `/Decode`, shows in ERROR as `warning: ...`, after the image's error
 when it has one.
 

@@ -179,7 +179,7 @@ func TestErrorRowCarriesEmptyListsNotNull(t *testing.T) {
 	if string(last["nodeId"]) != `""` {
 		t.Fatalf("last element is not the error row: nodeId %s", string(last["nodeId"]))
 	}
-	for _, k := range []string{"filters", "firstPages"} {
+	for _, k := range []string{"filters", "firstPages", "firstPageNodeIds"} {
 		if string(last[k]) != "[]" {
 			t.Errorf("error row %s must be [], got %s", k, string(last[k]))
 		}

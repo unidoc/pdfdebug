@@ -111,9 +111,12 @@ type ImageIndexEntry struct {
 	SMask *string `json:"smask"`
 	// Decode is the /Decode array as written; nil when absent or rejected.
 	Decode []float64 `json:"decode"`
-	// DecodeNonDefault is true when /Decode is present and is not the plain
-	// identity: rejected, of the wrong arity for a resolved component count,
-	// inverting, partial, or explicit on an Indexed or Lab image. With an
+	// DecodeNonDefault is true when /Decode is present and is not the colour
+	// space's default: rejected, of the wrong arity for a resolved component
+	// count, inverting or partial. The default is [0 1] per component, [0
+	// 2^BitsPerComponent-1] on an Indexed image, and [0 100 amin amax bmin
+	// bmax] from the colour space's /Range on a Lab image; an Indexed or Lab
+	// array whose default cannot be worked out counts as non-default. With an
 	// unresolved count, an array whose every pair is [0 1] is the identity.
 	DecodeNonDefault bool `json:"decodeNonDefault"`
 	// SampleInterpretation is the verdict joining /Decode and the Adobe APP14
@@ -136,6 +139,9 @@ type ImageIndexEntry struct {
 	// maxImageFirstPages of them; GetImagePages returns the full list. Empty,
 	// never null.
 	FirstPages []int `json:"firstPages"`
+	// FirstPageNodeIDs holds the /Page node id of each FirstPages entry, ""
+	// for a page that is a direct dictionary. Empty, never null.
+	FirstPageNodeIDs []string `json:"firstPageNodeIds"`
 	// Warning names dictionary reads that failed and a rejected /Decode. It
 	// never makes the entry an error row.
 	Warning string `json:"warning"`
@@ -147,14 +153,24 @@ type ImageIndexEntry struct {
 type ImagePageGroup struct {
 	// PageNum is the 1-based page number.
 	PageNum int `json:"pageNum"`
+	// NodeID is the /Page node id; "" when the page is a direct dictionary.
+	NodeID string `json:"nodeId"`
 	// Images holds the page's image uses; empty, never null, for a page with
 	// no images.
 	Images []ImagePageUse `json:"images"`
 	// Incomplete is true when the walk did not finish this page's resources:
-	// the entry budget stopped it on or before this page, a Form XObject on it
-	// was nested past the cap, or an entry could not be read. Images then holds
+	// the walk stopped on this page, a Form XObject on it was nested past the
+	// cap, or an entry or the page itself could not be read. Images then holds
 	// only what was reached, and an error row says why.
 	Incomplete bool `json:"incomplete"`
+}
+
+// ImagePageRef is one page that uses an image.
+type ImagePageRef struct {
+	// PageNum is the 1-based page number.
+	PageNum int `json:"pageNum"`
+	// NodeID is the /Page node id; "" when the page is a direct dictionary.
+	NodeID string `json:"nodeId"`
 }
 
 // ImagePageUse is one image reached from a page's resources.

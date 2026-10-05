@@ -30,8 +30,7 @@ import (
 //	TabBar.tsx             : CloseDocument
 //	useObjectIndex.ts      : GetObjectIndex
 //	PagesPanel.tsx         : GetChildren, GetPageIndex
-//	ImagesPanel.tsx        : GetImageIndex, GetImagePages, GetImagePageGroups,
-//	                         GetPageIndex
+//	ImagesPanel.tsx        : GetImageIndex, GetImagePages, GetImagePageGroups
 //	usePDFService.ts       : OpenFile, GetTreeRoot, GetChildren, CloseDocument,
 //	                         OpenFileDialog
 //

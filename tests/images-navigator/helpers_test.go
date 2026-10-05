@@ -154,6 +154,7 @@ type imageEntry struct {
 	FirstPage            int       `json:"firstPage"`
 	PageCount            int       `json:"pageCount"`
 	FirstPages           []int     `json:"firstPages"`
+	FirstPageNodeIDs     []string  `json:"firstPageNodeIds"`
 	Warning              string    `json:"warning"`
 	Err                  string    `json:"error"`
 }
@@ -164,7 +165,7 @@ var imageEntryKeys = []string{
 	"colorSpace", "filters", "imageMask", "smask", "decode",
 	"decodeNonDefault", "sampleInterpretation", "adobeMarker",
 	"adobeTransform", "estimatedBytes", "firstPage", "pageCount",
-	"firstPages", "warning", "error",
+	"firstPages", "firstPageNodeIds", "warning", "error",
 }
 
 // imageFacts mirrors the fields of `dump image --json --metadata` that the

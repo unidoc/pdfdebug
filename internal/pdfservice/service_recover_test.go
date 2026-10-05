@@ -129,7 +129,7 @@ func (p *imageIndexPanickingInspector) GetImageIndex(_ string) ([]*pdfcore.Image
 	return nil, nil
 }
 
-func (p *imageIndexPanickingInspector) GetImagePages(_ string, _ int) ([]int, error) {
+func (p *imageIndexPanickingInspector) GetImagePages(_ string, _ int) ([]pdfcore.ImagePageRef, error) {
 	var doc *pdfcore.DocumentState
 	_ = doc.PDFContext
 	return nil, nil

@@ -46,6 +46,12 @@ func unresolvedImg(extra string) string {
 	return imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /Foo /BitsPerComponent 8 "+extra, "xxxx")
 }
 
+// labImg is an uncompressed 2x2 Lab image whose colour space dictionary holds
+// labExtra beside its /WhitePoint, with extra spliced into its dictionary.
+func labImg(labExtra, extra string) string {
+	return imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace [/Lab << /WhitePoint [0.9505 1 1.089] "+labExtra+" >>] /BitsPerComponent 8 "+extra, strings.Repeat("\x00", 12))
+}
+
 // formXObj is a Form XObject whose /Resources /XObject holds xobjects; an
 // empty xobjects writes no /Resources.
 func formXObj(xobjects string) string {
@@ -204,12 +210,37 @@ func TestGetImagePagesReturnsTheFullList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := make([]int, 20)
+	want := make([]ImagePageRef, 20)
 	for i := range want {
-		want[i] = i + 1
+		want[i] = ImagePageRef{PageNum: i + 1, NodeID: fmt.Sprintf("obj:0:%d", 10+i)}
 	}
 	if !reflect.DeepEqual(pages, want) {
 		t.Errorf("pages %v, want %v", pages, want)
+	}
+}
+
+// pageNums lists the page numbers of refs.
+func pageNums(refs []ImagePageRef) []int {
+	out := make([]int, len(refs))
+	for i, r := range refs {
+		out[i] = r.PageNum
+	}
+	return out
+}
+
+func TestImageIndexFirstPageNodeIDsMatchFirstPages(t *testing.T) {
+	ins, _ := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	entries, err := ins.GetImageIndex("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := imageEntryFor(t, entries, 6)
+	if !reflect.DeepEqual(e.FirstPages, []int{3}) || !reflect.DeepEqual(e.FirstPageNodeIDs, []string{"obj:0:12"}) {
+		t.Errorf("object 6 first pages %v node ids %v, want [3] and [obj:0:12]", e.FirstPages, e.FirstPageNodeIDs)
+	}
+	e = imageEntryFor(t, entries, 5)
+	if len(e.FirstPageNodeIDs) != len(e.FirstPages) || e.FirstPageNodeIDs[15] != "obj:0:25" {
+		t.Errorf("object 5 node ids %v, want one per first page ending at obj:0:25", e.FirstPageNodeIDs)
 	}
 }
 
@@ -322,7 +353,7 @@ func TestImageIndexBudgetStopsTheWalkAndKeepsEarlierPages(t *testing.T) {
 	if got := entryObjNums(entries); !reflect.DeepEqual(got, []int{10, 11, 12, 0}) {
 		t.Fatalf("entries %v, want the three images examined, then the error row", got)
 	}
-	want := "image walk stopped after 3 resource entries at page 2; later pages were not walked"
+	want := "image walk stopped after 3 resource entries at page 2; page 3 was not walked"
 	if entries[3].Err != want {
 		t.Errorf("error row %q, want %q", entries[3].Err, want)
 	}
@@ -330,15 +361,14 @@ func TestImageIndexBudgetStopsTheWalkAndKeepsEarlierPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(groups) != 3 || len(groups[2].Images) != 0 {
-		t.Errorf("groups %+v, want every page listed and page 3 empty", groups)
-	}
+	var nums []int
 	var incomplete []bool
 	for _, g := range groups {
+		nums = append(nums, g.PageNum)
 		incomplete = append(incomplete, g.Incomplete)
 	}
-	if !reflect.DeepEqual(incomplete, []bool{false, true, true}) {
-		t.Errorf("incomplete flags %v, want page 1 complete and the stopped page and the unwalked one incomplete", incomplete)
+	if !reflect.DeepEqual(nums, []int{1, 2}) || !reflect.DeepEqual(incomplete, []bool{false, true}) {
+		t.Errorf("pages %v incomplete %v, want pages 1 and 2 with only the stopped page incomplete, and no group for the unwalked page", nums, incomplete)
 	}
 }
 
@@ -489,7 +519,7 @@ func TestImageIndexNoImagesIsANonNilEmptySlice(t *testing.T) {
 	}
 }
 
-func TestImagePageGroupsListEveryPageWithWalkOrderAndPaths(t *testing.T) {
+func TestImagePageGroupsListPagesWithImagesInWalkOrderWithPaths(t *testing.T) {
 	ins, _ := openUnvalidated(t, rawPDF(nestedImageObjs()...))
 	groups, err := ins.GetImagePageGroups("raw")
 	if err != nil {
@@ -497,15 +527,11 @@ func TestImagePageGroupsListEveryPageWithWalkOrderAndPaths(t *testing.T) {
 	}
 	via := []ImagePageUse{{ObjNum: 8, Gen: 0, Path: []string{"Fm1", "Fm2", "Im0"}}}
 	want := []ImagePageGroup{
-		{PageNum: 1, Images: via},
-		{PageNum: 2, Images: via},
-		{PageNum: 3, Images: []ImagePageUse{}},
+		{PageNum: 1, NodeID: "obj:0:3", Images: via},
+		{PageNum: 2, NodeID: "obj:0:4", Images: via},
 	}
 	if !reflect.DeepEqual(groups, want) {
-		t.Errorf("groups %+v, want %+v", groups, want)
-	}
-	if b, _ := json.Marshal(groups[2]); !strings.Contains(string(b), `"images":[]`) {
-		t.Errorf("an empty page marshals as %s, want images []", b)
+		t.Errorf("groups %+v, want %+v; page 3 has no images and is left out", groups, want)
 	}
 }
 
@@ -520,8 +546,8 @@ func TestImagePageGroupsOfADocumentWithNoImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(groups) != 2 || groups[0].Images == nil || len(groups[1].Images) != 0 {
-		t.Errorf("groups %+v, want two pages with empty, non-nil images", groups)
+	if b, _ := json.Marshal(groups); string(b) != "[]" {
+		t.Errorf("groups marshal to %s, want [] since no page has images", b)
 	}
 	if _, err := NewInspector().GetImagePageGroups("missing"); !errors.Is(err, ErrDocumentNotFound) {
 		t.Errorf("unknown tab: err = %v, want ErrDocumentNotFound", err)
@@ -543,6 +569,14 @@ func TestImageIndexDecodeNonDefaultAndVerdicts(t *testing.T) {
 		{"odd length", grayImg("/Decode [0 1 0]"), true, verdictUnknownDecode},
 		{"non-number element", grayImg("/Decode [0 /One]"), true, verdictUnknownDecode},
 		{"indexed with an explicit array", imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace [/Indexed /DeviceGray 1 <00FF>] /BitsPerComponent 8 /Decode [0 1]", "\x00\x01\x01\x00"), true, verdictNotClassified},
+		{"indexed with the default array", imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace [/Indexed /DeviceGray 1 <00FF>] /BitsPerComponent 8 /Decode [0 255]", "\x00\x01\x01\x00"), false, verdictNotClassified},
+		{"4-bit indexed with the default array", imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace [/Indexed /DeviceGray 1 <00FF>] /BitsPerComponent 4 /Decode [0 15]", "\x00\x10"), false, verdictNotClassified},
+		{"indexed with an inverting array", imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace [/Indexed /DeviceGray 1 <00FF>] /BitsPerComponent 8 /Decode [255 0]", "\x00\x01\x01\x00"), true, verdictNotClassified},
+		{"lab with the default array and no /Range", labImg("", "/Decode [0 100 -100 100 -100 100]"), false, verdictNotClassified},
+		{"lab with the default array for its /Range", labImg("/Range [-128 127 -128 127]", "/Decode [0 100 -128 127 -128 127]"), false, verdictNotClassified},
+		{"lab with an array that ignores its /Range", labImg("/Range [-128 127 -128 127]", "/Decode [0 100 -100 100 -100 100]"), true, verdictNotClassified},
+		{"lab with an inverted lightness", labImg("", "/Decode [100 0 -100 100 -100 100]"), true, verdictNotClassified},
+		{"lab whose /Range is unreadable", labImg("/Range [-128 127]", "/Decode [0 100 -100 100 -100 100]"), true, verdictNotClassified},
 		{"stencil mask without an array", imgStream("/Type /XObject /Subtype /Image /Width 8 /Height 1 /ImageMask true /BitsPerComponent 1", "\xaa"), false, verdictNormalDefault},
 		{"stencil mask identity", imgStream("/Type /XObject /Subtype /Image /Width 8 /Height 1 /ImageMask true /BitsPerComponent 1 /Decode [0 1]", "\xaa"), false, verdictNormalDefault},
 		{"stencil mask inverting", imgStream("/Type /XObject /Subtype /Image /Width 8 /Height 1 /ImageMask true /BitsPerComponent 1 /Decode [1 0]", "\xaa"), true, verdictInvertedDecode},
@@ -618,7 +652,7 @@ func TestImageIndexEmptyListsMarshalAsArrays(t *testing.T) {
 	if string(raw[0]["filters"]) != "[]" {
 		t.Errorf("an unfiltered image marshals filters %s, want []", raw[0]["filters"])
 	}
-	for _, k := range []string{"filters", "firstPages"} {
+	for _, k := range []string{"filters", "firstPages", "firstPageNodeIds"} {
 		if string(raw[1][k]) != "[]" {
 			t.Errorf("an error row marshals %s %s, want []", k, raw[1][k])
 		}
@@ -786,7 +820,7 @@ func TestImageIndexReferencesDifferingOnlyInGenerationAreOneEntry(t *testing.T) 
 	if len(entries) != 1 || entries[0].PageCount != 2 {
 		t.Fatalf("entries %+v, want one entry for object 5 on two pages", entries)
 	}
-	if pages, err := ins.GetImagePages("raw", 5); err != nil || !reflect.DeepEqual(pages, []int{1, 2}) {
+	if pages, err := ins.GetImagePages("raw", 5); err != nil || !reflect.DeepEqual(pageNums(pages), []int{1, 2}) {
 		t.Errorf("GetImagePages = %v, %v; want [1 2]", pages, err)
 	}
 }
@@ -972,7 +1006,7 @@ func TestImageIndexBudgetSpentInsideAFormSkipsTheRestOfThePage(t *testing.T) {
 	if got := entryObjNums(entries); !reflect.DeepEqual(got, []int{10, 0}) {
 		t.Fatalf("entries %v, want the one image reached inside the form, then the error row; /B is never examined", got)
 	}
-	if want := "image walk stopped after 2 resource entries at page 1; later pages were not walked"; entries[1].Err != want {
+	if want := "image walk stopped after 2 resource entries at page 1"; entries[1].Err != want {
 		t.Errorf("error row %q, want %q", entries[1].Err, want)
 	}
 }
@@ -1077,13 +1111,14 @@ func TestImageIndexResultsAreCopies(t *testing.T) {
 	e.Width = 99
 	e.Filters = append(e.Filters, "X")
 	e.FirstPages[0] = 99
+	e.FirstPageNodeIDs[0] = "X"
 	e.Decode[0] = 99
 	*e.SMask = "99 0 R"
 	entries[0] = nil
 	groups[0].Images[0].Path[0] = "X"
 	groups[0].Images[1].ObjNum = 99
 	groups[0].Incomplete = true
-	pages[0] = 99
+	pages[0].PageNum = 99
 
 	if got, _ := ins.GetImageIndex("raw"); !reflect.DeepEqual(mustJSON(t, got), wantEntries) {
 		t.Errorf("index after mutating a result:\n%s\nwant\n%s", mustJSON(t, got), wantEntries)
@@ -1091,7 +1126,7 @@ func TestImageIndexResultsAreCopies(t *testing.T) {
 	if got, _ := ins.GetImagePageGroups("raw"); !reflect.DeepEqual(mustJSON(t, got), wantGroups) {
 		t.Errorf("groups after mutating a result:\n%s\nwant\n%s", mustJSON(t, got), wantGroups)
 	}
-	if got, _ := ins.GetImagePages("raw", 5); !reflect.DeepEqual(got, []int{1}) {
+	if got, _ := ins.GetImagePages("raw", 5); !reflect.DeepEqual(got, []ImagePageRef{{PageNum: 1, NodeID: "obj:0:3"}}) {
 		t.Errorf("pages after mutating a result %v, want [1]", got)
 	}
 	if !doc.imageIndex.isBuilt() {
@@ -1187,6 +1222,60 @@ func TestImageIndexSharedFormIsWalkedAndChargedOnce(t *testing.T) {
 	}
 }
 
+func TestImageIndexFormSharedAtTwoDepthsIsWalkedAndChargedOnce(t *testing.T) {
+	// S is reached inside A at depth 1, then straight from the page at depth 0.
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages("", 3)},
+		rawObj{3, imgPage("/A 10 0 R /S 12 0 R")},
+		rawObj{10, formXObj("/S 12 0 R")},
+		rawObj{12, formXObj("/Im0 20 0 R")},
+		rawObj{20, grayImg("")},
+	))
+	w := buildWithBudget(t, doc, 100)
+	// The page's two entries, A's one and S's one, once.
+	if w.examined != 4 || w.stopped {
+		t.Errorf("examined %d entries, stopped %v; want 4 and S charged once", w.examined, w.stopped)
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	want := []ImagePageGroup{{PageNum: 1, NodeID: "obj:0:3", Images: []ImagePageUse{{ObjNum: 20, Path: []string{"A", "S", "Im0"}}}}}
+	if !reflect.DeepEqual(groups, want) {
+		t.Errorf("groups %+v, want %+v", groups, want)
+	}
+}
+
+func TestImageIndexSharedFormIsWalkedAgainWhereItsDepthPassesTheCap(t *testing.T) {
+	// Page 1 enters the 30-form chain at 10 directly; page 2 enters it under
+	// five wrapper forms, which puts its last form past the cap.
+	objs := []rawObj{{1, rawCatalog}, {2, imgPages("", 3, 4)}, {3, imgPage("/C 10 0 R")}, {4, imgPage("/W 50 0 R")}, {6, grayImg("")}}
+	for i := range 30 {
+		x := fmt.Sprintf("/C %d 0 R", 11+i)
+		if i == 29 {
+			x = "/Im0 6 0 R"
+		}
+		objs = append(objs, rawObj{10 + i, formXObj(x)})
+	}
+	for i := range 5 {
+		x := fmt.Sprintf("/W %d 0 R", 51+i)
+		if i == 4 {
+			x = "/C 10 0 R"
+		}
+		objs = append(objs, rawObj{50 + i, formXObj(x)})
+	}
+	ins, _ := openUnvalidated(t, rawPDF(objs...))
+	groups, err := ins.GetImagePageGroups("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 2 || groups[0].Incomplete || len(groups[0].Images) != 1 || !groups[1].Incomplete || len(groups[1].Images) != 0 {
+		t.Errorf("groups %+v, want page 1 complete with image 6 and page 2 incomplete with none", groups)
+	}
+	entries, _ := ins.GetImageIndex("raw")
+	if got := entryObjNums(entries); !reflect.DeepEqual(got, []int{6, 0}) || !strings.Contains(entries[1].Err, "on page 2") {
+		t.Errorf("entries %v, want image 6 then the nesting cap's error row for page 2", got)
+	}
+}
+
 func TestImageIndexFormWalkedInsideACycleIsNotReusedOutsideIt(t *testing.T) {
 	// On page 1, G is walked inside F and skips its /Back to F. On page 2, G
 	// is reached at the same depth through X, where /Back leads to F's image.
@@ -1206,8 +1295,8 @@ func TestImageIndexFormWalkedInsideACycleIsNotReusedOutsideIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []ImagePageGroup{
-		{PageNum: 1, Images: []ImagePageUse{{ObjNum: 11, Path: []string{"F", "G", "ImB"}}, {ObjNum: 10, Path: []string{"F", "ImA"}}}},
-		{PageNum: 2, Images: []ImagePageUse{{ObjNum: 10, Path: []string{"X", "G", "Back", "ImA"}}, {ObjNum: 11, Path: []string{"X", "G", "ImB"}}}},
+		{PageNum: 1, NodeID: "obj:0:3", Images: []ImagePageUse{{ObjNum: 11, Path: []string{"F", "G", "ImB"}}, {ObjNum: 10, Path: []string{"F", "ImA"}}}},
+		{PageNum: 2, NodeID: "obj:0:4", Images: []ImagePageUse{{ObjNum: 10, Path: []string{"X", "G", "Back", "ImA"}}, {ObjNum: 11, Path: []string{"X", "G", "ImB"}}}},
 	}
 	if !reflect.DeepEqual(groups, want) {
 		t.Errorf("groups %+v, want %+v", groups, want)
@@ -1239,10 +1328,16 @@ func TestImageIndexBrokenSharedResourcesWriteOneErrorRow(t *testing.T) {
 		t.Errorf("error row %q, want %q", entries[1].Err, want)
 	}
 	groups, _ := ins.GetImagePageGroups("raw")
+	if len(groups) != 3 {
+		t.Fatalf("groups %+v, want all three pages listed as incomplete", groups)
+	}
 	for _, g := range groups {
 		if !g.Incomplete {
 			t.Errorf("page %d complete, want every page sharing the broken resources and page 3 incomplete", g.PageNum)
 		}
+	}
+	if b, _ := json.Marshal(groups[0]); !strings.Contains(string(b), `"images":[]`) {
+		t.Errorf("an incomplete page with no images marshals as %s, want images []", b)
 	}
 }
 
@@ -1290,7 +1385,7 @@ func TestImageIndexUseLimitStopsTheWalk(t *testing.T) {
 			}
 			entries, _ := ins.GetImageIndex("raw")
 			last := entries[len(entries)-1]
-			want := fmt.Sprintf("image walk stopped at the limit of %d image uses at page 3; later pages were not walked", c.limit)
+			want := fmt.Sprintf("image walk stopped at the limit of %d image uses at page 3; pages 4 to 10 were not walked", c.limit)
 			if last.NodeID != "" || last.Err != want {
 				t.Errorf("last row %+v, want error %q", *last, want)
 			}
@@ -1300,8 +1395,11 @@ func TestImageIndexUseLimitStopsTheWalk(t *testing.T) {
 				}
 			}
 			groups, _ := ins.GetImagePageGroups("raw")
+			if len(groups) != 3 {
+				t.Fatalf("%d groups, want pages 1 to 3 and none for the pages after the stop", len(groups))
+			}
 			for _, g := range groups {
-				wantIncomplete := g.PageNum >= 3
+				wantIncomplete := g.PageNum == 3
 				if g.Incomplete != wantIncomplete || (wantIncomplete && len(g.Images) != 0) || (!wantIncomplete && len(g.Images) != 10) {
 					t.Errorf("page %d: incomplete %v with %d images", g.PageNum, g.Incomplete, len(g.Images))
 				}

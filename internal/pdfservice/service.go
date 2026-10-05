@@ -45,7 +45,7 @@ type inspectorAPI interface {
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
 	GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error)
 	GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, error)
-	GetImagePages(tabID string, objNum int) ([]int, error)
+	GetImagePages(tabID string, objNum int) ([]pdfcore.ImagePageRef, error)
 	GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
 	GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error)
@@ -364,10 +364,11 @@ func (s *PDFService) GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, er
 }
 
 // GetImagePages returns every page, ascending, whose resources reference the
-// image with object number objNum. The Images navigator calls it to list the
-// pages past an entry's capped FirstPages. Read from the cached image walk.
-func (s *PDFService) GetImagePages(tabID string, objNum int) ([]int, error) {
-	var result []int
+// image with object number objNum, each with its /Page node id. The Images
+// navigator calls it to list the pages past an entry's capped FirstPages.
+// Read from the cached image walk.
+func (s *PDFService) GetImagePages(tabID string, objNum int) ([]pdfcore.ImagePageRef, error) {
+	var result []pdfcore.ImagePageRef
 	var err error
 	func() {
 		defer recoverRuntimePanic("GetImagePages", &err)
@@ -376,8 +377,9 @@ func (s *PDFService) GetImagePages(tabID string, objNum int) ([]int, error) {
 	return result, err
 }
 
-// GetImagePageGroups returns the images of every numbered page in document
-// order, each with its resource-name path. Powers the Images navigator's
+// GetImagePageGroups returns the images of every numbered page that uses one
+// or that the walk did not finish, in document order, each with its
+// resource-name path and the page's node id. Powers the Images navigator's
 // by-page view. Read from the cached image walk.
 func (s *PDFService) GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error) {
 	var result []pdfcore.ImagePageGroup
