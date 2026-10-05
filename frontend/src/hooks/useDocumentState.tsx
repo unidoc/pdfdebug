@@ -196,6 +196,18 @@ function withActiveTabView(state: AppState, view: string): TabState[] {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
+      // A repeated delivery of an open whose tab already exists only
+      // activates that tab: its selection, history and caches stay.
+      if (state.tabs.some((t) => t.tabId === action.payload.tabId)) {
+        const switched = state.activeTabId !== action.payload.tabId;
+        return {
+          ...state,
+          activeTabId: action.payload.tabId,
+          tabActivationVersion: switched ? state.tabActivationVersion + 1 : state.tabActivationVersion,
+          isOpening: false,
+          openingFileName: null,
+        };
+      }
       // Drive batch progress from OPEN_DOCUMENT itself: incrementing here is
       // atomic with the tab being added, so the count can never lag behind
       // the actual number of opened tabs.
@@ -243,8 +255,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
       // Re-opening a file already open in a tab replaces that tab's content in
       // place with the new parse: the tab keeps its strip position, its rail
-      // view and its find case setting, and takes the new tab id. App.jsx
-      // releases the backend document of the replaced tab id.
+      // view and its find case setting, and takes the new tab id.
+      // dispatchOpenedDocument (lib/openedDocuments.ts) releases the backend
+      // document of the replaced tab id.
       const existingIndex = action.payload.filePath
         ? state.tabs.findIndex((t) => t.filePath === action.payload.filePath)
         : -1;

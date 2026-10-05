@@ -13,6 +13,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Dispatch, ReactNode } from 'react';
 import { AppProvider, useAppDispatch, useAppState, type AppAction, type AppState } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 const RAIL_KEY = 'unidoc-pdf-debugger:left-rail';
 
@@ -1274,6 +1275,32 @@ describe('closed-tab eviction of pending requests', () => {
     await waitFor(() => expect(hasPageRow(panel, 17)).toBe(true));
     await act(async () => pending[0](pageRefs(1, 1)));
     expect(hasPageRow(panel, 17)).toBe(true);
+  });
+});
+
+describe('re-open of an open file', () => {
+  test('requests on the replaced tab id that fail as not found are dropped without an error', async () => {
+    let rejectFirst: (err: Error) => void = () => {};
+    mockGetImageIndex.mockReset().mockReturnValueOnce(new Promise<ImageEntry[]>((_r, reject) => {
+      rejectFirst = reject;
+    })).mockResolvedValue(entries);
+    const user = userEvent.setup();
+    renderLayout();
+    const reopen = (tabId: string) =>
+      act(() => dispatchOpenedDocument(dispatch, state.tabs, { tabId, fileName: 'a.pdf', filePath: '/tmp/a.pdf', pageCount: 20, rootNode: catalogNode, rootChildren }));
+    reopen('tab-old');
+    await user.click(tab('Images'));
+    await waitFor(() => expect(mockGetImageIndex).toHaveBeenCalledWith('tab-old'));
+
+    reopen('tab-new');
+    const panel = await showImages(user);
+    expect(mockGetImageIndex).toHaveBeenLastCalledWith('tab-new');
+    await act(async () => rejectFirst(new Error('document not found: tab "tab-old"')));
+
+    expect(panel.textContent).not.toContain('Could not load');
+    expect(state.documentError).toBeNull();
+    expect(state.tabs.map((t) => t.tabId)).toEqual(['tab-new']);
+    expect(imageRow(panel, '19 0 R')).toBeDefined();
   });
 });
 

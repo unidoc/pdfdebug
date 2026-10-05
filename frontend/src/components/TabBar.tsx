@@ -7,7 +7,7 @@ import { useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Events } from '@wailsio/runtime';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
-import { CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { closeDocumentTab } from '../lib/openedDocuments';
 
 /** Tab bar displaying all open documents with switch and close controls. */
 export function TabBar() {
@@ -24,8 +24,7 @@ export function TabBar() {
   const handleClose = useCallback(
     (tabId: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId } });
-      Promise.resolve(CloseDocument(tabId)).catch(() => {});
+      closeDocumentTab(dispatch, tabId);
     },
     [dispatch],
   );
@@ -47,8 +46,7 @@ export function TabBar() {
     if (!activeTabId) return;
     const tabExists = tabs.some((t) => t.tabId === activeTabId);
     if (!tabExists) return;
-    dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: activeTabId } });
-    Promise.resolve(CloseDocument(activeTabId)).catch(() => {});
+    closeDocumentTab(dispatch, activeTabId);
   }, [tabs, activeTabId, dispatch]);
 
   // Keyboard shortcuts: Cmd/Ctrl+Arrow (tab switch), Cmd/Ctrl+W (close)
