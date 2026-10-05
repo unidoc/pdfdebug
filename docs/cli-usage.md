@@ -75,9 +75,14 @@ first-use page order, then by object number. An image counts as used on a page
 when it is referenced from the page's resources, inherited ones and nested Form
 XObjects included; content streams are not read, so it is not checked against
 `Do` operators. Inline images (`BI`/`ID`/`EI`) are not listed. No image is
-decoded. Where the walk stops (a Form XObject nested past the cap, the walk
-budget, an unreadable page tree) a row with `-` for the reference says so in
-ERROR, naming the pages left unwalked, and the command still exits 0. A warning on a readable image, such as a
+decoded. A row with `-` for the reference reports each problem in ERROR, and
+the command still exits 0. An unreadable resources dictionary, `/XObject`
+entry or form gets one row naming every page it affected. A Form XObject
+nested deeper than 32 is skipped along with the forms below it, with one row
+naming that form and its pages, and the walk carries on. Only the walk's
+budgets stop it: past 1,000,000 resource entries or 4,000,000 image uses the
+walk ends, and that row names the pages left unwalked. An unreadable page
+tree also gets a row, naming the last page reached. A warning on a readable image, such as a
 rejected `/Decode`, shows in ERROR as `warning: ...`, after the image's error
 when it has one.
 
