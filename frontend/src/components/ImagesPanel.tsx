@@ -5,7 +5,7 @@
  * by-page view (GetImagePageGroups). Rows write the shared selection with the
  * image icon hint, so the existing image preview renders a clicked image.
  */
-import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
 import {
   GetImageIndex,
@@ -18,7 +18,8 @@ import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 import { SMALL_BUTTON } from './buttonStyles';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { RowContextMenu, type RowMenuTarget } from './RowContextMenu';
+import { useContainerSize, useRowContextMenu } from './navigatorHooks';
+import { RowContextMenu } from './RowContextMenu';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
 import { RowStateContext } from './treeRows';
 
@@ -311,23 +312,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
 
   const treeRef = useRef<TreeApi<ImageRowData> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [menu, setMenu] = useState<RowMenuTarget | null>(null);
-
-  const hasTab = activeTab !== undefined;
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    // Keep the last non-zero size so a collapsed pane leaves the Tree mounted.
-    const ro = new ResizeObserver((items) => {
-      const item = items[0];
-      if (!item) return;
-      const { width, height } = item.contentRect;
-      if (width > 0 && height > 0) setDimensions({ width, height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hasTab]);
+  const dimensions = useContainerSize(containerRef, activeTab !== undefined);
 
   const liveTabIdsRef = useLatest(tabs.map((t) => t.tabId));
 
@@ -376,28 +361,36 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
       });
   }, [active, activeTabId, liveTabIdsRef]);
 
+  // Page lists past the first-pages cap: the latest request number per
+  // `${tabId}\n${rowId}`, so a late answer lands on the tab that asked and only
+  // the latest request applies. Numbers come from one counter, so they never
+  // repeat even after a key is evicted.
+  const generations = useRef(new Map<string, number>());
+  const lastGeneration = useRef(0);
+
   // Evict closed tabs. Keyed on the tab id list so it runs only when it changes.
   const tabIdKey = tabs.map((t) => t.tabId).join(',');
   useEffect(() => {
     const live = new Set(tabIdKey.split(','));
     for (const id of Object.keys(cache.current)) if (!live.has(id)) delete cache.current[id];
     for (const id of Object.keys(errors.current)) if (!live.has(id)) delete errors.current[id];
+    for (const id of inflight.current) if (!live.has(id)) inflight.current.delete(id);
+    for (const key of generations.current.keys()) {
+      if (!live.has(key.slice(0, key.indexOf('\n')))) generations.current.delete(key);
+    }
   }, [tabIdKey]);
 
-  // Page lists past the first-pages cap, per (tab, row) generation so a late
-  // answer lands on the tab that asked and only the latest request applies.
   // The spinner shows after 200ms for the most recent request.
   const [loadingRow, setLoadingRow] = useState<{ tabId: string; rowId: string } | null>(null);
   const spinnerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const spinnerOwner = useRef<object | null>(null);
-  const generations = useRef(new Map<string, number>());
   useEffect(() => () => {
     if (spinnerTimer.current) clearTimeout(spinnerTimer.current);
   }, []);
 
   const loadPages = useCallback(async (tabId: string, rowId: string, index: number, objNum: number) => {
     const key = `${tabId}\n${rowId}`;
-    const generation = (generations.current.get(key) ?? 0) + 1;
+    const generation = ++lastGeneration.current;
     generations.current.set(key, generation);
     const owner = {};
     spinnerOwner.current = owner;
@@ -517,40 +510,22 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     bump();
   }
 
-  const openMenu = useCallback((rowId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const row = dataRef.current ? findRow(dataRef.current, (r) => r.id === rowId) : null;
-    // Error rows and pages without a node id have nothing to reveal.
-    if (!row || row.nodeId === '') return;
-    treeRef.current?.select(rowId);
-    setMenu({ x, y, nodeId: row.nodeId, returnFocus });
-  }, [dataRef]);
-
-  function handleContextMenu(e: MouseEvent<HTMLDivElement>) {
-    const row = (e.target as HTMLElement).closest('[data-row-id]');
-    if (!row) return;
-    e.preventDefault();
-    const item = row.closest<HTMLElement>('[role="treeitem"]') ?? (row as HTMLElement);
-    openMenu(row.getAttribute('data-row-id') ?? '', e.clientX, e.clientY, item);
-  }
-
-  // Shift+F10 and the ContextMenu key open the menu for the focused row.
-  function handleTreeKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (!((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu')) return;
-    const item = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-    const id = item?.querySelector('[data-row-id]')?.getAttribute('data-row-id') ?? treeRef.current?.focusedNode?.id;
-    if (!id) return;
-    e.preventDefault();
-    const rect = item?.getBoundingClientRect();
-    openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
-  }
-
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+    treeRef,
+    '[data-row-id]',
+    'data-row-id',
+    (rowId) => {
+      const row = dataRef.current ? findRow(dataRef.current, (r) => r.id === rowId) : null;
+      // Error rows and pages without a node id have nothing to reveal.
+      return row && row.nodeId !== '' ? row.nodeId : null;
+    },
+  );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
   // switch, a rail switch or a view change closes it.
   useEffect(() => {
-    setMenu(null);
-  }, [active, activeTabId, view]);
+    closeMenu();
+  }, [active, activeTabId, view, closeMenu]);
 
   if (!activeTab) {
     return (
@@ -597,10 +572,10 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
       <div
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
-        onContextMenu={handleContextMenu}
-        onKeyDown={handleTreeKeyDown}
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
       >
-        {!entry && !fetchError && <div className="px-3 py-2 text-sm text-text-muted">Loading images...</div>}
+        {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading images...</div>}
         {fetchError !== undefined && (
           <div className="px-3 py-2 text-sm text-error">Could not load the image index: {fetchError}</div>
         )}

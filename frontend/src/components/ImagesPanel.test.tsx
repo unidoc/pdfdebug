@@ -1066,6 +1066,17 @@ describe('empty states', () => {
     await waitFor(() => expect(panelFor('Images').textContent).toContain('image walk failed'));
   });
 
+  test('a failure with an empty message shows the error banner without the loading line', async () => {
+    mockGetImageIndex.mockReset().mockRejectedValue(new Error(''));
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    await user.click(tab('Images'));
+    const panel = panelFor('Images');
+    await waitFor(() => expect(panel.textContent).toContain('Could not load the image index:'));
+    expect(panel.textContent).not.toContain('Loading images...');
+  });
+
   test('a fetch that failed is retried on the next activation', async () => {
     mockGetImageIndex.mockReset().mockRejectedValueOnce(new Error('image walk failed')).mockResolvedValue(entries);
     const user = userEvent.setup();
@@ -1118,6 +1129,49 @@ describe('per-tab state', () => {
     openTab('tab-1');
     await showImages(user);
     expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2);
+  });
+});
+
+describe('closed-tab eviction of pending requests', () => {
+  test('an index fetch still pending when its tab closes does not block the tab reopened under that id', async () => {
+    mockGetImageIndex.mockReset().mockReturnValueOnce(new Promise(() => {})).mockResolvedValue(entries);
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    await user.click(tab('Images'));
+    await waitFor(() => expect(mockGetImageIndex).toHaveBeenCalledTimes(1));
+
+    act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
+    openTab('tab-1');
+    await showImages(user);
+    expect(mockGetImageIndex).toHaveBeenCalledTimes(2);
+  });
+
+  test('a page fetch from a closed tab does not land on the tab reopened under that id', async () => {
+    const pending: ((v: number[]) => void)[] = [];
+    mockGetImagePages.mockReset().mockImplementation(
+      () =>
+        new Promise<number[]>((r) => {
+          pending.push(r);
+        }),
+    );
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    let panel = await showImages(user);
+    await expand(user, imageRow(panel, '12 0 R'));
+    await waitFor(() => expect(pending).toHaveLength(1));
+
+    act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
+    openTab('tab-1');
+    panel = await showImages(user);
+    await expand(user, imageRow(panel, '12 0 R'));
+    await waitFor(() => expect(pending).toHaveLength(2));
+
+    await act(async () => pending[1](range(1, 20)));
+    await waitFor(() => expect(hasPageRow(panel, 17)).toBe(true));
+    await act(async () => pending[0]([1]));
+    expect(hasPageRow(panel, 17)).toBe(true);
   });
 });
 

@@ -361,6 +361,17 @@ describe('header', () => {
     await user.click(tab('Pages'));
     await waitFor(() => expect(panelFor('Pages').textContent).toContain('page tree unreadable'));
   });
+
+  test('a failure with an empty message shows the error banner without the loading line', async () => {
+    mockGetPageIndex.mockReset().mockRejectedValue(new Error(''));
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    await user.click(tab('Pages'));
+    const panel = panelFor('Pages');
+    await waitFor(() => expect(panel.textContent).toContain('Could not load the page index:'));
+    expect(panel.textContent).not.toContain('Loading pages...');
+  });
 });
 
 describe('selection', () => {

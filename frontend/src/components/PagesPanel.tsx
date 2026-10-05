@@ -5,13 +5,14 @@
  * selection, so the object-source pane and the detail panel follow a page
  * click exactly as they follow a tree click.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
 import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { RowContextMenu, type RowMenuTarget } from './RowContextMenu';
+import { useContainerSize, useRowContextMenu } from './navigatorHooks';
+import { RowContextMenu } from './RowContextMenu';
 import {
   NodeRenderer,
   RowStateContext,
@@ -104,7 +105,6 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
 
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -113,22 +113,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const jumpRef = useRef<HTMLInputElement>(null);
   const seenFocusVersion = useRef(pagesJumpFocusVersion);
 
-  const [menu, setMenu] = useState<RowMenuTarget | null>(null);
-
-  const hasTab = activeTab !== undefined;
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    // Keep the last non-zero size so a collapsed pane leaves the Tree mounted.
-    const ro = new ResizeObserver((items) => {
-      const item = items[0];
-      if (!item) return;
-      const { width, height } = item.contentRect;
-      if (width > 0 && height > 0) setDimensions({ width, height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hasTab]);
+  const dimensions = useContainerSize(containerRef, activeTab !== undefined);
 
   const liveTabIdsRef = useLatest(tabs.map((t) => t.tabId));
 
@@ -291,43 +276,23 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     flash(row.id);
   }
 
-  const openMenu = useCallback((displayId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const node = dataRef.current ? findById(dataRef.current, displayId) : null;
-    // Unnumbered rows and error children have nothing the Structure tree can reveal.
-    if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return;
-    treeRef.current?.select(displayId);
-    setMenu({ x, y, nodeId: node.backendId, returnFocus });
-  }, [dataRef]);
-
-  function handleContextMenu(e: MouseEvent<HTMLDivElement>) {
-    const row = (e.target as HTMLElement).closest('[data-testid="tree-node"]');
-    if (!row) return;
-    e.preventDefault();
-    const id = row.getAttribute('data-node-id');
-    if (!id) return;
-    const item = row.closest<HTMLElement>('[role="treeitem"]') ?? (row as HTMLElement);
-    openMenu(id, e.clientX, e.clientY, item);
-  }
-
-  // Shift+F10 and the ContextMenu key open the menu for the focused row.
-  function handleTreeKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (!((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu')) return;
-    const item = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-    const row = item?.querySelector('[data-testid="tree-node"]');
-    const id = row?.getAttribute('data-node-id') ?? treeRef.current?.focusedNode?.id;
-    if (!id) return;
-    e.preventDefault();
-    const rect = (item ?? row)?.getBoundingClientRect();
-    openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
-  }
-
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+    treeRef,
+    '[data-testid="tree-node"]',
+    'data-node-id',
+    (displayId) => {
+      const node = dataRef.current ? findById(dataRef.current, displayId) : null;
+      // Unnumbered rows and error children have nothing the Structure tree can reveal.
+      if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return null;
+      return node.backendId;
+    },
+  );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
   // switch (Cmd+Left/Right, Cmd+W) or a view change closes it.
   useEffect(() => {
-    setMenu(null);
-  }, [active, activeTabId]);
+    closeMenu();
+  }, [active, activeTabId, closeMenu]);
 
   // A jump error names the previous tab's page range; drop it on a tab switch.
   useEffect(() => {
@@ -388,10 +353,10 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
       <div
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
-        onContextMenu={handleContextMenu}
-        onKeyDown={handleTreeKeyDown}
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
       >
-        {!entry && !fetchError && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
+        {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
         {fetchError !== undefined && (
           <div className="px-3 py-2 text-sm text-error">Could not load the page index: {fetchError}</div>
         )}
