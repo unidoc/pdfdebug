@@ -161,7 +161,7 @@ type ImagePageGroup struct {
 	// Incomplete is true when the walk did not finish this page's resources:
 	// the walk stopped on this page, a Form XObject on it was nested past the
 	// cap, or an entry or the page itself could not be read. Images then holds
-	// only what was reached, and an error row says why.
+	// only what was reached, and an error row naming the page says why.
 	Incomplete bool `json:"incomplete"`
 }
 

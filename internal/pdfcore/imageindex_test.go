@@ -1324,7 +1324,7 @@ func TestImageIndexBrokenSharedResourcesWriteOneErrorRow(t *testing.T) {
 	if got := entryObjNums(entries); !reflect.DeepEqual(got, []int{8, 0, 0}) {
 		t.Fatalf("entries %v, want image 8, one row for the shared resources and one for page 3's entry", got)
 	}
-	if want := "the resources of page 1 could not be read: pdf parsing panic: object stream damaged"; entries[1].Err != want {
+	if want := "the resources of pages 1-2 could not be read: pdf parsing panic: object stream damaged"; entries[1].Err != want {
 		t.Errorf("error row %q, want %q", entries[1].Err, want)
 	}
 	groups, _ := ins.GetImagePageGroups("raw")
@@ -1493,7 +1493,7 @@ func TestImageIndexResourcesThatFailToResolveAreErrorRows(t *testing.T) {
 		t.Fatalf("entries %v, want image 6, one row for the shared /XObject and one for the form's /Resources", got)
 	}
 	want := []string{
-		"the resources of page 1 could not be read: /XObject: object stream damaged",
+		"the resources of pages 1-2 could not be read: /XObject: object stream damaged",
 		"/XObject entry /Fm (7 0 R) on page 3 could not be read: /Resources: object stream damaged",
 	}
 	for i, w := range want {
@@ -1537,5 +1537,164 @@ func TestImageIndexXObjectThatFailsToResolveIsAnErrorRow(t *testing.T) {
 	groups, _ := ins.GetImagePageGroups("raw")
 	if !groups[0].Incomplete || len(groups[0].Images) != 1 || groups[1].Incomplete {
 		t.Errorf("groups %+v, want page 1 incomplete with its image and page 2 complete", groups)
+	}
+}
+
+func TestImagePageGroupsLeaveOutAnUnreadablePageAfterTheStop(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages("", 3, 4, 5)},
+		rawObj{3, imgPage("/A 10 0 R /B 11 0 R")},
+		rawObj{4, imgPage("/A 12 0 R /B 13 0 R")},
+		rawObj{5, imgPage("/A 14 0 R")},
+		rawObj{10, grayImg("")}, rawObj{11, grayImg("")}, rawObj{12, grayImg("")},
+		rawObj{13, grayImg("")}, rawObj{14, grayImg("")},
+	))
+	pw := newPageWalker(doc.PDFContext)
+	pw.walk()
+	pw.leaves[2].err = errors.New("page 3 could not be read: pdf parsing panic: boom")
+	pt := &pageTree{entries: pw.entries, leaves: pw.leaves}
+	w := newImageWalker(doc.PDFContext)
+	w.budget = 3
+	if _, err := doc.imageIndex.get(func() (*imageTree, error) { return w.build(pt), nil }); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := ins.GetImageIndex("raw")
+	var errs []string
+	for _, e := range entries {
+		if e.NodeID == "" {
+			errs = append(errs, e.Err)
+		}
+	}
+	want := []string{
+		"image walk stopped after 3 resource entries at page 2; page 3 was not walked",
+		"page 3 could not be read: pdf parsing panic: boom",
+	}
+	if !reflect.DeepEqual(errs, want) {
+		t.Errorf("error rows %q, want %q", errs, want)
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	var nums []int
+	for _, g := range groups {
+		nums = append(nums, g.PageNum)
+	}
+	if !reflect.DeepEqual(nums, []int{1, 2}) {
+		t.Errorf("group pages %v, want [1 2] and no group for the unreadable page after the stop", nums)
+	}
+}
+
+// formChain returns n chained forms numbered from base, the last listing
+// image 5.
+func formChain(base, n int) []rawObj {
+	objs := make([]rawObj, n)
+	for i := range n {
+		x := fmt.Sprintf("/Fm %d 0 R", base+i+1)
+		if i == n-1 {
+			x = "/Im 5 0 R"
+		}
+		objs[i] = rawObj{base + i, formXObj(x)}
+	}
+	return objs
+}
+
+func TestImageIndexNestingCapWritesOneRowPerCappedFormNamingItsPages(t *testing.T) {
+	objs := []rawObj{
+		{1, rawCatalog},
+		{2, imgPages("", 3, 4, 6, 7)},
+		{3, imgPage("/Fm 100 0 R")},
+		{4, imgPage("/Fm 200 0 R")},
+		{5, grayImg("")},
+		{6, imgPage("/Fm 200 0 R")},
+		{7, imgPage("/Fm 200 0 R")},
+	}
+	objs = append(objs, formChain(100, maxFormWalkDepth+2)...)
+	objs = append(objs, formChain(200, maxFormWalkDepth+2)...)
+	ins, _ := openUnvalidated(t, rawPDF(objs...))
+	entries, err := ins.GetImageIndex("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errs []string
+	for _, e := range entries {
+		if e.NodeID == "" {
+			errs = append(errs, e.Err)
+		}
+	}
+	want := []string{
+		fmt.Sprintf("Form XObject nesting deeper than 32 at %d 0 R on page 1; deeper forms were not walked", 100+maxFormWalkDepth),
+		fmt.Sprintf("Form XObject nesting deeper than 32 at %d 0 R on pages 2-4; deeper forms were not walked", 200+maxFormWalkDepth),
+	}
+	if !reflect.DeepEqual(errs, want) {
+		t.Errorf("error rows %q, want %q", errs, want)
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	if len(groups) != 4 {
+		t.Fatalf("groups %+v, want all four pages incomplete", groups)
+	}
+	for _, g := range groups {
+		if !g.Incomplete {
+			t.Errorf("page %d complete, want it incomplete", g.PageNum)
+		}
+	}
+}
+
+func TestImageIndexFailingObjectRowNamesEveryPageItCutShort(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages("", 3, 4, 5, 6)},
+		rawObj{3, imgPage("/Fm 7 0 R /Bad 9 0 R")},
+		rawObj{4, imgPage("/Fm 7 0 R")},
+		rawObj{5, imgPage("/Im0 8 0 R")},
+		rawObj{6, imgPage("/Other 7 0 R /Broken 9 0 R")},
+		rawObj{7, imgStream("/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources 10 0 R", "q Q")},
+		rawObj{8, grayImg("")},
+		rawObj{9, "<< >>"},
+		rawObj{10, "<< >>"},
+	))
+	damagedObject(t, doc, 9, errors.New("object stream damaged"), false)
+	damagedObject(t, doc, 10, errors.New("object stream damaged"), false)
+
+	entries, err := ins.GetImageIndex("raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errs []string
+	for _, e := range entries {
+		if e.NodeID == "" {
+			errs = append(errs, e.Err)
+		}
+	}
+	want := []string{
+		"/XObject entry /Bad (9 0 R) on pages 1, 4 could not be read: object stream damaged",
+		"/XObject entry /Fm (7 0 R) on pages 1-2, 4 could not be read: /Resources: object stream damaged",
+	}
+	if !reflect.DeepEqual(errs, want) {
+		t.Errorf("error rows %q, want %q", errs, want)
+	}
+	groups, _ := ins.GetImagePageGroups("raw")
+	var incomplete []int
+	for _, g := range groups {
+		if g.Incomplete {
+			incomplete = append(incomplete, g.PageNum)
+		}
+	}
+	if !reflect.DeepEqual(incomplete, []int{1, 2, 4}) {
+		t.Errorf("incomplete pages %v, want [1 2 4]", incomplete)
+	}
+}
+
+func TestPageRangeList(t *testing.T) {
+	cases := []struct {
+		ranges [][2]int
+		want   string
+	}{
+		{[][2]int{{3, 3}}, "page 3"},
+		{[][2]int{{2, 50}}, "pages 2-50"},
+		{[][2]int{{1, 1}, {4, 6}, {9, 9}}, "pages 1, 4-6, 9"},
+	}
+	for _, c := range cases {
+		if got := pageRangeList(c.ranges); got != c.want {
+			t.Errorf("pageRangeList(%v) = %q, want %q", c.ranges, got, c.want)
+		}
 	}
 }
