@@ -30,6 +30,8 @@ import (
 //	TabBar.tsx             : CloseDocument
 //	useObjectIndex.ts      : GetObjectIndex
 //	PagesPanel.tsx         : GetChildren, GetPageIndex
+//	ImagesPanel.tsx        : GetImageIndex, GetImagePages, GetImagePageGroups,
+//	                         GetPageIndex
 //	usePDFService.ts       : OpenFile, GetTreeRoot, GetChildren, CloseDocument,
 //	                         OpenFileDialog
 //
@@ -53,6 +55,9 @@ var consumerBoundMethods = []string{
 	"GetTreeRoot",
 	"OpenFileDialog",
 	"GetPageIndex",
+	"GetImageIndex",
+	"GetImagePages",
+	"GetImagePageGroups",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

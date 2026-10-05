@@ -44,6 +44,9 @@ type inspectorAPI interface {
 	GetReverseRefs(tabID string, nodeID string) ([]pdfcore.ReverseRef, error)
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
 	GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error)
+	GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, error)
+	GetImagePages(tabID string, objNum int) ([]int, error)
+	GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
 	GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error)
 	GetPlainTextSize(tabID string) (int64, error)
@@ -342,6 +345,46 @@ func (s *PDFService) GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, erro
 	func() {
 		defer recoverRuntimePanic("GetPageIndex", &err)
 		result, err = s.inspector.GetPageIndex(tabID)
+	}()
+	return result, err
+}
+
+// GetImageIndex returns the image index for the document in tabID: one entry
+// per image XObject referenced from page resources, deduplicated by object
+// reference, then error rows where the walk stopped. Powers the Images
+// navigator. Lazy on first call, cached per document state.
+func (s *PDFService) GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, error) {
+	var result []*pdfcore.ImageIndexEntry
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImageIndex", &err)
+		result, err = s.inspector.GetImageIndex(tabID)
+	}()
+	return result, err
+}
+
+// GetImagePages returns every page, ascending, whose resources reference the
+// image with object number objNum. The Images navigator calls it to list the
+// pages past an entry's capped FirstPages. Read from the cached image walk.
+func (s *PDFService) GetImagePages(tabID string, objNum int) ([]int, error) {
+	var result []int
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImagePages", &err)
+		result, err = s.inspector.GetImagePages(tabID, objNum)
+	}()
+	return result, err
+}
+
+// GetImagePageGroups returns the images of every numbered page in document
+// order, each with its resource-name path. Powers the Images navigator's
+// by-page view. Read from the cached image walk.
+func (s *PDFService) GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error) {
+	var result []pdfcore.ImagePageGroup
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImagePageGroups", &err)
+		result, err = s.inspector.GetImagePageGroups(tabID)
 	}()
 	return result, err
 }

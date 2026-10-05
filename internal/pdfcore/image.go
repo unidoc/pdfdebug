@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -740,7 +741,8 @@ func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.
-// Only used by GetImageData for image-metadata warnings; do not promote to a shared utility without a second caller.
+// Used for image-metadata warnings by renderImage, readImageDictFacts and the
+// image index.
 func appendWarning(existing, addition string) string {
 	if existing == "" {
 		return addition
@@ -908,11 +910,46 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		return &ImageDescription{NodeID: nodeID, Error: "not an image XObject"}, nil
 	}
 
-	desc := &ImageDescription{
-		NodeID:    nodeID,
-		ObjectRef: objectRefFromNodeID(nodeID),
-	}
-	xrt := doc.PDFContext.XRefTable
+	facts := readImageDictFacts(doc.PDFContext.XRefTable, &sd)
+	return &ImageDescription{
+		NodeID:         nodeID,
+		ObjectRef:      objectRefFromNodeID(nodeID),
+		Width:          facts.width,
+		Height:         facts.height,
+		ColorSpace:     facts.colorSpace,
+		EstimatedBytes: facts.estimatedBytes,
+		Warning:        facts.warning,
+	}, nil
+}
+
+// imageDictFacts is the decode-free reading of an image XObject dictionary
+// shared by DescribeImage and the image index. warning holds the metadata
+// reads that failed; a rejected /Decode is kept apart in decodeErr.
+type imageDictFacts struct {
+	width, height, bitsPerComponent int
+	imageMask                       bool
+	colorSpace                      string
+	filters                         []string
+	// components is the resolved colour-component count, -1 when unresolved.
+	components           int
+	smask                *string
+	decode               []float64
+	decodeErr            error
+	decodeNonDefault     bool
+	adobeMarker          string
+	adobeTransform       *int
+	sampleInterpretation string
+	estimatedBytes       int64
+	warning              string
+}
+
+// readImageDictFacts reads an image dictionary's geometry, colour space,
+// filters, mask and /Decode facts and the sample-interpretation verdict
+// without decoding a byte. Each pdfcpu read runs under its own safeCall, in
+// the order Width, Height, BitsPerComponent, ImageMask, ColorSpace, so the
+// warning text keeps that order. Callers hold pdfMu.
+func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+	f := imageDictFacts{bitsPerComponent: 8, filters: []string{}}
 
 	readInt := func(key string, dst *int) {
 		if e := safeCall(func() error {
@@ -929,16 +966,13 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 			}
 			return nil
 		}); e != nil {
-			desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("%s metadata: %v", key, e))
+			f.warning = appendWarning(f.warning, fmt.Sprintf("%s metadata: %v", key, e))
 		}
 	}
-	readInt("Width", &desc.Width)
-	readInt("Height", &desc.Height)
+	readInt("Width", &f.width)
+	readInt("Height", &f.height)
+	readInt("BitsPerComponent", &f.bitsPerComponent)
 
-	bitsPerComponent := 8
-	readInt("BitsPerComponent", &bitsPerComponent)
-
-	imageMask := false
 	if e := safeCall(func() error {
 		maskObj, found := sd.Find("ImageMask")
 		if !found {
@@ -949,11 +983,11 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 			return e
 		}
 		if b, ok := deref.(pdfcpu_types.Boolean); ok {
-			imageMask = b.Value()
+			f.imageMask = b.Value()
 		}
 		return nil
 	}); e != nil {
-		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("imageMask metadata: %v", e))
+		f.warning = appendWarning(f.warning, fmt.Sprintf("imageMask metadata: %v", e))
 	}
 
 	if e := safeCall(func() error {
@@ -967,26 +1001,62 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		}
 		switch cs := deref.(type) {
 		case pdfcpu_types.Name:
-			desc.ColorSpace = string(cs)
+			f.colorSpace = string(cs)
 		case pdfcpu_types.Array:
 			if len(cs) > 0 {
 				if n, ok := cs[0].(pdfcpu_types.Name); ok {
-					desc.ColorSpace = string(n)
+					f.colorSpace = string(n)
 				}
 			}
 		}
 		return nil
 	}); e != nil {
-		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("colorSpace metadata: %v", e))
+		f.warning = appendWarning(f.warning, fmt.Sprintf("colorSpace metadata: %v", e))
 	}
 
-	// Honest decoded estimate for the consent prompt: one sample per pixel for
-	// masks and Indexed images, 0 (no estimate) when the colour space cannot be
-	// resolved. A negative sentinel from declaredComponents means unresolved.
-	if imageMask {
-		bitsPerComponent = 1
+	for _, fl := range sd.FilterPipeline {
+		f.filters = append(f.filters, fl.Name)
 	}
-	desc.EstimatedBytes = estimatedDecodedBytes(desc.Width, desc.Height, bitsPerComponent,
-		sizeEstimateComponents(desc.ColorSpace, imageMask, declaredComponents(xrt, &sd, -1)))
-	return desc, nil
+
+	f.components = declaredComponents(xrt, sd, -1)
+	f.smask = readSMaskRef(sd)
+
+	// The /Decode bound and the identity test both take a stencil mask as one
+	// component; an unresolved count widens the bound to maxComponents.
+	decodeComponents := f.components
+	if f.imageMask {
+		decodeComponents = 1
+	}
+	decodeBound := 2 * maxComponents
+	if decodeComponents > 0 {
+		decodeBound = 2 * decodeComponents
+	}
+	f.decode, f.decodeErr = readDecodeArray(xrt, sd, decodeBound)
+	// JSON cannot carry NaN or Inf, so a non-finite entry rejects the array.
+	for i, v := range f.decode {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			f.decode, f.decodeErr = nil, fmt.Errorf("/Decode entry %d is not a finite number", i)
+			break
+		}
+	}
+	if len(f.decode) > 0 {
+		identity, _ := decodePattern(f.decode, decodeComponents)
+		indexedOrLab := !f.imageMask && (f.colorSpace == "Indexed" || f.colorSpace == "Lab")
+		f.decodeNonDefault = !identity || indexedOrLab
+	}
+	if f.decodeErr != nil {
+		f.decodeNonDefault = true
+	}
+
+	f.adobeMarker, f.adobeTransform = adobeMarkerFromStream(sd)
+	f.sampleInterpretation = sampleInterpretationVerdict(
+		f.colorSpace, f.imageMask, f.components, f.decode, f.decodeErr != nil, f.adobeMarker)
+
+	sizeBits := f.bitsPerComponent
+	if f.imageMask {
+		sizeBits = 1
+	}
+	f.estimatedBytes = estimatedDecodedBytes(f.width, f.height, sizeBits,
+		sizeEstimateComponents(f.colorSpace, f.imageMask, f.components))
+	return f
 }

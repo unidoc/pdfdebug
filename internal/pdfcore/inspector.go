@@ -25,8 +25,12 @@ import (
 //     acquires pdfMu for the duration of the pdfcpu call sequence.
 //
 //   - pdfMu MUST be acquired BEFORE any per-feature mutex (streamMu,
-//     xrefTableMu, and the mutexes inside the objectIndex and pageIndex lazy
-//     caches) when the feature path calls into pdfcpu.
+//     xrefTableMu, and the mutexes inside the objectIndex, pageIndex and
+//     imageIndex lazy caches) when the feature path calls into pdfcpu.
+//
+//   - The image walk reads the page walk: imageTree takes and releases the
+//     pageIndex cache mutex before it takes the imageIndex one, so the two
+//     inner cache mutexes are never held together.
 //
 //   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
 //     into pdfcpu inside its critical section.
@@ -70,12 +74,14 @@ type DocumentState struct {
 	reverseRefs        map[[2]int][]ReverseRef
 	revRefsBuildFailed bool
 
-	// objectIndex caches the per-tab GetObjectIndex result and pageIndex the
-	// page-tree walk behind GetPageIndex and page-number lookups. Both are lazy
-	// on first call; a re-Open under the same tabID replaces this
-	// DocumentState, so the new one starts empty.
+	// objectIndex caches the per-tab GetObjectIndex result, pageIndex the
+	// page-tree walk behind GetPageIndex and page-number lookups, and
+	// imageIndex the image walk behind GetImageIndex, GetImagePages and
+	// GetImagePageGroups. All are lazy on first call; a re-Open under the same
+	// tabID replaces this DocumentState, so the new one starts empty.
 	objectIndex lazyCache[[]*ObjectIndexEntry]
 	pageIndex   lazyCache[*pageTree]
+	imageIndex  lazyCache[*imageTree]
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced

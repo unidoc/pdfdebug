@@ -109,6 +109,9 @@ var pdfMuRequiredMethods = []string{
 	"GetReverseRefs",
 	"GetObjectIndex",
 	"GetPageIndex",
+	"GetImageIndex",
+	"GetImagePages",
+	"GetImagePageGroups",
 	"GetXRefTable",
 }
 
@@ -130,6 +133,9 @@ var methodFileMap = map[string]string{
 	"GetReverseRefs":             "internal/pdfcore/reverserefs.go",
 	"GetObjectIndex":             "internal/pdfcore/objectindex.go",
 	"GetPageIndex":               "internal/pdfcore/pageindex.go",
+	"GetImageIndex":              "internal/pdfcore/imageindex.go",
+	"GetImagePages":              "internal/pdfcore/imageindex.go",
+	"GetImagePageGroups":         "internal/pdfcore/imageindex.go",
 	"GetXRefTable":               "internal/pdfcore/xreftable.go",
 }
 
@@ -312,7 +318,7 @@ func extractFunctionBodyTopLevel(t *testing.T, src, name string) string {
 	return tail[:end+1]
 }
 
-// pdfserviceWrappedMethods is the pinned list of 15 PDFService methods
+// pdfserviceWrappedMethods is the pinned list of 18 PDFService methods
 // that MUST begin with `defer recoverRuntimePanic("<Name>", &err)`. Methods
 // outside this list (OpenFileDialog, CloseDocument, GetPlainText,
 // GetPlainTextSize) MUST NOT be wrapped.
@@ -331,6 +337,9 @@ var pdfserviceWrappedMethods = []string{
 	"GetReverseRefs",
 	"GetObjectIndex",
 	"GetPageIndex",
+	"GetImageIndex",
+	"GetImagePages",
+	"GetImagePageGroups",
 	"GetXRefTable",
 }
 

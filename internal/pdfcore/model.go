@@ -81,6 +81,92 @@ const (
 	InheritedRotate
 )
 
+// ImageIndexEntry is one row in the per-document image index produced by
+// Inspector.GetImageIndex: an image XObject referenced from page resources
+// (directly, inherited, or through nested Form XObjects), deduplicated by
+// object reference, or an error row (NodeID "") naming where the walk stopped.
+// It carries object references and dictionary-level facts only, never bytes.
+type ImageIndexEntry struct {
+	// ObjNum is the image's object number; 0 on an error row.
+	ObjNum int `json:"objNum"`
+	// Gen is the generation of ObjNum.
+	Gen int `json:"gen"`
+	// NodeID is the image's tree node id, "obj:<gen>:<num>"; "" on an error row.
+	NodeID string `json:"nodeId"`
+	// Width is the /Width entry; 0 when absent or unreadable.
+	Width int `json:"width"`
+	// Height is the /Height entry; 0 when absent or unreadable.
+	Height int `json:"height"`
+	// BitsPerComponent is the /BitsPerComponent entry, 8 when absent.
+	BitsPerComponent int `json:"bitsPerComponent"`
+	// ColorSpace is the /ColorSpace name, or an array colour space's family
+	// name; "" when absent (a stencil mask) or unreadable.
+	ColorSpace string `json:"colorSpace"`
+	// Filters lists the /Filter pipeline in order; empty, never null.
+	Filters []string `json:"filters"`
+	// ImageMask is the /ImageMask flag.
+	ImageMask bool `json:"imageMask"`
+	// SMask is nil when /SMask is absent, a pointer to "" when present with no
+	// reference to report, and a pointer to "N G R" otherwise.
+	SMask *string `json:"smask"`
+	// Decode is the /Decode array as written; nil when absent or rejected.
+	Decode []float64 `json:"decode"`
+	// DecodeNonDefault is true when /Decode is present and is not the plain
+	// identity: rejected, of the wrong arity, inverting, partial, or explicit on
+	// an Indexed or Lab image.
+	DecodeNonDefault bool `json:"decodeNonDefault"`
+	// SampleInterpretation is the verdict joining /Decode and the Adobe APP14
+	// marker, as ImageData reports it.
+	SampleInterpretation string `json:"sampleInterpretation"`
+	// AdobeMarker is one of the AdobeMarker* discriminators.
+	AdobeMarker string `json:"adobeMarker"`
+	// AdobeTransform is the Adobe APP14 transform byte, non-nil only when
+	// AdobeMarker is AdobeMarkerPresent.
+	AdobeTransform *int `json:"adobeTransform"`
+	// EstimatedBytes is the decoded size the declared geometry implies; 0 when
+	// unknown.
+	EstimatedBytes int64 `json:"estimatedBytes"`
+	// FirstPage is the lowest page number referencing the image; 0 on an error
+	// row.
+	FirstPage int `json:"firstPage"`
+	// PageCount is the number of distinct pages referencing the image.
+	PageCount int `json:"pageCount"`
+	// FirstPages lists the referencing pages ascending, at most
+	// maxImageFirstPages of them; GetImagePages returns the full list. Empty,
+	// never null.
+	FirstPages []int `json:"firstPages"`
+	// Warning names dictionary reads that failed and a rejected /Decode. It
+	// never makes the entry an error row.
+	Warning string `json:"warning"`
+	// Err is the error-row message, or the failure of an image's facts read.
+	Err string `json:"error"`
+}
+
+// ImagePageGroup lists the image uses on one numbered page, in walk order.
+type ImagePageGroup struct {
+	// PageNum is the 1-based page number.
+	PageNum int `json:"pageNum"`
+	// Images holds the page's image uses; empty, never null, for a page with
+	// no images.
+	Images []ImagePageUse `json:"images"`
+	// Incomplete is true when the walk did not finish this page's resources:
+	// the entry budget stopped it on or before this page, a Form XObject on it
+	// was nested past the cap, or an entry could not be read. Images then holds
+	// only what was reached, and an error row says why.
+	Incomplete bool `json:"incomplete"`
+}
+
+// ImagePageUse is one image reached from a page's resources.
+type ImagePageUse struct {
+	// ObjNum is the image's object number.
+	ObjNum int `json:"objNum"`
+	// Gen is the generation of ObjNum.
+	Gen int `json:"gen"`
+	// Path holds the resource names from the page's /XObject down to the image,
+	// e.g. ["Fm1", "Im0"].
+	Path []string `json:"path"`
+}
+
 // ObjectDetail holds the full inspection data for a single PDF object.
 type ObjectDetail struct {
 	NodeID      string          `json:"nodeId"`
