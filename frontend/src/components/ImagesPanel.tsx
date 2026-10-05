@@ -85,7 +85,7 @@ interface ImageRowData {
   message?: string;
 }
 
-/** Per-tab Images state: the fetched indexes, the view settings and each view's rows and expansion. */
+/** Per-tab Images state: the fetched indexes, the view settings and each view's expansion. */
 interface ImagesCache {
   entries: ImageEntry[];
   /** Full page lists fetched for entries whose firstPages are capped, by entry index. */
@@ -97,8 +97,6 @@ interface ImagesCache {
   groupsLoading: boolean;
   view: View;
   sort: Sort;
-  flatData: ImageRowData[];
-  groupData: ImageRowData[] | null;
   openState: Record<View, Record<string, boolean>>;
 }
 
@@ -309,14 +307,25 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         groupsLoading: false,
         view: 'flat',
         sort: 'firstUse',
-        flatData: buildFlat(entries, 'firstUse', {}, {}),
-        groupData: null,
         openState: { flat: {}, byPage: {} },
       };
     },
   );
   const view: View = entry?.view ?? 'flat';
-  const data = entry ? (view === 'flat' ? entry.flatData : entry.groupData) : null;
+  // Each view's rows, derived from the active tab's cached fetches. Changes to
+  // the cache replace these fields, so the memos see them.
+  const entries = entry?.entries;
+  const sort = entry?.sort ?? 'firstUse';
+  const fullPages = entry?.fullPages;
+  const pagesErrors = entry?.pagesErrors;
+  const pageGroups = entry?.groups ?? null;
+  const flatData = useMemo(
+    () => (entries && fullPages && pagesErrors ? buildFlat(entries, sort, fullPages, pagesErrors) : null),
+    [entries, sort, fullPages, pagesErrors],
+  );
+  const groupData = useMemo(() => (entries && pageGroups ? buildGroups(pageGroups, entries) : null), [entries, pageGroups]);
+  const flatDataRef = useLatest(flatData);
+  const data = view === 'flat' ? flatData : groupData;
   const dataRef = useLatest(data);
 
   const treeRef = useRef<TreeApi<ImageRowData> | undefined>(undefined);
@@ -336,7 +345,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
       if (!target) return;
       const pages: PageRef[] = (result ?? []).filter((p) => p !== null);
       target.fullPages = { ...target.fullPages, [index]: pages };
-      target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
       bump();
     },
     (err) => {
@@ -344,7 +352,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
       const target = cache.current[tabId];
       if (!target) return;
       target.pagesErrors = { ...target.pagesErrors, [index]: extractErrorMessage(err) };
-      target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
       bump();
     },
   ), [load, cache, bump]);
@@ -358,7 +365,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     // Re-render so the selection lookup sees the rows this toggle revealed or hid.
     bump();
     if (current.view !== 'flat' || !api.isOpen(id)) return;
-    const row = findById(current.flatData, id);
+    const row = flatDataRef.current ? findById(flatDataRef.current, id) : null;
     const e = row?.entry;
     if (!row || !e || row.kind !== 'image' || !row.children) return;
     const index = Number(id.slice(1));
@@ -366,12 +373,11 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     if (current.pagesErrors[index] !== undefined) {
       const { [index]: _failed, ...rest } = current.pagesErrors;
       current.pagesErrors = rest;
-      current.flatData = buildFlat(current.entries, current.sort, current.fullPages, rest);
     } else if (row.children.length > 0) {
       return;
     }
     void loadPages(activeTabId, id, index, e.objNum);
-  }, [activeTabId, loadPages, cache, bump]);
+  }, [activeTabId, loadPages, cache, bump, flatDataRef]);
 
   // The row last selected here, so an image listed under two pages keeps the
   // highlight on the listing the user picked rather than the first one. Only a
@@ -427,7 +433,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         const target = cache.current[tabId];
         if (!target) return;
         target.groups = (groups ?? []).filter((g) => g !== null);
-        target.groupData = buildGroups(target.groups, target.entries);
       })
       .catch((err: unknown) => {
         const target = cache.current[tabId];
@@ -444,7 +449,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     const current = activeTabId ? cache.current[activeTabId] : undefined;
     if (!current || current.sort === next) return;
     current.sort = next;
-    current.flatData = buildFlat(current.entries, next, current.fullPages, current.pagesErrors);
     bump();
   }
 

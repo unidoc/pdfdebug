@@ -236,6 +236,7 @@ describe('EmptyState loading variant', () => {
 import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { BatchOpenDialog } from './BatchOpenDialog';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 function MultiOpenHarness() {
   const state = useAppState();
@@ -321,7 +322,7 @@ describe('Open File dialog: multi-select', () => {
     expect(OpenFile as unknown as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 
-  test('re-opening a path that already has a tab closes the old backend document', async () => {
+  test('re-opening a path opened earlier in the session closes the old backend document', async () => {
     (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(['/a.pdf']);
     (OpenFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       tabId: 'tab-new', fileName: 'a.pdf', filePath: '/a.pdf',
@@ -337,10 +338,7 @@ describe('Open File dialog: multi-select', () => {
     function SeedTab() {
       const dispatch = useAppDispatch();
       useEffect(() => {
-        dispatch({
-          type: 'OPEN_DOCUMENT',
-          payload: { tabId: 'tab-old', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: null, rootChildren: null },
-        });
+        dispatchOpenedDocument(dispatch, [], { tabId: 'tab-old', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: null, rootChildren: null });
       }, [dispatch]);
       return null;
     }

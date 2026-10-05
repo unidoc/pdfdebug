@@ -64,12 +64,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   }, []);
 
   const dispatch = useAppDispatch();
-  const { batchOpenCancelled, isOpening, openingFileName, tabs } = useAppState();
-  // Mirror tabs into a ref so the async open loop reads the current tabs.
-  const tabsRef = useRef(tabs);
-  useEffect(() => {
-    tabsRef.current = tabs;
-  }, [tabs]);
+  const { batchOpenCancelled, isOpening, openingFileName } = useAppState();
   // Mirror cancel state into a ref so the async loop below sees fresh
   // values without re-running on every state change.
   const cancelledRef = useRef(false);
@@ -106,7 +101,9 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           if (isBatch && cancelledRef.current) break;
           try {
             const result = await openPDFFile(paths[i]);
-            dispatchOpenedDocument(dispatch, tabsRef.current, {
+            // EmptyState shows only while no tab is open; a path opened twice
+            // in one batch is caught by the session record of opens.
+            dispatchOpenedDocument(dispatch, [], {
               tabId: result.tabId,
               fileName: result.fileName,
               filePath: result.filePath,
