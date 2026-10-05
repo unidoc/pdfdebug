@@ -6,6 +6,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 /** Props for {@link EmptyState}. */
 export interface EmptyStateProps {
@@ -63,7 +64,12 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
   }, []);
 
   const dispatch = useAppDispatch();
-  const { batchOpenCancelled, isOpening, openingFileName } = useAppState();
+  const { batchOpenCancelled, isOpening, openingFileName, tabs } = useAppState();
+  // Mirror tabs into a ref so the async open loop reads the current tabs.
+  const tabsRef = useRef(tabs);
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
   // Mirror cancel state into a ref so the async loop below sees fresh
   // values without re-running on every state change.
   const cancelledRef = useRef(false);
@@ -100,16 +106,13 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           if (isBatch && cancelledRef.current) break;
           try {
             const result = await openPDFFile(paths[i]);
-            dispatch({
-              type: 'OPEN_DOCUMENT',
-              payload: {
-                tabId: result.tabId,
-                fileName: result.fileName,
-                filePath: result.filePath,
-                pageCount: result.pageCount,
-                rootNode: result.rootNode,
-                rootChildren: result.rootChildren,
-              },
+            dispatchOpenedDocument(dispatch, tabsRef.current, {
+              tabId: result.tabId,
+              fileName: result.fileName,
+              filePath: result.filePath,
+              pageCount: result.pageCount,
+              rootNode: result.rootNode,
+              rootChildren: result.rootChildren,
             });
             if (result.warning) lastWarning = result.warning;
           } catch (err: unknown) {

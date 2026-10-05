@@ -4,11 +4,12 @@
  */
 import { useEffect, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
-import { CloseDocument, ConsumePendingOpenFiles } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
+import { ConsumePendingOpenFiles } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
 import { mapErrorMessage, openPDFFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
+import { dispatchOpenedDocument } from './lib/openedDocuments'
 import { getPlatformModifier } from './lib/platform'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
@@ -18,16 +19,6 @@ import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
-
-/**
- * Module-level map from file path to the tab id of its latest open in this JS
- * session. Updated synchronously on every open, so two opens of the same path
- * that land before a re-render still see each other. It survives a re-mount
- * within the same JS context (a dev-mode reload mounts a fresh reducer while
- * the previous session's documents are still open) and is cleared by a true
- * page reload, where drain-on-read already returns an empty drain.
- */
-const sessionOpenTabs = new Map()
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -68,41 +59,17 @@ function AppContent() {
   // Subscribe to Wails runtime events for backend-initiated document opens
   // and errors. Returns cleanup functions to unsubscribe on unmount.
   useEffect(() => {
-    // Records tabId as the open of filePath and closes the backend document of
-    // the earlier open of the same path, which the reducer replaces in place
-    // with the new parse. The earlier id comes from the tab holding the path
-    // (it may have been opened outside App.jsx) and from sessionOpenTabs (it
-    // may not be rendered yet, or belong to a previous session). An id whose
-    // tab was already closed gets a no-op close.
-    /** @param {string} filePath @param {string} tabId */
-    function releaseReplacedDocument(filePath, tabId) {
-      if (!filePath) return
-      const earlier = new Set([
-        tabsRef.current.find((t) => t.filePath === filePath)?.tabId,
-        sessionOpenTabs.get(filePath),
-      ])
-      for (const id of earlier) {
-        if (id && id !== tabId) Promise.resolve(CloseDocument(id)).catch(() => {})
-      }
-      sessionOpenTabs.set(filePath, tabId)
-    }
-
     const offOpened = Events.On('document:opened', (event) => {
       const data = event?.data
       if (!data || !data.tabId || !data.fileName) return
 
-      const filePath = data.filePath ?? ''
-      releaseReplacedDocument(filePath, data.tabId)
-      dispatch({
-        type: 'OPEN_DOCUMENT',
-        payload: {
-          tabId: data.tabId,
-          fileName: data.fileName,
-          filePath: filePath,
-          pageCount: data.pageCount ?? 0,
-          rootNode: data.rootNode ?? null,
-          rootChildren: data.rootChildren ?? null,
-        },
+      dispatchOpenedDocument(dispatch, tabsRef.current, {
+        tabId: data.tabId,
+        fileName: data.fileName,
+        filePath: data.filePath ?? '',
+        pageCount: data.pageCount ?? 0,
+        rootNode: data.rootNode ?? null,
+        rootChildren: data.rootChildren ?? null,
       })
       if (data.warning) {
         dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: data.warning } })
@@ -187,17 +154,13 @@ function AppContent() {
           const result = await openPDFFile(path)
           // A path already open, here or in a still-live previous session
           // after a dev-mode reload, keeps the new parse and frees the old one.
-          releaseReplacedDocument(result.filePath, result.tabId)
-          dispatch({
-            type: 'OPEN_DOCUMENT',
-            payload: {
-              tabId: result.tabId,
-              fileName: result.fileName,
-              filePath: result.filePath,
-              pageCount: result.pageCount,
-              rootNode: result.rootNode,
-              rootChildren: result.rootChildren,
-            },
+          dispatchOpenedDocument(dispatch, tabsRef.current, {
+            tabId: result.tabId,
+            fileName: result.fileName,
+            filePath: result.filePath,
+            pageCount: result.pageCount,
+            rootNode: result.rootNode,
+            rootChildren: result.rootChildren,
           })
         } catch (err) {
           // Keep iterating so one bad file does not block the rest; defer the

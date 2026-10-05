@@ -5,6 +5,7 @@
  * data-file-drop-target attribute required by Wails.
  */
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { AppProvider } from '../hooks/useDocumentState';
 import { EmptyState } from './EmptyState';
@@ -232,8 +233,8 @@ describe('EmptyState loading variant', () => {
 // Mirrors the drag-drop multi-file flow so users get parity between the two
 // gestures.
 // ---------------------------------------------------------------------------
-import { OpenFile, GetTreeRoot, GetChildren, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { useAppState } from '../hooks/useDocumentState';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { BatchOpenDialog } from './BatchOpenDialog';
 
 function MultiOpenHarness() {
@@ -318,5 +319,40 @@ describe('Open File dialog: multi-select', () => {
     await act(async () => {});
     expect(screen.getByTestId('tab-count').textContent).toBe('0');
     expect(OpenFile as unknown as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+  });
+
+  test('re-opening a path that already has a tab closes the old backend document', async () => {
+    (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(['/a.pdf']);
+    (OpenFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tabId: 'tab-new', fileName: 'a.pdf', filePath: '/a.pdf',
+      pageCount: 1, fileSize: 100, error: '',
+    });
+    (GetTreeRoot as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
+      hasChildren: true, childCount: 0, iconHint: 'catalog', error: '',
+    });
+    (GetChildren as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (CloseDocument as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+    function SeedTab() {
+      const dispatch = useAppDispatch();
+      useEffect(() => {
+        dispatch({
+          type: 'OPEN_DOCUMENT',
+          payload: { tabId: 'tab-old', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: null, rootChildren: null },
+        });
+      }, [dispatch]);
+      return null;
+    }
+
+    render(<AppProvider><SeedTab /><MultiOpenHarness /></AppProvider>);
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+    act(() => screen.getByTestId('open-file-button').click());
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(CloseDocument).toHaveBeenCalledWith('tab-old');
+    expect(CloseDocument).not.toHaveBeenCalledWith('tab-new');
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
   });
 });
