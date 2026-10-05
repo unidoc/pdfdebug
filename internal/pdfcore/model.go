@@ -112,8 +112,9 @@ type ImageIndexEntry struct {
 	// Decode is the /Decode array as written; nil when absent or rejected.
 	Decode []float64 `json:"decode"`
 	// DecodeNonDefault is true when /Decode is present and is not the plain
-	// identity: rejected, of the wrong arity, inverting, partial, or explicit on
-	// an Indexed or Lab image.
+	// identity: rejected, of the wrong arity for a resolved component count,
+	// inverting, partial, or explicit on an Indexed or Lab image. With an
+	// unresolved count, an array whose every pair is [0 1] is the identity.
 	DecodeNonDefault bool `json:"decodeNonDefault"`
 	// SampleInterpretation is the verdict joining /Decode and the Adobe APP14
 	// marker, as ImageData reports it.

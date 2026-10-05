@@ -346,19 +346,12 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	result.ImageMask = imageMask
 	result.SMask = readSMaskRef(&sd)
 
-	// The /Decode bound is two entries per colour component. A stencil mask is
-	// one component whatever else the dictionary says; an unresolved colour space
-	// widens to maxComponents rather than rejecting the array, matching the
-	// widen-rather-than-reject posture of the decode ceiling.
+	// A stencil mask is one component whatever else the dictionary says.
 	decodeComponents := resolvedComponents
 	if imageMask {
 		decodeComponents = 1
 	}
-	decodeBound := 2 * maxComponents
-	if decodeComponents > 0 {
-		decodeBound = 2 * decodeComponents
-	}
-	decodeArr, decodeErr := readDecodeArray(xrt, &sd, decodeBound)
+	decodeArr, decodeErr := readImageDecode(xrt, &sd, decodeComponents)
 	if decodeErr != nil {
 		result.Warning = appendWarning(result.Warning, fmt.Sprintf("decode array metadata: %v", decodeErr))
 	}
@@ -910,7 +903,7 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		return &ImageDescription{NodeID: nodeID, Error: "not an image XObject"}, nil
 	}
 
-	facts := readImageDictFacts(doc.PDFContext.XRefTable, &sd)
+	facts := readImageDictMetadata(doc.PDFContext.XRefTable, &sd)
 	return &ImageDescription{
 		NodeID:         nodeID,
 		ObjectRef:      objectRefFromNodeID(nodeID),
@@ -943,12 +936,13 @@ type imageDictFacts struct {
 	warning              string
 }
 
-// readImageDictFacts reads an image dictionary's geometry, colour space,
-// filters, mask and /Decode facts and the sample-interpretation verdict
-// without decoding a byte. Each pdfcpu read runs under its own safeCall, in
-// the order Width, Height, BitsPerComponent, ImageMask, ColorSpace, so the
-// warning text keeps that order. Callers hold pdfMu.
-func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+// readImageDictMetadata reads an image dictionary's geometry, colour space,
+// filters, resolved component count and size estimate without decoding a
+// byte; the /SMask, /Decode, APP14 and verdict fields stay zero. Each pdfcpu
+// read runs under its own safeCall, in the order Width, Height,
+// BitsPerComponent, ImageMask, ColorSpace, so the warning text keeps that
+// order. Callers hold pdfMu.
+func readImageDictMetadata(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
 	f := imageDictFacts{bitsPerComponent: 8, filters: []string{}}
 
 	readInt := func(key string, dst *int) {
@@ -1019,28 +1013,37 @@ func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 	}
 
 	f.components = declaredComponents(xrt, sd, -1)
+
+	sizeBits := f.bitsPerComponent
+	if f.imageMask {
+		sizeBits = 1
+	}
+	f.estimatedBytes = estimatedDecodedBytes(f.width, f.height, sizeBits,
+		sizeEstimateComponents(f.colorSpace, f.imageMask, f.components))
+	return f
+}
+
+// readImageDictFacts is readImageDictMetadata plus the /SMask reference, the
+// /Decode array and its rejection, the Adobe APP14 outcome and the
+// sample-interpretation verdict. Callers hold pdfMu.
+func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+	f := readImageDictMetadata(xrt, sd)
 	f.smask = readSMaskRef(sd)
 
-	// The /Decode bound and the identity test both take a stencil mask as one
-	// component; an unresolved count widens the bound to maxComponents.
+	// A stencil mask is one component whatever else the dictionary says.
 	decodeComponents := f.components
 	if f.imageMask {
 		decodeComponents = 1
 	}
-	decodeBound := 2 * maxComponents
-	if decodeComponents > 0 {
-		decodeBound = 2 * decodeComponents
-	}
-	f.decode, f.decodeErr = readDecodeArray(xrt, sd, decodeBound)
-	// JSON cannot carry NaN or Inf, so a non-finite entry rejects the array.
-	for i, v := range f.decode {
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			f.decode, f.decodeErr = nil, fmt.Errorf("/Decode entry %d is not a finite number", i)
-			break
-		}
-	}
+	f.decode, f.decodeErr = readImageDecode(xrt, sd, decodeComponents)
 	if len(f.decode) > 0 {
-		identity, _ := decodePattern(f.decode, decodeComponents)
+		// Without a resolved count the arity cannot be checked, so every pair
+		// being [0 1] is the identity.
+		pairs := decodeComponents
+		if pairs <= 0 {
+			pairs = len(f.decode) / 2
+		}
+		identity, _ := decodePattern(f.decode, pairs)
 		indexedOrLab := !f.imageMask && (f.colorSpace == "Indexed" || f.colorSpace == "Lab")
 		f.decodeNonDefault = !identity || indexedOrLab
 	}
@@ -1051,12 +1054,23 @@ func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 	f.adobeMarker, f.adobeTransform = adobeMarkerFromStream(sd)
 	f.sampleInterpretation = sampleInterpretationVerdict(
 		f.colorSpace, f.imageMask, f.components, f.decode, f.decodeErr != nil, f.adobeMarker)
-
-	sizeBits := f.bitsPerComponent
-	if f.imageMask {
-		sizeBits = 1
-	}
-	f.estimatedBytes = estimatedDecodedBytes(f.width, f.height, sizeBits,
-		sizeEstimateComponents(f.colorSpace, f.imageMask, f.components))
 	return f
+}
+
+// readImageDecode reads the image's /Decode array bounded to two entries per
+// colour component (components <= 0, unresolved, widens the bound to
+// maxComponents rather than rejecting the array). A non-finite entry rejects
+// the array, since JSON cannot carry NaN or Inf.
+func readImageDecode(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, components int) ([]float64, error) {
+	bound := 2 * maxComponents
+	if components > 0 {
+		bound = 2 * components
+	}
+	decode, err := readDecodeArray(xrt, sd, bound)
+	for i, v := range decode {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil, fmt.Errorf("/Decode entry %d is not a finite number", i)
+		}
+	}
+	return decode, err
 }

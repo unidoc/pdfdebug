@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
@@ -573,8 +574,8 @@ func TestGetImageIndexGetImagePagesAndGetImagePageGroupsDelegateToInspector(t *t
 	if err != nil {
 		t.Fatalf("inspector GetImageIndex: %v", err)
 	}
-	if len(got) == 0 || len(got) != len(want) || got[0] != want[0] {
-		t.Fatalf("service returned %d entries, inspector %d; want the same cached slice", len(got), len(want))
+	if len(got) == 0 || !reflect.DeepEqual(got, want) {
+		t.Fatalf("service returned %+v, inspector %+v; want the same entries", got, want)
 	}
 	pages, err := svc.GetImagePages(info.TabID, got[0].ObjNum)
 	if err != nil || len(pages) != got[0].PageCount {
