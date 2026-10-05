@@ -577,6 +577,8 @@ describe('sort', () => {
     const panel = await showImages(user);
     await user.click(button(panel, 'Object number'));
     expect(button(panel, 'Object number')).toHaveAttribute('aria-pressed', 'true');
+    expect(button(panel, 'Object number')).toHaveClass('bg-surface-armed');
+    expect(button(panel, 'First use')).not.toHaveClass('bg-surface-armed');
     const text = imageRows(panel).map((r) => r.textContent ?? '');
     expect(text[0]).toContain('7 0 R');
     expect(text[1]).toContain('12 0 R');
@@ -669,7 +671,7 @@ describe('grouping by page', () => {
     const panel = await showImages(user);
     await user.click(button(panel, 'By page'));
     expect(button(panel, 'By page')).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
     expect(mockGetImagePageGroups).toHaveBeenCalledWith('tab-1');
     for (const n of [1, 2, 3]) expect(hasPageRow(panel, n)).toBe(true);
 
@@ -678,18 +680,14 @@ describe('grouping by page', () => {
     expect(mockGetImagePageGroups).toHaveBeenCalledTimes(1);
   });
 
-  test('a page with no images says so and does not expand', async () => {
+  test('a page with no images is not listed', async () => {
     const user = userEvent.setup();
     renderLayout();
     openTab();
     const panel = await showImages(user);
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
-    const empty = pageRow(panel, 4);
-    expect(empty.textContent).toContain('(no images)');
-    const before = imageRows(panel).length;
-    await expand(user, empty);
-    expect(imageRows(panel).length).toBe(before);
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
+    expect(hasPageRow(panel, 4)).toBe(false);
   });
 
   test('an image used by two pages appears under each, with its resource path', async () => {
@@ -714,7 +712,7 @@ describe('grouping by page', () => {
     await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
 
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 1)).toBe(true));
     expect(imageRows(panel).some((r) => (r.textContent ?? '').includes('used on'))).toBe(false);
 
     await user.click(button(panel, 'Flat'));
@@ -733,7 +731,7 @@ describe('grouping by page', () => {
     await waitFor(() => expect(panel.textContent).toContain('groups unreadable'));
     await user.click(button(panel, 'Flat'));
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
     expect(mockGetImagePageGroups).toHaveBeenCalledTimes(2);
   });
 });
@@ -764,7 +762,7 @@ describe('grouping by page with a stopped walk', () => {
     openTab();
     const panel = await showImages(user);
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
     const rows = imageRows(panel);
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain(WALK_STOPPED);
@@ -784,12 +782,11 @@ describe('grouping by page with an incomplete page', () => {
     openTab();
     const panel = await showImages(user);
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
     expect(pageRow(panel, 1).textContent).not.toContain('walk incomplete');
     expect(pageRow(panel, 2).textContent).toContain('(walk incomplete)');
     expect(pageRow(panel, 3).textContent).toContain('(walk incomplete)');
-    expect(pageRow(panel, 3).textContent).not.toContain('(no images)');
-    expect(pageRow(panel, 4).textContent).toContain('(no images)');
+    expect(hasPageRow(panel, 4)).toBe(false);
   });
 });
 
@@ -1099,7 +1096,7 @@ describe('per-tab state', () => {
     let panel = await showImages(user);
     await user.click(button(panel, 'Object number'));
     await user.click(button(panel, 'By page'));
-    await waitFor(() => expect(hasPageRow(panel, 4)).toBe(true));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
 
     openTab('tab-2');
     panel = await showImages(user);
@@ -1111,6 +1108,8 @@ describe('per-tab state', () => {
     await waitFor(() => expect(button(panel, 'By page')).toHaveAttribute('aria-pressed', 'true'));
     await user.click(button(panel, 'Flat'));
     expect(button(panel, 'Object number')).toHaveAttribute('aria-pressed', 'true');
+    expect(button(panel, 'Object number')).toHaveClass('bg-surface-armed');
+    expect(button(panel, 'First use')).not.toHaveClass('bg-surface-armed');
     expect(mockGetImagePageGroups.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(1);
   });
 

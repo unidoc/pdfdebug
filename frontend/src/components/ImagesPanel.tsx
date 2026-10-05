@@ -16,7 +16,6 @@ import {
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
-import { SMALL_BUTTON } from './buttonStyles';
 import type { LeftRailPanelProps } from './leftRailDestinations';
 import { useContainerSize, useRowContextMenu } from './navigatorHooks';
 import { RowContextMenu } from './RowContextMenu';
@@ -125,15 +124,16 @@ function buildFlat(entries: ImageEntry[], sort: Sort, fullPages: Record<number, 
   });
 }
 
-// One row per numbered page; its children are the page's image uses in walk
-// order. A page with no images is a leaf. The index's error rows follow, so a
-// walk that stopped early is not read as pages with no images. Uses match
+// One row per numbered page that uses an image; its children are the page's
+// image uses in walk order. A page with no images is left out unless the walk
+// did not finish it. The index's error rows follow, so a walk that stopped
+// early is not read as pages with no images. Uses match
 // entries by object number alone, as the backend deduplicates them, so a
 // reference with another generation still finds its entry.
 function buildGroups(groups: PageGroup[], entries: ImageEntry[], pageNodeIds: string[] | null): ImageRowData[] {
   const byObjNum = new Map<number, ImageEntry>();
   for (const e of entries) if (e.nodeId !== '') byObjNum.set(e.objNum, e);
-  const rows = groups.map((g) => {
+  const rows = groups.filter((g) => (g.images ?? []).length > 0 || g.incomplete === true).map((g) => {
     const id = `g${g.pageNum}`;
     const uses = g.images ?? [];
     const children = uses.length === 0 ? null : uses.map((u, k): ImageRowData => {
@@ -225,12 +225,6 @@ function ImageRow({ node, style, dragHandle }: NodeRendererProps<ImageRowData>) 
             <span className="ml-1.5 text-warning" title="The image walk stopped before finishing this page; the error rows at the end say why.">
               (walk incomplete)
             </span>
-          </>
-        )}
-        {!row.incomplete && row.children === null && row.id.startsWith('g') && (
-          <>
-            {' '}
-            <span className="ml-1.5 text-text-muted">(no images)</span>
           </>
         )}
       </div>
@@ -537,7 +531,9 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   }
 
   const imageCount = entry ? entry.entries.filter((e) => e.nodeId !== '').length : 0;
-  const toggleClass = (on: boolean) => `${SMALL_BUTTON} px-2 py-0.5 ${on ? 'bg-surface-hover text-text' : ''}`;
+  // A pressed toggle uses the armed style so it reads differently from hover.
+  const toggleClass = (on: boolean) =>
+    `text-xs rounded border cursor-pointer px-2 py-0.5 ${on ? 'bg-surface-armed border-border-focus text-text' : 'border-border text-text-secondary hover:bg-surface-hover'}`;
 
   return (
     <div className="h-full flex flex-col" data-testid="images-panel">
@@ -556,15 +552,17 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         </div>
       )}
       {entry && (
-        <div className="px-3 py-1.5 border-b border-border flex-shrink-0 flex flex-wrap items-center gap-[8px]">
-          <div className="flex gap-[4px]" role="group" aria-label="View">
+        <div className="px-3 py-1.5 border-b border-border flex-shrink-0 flex flex-wrap items-center gap-x-[16px] gap-y-[6px]">
+          <div className="flex items-center gap-[4px]" role="group" aria-label="View">
+            <span className="text-xs text-text-muted mr-[2px]" aria-hidden="true">View</span>
             <button type="button" aria-pressed={view === 'flat'} className={toggleClass(view === 'flat')} onClick={() => setView('flat')}>Flat</button>
             <button type="button" aria-pressed={view === 'byPage'} className={toggleClass(view === 'byPage')} onClick={() => setView('byPage')}>By page</button>
           </div>
           {view === 'flat' && (
-            <div className="flex gap-[4px]" role="group" aria-label="Sort">
-              <button type="button" aria-pressed={entry.sort === 'firstUse'} className={toggleClass(entry.sort === 'firstUse')} onClick={() => setSort('firstUse')}>First use</button>
-              <button type="button" aria-pressed={entry.sort === 'objNum'} className={toggleClass(entry.sort === 'objNum')} onClick={() => setSort('objNum')}>Object number</button>
+            <div className="flex items-center gap-[4px]" role="group" aria-label="Sort">
+              <span className="text-xs text-text-muted mr-[2px]" aria-hidden="true">Sort</span>
+              <button type="button" aria-pressed={entry.sort === 'firstUse'} className={toggleClass(entry.sort === 'firstUse')} title="By the first page that uses each image, then object number" onClick={() => setSort('firstUse')}>First use</button>
+              <button type="button" aria-pressed={entry.sort === 'objNum'} className={toggleClass(entry.sort === 'objNum')} title="By object number" onClick={() => setSort('objNum')}>Object number</button>
             </div>
           )}
         </div>
