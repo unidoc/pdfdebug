@@ -489,6 +489,25 @@ describe('per-tab cache', () => {
     expect(mockGetPageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2);
   });
 
+  test('an index fetch still pending when its tab closes neither blocks nor overwrites the tab reopened under that id', async () => {
+    let resolveFirst: (v: Entry[]) => void = () => {};
+    mockGetPageIndex.mockReset().mockReturnValueOnce(new Promise<Entry[]>((r) => {
+      resolveFirst = r;
+    })).mockResolvedValue(entries);
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    await user.click(tab('Pages'));
+    await waitFor(() => expect(mockGetPageIndex).toHaveBeenCalledTimes(1));
+
+    act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
+    openTab('tab-1');
+    const panel = await showPages(user);
+    expect(mockGetPageIndex).toHaveBeenCalledTimes(2);
+    await act(async () => resolveFirst([page(1, 3)]));
+    expect(rowByText(panel, '2: Page')).toBeDefined();
+  });
+
   test('a tab opened while Structure is active is not fetched until Pages is shown', async () => {
     const user = userEvent.setup();
     renderLayout();

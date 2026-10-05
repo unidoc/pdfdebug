@@ -5,22 +5,22 @@
  * by-page view (GetImagePageGroups). Rows write the shared selection with the
  * image icon hint, so the existing image preview renders a clicked image.
  */
-import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
 import {
   GetImageIndex,
   GetImagePageGroups,
   GetImagePages,
-  GetPageIndex,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
+import { extractErrorMessage } from '../lib/extractErrorMessage';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { useContainerSize, useRowContextMenu } from './navigatorHooks';
+import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { RowContextMenu } from './RowContextMenu';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
-import { RowStateContext } from './treeRows';
+import { findById, RowStateContext } from './treeRows';
 
 /** One row of the backend image index (pdfcore.ImageIndexEntry). */
 interface ImageEntry {
@@ -42,13 +42,24 @@ interface ImageEntry {
   firstPage: number;
   pageCount: number;
   firstPages: number[];
+  /** /Page node id of each firstPages entry; '' for a page without one. */
+  firstPageNodeIds: string[];
   warning: string;
   error: string;
+}
+
+/** One page of GetImagePages (pdfcore.ImagePageRef). */
+interface PageRef {
+  pageNum: number;
+  /** '' when the page has no /Page node id. */
+  nodeId: string;
 }
 
 /** One page of GetImagePageGroups (pdfcore.ImagePageGroup). */
 interface PageGroup {
   pageNum: number;
+  /** '' when the page has no /Page node id. */
+  nodeId: string;
   images: { objNum: number; gen: number; path: string[] }[];
   /** The walk did not finish this page; its images are only those reached. */
   incomplete?: boolean;
@@ -70,15 +81,17 @@ interface ImageRowData {
   children: ImageRowData[] | null;
   /** A by-page row whose page the walk did not finish. */
   incomplete?: boolean;
+  /** Text of an error row that has no entry. */
+  message?: string;
 }
 
 /** Per-tab Images state: the fetched indexes, the view settings and each view's rows and expansion. */
 interface ImagesCache {
   entries: ImageEntry[];
-  /** /Page node id per page number (index pageNum - 1); null when the page index could not be loaded. */
-  pageNodeIds: string[] | null;
   /** Full page lists fetched for entries whose firstPages are capped, by entry index. */
-  fullPages: Record<number, number[]>;
+  fullPages: Record<number, PageRef[]>;
+  /** Failures of those fetches, by entry index. */
+  pagesErrors: Record<number, string>;
   groups: PageGroup[] | null;
   groupsError: string | null;
   groupsLoading: boolean;
@@ -96,15 +109,16 @@ function refText(objNum: number, gen: number) {
   return `${objNum} ${gen} R`;
 }
 
-function pageRow(id: string, pageNum: number, pageNodeIds: string[] | null, children: ImageRowData[] | null): ImageRowData {
-  return { id, kind: 'page', nodeId: pageNodeIds?.[pageNum - 1] ?? '', entry: null, pageNum, path: null, children };
+function pageRow(id: string, pageNum: number, nodeId: string, children: ImageRowData[] | null): ImageRowData {
+  return { id, kind: 'page', nodeId, entry: null, pageNum, path: null, children };
 }
 
 // Flat rows in the chosen order; error rows (no node id) stay last in walk
 // order. Row ids are the entry's walk index, so expansion survives a re-sort.
 // An uncapped entry carries its page children; a capped one starts empty and
-// is filled from GetImagePages on first expansion.
-function buildFlat(entries: ImageEntry[], sort: Sort, fullPages: Record<number, number[]>, pageNodeIds: string[] | null): ImageRowData[] {
+// is filled from GetImagePages on expansion, or holds one error row when that
+// fetch failed.
+function buildFlat(entries: ImageEntry[], sort: Sort, fullPages: Record<number, PageRef[]>, pagesErrors: Record<number, string>): ImageRowData[] {
   const indexed = entries.map((entry, i) => ({ entry, i }));
   const images = indexed.filter((x) => x.entry.nodeId !== '');
   const errors = indexed.filter((x) => x.entry.nodeId === '');
@@ -115,22 +129,26 @@ function buildFlat(entries: ImageEntry[], sort: Sort, fullPages: Record<number, 
       return { id, kind: 'error', nodeId: '', entry, pageNum: 0, path: null, children: null };
     }
     let children: ImageRowData[] | null = null;
-    if (entry.pageCount > 0) {
+    if (pagesErrors[i] !== undefined) {
+      children = [{ id: `${id}/err`, kind: 'error', nodeId: '', entry: null, pageNum: 0, path: null, children: null, message: `Could not load the pages: ${pagesErrors[i]}` }];
+    } else if (entry.pageCount > 0) {
       const first = entry.firstPages ?? [];
-      const pages = fullPages[i] ?? (entry.pageCount > first.length ? [] : first);
-      children = pages.map((n) => pageRow(`${id}/p${n}`, n, pageNodeIds, null));
+      const ids = entry.firstPageNodeIds ?? [];
+      const pages = fullPages[i] ?? (entry.pageCount > first.length ? [] : first.map((n, k) => ({ pageNum: n, nodeId: ids[k] ?? '' })));
+      children = pages.map((p) => pageRow(`${id}/p${p.pageNum}`, p.pageNum, p.nodeId, null));
     }
     return { id, kind: 'image', nodeId: entry.nodeId, entry, pageNum: 0, path: null, children };
   });
 }
 
 // One row per numbered page that uses an image; its children are the page's
-// image uses in walk order. A page with no images is left out unless the walk
-// did not finish it. The index's error rows follow, so a walk that stopped
-// early is not read as pages with no images. Uses match
-// entries by object number alone, as the backend deduplicates them, so a
-// reference with another generation still finds its entry.
-function buildGroups(groups: PageGroup[], entries: ImageEntry[], pageNodeIds: string[] | null): ImageRowData[] {
+// image uses in walk order. The backend already leaves out pages with no
+// images that it walked to the end, and pages after the one the walk stopped
+// at; the filter here is a guard. The index's error rows follow, so a walk
+// that stopped early is not read as pages with no images. Uses match entries
+// by object number alone, as the backend deduplicates them, so a reference
+// with another generation still finds its entry.
+function buildGroups(groups: PageGroup[], entries: ImageEntry[]): ImageRowData[] {
   const byObjNum = new Map<number, ImageEntry>();
   for (const e of entries) if (e.nodeId !== '') byObjNum.set(e.objNum, e);
   const rows = groups.filter((g) => (g.images ?? []).length > 0 || g.incomplete === true).map((g) => {
@@ -148,7 +166,7 @@ function buildGroups(groups: PageGroup[], entries: ImageEntry[], pageNodeIds: st
         children: null,
       };
     });
-    return { ...pageRow(id, g.pageNum, pageNodeIds, children), incomplete: g.incomplete === true };
+    return { ...pageRow(id, g.pageNum, g.nodeId ?? '', children), incomplete: g.incomplete === true };
   });
   const errorRows = entries.flatMap((entry, i): ImageRowData[] =>
     entry.nodeId === '' ? [{ id: `e${i}`, kind: 'error', nodeId: '', entry, pageNum: 0, path: null, children: null }] : []);
@@ -166,21 +184,6 @@ function findVisibleRow(data: ImageRowData[], open: Record<string, boolean>, mat
     }
   }
   return null;
-}
-
-function findRow(data: ImageRowData[], match: (row: ImageRowData) => boolean): ImageRowData | null {
-  for (const r of data) {
-    if (match(r)) return r;
-    if (r.children) {
-      const found = findRow(r.children, match);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function errorText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function badges(e: ImageEntry): string[] {
@@ -233,7 +236,7 @@ function ImageRow({ node, style, dragHandle }: NodeRendererProps<ImageRowData>) 
 
   const e = row.entry;
   if (row.kind === 'error' || e === null) {
-    const msg = clamp(e?.error ?? '');
+    const msg = clamp(row.message ?? e?.error ?? '');
     return (
       <div style={style} ref={dragHandle} data-testid="image-row" data-row-id={row.id} className={rowClasses} title={msg}>
         {chevron}
@@ -280,10 +283,9 @@ function ImageRow({ node, style, dragHandle }: NodeRendererProps<ImageRowData>) 
 }
 
 /**
- * Left-rail Images destination. Fetches the image index and the page index
- * for a tab the first time the panel is active for it, and keeps them, the
- * view, the sort and each view's expansion in a per-tab cache evicted when
- * the tab closes.
+ * Left-rail Images destination. Fetches the image index for a tab the first
+ * time the panel is active for it, and keeps it, the view, the sort and each
+ * view's expansion in a per-tab cache evicted when the tab closes.
  */
 export function ImagesPanel({ active }: LeftRailPanelProps) {
   const { tabs, activeTabId } = useAppState();
@@ -292,14 +294,27 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeIdRef = useLatest(selectedNodeId);
 
-  const cache = useRef<Record<string, ImagesCache>>({});
-  const errors = useRef<Record<string, string>>({});
-  const inflight = useRef<Set<string>>(new Set());
-  // Bumped whenever the cache changes, so the render reads the new entry.
-  const [, bump] = useReducer((n: number) => n + 1, 0);
-
-  const entry = activeTabId ? cache.current[activeTabId] : undefined;
-  const fetchError = activeTabId ? errors.current[activeTabId] : undefined;
+  const { cache, entry, fetchError, bump, tabIdKey } = useTabCache<ImagesCache>(
+    active,
+    activeTabId,
+    tabs.map((t) => t.tabId),
+    async (tabId) => {
+      const entries: ImageEntry[] = ((await GetImageIndex(tabId)) ?? []).filter((e) => e !== null);
+      return {
+        entries,
+        fullPages: {},
+        pagesErrors: {},
+        groups: null,
+        groupsError: null,
+        groupsLoading: false,
+        view: 'flat',
+        sort: 'firstUse',
+        flatData: buildFlat(entries, 'firstUse', {}, {}),
+        groupData: null,
+        openState: { flat: {}, byPage: {} },
+      };
+    },
+  );
   const view: View = entry?.view ?? 'flat';
   const data = entry ? (view === 'flat' ? entry.flatData : entry.groupData) : null;
   const dataRef = useLatest(data);
@@ -308,53 +323,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dimensions = useContainerSize(containerRef, activeTab !== undefined);
 
-  const liveTabIdsRef = useLatest(tabs.map((t) => t.tabId));
-
-  // First activation for a tab fetches both indexes; later activations reuse
-  // them. Only an image index failure fails the panel, and it is retried the
-  // next time the panel is shown for the tab.
-  useEffect(() => {
-    if (!active || !activeTabId) return;
-    const tabId = activeTabId;
-    if (cache.current[tabId] || inflight.current.has(tabId)) return;
-    inflight.current.add(tabId);
-    if (errors.current[tabId] !== undefined) {
-      delete errors.current[tabId];
-      bump();
-    }
-    Promise.allSettled([GetImageIndex(tabId), GetPageIndex(tabId)])
-      .then(([images, pages]) => {
-        if (!liveTabIdsRef.current.includes(tabId)) return;
-        if (images.status === 'rejected') {
-          errors.current[tabId] = errorText(images.reason);
-          return;
-        }
-        const entries: ImageEntry[] = (images.value ?? []).filter((e) => e !== null);
-        let pageNodeIds: string[] | null = null;
-        if (pages.status === 'fulfilled') {
-          pageNodeIds = [];
-          for (const p of pages.value ?? []) if (p && p.pageNum > 0) pageNodeIds[p.pageNum - 1] = p.nodeId;
-        }
-        cache.current[tabId] = {
-          entries,
-          pageNodeIds,
-          fullPages: {},
-          groups: null,
-          groupsError: null,
-          groupsLoading: false,
-          view: 'flat',
-          sort: 'firstUse',
-          flatData: buildFlat(entries, 'firstUse', {}, pageNodeIds),
-          groupData: null,
-          openState: { flat: {}, byPage: {} },
-        };
-      })
-      .finally(() => {
-        inflight.current.delete(tabId);
-        bump();
-      });
-  }, [active, activeTabId, liveTabIdsRef]);
-
   // Page lists past the first-pages cap: the latest request number per
   // `${tabId}\n${rowId}`, so a late answer lands on the tab that asked and only
   // the latest request applies. Numbers come from one counter, so they never
@@ -362,13 +330,9 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
   const generations = useRef(new Map<string, number>());
   const lastGeneration = useRef(0);
 
-  // Evict closed tabs. Keyed on the tab id list so it runs only when it changes.
-  const tabIdKey = tabs.map((t) => t.tabId).join(',');
+  // Drop the page-list requests of closed tabs.
   useEffect(() => {
     const live = new Set(tabIdKey.split(','));
-    for (const id of Object.keys(cache.current)) if (!live.has(id)) delete cache.current[id];
-    for (const id of Object.keys(errors.current)) if (!live.has(id)) delete errors.current[id];
-    for (const id of inflight.current) if (!live.has(id)) inflight.current.delete(id);
     for (const key of generations.current.keys()) {
       if (!live.has(key.slice(0, key.indexOf('\n')))) generations.current.delete(key);
     }
@@ -392,15 +356,21 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     setLoadingRow(null);
     spinnerTimer.current = setTimeout(() => setLoadingRow({ tabId, rowId }), 200);
     try {
-      const pages = await GetImagePages(tabId, objNum);
+      const pages: PageRef[] = ((await GetImagePages(tabId, objNum)) ?? []).filter((p) => p !== null);
       if (generations.current.get(key) !== generation) return;
       const target = cache.current[tabId];
       if (!target) return;
-      target.fullPages = { ...target.fullPages, [index]: pages ?? [] };
-      target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pageNodeIds);
+      target.fullPages = { ...target.fullPages, [index]: pages };
+      target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
       bump();
-    } catch {
-      // Children stay empty, so the row stays expandable and a retry refetches.
+    } catch (err: unknown) {
+      // The row shows the failure as its child; expanding it again refetches.
+      if (generations.current.get(key) !== generation) return;
+      const target = cache.current[tabId];
+      if (!target) return;
+      target.pagesErrors = { ...target.pagesErrors, [index]: extractErrorMessage(err) };
+      target.flatData = buildFlat(target.entries, target.sort, target.fullPages, target.pagesErrors);
+      bump();
     } finally {
       if (spinnerOwner.current === owner) {
         if (spinnerTimer.current) clearTimeout(spinnerTimer.current);
@@ -409,7 +379,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         setLoadingRow(null);
       }
     }
-  }, []);
+  }, [cache, bump]);
 
   const handleToggle = useCallback((id: string) => {
     if (!activeTabId) return;
@@ -420,12 +390,20 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     // Re-render so the selection lookup sees the rows this toggle revealed or hid.
     bump();
     if (current.view !== 'flat' || !api.isOpen(id)) return;
-    const row = findRow(current.flatData, (r) => r.id === id);
+    const row = findById(current.flatData, id);
     const e = row?.entry;
-    if (!row || !e || row.kind !== 'image' || !row.children || row.children.length > 0) return;
+    if (!row || !e || row.kind !== 'image' || !row.children) return;
     const index = Number(id.slice(1));
+    // Expanding a row whose fetch failed clears the failure and fetches again.
+    if (current.pagesErrors[index] !== undefined) {
+      const { [index]: _failed, ...rest } = current.pagesErrors;
+      current.pagesErrors = rest;
+      current.flatData = buildFlat(current.entries, current.sort, current.fullPages, rest);
+    } else if (row.children.length > 0) {
+      return;
+    }
     void loadPages(activeTabId, id, index, e.objNum);
-  }, [activeTabId, loadPages]);
+  }, [activeTabId, loadPages, cache, bump]);
 
   // The row last selected here, so an image listed under two pages keeps the
   // highlight on the listing the user picked rather than the first one. Only a
@@ -483,11 +461,11 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         const target = cache.current[tabId];
         if (!target) return;
         target.groups = (groups ?? []).filter((g) => g !== null);
-        target.groupData = buildGroups(target.groups, target.entries, target.pageNodeIds);
+        target.groupData = buildGroups(target.groups, target.entries);
       })
       .catch((err: unknown) => {
         const target = cache.current[tabId];
-        if (target) target.groupsError = errorText(err);
+        if (target) target.groupsError = extractErrorMessage(err);
       })
       .finally(() => {
         const target = cache.current[tabId];
@@ -500,7 +478,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     const current = activeTabId ? cache.current[activeTabId] : undefined;
     if (!current || current.sort === next) return;
     current.sort = next;
-    current.flatData = buildFlat(current.entries, next, current.fullPages, current.pageNodeIds);
+    current.flatData = buildFlat(current.entries, next, current.fullPages, current.pagesErrors);
     bump();
   }
 
@@ -509,7 +487,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     '[data-row-id]',
     'data-row-id',
     (rowId) => {
-      const row = dataRef.current ? findRow(dataRef.current, (r) => r.id === rowId) : null;
+      const row = dataRef.current ? findById(dataRef.current, rowId) : null;
       // Error rows and pages without a node id have nothing to reveal.
       return row && row.nodeId !== '' ? row.nodeId : null;
     },
@@ -546,11 +524,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
           </>
         )}
       </div>
-      {entry && entry.pageNodeIds === null && (
-        <div className="px-3 py-1 text-xs text-warning border-b border-border flex-shrink-0">
-          Page rows cannot be selected: the page index could not be loaded.
-        </div>
-      )}
       {entry && (
         <div className="px-3 py-1.5 border-b border-border flex-shrink-0 flex flex-wrap items-center gap-x-[16px] gap-y-[6px]">
           <div className="flex items-center gap-[4px]" role="group" aria-label="View">

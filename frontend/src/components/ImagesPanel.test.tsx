@@ -18,7 +18,6 @@ const RAIL_KEY = 'unidoc-pdf-debugger:left-rail';
 
 const EMPTY_COPY =
   "No image XObjects are referenced from this document's page resources. Inline images (BI/ID/EI) are not listed.";
-const PAGE_INDEX_NOTE = 'Page rows cannot be selected: the page index could not be loaded.';
 
 vi.mock('allotment', () => {
   function Pane({ children }: { children: ReactNode }) {
@@ -107,9 +106,12 @@ interface ImageEntry {
   firstPage: number;
   pageCount: number;
   firstPages: number[];
+  firstPageNodeIds: string[];
   warning: string;
   error: string;
 }
+
+const pageNodeId = (n: number) => `obj:0:${100 + n}`;
 
 function img(objNum: number, over: Partial<ImageEntry> = {}): ImageEntry {
   return {
@@ -135,16 +137,18 @@ function img(objNum: number, over: Partial<ImageEntry> = {}): ImageEntry {
     warning: '',
     error: '',
     ...over,
+    firstPageNodeIds: over.firstPageNodeIds ?? (over.firstPages ?? [1]).map(pageNodeId),
   };
 }
 
-const WALK_STOPPED = 'image walk stopped after 1000000 resource entries at page 412; later pages were not walked';
+const WALK_STOPPED = 'image walk stopped after 1000000 resource entries at page 412; pages 413 to 100000 were not walked';
 
 function errorRowEntry(error = WALK_STOPPED): ImageEntry {
   return img(0, { nodeId: '', width: 0, height: 0, bitsPerComponent: 0, colorSpace: '', firstPage: 0, pageCount: 0, firstPages: [], error, sampleInterpretation: '', adobeMarker: '' });
 }
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+const pageRefs = (from: number, to: number) => range(from, to).map((n) => ({ pageNum: n, nodeId: pageNodeId(n) }));
 
 // A logo on 20 pages (capped first pages), a two-page inverted gray image, a
 // facts read that panicked on an image, a stencil mask with a warning, and an
@@ -220,10 +224,10 @@ function pageEntry(pageNum: number): PageEntry {
 const pages: PageEntry[] = range(1, 20).map(pageEntry);
 
 const groups = [
-  { pageNum: 1, images: [{ objNum: 12, gen: 0, path: ['Im1'] }] },
-  { pageNum: 2, images: [{ objNum: 12, gen: 0, path: ['Im1'] }, { objNum: 19, gen: 0, path: ['Fm1', 'Im0'] }] },
-  { pageNum: 3, images: [{ objNum: 7, gen: 0, path: ['Im7'] }, { objNum: 23, gen: 0, path: ['Mask'] }] },
-  { pageNum: 4, images: [] },
+  { pageNum: 1, nodeId: pageNodeId(1), images: [{ objNum: 12, gen: 0, path: ['Im1'] }] },
+  { pageNum: 2, nodeId: pageNodeId(2), images: [{ objNum: 12, gen: 0, path: ['Im1'] }, { objNum: 19, gen: 0, path: ['Fm1', 'Im0'] }] },
+  { pageNum: 3, nodeId: pageNodeId(3), images: [{ objNum: 7, gen: 0, path: ['Im7'] }, { objNum: 23, gen: 0, path: ['Mask'] }] },
+  { pageNum: 4, nodeId: pageNodeId(4), images: [] },
 ];
 
 const catalogNode = {
@@ -377,7 +381,7 @@ beforeEach(() => {
   window.localStorage.removeItem(RAIL_KEY);
   mockGetImageIndex.mockReset().mockResolvedValue(entries);
   mockGetImagePages.mockReset().mockImplementation((_tab: string, objNum: number) =>
-    Promise.resolve(objNum === 12 ? range(1, 20) : []),
+    Promise.resolve(objNum === 12 ? pageRefs(1, 20) : []),
   );
   mockGetImagePageGroups.mockReset().mockResolvedValue(groups);
   mockGetPageIndex.mockReset().mockResolvedValue(pages);
@@ -424,14 +428,14 @@ describe('no document', () => {
 });
 
 describe('flat rows', () => {
-  test('first activation fetches the image index and the page index for the tab', async () => {
+  test('first activation fetches the image index for the tab, and not the page index', async () => {
     const user = userEvent.setup();
     renderLayout();
     openTab();
     expect(mockGetImageIndex).not.toHaveBeenCalled();
     await showImages(user);
     expect(mockGetImageIndex).toHaveBeenCalledWith('tab-1');
-    expect(mockGetPageIndex).toHaveBeenCalledWith('tab-1');
+    expect(mockGetPageIndex).not.toHaveBeenCalled();
     expect(mockGetImagePageGroups).not.toHaveBeenCalled();
   });
 
@@ -630,10 +634,10 @@ describe('flat expansion', () => {
   });
 
   test('a slow page fetch that resolves after a tab switch lands on its own tab only', async () => {
-    let resolvePages: (v: number[]) => void = () => {};
+    let resolvePages: (v: { pageNum: number; nodeId: string }[]) => void = () => {};
     mockGetImagePages.mockReset().mockImplementation(
       () =>
-        new Promise<number[]>((r) => {
+        new Promise<{ pageNum: number; nodeId: string }[]>((r) => {
           resolvePages = r;
         }),
     );
@@ -646,7 +650,7 @@ describe('flat expansion', () => {
 
     openTab('tab-2');
     const second = await showImages(user);
-    await act(async () => resolvePages(range(1, 20)));
+    await act(async () => resolvePages(pageRefs(1, 20)));
     expect(hasPageRow(second, 17)).toBe(false);
 
     act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } }));
@@ -790,26 +794,9 @@ describe('grouping by page with an incomplete page', () => {
   });
 });
 
-describe('page index unavailable', () => {
-  test('image rows still render and select; page rows do not, and the header says why', async () => {
-    mockGetPageIndex.mockReset().mockRejectedValue(new Error('the page tree could not be read past page 3'));
-    const user = userEvent.setup();
-    renderLayout();
-    openTab();
-    const panel = await showImages(user);
-    expect(panel.textContent).toContain(PAGE_INDEX_NOTE);
-    await user.click(imageRow(panel, '19 0 R'));
-    expect(activeTab().selectedNodeId).toBe('obj:0:19');
-    await user.keyboard('{ArrowRight}');
-    await waitFor(() => expect(hasPageRow(panel, 2)).toBe(true));
-    await user.click(pageRow(panel, 2));
-    expect(activeTab().selectedNodeId).toBe('obj:0:19');
-    fireEvent.contextMenu(pageRow(panel, 2));
-    expect(screen.queryByRole('menu')).toBeNull();
-  });
-
-  test('a page whose index entry has no node id is not selectable', async () => {
-    mockGetPageIndex.mockReset().mockResolvedValue(pages.map((p) => (p.pageNum === 2 ? { ...p, nodeId: '' } : p)));
+describe('pages without a node id', () => {
+  test('a flat page child without a node id neither selects nor opens a menu', async () => {
+    mockGetImageIndex.mockReset().mockResolvedValue([logo, { ...inverted, firstPageNodeIds: ['', pageNodeId(3)] }, errorRowEntry()]);
     const user = userEvent.setup();
     renderLayout();
     openTab();
@@ -818,8 +805,47 @@ describe('page index unavailable', () => {
     await waitFor(() => expect(hasPageRow(panel, 2)).toBe(true));
     await user.click(pageRow(panel, 2));
     expect(activeTab().selectedNodeId).toBe('obj:0:19');
+    fireEvent.contextMenu(pageRow(panel, 2));
+    expect(screen.queryByRole('menu')).toBeNull();
     await user.click(pageRow(panel, 3));
     expect(activeTab().selectedNodeId).toBe('obj:0:103');
+  });
+
+  test('a fetched page without a node id is not selectable', async () => {
+    mockGetImagePages.mockReset().mockResolvedValue(pageRefs(1, 20).map((p) => (p.pageNum === 17 ? { ...p, nodeId: '' } : p)));
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    const panel = await showImages(user);
+    await expand(user, imageRow(panel, '12 0 R'));
+    await waitFor(() => expect(hasPageRow(panel, 17)).toBe(true));
+    await user.click(pageRow(panel, 17));
+    expect(activeTab().selectedNodeId).toBe('obj:0:12');
+    await user.click(pageRow(panel, 18));
+    expect(activeTab().selectedNodeId).toBe('obj:0:118');
+  });
+
+  test('a by-page row without a node id is not selectable', async () => {
+    mockGetImagePageGroups.mockReset().mockResolvedValue([{ ...groups[0], nodeId: '' }, groups[1]]);
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    const panel = await showImages(user);
+    await user.click(button(panel, 'By page'));
+    await waitFor(() => expect(hasPageRow(panel, 2)).toBe(true));
+    await user.click(pageRow(panel, 1));
+    expect(activeTab().selectedNodeId).toBeNull();
+    await user.click(pageRow(panel, 2));
+    expect(activeTab().selectedNodeId).toBe('obj:0:102');
+  });
+
+  test('the page index is never fetched, and no header note depends on it', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    const panel = await showImages(user);
+    expect(panel.textContent).not.toContain('Page rows cannot be selected');
+    expect(mockGetPageIndex).not.toHaveBeenCalled();
   });
 });
 
@@ -1146,11 +1172,30 @@ describe('closed-tab eviction of pending requests', () => {
     expect(mockGetImageIndex).toHaveBeenCalledTimes(2);
   });
 
+  test('an index fetch that answers after its tab closed does not replace the index of the tab reopened under that id', async () => {
+    let resolveFirst: (v: ImageEntry[]) => void = () => {};
+    mockGetImageIndex.mockReset().mockReturnValueOnce(new Promise<ImageEntry[]>((r) => {
+      resolveFirst = r;
+    })).mockResolvedValue(entries);
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    await user.click(tab('Images'));
+    await waitFor(() => expect(mockGetImageIndex).toHaveBeenCalledTimes(1));
+
+    act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
+    openTab('tab-1');
+    const panel = await showImages(user);
+    await act(async () => resolveFirst([]));
+    expect(panel.textContent).not.toContain(EMPTY_COPY);
+    expect(imageRow(panel, '19 0 R')).toBeDefined();
+  });
+
   test('a page fetch from a closed tab does not land on the tab reopened under that id', async () => {
-    const pending: ((v: number[]) => void)[] = [];
+    const pending: ((v: { pageNum: number; nodeId: string }[]) => void)[] = [];
     mockGetImagePages.mockReset().mockImplementation(
       () =>
-        new Promise<number[]>((r) => {
+        new Promise<{ pageNum: number; nodeId: string }[]>((r) => {
           pending.push(r);
         }),
     );
@@ -1167,9 +1212,9 @@ describe('closed-tab eviction of pending requests', () => {
     await expand(user, imageRow(panel, '12 0 R'));
     await waitFor(() => expect(pending).toHaveLength(2));
 
-    await act(async () => pending[1](range(1, 20)));
+    await act(async () => pending[1](pageRefs(1, 20)));
     await waitFor(() => expect(hasPageRow(panel, 17)).toBe(true));
-    await act(async () => pending[0]([1]));
+    await act(async () => pending[0](pageRefs(1, 1)));
     expect(hasPageRow(panel, 17)).toBe(true);
   });
 });
@@ -1189,27 +1234,51 @@ describe('virtualization', () => {
 });
 
 describe('page list fetch failures and progress', () => {
-  test('a failed full page fetch leaves the row empty and expandable, and re-expanding refetches', async () => {
-    mockGetImagePages.mockReset().mockRejectedValueOnce(new Error('walk gone')).mockResolvedValue(range(1, 20));
+  test('a failed full page fetch shows the failure under the row, and re-expanding refetches', async () => {
+    mockGetImagePages.mockReset().mockRejectedValueOnce(new Error('walk gone')).mockResolvedValue(pageRefs(1, 20));
     const user = userEvent.setup();
     renderLayout();
     openTab();
     const panel = await showImages(user);
     await expand(user, imageRow(panel, '12 0 R'));
     await waitFor(() => expect(mockGetImagePages).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(imageRow(panel, 'Could not load the pages: walk gone')).toBeDefined());
     expect(pageRows(panel)).toHaveLength(0);
 
+    await user.click(imageRow(panel, '12 0 R'));
     await user.keyboard('{ArrowLeft}');
     await user.keyboard('{ArrowRight}');
     await waitFor(() => expect(mockGetImagePages).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(hasPageRow(panel, 20)).toBe(true));
+    expect(imageRows(panel).some((r) => (r.textContent ?? '').includes('walk gone'))).toBe(false);
+  });
+
+  test('a failed full page fetch still shows its failure after the tree remounts, and refetches on the next expansion', async () => {
+    mockGetImagePages.mockReset().mockRejectedValueOnce(new Error('walk gone')).mockResolvedValue(pageRefs(1, 20));
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    const panel = await showImages(user);
+    await expand(user, imageRow(panel, '12 0 R'));
+    await waitFor(() => expect(imageRow(panel, 'walk gone')).toBeDefined());
+
+    await user.click(button(panel, 'By page'));
+    await waitFor(() => expect(hasPageRow(panel, 1)).toBe(true));
+    await user.click(button(panel, 'Flat'));
+    await waitFor(() => expect(imageRow(panel, 'walk gone')).toBeDefined());
+
+    await user.click(imageRow(panel, '12 0 R'));
+    await user.keyboard('{ArrowLeft}');
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(hasPageRow(panel, 20)).toBe(true));
+    expect(mockGetImagePages).toHaveBeenCalledTimes(2);
   });
 
   test('a slow full page fetch pulses the row chevron until it answers', async () => {
-    let resolvePages: (v: number[]) => void = () => {};
+    let resolvePages: (v: { pageNum: number; nodeId: string }[]) => void = () => {};
     mockGetImagePages.mockReset().mockImplementation(
       () =>
-        new Promise<number[]>((r) => {
+        new Promise<{ pageNum: number; nodeId: string }[]>((r) => {
           resolvePages = r;
         }),
     );
@@ -1221,7 +1290,7 @@ describe('page list fetch failures and progress', () => {
     const pulsing = () => imageRow(panel, '12 0 R').querySelector('.animate-pulse');
     expect(pulsing()).toBeNull();
     await waitFor(() => expect(pulsing()).not.toBeNull());
-    await act(async () => resolvePages(range(1, 20)));
+    await act(async () => resolvePages(pageRefs(1, 20)));
     expect(pulsing()).toBeNull();
     expect(hasPageRow(panel, 20)).toBe(true);
   });

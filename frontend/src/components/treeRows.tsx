@@ -123,7 +123,7 @@ export function deriveOpenState(data: TreeNodeData[]): Record<string, boolean> {
 }
 
 /** Depth-first search for the first node matching `match`. */
-export function findNode(data: TreeNodeData[], match: (node: TreeNodeData) => boolean): TreeNodeData | null {
+export function findNode<T extends { children: T[] | null }>(data: T[], match: (node: T) => boolean): T | null {
   for (const n of data) {
     if (match(n)) return n;
     if (n.children) {
@@ -132,6 +132,11 @@ export function findNode(data: TreeNodeData[], match: (node: TreeNodeData) => bo
     }
   }
   return null;
+}
+
+/** Depth-first search for the row whose arborist display id is `id`. */
+export function findById<T extends { id: string; children: T[] | null }>(data: T[], id: string): T | null {
+  return findNode(data, (n) => n.id === id);
 }
 
 /** Map a backend node id to its react-arborist display id by walking the tree. */

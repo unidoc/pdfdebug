@@ -5,20 +5,20 @@
  * selection, so the object-source pane and the detail panel follow a page
  * click exactly as they follow a tree click.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
 import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { useContainerSize, useRowContextMenu } from './navigatorHooks';
+import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { RowContextMenu } from './RowContextMenu';
 import {
   NodeRenderer,
   RowStateContext,
   deriveOpenState,
+  findById,
   findDisplayId,
-  findNode,
   updateNodeChildren,
   useLazyChildren,
   type TreeNodeData,
@@ -76,10 +76,6 @@ function buildRows(entries: PageIndexEntry[]): TreeNodeData[] {
   });
 }
 
-function findById(data: TreeNodeData[], id: string): TreeNodeData | null {
-  return findNode(data, (n) => n.id === id);
-}
-
 /**
  * Left-rail Pages destination. Fetches the page index for a tab the first
  * time the panel is active for it and keeps it, with the rows' expansion,
@@ -92,14 +88,15 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeIdRef = useLatest(selectedNodeId);
 
-  const cache = useRef<Record<string, PagesCache>>({});
-  const errors = useRef<Record<string, string>>({});
-  const inflight = useRef<Set<string>>(new Set());
-  // Bumped whenever the cache changes, so the render reads the new entry.
-  const [, bump] = useReducer((n: number) => n + 1, 0);
-
-  const entry = activeTabId ? cache.current[activeTabId] : undefined;
-  const fetchError = activeTabId ? errors.current[activeTabId] : undefined;
+  const { cache, entry, fetchError, bump } = useTabCache<PagesCache>(
+    active,
+    activeTabId,
+    tabs.map((t) => t.tabId),
+    async (tabId) => {
+      const entries = ((await GetPageIndex(tabId)) ?? []).filter((e): e is PageIndexEntry => e !== null);
+      return { entries, data: buildRows(entries), openState: {} };
+    },
+  );
   const data = entry?.data;
   const dataRef = useLatest(data);
 
@@ -114,43 +111,6 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const seenFocusVersion = useRef(pagesJumpFocusVersion);
 
   const dimensions = useContainerSize(containerRef, activeTab !== undefined);
-
-  const liveTabIdsRef = useLatest(tabs.map((t) => t.tabId));
-
-  // First activation for a tab fetches its index; later activations reuse it.
-  // A failed fetch is retried the next time the panel is shown for the tab.
-  useEffect(() => {
-    if (!active || !activeTabId) return;
-    const tabId = activeTabId;
-    if (cache.current[tabId] || inflight.current.has(tabId)) return;
-    inflight.current.add(tabId);
-    if (errors.current[tabId] !== undefined) {
-      delete errors.current[tabId];
-      bump();
-    }
-    GetPageIndex(tabId)
-      .then((result) => {
-        if (!liveTabIdsRef.current.includes(tabId)) return;
-        const entries = (result ?? []).filter((e): e is PageIndexEntry => e !== null);
-        cache.current[tabId] = { entries, data: buildRows(entries), openState: {} };
-      })
-      .catch((err: unknown) => {
-        if (!liveTabIdsRef.current.includes(tabId)) return;
-        errors.current[tabId] = err instanceof Error ? err.message : String(err);
-      })
-      .finally(() => {
-        inflight.current.delete(tabId);
-        bump();
-      });
-  }, [active, activeTabId, liveTabIdsRef]);
-
-  // Evict closed tabs. Keyed on the tab id list so it runs only when it changes.
-  const tabIdKey = tabs.map((t) => t.tabId).join(',');
-  useEffect(() => {
-    const live = new Set(tabIdKey.split(','));
-    for (const id of Object.keys(cache.current)) if (!live.has(id)) delete cache.current[id];
-    for (const id of Object.keys(errors.current)) if (!live.has(id)) delete errors.current[id];
-  }, [tabIdKey]);
 
   useEffect(() => () => {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);

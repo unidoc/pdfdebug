@@ -1,11 +1,70 @@
 /**
- * @file Hooks shared by the left-rail navigator panels: the pane size their
- * Tree is drawn at, and the triggers that open the row context menu.
+ * @file Hooks shared by the left-rail navigator panels: the per-tab fetch
+ * cache, the pane size their Tree is drawn at, and the triggers that open the
+ * row context menu.
  */
-import { useCallback, useEffect, useState, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
 import type { TreeApi } from 'react-arborist';
 import { useLatest } from '../hooks/useLatest';
+import { extractErrorMessage } from '../lib/extractErrorMessage';
 import type { RowMenuTarget } from './RowContextMenu';
+
+/**
+ * Per-tab fetch cache for a navigator panel. The first time the panel is
+ * active for a tab, `load` builds that tab's entry; later activations reuse
+ * it. A failed load keeps its message and is retried the next time the panel
+ * is shown for the tab. Entries, errors and pending loads of closed tabs are
+ * dropped, and a load still pending when its tab closes is discarded. A
+ * caller that changes an entry in `cache` calls `bump` to re-render.
+ */
+export function useTabCache<T>(active: boolean, activeTabId: string | null, tabIds: string[], load: (tabId: string) => Promise<T>) {
+  const cache = useRef<Record<string, T>>({});
+  const errors = useRef<Record<string, string>>({});
+  // The pending load per tab, so a result lands only if its load is still current.
+  const inflight = useRef(new Map<string, object>());
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  const loadRef = useLatest(load);
+
+  useEffect(() => {
+    if (!active || !activeTabId) return;
+    const tabId = activeTabId;
+    if (cache.current[tabId] || inflight.current.has(tabId)) return;
+    const token = {};
+    inflight.current.set(tabId, token);
+    if (errors.current[tabId] !== undefined) {
+      delete errors.current[tabId];
+      bump();
+    }
+    loadRef.current(tabId)
+      .then((value) => {
+        if (inflight.current.get(tabId) === token) cache.current[tabId] = value;
+      })
+      .catch((err: unknown) => {
+        if (inflight.current.get(tabId) === token) errors.current[tabId] = extractErrorMessage(err);
+      })
+      .finally(() => {
+        if (inflight.current.get(tabId) === token) inflight.current.delete(tabId);
+        bump();
+      });
+  }, [active, activeTabId, loadRef]);
+
+  // Keyed on the tab id list so eviction runs only when it changes.
+  const tabIdKey = tabIds.join(',');
+  useEffect(() => {
+    const live = new Set(tabIdKey.split(','));
+    for (const id of Object.keys(cache.current)) if (!live.has(id)) delete cache.current[id];
+    for (const id of Object.keys(errors.current)) if (!live.has(id)) delete errors.current[id];
+    for (const id of inflight.current.keys()) if (!live.has(id)) inflight.current.delete(id);
+  }, [tabIdKey]);
+
+  return {
+    cache,
+    entry: activeTabId ? cache.current[activeTabId] : undefined,
+    fetchError: activeTabId ? errors.current[activeTabId] : undefined,
+    bump,
+    tabIdKey,
+  };
+}
 
 /**
  * Tracks the content size of the element in `ref`, keeping the last non-zero
