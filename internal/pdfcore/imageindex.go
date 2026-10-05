@@ -19,6 +19,12 @@ const maxImageFirstPages = 16
 // quadratic or exponential.
 const maxImageWalkEntries = 1_000_000
 
+// maxImageWalkUses bounds the image uses one image walk retains across the
+// whole document: those merged up from forms and those copied into page
+// groups, memoised walks included. Shared forms nested under many wrappers
+// stay cheap in entries but multiply uses, so entries alone do not bound them.
+const maxImageWalkUses = 4_000_000
+
 // GetImageIndex returns the image index for the document in tabID: one entry
 // per image XObject referenced from page resources (directly, through
 // inherited /Resources, or through nested Form XObjects), deduplicated by
@@ -166,6 +172,10 @@ type imageWalker struct {
 	// budget is the number of /XObject entries the walk may examine.
 	budget   int
 	examined int
+	// useLimit is the number of image uses the walk may retain; uses counts
+	// them.
+	useLimit int
+	uses     int
 	stopped  bool
 	// readFacts reads one image dictionary; a field so tests can make it fail.
 	readFacts func(*pdfcpu_model.XRefTable, *pdfcpu_types.StreamDict) imageDictFacts
@@ -184,6 +194,7 @@ func newImageWalker(ctx *pdfcpu_model.Context) *imageWalker {
 	return &imageWalker{
 		ctx:       ctx,
 		budget:    maxImageWalkEntries,
+		useLimit:  maxImageWalkUses,
 		readFacts: readImageDictFacts,
 		records:   map[int]*imageRecord{},
 		pageMemo:  map[pageResKey]resWalk{},
@@ -192,22 +203,43 @@ func newImageWalker(ctx *pdfcpu_model.Context) *imageWalker {
 }
 
 // build walks every numbered page of pt and assembles the index, the page
-// lists and the groups. A page-tree walk that failed part way still yields
-// the pages it reached, plus an error row naming the failure.
+// lists and the groups. Every unnumbered page-tree error row becomes an
+// error row, and a page pdfcpu failed to read writes its error and is marked
+// incomplete, though its resources are still walked. A page-tree walk that
+// failed part way still yields the pages it reached, plus an error row naming
+// the failure.
 func (w *imageWalker) build(pt *pageTree) *imageTree {
+	for _, e := range pt.entries {
+		if e.PageNum != 0 || e.Err == "" {
+			continue
+		}
+		if e.NodeID != "" {
+			w.addErrorRow(fmt.Sprintf("page tree (%d %d R): %s", e.ObjNum, e.Gen, e.Err))
+		} else {
+			w.addErrorRow("page tree: " + e.Err)
+		}
+	}
 	groups := make([]ImagePageGroup, 0, len(pt.leaves))
 	for i, leaf := range pt.leaves {
 		g := ImagePageGroup{PageNum: i + 1, Images: []ImagePageUse{}}
+		if leaf.err != nil {
+			w.addErrorRow(leaf.err.Error())
+			g.Incomplete = true
+		}
 		if w.stopped {
 			g.Incomplete = true
 		} else if w.ctx != nil {
 			rw := w.walkPage(leaf.attrs.resources, g.PageNum)
-			g.Images = append(g.Images, rw.images...)
-			g.Incomplete = rw.incomplete
-			for _, u := range rw.images {
-				if r := w.records[u.ObjNum]; r != nil {
-					r.pages = append(r.pages, g.PageNum)
+			g.Incomplete = g.Incomplete || rw.incomplete
+			if w.chargeUses(len(rw.images), g.PageNum) {
+				g.Images = append(g.Images, rw.images...)
+				for _, u := range rw.images {
+					if r := w.records[u.ObjNum]; r != nil {
+						r.pages = append(r.pages, g.PageNum)
+					}
 				}
+			} else {
+				g.Incomplete = true
 			}
 		}
 		groups = append(groups, g)
@@ -252,12 +284,16 @@ func (w *imageWalker) walkPage(res pdfcpu_types.Object, page int) resWalk {
 		}
 	}
 	var rw resWalk
-	guard(func() {
-		rw, _ = w.walkResources(res, page, 0, map[int]int{})
-	}, func(msg string) {
+	fail := func(msg string) {
 		rw = resWalk{incomplete: true}
 		w.addErrorRow(fmt.Sprintf("the resources of page %d could not be read: %s", page, msg))
-	})
+	}
+	guard(func() {
+		var err error
+		if rw, _, err = w.walkResources(res, page, 0, map[int]int{}); err != nil {
+			fail(err.Error())
+		}
+	}, fail)
 	// A walk the budget stopped is partial; no later page is walked anyway.
 	if shared && !w.stopped {
 		w.pageMemo[key] = rw
@@ -294,27 +330,37 @@ func pageResourcesKey(res pdfcpu_types.Object) (pageResKey, bool) {
 // res to its position; a form on it is a cycle and is skipped. depth counts
 // the forms entered above res. low is the lowest stack position a skipped
 // cycle reached, math.MaxInt when none: the walk depends on those forms
-// being above it.
-func (w *imageWalker) walkResources(res pdfcpu_types.Object, page, depth int, stack map[int]int) (rw resWalk, low int) {
+// being above it. err is set when the resources dictionary or its /XObject
+// dictionary fails to resolve; a missing, null or dangling one, or one that
+// is not a dictionary, contributes nothing.
+func (w *imageWalker) walkResources(res pdfcpu_types.Object, page, depth int, stack map[int]int) (rw resWalk, low int, err error) {
 	low = math.MaxInt
-	resDict, ok := derefIn(w.ctx, res).(pdfcpu_types.Dict)
-	if !ok {
-		return rw, low
+	resObj, err := w.ctx.Dereference(res)
+	if err != nil {
+		return rw, low, err
 	}
-	xobjects, ok := derefIn(w.ctx, ownEntry(resDict, "XObject")).(pdfcpu_types.Dict)
+	resDict, ok := resObj.(pdfcpu_types.Dict)
 	if !ok {
-		return rw, low
+		return rw, low, nil
+	}
+	xobjObj, err := w.ctx.Dereference(ownEntry(resDict, "XObject"))
+	if err != nil {
+		return rw, low, fmt.Errorf("/XObject: %w", err)
+	}
+	xobjects, ok := xobjObj.(pdfcpu_types.Dict)
+	if !ok {
+		return rw, low, nil
 	}
 	seen := map[int]bool{}
 	for _, key := range sortedKeys(xobjects) {
 		if w.stopped {
-			return rw, low
+			return rw, low, nil
 		}
 		if w.examined >= w.budget {
 			w.stopped = true
 			rw.incomplete = true
 			w.addErrorRow(fmt.Sprintf("image walk stopped after %d resource entries at page %d; later pages were not walked", w.examined, page))
-			return rw, low
+			return rw, low, nil
 		}
 		w.examined++
 
@@ -331,24 +377,32 @@ func (w *imageWalker) walkResources(res pdfcpu_types.Object, page, depth int, st
 			low = min(low, pos)
 			continue
 		}
-		guard(func() {
-			w.visitXObject(ref, key, page, depth, stack, seen, &rw, &low)
-		}, func(msg string) {
+		fail := func(msg string) {
 			rw.incomplete = true
 			w.addErrorRow(fmt.Sprintf("/XObject entry /%s (%s) on page %d could not be read: %s", key, refString(ref), page, msg))
-		})
+		}
+		guard(func() {
+			if err := w.visitXObject(ref, key, page, depth, stack, seen, &rw, &low); err != nil {
+				fail(err.Error())
+			}
+		}, fail)
 	}
-	return rw, low
+	return rw, low, nil
 }
 
 // visitXObject classifies one referenced XObject and adds what it reaches to
 // rw. /Subtype is read as a direct name, the way image extraction reads it,
 // so every listed image previews; anything that is not an image or a form is
-// skipped.
-func (w *imageWalker) visitXObject(ref pdfcpu_types.IndirectRef, key string, page, depth int, stack map[int]int, seen map[int]bool, rw *resWalk, low *int) {
-	sd, ok := derefIn(w.ctx, ref).(pdfcpu_types.StreamDict)
+// skipped, as is a dangling reference. It returns the error when the XObject
+// fails to resolve.
+func (w *imageWalker) visitXObject(ref pdfcpu_types.IndirectRef, key string, page, depth int, stack map[int]int, seen map[int]bool, rw *resWalk, low *int) error {
+	obj, err := w.ctx.Dereference(ref)
+	if err != nil {
+		return err
+	}
+	sd, ok := obj.(pdfcpu_types.StreamDict)
 	if !ok {
-		return
+		return nil
 	}
 	subtype, _ := sd.Find("Subtype")
 	num, gen := ref.ObjectNumber.Value(), ref.GenerationNumber.Value()
@@ -364,7 +418,7 @@ func (w *imageWalker) visitXObject(ref pdfcpu_types.IndirectRef, key string, pag
 				w.depthCapped = true
 				w.addErrorRow(fmt.Sprintf("Form XObject nesting deeper than %d at %s on page %d; deeper forms were not walked", maxFormWalkDepth, refString(ref), page))
 			}
-			return
+			return nil
 		}
 		seen[num] = true
 		child := w.walkForm(ref, sd, key, page, depth, stack, low)
@@ -373,10 +427,30 @@ func (w *imageWalker) visitXObject(ref pdfcpu_types.IndirectRef, key string, pag
 			if seen[u.ObjNum] {
 				continue
 			}
+			if !w.chargeUses(1, page) {
+				rw.incomplete = true
+				return nil
+			}
 			seen[u.ObjNum] = true
 			rw.images = append(rw.images, ImagePageUse{ObjNum: u.ObjNum, Gen: u.Gen, Path: append([]string{key}, u.Path...)})
 		}
 	}
+	return nil
+}
+
+// chargeUses counts n more retained image uses and reports whether they fit
+// under the use limit. When they do not, nothing is counted and the walk
+// stops with an error row, unless it has already stopped.
+func (w *imageWalker) chargeUses(n, page int) bool {
+	if w.uses+n > w.useLimit {
+		if !w.stopped {
+			w.stopped = true
+			w.addErrorRow(fmt.Sprintf("image walk stopped at the limit of %d image uses at page %d; later pages were not walked", w.useLimit, page))
+		}
+		return false
+	}
+	w.uses += n
+	return true
 }
 
 // walkForm walks a form's own /Resources (a form without one contributes
@@ -394,12 +468,16 @@ func (w *imageWalker) walkForm(ref pdfcpu_types.IndirectRef, sd pdfcpu_types.Str
 	stack[num] = pos
 	var rw resWalk
 	childLow := math.MaxInt
-	guard(func() {
-		rw, childLow = w.walkResources(ownEntry(sd.Dict, "Resources"), page, depth+1, stack)
-	}, func(msg string) {
+	fail := func(msg string) {
 		rw = resWalk{incomplete: true}
 		w.addErrorRow(fmt.Sprintf("/XObject entry /%s (%s) on page %d could not be read: %s", key, refString(ref), page, msg))
-	})
+	}
+	guard(func() {
+		var err error
+		if rw, childLow, err = w.walkResources(ownEntry(sd.Dict, "Resources"), page, depth+1, stack); err != nil {
+			fail("/Resources: " + err.Error())
+		}
+	}, fail)
 	delete(stack, num)
 	if childLow < pos {
 		*low = min(*low, childLow)
