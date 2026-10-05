@@ -270,12 +270,11 @@ function streamDetail(nodeId: string) {
   };
 }
 
-type FullState = AppState & { leftView?: string };
-let state: FullState;
+let state: AppState;
 let dispatch: Dispatch<AppAction>;
 
 function Probe() {
-  state = useAppState() as FullState;
+  state = useAppState();
   dispatch = useAppDispatch();
   return null;
 }
@@ -409,6 +408,7 @@ describe('rail registration', () => {
 
   test('Cmd/Ctrl+3 selects Images and 4 is out of range', () => {
     renderLayout();
+    openTab();
     pressDigit('3');
     expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
     pressDigit('4');
@@ -1154,6 +1154,64 @@ describe('per-tab state', () => {
     openTab('tab-1');
     await showImages(user);
     expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2);
+  });
+});
+
+describe('per-tab rail view', () => {
+  test('Images fetches once per tab id, keeps view and sort per tab, and does not refetch on return', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    let panel = await showImages(user);
+    await user.click(button(panel, 'Object number'));
+    await user.click(button(panel, 'By page'));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
+
+    openTab('tab-2');
+    expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-2')).toHaveLength(0);
+
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } }));
+    expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
+    panel = panelFor('Images');
+    expect(button(panel, 'By page')).toHaveAttribute('aria-pressed', 'true');
+    await user.click(button(panel, 'Flat'));
+    expect(button(panel, 'Object number')).toHaveAttribute('aria-pressed', 'true');
+
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } }));
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } }));
+    await waitFor(() => expect(imageRows(panelFor('Images')).length).toBeGreaterThan(0));
+    expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(1);
+    expect(mockGetImagePageGroups.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(1);
+
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } }));
+    panel = await showImages(user);
+    expect(button(panel, 'Flat')).toHaveAttribute('aria-pressed', 'true');
+    expect(button(panel, 'First use')).toHaveAttribute('aria-pressed', 'true');
+    expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-2')).toHaveLength(1);
+  });
+
+  test('re-opening the file in place keeps Images shown and fetches fresh for the new tab id', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    let panel = await showImages(user);
+    await user.click(button(panel, 'By page'));
+    await waitFor(() => expect(hasPageRow(panel, 3)).toBe(true));
+
+    act(() =>
+      dispatch({
+        type: 'OPEN_DOCUMENT',
+        payload: { tabId: 'tab-1-again', fileName: 'tab-1.pdf', filePath: '/tmp/tab-1.pdf', pageCount: 20, rootNode: catalogNode, rootChildren },
+      }),
+    );
+    expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
+    panel = panelFor('Images');
+    await waitFor(() => expect(imageRows(panel).length).toBeGreaterThan(0));
+    expect(button(panel, 'Flat')).toHaveAttribute('aria-pressed', 'true');
+    expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-1-again')).toHaveLength(1);
+    expect(mockGetImageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(1);
   });
 });
 

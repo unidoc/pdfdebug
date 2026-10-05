@@ -92,6 +92,13 @@ export interface TabState {
    * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT.
    */
   findCaseSensitive: boolean;
+  /**
+   * Id of the left-rail destination this tab shows in the left panel. Each tab
+   * keeps its own; a new tab starts on Structure and re-opening the tab's file
+   * keeps it. Not persisted. Held as a plain string; the rail resolves an
+   * unknown id to its first destination.
+   */
+  leftView: string;
 }
 
 /** Top-level application state. */
@@ -100,13 +107,7 @@ export interface AppState {
   activeTabId: string | null;
   documentError: string | null;
   documentWarning: string | null;
-  /**
-   * Id of the left-rail destination filling the left panel. App-level, not
-   * per tab, not persisted; OPEN_DOCUMENT resets it to Structure. Held as a
-   * plain string; the rail resolves an unknown id to its first destination.
-   */
-  leftView: string;
-  /** True while the left panel is collapsed to the rail alone. */
+  /** True while the left panel is collapsed to the rail alone, for every tab. */
   leftPanelCollapsed: boolean;
   /**
    * Monotonic counter bumped by FOCUS_PAGES_JUMP. The Pages panel focuses its
@@ -172,7 +173,6 @@ const initialState: AppState = {
   activeTabId: null,
   documentError: null,
   documentWarning: null,
-  leftView: 'structure',
   leftPanelCollapsed: false,
   pagesJumpFocusVersion: 0,
   batchOpenActive: false,
@@ -183,6 +183,11 @@ const initialState: AppState = {
   isOpening: false,
   openingFileName: null,
 };
+
+// Sets the left-rail view of the active tab; with no active tab, tabs are unchanged.
+function withActiveTabView(state: AppState, view: string): TabState[] {
+  return state.tabs.map((tab) => (tab.tabId === state.activeTabId ? { ...tab, leftView: view } : tab));
+}
 
 /**
  * Pure reducer for all app state transitions.
@@ -217,32 +222,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : state.documentWarning)
           : null;
       const batchOpenCancelled = cancelDidNothing ? false : state.batchOpenCancelled;
-      // Duplicate file detection: if a tab with the same filePath exists, activate it.
-      // Backend resource cleanup for the discarded tabId is handled in App.jsx.
-      if (action.payload.filePath) {
-        const existing = state.tabs.find((t) => t.filePath === action.payload.filePath);
-        if (existing) {
-          // Dedup re-activates an existing tab. Bump the activation counter
-          // only when the resolved tab differs from the current active one,
-          // so subscribers (e.g. Cmd+K palette) treat it as a tab switch.
-          const activatedDifferentTab = state.activeTabId !== existing.tabId;
-          return {
-            ...state,
-            activeTabId: existing.tabId,
-            leftView: 'structure',
-            documentError: null,
-            documentWarning,
-            batchOpenCompleted,
-            batchOpenCancelled,
-            tabActivationVersion: activatedDifferentTab
-              ? state.tabActivationVersion + 1
-              : state.tabActivationVersion,
-            isOpening: false,
-            openingFileName: null,
-          };
-        }
-      }
-      const newTab: TabState = {
+      const parsed: TabState = {
         tabId: action.payload.tabId,
         fileName: action.payload.fileName,
         filePath: action.payload.filePath,
@@ -259,21 +239,33 @@ function appReducer(state: AppState, action: AppAction): AppState {
         navHistoryIndex: -1,
         recentJumps: [],
         findCaseSensitive: false,
+        leftView: 'structure',
       };
-      // Opening a new tab that becomes active is a tab-context change; bump
-      // the version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
+      // Re-opening a file already open in a tab replaces that tab's content in
+      // place with the new parse: the tab keeps its strip position, its rail
+      // view and its find case setting, and takes the new tab id. App.jsx
+      // releases the backend document of the replaced tab id.
+      const existingIndex = action.payload.filePath
+        ? state.tabs.findIndex((t) => t.filePath === action.payload.filePath)
+        : -1;
+      const tabs = existingIndex < 0
+        ? [...state.tabs, parsed]
+        : state.tabs.map((tab, i) => (i === existingIndex
+          ? { ...parsed, leftView: tab.leftView, findCaseSensitive: tab.findCaseSensitive }
+          : tab));
+      // Activating a different tab id is a tab-context change; bump the
+      // version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
       // CLOSE_DOCUMENT-of-active-tab path).
-      const activatedNewTab = state.activeTabId !== action.payload.tabId;
+      const activatedOtherTab = state.activeTabId !== action.payload.tabId;
       return {
         ...state,
-        tabs: [...state.tabs, newTab],
+        tabs,
         activeTabId: action.payload.tabId,
-        leftView: 'structure',
         documentError: null,
         documentWarning,
         batchOpenCompleted,
         batchOpenCancelled,
-        tabActivationVersion: activatedNewTab
+        tabActivationVersion: activatedOtherTab
           ? state.tabActivationVersion + 1
           : state.tabActivationVersion,
         isOpening: false,
@@ -384,15 +376,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'NAVIGATE_TO_REF': {
       if (state.activeTabId === null) return state;
-      // The reveal runs in the Structure tree, so show it: a reveal into a
-      // hidden or collapsed tree would move nothing on screen.
+      // The reveal runs in the active tab's Structure tree, so that tab shows
+      // Structure: a reveal into a hidden or collapsed tree would move nothing
+      // on screen.
       return {
         ...state,
-        leftView: 'structure',
         leftPanelCollapsed: false,
         tabs: state.tabs.map((tab) =>
           tab.tabId === state.activeTabId
-            ? { ...tab, pendingNavTarget: action.payload.targetNodeId, navError: null }
+            ? { ...tab, leftView: 'structure', pendingNavTarget: action.payload.targetNodeId, navError: null }
             : tab
         ),
       };
@@ -487,7 +479,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SELECT_LEFT_VIEW': {
-      return { ...state, leftView: action.payload.view, leftPanelCollapsed: false };
+      return { ...state, tabs: withActiveTabView(state, action.payload.view), leftPanelCollapsed: false };
     }
     case 'TOGGLE_LEFT_PANEL': {
       return { ...state, leftPanelCollapsed: !state.leftPanelCollapsed };
@@ -498,7 +490,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       if (state.activeTabId === null) return state;
       return {
         ...state,
-        leftView: 'pages',
+        tabs: withActiveTabView(state, 'pages'),
         leftPanelCollapsed: false,
         pagesJumpFocusVersion: state.pagesJumpFocusVersion + 1,
       };
@@ -590,8 +582,8 @@ const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 export const LEFT_RAIL_STORAGE_KEY = 'unidoc-pdf-debugger:left-rail';
 
 // Reads the persisted collapse flag. Anything but a boolean `collapsed`, or a
-// storage that throws, gives false. The view is not persisted: the app and
-// every opened file start on Structure.
+// storage that throws, gives false. The rail view is per tab and not
+// persisted: every new tab starts on Structure.
 function readLeftRailCollapsed(): boolean {
   try {
     const raw = window.localStorage.getItem(LEFT_RAIL_STORAGE_KEY);
@@ -646,6 +638,13 @@ export function useAppState(): AppState {
     throw new Error('useAppState must be used within an AppProvider');
   }
   return context;
+}
+
+/**
+ * Left-rail view of the active tab, or 'structure' when no tab is active.
+ */
+export function selectActiveLeftView(state: AppState): string {
+  return state.tabs.find((t) => t.tabId === state.activeTabId)?.leftView ?? 'structure';
 }
 
 /** Get the dispatch function for app actions. Must be called inside AppProvider. */

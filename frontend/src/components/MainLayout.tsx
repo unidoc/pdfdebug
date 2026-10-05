@@ -13,12 +13,13 @@ import { DetailPanel } from './DetailPanel';
 import { LeftRail, leftRailPanelId, leftRailTabId, resolveLeftViewIndex } from './LeftRail';
 import { LEFT_RAIL_DESTINATIONS } from './leftRailDestinations';
 import { useWindowPersistence, type PanelSizes } from '../hooks/useWindowPersistence';
-import { useAppState } from '../hooks/useDocumentState';
+import { selectActiveLeftView, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 
 /**
  * Rail plus resizable panel layout. The rail sits outside the Allotment so the
  * horizontal split keeps two panes and sizes[0] stays the left panel width.
+ * The panel shown is the active tab's rail view, so a tab switch can change it.
  * Every navigator panel stays mounted; the inactive ones are invisible, not
  * unmounted, so a tree keeps its expansion and can still perform reveals.
  * Each panel is wrapped in an ErrorBoundary so a crash in one panel does not
@@ -26,8 +27,9 @@ import { useLatest } from '../hooks/useLatest';
  */
 export function MainLayout() {
   const { panelSizes, savePanelSizes } = useWindowPersistence();
-  const { leftView, leftPanelCollapsed } = useAppState();
-  const activeIndex = resolveLeftViewIndex(leftView);
+  const state = useAppState();
+  const { leftPanelCollapsed } = state;
+  const activeIndex = resolveLeftViewIndex(selectActiveLeftView(state));
   const collapsedRef = useLatest(leftPanelCollapsed);
 
   // Track the latest sizes from each split so we can save both dimensions together.

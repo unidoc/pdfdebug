@@ -172,12 +172,11 @@ const pageChildren = [
   },
 ];
 
-type FullState = AppState & { leftView?: string };
-let state: FullState;
+let state: AppState;
 let dispatch: Dispatch<AppAction>;
 
 function Probe() {
-  state = useAppState() as FullState;
+  state = useAppState();
   dispatch = useAppDispatch();
   return null;
 }

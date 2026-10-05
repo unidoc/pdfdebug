@@ -8,15 +8,14 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi } from 'vitest';
 import type { Dispatch } from 'react';
-import { AppProvider, useAppDispatch, useAppState, type AppAction, type AppState } from '../hooks/useDocumentState';
+import { AppProvider, selectActiveLeftView, useAppDispatch, useAppState, type AppAction, type AppState } from '../hooks/useDocumentState';
 import { RowContextMenu, type RowMenuTarget } from './RowContextMenu';
 
-type FullState = AppState & { leftView?: string };
-let state: FullState;
+let state: AppState;
 let dispatch: Dispatch<AppAction>;
 
 function Probe() {
-  state = useAppState() as FullState;
+  state = useAppState();
   dispatch = useAppDispatch();
   return null;
 }
@@ -103,9 +102,10 @@ describe('RowContextMenu', () => {
   test('activating the item closes the menu and asks the Structure tree to reveal the node', async () => {
     const user = userEvent.setup();
     const { row, onClose } = renderMenu();
+    act(() => dispatch({ type: 'SELECT_LEFT_VIEW', payload: { view: 'pages' } }));
     await user.click(screen.getByRole('menuitem', { name: 'Show node in tree' }));
     expect(onClose).toHaveBeenCalled();
-    expect(state.leftView).toBe('structure');
+    expect(selectActiveLeftView(state)).toBe('structure');
     expect(state.tabs.find((t) => t.tabId === 'tab-1')?.pendingNavTarget).toBe('obj:0:12');
     row.remove();
   });
