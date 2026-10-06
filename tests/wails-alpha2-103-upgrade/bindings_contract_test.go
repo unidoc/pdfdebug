@@ -20,19 +20,20 @@ import (
 // not a count. Sourced from the non-test `import { ... } from
 // '.../pdfservice/pdfservice.js'` sites:
 //
-//	App.jsx                : CloseDocument, ConsumePendingOpenFiles
+//	App.jsx                : ConsumePendingOpenFiles
 //	ObjectInfoPanel.tsx    : GetObjectSource
 //	DetailPanel.tsx        : GetObjectDetail, GetContentStream, GetImageData,
 //	                         GetReverseRefs, GetFontView
 //	XRefTableView.tsx      : GetXRefTable
 //	CommandPalette.tsx     : GetAncestorPath
 //	TreePanel.tsx          : GetChildren, GetAncestorPath
-//	TabBar.tsx             : CloseDocument
 //	useObjectIndex.ts      : GetObjectIndex
-//	PagesPanel.tsx         : GetChildren, GetPageIndex
+//	PagesPanel.tsx         : GetPageIndex
+//	treeRows.tsx           : GetChildren
 //	ImagesPanel.tsx        : GetImageIndex, GetImagePages, GetImagePageGroups
 //	usePDFService.ts       : OpenFile, GetTreeRoot, GetChildren, CloseDocument,
 //	                         OpenFileDialog
+//	lib/openedDocuments.ts : CloseDocument
 //
 // If the dev adds/removes a frontend import in the same change, this list moves
 // WITH the real consumer dependency -- which is exactly the contract we want,

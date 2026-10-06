@@ -49,8 +49,9 @@ export function LeftRail() {
   }
   const selectAndFocusRef = useLatest(selectAndFocus);
 
-  // Cmd/Ctrl+1..N selects destination N. Fires from text fields too (the
-  // chord has no editing meaning) and with no document open.
+  // Cmd/Ctrl+1..N selects destination N on the active tab. Fires from text
+  // fields too (the chord has no editing meaning). With no document open there
+  // is no tab to hold a view, so it only reopens a collapsed panel.
   useEffect(() => {
     const wantsMeta = getPlatformModifier() === 'Cmd';
     function handler(e: globalThis.KeyboardEvent) {
