@@ -108,3 +108,30 @@ describe('closing a tab', () => {
     warn.mockRestore();
   });
 });
+
+describe('a stale delivery after a newer open of the same path', () => {
+  test('is dropped: the live document stays open and its tab is not replaced', () => {
+    open(doc('t-old', '/stale/p.pdf'));
+    open(doc('t-new', '/stale/p.pdf'));
+    expect(mockCloseDocument).toHaveBeenCalledWith('t-old');
+    mockCloseDocument.mockClear();
+
+    open(doc('t-old', '/stale/p.pdf'));
+
+    expect(mockCloseDocument).not.toHaveBeenCalled();
+    expect(state.tabs.map((t) => t.tabId)).toEqual(['t-new']);
+    expect(state.activeTabId).toBe('t-new');
+  });
+
+  test('is dropped after its tab was closed', () => {
+    open(doc('t-closed', '/stale/q.pdf'));
+    act(() => closeDocumentTab(dispatch, 't-closed'));
+    mockCloseDocument.mockClear();
+
+    open(doc('t-closed', '/stale/q.pdf'));
+
+    expect(mockCloseDocument).not.toHaveBeenCalled();
+    expect(state.tabs).toHaveLength(0);
+  });
+});
+

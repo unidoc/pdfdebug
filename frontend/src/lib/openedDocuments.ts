@@ -22,10 +22,18 @@ export type OpenedDocument = Extract<AppAction, { type: 'OPEN_DOCUMENT' }>['payl
 const sessionOpenTabs = new Map<string, string>();
 
 /**
+ * Tab ids whose backend document this session already released, by a re-open
+ * of their path or a tab close. A delivery for one of them is stale and is
+ * dropped: its document no longer exists.
+ */
+const releasedTabIds = new Set<string>();
+
+/**
  * Closes the backend document of tabId. A document already gone is not an
  * error; any other failure is logged.
  */
 function releaseDocument(tabId: string): void {
+  releasedTabIds.add(tabId);
   Promise.resolve(CloseDocument(tabId)).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     // eslint-disable-next-line no-console -- a failed release has no UI surface
@@ -34,7 +42,11 @@ function releaseDocument(tabId: string): void {
 }
 
 /**
- * Dispatches OPEN_DOCUMENT for doc. A tab id seen before (already a tab, or
+ * Dispatches OPEN_DOCUMENT for doc. Every backend open mints a new tab id and
+ * is delivered once (the cold-start drain or the document:opened event, never
+ * both), so a tab id seen again only comes from an event delivered twice or
+ * out of order. A tab id already released is dropped without dispatching,
+ * because its document is closed. A tab id seen before (already a tab, or
  * already recorded as its path's open) is a repeated delivery of the same
  * open: nothing is released and the reducer only activates its tab. Otherwise
  * doc is recorded as the open of its path and the backend document of an
@@ -44,6 +56,7 @@ function releaseDocument(tabId: string): void {
  * parsed file to app state goes through here.
  */
 export function dispatchOpenedDocument(dispatch: Dispatch<AppAction>, tabs: readonly Pick<TabState, 'tabId' | 'filePath'>[], doc: OpenedDocument): void {
+  if (releasedTabIds.has(doc.tabId)) return;
   const repeated = tabs.some((t) => t.tabId === doc.tabId) || (doc.filePath !== '' && sessionOpenTabs.get(doc.filePath) === doc.tabId);
   if (doc.filePath && !repeated) {
     const earlier = new Set([tabs.find((t) => t.filePath === doc.filePath)?.tabId, sessionOpenTabs.get(doc.filePath)]);
