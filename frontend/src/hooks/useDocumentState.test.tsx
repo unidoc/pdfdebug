@@ -7,7 +7,7 @@
  */
 import { render, screen, act } from '@testing-library/react';
 import { describe, test, expect, beforeEach } from 'vitest';
-import { AppProvider, useAppState, useAppDispatch, type AppAction } from './useDocumentState';
+import { AppProvider, selectActiveLeftView, useAppState, useAppDispatch, type AppAction } from './useDocumentState';
 
 // Helper component that exposes state and a dispatch trigger
 function StateInspector({ action }: { action?: AppAction }) {
@@ -1217,7 +1217,7 @@ function PagesJumpInspector({ openAction }: { openAction: AppAction }) {
   const dispatch = useAppDispatch();
   return (
     <div>
-      <span data-testid="left-view">{state.leftView}</span>
+      <span data-testid="left-view">{selectActiveLeftView(state)}</span>
       <span data-testid="focus-version">{state.pagesJumpFocusVersion}</span>
       <button data-testid="open-doc" onClick={() => dispatch(openAction)}>open</button>
       <button data-testid="focus-jump" onClick={() => dispatch({ type: 'FOCUS_PAGES_JUMP' })}>focus-jump</button>

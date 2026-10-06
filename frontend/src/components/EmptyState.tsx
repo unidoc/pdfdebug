@@ -6,6 +6,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 /** Props for {@link EmptyState}. */
 export interface EmptyStateProps {
@@ -100,16 +101,15 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           if (isBatch && cancelledRef.current) break;
           try {
             const result = await openPDFFile(paths[i]);
-            dispatch({
-              type: 'OPEN_DOCUMENT',
-              payload: {
-                tabId: result.tabId,
-                fileName: result.fileName,
-                filePath: result.filePath,
-                pageCount: result.pageCount,
-                rootNode: result.rootNode,
-                rootChildren: result.rootChildren,
-              },
+            // EmptyState shows only while no tab is open; a path opened twice
+            // in one batch is caught by the session record of opens.
+            dispatchOpenedDocument(dispatch, [], {
+              tabId: result.tabId,
+              fileName: result.fileName,
+              filePath: result.filePath,
+              pageCount: result.pageCount,
+              rootNode: result.rootNode,
+              rootChildren: result.rootChildren,
             });
             if (result.warning) lastWarning = result.warning;
           } catch (err: unknown) {

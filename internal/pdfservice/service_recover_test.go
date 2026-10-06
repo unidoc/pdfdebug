@@ -116,3 +116,50 @@ func TestServiceGetPageIndexRecoversRuntimeError(t *testing.T) {
 		t.Errorf("result = %v, want nil on a recovered panic", result)
 	}
 }
+
+// imageIndexPanickingInspector panics with a runtime.Error from the three
+// image index methods.
+type imageIndexPanickingInspector struct {
+	pdfcore.Inspector
+}
+
+func (p *imageIndexPanickingInspector) GetImageIndex(_ string) ([]*pdfcore.ImageIndexEntry, error) {
+	var doc *pdfcore.DocumentState
+	_ = doc.PDFContext
+	return nil, nil
+}
+
+func (p *imageIndexPanickingInspector) GetImagePages(_ string, _ int) ([]pdfcore.ImagePageRef, error) {
+	var doc *pdfcore.DocumentState
+	_ = doc.PDFContext
+	return nil, nil
+}
+
+func (p *imageIndexPanickingInspector) GetImagePageGroups(_ string) ([]pdfcore.ImagePageGroup, error) {
+	var doc *pdfcore.DocumentState
+	_ = doc.PDFContext
+	return nil, nil
+}
+
+func TestServiceGetImageIndexGetImagePagesAndGetImagePageGroupsRecoverRuntimeError(t *testing.T) {
+	svc := NewPDFService(nil)
+	svc.inspector = &imageIndexPanickingInspector{}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("a panic propagated instead of being recovered: %v", r)
+		}
+	}()
+
+	index, err := svc.GetImageIndex("any-tab-id")
+	if !errors.Is(err, pdfcore.ErrMalformedPDF) || index != nil {
+		t.Errorf("GetImageIndex = %v, %v; want nil and ErrMalformedPDF", index, err)
+	}
+	pages, err := svc.GetImagePages("any-tab-id", 5)
+	if !errors.Is(err, pdfcore.ErrMalformedPDF) || pages != nil {
+		t.Errorf("GetImagePages = %v, %v; want nil and ErrMalformedPDF", pages, err)
+	}
+	groups, err := svc.GetImagePageGroups("any-tab-id")
+	if !errors.Is(err, pdfcore.ErrMalformedPDF) || groups != nil {
+		t.Errorf("GetImagePageGroups = %v, %v; want nil and ErrMalformedPDF", groups, err)
+	}
+}

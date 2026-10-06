@@ -1,11 +1,10 @@
 /**
- * Multi-Document State Isolation
+ * Re-opening an open file: backend cleanup.
  *
- * Dedup cleanup calls CloseDocument for duplicate tabId.
- *
- * Tests the component-layer cleanup: when a second document:opened event
- * arrives with the same filePath as an existing tab, the new tabId's backend
- * state is freed via CloseDocument.
+ * When a document:opened event arrives with the same filePath as an existing
+ * tab, the reducer replaces that tab in place with the new parse, so the
+ * component layer frees the replaced tab id's backend document via
+ * CloseDocument and keeps the new one.
  *
  * Annotation: The OS file association path in main.go calls openFileAndEmit,
  * which emits the same document:opened event tested here. The frontend event
@@ -37,7 +36,7 @@ vi.mock('@wailsio/runtime', () => ({
   },
 }));
 
-// Mock CloseDocument so we can assert it is called for the duplicate tabId
+// Mock CloseDocument so we can assert which tab id is freed
 const mockCloseDocument = vi.fn().mockResolvedValue(undefined);
 
 vi.mock(
@@ -66,6 +65,9 @@ vi.mock(
     // file is chosen).
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
     GetPageIndex: vi.fn(),
+    GetImageIndex: vi.fn(),
+    GetImagePages: vi.fn(),
+    GetImagePageGroups: vi.fn(),
   })
 );
 
@@ -108,7 +110,7 @@ const catalogNode = {
   error: '',
 };
 
-describe('Dedup cleanup calls CloseDocument', () => {
+describe('re-opening an open file frees the replaced document', () => {
   beforeEach(() => {
     // Clear event handlers between tests
     for (const key of Object.keys(eventHandlers)) {
@@ -117,7 +119,7 @@ describe('Dedup cleanup calls CloseDocument', () => {
     mockCloseDocument.mockClear();
   });
 
-  test('opening same file twice calls CloseDocument for the duplicate tabId', async () => {
+  test('opening the same file twice closes the old tab id, not the new one', async () => {
     // Dynamic import to ensure mocks are in place
     const { default: App } = await import('./App');
 
@@ -150,11 +152,33 @@ describe('Dedup cleanup calls CloseDocument', () => {
       });
     });
 
-    // The reducer dedup logic activates the existing tab-1 instead of
-    // creating tab-duplicate. The component layer must call CloseDocument
-    // with the duplicate tabId to free backend resources.
+    // The reducer replaces tab-1 with tab-duplicate in place, so tab-1's
+    // backend document is the stale one.
     await waitFor(() => {
-      expect(mockCloseDocument).toHaveBeenCalledWith('tab-duplicate');
+      expect(mockCloseDocument).toHaveBeenCalledWith('tab-1');
     });
+    expect(mockCloseDocument).not.toHaveBeenCalledWith('tab-duplicate');
+  });
+
+  test('two opens of the same file before a re-render still close the first', async () => {
+    const { default: App } = await import('./App');
+    render(<App />);
+
+    act(() => {
+      for (const tabId of ['tab-a1', 'tab-a2']) {
+        emitEvent('document:opened', {
+          tabId,
+          fileName: 'same.pdf',
+          filePath: '/path/to/same.pdf',
+          rootNode: catalogNode,
+          rootChildren: [],
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(mockCloseDocument).toHaveBeenCalledWith('tab-a1');
+    });
+    expect(mockCloseDocument).not.toHaveBeenCalledWith('tab-a2');
   });
 });

@@ -293,3 +293,32 @@ func TestGetImageData_Idempotency(t *testing.T) {
 		t.Errorf("Filter differs: %q vs %q", r1.Filter, r2.Filter)
 	}
 }
+
+func TestImageDataAndDescribeImageShareTheMetadataWarningWording(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages(box, 3)},
+		rawObj{3, imgPage("/Im0 5 0 R")},
+		rawObj{5, imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 /ImageMask 9 0 R", "\x00\x01\x01\x00")},
+		rawObj{9, "false"},
+	))
+	damagedObject(t, doc, 9, errors.New("object stream damaged"), false)
+
+	d, err := ins.GetImageData(context.Background(), "raw", "obj:0:5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "ImageMask metadata: object stream damaged"; d.Warning != want {
+		t.Errorf("GetImageData warning %q, want %q", d.Warning, want)
+	}
+	if d.ImageMask || d.BitsPerComponent != 8 || d.Width != 2 || d.Height != 2 || d.ColorSpace != "DeviceGray" {
+		t.Errorf("GetImageData %dx%d bpc %d %q mask %v, want 2x2 bpc 8 DeviceGray and no mask", d.Width, d.Height, d.BitsPerComponent, d.ColorSpace, d.ImageMask)
+	}
+	desc, err := ins.DescribeImage("raw", "obj:0:5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desc.Warning != d.Warning {
+		t.Errorf("DescribeImage warning %q, GetImageData warning %q; want one wording", desc.Warning, d.Warning)
+	}
+}

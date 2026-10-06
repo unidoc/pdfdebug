@@ -52,6 +52,9 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: (...args: unknown[]) => mockGetPageIndex(...args),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 class MockResizeObserver {
@@ -169,12 +172,11 @@ const pageChildren = [
   },
 ];
 
-type FullState = AppState & { leftView?: string };
-let state: FullState;
+let state: AppState;
 let dispatch: Dispatch<AppAction>;
 
 function Probe() {
-  state = useAppState() as FullState;
+  state = useAppState();
   dispatch = useAppDispatch();
   return null;
 }
@@ -358,6 +360,17 @@ describe('header', () => {
     await user.click(tab('Pages'));
     await waitFor(() => expect(panelFor('Pages').textContent).toContain('page tree unreadable'));
   });
+
+  test('a failure with an empty message shows the error banner without the loading line', async () => {
+    mockGetPageIndex.mockReset().mockRejectedValue(new Error(''));
+    const user = userEvent.setup();
+    renderLayout();
+    openTab();
+    await user.click(tab('Pages'));
+    const panel = panelFor('Pages');
+    await waitFor(() => expect(panel.textContent).toContain('Could not load the page index:'));
+    expect(panel.textContent).not.toContain('Loading pages...');
+  });
 });
 
 describe('selection', () => {
@@ -473,6 +486,25 @@ describe('per-tab cache', () => {
     openTab('tab-1');
     await showPages(user);
     expect(mockGetPageIndex.mock.calls.filter((c) => c[0] === 'tab-1')).toHaveLength(2);
+  });
+
+  test('an index fetch still pending when its tab closes neither blocks nor overwrites the tab reopened under that id', async () => {
+    let resolveFirst: (v: Entry[]) => void = () => {};
+    mockGetPageIndex.mockReset().mockReturnValueOnce(new Promise<Entry[]>((r) => {
+      resolveFirst = r;
+    })).mockResolvedValue(entries);
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    await user.click(tab('Pages'));
+    await waitFor(() => expect(mockGetPageIndex).toHaveBeenCalledTimes(1));
+
+    act(() => dispatch({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-1' } }));
+    openTab('tab-1');
+    const panel = await showPages(user);
+    expect(mockGetPageIndex).toHaveBeenCalledTimes(2);
+    await act(async () => resolveFirst([page(1, 3)]));
+    expect(rowByText(panel, '2: Page')).toBeDefined();
   });
 
   test('a tab opened while Structure is active is not fetched until Pages is shown', async () => {

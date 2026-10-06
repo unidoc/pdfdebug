@@ -27,7 +27,8 @@ import (
 // count. Sourced from the non-test `import { ... } from
 // '.../pdfservice/pdfservice.js'` sites (App.jsx, ObjectInfoPanel.tsx,
 // DetailPanel.tsx, XRefTableView.tsx, CommandPalette.tsx, TreePanel.tsx,
-// TabBar.tsx, useObjectIndex.ts, PagesPanel.tsx, usePDFService.ts). If the dev adds/removes a
+// treeRows.tsx, useObjectIndex.ts, PagesPanel.tsx, ImagesPanel.tsx, usePDFService.ts,
+// lib/openedDocuments.ts). If the dev adds/removes a
 // frontend import in the same change, this list moves WITH the real consumer
 // dependency -- which is exactly the contract we want, unlike a magic count that
 // churns on every unrelated surface change.
@@ -48,6 +49,9 @@ var consumerBoundMethods = []string{
 	"GetTreeRoot",
 	"OpenFileDialog",
 	"GetPageIndex",
+	"GetImageIndex",
+	"GetImagePages",
+	"GetImagePageGroups",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

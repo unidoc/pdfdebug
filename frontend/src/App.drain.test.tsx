@@ -59,6 +59,9 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   CloseDocument: (...a: unknown[]) => mockCloseDocument(...a),
   OpenFileDialog: vi.fn(),
   GetPageIndex: vi.fn(),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
   ConsumePendingOpenFiles: (...a: unknown[]) => {
     callOrder.push('ConsumePendingOpenFiles');
     return mockConsume(...a);
@@ -194,10 +197,9 @@ describe('cold-start drain', () => {
     expect(openCalls).toHaveLength(1);
   });
 
-  // A drained duplicate of an already-open file frees the new backend tab via
-  // the drain loop's own pre-dispatch dedup. The lastOpenedTabIdRef
-  // orphan-close fallback does NOT cover drain-path opens.
-  test('drained duplicate frees the new backend tab', async () => {
+  // A drained re-open of a file opened in a still-live previous session keeps
+  // the new parse and frees the previous session's backend document.
+  test('drained duplicate frees the previous backend tab and keeps the new one', async () => {
     // First, open a file via document:opened so a tab with this filePath exists.
     mockConsume.mockResolvedValue([]);
     const { default: App } = await import('./App');
@@ -222,7 +224,8 @@ describe('cold-start drain', () => {
     await waitFor(() => expect(screen.getByTestId('main-layout')).toBeInTheDocument());
 
     // Now simulate a SECOND drain (e.g. dev reload) returning the SAME path.
-    // openPDFFile yields a NEW tabId; the drain loop must CloseDocument it.
+    // openPDFFile yields a NEW tabId; the drain loop must CloseDocument the
+    // previous one.
     mockConsume.mockResolvedValue(['/dup.pdf']);
     mockOpenFile.mockResolvedValue(docInfo('tab-drained-dup', '/dup.pdf'));
 
@@ -231,8 +234,9 @@ describe('cold-start drain', () => {
     void unmount;
 
     await waitFor(() => {
-      expect(mockCloseDocument).toHaveBeenCalledWith('tab-drained-dup');
+      expect(mockCloseDocument).toHaveBeenCalledWith('tab-existing');
     });
+    expect(mockCloseDocument).not.toHaveBeenCalledWith('tab-drained-dup');
   });
 
   // The drain dispatches OPENING_START with the basename of the FIRST drained

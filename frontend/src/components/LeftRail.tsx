@@ -4,7 +4,7 @@
  * active item is clicked with a pointer.
  */
 import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from 'react';
-import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
+import { selectActiveLeftView, useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { getPlatformModifier } from '../lib/platform';
 import { LEFT_RAIL_DESTINATIONS } from './leftRailDestinations';
@@ -29,15 +29,17 @@ export function resolveLeftViewIndex(view: string): number {
 }
 
 /**
- * Vertical tablist rendered from LEFT_RAIL_DESTINATIONS. Up/Down (wrapping),
- * Home and End move focus and select; a pointer click on the active item
- * toggles the left panel's collapse; keyboard activation and Cmd/Ctrl+digit
- * select and un-collapse, never collapse.
+ * Vertical tablist rendered from LEFT_RAIL_DESTINATIONS. The selected item is
+ * the active tab's rail view, and selecting writes that tab only. Up/Down
+ * (wrapping), Home and End move focus and select; a pointer click on the
+ * active item toggles the left panel's collapse; keyboard activation and
+ * Cmd/Ctrl+digit select and un-collapse, never collapse.
  */
 export function LeftRail() {
-  const { leftView, leftPanelCollapsed } = useAppState();
+  const state = useAppState();
+  const { leftPanelCollapsed } = state;
   const dispatch = useAppDispatch();
-  const activeIndex = resolveLeftViewIndex(leftView);
+  const activeIndex = resolveLeftViewIndex(selectActiveLeftView(state));
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const count = LEFT_RAIL_DESTINATIONS.length;
 
@@ -47,8 +49,9 @@ export function LeftRail() {
   }
   const selectAndFocusRef = useLatest(selectAndFocus);
 
-  // Cmd/Ctrl+1..N selects destination N. Fires from text fields too (the
-  // chord has no editing meaning) and with no document open.
+  // Cmd/Ctrl+1..N selects destination N on the active tab. Fires from text
+  // fields too (the chord has no editing meaning). With no document open there
+  // is no tab to hold a view, so it only reopens a collapsed panel.
   useEffect(() => {
     const wantsMeta = getPlatformModifier() === 'Cmd';
     function handler(e: globalThis.KeyboardEvent) {

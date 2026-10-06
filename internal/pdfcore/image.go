@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -164,132 +165,10 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		Kind:      imageKindError,
 	}
 
-	// Extract metadata -- wrap each pdfcpu call in safeCall.
 	xrt := doc.PDFContext.XRefTable
-
-	// Width
-	err = safeCall(func() error {
-		wObj, found := sd.Find("Width")
-		if !found {
-			return nil
-		}
-		i, e := xrt.DereferenceInteger(wObj)
-		if e != nil {
-			return e
-		}
-		if i != nil {
-			result.Width = int(*i)
-		}
-		return nil
-	})
-	if err != nil {
-		result.Warning = appendWarning(result.Warning, fmt.Sprintf("width metadata: %v", err))
-	}
-
-	// Height
-	err = safeCall(func() error {
-		hObj, found := sd.Find("Height")
-		if !found {
-			return nil
-		}
-		i, e := xrt.DereferenceInteger(hObj)
-		if e != nil {
-			return e
-		}
-		if i != nil {
-			result.Height = int(*i)
-		}
-		return nil
-	})
-	if err != nil {
-		result.Warning = appendWarning(result.Warning, fmt.Sprintf("height metadata: %v", err))
-	}
-
-	// ImageMask -- a stencil mask carries no /ColorSpace and one 1-bit sample per
-	// pixel. It has to be read before the ceiling is sized, or the absent colour
-	// space sends it to the unresolved-component fallback and it is measured as
-	// 32 components of 8 bits: 256 times the samples it actually declares.
-	imageMask := false
-	err = safeCall(func() error {
-		maskObj, found := sd.Find("ImageMask")
-		if !found {
-			return nil
-		}
-		deref, e := xrt.Dereference(maskObj)
-		if e != nil {
-			return e
-		}
-		if b, ok := deref.(pdfcpu_types.Boolean); ok {
-			imageMask = b.Value()
-		}
-		return nil
-	})
-	if err != nil {
-		result.Warning = appendWarning(result.Warning, fmt.Sprintf("imageMask metadata: %v", err))
-	}
-
-	// BitsPerComponent -- use DereferenceInteger to handle IndirectRef values,
-	// matching the pattern for Width/Height.
-	result.BitsPerComponent = 8 // default when the entry is absent
-	err = safeCall(func() error {
-		bpcObj, found := sd.Find("BitsPerComponent")
-		if !found {
-			return nil
-		}
-		i, e := xrt.DereferenceInteger(bpcObj)
-		if e != nil {
-			return e
-		}
-		if i != nil {
-			result.BitsPerComponent = int(*i)
-		}
-		return nil
-	})
-	if err != nil {
-		result.Warning = appendWarning(result.Warning, fmt.Sprintf("bitsPerComponent metadata: %v", err))
-	}
-
-	// ColorSpace
-	err = safeCall(func() error {
-		csObj, found := sd.Find("ColorSpace")
-		if !found {
-			return nil
-		}
-		deref, e := xrt.Dereference(csObj)
-		if e != nil {
-			return e
-		}
-		switch cs := deref.(type) {
-		case pdfcpu_types.Name:
-			result.ColorSpace = string(cs)
-		case pdfcpu_types.Array:
-			if len(cs) > 0 {
-				if n, ok := cs[0].(pdfcpu_types.Name); ok {
-					result.ColorSpace = string(n)
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		result.Warning = appendWarning(result.Warning, fmt.Sprintf("colorSpace metadata: %v", err))
-	}
-
-	// Filter
-	if sd.FilterPipeline != nil {
-		names := make([]string, len(sd.FilterPipeline))
-		for i, f := range sd.FilterPipeline {
-			names[i] = f.Name
-		}
-		result.Filter = strings.Join(names, ",")
-	}
-
-	// CMYK warning
-	if result.ColorSpace == "DeviceCMYK" || strings.Contains(result.ColorSpace, "CMYK") {
-		result.Warning = appendWarning(result.Warning, "Image uses CMYK color space (colors may be inaccurate)")
-	}
-
-	// Determine last filter for CSComponents setup
+	// Determine last filter for CSComponents setup. The DCT lookup runs before
+	// the shared metadata read so that read reuses sd.CSComponents instead of
+	// resolving the colour space a second time.
 	lastFilter := ""
 	if len(sd.FilterPipeline) > 0 {
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
@@ -325,14 +204,39 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		}
 	}
 
-	// Resolve the colour-component count once (a negative sentinel means it could
-	// not be resolved): the size estimate and the decode ceiling both need it but
-	// pick different fallbacks, so this avoids a second colour-space dereference.
-	// A lookup that already faulted above stays at the sentinel instead of being
-	// repeated, so the same colour space is never dereferenced twice.
-	resolvedComponents := -1
-	if csFailure == "" {
-		resolvedComponents = declaredComponents(xrt, &sd, -1)
+	// The dictionary reads shared with DescribeImage and the image index, each
+	// under its own safeCall, so the warnings carry one wording.
+	meta := readImageDictMetadata(xrt, &sd)
+	result.Width = meta.width
+	result.Height = meta.height
+	result.BitsPerComponent = meta.bitsPerComponent
+	result.ColorSpace = meta.colorSpace
+	result.Warning = meta.warning
+	// A stencil mask carries no /ColorSpace and one 1-bit sample per pixel; the
+	// ceiling and the size estimate below size it that way.
+	imageMask := meta.imageMask
+
+	// Filter
+	if sd.FilterPipeline != nil {
+		names := make([]string, len(sd.FilterPipeline))
+		for i, f := range sd.FilterPipeline {
+			names[i] = f.Name
+		}
+		result.Filter = strings.Join(names, ",")
+	}
+
+	// CMYK warning
+	if result.ColorSpace == "DeviceCMYK" || strings.Contains(result.ColorSpace, "CMYK") {
+		result.Warning = appendWarning(result.Warning, "Image uses CMYK color space (colors may be inaccurate)")
+	}
+
+	// The colour-component count the metadata read resolved (a negative
+	// sentinel means it could not be): the size estimate and the decode
+	// ceiling both need it but pick different fallbacks. A DCT lookup that
+	// faulted above keeps the sentinel.
+	resolvedComponents := meta.components
+	if csFailure != "" {
+		resolvedComponents = -1
 	}
 
 	// Sample interpretation: whether the samples are read inverted, and the two
@@ -345,19 +249,12 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	result.ImageMask = imageMask
 	result.SMask = readSMaskRef(&sd)
 
-	// The /Decode bound is two entries per colour component. A stencil mask is
-	// one component whatever else the dictionary says; an unresolved colour space
-	// widens to maxComponents rather than rejecting the array, matching the
-	// widen-rather-than-reject posture of the decode ceiling.
+	// A stencil mask is one component whatever else the dictionary says.
 	decodeComponents := resolvedComponents
 	if imageMask {
 		decodeComponents = 1
 	}
-	decodeBound := 2 * maxComponents
-	if decodeComponents > 0 {
-		decodeBound = 2 * decodeComponents
-	}
-	decodeArr, decodeErr := readDecodeArray(xrt, &sd, decodeBound)
+	decodeArr, decodeErr := readImageDecode(xrt, &sd, decodeComponents)
 	if decodeErr != nil {
 		result.Warning = appendWarning(result.Warning, fmt.Sprintf("decode array metadata: %v", decodeErr))
 	}
@@ -740,7 +637,8 @@ func imageDecodeCeiling(width, height, bitsPerComponent, components int) int64 {
 }
 
 // appendWarning joins warnings with "; " so multiple non-fatal issues are visible.
-// Only used by GetImageData for image-metadata warnings; do not promote to a shared utility without a second caller.
+// Used for image-metadata warnings by renderImage, readImageDictMetadata and
+// setImageFacts.
 func appendWarning(existing, addition string) string {
 	if existing == "" {
 		return addition
@@ -908,11 +806,47 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		return &ImageDescription{NodeID: nodeID, Error: "not an image XObject"}, nil
 	}
 
-	desc := &ImageDescription{
-		NodeID:    nodeID,
-		ObjectRef: objectRefFromNodeID(nodeID),
-	}
-	xrt := doc.PDFContext.XRefTable
+	facts := readImageDictMetadata(doc.PDFContext.XRefTable, &sd)
+	return &ImageDescription{
+		NodeID:         nodeID,
+		ObjectRef:      objectRefFromNodeID(nodeID),
+		Width:          facts.width,
+		Height:         facts.height,
+		ColorSpace:     facts.colorSpace,
+		EstimatedBytes: facts.estimatedBytes,
+		Warning:        facts.warning,
+	}, nil
+}
+
+// imageDictFacts is the decode-free reading of an image XObject dictionary
+// shared by DescribeImage and the image index. warning holds the metadata
+// reads that failed; a rejected /Decode is kept apart in decodeErr.
+type imageDictFacts struct {
+	width, height, bitsPerComponent int
+	imageMask                       bool
+	colorSpace                      string
+	filters                         []string
+	// components is the resolved colour-component count, -1 when unresolved.
+	components           int
+	smask                *string
+	decode               []float64
+	decodeErr            error
+	decodeNonDefault     bool
+	adobeMarker          string
+	adobeTransform       *int
+	sampleInterpretation string
+	estimatedBytes       int64
+	warning              string
+}
+
+// readImageDictMetadata reads an image dictionary's geometry, colour space,
+// filters, resolved component count and size estimate without decoding a
+// byte; the /SMask, /Decode, APP14 and verdict fields stay zero. Each pdfcpu
+// read runs under its own safeCall, in the order Width, Height,
+// BitsPerComponent, ImageMask, ColorSpace, so the warning text keeps that
+// order. Callers hold pdfMu.
+func readImageDictMetadata(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+	f := imageDictFacts{bitsPerComponent: 8, filters: []string{}}
 
 	readInt := func(key string, dst *int) {
 		if e := safeCall(func() error {
@@ -929,16 +863,13 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 			}
 			return nil
 		}); e != nil {
-			desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("%s metadata: %v", key, e))
+			f.warning = appendWarning(f.warning, fmt.Sprintf("%s metadata: %v", key, e))
 		}
 	}
-	readInt("Width", &desc.Width)
-	readInt("Height", &desc.Height)
+	readInt("Width", &f.width)
+	readInt("Height", &f.height)
+	readInt("BitsPerComponent", &f.bitsPerComponent)
 
-	bitsPerComponent := 8
-	readInt("BitsPerComponent", &bitsPerComponent)
-
-	imageMask := false
 	if e := safeCall(func() error {
 		maskObj, found := sd.Find("ImageMask")
 		if !found {
@@ -949,11 +880,11 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 			return e
 		}
 		if b, ok := deref.(pdfcpu_types.Boolean); ok {
-			imageMask = b.Value()
+			f.imageMask = b.Value()
 		}
 		return nil
 	}); e != nil {
-		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("imageMask metadata: %v", e))
+		f.warning = appendWarning(f.warning, fmt.Sprintf("ImageMask metadata: %v", e))
 	}
 
 	if e := safeCall(func() error {
@@ -967,26 +898,153 @@ func (ins *Inspector) DescribeImage(tabID, nodeID string) (*ImageDescription, er
 		}
 		switch cs := deref.(type) {
 		case pdfcpu_types.Name:
-			desc.ColorSpace = string(cs)
+			f.colorSpace = string(cs)
 		case pdfcpu_types.Array:
 			if len(cs) > 0 {
 				if n, ok := cs[0].(pdfcpu_types.Name); ok {
-					desc.ColorSpace = string(n)
+					f.colorSpace = string(n)
 				}
 			}
 		}
 		return nil
 	}); e != nil {
-		desc.Warning = appendWarning(desc.Warning, fmt.Sprintf("colorSpace metadata: %v", e))
+		f.warning = appendWarning(f.warning, fmt.Sprintf("ColorSpace metadata: %v", e))
 	}
 
-	// Honest decoded estimate for the consent prompt: one sample per pixel for
-	// masks and Indexed images, 0 (no estimate) when the colour space cannot be
-	// resolved. A negative sentinel from declaredComponents means unresolved.
-	if imageMask {
-		bitsPerComponent = 1
+	for _, fl := range sd.FilterPipeline {
+		f.filters = append(f.filters, fl.Name)
 	}
-	desc.EstimatedBytes = estimatedDecodedBytes(desc.Width, desc.Height, bitsPerComponent,
-		sizeEstimateComponents(desc.ColorSpace, imageMask, declaredComponents(xrt, &sd, -1)))
-	return desc, nil
+
+	f.components = declaredComponents(xrt, sd, -1)
+
+	sizeBits := f.bitsPerComponent
+	if f.imageMask {
+		sizeBits = 1
+	}
+	f.estimatedBytes = estimatedDecodedBytes(f.width, f.height, sizeBits,
+		sizeEstimateComponents(f.colorSpace, f.imageMask, f.components))
+	return f
+}
+
+// readImageDictFacts is readImageDictMetadata plus the /SMask reference, the
+// /Decode array and its rejection, the Adobe APP14 outcome and the
+// sample-interpretation verdict. Callers hold pdfMu.
+func readImageDictFacts(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) imageDictFacts {
+	f := readImageDictMetadata(xrt, sd)
+	f.smask = readSMaskRef(sd)
+
+	// A stencil mask is one component whatever else the dictionary says.
+	decodeComponents := f.components
+	if f.imageMask {
+		decodeComponents = 1
+	}
+	f.decode, f.decodeErr = readImageDecode(xrt, sd, decodeComponents)
+	if len(f.decode) > 0 {
+		// Without a resolved count the arity cannot be checked, so every pair
+		// being [0 1] is the identity.
+		pairs := decodeComponents
+		if pairs <= 0 {
+			pairs = len(f.decode) / 2
+		}
+		if !f.imageMask && (f.colorSpace == "Indexed" || f.colorSpace == "Lab") {
+			f.decodeNonDefault = !decodeIsColorSpaceDefault(xrt, sd, f.colorSpace, f.bitsPerComponent, f.decode)
+		} else {
+			identity, _ := decodePattern(f.decode, pairs)
+			f.decodeNonDefault = !identity
+		}
+	}
+	if f.decodeErr != nil {
+		f.decodeNonDefault = true
+	}
+
+	f.adobeMarker, f.adobeTransform = adobeMarkerFromStream(sd)
+	f.sampleInterpretation = sampleInterpretationVerdict(
+		f.colorSpace, f.imageMask, f.components, f.decode, f.decodeErr != nil, f.adobeMarker)
+	return f
+}
+
+// decodeIsColorSpaceDefault reports whether decode is the default /Decode of
+// an Indexed or Lab image: [0 2^bpc-1] for Indexed, and [0 100 amin amax bmin
+// bmax] for Lab with the a* and b* ranges from the colour space's /Range,
+// [-100 100 -100 100] when it has none. It reports false when the default
+// cannot be worked out.
+func decodeIsColorSpaceDefault(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, colorSpace string, bpc int, decode []float64) bool {
+	switch colorSpace {
+	case "Indexed":
+		return bpc >= 1 && bpc <= 16 && len(decode) == 2 && decode[0] == 0 && decode[1] == float64(int(1)<<bpc-1)
+	case "Lab":
+		rng, ok := labRange(xrt, sd)
+		return ok && len(decode) == 6 && decode[0] == 0 && decode[1] == 100 &&
+			decode[2] == rng[0] && decode[3] == rng[1] && decode[4] == rng[2] && decode[5] == rng[3]
+	}
+	return false
+}
+
+// labRange reads the /Range of the image's [/Lab <<...>>] colour space,
+// [-100 100 -100 100] when the dictionary has none. ok is false when the
+// colour space is not such an array or /Range is not four numbers.
+func labRange(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) (rng [4]float64, ok bool) {
+	err := safeCall(func() error {
+		csObj, _ := sd.Find("ColorSpace")
+		cs, e := xrt.Dereference(csObj)
+		if e != nil {
+			return e
+		}
+		arr, isArr := cs.(pdfcpu_types.Array)
+		if !isArr || len(arr) < 2 {
+			return nil
+		}
+		dObj, e := xrt.Dereference(arr[1])
+		if e != nil {
+			return e
+		}
+		d, isDict := dObj.(pdfcpu_types.Dict)
+		if !isDict {
+			return nil
+		}
+		rObj, e := xrt.Dereference(ownEntry(d, "Range"))
+		if e != nil {
+			return e
+		}
+		if rObj == nil {
+			rng, ok = [4]float64{-100, 100, -100, 100}, true
+			return nil
+		}
+		r, isArr := rObj.(pdfcpu_types.Array)
+		if !isArr || len(r) != 4 {
+			return nil
+		}
+		for i, el := range r {
+			v, e := xrt.Dereference(el)
+			if e != nil {
+				return e
+			}
+			n, isNum := numericValue(v)
+			if !isNum {
+				return nil
+			}
+			rng[i] = n
+		}
+		ok = true
+		return nil
+	})
+	return rng, ok && err == nil
+}
+
+// readImageDecode reads the image's /Decode array bounded to two entries per
+// colour component (components <= 0, unresolved, widens the bound to
+// maxComponents rather than rejecting the array). A non-finite entry rejects
+// the array, since JSON cannot carry NaN or Inf.
+func readImageDecode(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict, components int) ([]float64, error) {
+	bound := 2 * maxComponents
+	if components > 0 {
+		bound = 2 * components
+	}
+	decode, err := readDecodeArray(xrt, sd, bound)
+	for i, v := range decode {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil, fmt.Errorf("/Decode entry %d is not a finite number", i)
+		}
+	}
+	return decode, err
 }

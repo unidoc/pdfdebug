@@ -2,7 +2,8 @@
  * The left navigator rail in the main layout: rendered outside the resizable
  * split, labelled items, tab semantics and keyboard traversal, collapse on a
  * pointer click of the active item, Cmd/Ctrl+digit shortcuts, the panels it
- * switches between, and panel-size persistence with the rail present.
+ * switches between, the per-tab view across tab switches, and panel-size
+ * persistence with the rail present.
  *
  * Run: cd frontend && npx vitest run src/components/MainLayout.leftRail.test.tsx
  */
@@ -66,6 +67,9 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: (...args: unknown[]) => mockGetPageIndex(...args),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 class MockResizeObserver {
@@ -83,7 +87,7 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-type RailState = AppState & { leftView?: string; leftPanelCollapsed?: boolean };
+type RailState = AppState & { leftPanelCollapsed?: boolean };
 let state: RailState;
 let dispatch: Dispatch<AppAction>;
 
@@ -203,10 +207,10 @@ describe('rail placement', () => {
 });
 
 describe('rail items', () => {
-  test('renders Structure then Pages, each with a visible text label', () => {
+  test('renders Structure, Pages then Images, each with a visible text label', () => {
     renderLayout();
     const tabs = within(rail()).getAllByRole('tab');
-    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Structure', 'Pages']);
+    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Structure', 'Pages', 'Images']);
     for (const t of tabs) {
       const label = t.getAttribute('aria-label')!;
       const text = within(t).getByText(label);
@@ -249,6 +253,7 @@ describe('rail accessibility', () => {
   test('Down and Up move focus and selection, wrapping at the ends', async () => {
     const user = userEvent.setup();
     renderLayout();
+    openTab();
     tab('Structure').focus();
     await user.keyboard('{ArrowDown}');
     expect(tab('Pages')).toHaveFocus();
@@ -256,18 +261,21 @@ describe('rail accessibility', () => {
     expect(tab('Pages')).toHaveAttribute('tabindex', '0');
     expect(tab('Structure')).toHaveAttribute('tabindex', '-1');
     await user.keyboard('{ArrowDown}');
+    expect(tab('Images')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
     expect(tab('Structure')).toHaveFocus();
     await user.keyboard('{ArrowUp}');
-    expect(tab('Pages')).toHaveFocus();
+    expect(tab('Images')).toHaveFocus();
   });
 
   test('Home and End jump to the first and last item', async () => {
     const user = userEvent.setup();
     renderLayout();
+    openTab();
     tab('Structure').focus();
     await user.keyboard('{End}');
-    expect(tab('Pages')).toHaveFocus();
-    expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Images')).toHaveFocus();
+    expect(tab('Images')).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{Home}');
     expect(tab('Structure')).toHaveFocus();
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
@@ -377,6 +385,7 @@ describe('collapse', () => {
   test('a pointer click on an inactive item switches view and never collapses', async () => {
     const user = userEvent.setup();
     renderLayout();
+    openTab();
     await user.click(tab('Pages'));
     expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
     expect(isCollapsed()).toBe(false);
@@ -385,6 +394,7 @@ describe('collapse', () => {
   test('clicking an inactive item while collapsed switches view and restores the panel', async () => {
     const user = userEvent.setup();
     renderLayout();
+    openTab();
     await user.click(tab('Structure'));
     await user.click(tab('Pages'));
     expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
@@ -445,6 +455,7 @@ describe('collapse', () => {
 describe('Cmd/Ctrl+digit shortcuts', () => {
   test('Cmd+2 selects Pages and focuses it; Cmd+1 goes back to Structure', () => {
     renderLayout();
+    openTab();
     pressDigit('2');
     expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Pages')).toHaveFocus();
@@ -485,7 +496,7 @@ describe('Cmd/Ctrl+digit shortcuts', () => {
 
   test('a digit past the registry length does nothing', () => {
     renderLayout();
-    pressDigit('3');
+    pressDigit('4');
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -495,14 +506,47 @@ describe('Cmd/Ctrl+digit shortcuts', () => {
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('fires from a text field and with no document open', () => {
+  test('fires from a text field', () => {
     renderLayout();
+    openTab();
     const input = document.createElement('input');
     document.body.appendChild(input);
     input.focus();
     fireEvent.keyDown(input, { key: '2', metaKey: true, ctrlKey: true });
     expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
     input.remove();
+  });
+
+  test('with no document open it stays on Structure and still un-collapses', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    await user.click(tab('Structure'));
+    expect(isCollapsed()).toBe(true);
+    pressDigit('2');
+    expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
+    expect(isCollapsed()).toBe(false);
+  });
+});
+
+describe('the rail view is per tab', () => {
+  test('the highlighted item and the shown panel follow the active tab', async () => {
+    const user = userEvent.setup();
+    renderLayout();
+    openTab('tab-1');
+    await user.click(tab('Pages'));
+    openTab('tab-2');
+    expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
+    expect(panelFor(tab('Structure'))).not.toHaveClass('invisible');
+    expect(panelFor(tab('Pages'))).toHaveClass('invisible');
+
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } }));
+    expect(tab('Pages')).toHaveAttribute('aria-selected', 'true');
+    expect(panelFor(tab('Pages'))).not.toHaveClass('invisible');
+    expect(panelFor(tab('Structure'))).toHaveClass('invisible');
+
+    act(() => dispatch({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-2' } }));
+    expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
+    expect(panelFor(tab('Structure'))).not.toHaveClass('invisible');
   });
 });
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
@@ -556,5 +557,46 @@ func TestGetPageIndexUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
 	if _, err := svc.GetPageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
 		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+func TestGetImageIndexGetImagePagesAndGetImagePageGroupsDelegateToInspector(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "image-xobject.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	got, err := svc.GetImageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("GetImageIndex: %v", err)
+	}
+	want, err := svc.inspector.GetImageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("inspector GetImageIndex: %v", err)
+	}
+	if len(got) == 0 || !reflect.DeepEqual(got, want) {
+		t.Fatalf("service returned %+v, inspector %+v; want the same entries", got, want)
+	}
+	pages, err := svc.GetImagePages(info.TabID, got[0].ObjNum)
+	if err != nil || len(pages) != got[0].PageCount {
+		t.Errorf("GetImagePages = %v, %v; want %d pages", pages, err, got[0].PageCount)
+	}
+	groups, err := svc.GetImagePageGroups(info.TabID)
+	wantGroups, _ := svc.inspector.GetImagePageGroups(info.TabID)
+	if err != nil || len(groups) == 0 || !reflect.DeepEqual(groups, wantGroups) {
+		t.Errorf("GetImagePageGroups = %+v, %v; want the inspector's groups %+v", groups, err, wantGroups)
+	}
+}
+
+func TestGetImageIndexGetImagePagesAndGetImagePageGroupsUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	if _, err := svc.GetImageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImageIndex err = %v, want ErrDocumentNotFound", err)
+	}
+	if _, err := svc.GetImagePages("no-such-tab", 1); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImagePages err = %v, want ErrDocumentNotFound", err)
+	}
+	if _, err := svc.GetImagePageGroups("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImagePageGroups err = %v, want ErrDocumentNotFound", err)
 	}
 }

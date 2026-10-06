@@ -5,18 +5,20 @@
  * selection, so the object-source pane and the detail panel follow a page
  * click exactly as they follow a tree click.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Tree, type NodeApi, type NodeRendererProps, type TreeApi } from 'react-arborist';
 import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
+import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
+import { RowContextMenu } from './RowContextMenu';
 import {
   NodeRenderer,
   RowStateContext,
   deriveOpenState,
+  findById,
   findDisplayId,
-  findNode,
   updateNodeChildren,
   useLazyChildren,
   type TreeNodeData,
@@ -42,14 +44,6 @@ interface PagesCache {
   entries: PageIndexEntry[];
   data: TreeNodeData[];
   openState: Record<string, boolean>;
-}
-
-/** Open context menu: where it sits, the node it acts on, and the row to refocus. */
-interface MenuState {
-  x: number;
-  y: number;
-  backendId: string;
-  returnFocus: HTMLElement | null;
 }
 
 // Builds the top-level rows. A numbered page with a node id is an expandable
@@ -82,10 +76,6 @@ function buildRows(entries: PageIndexEntry[]): TreeNodeData[] {
   });
 }
 
-function findById(data: TreeNodeData[], id: string): TreeNodeData | null {
-  return findNode(data, (n) => n.id === id);
-}
-
 /**
  * Left-rail Pages destination. Fetches the page index for a tab the first
  * time the panel is active for it and keeps it, with the rows' expansion,
@@ -98,20 +88,20 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const selectedNodeId = activeTab?.selectedNodeId ?? null;
   const selectedNodeIdRef = useLatest(selectedNodeId);
 
-  const cache = useRef<Record<string, PagesCache>>({});
-  const errors = useRef<Record<string, string>>({});
-  const inflight = useRef<Set<string>>(new Set());
-  // Bumped whenever the cache changes, so the render reads the new entry.
-  const [, bump] = useReducer((n: number) => n + 1, 0);
-
-  const entry = activeTabId ? cache.current[activeTabId] : undefined;
-  const fetchError = activeTabId ? errors.current[activeTabId] : undefined;
+  const { cache, entry, fetchError, bump } = useTabCache<PagesCache>(
+    active,
+    activeTabId,
+    tabs.map((t) => t.tabId),
+    async (tabId) => {
+      const entries = ((await GetPageIndex(tabId)) ?? []).filter((e): e is PageIndexEntry => e !== null);
+      return { entries, data: buildRows(entries), openState: {} };
+    },
+  );
   const data = entry?.data;
   const dataRef = useLatest(data);
 
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -120,61 +110,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
   const jumpRef = useRef<HTMLInputElement>(null);
   const seenFocusVersion = useRef(pagesJumpFocusVersion);
 
-  const [menu, setMenu] = useState<MenuState | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuItemRef = useRef<HTMLButtonElement>(null);
-
-  const hasTab = activeTab !== undefined;
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    // Keep the last non-zero size so a collapsed pane leaves the Tree mounted.
-    const ro = new ResizeObserver((items) => {
-      const item = items[0];
-      if (!item) return;
-      const { width, height } = item.contentRect;
-      if (width > 0 && height > 0) setDimensions({ width, height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hasTab]);
-
-  const liveTabIdsRef = useLatest(tabs.map((t) => t.tabId));
-
-  // First activation for a tab fetches its index; later activations reuse it.
-  // A failed fetch is retried the next time the panel is shown for the tab.
-  useEffect(() => {
-    if (!active || !activeTabId) return;
-    const tabId = activeTabId;
-    if (cache.current[tabId] || inflight.current.has(tabId)) return;
-    inflight.current.add(tabId);
-    if (errors.current[tabId] !== undefined) {
-      delete errors.current[tabId];
-      bump();
-    }
-    GetPageIndex(tabId)
-      .then((result) => {
-        if (!liveTabIdsRef.current.includes(tabId)) return;
-        const entries = (result ?? []).filter((e): e is PageIndexEntry => e !== null);
-        cache.current[tabId] = { entries, data: buildRows(entries), openState: {} };
-      })
-      .catch((err: unknown) => {
-        if (!liveTabIdsRef.current.includes(tabId)) return;
-        errors.current[tabId] = err instanceof Error ? err.message : String(err);
-      })
-      .finally(() => {
-        inflight.current.delete(tabId);
-        bump();
-      });
-  }, [active, activeTabId, liveTabIdsRef]);
-
-  // Evict closed tabs. Keyed on the tab id list so it runs only when it changes.
-  const tabIdKey = tabs.map((t) => t.tabId).join(',');
-  useEffect(() => {
-    const live = new Set(tabIdKey.split(','));
-    for (const id of Object.keys(cache.current)) if (!live.has(id)) delete cache.current[id];
-    for (const id of Object.keys(errors.current)) if (!live.has(id)) delete errors.current[id];
-  }, [tabIdKey]);
+  const dimensions = useContainerSize(containerRef, activeTab !== undefined);
 
   useEffect(() => () => {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -300,82 +236,28 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     flash(row.id);
   }
 
-  const openMenu = useCallback((displayId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const node = dataRef.current ? findById(dataRef.current, displayId) : null;
-    // Unnumbered rows and error children have nothing the Structure tree can reveal.
-    if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return;
-    treeRef.current?.select(displayId);
-    setMenu({ x, y, backendId: node.backendId, returnFocus });
-  }, [dataRef]);
-
-  function handleContextMenu(e: MouseEvent<HTMLDivElement>) {
-    const row = (e.target as HTMLElement).closest('[data-testid="tree-node"]');
-    if (!row) return;
-    e.preventDefault();
-    const id = row.getAttribute('data-node-id');
-    if (!id) return;
-    const item = row.closest<HTMLElement>('[role="treeitem"]') ?? (row as HTMLElement);
-    openMenu(id, e.clientX, e.clientY, item);
-  }
-
-  // Shift+F10 and the ContextMenu key open the menu for the focused row.
-  function handleTreeKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (!((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu')) return;
-    const item = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-    const row = item?.querySelector('[data-testid="tree-node"]');
-    const id = row?.getAttribute('data-node-id') ?? treeRef.current?.focusedNode?.id;
-    if (!id) return;
-    e.preventDefault();
-    const rect = (item ?? row)?.getBoundingClientRect();
-    openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
-  }
-
-  const menuStateRef = useLatest(menu);
-  const closeMenu = useCallback((restoreFocus: boolean) => {
-    const returnFocus = menuStateRef.current?.returnFocus;
-    setMenu(null);
-    if (restoreFocus) returnFocus?.focus();
-  }, [menuStateRef]);
-
-  useEffect(() => {
-    if (!menu) return;
-    menuItemRef.current?.focus();
-    function onKey(e: globalThis.KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeMenu(true);
-      }
-    }
-    function onPointerDown(e: PointerEvent) {
-      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
-      closeMenu(false);
-    }
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [menu, closeMenu]);
+  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+    treeRef,
+    '[data-testid="tree-node"]',
+    'data-node-id',
+    (displayId) => {
+      const node = dataRef.current ? findById(dataRef.current, displayId) : null;
+      // Unnumbered rows and error children have nothing the Structure tree can reveal.
+      if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return null;
+      return node.backendId;
+    },
+  );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
   // switch (Cmd+Left/Right, Cmd+W) or a view change closes it.
   useEffect(() => {
-    setMenu(null);
-  }, [active, activeTabId]);
+    closeMenu();
+  }, [active, activeTabId, closeMenu]);
 
   // A jump error names the previous tab's page range; drop it on a tab switch.
   useEffect(() => {
     setJumpError(null);
   }, [activeTabId]);
-
-  function showInTree() {
-    if (!menu) return;
-    const target = menu.backendId;
-    setMenu(null);
-    // NAVIGATE_TO_REF also switches the rail to Structure and un-collapses it.
-    dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: target } });
-  }
 
   if (!activeTab) {
     return (
@@ -431,10 +313,10 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
       <div
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
-        onContextMenu={handleContextMenu}
-        onKeyDown={handleTreeKeyDown}
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
       >
-        {!entry && !fetchError && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
+        {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
         {fetchError !== undefined && (
           <div className="px-3 py-2 text-sm text-error">Could not load the page index: {fetchError}</div>
         )}
@@ -467,25 +349,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
           <div className="px-3 py-2 text-sm text-text-muted">This document has no pages.</div>
         )}
       </div>
-      {menu && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Page row actions"
-          className="fixed z-50 min-w-[160px] py-1 bg-surface border border-border rounded shadow-md text-sm"
-          style={{ left: menu.x, top: menu.y }}
-        >
-          <button
-            ref={menuItemRef}
-            type="button"
-            role="menuitem"
-            onClick={showInTree}
-            className="block w-full text-left px-3 py-1 text-text hover:bg-surface-hover focus:outline-none focus-visible:bg-surface-hover cursor-pointer"
-          >
-            Show node in tree
-          </button>
-        </div>
-      )}
+      {menu && <RowContextMenu target={menu} label="Page row actions" onClose={closeMenu} />}
     </div>
   );
 }

@@ -307,10 +307,10 @@ describe('Multi-tab reducer', () => {
   });
 
   /**
-   * Opening a PDF that is already open in a tab focuses that tab instead
-   * of opening a duplicate.
+   * Opening a PDF that is already open in a tab replaces that tab in place
+   * with the new parse instead of opening a duplicate.
    */
-  test('duplicate filePath focuses existing tab instead of opening new', () => {
+  test('duplicate filePath replaces the existing tab in place instead of opening new', () => {
     render(
       <AppProvider>
         <MultiTabInspector />
@@ -330,9 +330,11 @@ describe('Multi-tab reducer', () => {
     // Open duplicate of first document (same filePath, different tabId)
     act(() => screen.getByTestId('open-doc-duplicate').click());
 
-    // Should NOT create a third tab -- should focus the existing tab-1
+    // No third tab: the first tab takes the new tab id and becomes active.
     expect(screen.getByTestId('tab-count').textContent).toBe('2');
-    expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-1');
+    expect(screen.getByTestId('active-tab-id').textContent).toBe('tab-3');
+    expect(screen.getByTestId('tab-0-id').textContent).toBe('tab-3');
+    expect(screen.getByTestId('tab-1-id').textContent).toBe('tab-2');
   });
 
   /**

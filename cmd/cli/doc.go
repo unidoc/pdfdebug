@@ -2,8 +2,8 @@
 //
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
-// source, reverserefs, xref, objects, pages, bytes, embedded, metadata, and
-// signatures, plus the top-level `validate` command (bounded structural
+// source, reverserefs, xref, objects, pages, images, bytes, embedded, metadata,
+// and signatures, plus the top-level `validate` command (bounded structural
 // PDF/A-1b and PDF/UA-1 conformance checks).
 //
 // Output is human-readable PLAIN TEXT on stdout by default; pass --json to emit

@@ -9,8 +9,8 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { ReactNode } from 'react';
-import { AppProvider } from '../hooks/useDocumentState';
+import { useEffect, type ReactNode } from 'react';
+import { AppProvider, useAppDispatch } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
 
 const RAIL_KEY = 'unidoc-pdf-debugger:left-rail';
@@ -63,6 +63,9 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   SaveBytesToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: vi.fn().mockResolvedValue([]),
+  GetImageIndex: vi.fn(),
+  GetImagePages: vi.fn(),
+  GetImagePageGroups: vi.fn(),
 }));
 
 class MockResizeObserver {
@@ -96,9 +99,22 @@ function panelFor(tabEl: HTMLElement) {
   return panel!;
 }
 
+// The rail view lives on the active tab, so the layout is rendered with one open.
+function OpenDocument() {
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch({
+      type: 'OPEN_DOCUMENT',
+      payload: { tabId: 'tab-1', fileName: 'a.pdf', filePath: '/tmp/a.pdf', pageCount: 1, rootNode: null, rootChildren: null },
+    });
+  }, [dispatch]);
+  return null;
+}
+
 function renderLayout() {
   return render(
     <AppProvider>
+      <OpenDocument />
       <MainLayout />
     </AppProvider>,
   );
