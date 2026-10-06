@@ -165,34 +165,10 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		Kind:      imageKindError,
 	}
 
-	// The dictionary reads shared with DescribeImage and the image index, each
-	// under its own safeCall, so the warnings carry one wording.
 	xrt := doc.PDFContext.XRefTable
-	meta := readImageDictMetadata(xrt, &sd)
-	result.Width = meta.width
-	result.Height = meta.height
-	result.BitsPerComponent = meta.bitsPerComponent
-	result.ColorSpace = meta.colorSpace
-	result.Warning = meta.warning
-	// A stencil mask carries no /ColorSpace and one 1-bit sample per pixel; the
-	// ceiling and the size estimate below size it that way.
-	imageMask := meta.imageMask
-
-	// Filter
-	if sd.FilterPipeline != nil {
-		names := make([]string, len(sd.FilterPipeline))
-		for i, f := range sd.FilterPipeline {
-			names[i] = f.Name
-		}
-		result.Filter = strings.Join(names, ",")
-	}
-
-	// CMYK warning
-	if result.ColorSpace == "DeviceCMYK" || strings.Contains(result.ColorSpace, "CMYK") {
-		result.Warning = appendWarning(result.Warning, "Image uses CMYK color space (colors may be inaccurate)")
-	}
-
-	// Determine last filter for CSComponents setup
+	// Determine last filter for CSComponents setup. The DCT lookup runs before
+	// the shared metadata read so that read reuses sd.CSComponents instead of
+	// resolving the colour space a second time.
 	lastFilter := ""
 	if len(sd.FilterPipeline) > 0 {
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
@@ -226,6 +202,32 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		if err != nil {
 			csFailure = fmt.Sprintf("failed to determine color space components: %v", err)
 		}
+	}
+
+	// The dictionary reads shared with DescribeImage and the image index, each
+	// under its own safeCall, so the warnings carry one wording.
+	meta := readImageDictMetadata(xrt, &sd)
+	result.Width = meta.width
+	result.Height = meta.height
+	result.BitsPerComponent = meta.bitsPerComponent
+	result.ColorSpace = meta.colorSpace
+	result.Warning = meta.warning
+	// A stencil mask carries no /ColorSpace and one 1-bit sample per pixel; the
+	// ceiling and the size estimate below size it that way.
+	imageMask := meta.imageMask
+
+	// Filter
+	if sd.FilterPipeline != nil {
+		names := make([]string, len(sd.FilterPipeline))
+		for i, f := range sd.FilterPipeline {
+			names[i] = f.Name
+		}
+		result.Filter = strings.Join(names, ",")
+	}
+
+	// CMYK warning
+	if result.ColorSpace == "DeviceCMYK" || strings.Contains(result.ColorSpace, "CMYK") {
+		result.Warning = appendWarning(result.Warning, "Image uses CMYK color space (colors may be inaccurate)")
 	}
 
 	// The colour-component count the metadata read resolved (a negative
