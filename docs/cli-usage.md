@@ -93,10 +93,11 @@ prints the profile's scope sentence and a `Rules checked (N)` block listing
 each rule's id, spec clause, outcome (`0 found`, `N found` or `not evaluated`)
 and what it checks; `--json` carries the same as `scope` and `rules`. A clean
 run says "none of the N rules checked found a problem". `pdfua-1-structural`
-checks three catalog entries (`marked`, `struct-tree-root`, `lang`) and does
-not look at marked content, the structure tree's contents, alternate text,
-fonts or the rest of the catalog, so it is not a PDF/UA-1 conformance check.
-`pdfdebug --help` lists the rules of each profile.
+checks catalog-level entries only and does not look at marked content, the
+structure tree's contents, alternate text, fonts or the rest of the catalog, so
+it is not a PDF/UA-1 conformance check. The rule list changes as rules are
+added; `pdfdebug --help` lists the current rules of each profile, and the
+`rules` array of `validate --json` names the rules a run checked.
 
 ## Flags
 
