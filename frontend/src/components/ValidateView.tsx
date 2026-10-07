@@ -151,18 +151,18 @@ function RulesChecked({ result }: { result: ValidateResult }) {
         <h3 className="text-xs font-medium text-text-secondary mb-1">
           Rules checked ({result.rules.length})
         </h3>
-        {result.rules.map((rule) => (
-          <div
-            key={rule.ruleId}
-            className="text-xs font-mono flex gap-3 flex-wrap py-0.5"
-            data-testid="validate-rule"
-          >
-            <span className="text-text">{rule.ruleId}</span>
-            <span className="text-text-muted">{rule.specRef}</span>
-            <span className="text-text">{ruleOutcome(rule)}</span>
-            <span className="text-text-muted">{rule.checks}</span>
-          </div>
-        ))}
+        {/* One grid for all rows so the columns line up; a long description
+            wraps inside its own column, next to the rule it belongs to. */}
+        <div className="grid grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs font-mono">
+          {result.rules.map((rule) => (
+            <div key={rule.ruleId} className="contents" data-testid="validate-rule">
+              <span className="text-text">{rule.ruleId}</span>
+              <span className="text-text-muted">{rule.specRef}</span>
+              <span className="text-text">{ruleOutcome(rule)}</span>
+              <span className="text-text-muted break-words">{rule.checks}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
