@@ -79,9 +79,27 @@ type ValidationSummary struct {
 	Info int `json:"info"`
 }
 
+// RuleInfo describes one registry rule and, on a result, its outcome in that run.
+type RuleInfo struct {
+	// RuleID is the stable rule identifier.
+	RuleID string `json:"ruleId"`
+	// SpecRef is the clause reference.
+	SpecRef string `json:"specRef"`
+	// Severity is the registry-declared severity.
+	Severity Severity `json:"severity"`
+	// Checks says what the check tests, including its coverage bound.
+	Checks string `json:"checks"`
+	// Evaluated is false when the rule degraded to an info problem.
+	Evaluated bool `json:"evaluated"`
+	// Findings is the number of problems the rule emitted in this run (0 when
+	// not evaluated).
+	Findings int `json:"findings"`
+}
+
 // ValidationResult is the document-level outcome of one Validate run: the
-// selected profile, the tally, every problem, and the always-present honesty
-// disclaimer. It is the shape the CLI marshals and the GUI binding returns.
+// selected profile, the tally, every problem, the always-present honesty
+// disclaimer, the profile's scope sentence and the rules that ran with their
+// outcomes. It is the shape the CLI marshals and the GUI binding returns.
 type ValidationResult struct {
 	// Profile is the profile that ran.
 	Profile string `json:"profile"`
@@ -91,6 +109,12 @@ type ValidationResult struct {
 	Problems []Problem `json:"problems"`
 	// Disclaimer is the not-authoritative note, always populated.
 	Disclaimer string `json:"disclaimer"`
+	// Scope says which subset of the standard the profile covers and what it
+	// does not examine.
+	Scope string `json:"scope"`
+	// Rules lists the rules that ran, registry order, with their outcomes.
+	// Non-nil.
+	Rules []RuleInfo `json:"rules"`
 }
 
 // ruleHit is a rule's raw finding before the engine stamps the registry-owned
@@ -103,12 +127,14 @@ type ruleHit struct {
 
 // rule is one entry in the bounded, documented rule registry. Adding a rule is
 // a code change, not a config change. Severity is a fixed property of the rule
-// here, not computed per run.
+// here, not computed per run. checks is a short plain-ASCII phrase saying what
+// the check tests, including its coverage bound.
 type rule struct {
 	id       string
 	profile  string
 	severity Severity
 	specRef  string
+	checks   string
 	check    func(doc *DocumentState) []ruleHit
 }
 
@@ -124,46 +150,119 @@ type rule struct {
 // /Info consistency), interactive-form / NeedAppearances (6.9), and ICC-profile
 // internal correctness (only /OutputIntent PRESENCE is ours, not profile
 // validity). Those are veraPDF's job; this tool never claims authoritative
-// conformance. See DisclaimerText.
+// conformance. See DisclaimerText and profileInfos, whose scope sentences name
+// these gaps on every result.
 var ruleRegistry = []rule{
 	// --- PDF/A-1b structural rules (all error, gating) -----------------------
 	{
 		id: "font-embedding", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.3.4", check: checkFontEmbedding,
+		specRef: "ISO 19005-1:2005, 6.3.4",
+		checks:  "each non-Type3 font stored as an indirect object has /FontFile, /FontFile2 or /FontFile3 (Type3 exempt; inline font dicts not read)",
+		check:   checkFontEmbedding,
 	},
 	{
 		id: "no-encryption", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.1.3", check: checkNoEncryption,
+		specRef: "ISO 19005-1:2005, 6.1.3",
+		checks:  "trailer has no /Encrypt entry",
+		check:   checkNoEncryption,
 	},
 	{
 		id: "output-intent", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.2.2", check: checkOutputIntent,
+		specRef: "ISO 19005-1:2005, 6.2.2",
+		checks:  "catalog /OutputIntents non-empty, required only when page content or a form it draws sets a device colour (rg RG k K g G or a /DeviceRGB, /DeviceCMYK or /DeviceGray name)",
+		check:   checkOutputIntent,
 	},
 	{
 		id: "no-js-launch", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.6.1", check: checkNoJSLaunch,
+		specRef: "ISO 19005-1:2005, 6.6.1",
+		checks:  "no JavaScript or Launch action stored as an indirect object or as a direct catalog /OpenAction (inline actions elsewhere, such as an annotation /A, and /Names and /AA not walked)",
+		check:   checkNoJSLaunch,
 	},
 	{
 		id: "xmp-metadata", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.7.2/6.7.3", check: checkXMPMetadata,
+		specRef: "ISO 19005-1:2005, 6.7.2/6.7.3",
+		checks:  "XMP packet present; /Info and XMP agree on Title, Author, Subject, Keywords, Creator and Producer where both have them (dates not compared)",
+		check:   checkXMPMetadata,
 	},
 	{
 		id: "document-id", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.1.3", check: checkDocumentID,
+		specRef: "ISO 19005-1:2005, 6.1.3",
+		checks:  "trailer has an /ID entry",
+		check:   checkDocumentID,
 	},
 	// --- PDF/UA-1 structural subset (all warning, non-gating) ----------------
 	{
 		id: "marked", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.1", check: checkMarked,
+		specRef: "ISO 14289-1:2014, 7.1",
+		checks:  "catalog /MarkInfo /Marked is true",
+		check:   checkMarked,
 	},
 	{
 		id: "struct-tree-root", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.1", check: checkStructTreeRoot,
+		specRef: "ISO 14289-1:2014, 7.1",
+		checks:  "catalog has a /StructTreeRoot key (presence only, contents not read)",
+		check:   checkStructTreeRoot,
 	},
 	{
 		id: "lang", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.2", check: checkLang,
+		specRef: "ISO 14289-1:2014, 7.2",
+		checks:  "catalog /Lang is a non-empty string",
+		check:   checkLang,
 	},
+}
+
+// profileInfo is the per-profile display data: the standard the profile is a
+// subset of and the scope sentence printed with every result.
+type profileInfo struct {
+	standard string
+	scope    string
+}
+
+// profileInfos holds the standard name and scope sentence per profile. A scope
+// sentence names only what the listed rules cover and what is not examined.
+var profileInfos = map[string]profileInfo{
+	ProfilePDFA1B: {
+		standard: "PDF/A-1b",
+		scope: "A structural subset of PDF/A-1b limited to the rules listed. Transparency, annotations, " +
+			"actions other than JavaScript and Launch, the full XMP schema, interactive forms and ICC profile " +
+			"contents are not checked. This is not a PDF/A-1b conformance check.",
+	},
+	ProfilePDFUA1Structural: {
+		standard: "PDF/UA-1",
+		scope: "A structural subset of PDF/UA-1 limited to the catalog-level rules listed. Marked content, the " +
+			"structure tree's contents, alternate text, fonts and the rest of the catalog are not examined. This is " +
+			"not a PDF/UA-1 conformance check.",
+	},
+}
+
+// ProfileRules returns the registry rules of profile in registry order, with
+// Evaluated and Findings zero. An unknown profile returns an empty non-nil
+// slice.
+func ProfileRules(profile string) []RuleInfo {
+	out := []RuleInfo{}
+	for _, r := range ruleRegistry {
+		if r.profile == profile {
+			out = append(out, ruleInfoOf(r))
+		}
+	}
+	return out
+}
+
+// ProfileScope returns the scope sentence of profile, or "" for an unknown
+// profile.
+func ProfileScope(profile string) string {
+	return profileInfos[profile].scope
+}
+
+// ProfileStandard returns the display name of the standard profile is a subset
+// of (e.g. "PDF/UA-1"), or "" for an unknown profile.
+func ProfileStandard(profile string) string {
+	return profileInfos[profile].standard
+}
+
+// ruleInfoOf converts a registry rule to its RuleInfo with no outcome set.
+func ruleInfoOf(r rule) RuleInfo {
+	return RuleInfo{RuleID: r.id, SpecRef: r.specRef, Severity: r.severity, Checks: r.checks}
 }
 
 // ProfileGates reports whether a profile's rules gate the CLI exit code, i.e.
@@ -181,7 +280,9 @@ func ProfileGates(profile string) bool {
 }
 
 // Validate runs the bounded rule set for the selected profile against the
-// document in tabID and returns the problem list, tally, and disclaimer. An
+// document in tabID and returns the problem list, tally, disclaimer, scope
+// sentence and the per-rule outcomes (Rules, registry order; a degraded rule
+// has Evaluated false and Findings 0). An
 // empty profile defaults to pdfa-1b; an unrecognized profile returns
 // ErrUnknownProfile (the CLI maps it to the operational exit). Runs under
 // doc.pdfMu; each rule is safeCall-wrapped so a rule that panics internally
@@ -207,13 +308,17 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 		Profile:    profile,
 		Problems:   []Problem{},
 		Disclaimer: DisclaimerText,
+		Scope:      ProfileScope(profile),
+		Rules:      []RuleInfo{},
 	}
 	for _, r := range ruleRegistry {
 		if r.profile != profile {
 			continue
 		}
 		hits, ruleErr := runRule(doc, r)
+		info := ruleInfoOf(r)
 		if ruleErr != nil {
+			res.Rules = append(res.Rules, info)
 			// A rule that errors internally degrades to a single info
 			// problem, never a whole-run failure. This catches ANY panic,
 			// including a runtime.Error (nil deref, bad type assertion) that
@@ -228,6 +333,9 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 			})
 			continue
 		}
+		info.Evaluated = true
+		info.Findings = len(hits)
+		res.Rules = append(res.Rules, info)
 		for _, h := range hits {
 			res.Problems = append(res.Problems, Problem{
 				RuleID:    r.id,
@@ -274,7 +382,9 @@ func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
 // document is encrypted, for the reconciliation path where the Inspector
 // refused to open the file with ErrEncryptedPDF. PDF/A forbids encryption, so
 // this is an error-severity problem (exit 1), not a bare operational open
-// failure.
+// failure. Rules lists only no-encryption, the one rule decided without opening
+// the file, and Scope is the profile scope followed by a clause saying the
+// other rules did not run.
 func EncryptedResult(profile string) *ValidationResult {
 	if profile == "" {
 		profile = ProfilePDFA1B
@@ -286,11 +396,21 @@ func EncryptedResult(profile string) *ValidationResult {
 		Message:  "document is encrypted (PDF/A forbids encryption)",
 		SpecRef:  "ISO 19005-1:2005, 6.1.3",
 	}
+	rules := []RuleInfo{}
+	for _, r := range ProfileRules(ProfilePDFA1B) {
+		if r.RuleID == p.RuleID {
+			r.Evaluated = true
+			r.Findings = 1
+			rules = append(rules, r)
+		}
+	}
 	return &ValidationResult{
 		Profile:    profile,
 		Summary:    ValidationSummary{Errors: 1},
 		Problems:   []Problem{p},
 		Disclaimer: DisclaimerText,
+		Scope:      ProfileScope(profile) + " The other rules did not run because the file could not be opened.",
+		Rules:      rules,
 	}
 }
 
@@ -303,7 +423,9 @@ var fontFileKeys = []string{"FontFile", "FontFile2", "FontFile3"}
 // checkFontEmbedding flags every /Type /Font whose font program is not embedded
 // (PDF/A-1b 6.3.4 forbids non-embedded fonts). Type3 fonts define glyphs as
 // content streams and carry no FontFile, so they are exempt. Type0 composite
-// fonts are embedded via the descendant CIDFont's FontDescriptor.
+// fonts are embedded via the descendant CIDFont's FontDescriptor. Only
+// indirect objects are visited, so a font dict written inline in a /Resources
+// /Font map is not read.
 func checkFontEmbedding(doc *DocumentState) []ruleHit {
 	var hits []ruleHit
 	forEachObject(doc, func(objNum, gen int, obj pdfcpu_types.Object) {
@@ -428,10 +550,10 @@ func actionKind(doc *DocumentState, d pdfcpu_types.Dict) string {
 // checkNoJSLaunch flags JavaScript actions and Launch actions in the object
 // graph (PDF/A-1b 6.6.1 forbids both). An action dict is identified by
 // /S /JavaScript, /S /Launch, or a /JS payload entry. Coverage is bounded to
-// indirect objects plus the catalog's direct /OpenAction (the common inline
-// case); actions reachable only via the /Names /JavaScript name tree or /AA
-// additional-action dicts are not exhaustively walked (structural firewall - a
-// missed action under-reports, never falsely flags).
+// action dicts stored as indirect objects plus the catalog's direct
+// /OpenAction; an action written inline in another dict (an annotation /A, an
+// /AA entry) and the /Names /JavaScript name tree are not walked (structural
+// firewall - a missed action under-reports, never falsely flags).
 func checkNoJSLaunch(doc *DocumentState) []ruleHit {
 	var hits []ruleHit
 	forEachObject(doc, func(objNum, gen int, obj pdfcpu_types.Object) {
@@ -829,7 +951,7 @@ var rdfLiRE = regexp.MustCompile(`<rdf:li[^>]*>([^<]*)</rdf:li>`)
 // property is absent or its value cannot be unambiguously extracted.
 func extractXMPValue(xmp, prop string) string {
 	// Simple element form.
-	if m := regexp.MustCompile(`<`+regexp.QuoteMeta(prop)+`[^>]*>([^<]*)</`+regexp.QuoteMeta(prop)+`>`).FindStringSubmatch(xmp); m != nil {
+	if m := regexp.MustCompile(`<` + regexp.QuoteMeta(prop) + `[^>]*>([^<]*)</` + regexp.QuoteMeta(prop) + `>`).FindStringSubmatch(xmp); m != nil {
 		if v := strings.TrimSpace(m[1]); v != "" {
 			return unescapeXMLEntities(v)
 		}
