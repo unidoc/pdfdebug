@@ -3,7 +3,7 @@
 `pdfdebug` inspects the internal structure of a PDF from the command line: its
 object tree, indirect objects, content streams, fonts, images, cross-reference
 table, embedded files, metadata, and digital signatures. It also runs bounded
-structural conformance checks and computes a structural diff between two PDFs.
+structural checks and computes a structural diff between two PDFs.
 Everything is read-only - `pdfdebug` never modifies the file you point it at.
 
 This page documents the `pdfdebug` command-line tool, not the "UniDoc PDF
@@ -47,7 +47,7 @@ one file except `diff`, which takes two.
 | `dump embedded` | Embedded/associated files; extracts one's bytes to stdout | `--ref`/`--name` |
 | `dump metadata` | The `/Info` dictionary fields and the XMP packet | - |
 | `dump signatures` | Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict) | - |
-| `validate` | Bounded structural conformance checks; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found; 2 = operational error) | `--profile` |
+| `validate` | A named subset of structural checks per profile, listed on every run; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found; 2 = operational error) | `--profile` |
 | `diff` | Path-aligned structural diff of two PDFs; returns a three-way exit status (0 = identical; 1 = differ; 2 = operational error) | `--full` |
 
 `dump bytes` was called `dump plaintext`. The old spelling still works, prints
@@ -88,7 +88,15 @@ when it has one.
 
 `validate` runs structural checks only, not full conformance; for an
 authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and
-`pdfua-1-structural`.
+`pdfua-1-structural`, and each is a named subset of its standard. Every run
+prints the profile's scope sentence and a `Rules checked (N)` block listing
+each rule's id, spec clause, outcome (`0 found`, `N found` or `not evaluated`)
+and what it checks; `--json` carries the same as `scope` and `rules`. A clean
+run says "none of the N rules checked found a problem". `pdfua-1-structural`
+checks three catalog entries (`marked`, `struct-tree-root`, `lang`) and does
+not look at marked content, the structure tree's contents, alternate text,
+fonts or the rest of the catalog, so it is not a PDF/UA-1 conformance check.
+`pdfdebug --help` lists the rules of each profile.
 
 ## Flags
 
