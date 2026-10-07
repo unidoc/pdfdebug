@@ -284,7 +284,7 @@ func TestValidate_PDFUATaggedClean(t *testing.T) {
 }
 
 func TestValidate_EncryptedResultHelper(t *testing.T) {
-	res := EncryptedResult(ProfilePDFA1B)
+	res := EncryptedResult()
 	if res.Summary.Errors != 1 || len(res.Problems) != 1 {
 		t.Fatalf("EncryptedResult must carry exactly one error problem, got %+v", res)
 	}

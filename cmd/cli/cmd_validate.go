@@ -15,8 +15,8 @@ import (
 // validateUsage is the one-line usage string for the validate command.
 const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-structural] [--json] [--pretty] <file>"
 
-// runValidate handles the top-level `validate` command: run the bounded
-// structural conformance rule set for a profile and report problems. It uses a
+// runValidate handles the top-level `validate` command: run the named subset
+// of structural checks for a profile and report problems. It uses a
 // three-way exit contract distinct from the `dump` commands:
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
@@ -79,7 +79,7 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 			// an error problem here (exit 1). Only under the PDF/A profile - a
 			// PDF/UA-structural run has no encryption rule and must never gate on
 			// one, so an unopenable encrypted file there is operational (exit 2).
-			return renderValidate(pdfcore.EncryptedResult(profile), jsonOut, pretty)
+			return renderValidate(pdfcore.EncryptedResult(), jsonOut, pretty)
 		}
 		return handleOpenError(err) // operational: exit 2
 	}
