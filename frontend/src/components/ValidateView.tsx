@@ -1,8 +1,10 @@
 /**
- * @file Validate view -- document-level STRUCTURAL conformance panel. A "Run
- * checks" action with a profile selector runs the bounded PDF/A-1b or
- * PDF/UA-1-structural rule set and renders the returned problems grouped by
- * severity. Clicking an object-scoped problem jumps TreePanel to the offending
+ * @file Validate view -- document-level panel for a named subset of structural
+ * checks. A "Run checks" action with a profile selector runs the bounded
+ * PDF/A-1b or PDF/UA-1-structural rule set. Each result shows the profile's
+ * scope sentence and the rules checked (id, spec ref, outcome, what each rule
+ * checks) above either a clean sentence naming the rule count or the problems
+ * grouped by severity. Clicking an object-scoped problem jumps TreePanel to the offending
  * object via the existing NAVIGATE_TO_REF wiring; a problem with no object node
  * id is shown but not clickable, while a non-empty-but-unresolvable id degrades
  * gracefully through the reducer's navigation-error path (never a broken jump).
@@ -25,12 +27,26 @@ export interface ValidateProblem {
   specRef: string;
 }
 
+/** One rule that ran and its outcome, mirroring `pdfcore.RuleInfo`. */
+export interface ValidateRuleInfo {
+  ruleId: string;
+  specRef: string;
+  severity: string;
+  checks: string;
+  /** False when the rule degraded to an info problem. */
+  evaluated: boolean;
+  /** Problems the rule emitted in this run (0 when not evaluated). */
+  findings: number;
+}
+
 /** The validation outcome, mirroring `pdfcore.ValidationResult`. */
 export interface ValidateResult {
   profile: string;
   summary: { errors: number; warnings: number; info?: number };
   problems: ValidateProblem[];
   disclaimer?: string;
+  scope: string;
+  rules: ValidateRuleInfo[];
 }
 
 /** Props for {@link ValidateView}. */
@@ -45,8 +61,8 @@ export interface ValidateViewProps {
 
 /** The two bounded, explicit profiles. */
 const PROFILES: { value: string; label: string }[] = [
-  { value: 'pdfa-1b', label: 'PDF/A-1b (structural)' },
-  { value: 'pdfua-1-structural', label: 'PDF/UA-1 (structural)' },
+  { value: 'pdfa-1b', label: 'PDF/A-1b (structural subset)' },
+  { value: 'pdfua-1-structural', label: 'PDF/UA-1 (structural subset)' },
 ];
 
 /** Severity groups in display order, each with its stable testid. */
@@ -114,6 +130,39 @@ function ProblemRow({
         )}
         <span>{problem.ruleId}</span>
         <span>{problem.specRef}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Outcome column text for one rule. */
+function ruleOutcome(rule: ValidateRuleInfo): string {
+  return rule.evaluated ? `${rule.findings} found` : 'not evaluated';
+}
+
+/** The scope sentence and the rules that ran, shown above every result. */
+function RulesChecked({ result }: { result: ValidateResult }) {
+  return (
+    <div className="mb-3">
+      <div className="text-xs text-text-muted mb-2" data-testid="validate-scope">
+        {result.scope}
+      </div>
+      <div className="border-b border-border pb-2" data-testid="validate-rules">
+        <h3 className="text-xs font-medium text-text-secondary mb-1">
+          Rules checked ({result.rules.length})
+        </h3>
+        {result.rules.map((rule) => (
+          <div
+            key={rule.ruleId}
+            className="text-xs font-mono flex gap-3 flex-wrap py-0.5"
+            data-testid="validate-rule"
+          >
+            <span className="text-text">{rule.ruleId}</span>
+            <span className="text-text-muted">{rule.specRef}</span>
+            <span className="text-text">{ruleOutcome(rule)}</span>
+            <span className="text-text-muted">{rule.checks}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -225,12 +274,12 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
           </div>
         )}
 
+        {!error && result && <RulesChecked result={result} />}
+
         {!error && result && result.problems.length === 0 && (
-          <div
-            className="h-full flex items-center justify-center text-text-muted text-sm text-center"
-            data-testid="validate-empty"
-          >
-            no structural problems found (structural checks only)
+          <div className="text-text-muted text-sm" data-testid="validate-empty">
+            None of the {result.rules.length} rule{result.rules.length === 1 ? '' : 's'} checked
+            found a problem (structural subset only)
           </div>
         )}
 
