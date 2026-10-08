@@ -2,6 +2,7 @@ package pdfcore
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -666,4 +667,146 @@ func TestEncryptedResult_PanicsWithoutNoEncryptionRule(t *testing.T) {
 	}()
 	res := EncryptedResult()
 	t.Logf("result: %+v", res)
+}
+
+// uaRule validates content under pdfua-1-structural and returns the named rule.
+func uaRule(t *testing.T, name string, content []byte, ruleID string) RuleInfo {
+	t.Helper()
+	ins, tabID := writeTempPDF(t, name, content)
+	res, err := ins.Validate(tabID, ProfilePDFUA1Structural)
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	return ruleByID(t, res, ruleID)
+}
+
+// streamObject returns indirect object num as a stream with dict entries extra
+// and data as its body.
+func streamObject(num int, extra, data string) string {
+	return fmt.Sprintf("%d 0 obj\n<< %s /Length %d >>\nstream\n%s\nendstream\nendobj\n\n", num, extra, len(data), data)
+}
+
+func TestValidate_XMPPhraseNamesDatesNotCompared(t *testing.T) {
+	xmp := wrapXMP("<xmp:CreateDate>2020-01-01T00:00:00Z</xmp:CreateDate><xmp:ModifyDate>2020-01-01T00:00:00Z</xmp:ModifyDate>")
+	r := pdfaRule(t, "xmp-dates.pdf", xmpInfoPDF(xmp, "/CreationDate (D:20240601120000Z) /ModDate (D:20240601120000Z)"), "xmp-metadata")
+	if !r.Evaluated || r.Findings != 0 {
+		t.Errorf("xmp-metadata = %+v on /Info dates that differ from the XMP dates; want evaluated with 0 found", r)
+	}
+	if !strings.Contains(r.Checks, "dates not compared") {
+		t.Errorf("xmp-metadata does not compare dates, so its phrase must say so: %q", r.Checks)
+	}
+}
+
+func TestValidate_NoJSLaunchPhraseNamesNamesAndAAReach(t *testing.T) {
+	const js = "<< /S /JavaScript /JS (app.alert(1)) >>"
+	cases := []struct {
+		name    string
+		catalog string
+		page    string
+		extra   string
+		want    int
+	}{
+		{"inline action in the /Names /JavaScript tree", "/Names << /JavaScript << /Names [(a) " + js + "] >> >>", "", "", 0},
+		{"inline action in a page /AA", "", "/AA << /O " + js + " >>", "", 0},
+		{"inline action in the catalog /AA", "/AA << /WC " + js + " >>", "", "", 0},
+		{"indirect action in the /Names /JavaScript tree", "/Names << /JavaScript << /Names [(a) 4 0 R] >> >>", "", "4 0 obj\n" + js + "\nendobj\n\n", 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			parts := []string{
+				"%PDF-1.4\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R " + c.catalog + " >>\nendobj\n\n",
+				"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+				"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] " + c.page + " >>\nendobj\n\n",
+			}
+			if c.extra != "" {
+				parts = append(parts, c.extra)
+			}
+			r := pdfaRule(t, "names-aa.pdf", assemblexref(parts...), "no-js-launch")
+			if !r.Evaluated || r.Findings != c.want {
+				t.Errorf("no-js-launch = %+v, want evaluated with %d found", r, c.want)
+			}
+			if !strings.Contains(r.Checks, "/Names and /AA not walked") {
+				t.Errorf("no-js-launch does not walk /Names or /AA, so its phrase must say so: %q", r.Checks)
+			}
+		})
+	}
+}
+
+func TestValidate_StructTreeRootPhraseNamesPresenceOnly(t *testing.T) {
+	r := uaRule(t, "empty-struct-tree.pdf", assemblexref(
+		"%PDF-1.4\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /StructTreeRoot 4 0 R >>\nendobj\n\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n\n",
+		"4 0 obj\n<< /Type /StructTreeRoot >>\nendobj\n\n",
+	), "struct-tree-root")
+	if !r.Evaluated || r.Findings != 0 {
+		t.Errorf("struct-tree-root = %+v on a /StructTreeRoot with no /K; want evaluated with 0 found", r)
+	}
+	if !strings.Contains(r.Checks, "presence only") {
+		t.Errorf("struct-tree-root does not read the tree, so its phrase must say presence only: %q", r.Checks)
+	}
+}
+
+func TestValidate_FontEmbeddingPhraseNamesType3Exempt(t *testing.T) {
+	font := func(subtype string) []byte {
+		return assemblexref(
+			"%PDF-1.4\n",
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\n\n",
+			"4 0 obj\n<< /Type /Font /Subtype /"+subtype+" /BaseFont /F /FontBBox [0 0 1 1] /FontMatrix [1 0 0 1 0 0] /CharProcs << >> /Encoding << /Differences [] >> /FirstChar 0 /LastChar 0 /Widths [0] >>\nendobj\n\n",
+		)
+	}
+	if r := pdfaRule(t, "type1-font.pdf", font("Type1"), "font-embedding"); r.Findings != 1 {
+		t.Fatalf("font-embedding Findings = %d on a Type1 font with no /FontFile; want 1", r.Findings)
+	}
+	r := pdfaRule(t, "type3-font.pdf", font("Type3"), "font-embedding")
+	if !r.Evaluated || r.Findings != 0 {
+		t.Errorf("font-embedding = %+v on a Type3 font with no /FontFile; want evaluated with 0 found", r)
+	}
+	if !strings.Contains(r.Checks, "Type3 exempt") {
+		t.Errorf("font-embedding skips Type3 fonts, so its phrase must say so: %q", r.Checks)
+	}
+}
+
+func TestValidate_OutputIntentPhraseNamesUnreadResources(t *testing.T) {
+	cases := []struct {
+		name      string
+		resources string
+		content   string
+		extra     string
+		keyword   string
+	}{
+		{"device colour in a tiling pattern", "/Pattern << /P0 5 0 R >>", "/Pattern cs /P0 scn 0 0 10 10 re f",
+			streamObject(5, "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5 /Resources << >>", "1 0 0 rg 0 0 5 5 re f"), "patterns"},
+		{"device colour space in a shading", "/Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 1 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 1 1] /N 1 >> >> >>", "/Sh0 sh",
+			"", "shadings"},
+		{"device colour space on an image", "/XObject << /Im0 5 0 R >>", "/Im0 Do",
+			streamObject(5, "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8", "abc"), "images"},
+		{"device colour space selected by a /ColorSpace resource name", "/ColorSpace << /CS0 /DeviceRGB >>", "/CS0 cs 1 0 0 sc 0 0 10 10 re f",
+			"", "/ColorSpace resources"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			parts := []string{
+				"%PDF-1.4\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+				"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+				"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << " + c.resources + " >> /Contents 4 0 R >>\nendobj\n\n",
+				streamObject(4, "", c.content),
+			}
+			if c.extra != "" {
+				parts = append(parts, c.extra)
+			}
+			r := pdfaRule(t, "unread-resource.pdf", assemblexref(parts...), "output-intent")
+			if !r.Evaluated || r.Findings != 0 {
+				t.Errorf("output-intent = %+v with device colour only in a resource it does not read; want evaluated with 0 found", r)
+			}
+			if !strings.Contains(r.Checks, c.keyword) {
+				t.Errorf("output-intent does not read %s, so its phrase must name them: %q", c.keyword, r.Checks)
+			}
+		})
+	}
 }
