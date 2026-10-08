@@ -21,7 +21,7 @@
 //
 //	validate --json => top-level OBJECT:
 //	  profile   string                selected profile ("pdfa-1b" | "pdfua-1-structural")
-//	  summary   { errors:int, warnings:int }
+//	  summary   { errors:int, warnings:int, info:int }
 //	  problems  array of Problem, each:
 //	    ruleId    string   stable rule id
 //	    profile   string   emitting profile (redundant per-run; self-describing)
@@ -30,6 +30,15 @@
 //	    objRef    string   "N G R"        (optional; "" for document-level)
 //	    objNodeId string   "obj:{gen}:{num}" (present whenever objRef is; "" otherwise)
 //	    specRef   string   ISO 32000 / PDF/A / PDF/UA clause (never empty)
+//	  disclaimer string               not-authoritative note, always populated
+//	  scope     string                the profile's scope sentence (what it covers and does not examine)
+//	  rules     array of RuleInfo (never null, registry order), each:
+//	    ruleId    string   stable rule id
+//	    specRef   string   clause reference
+//	    severity  string   registry-declared severity
+//	    checks    string   what the check tests, with its coverage bound
+//	    evaluated bool     false when the rule degraded to an info problem
+//	    findings  int      problems the rule emitted in this run
 //
 // Exit codes (a hard three-way contract -- `dump` only uses 0/2):
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)

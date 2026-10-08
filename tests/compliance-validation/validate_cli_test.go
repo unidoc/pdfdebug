@@ -341,8 +341,8 @@ func TestValidate_CleanForProfileExitsZero(t *testing.T) {
 	}
 	assertNotJSON(t, stdout)
 	assertNoComplianceVerdict(t, "plain", stdout)
-	if !strings.Contains(strings.ToLower(stdout), "no structural problems found") {
-		t.Errorf("clean plain output must say \"no structural problems found\":\n%s", stdout)
+	if !strings.Contains(strings.ToLower(stdout), "rules checked found a problem") {
+		t.Errorf("clean plain output must say none of the rules checked found a problem:\n%s", stdout)
 	}
 
 	jsonOut, _, ec := runCLI(t, bin, "validate", "--profile", "pdfua-1-structural", "--json", pdf)

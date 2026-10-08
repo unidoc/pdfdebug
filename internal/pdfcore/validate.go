@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -79,9 +80,27 @@ type ValidationSummary struct {
 	Info int `json:"info"`
 }
 
+// RuleInfo describes one registry rule and, on a result, its outcome in that run.
+type RuleInfo struct {
+	// RuleID is the stable rule identifier.
+	RuleID string `json:"ruleId"`
+	// SpecRef is the clause reference.
+	SpecRef string `json:"specRef"`
+	// Severity is the registry-declared severity.
+	Severity Severity `json:"severity"`
+	// Checks says what the check tests, including its coverage bound.
+	Checks string `json:"checks"`
+	// Evaluated is false when the rule degraded to an info problem.
+	Evaluated bool `json:"evaluated"`
+	// Findings is the number of problems the rule emitted in this run (0 when
+	// not evaluated).
+	Findings int `json:"findings"`
+}
+
 // ValidationResult is the document-level outcome of one Validate run: the
-// selected profile, the tally, every problem, and the always-present honesty
-// disclaimer. It is the shape the CLI marshals and the GUI binding returns.
+// selected profile, the tally, every problem, the always-present honesty
+// disclaimer, the profile's scope sentence and the rules that ran with their
+// outcomes. It is the shape the CLI marshals and the GUI binding returns.
 type ValidationResult struct {
 	// Profile is the profile that ran.
 	Profile string `json:"profile"`
@@ -91,6 +110,12 @@ type ValidationResult struct {
 	Problems []Problem `json:"problems"`
 	// Disclaimer is the not-authoritative note, always populated.
 	Disclaimer string `json:"disclaimer"`
+	// Scope says which subset of the standard the profile covers and what it
+	// does not examine.
+	Scope string `json:"scope"`
+	// Rules lists the rules that ran, registry order, with their outcomes.
+	// Non-nil.
+	Rules []RuleInfo `json:"rules"`
 }
 
 // ruleHit is a rule's raw finding before the engine stamps the registry-owned
@@ -103,13 +128,17 @@ type ruleHit struct {
 
 // rule is one entry in the bounded, documented rule registry. Adding a rule is
 // a code change, not a config change. Severity is a fixed property of the rule
-// here, not computed per run.
+// here, not computed per run. checks is a short plain-ASCII phrase saying what
+// the check tests, including its coverage bound. check returns an error when it
+// could not read what it needs to decide (e.g. the catalog); the rule is then
+// reported as not evaluated.
 type rule struct {
 	id       string
 	profile  string
 	severity Severity
 	specRef  string
-	check    func(doc *DocumentState) []ruleHit
+	checks   string
+	check    func(doc *DocumentState) ([]ruleHit, error)
 }
 
 // ruleRegistry is the single source of truth for the bounded structural rule
@@ -124,46 +153,119 @@ type rule struct {
 // /Info consistency), interactive-form / NeedAppearances (6.9), and ICC-profile
 // internal correctness (only /OutputIntent PRESENCE is ours, not profile
 // validity). Those are veraPDF's job; this tool never claims authoritative
-// conformance. See DisclaimerText.
+// conformance. See DisclaimerText and profileInfos, whose scope sentences name
+// these gaps on every result.
 var ruleRegistry = []rule{
 	// --- PDF/A-1b structural rules (all error, gating) -----------------------
 	{
 		id: "font-embedding", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.3.4", check: checkFontEmbedding,
+		specRef: "ISO 19005-1:2005, 6.3.4",
+		checks:  "each non-Type3 font stored as an indirect object has /FontFile, /FontFile2 or /FontFile3 (Type3 exempt; inline font dicts not read)",
+		check:   checkFontEmbedding,
 	},
 	{
 		id: "no-encryption", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.1.3", check: checkNoEncryption,
+		specRef: "ISO 19005-1:2005, 6.1.3",
+		checks:  "trailer has no /Encrypt entry",
+		check:   checkNoEncryption,
 	},
 	{
 		id: "output-intent", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.2.2", check: checkOutputIntent,
+		specRef: "ISO 19005-1:2005, 6.2.2",
+		checks:  "catalog /OutputIntents non-empty, required only when a page content stream or any form XObject in a page's /Resources (used or not) sets a device colour (rg RG k K g G or a /DeviceRGB, /DeviceCMYK or /DeviceGray name; a page or stream that cannot be read leaves the rule not evaluated); annotation appearances, patterns, shadings, images, Type3 glyphs and /ColorSpace resources not read",
+		check:   checkOutputIntent,
 	},
 	{
 		id: "no-js-launch", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.6.1", check: checkNoJSLaunch,
+		specRef: "ISO 19005-1:2005, 6.6.1",
+		checks:  "no JavaScript or Launch action stored as an indirect object or as a direct catalog /OpenAction (inline actions elsewhere, such as an annotation /A, and /Names and /AA not walked)",
+		check:   checkNoJSLaunch,
 	},
 	{
 		id: "xmp-metadata", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.7.2/6.7.3", check: checkXMPMetadata,
+		specRef: "ISO 19005-1:2005, 6.7.2/6.7.3",
+		checks:  "XMP packet present; /Info and XMP agree on Title, Author, Subject, Keywords, Creator and Producer where both have them (dates not compared; multi-value XMP entries skipped)",
+		check:   checkXMPMetadata,
 	},
 	{
 		id: "document-id", profile: ProfilePDFA1B, severity: "error",
-		specRef: "ISO 19005-1:2005, 6.1.3", check: checkDocumentID,
+		specRef: "ISO 19005-1:2005, 6.1.3",
+		checks:  "trailer has an /ID entry",
+		check:   checkDocumentID,
 	},
 	// --- PDF/UA-1 structural subset (all warning, non-gating) ----------------
 	{
 		id: "marked", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.1", check: checkMarked,
+		specRef: "ISO 14289-1:2014, 7.1",
+		checks:  "catalog /MarkInfo /Marked is true",
+		check:   checkMarked,
 	},
 	{
 		id: "struct-tree-root", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.1", check: checkStructTreeRoot,
+		specRef: "ISO 14289-1:2014, 7.1",
+		checks:  "catalog has a /StructTreeRoot key (presence only, contents not read)",
+		check:   checkStructTreeRoot,
 	},
 	{
 		id: "lang", profile: ProfilePDFUA1Structural, severity: "warning",
-		specRef: "ISO 14289-1:2014, 7.2", check: checkLang,
+		specRef: "ISO 14289-1:2014, 7.2",
+		checks:  "catalog /Lang is a non-empty string",
+		check:   checkLang,
 	},
+}
+
+// profileInfo is the per-profile display data: the standard the profile is a
+// subset of and the scope sentence printed with every result.
+type profileInfo struct {
+	standard string
+	scope    string
+}
+
+// profileInfos holds the standard name and scope sentence per profile. A scope
+// sentence names only what the listed rules cover and what is not examined.
+var profileInfos = map[string]profileInfo{
+	ProfilePDFA1B: {
+		standard: "PDF/A-1b",
+		scope: "A structural subset of PDF/A-1b limited to the rules listed. Transparency, annotations, " +
+			"actions other than JavaScript and Launch, the full XMP schema, interactive forms and ICC profile " +
+			"contents are not checked. This is not a PDF/A-1b conformance check.",
+	},
+	ProfilePDFUA1Structural: {
+		standard: "PDF/UA-1",
+		scope: "A structural subset of PDF/UA-1 limited to the catalog-level rules listed. Marked content, the " +
+			"structure tree's contents, alternate text, fonts and the rest of the catalog are not examined. This is " +
+			"not a PDF/UA-1 conformance check.",
+	},
+}
+
+// ProfileRules returns the registry rules of profile in registry order, with
+// Evaluated and Findings zero. An unknown profile returns an empty non-nil
+// slice.
+func ProfileRules(profile string) []RuleInfo {
+	out := []RuleInfo{}
+	for _, r := range ruleRegistry {
+		if r.profile == profile {
+			out = append(out, ruleInfoOf(r))
+		}
+	}
+	return out
+}
+
+// ProfileScope returns the scope sentence of profile, or "" for an unknown
+// profile.
+func ProfileScope(profile string) string {
+	return profileInfos[profile].scope
+}
+
+// ProfileStandard returns the display name of the standard profile is a subset
+// of (e.g. "PDF/UA-1"), or "" for an unknown profile.
+func ProfileStandard(profile string) string {
+	return profileInfos[profile].standard
+}
+
+// ruleInfoOf converts a registry rule to its RuleInfo with no outcome set.
+func ruleInfoOf(r rule) RuleInfo {
+	return RuleInfo{RuleID: r.id, SpecRef: r.specRef, Severity: r.severity, Checks: r.checks}
 }
 
 // ProfileGates reports whether a profile's rules gate the CLI exit code, i.e.
@@ -181,7 +283,9 @@ func ProfileGates(profile string) bool {
 }
 
 // Validate runs the bounded rule set for the selected profile against the
-// document in tabID and returns the problem list, tally, and disclaimer. An
+// document in tabID and returns the problem list, tally, disclaimer, scope
+// sentence and the per-rule outcomes (Rules, registry order; a degraded rule
+// has Evaluated false and Findings 0). An
 // empty profile defaults to pdfa-1b; an unrecognized profile returns
 // ErrUnknownProfile (the CLI maps it to the operational exit). Runs under
 // doc.pdfMu; each rule is safeCall-wrapped so a rule that panics internally
@@ -207,13 +311,17 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 		Profile:    profile,
 		Problems:   []Problem{},
 		Disclaimer: DisclaimerText,
+		Scope:      ProfileScope(profile),
+		Rules:      []RuleInfo{},
 	}
 	for _, r := range ruleRegistry {
 		if r.profile != profile {
 			continue
 		}
 		hits, ruleErr := runRule(doc, r)
+		info := ruleInfoOf(r)
 		if ruleErr != nil {
+			res.Rules = append(res.Rules, info)
 			// A rule that errors internally degrades to a single info
 			// problem, never a whole-run failure. This catches ANY panic,
 			// including a runtime.Error (nil deref, bad type assertion) that
@@ -228,6 +336,9 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 			})
 			continue
 		}
+		info.Evaluated = true
+		info.Findings = len(hits)
+		res.Rules = append(res.Rules, info)
 		for _, h := range hits {
 			res.Problems = append(res.Problems, Problem{
 				RuleID:    r.id,
@@ -240,25 +351,34 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 			})
 		}
 	}
-	for _, p := range res.Problems {
-		switch p.Severity {
-		case "error":
-			res.Summary.Errors++
-		case "warning":
-			res.Summary.Warnings++
-		case "info":
-			res.Summary.Info++
-		}
-	}
+	res.Summary = summarize(res.Problems)
 	return res, nil
 }
 
-// runRule runs one rule's check and returns its hits, converting ANY panic
-// (including a runtime.Error that safeCall re-panics) into an error so the
-// caller can degrade the rule to an info problem rather than crashing the whole
-// run. This is a deliberate exception to the project-wide "runtime.Error
-// surfaces loudly" rule: a read-only inspector over arbitrary PDFs must keep
-// evaluating the remaining rules when one rule trips on malformed input.
+// summarize tallies problems by severity.
+func summarize(problems []Problem) ValidationSummary {
+	var s ValidationSummary
+	for _, p := range problems {
+		switch p.Severity {
+		case "error":
+			s.Errors++
+		case "warning":
+			s.Warnings++
+		case "info":
+			s.Info++
+		}
+	}
+	return s
+}
+
+// runRule runs one rule's check and returns its hits, or the error the check
+// returned when it could not read what it needs (no hits then). It also
+// converts ANY panic (including a runtime.Error that safeCall re-panics) into
+// an error so the caller can degrade the rule to an info problem rather than
+// crashing the whole run. This is a deliberate exception to the project-wide
+// "runtime.Error surfaces loudly" rule: a read-only inspector over arbitrary
+// PDFs must keep evaluating the remaining rules when one rule trips on
+// malformed input.
 func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -266,31 +386,49 @@ func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
 			err = fmt.Errorf("%v", rec)
 		}
 	}()
-	hits = r.check(doc)
+	hits, err = r.check(doc)
+	if err != nil {
+		return nil, err
+	}
 	return hits, nil
 }
 
-// EncryptedResult builds a single-problem ValidationResult reporting that the
-// document is encrypted, for the reconciliation path where the Inspector
-// refused to open the file with ErrEncryptedPDF. PDF/A forbids encryption, so
-// this is an error-severity problem (exit 1), not a bare operational open
-// failure.
-func EncryptedResult(profile string) *ValidationResult {
-	if profile == "" {
-		profile = ProfilePDFA1B
+// EncryptedResult builds the pdfa-1b ValidationResult for a file the Inspector
+// refused to open with ErrEncryptedPDF. The CLI calls it only under pdfa-1b,
+// the one profile with a no-encryption rule, so the result always describes
+// that profile. The single problem and the single Rules entry come from the
+// pdfa-1b no-encryption registry rule, the one rule decided without opening the
+// file, and Summary counts the problem by that rule's severity. Scope is the
+// pdfa-1b scope followed by a clause saying the other rules did not run.
+// Panics when the registry has no pdfa-1b no-encryption rule, which is a
+// programming error in the static registry.
+func EncryptedResult() *ValidationResult {
+	var info RuleInfo
+	for _, r := range ProfileRules(ProfilePDFA1B) {
+		if r.RuleID == "no-encryption" {
+			info = r
+		}
+	}
+	if info.RuleID == "" {
+		panic("rule registry has no pdfa-1b no-encryption rule")
 	}
 	p := Problem{
-		RuleID:   "no-encryption",
-		Profile:  profile,
-		Severity: "error",
+		RuleID:   info.RuleID,
+		Profile:  ProfilePDFA1B,
+		Severity: info.Severity,
 		Message:  "document is encrypted (PDF/A forbids encryption)",
-		SpecRef:  "ISO 19005-1:2005, 6.1.3",
+		SpecRef:  info.SpecRef,
 	}
+	info.Evaluated = true
+	info.Findings = 1
+	problems := []Problem{p}
 	return &ValidationResult{
-		Profile:    profile,
-		Summary:    ValidationSummary{Errors: 1},
-		Problems:   []Problem{p},
+		Profile:    ProfilePDFA1B,
+		Summary:    summarize(problems),
+		Problems:   problems,
 		Disclaimer: DisclaimerText,
+		Scope:      ProfileScope(ProfilePDFA1B) + " The other rules did not run because the file could not be opened.",
+		Rules:      []RuleInfo{info},
 	}
 }
 
@@ -303,8 +441,10 @@ var fontFileKeys = []string{"FontFile", "FontFile2", "FontFile3"}
 // checkFontEmbedding flags every /Type /Font whose font program is not embedded
 // (PDF/A-1b 6.3.4 forbids non-embedded fonts). Type3 fonts define glyphs as
 // content streams and carry no FontFile, so they are exempt. Type0 composite
-// fonts are embedded via the descendant CIDFont's FontDescriptor.
-func checkFontEmbedding(doc *DocumentState) []ruleHit {
+// fonts are embedded via the descendant CIDFont's FontDescriptor. Only
+// indirect objects are visited, so a font dict written inline in a /Resources
+// /Font map is not read.
+func checkFontEmbedding(doc *DocumentState) ([]ruleHit, error) {
 	var hits []ruleHit
 	forEachObject(doc, func(objNum, gen int, obj pdfcpu_types.Object) {
 		d := asDict(obj)
@@ -338,7 +478,7 @@ func checkFontEmbedding(doc *DocumentState) []ruleHit {
 			objNodeID: fmt.Sprintf("obj:%d:%d", gen, objNum),
 		})
 	})
-	return hits
+	return hits, nil
 }
 
 // fontIsEmbedded reports whether the font dict carries an embedded font program.
@@ -375,34 +515,44 @@ func hasFontFile(fd pdfcpu_types.Dict) bool {
 // (PDF/A-1b 6.1.3 forbids encryption). This covers openable-but-encrypted files
 // (empty user password); a fully-unopenable ErrEncryptedPDF is reconciled by
 // the caller via EncryptedResult.
-func checkNoEncryption(doc *DocumentState) []ruleHit {
+func checkNoEncryption(doc *DocumentState) ([]ruleHit, error) {
 	xrt := doc.PDFContext.XRefTable
 	if xrt == nil || xrt.Encrypt == nil {
-		return nil
+		return nil, nil
 	}
 	ref := *xrt.Encrypt
 	return []ruleHit{{
 		message:   "document is encrypted (/Encrypt present; PDF/A forbids encryption)",
 		objRef:    refString(ref),
 		objNodeID: nodeIDFromRef(ref),
-	}}
+	}}, nil
 }
 
 // checkOutputIntent flags a document that uses device-dependent color but
 // declares no /OutputIntents (PDF/A-1b 6.2.2). The rule is gated on actual
 // device-color usage detected in page content streams so it does not fire on a
 // document that never sets a device color (matching veraPDF, which does not
-// require an OutputIntent when no device color space is used).
-func checkOutputIntent(doc *DocumentState) []ruleHit {
-	if catalogHasNonEmptyArray(doc, "OutputIntents") {
-		return nil
+// require an OutputIntent when no device color space is used). An unreadable
+// catalog, or a page or stream that could not be read when no device color was
+// found elsewhere, leaves the rule not evaluated.
+func checkOutputIntent(doc *DocumentState) ([]ruleHit, error) {
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
 	}
-	if !documentUsesDeviceColor(doc) {
-		return nil
+	if len(dereferenceArray(doc, cat["OutputIntents"])) > 0 {
+		return nil, nil
+	}
+	used, err := documentUsesDeviceColor(doc)
+	if err != nil {
+		return nil, err
+	}
+	if !used {
+		return nil, nil
 	}
 	return []ruleHit{{
 		message: "document uses device color but declares no /OutputIntent (device-independent color / OutputIntent required)",
-	}}
+	}}, nil
 }
 
 // deviceColorOps is the set of content-stream operators that set a
@@ -428,11 +578,12 @@ func actionKind(doc *DocumentState, d pdfcpu_types.Dict) string {
 // checkNoJSLaunch flags JavaScript actions and Launch actions in the object
 // graph (PDF/A-1b 6.6.1 forbids both). An action dict is identified by
 // /S /JavaScript, /S /Launch, or a /JS payload entry. Coverage is bounded to
-// indirect objects plus the catalog's direct /OpenAction (the common inline
-// case); actions reachable only via the /Names /JavaScript name tree or /AA
-// additional-action dicts are not exhaustively walked (structural firewall - a
-// missed action under-reports, never falsely flags).
-func checkNoJSLaunch(doc *DocumentState) []ruleHit {
+// action dicts stored as indirect objects plus the catalog's direct
+// /OpenAction; an action written inline in another dict (an annotation /A, an
+// /AA entry) and the /Names /JavaScript name tree are not walked (structural
+// firewall - a missed action under-reports, never falsely flags). An unreadable
+// catalog leaves the rule not evaluated.
+func checkNoJSLaunch(doc *DocumentState) ([]ruleHit, error) {
 	var hits []ruleHit
 	forEachObject(doc, func(objNum, gen int, obj pdfcpu_types.Object) {
 		d := asDict(obj)
@@ -451,20 +602,22 @@ func checkNoJSLaunch(doc *DocumentState) []ruleHit {
 	// that forEachObject (indirect objects only) never visits. Only handle the
 	// DIRECT form here: an indirect /OpenAction points at an object forEachObject
 	// already reported, so following it would double-count the same action.
-	if cat := catalogDict(doc); cat != nil {
-		if oaRaw := cat["OpenAction"]; oaRaw != nil {
-			if _, isRef := oaRaw.(pdfcpu_types.IndirectRef); !isRef {
-				if oa := asDict(oaRaw); oa != nil {
-					if kind := actionKind(doc, oa); kind != "" {
-						hits = append(hits, ruleHit{
-							message: fmt.Sprintf("%s action present in catalog /OpenAction (forbidden in PDF/A)", kind),
-						})
-					}
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
+	}
+	if oaRaw := cat["OpenAction"]; oaRaw != nil {
+		if _, isRef := oaRaw.(pdfcpu_types.IndirectRef); !isRef {
+			if oa := asDict(oaRaw); oa != nil {
+				if kind := actionKind(doc, oa); kind != "" {
+					hits = append(hits, ruleHit{
+						message: fmt.Sprintf("%s action present in catalog /OpenAction (forbidden in PDF/A)", kind),
+					})
 				}
 			}
 		}
 	}
-	return hits
+	return hits, nil
 }
 
 // infoXMPMap pairs each /Info key with the XMP property whose value must match
@@ -500,15 +653,19 @@ func normalizeXMPText(s string) string {
 // value inconsistency (PDF/A-1 6.7.2 presence, 6.7.3 consistency). The
 // consistency check compares only keys present in BOTH /Info and the XMP
 // packet; when a value cannot be extracted from the XMP it is skipped (never a
-// false mismatch).
-func checkXMPMetadata(doc *DocumentState) []ruleHit {
-	xmp := catalogXMP(doc)
+// false mismatch). An unreadable catalog leaves the rule not evaluated.
+func checkXMPMetadata(doc *DocumentState) ([]ruleHit, error) {
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
+	}
+	xmp := catalogXMP(doc, cat)
 	if strings.TrimSpace(xmp) == "" {
-		return []ruleHit{{message: "XMP metadata packet is missing (/Metadata)"}}
+		return []ruleHit{{message: "XMP metadata packet is missing (/Metadata)"}}, nil
 	}
 	info := infoDict(doc)
 	if info == nil {
-		return nil
+		return nil, nil
 	}
 	var hits []ruleHit
 	for _, m := range infoXMPMap {
@@ -541,61 +698,64 @@ func checkXMPMetadata(doc *DocumentState) []ruleHit {
 			})
 		}
 	}
-	return hits
+	return hits, nil
 }
 
 // checkDocumentID flags a trailer with no /ID file identifier (PDF/A-1b
 // requires a file identifier). Document-level (no object ref).
-func checkDocumentID(doc *DocumentState) []ruleHit {
+func checkDocumentID(doc *DocumentState) ([]ruleHit, error) {
 	xrt := doc.PDFContext.XRefTable
 	if xrt != nil && len(xrt.ID) > 0 {
-		return nil
+		return nil, nil
 	}
-	return []ruleHit{{message: "document /ID is missing from the trailer"}}
+	return []ruleHit{{message: "document /ID is missing from the trailer"}}, nil
 }
 
 // --- PDF/UA-1 structural rule checks -----------------------------------------
 
 // checkMarked flags a document whose catalog lacks /MarkInfo << /Marked true >>
-// (PDF/UA-1 requires tagged content). Document-level.
-func checkMarked(doc *DocumentState) []ruleHit {
-	cat := catalogDict(doc)
-	if cat == nil {
-		return nil
+// (PDF/UA-1 requires tagged content). Document-level. An unreadable catalog
+// leaves the rule not evaluated.
+func checkMarked(doc *DocumentState) ([]ruleHit, error) {
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
 	}
 	mi := asDict(dereference(doc, cat["MarkInfo"]))
 	if mi != nil {
 		if b, ok := dereference(doc, mi["Marked"]).(pdfcpu_types.Boolean); ok && b.Value() {
-			return nil
+			return nil, nil
 		}
 	}
-	return []ruleHit{{message: "document is not marked as tagged (/MarkInfo /Marked true absent)"}}
+	return []ruleHit{{message: "document is not marked as tagged (/MarkInfo /Marked true absent)"}}, nil
 }
 
 // checkStructTreeRoot flags a document whose catalog lacks a /StructTreeRoot
-// (PDF/UA-1 requires a structure tree). Document-level.
-func checkStructTreeRoot(doc *DocumentState) []ruleHit {
-	cat := catalogDict(doc)
-	if cat == nil {
-		return nil
+// (PDF/UA-1 requires a structure tree). Document-level. An unreadable catalog
+// leaves the rule not evaluated.
+func checkStructTreeRoot(doc *DocumentState) ([]ruleHit, error) {
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
 	}
 	if _, ok := cat["StructTreeRoot"]; ok {
-		return nil
+		return nil, nil
 	}
-	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent)"}}
+	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent)"}}, nil
 }
 
 // checkLang flags a document whose catalog lacks a natural-language /Lang entry
-// (PDF/UA-1 7.2). Document-level - the canonical "Document" group member.
-func checkLang(doc *DocumentState) []ruleHit {
-	cat := catalogDict(doc)
-	if cat == nil {
-		return nil
+// (PDF/UA-1 7.2). Document-level - the canonical "Document" group member. An
+// unreadable catalog leaves the rule not evaluated.
+func checkLang(doc *DocumentState) ([]ruleHit, error) {
+	cat, err := readCatalog(doc)
+	if err != nil {
+		return nil, err
 	}
 	if v := stringValue(dereference(doc, cat["Lang"])); v != "" {
-		return nil
+		return nil, nil
 	}
-	return []ruleHit{{message: "document /Lang is missing (no default natural language)"}}
+	return []ruleHit{{message: "document /Lang is missing (no default natural language)"}}, nil
 }
 
 // --- shared helpers ----------------------------------------------------------
@@ -634,13 +794,18 @@ func forEachObject(doc *DocumentState, fn func(objNum, gen int, obj pdfcpu_types
 	}
 }
 
-// catalogDict returns the document catalog dict, or nil.
-func catalogDict(doc *DocumentState) pdfcpu_types.Dict {
+// readCatalog returns the document catalog dict, or an error when it cannot be
+// read. A rule returns that error, so a rule that reads the catalog is reported
+// as not evaluated instead of treating a missing catalog as an empty one.
+func readCatalog(doc *DocumentState) (pdfcpu_types.Dict, error) {
 	cat, err := doc.PDFContext.Catalog()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("catalog could not be read: %w", err)
 	}
-	return cat
+	if cat == nil {
+		return nil, errors.New("catalog could not be read")
+	}
+	return cat, nil
 }
 
 // dictName returns the /Name value of d[key] (dereferenced), or "".
@@ -649,16 +814,6 @@ func dictName(doc *DocumentState, d pdfcpu_types.Dict, key string) string {
 		return n.Value()
 	}
 	return ""
-}
-
-// catalogHasNonEmptyArray reports whether the catalog carries a non-empty array
-// under key.
-func catalogHasNonEmptyArray(doc *DocumentState, key string) bool {
-	cat := catalogDict(doc)
-	if cat == nil {
-		return false
-	}
-	return len(dereferenceArray(doc, cat[key])) > 0
 }
 
 // infoDict returns the trailer /Info dict, or nil.
@@ -670,12 +825,8 @@ func infoDict(doc *DocumentState) pdfcpu_types.Dict {
 	return asDict(dereference(doc, *xrt.Info))
 }
 
-// catalogXMP returns the decoded catalog /Metadata XMP packet, or "".
-func catalogXMP(doc *DocumentState) string {
-	cat := catalogDict(doc)
-	if cat == nil {
-		return ""
-	}
+// catalogXMP returns the decoded /Metadata XMP packet of cat, or "".
+func catalogXMP(doc *DocumentState, cat pdfcpu_types.Dict) string {
 	sd, ok := dereference(doc, cat["Metadata"]).(pdfcpu_types.StreamDict)
 	if !ok {
 		return ""
@@ -690,36 +841,62 @@ const maxDeviceColorFormDepth = 8
 
 // documentUsesDeviceColor reports whether the document sets a device color
 // (rg/RG/k/K/g/G operators or an explicit /DeviceRGB / /DeviceCMYK /
-// /DeviceGray colorspace name) in any page content stream OR in a form XObject
-// reachable from a page's /Resources (recursed, depth-capped). Bounded scan:
+// /DeviceGray colorspace name) in any page content stream OR in any form
+// XObject listed in a page's /Resources /XObject map, whether or not the page
+// draws it (nested form resources recursed, depth-capped). Bounded scan:
 // device color used only inside image-XObject colorspaces, annotation
-// appearance streams, tiling patterns, or Type3 glyph procs is NOT detected -
-// that under-reports (never falsely flags), consistent with the structural
-// firewall; veraPDF is the authoritative oracle.
-func documentUsesDeviceColor(doc *DocumentState) bool {
+// appearance streams, patterns, shadings, Type3 glyph procs, or a
+// /Resources /ColorSpace entry selected by name is NOT detected - that
+// under-reports, consistent with the structural firewall; veraPDF is the
+// authoritative oracle. Device color found anywhere returns true. Otherwise,
+// when the page tree, a page, or a content or form stream could not be read,
+// it returns an error naming what could not be read, since the unread part
+// may hold device color.
+func documentUsesDeviceColor(doc *DocumentState) (bool, error) {
+	var unread []string
 	// Pages come from the page-index walk, so a /Type /Page carrying /Kids is
 	// scanned as the page it is, with its inherited /Resources.
 	// A walk that failed part way still lists the pages it reached.
-	t, _ := doc.pageTree()
-	for _, page := range t.leaves {
+	t, err := doc.pageTree()
+	if err != nil {
+		unread = append(unread, fmt.Sprintf("the page tree (%v)", err))
+	}
+	for i, page := range t.leaves {
+		pageNum := i + 1
 		if page.err != nil {
+			unread = append(unread, fmt.Sprintf("page %d (%v)", pageNum, page.err))
 			continue
 		}
 		for _, sd := range pageContentStreams(doc, page.dict) {
-			if streamUsesDeviceColor(sd) {
-				return true
+			used, err := streamUsesDeviceColor(sd)
+			if used {
+				return true, nil
+			}
+			if err != nil {
+				unread = append(unread, fmt.Sprintf("a content stream of page %d", pageNum))
 			}
 		}
-		if formsUseDeviceColor(doc, asDict(dereference(doc, page.attrs.resources)), 0) {
-			return true
+		if formsUseDeviceColor(doc, asDict(dereference(doc, page.attrs.resources)), 0, pageNum, &unread) {
+			return true, nil
 		}
 	}
-	return false
+	if len(unread) == 0 {
+		return false, nil
+	}
+	// Name the first few unread parts; a damaged file can have one per page.
+	const maxNamed = 3
+	named := strings.Join(unread[:min(len(unread), maxNamed)], ", ")
+	if len(unread) > maxNamed {
+		named += fmt.Sprintf(" and %d more", len(unread)-maxNamed)
+	}
+	return false, fmt.Errorf("no device colour found in what was read, but could not read %s", named)
 }
 
 // formsUseDeviceColor reports whether any form XObject in a /Resources /XObject
 // map (recursed into nested form resources, depth-capped) sets a device color.
-func formsUseDeviceColor(doc *DocumentState, resources pdfcpu_types.Dict, depth int) bool {
+// A form stream that fails to decode is appended to unread, labelled with
+// pageNum.
+func formsUseDeviceColor(doc *DocumentState, resources pdfcpu_types.Dict, depth, pageNum int, unread *[]string) bool {
 	if resources == nil || depth > maxDeviceColorFormDepth {
 		return false
 	}
@@ -727,15 +904,19 @@ func formsUseDeviceColor(doc *DocumentState, resources pdfcpu_types.Dict, depth 
 	if xobjs == nil {
 		return false
 	}
-	for _, v := range xobjs {
-		sd, ok := dereference(doc, v).(pdfcpu_types.StreamDict)
+	for _, name := range slices.Sorted(maps.Keys(xobjs)) {
+		sd, ok := dereference(doc, xobjs[name]).(pdfcpu_types.StreamDict)
 		if !ok || dictName(doc, sd.Dict, "Subtype") != "Form" {
 			continue
 		}
-		if streamUsesDeviceColor(sd) {
+		used, err := streamUsesDeviceColor(sd)
+		if used {
 			return true
 		}
-		if formsUseDeviceColor(doc, asDict(dereference(doc, sd.Dict["Resources"])), depth+1) {
+		if err != nil {
+			*unread = append(*unread, fmt.Sprintf("form XObject /%s on page %d", name, pageNum))
+		}
+		if formsUseDeviceColor(doc, asDict(dereference(doc, sd.Dict["Resources"])), depth+1, pageNum, unread) {
 			return true
 		}
 	}
@@ -766,25 +947,26 @@ func pageContentStreams(doc *DocumentState, page pdfcpu_types.Dict) []pdfcpu_typ
 }
 
 // streamUsesDeviceColor tokenizes a decoded content stream and reports whether
-// it sets a device color.
-func streamUsesDeviceColor(sd pdfcpu_types.StreamDict) bool {
+// it sets a device color, or the decode error when the stream cannot be
+// decoded.
+func streamUsesDeviceColor(sd pdfcpu_types.StreamDict) (bool, error) {
 	if e := safeCall(func() error { return sd.Decode() }); e != nil {
-		return false
+		return false, e
 	}
 	for _, t := range tokenizeContentStream(string(sd.Content)) {
 		switch t.Type {
 		case "operator":
 			if deviceColorOps[t.Value] {
-				return true
+				return true, nil
 			}
 		case "name":
 			switch t.Value {
 			case "/DeviceRGB", "/DeviceCMYK", "/DeviceGray":
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 // xmpEntityReplacer unescapes the five predefined XML entities so an XMP value
@@ -829,7 +1011,7 @@ var rdfLiRE = regexp.MustCompile(`<rdf:li[^>]*>([^<]*)</rdf:li>`)
 // property is absent or its value cannot be unambiguously extracted.
 func extractXMPValue(xmp, prop string) string {
 	// Simple element form.
-	if m := regexp.MustCompile(`<`+regexp.QuoteMeta(prop)+`[^>]*>([^<]*)</`+regexp.QuoteMeta(prop)+`>`).FindStringSubmatch(xmp); m != nil {
+	if m := regexp.MustCompile(`<` + regexp.QuoteMeta(prop) + `[^>]*>([^<]*)</` + regexp.QuoteMeta(prop) + `>`).FindStringSubmatch(xmp); m != nil {
 		if v := strings.TrimSpace(m[1]); v != "" {
 			return unescapeXMLEntities(v)
 		}

@@ -3,8 +3,8 @@
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
 // source, reverserefs, xref, objects, pages, images, bytes, embedded, metadata,
-// and signatures, plus the top-level `validate` command (bounded structural
-// PDF/A-1b and PDF/UA-1 conformance checks).
+// and signatures, plus the top-level `validate` command (a named subset of
+// structural PDF/A-1b and PDF/UA-1 checks per profile).
 //
 // Output is human-readable PLAIN TEXT on stdout by default; pass --json to emit
 // structured JSON instead. The plain-text form is for reading and is NOT a
@@ -77,7 +77,8 @@
 // dump exit 2):
 //
 //	0 - ran successfully, no structural errors found (NOT a compliance/valid verdict)
-//	1 - ran successfully AND found >=1 structural error (the compliance-gate signal)
+//	1 - ran successfully AND found >=1 structural error, or a gating rule could
+//	    not be evaluated (the compliance-gate signal)
 //	2 - operational error (missing/unreadable file, a <file> operand other than
 //	    one non-empty path, unknown profile, view failure). The shape check
 //	    runs ahead of the profile check, as it does across the dump

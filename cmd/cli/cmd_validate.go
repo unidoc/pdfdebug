@@ -15,12 +15,13 @@ import (
 // validateUsage is the one-line usage string for the validate command.
 const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-structural] [--json] [--pretty] <file>"
 
-// runValidate handles the top-level `validate` command: run the bounded
-// structural conformance rule set for a profile and report problems. It uses a
+// runValidate handles the top-level `validate` command: run the named subset
+// of structural checks for a profile and report problems. It uses a
 // three-way exit contract distinct from the `dump` commands:
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
-//	1  ran successfully AND found >=1 error-severity problem (the CI gate)
+//	1  ran successfully AND found >=1 error-severity problem (the CI gate), or
+//	   a rule of a gating profile could not be evaluated
 //	2  operational error (missing/unreadable file, unknown profile, view failure)
 //
 // Exit 0 means "no structural errors found," NOT "compliant/valid".
@@ -32,6 +33,11 @@ func runValidate(args []string) int {
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, validateUsage)
+		if errors.Is(err, flag.ErrHelp) {
+			for _, line := range profileRuleLines() {
+				fmt.Fprintln(os.Stderr, line)
+			}
+		}
 		return 2
 	}
 
@@ -74,7 +80,7 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 			// an error problem here (exit 1). Only under the PDF/A profile - a
 			// PDF/UA-structural run has no encryption rule and must never gate on
 			// one, so an unopenable encrypted file there is operational (exit 2).
-			return renderValidate(pdfcore.EncryptedResult(profile), jsonOut, pretty)
+			return renderValidate(pdfcore.EncryptedResult(), jsonOut, pretty)
 		}
 		return handleOpenError(err) // operational: exit 2
 	}
@@ -116,16 +122,61 @@ func renderValidate(res *pdfcore.ValidationResult, jsonOut, pretty bool) int {
 // severityOrder is the display order for the grouped plain-text problem list.
 var severityOrder = []string{"error", "warning", "info"}
 
-// printValidatePlain renders the grouped problem list plus a summary count.
-// NON-CONTRACTUAL; use --json to parse. It always carries the not-authoritative
-// disclaimer and never states an authoritative conformance verdict.
+// profileRuleLines returns one help line per profile naming the rules it
+// checks and the standard it is a structural subset of, built from the
+// registry.
+func profileRuleLines() []string {
+	lines := make([]string, 0, len(pdfcore.ValidProfiles))
+	for _, profile := range pdfcore.ValidProfiles {
+		rules := pdfcore.ProfileRules(profile)
+		ids := make([]string, 0, len(rules))
+		for _, r := range rules {
+			ids = append(ids, r.RuleID)
+		}
+		standard := pdfcore.ProfileStandard(profile)
+		lines = append(lines, fmt.Sprintf("  %s checks %d %s: %s (a structural subset of %s, not a %s conformance check)",
+			profile, len(rules), plural(len(rules), "rule"), strings.Join(ids, ", "), standard, standard))
+	}
+	return lines
+}
+
+// ruleOutcome is the plain-text outcome column for one rule.
+func ruleOutcome(r pdfcore.RuleInfo) string {
+	if !r.Evaluated {
+		return "not evaluated"
+	}
+	return fmt.Sprintf("%d found", r.Findings)
+}
+
+// writeRulesChecked renders the rules that ran as aligned columns: rule id,
+// spec ref, outcome, and what the rule checks.
+func writeRulesChecked(b *strings.Builder, rules []pdfcore.RuleInfo) {
+	idW, specW, outW := 0, 0, 0
+	for _, r := range rules {
+		idW = max(idW, len(r.RuleID))
+		specW = max(specW, len(r.SpecRef))
+		outW = max(outW, len(ruleOutcome(r)))
+	}
+	fmt.Fprintf(b, "Rules checked (%d):\n", len(rules))
+	for _, r := range rules {
+		fmt.Fprintf(b, "  %-*s  %-*s  %-*s  %s\n", idW, r.RuleID, specW, r.SpecRef, outW, ruleOutcome(r), r.Checks)
+	}
+	b.WriteString("\n")
+}
+
+// printValidatePlain renders the scope sentence, the rules that ran with their
+// outcomes, the grouped problem list and a summary count. NON-CONTRACTUAL; use
+// --json to parse. It always carries the not-authoritative disclaimer and never
+// states an authoritative conformance verdict.
 func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Validation profile: %s\n", res.Profile)
-	fmt.Fprintf(&b, "%s\n\n", res.Disclaimer)
+	fmt.Fprintf(&b, "%s\n", res.Disclaimer)
+	fmt.Fprintf(&b, "%s\n\n", res.Scope)
+	writeRulesChecked(&b, res.Rules)
 
 	if len(res.Problems) == 0 {
-		b.WriteString("no structural problems found\n\n")
+		fmt.Fprintf(&b, "none of the %d %s checked found a problem\n\n", len(res.Rules), plural(len(res.Rules), "rule"))
 	} else {
 		for _, sev := range severityOrder {
 			group := problemsBySeverity(res.Problems, sev)
@@ -155,6 +206,11 @@ func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 		fmt.Fprintf(&b, ", %d %s", res.Summary.Info, plural(res.Summary.Info, "info problem"))
 	}
 	b.WriteString("\n")
+	// renderValidate exits 1 on an info problem under a gating profile even with
+	// no errors; name that cause next to the summary.
+	if res.Summary.Errors == 0 && res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+		b.WriteString("Exit status 1: a rule that gates the exit code could not be evaluated\n")
+	}
 	_, err := io.WriteString(out, b.String())
 	return err
 }
