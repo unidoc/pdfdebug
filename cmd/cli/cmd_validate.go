@@ -20,7 +20,8 @@ const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-struc
 // three-way exit contract distinct from the `dump` commands:
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
-//	1  ran successfully AND found >=1 error-severity problem (the CI gate)
+//	1  ran successfully AND found >=1 error-severity problem (the CI gate), or
+//	   a rule of a gating profile could not be evaluated
 //	2  operational error (missing/unreadable file, unknown profile, view failure)
 //
 // Exit 0 means "no structural errors found," NOT "compliant/valid".
@@ -205,6 +206,11 @@ func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 		fmt.Fprintf(&b, ", %d %s", res.Summary.Info, plural(res.Summary.Info, "info problem"))
 	}
 	b.WriteString("\n")
+	// renderValidate exits 1 on an info problem under a gating profile even with
+	// no errors; name that cause next to the summary.
+	if res.Summary.Errors == 0 && res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+		b.WriteString("Exit status 1: a rule that gates the exit code could not be evaluated\n")
+	}
 	_, err := io.WriteString(out, b.String())
 	return err
 }

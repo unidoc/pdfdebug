@@ -47,7 +47,7 @@ one file except `diff`, which takes two.
 | `dump embedded` | Embedded/associated files; extracts one's bytes to stdout | `--ref`/`--name` |
 | `dump metadata` | The `/Info` dictionary fields and the XMP packet | - |
 | `dump signatures` | Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict) | - |
-| `validate` | A named subset of structural checks per profile, listed on every run; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found; 2 = operational error) | `--profile` |
+| `validate` | A named subset of structural checks per profile, listed on every run; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found or a gating rule could not be evaluated; 2 = operational error) | `--profile` |
 | `diff` | Path-aligned structural diff of two PDFs; returns a three-way exit status (0 = identical; 1 = differ; 2 = operational error) | `--full` |
 
 `dump bytes` was called `dump plaintext`. The old spelling still works, prints

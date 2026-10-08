@@ -139,7 +139,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "validate exit codes (a three-way contract distinct from dump's 0/2):")
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, no structural errors found (NOT a compliance/valid verdict)")
-	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error (the CI compliance-gate signal)")
+	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error, or a gating rule could not be evaluated (the CI compliance-gate signal)")
 	_, _ = fmt.Fprintln(w, "  2  operational error (missing/unreadable file, unknown profile, view failure)")
 	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural")
 	for _, line := range profileRuleLines() {

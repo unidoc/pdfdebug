@@ -77,7 +77,8 @@
 // dump exit 2):
 //
 //	0 - ran successfully, no structural errors found (NOT a compliance/valid verdict)
-//	1 - ran successfully AND found >=1 structural error (the compliance-gate signal)
+//	1 - ran successfully AND found >=1 structural error, or a gating rule could
+//	    not be evaluated (the compliance-gate signal)
 //	2 - operational error (missing/unreadable file, a <file> operand other than
 //	    one non-empty path, unknown profile, view failure). The shape check
 //	    runs ahead of the profile check, as it does across the dump
