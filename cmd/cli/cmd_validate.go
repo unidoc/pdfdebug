@@ -13,7 +13,7 @@ import (
 )
 
 // validateUsage is the one-line usage string for the validate command.
-const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-structural] [--json] [--pretty] <file>"
+var validateUsage = usageLine("validate")
 
 // runValidate handles the top-level `validate` command: run the named subset
 // of structural checks for a profile and report problems. It uses a
@@ -22,7 +22,8 @@ const validateUsage = "Usage: pdfdebug validate [--profile pdfa-1b|pdfua-1-struc
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate), or
 //	   a rule of a gating profile could not be evaluated
-//	2  operational error (missing/unreadable file, unknown profile, view failure)
+//	2  operational or usage error (missing/unreadable file, unknown profile, bad
+//	   args, view failure)
 //
 // Exit 0 means "no structural errors found," NOT "compliant/valid".
 func runValidate(args []string) int {

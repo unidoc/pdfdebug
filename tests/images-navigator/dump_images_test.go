@@ -495,10 +495,10 @@ func TestHelpListsDumpImagesAndSaysInlineImagesAreNotListed(t *testing.T) {
 	_, stderr, _ := runCLI(t, "--help")
 	for line := range strings.SplitSeq(stderr, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "dump images [--json] <file>") {
+		if !strings.HasPrefix(trimmed, "dump images [--json] [--pretty] <file>") {
 			continue
 		}
-		desc := strings.TrimSpace(strings.TrimPrefix(trimmed, "dump images [--json] <file>"))
+		desc := strings.TrimSpace(strings.TrimPrefix(trimmed, "dump images [--json] [--pretty] <file>"))
 		if !strings.Contains(desc, "BI/ID/EI") {
 			t.Errorf("the dump images help line must say inline BI/ID/EI images are not listed: %q", desc)
 		}
@@ -507,7 +507,7 @@ func TestHelpListsDumpImagesAndSaysInlineImagesAreNotListed(t *testing.T) {
 		}
 		return
 	}
-	t.Errorf("--help has no `dump images [--json] <file>` line:\n%s", stderr)
+	t.Errorf("--help has no `dump images [--json] [--pretty] <file>` line:\n%s", stderr)
 }
 
 // ---------------------------------------------------------------------------

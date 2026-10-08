@@ -1,29 +1,30 @@
-// Package open_source_docs_test provides acceptance tests for Open-Source
-// Project Setup.
+// Package open_source_docs_test checks the repository's open-source and user
+// documentation against the files and binary it describes.
 //
-// These tests verify that the repository ships the open-source documentation
-// deliverables:
-//   - LICENSE  (rewritten to canonical Apache 2.0 with UniDoc copyright substitution)
-//   - NOTICE   (expanded with UniDoc ehf. attribution + 8 mandated third-party deps)
-//   - README.md (8 required H2 sections in order, screenshot ref, install/build/usage)
-//   - CONTRIBUTING.md (6 required H2 sections in order, test commands, release process)
-//   - scripts/verify-license.sh (executable, wired into .github/workflows/ci.yml)
-//   - scripts/fixtures/apache-2.0.txt, apache-2.0-with-copyright.txt
+// docs_test.go covers licensing and attribution: LICENSE byte-matches the
+// canonical Apache 2.0 text after the copyright substitution and the canonical
+// fixture is unmodified; NOTICE carries the UniDoc attribution, an entry with a
+// compatible license for each mandated dependency, and no Unicode copyright
+// glyph; scripts/verify-license.sh exists, is executable, runs in strict mode
+// and is referenced by the CI workflow; README links no _bmad-output path.
 //
-// Test Levels: Static (Go) -- pure filesystem + string grep checks. No YAML
-// parsing dependency; no external modules. Each of the 14 test functions below
-// names the property it checks, so the properties are read off the function
-// list rather than from a mapping table:
+// cli_usage_coverage_test.go and cli_usage_layout_test.go build the CLI once
+// (cli_harness_test.go) and check the CLI guide against it. The guide is
+// docs/cli-usage.md plus the reference pages under docs/cli/. Every command in
+// `pdfdebug --help` has one quick-reference row on the entry page, linked to
+// the docs/cli page holding its reference heading, whose synopsis is the
+// command's usage line as the binary prints it; every docs/cli page is
+// linked from the entry page and every relative link resolves; every
+// documented `dump` resource is dispatched; the sections come in the expected
+// order with their contract tokens; and the CI example run under sh fails on
+// findings and on a missing file.
 //
-//   - LICENSE byte-matches the canonical Apache 2.0 text after the copyright
-//     substitution, and the canonical fixture itself is unmodified;
-//   - NOTICE carries the UniDoc attribution and no Unicode copyright glyph;
-//   - README has its required H2 sections in order, a screenshot reference,
-//     the Installation subsections, and every Build-from-Source command;
-//   - CONTRIBUTING has its required sections, every test command, and the
-//     Apple certificate-rotation step in the release process;
-//   - scripts/verify-license.sh exists, is executable, and the CI workflow
-//     references it.
+// build_prerequisites_test.go checks that the Go, Wails and golangci-lint
+// versions in README and CONTRIBUTING match go.mod and the CI workflow, and
+// that README's CLI examples, GUI description and screenshot references and
+// CONTRIBUTING's release checklist are present.
+//
+// Tests read structure and pinned tokens, never prose wording.
 //
 // Run: cd tests/open-source-docs && go test -v -count=1 ./...
 package open_source_docs_test

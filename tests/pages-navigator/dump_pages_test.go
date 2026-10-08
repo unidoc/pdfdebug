@@ -451,11 +451,11 @@ func TestMissingFileMatchesDumpObjects(t *testing.T) {
 func TestHelpListsDumpPages(t *testing.T) {
 	_, stderr, _ := runCLI(t, "--help")
 	for _, line := range strings.Split(stderr, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "dump pages [--json] <file>") {
+		if strings.HasPrefix(strings.TrimSpace(line), "dump pages [--json] [--pretty] <file>") {
 			return
 		}
 	}
-	t.Errorf("--help has no `dump pages [--json] <file>` line:\n%s", stderr)
+	t.Errorf("--help has no `dump pages [--json] [--pretty] <file>` line:\n%s", stderr)
 }
 
 // ---------------------------------------------------------------------------

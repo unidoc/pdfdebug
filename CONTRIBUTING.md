@@ -10,10 +10,10 @@ See [README.md#build-from-source](./README.md#build-from-source) for the canonic
 
 | Tool | Version | Source of truth |
 |---|---|---|
-| Go | 1.25.x | `go.mod` |
+| Go | 1.27.x | `go.mod` |
 | Node.js | 20.x LTS | `.github/workflows/ci.yml` |
-| Wails v3 CLI | `v3.0.0-alpha.74` | `go.mod` require block |
-| golangci-lint | v2.1.6 | `.golangci.yml` |
+| Wails v3 CLI | `v3.0.0-beta.18` | `go.mod` require block |
+| golangci-lint | v2.13.2 | `.github/workflows/ci.yml` |
 | create-dmg | Homebrew (macos-latest) | macOS release DMG packaging only; installed by `release.yml` via `brew install create-dmg` |
 
 ### Editor recommendations
@@ -53,7 +53,7 @@ npm run lint --prefix frontend
 # Frontend type-check (tsc)
 npm run typecheck --prefix frontend
 
-# Go lint (golangci-lint v2.1.6)
+# Go lint (golangci-lint v2.13.2)
 golangci-lint run ./...
 ```
 
@@ -80,13 +80,19 @@ Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, e
 4. CI must pass on all three runners: `build-and-test (macos-latest)`, `build-and-test (windows-latest)`, and `build-and-test (ubuntu-latest)`.
 5. At least one maintainer review plus green CI are required before merge.
 
-**Maintainers**: configure required status checks on the `master` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs. This replaces the one-line deferred note from story 7-1.
+**Maintainers**: configure required status checks on the `master` and `dev` branches via GitHub Settings -> Branches to require the three `build-and-test (*)` runs.
 
 ## Release Process
 
-1. **Tag a version.** Tag `vX.Y.Z` on `dev` and push to the remote. This triggers `.github/workflows/release.yml`, which builds cross-platform artifacts and publishes a GitHub Release (see story 7-2).
+1. **Check the CLI guide against the binary.** Build the CLI and compare its help with `docs/cli-usage.md` and the reference pages under `docs/cli/`: every command, its flags and the exit codes should match what the binary does. Fix the guide in a PR before tagging.
 
-2. **Apple Developer ID cert rotation (maintainer-only).** Apple Developer ID certificates have a 5-year lifetime. When the cert expires:
+   ```bash
+   go build -o bin/pdfdebug ./cmd/cli && bin/pdfdebug --help
+   ```
+
+2. **Tag a version.** Tag `vX.Y.Z` on `dev` and push to the remote. This triggers `.github/workflows/release.yml`, which builds cross-platform artifacts and publishes a GitHub Release. Once it is published, edit the release notes to link the guide as of that tag, so users of that release read the matching version: `https://github.com/unidoc/pdfdebug/blob/vX.Y.Z/docs/cli-usage.md`. Its links to the `docs/cli/` pages resolve at the same tag.
+
+3. **Apple Developer ID cert rotation (maintainer-only).** Apple Developer ID certificates have a 5-year lifetime. When the cert expires:
 
    - Regenerate the certificate via the Apple Developer portal.
    - Export as `.p12` and base64-encode:
@@ -98,7 +104,7 @@ Generated build artifacts (`build/linux/*.desktop`, `build/darwin/Info.plist`, e
    - Update the `APPLE_DEVELOPER_ID_CERT_P12_BASE64` secret in repo Settings -> Secrets and variables -> Actions.
    - If the DUNS changes (rare), also update `APPLE_DEVELOPER_ID`.
 
-3. **Notarization is currently disabled.** macOS artifacts are codesigned but not notarized, so first-launch from Finder will trigger a Gatekeeper warning that the user must dismiss via right-click -> Open. The Apple Developer ID cert above is sufficient for codesign. To re-enable notarization later, restore the `Notarize and staple` step in `release.yml`, restore the secret detection requirement for `APPLE_ID`, `APPLE_ID_APP_PASSWORD`, and `APPLE_TEAM_ID`, and configure those three secrets.
+4. **Notarization is currently disabled.** macOS artifacts are codesigned but not notarized, so first-launch from Finder will trigger a Gatekeeper warning that the user must dismiss via right-click -> Open. The Apple Developer ID cert above is sufficient for codesign. To re-enable notarization later, restore the `Notarize and staple` step in `release.yml`, restore the secret detection requirement for `APPLE_ID`, `APPLE_ID_APP_PASSWORD`, and `APPLE_TEAM_ID`, and configure those three secrets.
 
 ## Reporting Issues
 

@@ -25,16 +25,7 @@ type byRefFlags struct {
 // On any parse/usage failure it writes the resource-specific worked example to
 // stderr and returns ok=false with the exit code (always 1 for usage).
 func parseByRefFlags(resource string, args []string, withRaw, withMetadata bool) (filePath string, f byRefFlags, ok bool) {
-	// Build the usage line from the flags this command actually accepts, so the
-	// worked example advertises --raw / --metadata rather than the no-op --json.
-	opts := "[--pretty]"
-	if withRaw {
-		opts = "[--raw] " + opts
-	}
-	if withMetadata {
-		opts = "[--metadata] " + opts
-	}
-	usage := fmt.Sprintf(`Usage: pdfdebug dump %s %s --ref "N G R" <file>`, resource, opts)
+	usage := usageLine("dump " + resource)
 
 	fs := flag.NewFlagSet("dump "+resource, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)

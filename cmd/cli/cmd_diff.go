@@ -11,7 +11,7 @@ import (
 )
 
 // diffUsage is the one-line usage string for the diff command.
-const diffUsage = "Usage: pdfdebug diff [--json] [--pretty] [--full] <left.pdf> <right.pdf>"
+var diffUsage = usageLine("diff")
 
 // runDiff handles the top-level `diff` command: a path-aligned structural diff
 // of two PDFs. It is the first command to take TWO positional args (both
@@ -20,7 +20,7 @@ const diffUsage = "Usage: pdfdebug diff [--json] [--pretty] [--full] <left.pdf> 
 //
 //	0  ran successfully, the two documents are structurally IDENTICAL
 //	1  ran successfully AND the documents DIFFER (the scriptable signal)
-//	2  operational error (missing/unreadable file, bad args, parse failure)
+//	2  operational or usage error (missing/unreadable file, bad args, parse failure)
 //
 // The two non-zero codes are distinct so scripts can tell "differ" from
 // "broken file".

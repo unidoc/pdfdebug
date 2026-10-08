@@ -23,7 +23,8 @@ type streamFlags struct {
 	ref     string
 }
 
-const streamUsage = "Usage: pdfdebug dump stream [--json|--raw|--ops] [--page N | --ref \"N G R\" | --xobject NAME (--page N | --ref \"N G R\")] <file>"
+// streamUsage is the one-line usage string for the stream dump subcommand.
+var streamUsage = usageLine("dump stream")
 
 // runStreamDump parses flags and dispatches stream dump execution. It resolves
 // the target content stream from one of three input modes - page (--page N),

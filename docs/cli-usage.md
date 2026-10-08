@@ -10,6 +10,96 @@ This page documents the `pdfdebug` command-line tool, not the "UniDoc PDF
 Debugger" desktop application (the GUI counterpart); for the desktop app and the
 project as a whole, see the [README](../README.md).
 
+## Contents
+
+- [Common tasks](#common-tasks)
+- [Commands](#commands)
+- [Shape of a command](#shape-of-a-command)
+- [Reference pages](#reference-pages)
+
+## Common tasks
+
+### Why a PDF fails PDF/UA
+
+```
+pdfdebug validate --profile pdfua-1-structural file.pdf
+```
+
+After the profile name and its scope sentence, the output lists the rules it
+checked with `0 found` or `N found` beside each, then the problems and a
+summary line. The profile checks catalog-level entries only, such as whether
+the document is marked as tagged. A file that passes every one of them can
+still fail PDF/UA, so a clean run is not a verdict; use veraPDF for that.
+`pdfdebug --help` lists the current rules of each profile.
+
+### Compare two versions of a file
+
+```
+pdfdebug diff old.pdf new.pdf
+```
+
+Nodes are matched by structural path (`/Root/Pages/Kids[0]`), not by object
+number, so a file that was rewritten with renumbered objects still lines up.
+After a summary line, each node is marked `+` added, `-` removed or `~`
+changed; `--full` also prints the unchanged nodes. The command exits 1 when the
+files differ.
+
+### Pull out one image or stream
+
+```
+pdfdebug dump images file.pdf
+pdfdebug dump image --metadata --ref "4 0 R" file.pdf
+```
+
+`dump images` lists every image XObject referenced from page resources, with
+its reference in the REF column. Pass that reference to `dump image --metadata`
+for the image dictionary and how its samples are interpreted (see
+[`dump image`](cli/images-and-fonts.md#dump-image)). Without `--metadata`,
+`dump image --json` also carries the image data in its `base64` field, so
+`jq -r .base64 | base64 -d` writes the file. For the decoded bytes of a page's
+content stream, use `pdfdebug dump stream --raw --page 1 file.pdf > page1.txt`,
+or `--ref` for any stream object. An attachment comes out with
+`pdfdebug dump embedded --name NAME file.pdf > out`; run
+`dump embedded file.pdf` first to see the names.
+
+### Use it in CI
+
+```
+pdfdebug validate --json --profile pdfua-1-structural file.pdf > report.json
+```
+
+Branch on the exit code first and read `summary` from the JSON second, because
+`pdfua-1-structural` findings are warnings and exit 0. The full script is under
+[Exit codes](cli/scripting.md#exit-codes).
+
+## Commands
+
+Each description links to the command's section on its reference page.
+
+| Command | What it shows | Key flags |
+| --- | --- | --- |
+| `dump tree` | [The PDF object tree from the Catalog down](cli/structure.md#dump-tree) | `--depth`, `--page`, `--resolve` |
+| `dump object` | [A single indirect object by reference](cli/structure.md#dump-object) | `--ref`, `--resolve` |
+| `dump objects` | [The object index (every object in the document)](cli/structure.md#dump-objects) | - |
+| `dump source` | [The reserialized object source (PDF syntax)](cli/structure.md#dump-source) | `--ref`, `--raw` |
+| `dump reverserefs` | [Inbound references (who points at this object)](cli/structure.md#dump-reverserefs) | `--ref` |
+| `dump xref` | [The cross-reference table](cli/structure.md#dump-xref) | - |
+| `dump pages` | [The page index (every page leaf of the page tree, in document order)](cli/pages-and-content.md#dump-pages) | - |
+| `dump page` | [Assembled per-page render info **(EXPERIMENTAL)**](cli/pages-and-content.md#dump-page) | `--info N`, `--section`, `--forms-recursive` |
+| `dump stream` | [A decoded content stream (page, object, or XObject)](cli/pages-and-content.md#dump-stream) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
+| `dump bytes` | [Raw document bytes, not extracted page text](cli/pages-and-content.md#dump-bytes) | - |
+| `dump images` | [The image index (every image XObject referenced from page resources, deduplicated)](cli/images-and-fonts.md#dump-images) | - |
+| `dump image` | [Image XObject data, metadata and sample interpretation](cli/images-and-fonts.md#dump-image) | `--ref`, `--metadata` |
+| `dump font` | [A font view (encoding, CMap, glyph mapping, health)](cli/images-and-fonts.md#dump-font) | `--ref`, `--glyphs` |
+| `dump embedded` | [Embedded/associated files; extracts one's bytes to stdout](cli/document-data.md#dump-embedded) | `--ref`/`--name` |
+| `dump metadata` | [The `/Info` dictionary fields and the XMP packet](cli/document-data.md#dump-metadata) | - |
+| `dump signatures` | [Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict)](cli/document-data.md#dump-signatures) | - |
+| `validate` | [A named subset of structural checks per profile, listed on every run](cli/validate-and-diff.md#validate) | `--profile` |
+| `diff` | [Path-aligned structural diff of two PDFs](cli/validate-and-diff.md#diff) | `--full` |
+
+Every command also takes `--json`, and most take `--pretty`. The flags shared
+across commands are defined under [Flags](cli/document-data.md#flags).
+
 ## Shape of a command
 
 ```
@@ -27,200 +117,16 @@ the command would also reject changes nothing: `dump tree --page 0 file.pdf
 --json` draws the usage line, not the out-of-range `--page`. Every command takes
 one file except `diff`, which takes two.
 
-## Commands
+## Reference pages
 
-| Command | What it shows | Key flags |
-| --- | --- | --- |
-| `dump tree` | The PDF object tree from the Catalog down | `--depth`, `--resolve` |
-| `dump object` | A single indirect object by reference | `--ref`, `--resolve` |
-| `dump objects` | The object index (every object in the document) | - |
-| `dump pages` | The page index (every page leaf of the page tree, in document order) | - |
-| `dump images` | The image index (every image XObject referenced from page resources, deduplicated) | - |
-| `dump stream` | A decoded content stream (page, object, or XObject) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
-| `dump page` | Assembled per-page render info **(EXPERIMENTAL)** | `--info N`, `--section`, `--forms-recursive` |
-| `dump font` | A font view (encoding, CMap, glyph mapping, health) | `--ref`, `--glyphs` |
-| `dump image` | Image XObject data and metadata | `--ref`, `--metadata` |
-| `dump source` | The reserialized object source (PDF syntax) | `--ref`, `--raw` |
-| `dump reverserefs` | Inbound references (who points at this object) | `--ref` |
-| `dump xref` | The cross-reference table | - |
-| `dump bytes` | Raw document bytes, not extracted page text | - |
-| `dump embedded` | Embedded/associated files; extracts one's bytes to stdout | `--ref`/`--name` |
-| `dump metadata` | The `/Info` dictionary fields and the XMP packet | - |
-| `dump signatures` | Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict) | - |
-| `validate` | A named subset of structural checks per profile, listed on every run; returns a three-way exit status (0 = ran, clean; 1 = ran, errors found or a gating rule could not be evaluated; 2 = operational error) | `--profile` |
-| `diff` | Path-aligned structural diff of two PDFs; returns a three-way exit status (0 = identical; 1 = differ; 2 = operational error) | `--full` |
-
-`dump bytes` was called `dump plaintext`. The old spelling still works, prints
-a deprecation notice on stderr, and is removed in 0.6.0. It dumps the document's
-raw bytes; for the prose on the pages, use `pdftotext`.
-
-`dump pages` prints one row per page: its number, the `/Page` object's
-reference, the MediaBox, `/Rotate` as stored, which of `/Resources`,
-`/MediaBox`, `/CropBox` and `/Rotate` came from a `/Pages` ancestor, the
-`/Annots` count, and the summed `/Length` of its content streams (read from the
-stream dictionaries, never decoded; -1 when a `/Length` is missing, negative
-or not an integer, when the sum overflows, or when `/Contents` is malformed). Anything in the page tree that is not a page, such as a null `/Kids`
-entry or a cycle, gets a row with `-` for the page number and a message in
-ERROR, so page numbers after it still match what a viewer shows. When the
-number of page leaves differs from the root `/Count`, a JSON warning naming
-both goes to stderr and the command still exits 0.
-
-`dump images` prints one row per image XObject object, however many pages
-use it: its reference, `WxH`, BitsPerComponent, colour space, filters, a FLAGS
-column (`mask`, `SMask`, `Decode` for a `/Decode` that is not the colour
-space's default, `APP14 t=N`; the default is `[0 1]` per component,
-`[0 2^bpc-1]` for Indexed, and `[0 100]` plus the `/Range` for Lab), the decoded size the dictionary implies, and
-PAGES as `<count>: <pages>`, the page list capped with `, ...`. Rows come in
-first-use page order, then by object number. An image counts as used on a page
-when it is referenced from the page's resources, inherited ones and nested Form
-XObjects included; content streams are not read, so it is not checked against
-`Do` operators. Inline images (`BI`/`ID`/`EI`) are not listed. No image is
-decoded. A row with `-` for the reference reports each problem in ERROR, and
-the command still exits 0. An unreadable resources dictionary, `/XObject`
-entry or form gets one row naming every page it affected. A Form XObject
-nested deeper than 32 is skipped along with the forms below it, with one row
-naming that form and its pages, and the walk carries on. Only the walk's
-budgets stop it: past 1,000,000 resource entries or 4,000,000 image uses the
-walk ends, and that row names the pages left unwalked. An unreadable page
-tree also gets a row, naming the last page reached. A warning on a readable image, such as a
-rejected `/Decode`, shows in ERROR as `warning: ...`, after the image's error
-when it has one.
-
-`validate` runs structural checks only, not full conformance; for an
-authoritative verdict use veraPDF. Its profiles are `pdfa-1b` (default) and
-`pdfua-1-structural`, and each is a named subset of its standard. Every run
-prints the profile's scope sentence and a `Rules checked (N)` block listing
-each rule's id, spec clause, outcome (`0 found`, `N found` or `not evaluated`)
-and what it checks; `--json` carries the same as `scope` and `rules`. A clean
-run says "none of the N rules checked found a problem". `pdfua-1-structural`
-checks catalog-level entries only and does not look at marked content, the
-structure tree's contents, alternate text, fonts or the rest of the catalog, so
-it is not a PDF/UA-1 conformance check. The rule list changes as rules are
-added; `pdfdebug --help` lists the current rules of each profile, and the
-`rules` array of `validate --json` names the rules a run checked.
-
-## Flags
-
-These recur across commands; each is defined once here.
-
-- `--json` - emit structured JSON instead of the default plain text.
-- `--pretty` - indent JSON output (no effect on plain text).
-- `--depth N` - limit tree traversal to N levels (`dump tree`).
-- `--resolve` - follow indirect references inline; `--resolve-depth N` bounds how deep.
-- `--raw` - emit the raw stream/object bytes (a separate machine format).
-- `--ops` - emit the parsed content-stream operators (`dump stream`).
-- `--page N` / `--ref "N G R"` / `--xobject NAME` - select what to dump.
-- `--ref` accepts two forms: `"N G R"` (e.g. `"7 0 R"`) and `obj:G:N` (e.g. `obj:0:7`).
-- `--metadata` - for `dump image`, report metadata and omit the base64 payload in JSON.
-- `--glyphs` - for `dump font`, print the full per-code mapping table.
-- `--name NAME` - for `dump embedded`, extract the named file's bytes to stdout.
-- `--profile` - for `validate`, select the conformance profile.
-- `--full` - for `diff`, include unchanged nodes in the output.
-
-## Output formats
-
-Plain text is the default and is human-readable but non-contractual - it may
-change between releases. For stable, parseable output (scripts, agents), pass
-`--json`.
-
-## Global flags
-
-- `--help` / `-h` - show usage. Every command also accepts `--help`.
-- `--version` / `-v` - show version information.
-
-## Update notice
-
-When a newer release exists, `pdfdebug` says so at the end of a command's
-output, in a small box on stderr:
-
-```
-+-----------------------------------------------+
-|  Update available: 0.4.0 -> 0.5.0             |
-|  https://github.com/unidoc/pdfdebug/releases  |
-+-----------------------------------------------+
-```
-
-It appears at the end of every interactive command for as long as the cached
-latest release is newer than the running build. If the terminal is narrower
-than the box, the same two lines print without the frame. It never goes to stdout and never
-changes an exit code.
-
-The notice only appears in an interactive session. Both stdout and stderr have
-to be terminals, so piping to a pager (`| less`) or redirecting to a file
-(`> out.txt`) turns it off. It is also off when `CI` is set, under `--json`,
-`--ops` and `--raw`, for the raw bytes of `dump bytes`, and when `dump embedded
---ref` or `--name` writes an attachment to stdout.
-
-To turn it off entirely, set `PDFDEBUG_NO_UPDATE_CHECK` or `NO_UPDATE_NOTIFIER`.
-Presence is what counts: `PDFDEBUG_NO_UPDATE_CHECK=0` and `CI=false` still turn
-it off. The desktop app's "check automatically" preference lives in the app and
-does not affect the CLI.
-
-Ordinary commands read the answer from a cache. When neither the CLI nor the
-desktop app has checked successfully in the last day and the session is
-interactive, a command fetches one page
-of releases alongside its own work and, once its output is done, waits for that
-fetch for at most 1.5 seconds from the start of the run; a failed fetch is
-silent and is not retried for another day.
-
-In a terminal, `--version` is the one command that always checks live, even
-when the cache is fresh, so running it is the way to pick up a new release
-before the day is up. It prints the box before the version line when an update
-exists, and otherwise says on stderr that no newer release is available or that
-the check failed. It checks even when the cache directory cannot be written.
-When its own check fails but the CLI or the desktop app checked successfully in
-the last day, it answers from the higher of the two records instead. It
-skips the check on development builds and when either opt-out variable is set,
-and says so on stderr.
-
-Outside a terminal - stdout or stderr piped or redirected, or `CI` set -
-`--version` prints only the version line: no request, nothing on stderr, and
-no cache write. `v=$(pdfdebug --version 2>&1)` captures exactly
-`pdfdebug version X`.
-
-The CLI and the desktop app each keep their own record in one cache directory,
-so either works without the other installed and neither overwrites the other.
-The CLI writes `updatecheck-cli.json`; the app writes `updatecheck-app.json`.
-The CLI also reads the app's record when the app's last successful check was
-within the last day: the notice then uses whichever of the two names the newer
-release, and that app check spares the CLI its own fetch. An older app record
-is ignored. The app reads only its own record, because the CLI's fetch sees one
-page of releases and can miss one that the app's check, which reads up to five
-pages, finds. Each record
-keeps the last attempt apart from the last successful check, so a failed
-attempt stops the CLI retrying for a day without counting as an answer. The
-directory is:
-
-- macOS: `~/Library/Caches/pdfdebug/`
-- Linux: `~/.cache/pdfdebug/`
-- Windows: `%LOCALAPPDATA%\cache\pdfdebug\`
-
-An absolute `XDG_CACHE_HOME` replaces the base directory on all three; a
-relative one is ignored. On macOS an `XDG_CACHE_HOME` exported in a shell
-profile reaches the CLI but not a desktop app launched from Finder or the Dock,
-so the two then keep separate caches.
-
-## Example
-
-```bash
-pdfdebug dump tree testdata/minimal.pdf
-```
-
-Output:
-
-```
-Catalog Catalog
-  Pages (2 0 R) Pages
-    Count number = 1
-    Kids
-      Page (3 0 R) Page
-        MediaBox
-          ...
-```
-
-A dictionary entry holding a scalar shows its value after the type, decoded for
-text strings. Array elements keep their value in place of a label, so an element
-row reads `0 number` rather than repeating it. A value longer than 80 runes is
-cut and marked `[truncated: N of M]`; `--json` carries it in full.
-
-Add `--json` to any command to get the same information as parseable JSON.
+- [Structure](cli/structure.md): `dump tree`, `dump object`, `dump objects`,
+  `dump source`, `dump reverserefs` and `dump xref`.
+- [Pages and content](cli/pages-and-content.md): `dump pages`, `dump page`,
+  `dump stream` and `dump bytes`.
+- [Images and fonts](cli/images-and-fonts.md): `dump images`, `dump image` and
+  `dump font`.
+- [Document data](cli/document-data.md): `dump embedded`, `dump metadata` and
+  `dump signatures`, plus the flags shared across commands.
+- [Validate and diff](cli/validate-and-diff.md): `validate` and `diff`.
+- [Scripting](cli/scripting.md): exit codes, a CI script, what is and is not
+  machine output, and the update notice and how to turn it off.

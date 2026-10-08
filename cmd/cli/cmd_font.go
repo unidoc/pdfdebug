@@ -22,7 +22,7 @@ type fontFlags struct {
 // shared parseByRefFlags path, `dump font` accepts the font-only --glyphs flag,
 // so it parses its own FlagSet and advertises --glyphs in the usage line.
 func runFontDump(args []string) int {
-	usage := `Usage: pdfdebug dump font [--glyphs] [--json] [--pretty] --ref "N G R" <file>
+	usage := usageLine("dump font") + `
 
   --glyphs   Print the full per-code mapping table (CODE GLYPH UNICODE TEXT).
              Without it, plain output is a bounded summary (row count + health).

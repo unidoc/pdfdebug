@@ -30,6 +30,22 @@ func readRepoDoc(t *testing.T, relPath string) string {
 	return string(content)
 }
 
+// readCLIGuide returns the CLI guide's entry page followed by each page under
+// docs/cli/, separated by blank lines so no chunk spans two pages.
+func readCLIGuide(t *testing.T) string {
+	t.Helper()
+	pages := []string{readRepoDoc(t, "docs/cli-usage.md")}
+	matches, err := filepath.Glob(filepath.Join(repoRoot, "docs", "cli", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(matches)
+	for _, m := range matches {
+		pages = append(pages, readRepoDoc(t, filepath.ToSlash(filepath.Join("docs", "cli", filepath.Base(m)))))
+	}
+	return strings.Join(pages, "\n\n")
+}
+
 // docChunks splits Markdown into the units a single statement occupies: a list
 // item or table row is one chunk, and a run of prose lines is joined into one
 // so a sentence that wraps across lines stays whole.
@@ -75,7 +91,7 @@ func aliasRemovalVersions(content string) []string {
 }
 
 // The removal version lives in three places: the stderr notice, the CLI usage
-// doc and the changelog entry. Only the notice is pinned by an equality
+// guide and the changelog entry. Only the notice is pinned by an equality
 // assertion, so this ties the other two to it. The docs are matched on the
 // number alone, within the statement that names the deprecated spelling, so
 // rewording either file is free and changing the version in one place is not.
@@ -86,8 +102,12 @@ func TestAliasRemovalVersionAgreesAcrossDocs(t *testing.T) {
 	}
 	noticeVersion := noticeMatch[1]
 
-	for _, docPath := range []string{"docs/cli-usage.md", "CHANGELOG.md"} {
-		versions := aliasRemovalVersions(readRepoDoc(t, docPath))
+	docs := map[string]string{
+		"the CLI guide (docs/cli-usage.md and docs/cli/*.md)": readCLIGuide(t),
+		"CHANGELOG.md": readRepoDoc(t, "CHANGELOG.md"),
+	}
+	for docPath, content := range docs {
+		versions := aliasRemovalVersions(content)
 		if len(versions) == 0 {
 			t.Errorf("%s names no removal version alongside the deprecated spelling; the notice announces %s and the doc has to say the same",
 				docPath, noticeVersion)

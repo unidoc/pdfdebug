@@ -31,7 +31,8 @@ var pageSections = map[string]bool{
 	"forms":      true,
 }
 
-const pageUsage = "Usage: pdfdebug dump page --info N [--forms-recursive [--forms-depth D]] [--section geometry|extgstates|xobjects|forms] [--pretty] <file>"
+// pageUsage is the one-line usage string for the page dump subcommand.
+var pageUsage = usageLine("dump page")
 
 // pageFlags holds the parsed flags for the page dump subcommand.
 type pageFlags struct {

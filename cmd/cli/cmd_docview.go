@@ -21,7 +21,7 @@ type docViewFlags struct {
 // -> JSON) or a payload wrapper for bytes (raw bytes default -> decoded JSON
 // payload). On failure it writes usage and returns ok=false.
 func parseDocViewFlags(resource string, args []string) (filePath string, f docViewFlags, ok bool) {
-	usage := fmt.Sprintf("Usage: pdfdebug dump %s [--json] [--pretty] <file>", resource)
+	usage := usageLine("dump " + resource)
 
 	fs := flag.NewFlagSet("dump "+resource, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)

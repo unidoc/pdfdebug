@@ -909,7 +909,8 @@ function DetailPanelInner() {
               </div>
             )}
             {selectedNodeId && detail && (
-              <div className="h-full flex flex-col">
+              // Keyed by document tab and node so every scroll container inside remounts at the top on a new selection.
+              <div key={`${detailTabId}:${detail.nodeId}`} className="h-full flex flex-col">
                 <div
                   className="px-3 py-1.5 border-b border-border flex-shrink-0 flex items-center justify-between"
                   data-testid="detail-panel-header"
