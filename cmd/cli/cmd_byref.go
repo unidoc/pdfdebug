@@ -20,10 +20,10 @@ type byRefFlags struct {
 }
 
 // parseByRefFlags builds and parses a FlagSet for a ref-taking dump subcommand.
-// resource is the bare resource name (e.g. "font") used in the worked-example
-// usage message. withRaw / withMetadata gate the source-only / image-only flags.
-// On any parse/usage failure it writes the resource-specific worked example to
-// stderr and returns ok=false with the exit code (always 1 for usage).
+// resource is the bare resource name (e.g. "font") whose usage line is printed
+// on failure. withRaw / withMetadata gate the source-only / image-only flags.
+// On a parse or usage failure it writes the command's usage line to stderr and
+// returns ok=false.
 func parseByRefFlags(resource string, args []string, withRaw, withMetadata bool) (filePath string, f byRefFlags, ok bool) {
 	usage := usageLine("dump " + resource)
 

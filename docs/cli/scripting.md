@@ -31,8 +31,9 @@ The three command families use different contracts.
   encrypted file under `pdfua-1-structural`.
 
 Every `pdfua-1-structural` rule reports a warning, so that profile exits 0 no
-matter what it finds. A job that should fail on its findings has to read
-`summary.warnings` from `--json`.
+matter what it finds. A rule that could not be evaluated reports an info
+problem and also exits 0. A job that should fail on either has to read
+`summary.warnings` and `summary.info` from `--json`.
 
 `diff`:
 
@@ -55,7 +56,7 @@ if [ "$rc" -ne 0 ]; then
   echo "pdfdebug validate exited $rc" >&2
   exit 1
 fi
-jq -e '.summary.errors == 0 and .summary.warnings == 0' report.json > /dev/null
+jq -e '.summary.errors == 0 and .summary.warnings == 0 and .summary.info == 0' report.json > /dev/null
 ```
 
 Do not pipe `validate` straight into `jq`. Without `pipefail` the pipeline's

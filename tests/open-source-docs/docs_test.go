@@ -16,8 +16,10 @@
 // command's usage line as the binary prints it; every docs/cli page is
 // linked from the entry page and every relative link resolves; every
 // documented `dump` resource is dispatched; the sections come in the expected
-// order with their contract tokens; and the CI example run under sh fails on
-// findings and on a missing file.
+// order with their contract tokens; the CI example run under sh fails on
+// findings and on a missing file; and cli_exit_codes_test.go runs one command
+// per documented exit code and checks the binary's code against the guide's
+// exit-code lists.
 //
 // build_prerequisites_test.go checks that the Go, Wails and golangci-lint
 // versions in README and CONTRIBUTING match go.mod and the CI workflow, and

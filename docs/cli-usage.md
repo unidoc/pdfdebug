@@ -15,6 +15,7 @@ project as a whole, see the [README](../README.md).
 - [Common tasks](#common-tasks)
 - [Commands](#commands)
 - [Shape of a command](#shape-of-a-command)
+- [Flags](#flags)
 - [Reference pages](#reference-pages)
 
 ## Common tasks
@@ -56,7 +57,8 @@ its reference in the REF column. Pass that reference to `dump image --metadata`
 for the image dictionary and how its samples are interpreted (see
 [`dump image`](cli/images-and-fonts.md#dump-image)). Without `--metadata`,
 `dump image --json` also carries the image data in its `base64` field, so
-`jq -r .base64 | base64 -d` writes the file. For the decoded bytes of a page's
+`jq -r .base64 | base64 -d` writes the image (a JSON warning on stderr means
+it is only the preview). For the decoded bytes of a page's
 content stream, use `pdfdebug dump stream --raw --page 1 file.pdf > page1.txt`,
 or `--ref` for any stream object. An attachment comes out with
 `pdfdebug dump embedded --name NAME file.pdf > out`; run
@@ -69,7 +71,8 @@ pdfdebug validate --json --profile pdfua-1-structural file.pdf > report.json
 ```
 
 Branch on the exit code first and read `summary` from the JSON second, because
-`pdfua-1-structural` findings are warnings and exit 0. The full script is under
+`pdfua-1-structural` findings are warnings and a rule that could not run is
+info, and both exit 0. The full script is under
 [Exit codes](cli/scripting.md#exit-codes).
 
 ## Commands
@@ -98,7 +101,7 @@ Each description links to the command's section on its reference page.
 | `diff` | [Path-aligned structural diff of two PDFs](cli/validate-and-diff.md#diff) | `--full` |
 
 Every command also takes `--json`, and most take `--pretty`. The flags shared
-across commands are defined under [Flags](cli/document-data.md#flags).
+across commands are defined under [Flags](#flags).
 
 ## Shape of a command
 
@@ -117,6 +120,27 @@ the command would also reject changes nothing: `dump tree --page 0 file.pdf
 --json` draws the usage line, not the out-of-range `--page`. Every command takes
 one file except `diff`, which takes two.
 
+## Flags
+
+These recur across commands; each is defined once here, and each command's
+synopsis on its reference page shows which of them it takes.
+
+- `--json` - emit structured JSON instead of the default plain text.
+- `--pretty` - indent JSON output (no effect on plain text).
+- `--depth N` - limit tree traversal to N levels (`dump tree`).
+- `--resolve` - follow indirect references inline; `--resolve-depth N` bounds how deep.
+- `--raw` - emit the raw stream/object bytes (a separate machine format).
+- `--ops` - emit the parsed content-stream operators (`dump stream`).
+- `--page N` / `--ref "N G R"` / `--xobject NAME` - select what to dump.
+- `--ref` accepts two forms: `"N G R"` (e.g. `"7 0 R"`) and `obj:G:N` (e.g. `obj:0:7`).
+- `--metadata` - for `dump image`, report metadata and omit the base64 payload in JSON.
+- `--glyphs` - for `dump font`, print the full per-code mapping table.
+- `--name NAME` - for `dump embedded`, extract the named file's bytes to stdout.
+- `--profile` - for `validate`, select the profile.
+- `--full` - for `diff`, include unchanged nodes in the output.
+- `--help` / `-h` - show usage. Every command also accepts `--help`.
+- `--version` / `-v` - show version information.
+
 ## Reference pages
 
 - [Structure](cli/structure.md): `dump tree`, `dump object`, `dump objects`,
@@ -126,7 +150,7 @@ one file except `diff`, which takes two.
 - [Images and fonts](cli/images-and-fonts.md): `dump images`, `dump image` and
   `dump font`.
 - [Document data](cli/document-data.md): `dump embedded`, `dump metadata` and
-  `dump signatures`, plus the flags shared across commands.
+  `dump signatures`.
 - [Validate and diff](cli/validate-and-diff.md): `validate` and `diff`.
 - [Scripting](cli/scripting.md): exit codes, a CI script, what is and is not
   machine output, and the update notice and how to turn it off.

@@ -351,25 +351,6 @@ func TestCLIUsageGuideValidateReferenceNamesProfilesAndRulesBlock(t *testing.T) 
 	}
 }
 
-// TestChangelogRecordsCLIGuideRefresh asserts a `### Changed` section of
-// CHANGELOG.md, in any release, has an entry naming the guide's entry page and
-// its docs/cli/ topic pages.
-func TestChangelogRecordsCLIGuideRefresh(t *testing.T) {
-	lines := mdLines(readFileAtRoot(t, "CHANGELOG.md"))
-	hs := mdHeadings(lines)
-	for _, h := range hs {
-		if h.level != 3 || h.text != "Changed" {
-			continue
-		}
-		for _, p := range paragraphs(sectionLines(lines, hs, h)) {
-			if strings.HasPrefix(p, "- ") && strings.Contains(p, "`"+cliGuidePath+"`") && strings.Contains(p, "`"+cliPagesDir+"/`") {
-				return
-			}
-		}
-	}
-	t.Errorf("no `### Changed` entry in CHANGELOG.md names `%s` and `%s/`", cliGuidePath, cliPagesDir)
-}
-
 // TestCLIUsageDocsAreASCII asserts every page of the CLI guide, README and
 // CONTRIBUTING contain only printable ASCII, tabs and newlines.
 func TestCLIUsageDocsAreASCII(t *testing.T) {

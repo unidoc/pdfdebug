@@ -37,8 +37,10 @@ shows in ERROR as `warning: ...`, after the image's error when it has one.
 `pdfdebug dump image [--json] [--pretty] [--metadata] --ref "N G R" <file>`
 
 Prints an image XObject's dictionary fields, its stored and decoded sizes, and
-how its samples are interpreted. `--json` includes the image data as base64;
-`--metadata` leaves it out.
+how its samples are interpreted. `--json` includes the full-resolution image
+as base64; `--metadata` leaves it out. If the full-resolution bytes cannot be
+produced, `base64` holds the downsampled preview instead and a JSON warning on
+stderr says so.
 
 `Interpretation` is one verdict on whether the samples are read inverted. It
 joins two switches that live in different layers: the `/Decode` array in the
