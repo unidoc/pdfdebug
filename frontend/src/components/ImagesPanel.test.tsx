@@ -390,7 +390,10 @@ beforeEach(() => {
   mockGetObjectSource.mockReset().mockResolvedValue('');
   mockGetObjectDetail.mockReset().mockImplementation((_tab: string, id: string) => Promise.resolve(streamDetail(id)));
   mockDescribeImage.mockReset().mockResolvedValue({ nodeId: '', objectRef: '', width: 1240, height: 800, estimatedBytes: 2976000, warning: '', error: '' });
-  mockGetImageData.mockReset().mockResolvedValue({ kind: 'error', error: 'not decoded in this test', base64: '', mimeType: '' });
+  // The detail panel cancels the image decode it starts when the layout unmounts.
+  mockGetImageData.mockReset().mockImplementation(() =>
+    Object.assign(Promise.resolve({ kind: 'error', error: 'not decoded in this test', base64: '', mimeType: '' }), { cancel: vi.fn() }),
+  );
 });
 
 afterEach(() => {
@@ -1384,10 +1387,6 @@ describe('page list fetch failures and progress', () => {
 describe('grouping by page with a use the index does not list', () => {
   test('the use shows its node id and selects it by that id', async () => {
     mockGetImagePageGroups.mockReset().mockResolvedValue([{ pageNum: 1, images: [{ objNum: 99, gen: 0, path: ['Ghost'] }] }]);
-    // The detail panel cancels the image decode it starts when the layout unmounts.
-    mockGetImageData.mockReset().mockImplementation(() =>
-      Object.assign(Promise.resolve({ kind: 'error', error: 'not decoded in this test', base64: '', mimeType: '' }), { cancel: () => {} }),
-    );
     const user = userEvent.setup();
     renderLayout();
     openTab();

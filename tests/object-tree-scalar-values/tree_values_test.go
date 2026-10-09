@@ -222,8 +222,7 @@ func TestEmptyString_PlainRowShowsTheDelimitedForm(t *testing.T) {
 	}
 }
 
-// One dump tree run answers the question the tool used to send a reader to
-// another command for: every cell's row and column span.
+// Row and column spans of every table cell are readable from one dump tree run.
 
 func TestTaggedTable_SpansAreReadableFromOneRun(t *testing.T) {
 	out := treePlain(t, fixturePath(t, "scalar-values.pdf"))

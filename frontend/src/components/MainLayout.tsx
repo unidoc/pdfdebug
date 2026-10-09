@@ -90,7 +90,9 @@ export function MainLayout() {
                             aria-labelledby={leftRailTabId(dest.id)}
                             className={`absolute inset-0 ${shown ? '' : 'invisible'}`}
                           >
-                            <Panel active={shown && !leftPanelCollapsed} />
+                            <ErrorBoundary>
+                              <Panel active={shown && !leftPanelCollapsed} />
+                            </ErrorBoundary>
                           </div>
                         );
                       })}
