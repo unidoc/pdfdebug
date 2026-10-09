@@ -13,7 +13,7 @@ See [README.md#build-from-source](./README.md#build-from-source) for the canonic
 | Go | 1.27.x | `go.mod` |
 | Node.js | 20.x LTS | `.github/workflows/ci.yml` |
 | Wails v3 CLI | `v3.0.0-beta.18` | `go.mod` require block |
-| golangci-lint | v2.13.2 | `.github/workflows/ci.yml` |
+| golangci-lint | v2.14.0 | `.github/workflows/ci.yml` |
 | create-dmg | Homebrew (macos-latest) | macOS release DMG packaging only; installed by `release.yml` via `brew install create-dmg` |
 
 ### Editor recommendations
@@ -53,7 +53,7 @@ npm run lint --prefix frontend
 # Frontend type-check (tsc)
 npm run typecheck --prefix frontend
 
-# Go lint (golangci-lint v2.13.2)
+# Go lint (golangci-lint v2.14.0)
 golangci-lint run ./...
 ```
 
