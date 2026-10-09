@@ -57,9 +57,8 @@ its reference in the REF column. Pass that reference to `dump image --metadata`
 for the image dictionary and how its samples are interpreted (see
 [`dump image`](cli/images-and-fonts.md#dump-image)). Without `--metadata`,
 `dump image --json` also carries the image data in its `base64` field, so
-`jq -r .base64 | base64 -d` writes the image (a JSON warning on stderr means
-it is only the preview). For the decoded bytes of a page's
-content stream, use `pdfdebug dump stream --raw --page 1 file.pdf > page1.txt`,
+`jq -r .base64 | base64 -d` writes the image. For the decoded bytes of a
+page's content stream, use `pdfdebug dump stream --raw --page 1 file.pdf > page1.txt`,
 or `--ref` for any stream object. An attachment comes out with
 `pdfdebug dump embedded --name NAME file.pdf > out`; run
 `dump embedded file.pdf` first to see the names.

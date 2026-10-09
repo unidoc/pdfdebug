@@ -84,13 +84,8 @@ func execImageDump(filePath string, f byRefFlags) (exitCode int) {
 	// The CLI emits the FULL-resolution image, not the GUI's downsampled
 	// preview. GetImageData's Base64 is a thumbnail; replace it with the
 	// full-resolution bytes so the base64 matches the reported dimensions.
-	// If the full-resolution bytes cannot be produced, base64 keeps the preview
-	// and a JSON warning on stderr says so, so a caller decoding it knows.
 	if img.Error == "" && img.Base64 != "" {
-		full, ext, berr := ins.GetImageBytes("cli", nodeID)
-		if berr != nil {
-			writeJSONWarning(os.Stderr, fmt.Sprintf("full-resolution image unavailable, base64 holds the %dx%d preview: %v", img.ThumbWidth, img.ThumbHeight, berr))
-		} else {
+		if full, ext, berr := ins.GetImageBytes("cli", nodeID); berr == nil {
 			img.Base64 = base64.StdEncoding.EncodeToString(full)
 			img.MimeType = "image/png"
 			if ext == ".jpg" {
