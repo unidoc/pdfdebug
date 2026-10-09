@@ -4,7 +4,7 @@
  * carries Object (per-selection), XREF (document-level xref table) and Plain
  * Text (document-level Latin-1 bytes).
  */
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
@@ -961,6 +961,8 @@ function DetailPanelInner() {
                     onClose={handleObjectFindClose}
                   />
                 )}
+                {/* Keyed by document tab and node so the views remount at the top on a new selection; the header and find bar stay mounted and keep focus. */}
+                <Fragment key={`${detailTabId}:${detail.nodeId}`}>
                 {detail.type === 'dict' && selectedNodeIconHint === 'font' && (
                   <>
                     {fontState?.kind === 'detail' && (
@@ -1108,6 +1110,7 @@ function DetailPanelInner() {
                     indexUnavailable={reverseRefsUnavailable}
                   />
                 )}
+                </Fragment>
               </div>
             )}
           </div>

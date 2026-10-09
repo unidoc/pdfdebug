@@ -12,7 +12,7 @@ import (
 )
 
 // objectUsage is the one-line usage string for the object dump subcommand.
-const objectUsage = `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`
+var objectUsage = usageLine("dump object")
 
 // runObjectDump executes the object dump command and returns the exit code.
 func runObjectDump(args []string) int {

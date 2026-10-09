@@ -10,7 +10,8 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-const embeddedUsage = `Usage: pdfdebug dump embedded [--json] [--ref "N G R" | --name <display-name>] <file>`
+// embeddedUsage is the one-line usage string for the embedded dump subcommand.
+var embeddedUsage = usageLine("dump embedded")
 
 // runEmbeddedDump parses flags and dispatches the embedded-file list/extract
 // command. Without --ref/--name it lists every embedded/associated file (plain

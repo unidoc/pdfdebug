@@ -9,7 +9,8 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-const metadataUsage = "Usage: pdfdebug dump metadata [--json] <file>"
+// metadataUsage is the one-line usage string for the metadata dump subcommand.
+var metadataUsage = usageLine("dump metadata")
 
 // runMetadataDump parses flags and dispatches the document-metadata command,
 // printing the /Info dictionary fields and the XMP packet.

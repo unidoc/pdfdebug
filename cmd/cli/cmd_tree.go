@@ -42,7 +42,7 @@ type treeNodeOutput struct {
 }
 
 // treeUsage is the one-line usage string for the tree dump subcommand.
-const treeUsage = "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>"
+var treeUsage = usageLine("dump tree")
 
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
