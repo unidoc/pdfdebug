@@ -76,10 +76,6 @@ func TestTreePanelComponentExists(t *testing.T) {
 
 // TreePanel has data-testid="tree-panel"
 func TestTreePanelHasTestID(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
-	}
-
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, `data-testid="tree-panel"`) {
@@ -93,10 +89,6 @@ const treeRowsFile = "frontend/src/components/treeRows.tsx"
 
 // The tree row has data-testid="tree-node" and data-node-id
 func TestTreePanelHasNodeTestID(t *testing.T) {
-	if !fileExists(t, treeRowsFile) {
-		t.Skip("treeRows.tsx does not exist yet")
-	}
-
 	content := readFile(t, treeRowsFile)
 
 	if !strings.Contains(content, `data-testid="tree-node"`) {
@@ -114,10 +106,6 @@ func TestTreePanelHasNodeTestID(t *testing.T) {
 
 // TreePanel imports react-arborist
 func TestTreePanelUsesReactArborist(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
-	}
-
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "react-arborist") {
@@ -131,10 +119,6 @@ func TestTreePanelUsesReactArborist(t *testing.T) {
 
 // TreePanel imports GetChildren from Wails bindings
 func TestTreePanelImportsGetChildren(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
-	}
-
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "GetChildren") {
@@ -178,10 +162,6 @@ func TestTabStateHasSelectedNodeId(t *testing.T) {
 
 // The tree row styles error nodes with text-error
 func TestTreePanelErrorNodeStyling(t *testing.T) {
-	if !fileExists(t, treeRowsFile) {
-		t.Skip("treeRows.tsx does not exist yet")
-	}
-
 	content := readFile(t, treeRowsFile)
 
 	// Error nodes must have text-error for warning icon
@@ -204,10 +184,6 @@ func TestTreePanelErrorNodeStyling(t *testing.T) {
 // selected, idle and flashing rows are checked by the DOM tests in
 // TreePanel.test.tsx and ReferenceNavigation.test.tsx.
 func TestTreePanelUsesSharedRowStateClasses(t *testing.T) {
-	if !fileExists(t, treeRowsFile) {
-		t.Skip("treeRows.tsx does not exist yet")
-	}
-
 	content := readFile(t, treeRowsFile)
 
 	if !regexp.MustCompile(`from\s+'\./rowState'`).MatchString(content) {
@@ -231,10 +207,6 @@ func TestTreePanelUsesSharedRowStateClasses(t *testing.T) {
 
 // TreePanel has "Document Structure" header
 func TestTreePanelHeader(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/TreePanel.tsx") {
-		t.Skip("TreePanel.tsx does not exist yet")
-	}
-
 	content := readFile(t, "frontend/src/components/TreePanel.tsx")
 
 	if !strings.Contains(content, "Document Structure") {

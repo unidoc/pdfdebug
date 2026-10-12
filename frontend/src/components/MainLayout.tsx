@@ -23,12 +23,12 @@ import { useLatest } from '../hooks/useLatest';
  * Every navigator panel stays mounted; the inactive ones are invisible, not
  * unmounted, so a tree keeps its expansion and can still perform reveals.
  * Each panel is wrapped in an ErrorBoundary so a crash in one panel does not
- * tear down the others.
+ * tear down the others; switching or opening a tab clears a caught error.
  */
 export function MainLayout() {
   const { panelSizes, savePanelSizes } = useWindowPersistence();
   const state = useAppState();
-  const { leftPanelCollapsed } = state;
+  const { leftPanelCollapsed, activeTabId } = state;
   const activeIndex = resolveLeftViewIndex(selectActiveLeftView(state));
   const collapsedRef = useLatest(leftPanelCollapsed);
 
@@ -68,7 +68,7 @@ export function MainLayout() {
     <div className="flex h-full" data-testid="main-layout">
       <LeftRail />
       <div className="flex-1 min-w-0 h-full">
-        <ErrorBoundary>
+        <ErrorBoundary resetKey={activeTabId}>
           <Allotment onChange={handleHorizontalChange}>
             <Allotment.Pane
               preferredSize={panelSizes?.treeWidth ?? 300}
@@ -90,7 +90,9 @@ export function MainLayout() {
                             aria-labelledby={leftRailTabId(dest.id)}
                             className={`absolute inset-0 ${shown ? '' : 'invisible'}`}
                           >
-                            <Panel active={shown && !leftPanelCollapsed} />
+                            <ErrorBoundary resetKey={activeTabId}>
+                              <Panel active={shown && !leftPanelCollapsed} />
+                            </ErrorBoundary>
                           </div>
                         );
                       })}
@@ -100,7 +102,7 @@ export function MainLayout() {
                     preferredSize={panelSizes?.subPanelHeight ?? '30%'}
                     minSize={100}
                   >
-                    <ErrorBoundary>
+                    <ErrorBoundary resetKey={activeTabId}>
                       <ObjectSourcePanel />
                     </ErrorBoundary>
                   </Allotment.Pane>
@@ -109,7 +111,7 @@ export function MainLayout() {
             </Allotment.Pane>
             <Allotment.Pane>
               <main className="h-full" data-testid="right-panel">
-                <ErrorBoundary>
+                <ErrorBoundary resetKey={activeTabId}>
                   <DetailPanel />
                 </ErrorBoundary>
               </main>

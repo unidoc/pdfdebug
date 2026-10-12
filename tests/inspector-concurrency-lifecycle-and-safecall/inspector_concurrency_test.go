@@ -622,12 +622,11 @@ func TestBatchCancelledCheckBetweenIterations(t *testing.T) {
 	}
 }
 
-// TestImageIndexTakesPdfMuPerPage asserts the image index locking contract:
-// GetImageIndex, GetImagePages and GetImagePageGroups do not hold doc.pdfMu
-// for a whole call (a built index is read without it), and the build takes
-// pdfMu around the page-walk fetch and around each page's walk, each with a
-// deferred Unlock.
-func TestImageIndexTakesPdfMuPerPage(t *testing.T) {
+// TestImageIndexMethodsDoNotHoldPdfMuForWholeCall asserts GetImageIndex,
+// GetImagePages and GetImagePageGroups do not hold doc.pdfMu for a whole call.
+// The per-page locking inside the build is pinned behaviourally in
+// internal/pdfcore.
+func TestImageIndexMethodsDoNotHoldPdfMuForWholeCall(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/imageindex.go")
 	for _, method := range []string{"GetImageIndex", "GetImagePages", "GetImagePageGroups"} {
 		body := extractFunctionBody(t, src, method)
@@ -636,22 +635,6 @@ func TestImageIndexTakesPdfMuPerPage(t *testing.T) {
 		}
 		if strings.Contains(body, "pdfMu.Lock()") {
 			t.Errorf("%s must not hold doc.pdfMu for the whole call; the build takes it per page", method)
-		}
-	}
-	for _, needle := range []string{
-		"func (d *DocumentState) lockedPageTree(",
-		"func (w *imageWalker) walkLeafLocked(",
-	} {
-		i := strings.Index(src, needle)
-		if i < 0 {
-			t.Fatalf("internal/pdfcore/imageindex.go must declare %s", strings.TrimSuffix(needle, "("))
-		}
-		tail := src[i:]
-		if end := strings.Index(tail[1:], "\nfunc "); end >= 0 {
-			tail = tail[:end+1]
-		}
-		if !strings.Contains(tail, "pdfMu.Lock()") || !strings.Contains(tail, "defer ") || !strings.Contains(tail, "pdfMu.Unlock()") {
-			t.Errorf("%s must lock pdfMu with a deferred Unlock", strings.TrimSuffix(needle, "("))
 		}
 	}
 }
