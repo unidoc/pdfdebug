@@ -1825,17 +1825,30 @@ func TestImageIndexReadsOfABuiltIndexDoNotWaitForPdfMu(t *testing.T) {
 }
 
 func TestImageIndexBuildWaitsForPdfMu(t *testing.T) {
-	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	_, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	w := newImageWalker(doc.PDFContext)
+	reached := make(chan struct{})
+	w.beforeLock = func(page int) {
+		if page == 0 {
+			close(reached)
+		}
+	}
 	doc.pdfMu.Lock()
 	done := make(chan error, 1)
 	go func() {
-		_, err := ins.GetImageIndex("raw")
+		_, err := doc.buildImageTree(w)
 		done <- err
 	}()
 	select {
-	case <-done:
+	case <-reached:
+	case <-time.After(5 * time.Second):
 		doc.pdfMu.Unlock()
-		t.Fatal("the build ran while another call held pdfMu")
+		t.Fatal("the build did not reach the page walk")
+	}
+	select {
+	case err := <-done:
+		doc.pdfMu.Unlock()
+		t.Fatalf("the build ran while another call held pdfMu (err=%v)", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 	built := doc.pageIndex.isBuilt()
@@ -1858,6 +1871,12 @@ func TestImageIndexBuildTakesPdfMuForEachPage(t *testing.T) {
 	w := newImageWalker(doc.PDFContext)
 	var walked atomic.Int32
 	locked := make(chan struct{})
+	reached := make(chan struct{})
+	w.beforeLock = func(page int) {
+		if page == 2 {
+			close(reached)
+		}
+	}
 	// After page 1 the walk holds no lock, so taking pdfMu here succeeds and
 	// page 2 has to wait for it.
 	w.afterPage = func(page int) {
@@ -1876,6 +1895,12 @@ func TestImageIndexBuildTakesPdfMuForEachPage(t *testing.T) {
 	case <-locked:
 	case <-time.After(5 * time.Second):
 		t.Fatal("page 1 was not walked")
+	}
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		doc.pdfMu.Unlock()
+		t.Fatal("the build did not reach page 2")
 	}
 	time.Sleep(100 * time.Millisecond)
 	if n := walked.Load(); n != 1 {
@@ -2052,6 +2077,28 @@ func TestImageIndexResourcesEntryThatFailsToResolveIsAnErrorRowAndInheritedResou
 	if want := "/Resources resolves to nothing; inherited value used"; pages[0].Err != want {
 		t.Errorf("page 1 row error %q, want %q", pages[0].Err, want)
 	}
+}
+
+func TestPageWalkLockIsReleasedWhenTheWalkPanics(t *testing.T) {
+	// A nil xref entry makes pdfcpu dereference nil, a runtime error that
+	// safeCall passes on.
+	xrt := &pdfcpu_model.XRefTable{
+		Root:  pdfcpu_types.NewIndirectRef(1, 0),
+		Table: map[int]*pdfcpu_model.XRefTableEntry{1: nil},
+	}
+	doc := &DocumentState{PDFContext: &pdfcpu_model.Context{XRefTable: xrt}}
+	var r any
+	func() {
+		defer func() { r = recover() }()
+		doc.lockedPageTree()
+	}()
+	if r == nil {
+		t.Fatal("the page walk did not panic")
+	}
+	if !doc.pdfMu.TryLock() {
+		t.Fatal("pdfMu is still held after a panic in the page walk")
+	}
+	doc.pdfMu.Unlock()
 }
 
 func TestImageWalkPageLockIsReleasedWhenTheWalkPanics(t *testing.T) {

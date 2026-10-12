@@ -622,10 +622,11 @@ func TestBatchCancelledCheckBetweenIterations(t *testing.T) {
 	}
 }
 
-// TestImageIndexTakesPdfMuPerPage asserts GetImageIndex, GetImagePages and
-// GetImagePageGroups do not hold doc.pdfMu for a whole call. The per-page
-// locking inside the build is pinned behaviourally in internal/pdfcore.
-func TestImageIndexTakesPdfMuPerPage(t *testing.T) {
+// TestImageIndexMethodsDoNotHoldPdfMuForWholeCall asserts GetImageIndex,
+// GetImagePages and GetImagePageGroups do not hold doc.pdfMu for a whole call.
+// The per-page locking inside the build is pinned behaviourally in
+// internal/pdfcore.
+func TestImageIndexMethodsDoNotHoldPdfMuForWholeCall(t *testing.T) {
 	src := readSource(t, "internal/pdfcore/imageindex.go")
 	for _, method := range []string{"GetImageIndex", "GetImagePages", "GetImagePageGroups"} {
 		body := extractFunctionBody(t, src, method)

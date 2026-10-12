@@ -165,6 +165,9 @@ func (d *DocumentState) imageTree() (*imageTree, error) {
 // the document run between pages; the walker's own state is touched only by
 // this goroutine. A close of d is checked before every page.
 func (d *DocumentState) buildImageTree(w *imageWalker) (*imageTree, error) {
+	if w.beforeLock != nil {
+		w.beforeLock(0)
+	}
 	pt := d.lockedPageTree()
 	w.pdfMu = &d.pdfMu
 	w.closed = func() bool { return docClosed(d) }
@@ -253,6 +256,10 @@ type imageWalker struct {
 	// afterPage, when set, runs after each page's walk with pdfMu released.
 	// Tests use it to act between pages.
 	afterPage func(page int)
+	// beforeLock, when set, runs just before pdfMu is taken: with 0 before
+	// the page walk is fetched, then with each page number. Tests use it to
+	// wait until the build is about to block.
+	beforeLock func(page int)
 	// budget is the number of /XObject entries the walk may examine.
 	budget   int
 	examined int
@@ -778,6 +785,9 @@ func (d *DocumentState) lockedPageTree() *pageTree {
 // walkLeafLocked runs walkLeaf with w.pdfMu held when it is set. The unlock is
 // deferred so a panic in the walk cannot leave the document locked.
 func (w *imageWalker) walkLeafLocked(leaf *pageLeaf, page int, nodeID string) ImagePageGroup {
+	if w.beforeLock != nil {
+		w.beforeLock(page)
+	}
 	if w.pdfMu != nil {
 		w.pdfMu.Lock()
 		defer w.pdfMu.Unlock()
