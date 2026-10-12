@@ -31,8 +31,9 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidUpdate(prevProps: Props): void {
-    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+  componentDidUpdate(prevProps: Props, prevState: State): void {
+    // An error caught in the same update that changed resetKey belongs to the new key.
+    if (prevState.hasError && this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
       this.setState({ hasError: false });
     }
   }

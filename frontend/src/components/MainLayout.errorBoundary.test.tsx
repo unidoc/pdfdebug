@@ -146,4 +146,24 @@ describe('MainLayout navigator error containment', () => {
     expect(screen.getByTestId('pages-panel-ok')).toBeInTheDocument();
     expect(screen.queryByText('Something went wrong rendering this panel.')).not.toBeInTheDocument();
   });
+
+  test('switching to a document whose navigator fails catches the error once', () => {
+    pages.fail = false;
+    render(
+      <AppProvider>
+        <DispatchCapture />
+        <MainLayout />
+      </AppProvider>
+    );
+    openDocument('tab-1');
+    expect(screen.getByTestId('pages-panel-ok')).toBeInTheDocument();
+
+    pages.fail = true;
+    consoleError.mockClear();
+    openDocument('tab-2');
+
+    const caught = consoleError.mock.calls.filter((args) => args[0] === 'ErrorBoundary caught:');
+    expect(caught).toHaveLength(1);
+    expect(screen.getAllByText('Something went wrong rendering this panel.')).toHaveLength(1);
+  });
 });
