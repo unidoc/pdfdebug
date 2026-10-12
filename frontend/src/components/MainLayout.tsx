@@ -23,13 +23,17 @@ import { useLatest } from '../hooks/useLatest';
  * Every navigator panel stays mounted; the inactive ones are invisible, not
  * unmounted, so a tree keeps its expansion and can still perform reveals.
  * Each panel is wrapped in an ErrorBoundary so a crash in one panel does not
- * tear down the others; switching or opening a tab clears a caught error.
+ * tear down the others; switching or opening a tab clears a caught error, and
+ * selecting another node also clears one in the object source and detail
+ * panels, which render the selection.
  */
 export function MainLayout() {
   const { panelSizes, savePanelSizes } = useWindowPersistence();
   const state = useAppState();
   const { leftPanelCollapsed, activeTabId } = state;
   const activeIndex = resolveLeftViewIndex(selectActiveLeftView(state));
+  const selectedNodeId = state.tabs.find((t) => t.tabId === activeTabId)?.selectedNodeId ?? '';
+  const selectionKey = `${activeTabId}|${selectedNodeId}`;
   const collapsedRef = useLatest(leftPanelCollapsed);
 
   // Track the latest sizes from each split so we can save both dimensions together.
@@ -102,7 +106,7 @@ export function MainLayout() {
                     preferredSize={panelSizes?.subPanelHeight ?? '30%'}
                     minSize={100}
                   >
-                    <ErrorBoundary resetKey={activeTabId}>
+                    <ErrorBoundary resetKey={selectionKey}>
                       <ObjectSourcePanel />
                     </ErrorBoundary>
                   </Allotment.Pane>
@@ -111,7 +115,7 @@ export function MainLayout() {
             </Allotment.Pane>
             <Allotment.Pane>
               <main className="h-full" data-testid="right-panel">
-                <ErrorBoundary resetKey={activeTabId}>
+                <ErrorBoundary resetKey={selectionKey}>
                   <DetailPanel />
                 </ErrorBoundary>
               </main>
