@@ -1,10 +1,11 @@
 /**
  * A render error inside one navigator panel is contained to that panel: the
- * other navigators, the object source pane and the detail panel stay up.
+ * other navigators, the object source pane and the detail panel stay up, and
+ * a tab change gives the failed panel another render.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AppProvider } from '../hooks/useDocumentState';
+import { AppProvider, useAppDispatch, type AppAction } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
 
 vi.mock('allotment', () => {
@@ -43,9 +44,12 @@ vi.mock(
   })
 );
 
+const pages = vi.hoisted(() => ({ fail: true }));
+
 vi.mock('./PagesPanel', () => ({
   PagesPanel: () => {
-    throw new Error('pages panel render failure');
+    if (pages.fail) throw new Error('pages panel render failure');
+    return <div data-testid="pages-panel-ok" />;
   },
 }));
 
@@ -57,16 +61,59 @@ class MockResizeObserver {
 
 let consoleError: ReturnType<typeof vi.spyOn>;
 
+// React's dev build reports a caught render error as a window error event,
+// which jsdom prints unless the event is cancelled.
+function swallowWindowError(event: ErrorEvent) {
+  event.preventDefault();
+}
+
 beforeEach(() => {
+  pages.fail = true;
   (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
+  window.addEventListener('error', swallowWindowError);
   // React and the boundary both log the caught render error.
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
   consoleError.mockRestore();
+  window.removeEventListener('error', swallowWindowError);
   delete (globalThis as Record<string, unknown>).ResizeObserver;
 });
+
+let dispatch: (action: AppAction) => void = () => {};
+
+function DispatchCapture() {
+  dispatch = useAppDispatch();
+  return null;
+}
+
+const catalogNode = {
+  id: 'root',
+  label: 'Catalog',
+  rawKey: '',
+  nodeType: 'dict',
+  valueType: '',
+  hasChildren: true,
+  childCount: 0,
+  iconHint: 'catalog',
+  error: '',
+};
+
+function openDocument(tabId: string) {
+  act(() => {
+    dispatch({
+      type: 'OPEN_DOCUMENT',
+      payload: {
+        tabId,
+        fileName: `${tabId}.pdf`,
+        filePath: `/path/to/${tabId}.pdf`,
+        rootNode: catalogNode,
+        rootChildren: [],
+      },
+    });
+  });
+}
 
 describe('MainLayout navigator error containment', () => {
   test('a throwing navigator panel leaves the detail panel and the other navigators rendered', () => {
@@ -77,8 +124,26 @@ describe('MainLayout navigator error containment', () => {
     );
 
     expect(screen.getByTestId('right-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('object-source-panel')).toBeInTheDocument();
     expect(screen.getByTestId('tree-panel')).toBeInTheDocument();
     expect(screen.getByTestId('images-panel')).toBeInTheDocument();
     expect(screen.getAllByText('Something went wrong rendering this panel.')).toHaveLength(1);
+  });
+
+  test('opening another document renders the failed navigator again', () => {
+    render(
+      <AppProvider>
+        <DispatchCapture />
+        <MainLayout />
+      </AppProvider>
+    );
+    openDocument('tab-1');
+    expect(screen.getAllByText('Something went wrong rendering this panel.')).toHaveLength(1);
+
+    pages.fail = false;
+    openDocument('tab-2');
+
+    expect(screen.getByTestId('pages-panel-ok')).toBeInTheDocument();
+    expect(screen.queryByText('Something went wrong rendering this panel.')).not.toBeInTheDocument();
   });
 });

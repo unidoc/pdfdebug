@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1820,6 +1821,78 @@ func TestImageIndexReadsOfABuiltIndexDoNotWaitForPdfMu(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("reads of the built index waited for pdfMu")
+	}
+}
+
+func TestImageIndexBuildWaitsForPdfMu(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	doc.pdfMu.Lock()
+	done := make(chan error, 1)
+	go func() {
+		_, err := ins.GetImageIndex("raw")
+		done <- err
+	}()
+	select {
+	case <-done:
+		doc.pdfMu.Unlock()
+		t.Fatal("the build ran while another call held pdfMu")
+	case <-time.After(100 * time.Millisecond):
+	}
+	built := doc.pageIndex.isBuilt()
+	doc.pdfMu.Unlock()
+	if built {
+		t.Error("the page walk was fetched while another call held pdfMu")
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the build did not finish after pdfMu was released")
+	}
+}
+
+func TestImageIndexBuildTakesPdfMuForEachPage(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(sharedImageObjs()...))
+	w := newImageWalker(doc.PDFContext)
+	var walked atomic.Int32
+	locked := make(chan struct{})
+	// After page 1 the walk holds no lock, so taking pdfMu here succeeds and
+	// page 2 has to wait for it.
+	w.afterPage = func(page int) {
+		walked.Add(1)
+		if page == 1 {
+			doc.pdfMu.Lock()
+			close(locked)
+		}
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := doc.buildImageTree(w)
+		done <- err
+	}()
+	select {
+	case <-locked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("page 1 was not walked")
+	}
+	time.Sleep(100 * time.Millisecond)
+	if n := walked.Load(); n != 1 {
+		doc.pdfMu.Unlock()
+		t.Fatalf("walked %d pages while pdfMu was held, want 1", n)
+	}
+	doc.pdfMu.Unlock()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the build did not finish after pdfMu was released")
+	}
+	if n := walked.Load(); n < 2 {
+		t.Errorf("walked %d pages, want the fixture to have at least 2", n)
 	}
 }
 

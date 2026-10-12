@@ -7,6 +7,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** A change of this value clears a caught error and renders the children again. */
+  resetKey?: string | null;
 }
 
 interface State {
@@ -15,7 +17,9 @@ interface State {
 
 /**
  * Class-based error boundary (hooks cannot catch render errors).
- * Wraps panels so a crash in one does not tear down siblings.
+ * Wraps panels so a crash in one does not tear down siblings. A panel that
+ * stays mounted across documents passes the active tab id as resetKey, so an
+ * error caused by one document does not stick to the next.
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -25,6 +29,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(): State {
     return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: Props): void {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
