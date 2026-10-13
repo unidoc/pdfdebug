@@ -13,7 +13,7 @@ import { DetailPanel } from './DetailPanel';
 import { LeftRail, leftRailPanelId, leftRailTabId, resolveLeftViewIndex } from './LeftRail';
 import { LEFT_RAIL_DESTINATIONS } from './leftRailDestinations';
 import { useWindowPersistence, type PanelSizes } from '../hooks/useWindowPersistence';
-import { selectActiveLeftView, useAppState } from '../hooks/useDocumentState';
+import { leftViewOf, selectActiveTab, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 
 /**
@@ -31,9 +31,10 @@ export function MainLayout() {
   const { panelSizes, savePanelSizes } = useWindowPersistence();
   const state = useAppState();
   const { leftPanelCollapsed, activeTabId } = state;
-  const activeIndex = resolveLeftViewIndex(selectActiveLeftView(state));
-  const selectedNodeId = state.tabs.find((t) => t.tabId === activeTabId)?.selectedNodeId ?? '';
-  const selectionKey = `${activeTabId}|${selectedNodeId}`;
+  const activeTab = selectActiveTab(state);
+  const activeIndex = resolveLeftViewIndex(leftViewOf(activeTab));
+  const tabKeys = [activeTabId];
+  const selectionKeys = [activeTabId, activeTab?.selectedNodeId ?? null];
   const collapsedRef = useLatest(leftPanelCollapsed);
 
   // Track the latest sizes from each split so we can save both dimensions together.
@@ -72,7 +73,7 @@ export function MainLayout() {
     <div className="flex h-full" data-testid="main-layout">
       <LeftRail />
       <div className="flex-1 min-w-0 h-full">
-        <ErrorBoundary resetKey={activeTabId}>
+        <ErrorBoundary resetKeys={tabKeys}>
           <Allotment onChange={handleHorizontalChange}>
             <Allotment.Pane
               preferredSize={panelSizes?.treeWidth ?? 300}
@@ -94,7 +95,7 @@ export function MainLayout() {
                             aria-labelledby={leftRailTabId(dest.id)}
                             className={`absolute inset-0 ${shown ? '' : 'invisible'}`}
                           >
-                            <ErrorBoundary resetKey={activeTabId}>
+                            <ErrorBoundary resetKeys={tabKeys}>
                               <Panel active={shown && !leftPanelCollapsed} />
                             </ErrorBoundary>
                           </div>
@@ -106,7 +107,7 @@ export function MainLayout() {
                     preferredSize={panelSizes?.subPanelHeight ?? '30%'}
                     minSize={100}
                   >
-                    <ErrorBoundary resetKey={selectionKey}>
+                    <ErrorBoundary resetKeys={selectionKeys}>
                       <ObjectSourcePanel />
                     </ErrorBoundary>
                   </Allotment.Pane>
@@ -115,7 +116,7 @@ export function MainLayout() {
             </Allotment.Pane>
             <Allotment.Pane>
               <main className="h-full" data-testid="right-panel">
-                <ErrorBoundary resetKey={selectionKey}>
+                <ErrorBoundary resetKeys={selectionKeys}>
                   <DetailPanel />
                 </ErrorBoundary>
               </main>
