@@ -18,7 +18,7 @@ const maxResolveDepth = 32
 // ResolveRef resolves the object addressed by nodeID and follows the indirect
 // references found inside it inline, up to opts.MaxDepth levels deep, returning
 // a ResolvedNode tree. It is the keystone primitive behind --ops Do
-// classification, --xobject/--ref stream resolution, --resolve, and Story 11-6.
+// classification, --xobject/--ref stream resolution and --resolve.
 //
 // MaxDepth semantics (ResolveOpts): 0 resolves the addressed object only and
 // leaves its child refs as unfollowed markers (Truncated=true); N follows up to

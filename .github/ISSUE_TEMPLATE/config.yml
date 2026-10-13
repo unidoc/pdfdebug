@@ -1,0 +1,6 @@
+# Maintainers still file rich free-form issues — keep the blank option.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: mailto:security@unidoc.io
+    about: Do NOT open a public issue for security problems. Email security@unidoc.io directly.

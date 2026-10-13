@@ -1,23 +1,22 @@
-// Story 9-8: Object Reference Visibility (Inline Labels + Command Palette)
+// Object Reference Visibility (Inline Labels + Command Palette)
 //
-// TDD RED PHASE: These tests must FAIL until the implementation lands. They
-// pin the contract for:
+// These tests pin the contract for:
 //
-//   - TreeNode.ObjectRef and TreeNode.TypeName (AC1, AC2): every indirect
+//   - TreeNode.ObjectRef and TreeNode.TypeName: every indirect
 //     object surfaces "<num> <gen> R" on its node, plus the raw /Type when
 //     the dict carries one. Dedup with the existing semantic label is the
 //     render layer's job (frontend), so the backend always emits the raw
 //     /Type here.
 //
-//   - Inspector.GetObjectIndex (Task 3): full xref-derived index, with
+//   - Inspector.GetObjectIndex: full xref-derived index, with
 //     per-entry reachability, free-flag, /Type extraction, deterministic
 //     ObjNum-asc / Gen-asc ordering, NodeID round-trip through
 //     GetAncestorPath for reachable entries, and per-DocumentState cache
 //     invalidation on re-Open / Close.
 //
 // Run: go test ./internal/pdfcore/ -run TestObjectIndex -count=1
-//      go test ./internal/pdfcore/ -run TestTreeNodeObjectRef -count=1
-//      go test ./internal/pdfcore/ -run TestTreeNodeTypeName -count=1
+// go test ./internal/pdfcore/ -run TestTreeNodeObjectRef -count=1
+// go test ./internal/pdfcore/ -run TestTreeNodeTypeName -count=1
 
 package pdfcore
 
@@ -29,12 +28,12 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AC1 / AC2 -- TreeNode.ObjectRef and TreeNode.TypeName
+// TreeNode.ObjectRef and TreeNode.TypeName
 // ---------------------------------------------------------------------------
 
 // TestTreeNodeObjectRefPopulatedOnIndirectChildren verifies that the catalog's
 // indirect-ref children (/Pages) carry ObjectRef in "<num> <gen> R" form.
-// AC1: nodes that correspond to an indirect object expose their object ref.
+// Nodes that correspond to an indirect object expose their object ref.
 func TestTreeNodeObjectRefPopulatedOnIndirectChildren(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	children, err := ins.GetChildren(tabID, "root")
@@ -59,7 +58,7 @@ func TestTreeNodeObjectRefPopulatedOnIndirectChildren(t *testing.T) {
 
 // TestTreeNodeObjectRefBlankOnInlineScalar verifies that inline scalars (e.g.
 // /Type which is a Name, not an indirect object) carry an empty ObjectRef so
-// the frontend can suppress the inline suffix for them. AC1.
+// the frontend can suppress the inline suffix for them.
 func TestTreeNodeObjectRefBlankOnInlineScalar(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	children, err := ins.GetChildren(tabID, "root")
@@ -82,7 +81,7 @@ func TestTreeNodeObjectRefBlankOnInlineScalar(t *testing.T) {
 }
 
 // TestTreeNodeTypeNameOnIndirectPages verifies the /Pages dict surfaces
-// TypeName="Pages" (the literal /Type value). AC2.
+// TypeName="Pages" (the literal /Type value).
 func TestTreeNodeTypeNameOnIndirectPages(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	children, err := ins.GetChildren(tabID, "root")
@@ -106,7 +105,7 @@ func TestTreeNodeTypeNameOnIndirectPages(t *testing.T) {
 
 // TestTreeNodeTypeNameBlankWhenNoTypeKey verifies that an indirect object
 // without a /Type entry surfaces an empty TypeName, NOT "Catalog" or any
-// inferred value. AC2: backend stays strict; only literal /Type values
+// inferred value. backend stays strict; only literal /Type values
 // populate TypeName.
 func TestTreeNodeTypeNameBlankWhenNoTypeKey(t *testing.T) {
 	ins, tabID := openMultipage(t)
@@ -132,7 +131,7 @@ func TestTreeNodeTypeNameBlankWhenNoTypeKey(t *testing.T) {
 }
 
 // TestTreeNodeObjectRefArrayElement verifies array elements that resolve to
-// indirect objects also carry ObjectRef + TypeName. AC1 / AC2: applies to
+// indirect objects also carry ObjectRef + TypeName. The rule applies to
 // array members too (e.g. Pages.Kids[0] -> Page object).
 func TestTreeNodeObjectRefArrayElement(t *testing.T) {
 	ins, tabID := openMultipage(t)
@@ -171,12 +170,12 @@ func TestTreeNodeObjectRefArrayElement(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AC8 / Task 3 -- Inspector.GetObjectIndex
+// Inspector.GetObjectIndex
 // ---------------------------------------------------------------------------
 
 // TestGetObjectIndexReturnsAllXRefEntries verifies the index contains an
 // entry for every indirect object the document reports through pdfcpu's
-// XRefTable, with entries sorted by ObjNum ascending. Task 3.3 / 3.5.
+// XRefTable, with entries sorted by ObjNum ascending.
 func TestGetObjectIndexReturnsAllXRefEntries(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	entries, err := ins.GetObjectIndex(tabID)
@@ -204,7 +203,7 @@ func TestGetObjectIndexReturnsAllXRefEntries(t *testing.T) {
 		t.Errorf("catalog.NodeID = %q, want %q or %q", catalog.NodeID, "obj:0:1", "root")
 	}
 
-	// Sort assertion: ObjNum ascending (Task 3.3).
+	// Sort assertion: ObjNum ascending.
 	for i := 1; i < len(entries); i++ {
 		prev, cur := entries[i-1], entries[i]
 		if prev.ObjNum > cur.ObjNum {
@@ -219,7 +218,7 @@ func TestGetObjectIndexReturnsAllXRefEntries(t *testing.T) {
 }
 
 // TestGetObjectIndexTypeExtraction verifies the index carries TypeName for
-// objects with a /Type entry (e.g. /Pages, /Page). AC2 backend side.
+// objects with a /Type entry (e.g. /Pages, /Page). backend side.
 func TestGetObjectIndexTypeExtraction(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	entries, err := ins.GetObjectIndex(tabID)
@@ -246,7 +245,7 @@ func TestGetObjectIndexTypeExtraction(t *testing.T) {
 
 // TestGetObjectIndexReachableNodeIDRoundTrip verifies that NodeID on a
 // reachable entry round-trips through GetAncestorPath (returns a non-empty
-// path ending in that NodeID). Task 7.1 / Task 3.3.
+// path ending in that NodeID).
 func TestGetObjectIndexReachableNodeIDRoundTrip(t *testing.T) {
 	ins, tabID := openMultipage(t)
 	entries, err := ins.GetObjectIndex(tabID)
@@ -287,7 +286,7 @@ func TestGetObjectIndexUnknownTab(t *testing.T) {
 }
 
 // TestGetObjectIndexCacheStableAcrossCalls verifies repeat calls return the
-// same slice contents (cache hit). Task 3.4: lazy build, then cache per
+// same slice contents (cache hit): lazy build, then cache per
 // DocumentState. We compare by deep equality on the entries.
 func TestGetObjectIndexCacheStableAcrossCalls(t *testing.T) {
 	ins, tabID := openMultipage(t)
@@ -306,7 +305,7 @@ func TestGetObjectIndexCacheStableAcrossCalls(t *testing.T) {
 
 // TestGetObjectIndexInvalidatesOnReopen verifies that closing and re-opening
 // the same tabID rebuilds the index (cache lives on the DocumentState
-// pointer, which is replaced on Open). Task 3.4: invalidation contract.
+// pointer, which is replaced on Open).
 func TestGetObjectIndexInvalidatesOnReopen(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-reopen"
@@ -343,9 +342,9 @@ func TestGetObjectIndexInvalidatesOnReopen(t *testing.T) {
 }
 
 // TestBuildReachableSetDeepNesting verifies that buildReachableSet no longer
-// caps the BFS at depth 32 (Story 10.6 AC2). The fixture page-tree depth is
-// 52; pre-fix, objects 34..53 were mislabeled as orphan trees. Post-fix all
-// 53 objects are reachable. Boundary at depth 32 AND well past it.
+// caps the BFS at depth 32. The fixture page-tree depth is 52;
+// pre-fix, objects 34..53 were mislabeled as orphan trees. Post-fix all 53
+// objects are reachable. Boundary at depth 32 AND well past it.
 func TestBuildReachableSetDeepNesting(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-10-6-deep"
@@ -366,21 +365,21 @@ func TestBuildReachableSetDeepNesting(t *testing.T) {
 	// Boundary check: obj 33 sits at depth 32 pre-fix (the first depth
 	// that the cap blocked). Assert reachable.
 	if e := byNum[33]; e == nil || !e.Reachable {
-		t.Errorf("AC2 boundary: obj 33 (depth 32) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("boundary: obj 33 (depth 32) reachable=%v, want true", e != nil && e.Reachable)
 	}
 	// Well past the boundary: obj 50 must also be reachable (depth 49).
 	if e := byNum[50]; e == nil || !e.Reachable {
-		t.Errorf("AC2 well-past-32: obj 50 (depth 49) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("well-past-32: obj 50 (depth 49) reachable=%v, want true", e != nil && e.Reachable)
 	}
 	// Leaf page at obj 53.
 	if e := byNum[53]; e == nil || !e.Reachable {
-		t.Errorf("AC2 leaf: obj 53 (leaf Page) reachable=%v, want true", e != nil && e.Reachable)
+		t.Errorf("leaf: obj 53 (leaf Page) reachable=%v, want true", e != nil && e.Reachable)
 	}
 }
 
 // TestObjectIndexEntryShape pins the struct's exported field set so a
 // rename/typo at implementation time is caught here, not at the frontend
-// binding layer. Task 3.2.
+// binding layer.
 func TestObjectIndexEntryShape(t *testing.T) {
 	e := ObjectIndexEntry{
 		ObjNum:    1,
@@ -391,7 +390,7 @@ func TestObjectIndexEntryShape(t *testing.T) {
 		NodeID:    "obj:0:1",
 	}
 	// Force compilation of every field; if any is missing or mis-named,
-	// the build fails here in red phase.
+	// the build fails here.
 	_ = e.ObjNum
 	_ = e.Gen
 	_ = e.TypeName

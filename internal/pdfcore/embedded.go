@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"errors"
 	"fmt"
 
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -54,15 +55,15 @@ type EmbeddedFileList struct {
 // the /Filespec indirect-object reference. Direct (inline) filespecs are kept
 // as distinct entries with an empty FilespecRef. A document with no embedded
 // files returns a non-nil empty list and no error. A broken name tree or a
-// filespec without /EF degrades per-entry rather than failing the whole view
-// (AC8). The whole sequence runs under doc.pdfMu and inside safeCall.
+// filespec without /EF degrades per-entry rather than failing the whole view.
+// The whole sequence runs under doc.pdfMu and inside safeCall.
 func (ins *Inspector) GetEmbeddedFiles(tabID string) (*EmbeddedFileList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. The walk dereferences /AF, the name tree,
-	// and each /Filespec's /EF stream, all of which touch pdfcpu's XRefTable.
+	// Serialize pdfcpu access. The walk dereferences /AF, the name tree, and
+	// each /Filespec's /EF stream, all of which touch pdfcpu's XRefTable.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
@@ -125,7 +126,7 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 	}
 
 	// Source 2: /Names/EmbeddedFiles name tree. A broken tree degrades to no
-	// entries from this source; /AF entries above are unaffected (AC8/UNIT-014).
+	// entries from this source; /AF entries above are unaffected.
 	if namesObj, ok := cat["Names"]; ok {
 		namesDict := asDict(dereference(doc, namesObj))
 		if namesDict != nil {
@@ -145,10 +146,11 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 func embeddedFileFromFilespec(doc *DocumentState, fs pdfcpu_types.Dict, fsRef string) EmbeddedFile {
 	ef := EmbeddedFile{FilespecRef: fsRef}
 
-	// Display name: /UF preferred, else /F.
-	if uf := stringValue(fs["UF"]); uf != "" {
+	// Display name: /UF preferred, else /F. Both are text strings. An
+	// undecodable /UF stays present as raw bytes rather than deferring to /F.
+	if uf := textStringOrRaw(fs["UF"]); uf != "" {
 		ef.Name = uf
-	} else if f := stringValue(fs["F"]); f != "" {
+	} else if f := textStringOrRaw(fs["F"]); f != "" {
 		ef.Name = f
 	}
 
@@ -241,9 +243,9 @@ func embeddedFileStreamRef(doc *DocumentState, fs pdfcpu_types.Dict) (pdfcpu_typ
 // walkNameTree traverses a PDF name-tree node (/Kids intermediate nodes or
 // /Names leaf pairs), invoking visit for each /Filespec value. visit receives
 // the resolved filespec object and its "N G R" ref ("" for a direct, inline
-// filespec - rare but legal, kept per AC1). A malformed node (unresolvable ref,
-// wrong shape) degrades silently so the rest of the enumeration proceeds (AC8).
-// depth guards against pathological nesting.
+// filespec - rare but legal, kept). A malformed node (unresolvable ref, wrong
+// shape) degrades silently so the rest of the enumeration proceeds. depth
+// guards against pathological nesting.
 func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit func(resolved pdfcpu_types.Object, fsRef string)) {
 	if depth > maxNodeIDDepth {
 		return
@@ -255,7 +257,7 @@ func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit
 
 	// Leaf: /Names is a flat [key value key value ...] array; values at odd
 	// indices are filespec refs (normally indirect, but a direct filespec dict
-	// is legal and must be kept with an empty ref, never dropped - AC1).
+	// is legal and must be kept with an empty ref, never dropped).
 	if namesObj, ok := d["Names"]; ok {
 		arr := dereferenceArray(doc, namesObj)
 		for i := 1; i < len(arr); i += 2 {
@@ -305,9 +307,17 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 	return arr
 }
 
-// stringValue renders a PDF string-like object (StringLiteral / HexLiteral) as
-// its plain text, returning "" for any other type. Used for filespec /F, /UF,
-// and /Params /CheckSum, /ModDate.
+// stringValue renders a PDF string-like object as its raw bytes - the escaped
+// body for a StringLiteral, the hex digit text for a HexLiteral - and "" for
+// any other type.
+//
+// Used for two kinds of field. Decoding would corrupt the first: filespec
+// /Params /CheckSum, signature /Contents and /Cert, trailer /ID. The second is
+// only unwired: /Params /ModDate and the /Info date keys (legally text strings),
+// catalog /Lang, and the signature /T, /Name, /Reason, /Location, /ContactInfo.
+//
+// Text fields use textStringOrRaw, which also falls back to this, so it must
+// not be re-pointed at the decoder.
 func stringValue(obj pdfcpu_types.Object) string {
 	switch v := obj.(type) {
 	case pdfcpu_types.StringLiteral:
@@ -344,7 +354,7 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	// AC2: serialize pdfcpu access for resolve + decode.
+	// Serialize pdfcpu access for resolve + decode.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
@@ -371,13 +381,13 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 
 	var out []byte
 	if len(sd.FilterPipeline) > 0 {
-		err = safeCall(func() error {
-			return sd.Decode()
-		})
+		out, err = decodeBounded(&sd, maxImageBytes, true)
 		if err != nil {
+			if errors.Is(err, ErrUnsupportedPDF) {
+				return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))
+			}
 			return nil, fmt.Errorf("%w: failed to decode embedded file: %v", ErrUnsupportedPDF, err)
 		}
-		out = sd.Content
 	} else {
 		// Unfiltered: raw bytes ARE the decoded payload.
 		out = sd.Raw
@@ -392,8 +402,10 @@ func (ins *Inspector) GetEmbeddedFileBytes(tabID, nodeID string) ([]byte, error)
 		}
 	}
 
-	// Post-decode ceiling guard (a small filtered stream can inflate past the
-	// ceiling on decompression).
+	// The delivered payload never exceeds the ceiling, whichever branch produced
+	// it. decodeBounded already measured the filtered branch against the same
+	// limit, so this is the unfiltered branch's guard and the filtered branch's
+	// backstop - keep it even if that looks redundant.
 	if len(out) > maxImageBytes {
 		return nil, fmt.Errorf("%w: embedded file exceeds the %d MB extraction ceiling", ErrUnsupportedPDF, maxImageBytes/(1024*1024))
 	}

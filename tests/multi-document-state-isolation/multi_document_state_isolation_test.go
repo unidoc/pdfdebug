@@ -1,7 +1,5 @@
 // Package multi_document_state_isolation_test provides acceptance tests for
-// Story 4.2: Multi-Document State Isolation.
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 4-2 is implemented.
+// Multi-Document State Isolation.
 //
 // Test Levels: Integration (Go) and Unit (Go) -- pdfcore API validation.
 // No browser interaction required; all criteria are Go package validation.
@@ -46,8 +44,8 @@ func testdataDir(t *testing.T) string {
 }
 
 // runColocatedTest runs a specific test by name in the given Go package and
-// verifies it was actually executed (not just "no tests to run"). This ensures
-// the RED phase fails when the co-located test does not exist yet.
+// verifies it was actually executed (not just "no tests to run"), so a missing
+// co-located test fails rather than passing silently.
 func runColocatedTest(t *testing.T, root, testName, pkg string) {
 	t.Helper()
 	cmd := exec.Command("go", "test", "-v", "-run", "^"+testName+"$", "-count=1", pkg)
@@ -60,7 +58,7 @@ func runColocatedTest(t *testing.T, root, testName, pkg string) {
 	// go test -run with no matching tests prints "no tests to run" but exits 0.
 	// We must detect this and fail: the co-located test does not exist yet.
 	if strings.Contains(out, "no tests to run") {
-		t.Fatalf("co-located test %s does not exist yet in %s (RED phase)\n%s", testName, pkg, out)
+		t.Fatalf("co-located test %s does not exist in %s\n%s", testName, pkg, out)
 	}
 	if !strings.Contains(out, "PASS") {
 		t.Fatalf("expected PASS for %s but got:\n%s", testName, out)
@@ -68,9 +66,9 @@ func runColocatedTest(t *testing.T, root, testName, pkg string) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-001 [P0]: Inspector.Open() with two different tabIDs creates two
-// independent DocumentState entries.
-// AC#2: Each document has its own entry in the documents map keyed by tabID.
+// Inspector.Open() with two different tabIDs creates two independent
+// DocumentState entries.
+// Each document has its own entry in the documents map keyed by tabID.
 //
 // Given two different PDF files,
 // When Inspector.Open() is called with distinct tabIDs for each,
@@ -86,7 +84,7 @@ func TestTwoIndependentDocumentStates(t *testing.T) {
 	multipagePDF := filepath.Join(testdataDir(t), "multipage.pdf")
 	for _, f := range []string{minimalPDF, multipagePDF} {
 		if _, err := os.Stat(f); os.IsNotExist(err) {
-			t.Fatalf("[P0] test fixture does not exist: %s", f)
+			t.Fatalf("test fixture does not exist: %s", f)
 		}
 	}
 
@@ -94,8 +92,8 @@ func TestTwoIndependentDocumentStates(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-002 [P0]: Inspector.Close() removes only the specified tabID.
-// AC#2: Closing a tab calls CloseDocument() which frees resources for that
+// Inspector.Close() removes only the specified tabID.
+// Closing a tab calls CloseDocument() which frees resources for that
 // document only.
 //
 // Given two documents are open with different tabIDs,
@@ -110,8 +108,8 @@ func TestCloseRemovesOnlyTargetTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-003 [P1]: Malformed PDF in one tab does not affect queries to another.
-// AC#1, AC#2: Error isolation between documents.
+// Malformed PDF in one tab does not affect queries to another.
+// Error isolation between documents.
 //
 // Given testdata/multipage.pdf is open as tab-1,
 // And testdata/malformed.pdf is opened as tab-2 (may open with warning or fail),
@@ -124,15 +122,15 @@ func TestMalformedPDFDoesNotAffectOtherTab(t *testing.T) {
 
 	malformedPDF := filepath.Join(testdataDir(t), "malformed.pdf")
 	if _, err := os.Stat(malformedPDF); os.IsNotExist(err) {
-		t.Fatalf("[P1] testdata/malformed.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/malformed.pdf does not exist -- create test fixture first")
 	}
 
 	runColocatedTest(t, root, "TestMalformedPDFDoesNotAffectOtherTab", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-INTG-004 [P1]: Failed PDF open (encrypted) does not affect other tabs.
-// AC#1, AC#2: Error path isolation.
+// Failed PDF open (encrypted) does not affect other tabs.
+// Error path isolation.
 //
 // Given testdata/multipage.pdf is open as tab-1,
 // When testdata/encrypted.pdf is opened as tab-2 (should fail with ErrEncryptedPDF),
@@ -144,16 +142,16 @@ func TestEncryptedPDFFailDoesNotAffectOtherTab(t *testing.T) {
 
 	encryptedPDF := filepath.Join(testdataDir(t), "encrypted.pdf")
 	if _, err := os.Stat(encryptedPDF); os.IsNotExist(err) {
-		t.Fatalf("[P1] testdata/encrypted.pdf does not exist -- create test fixture first")
+		t.Fatalf("testdata/encrypted.pdf does not exist -- create test fixture first")
 	}
 
 	runColocatedTest(t, root, "TestEncryptedPDFFailDoesNotAffectOtherTab", "./internal/pdfcore/...")
 }
 
 // ---------------------------------------------------------------------------
-// 4.2-UNIT-006 [P2]: Content stream cache is per-document -- closing one tab
-// does not clear another tab's cache.
-// AC#1, AC#2: Stream cache isolation.
+// Content stream cache is per-document -- closing one tab does not clear
+// another tab's cache.
+// Stream cache isolation.
 //
 // Given two documents are open,
 // When GetContentStream is called on tab-1 for a stream node,
@@ -177,10 +175,10 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
@@ -195,9 +193,9 @@ func TestPdfserviceNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P0] pdfservice regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfservice regression -- tests failed:\n%s", string(output))
 	}
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P0] expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }

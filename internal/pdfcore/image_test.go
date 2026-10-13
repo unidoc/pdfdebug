@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -52,7 +53,7 @@ func TestGetImageData_ExtractsJPEGImage(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	result, err := ins.GetImageData(tabID, imageNodeID)
+	result, err := ins.GetImageData(context.Background(),tabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestGetImageData_ReturnsMetadata(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	result, err := ins.GetImageData(tabID, imageNodeID)
+	result, err := ins.GetImageData(context.Background(),tabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestGetImageData_NonImageNode(t *testing.T) {
 	ins, tabID := openMinimal(t)
 
 	// "root" is the catalog dict, not an image
-	result, err := ins.GetImageData(tabID, "root")
+	result, err := ins.GetImageData(context.Background(),tabID, "root")
 	if err != nil {
 		t.Fatalf("GetImageData returned Go error: %v (want struct-level error)", err)
 	}
@@ -126,7 +127,7 @@ func TestGetImageData_NonImageNode(t *testing.T) {
 
 func TestGetImageData_InvalidNodeID(t *testing.T) {
 	ins, tabID := openMinimal(t)
-	_, err := ins.GetImageData(tabID, "")
+	_, err := ins.GetImageData(context.Background(),tabID, "")
 	if err == nil {
 		t.Fatal("expected Go error for empty nodeID, got nil")
 	}
@@ -134,7 +135,7 @@ func TestGetImageData_InvalidNodeID(t *testing.T) {
 
 func TestGetImageData_UnknownTab(t *testing.T) {
 	ins := NewInspector()
-	_, err := ins.GetImageData("nonexistent-tab", "root")
+	_, err := ins.GetImageData(context.Background(),"nonexistent-tab", "root")
 	if err == nil {
 		t.Fatal("expected Go error for unknown tabID, got nil")
 	}
@@ -145,7 +146,7 @@ func TestGetImageData_UnknownTab(t *testing.T) {
 
 func TestGetImageData_ErrorNode(t *testing.T) {
 	ins, tabID := openMinimal(t)
-	result, err := ins.GetImageData(tabID, "error:something")
+	result, err := ins.GetImageData(context.Background(),tabID, "error:something")
 	if err != nil {
 		t.Fatalf("GetImageData returned Go error: %v (want struct-level error)", err)
 	}
@@ -164,7 +165,7 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 	// streams are handled gracefully.
 	streamNodeID := findStreamNode(t, ins, tabID, "root", 0)
 	if streamNodeID != "" {
-		result, err := ins.GetImageData(tabID, streamNodeID)
+		result, err := ins.GetImageData(context.Background(),tabID, streamNodeID)
 		if err != nil {
 			t.Fatalf("GetImageData panicked or returned Go error: %v", err)
 		}
@@ -177,7 +178,7 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 
 	// Test with a completely bogus node ID that resolves to nothing useful.
 	// This should not panic.
-	result, err := ins.GetImageData(tabID, "obj:0:99999")
+	result, err := ins.GetImageData(context.Background(),tabID, "obj:0:99999")
 	if err != nil {
 		// A Go error is acceptable for unresolvable refs
 		return
@@ -197,7 +198,7 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 		return
 	}
 	// If Open somehow succeeded, try GetImageData on root to exercise safeCall.
-	mResult, mErr := malformedIns.GetImageData("malformed-tab", "root")
+	mResult, mErr := malformedIns.GetImageData(context.Background(),"malformed-tab", "root")
 	if mErr != nil {
 		t.Logf("malformed.pdf GetImageData Go error (expected): %v", mErr)
 		return
@@ -209,7 +210,7 @@ func TestGetImageData_PanicRecovery(t *testing.T) {
 	t.Logf("malformed.pdf GetImageData result: error=%q", mResult.Error)
 }
 
-// 6.1-UNIT-006 / 6.1-UNIT-007: DCTDecode image returns "image/jpeg" MIME type.
+// DCTDecode image returns "image/jpeg" MIME type.
 func TestGetImageData_DCTDecodeJPEG(t *testing.T) {
 	ins, tabID := openImagePDF(t)
 
@@ -218,7 +219,7 @@ func TestGetImageData_DCTDecodeJPEG(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	result, err := ins.GetImageData(tabID, imageNodeID)
+	result, err := ins.GetImageData(context.Background(),tabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}
@@ -234,8 +235,8 @@ func TestGetImageData_DCTDecodeJPEG(t *testing.T) {
 	}
 }
 
-// 6.1-UNIT-011: Form XObject (Subtype=Form) is NOT treated as image.
-// Tests the code path where the object IS a StreamDict but Subtype != Image.
+// Form XObject (Subtype=Form) is NOT treated as image. Tests the code path
+// where the object IS a StreamDict but Subtype != Image.
 func TestGetImageData_StreamDictNonImage(t *testing.T) {
 	ins, tabID := openContentStream(t)
 
@@ -246,7 +247,7 @@ func TestGetImageData_StreamDictNonImage(t *testing.T) {
 		t.Fatal("no stream node found in content-stream.pdf")
 	}
 
-	result, err := ins.GetImageData(tabID, streamNodeID)
+	result, err := ins.GetImageData(context.Background(),tabID, streamNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned Go error: %v (want struct-level error)", err)
 	}
@@ -258,7 +259,7 @@ func TestGetImageData_StreamDictNonImage(t *testing.T) {
 	}
 }
 
-// 6.1-UNIT-012: GetImageData returns consistent results across multiple calls.
+// GetImageData returns consistent results across multiple calls.
 func TestGetImageData_Idempotency(t *testing.T) {
 	ins, tabID := openImagePDF(t)
 
@@ -267,11 +268,11 @@ func TestGetImageData_Idempotency(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	r1, err := ins.GetImageData(tabID, imageNodeID)
+	r1, err := ins.GetImageData(context.Background(),tabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("first call returned error: %v", err)
 	}
-	r2, err := ins.GetImageData(tabID, imageNodeID)
+	r2, err := ins.GetImageData(context.Background(),tabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("second call returned error: %v", err)
 	}
@@ -290,5 +291,34 @@ func TestGetImageData_Idempotency(t *testing.T) {
 	}
 	if r1.Filter != r2.Filter {
 		t.Errorf("Filter differs: %q vs %q", r1.Filter, r2.Filter)
+	}
+}
+
+func TestImageDataAndDescribeImageShareTheMetadataWarningWording(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, imgPages(box, 3)},
+		rawObj{3, imgPage("/Im0 5 0 R")},
+		rawObj{5, imgStream("/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 /ImageMask 9 0 R", "\x00\x01\x01\x00")},
+		rawObj{9, "false"},
+	))
+	damagedObject(t, doc, 9, errors.New("object stream damaged"), false)
+
+	d, err := ins.GetImageData(context.Background(), "raw", "obj:0:5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "ImageMask metadata: object stream damaged"; d.Warning != want {
+		t.Errorf("GetImageData warning %q, want %q", d.Warning, want)
+	}
+	if d.ImageMask || d.BitsPerComponent != 8 || d.Width != 2 || d.Height != 2 || d.ColorSpace != "DeviceGray" {
+		t.Errorf("GetImageData %dx%d bpc %d %q mask %v, want 2x2 bpc 8 DeviceGray and no mask", d.Width, d.Height, d.BitsPerComponent, d.ColorSpace, d.ImageMask)
+	}
+	desc, err := ins.DescribeImage("raw", "obj:0:5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desc.Warning != d.Warning {
+		t.Errorf("DescribeImage warning %q, GetImageData warning %q; want one wording", desc.Warning, d.Warning)
 	}
 }

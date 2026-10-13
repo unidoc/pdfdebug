@@ -1,0 +1,63 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please attach a minimal PDF that reproduces
+        the issue where possible (redact sensitive content first) — most
+        pdfdebug bugs are hard to fix without a sample file.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug — what you observed.
+      placeholder: When I opened this PDF and clicked …, the app …
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps so we can see it too.
+      placeholder: |
+        1. Open '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+      description: What you expected to happen, and what actually happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where does this happen?
+      options:
+        - Desktop GUI
+        - CLI
+        - PDF parsing / inspection (pdfcore)
+        - Build / packaging
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: pdfdebug version or commit — the release tag, or `pdfdebug --version`.
+      placeholder: v0.4.0
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: OS/platform, a sample PDF (redacted if needed), screenshots, or CLI output all help.
+    validations:
+      required: false

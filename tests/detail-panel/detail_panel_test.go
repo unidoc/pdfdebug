@@ -1,7 +1,5 @@
-// Package detail_panel_test provides acceptance tests for Story 2.7:
-// Detail Panel -- Context-Sensitive Content Display.
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-7 is implemented.
+// Package detail_panel_test provides acceptance tests for Detail Panel --
+// Context-Sensitive Content Display.
 //
 // Test Levels: Structural (Go) -- file existence checks for frontend artifacts.
 // This story is frontend-only. No Go logic is added. These tests verify that
@@ -40,34 +38,32 @@ func projectRoot(t *testing.T) string {
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-001 [P1]: DetailPanel.tsx exists
-// AC#1-#7: The DetailPanel component file must exist.
+// DetailPanel.tsx exists: the component file must be present.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Fatalf("[P1] 2.7-STRUCT-001: frontend/src/components/DetailPanel.tsx does not exist")
+		t.Fatalf("frontend/src/components/DetailPanel.tsx does not exist")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-002 [P1]: DetailShared.tsx exists
-// AC#2-#5: Shared rendering components extracted to DetailShared.tsx.
+// DetailShared.tsx exists: the shared rendering components are extracted
+// into it.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedFileExists(t *testing.T) {
 	root := projectRoot(t)
 	path := filepath.Join(root, "frontend", "src", "components", "DetailShared.tsx")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Fatalf("[P1] 2.7-STRUCT-002: frontend/src/components/DetailShared.tsx does not exist")
+		t.Fatalf("frontend/src/components/DetailShared.tsx does not exist")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-003 [P1]: DetailPanel.tsx exports DetailPanel
-// AC#1-#7: The component must be a named export.
+// DetailPanel.tsx exports DetailPanel as a named export.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelExport(t *testing.T) {
@@ -75,17 +71,16 @@ func TestDetailPanelExport(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-003: cannot read DetailPanel.tsx: %v", err)
+		t.Fatalf("cannot read DetailPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "export") || !strings.Contains(src, "DetailPanel") {
-		t.Fatalf("[P1] 2.7-STRUCT-003: DetailPanel.tsx must export DetailPanel")
+		t.Fatalf("DetailPanel.tsx must export DetailPanel")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-004 [P1]: DetailPanel.tsx uses React.memo
-// AC: Architecture requirement -- wrapped in React.memo.
+// DetailPanel.tsx wraps its export in React.memo, an architecture requirement.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelUsesMemo(t *testing.T) {
@@ -93,17 +88,16 @@ func TestDetailPanelUsesMemo(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-004: cannot read DetailPanel.tsx: %v", err)
+		t.Fatalf("cannot read DetailPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "memo") {
-		t.Fatalf("[P1] 2.7-STRUCT-004: DetailPanel.tsx must use React.memo")
+		t.Fatalf("DetailPanel.tsx must use React.memo")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-005 [P1]: DetailPanel.tsx has data-testid attributes
-// AC#1-#6: Required data-testid attributes for testing.
+// DetailPanel.tsx carries the data-testid attributes the tests select on.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelTestIds(t *testing.T) {
@@ -111,7 +105,7 @@ func TestDetailPanelTestIds(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-005: cannot read DetailPanel.tsx: %v", err)
+		t.Fatalf("cannot read DetailPanel.tsx: %v", err)
 	}
 	src := string(content)
 
@@ -125,14 +119,14 @@ func TestDetailPanelTestIds(t *testing.T) {
 
 	for _, tid := range requiredTestIds {
 		if !strings.Contains(src, tid) {
-			t.Errorf("[P1] 2.7-STRUCT-005: DetailPanel.tsx missing data-testid=%q", tid)
+			t.Errorf("DetailPanel.tsx missing data-testid=%q", tid)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-006 [P1]: DetailPanel.tsx has aria-live="polite"
-// AC#7: Screen reader support via aria-live.
+// DetailPanel.tsx has aria-live="polite": Screen reader
+// support via aria-live.
 // ---------------------------------------------------------------------------
 
 func TestDetailPanelAriaLive(t *testing.T) {
@@ -140,27 +134,27 @@ func TestDetailPanelAriaLive(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-006: cannot read DetailPanel.tsx: %v", err)
+		t.Fatalf("cannot read DetailPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "aria-live") {
-		t.Fatalf("[P1] 2.7-STRUCT-006: DetailPanel.tsx must have aria-live attribute")
+		t.Fatalf("DetailPanel.tsx must have aria-live attribute")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-007 [P1]: MainLayout.tsx imports DetailPanel
-// AC#1: DetailPanel wired into the right panel.
+// MainLayout.tsx imports DetailPanel: DetailPanel wired
+// into the right panel.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-008 [P1]: ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through
-// useAppDispatch when a reference value is clicked.
-// Re-pinned 2026-05-22 (Epic 9 retro) -- the original DetailShared import
-// assertion was stale (the component was refactored to consume context via
-// useAppState/useAppDispatch directly and to fetch source via GetObjectSource).
-// Behavioral coverage for the click-to-navigate contract is held by
+// ObjectInfoPanel.tsx dispatches NAVIGATE_TO_REF through useAppDispatch when a
+// reference value is clicked. Re-pinned 2026-05-22 -- the
+// original DetailShared import assertion was stale (the component was
+// refactored to consume context via useAppState/useAppDispatch directly and to
+// fetch source via GetObjectSource). Behavioral coverage for the
+// click-to-navigate contract is held by
 // frontend/src/components/ObjectInfoPanel.test.tsx (430 lines, 20 cases).
 // ---------------------------------------------------------------------------
 
@@ -169,20 +163,20 @@ func TestObjectInfoPanelDispatchesNavigateToRef(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "ObjectInfoPanel.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-008: cannot read ObjectInfoPanel.tsx: %v", err)
+		t.Fatalf("cannot read ObjectInfoPanel.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "useAppDispatch") {
-		t.Fatalf("[P1] 2.7-STRUCT-008: ObjectInfoPanel.tsx must use useAppDispatch for reference navigation")
+		t.Fatalf("ObjectInfoPanel.tsx must use useAppDispatch for reference navigation")
 	}
 	if !strings.Contains(src, "NAVIGATE_TO_REF") {
-		t.Fatalf("[P1] 2.7-STRUCT-008: ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
+		t.Fatalf("ObjectInfoPanel.tsx must dispatch NAVIGATE_TO_REF on reference click")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-009 [P1]: useDocumentState.tsx has selectedNodeLabel in TabState
-// AC#2: Tab state must track selected node label for header context.
+// useDocumentState.tsx has selectedNodeLabel in TabState: Tab state must
+// track selected node label for header context.
 // ---------------------------------------------------------------------------
 
 func TestTabStateHasSelectedNodeLabel(t *testing.T) {
@@ -190,17 +184,17 @@ func TestTabStateHasSelectedNodeLabel(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-009: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "selectedNodeLabel") {
-		t.Fatalf("[P1] 2.7-STRUCT-009: useDocumentState.tsx TabState must have selectedNodeLabel field")
+		t.Fatalf("useDocumentState.tsx TabState must have selectedNodeLabel field")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-010 [P1]: useDocumentState.tsx has selectedNodeRawKey in TabState
-// AC#2: Tab state must track selected node rawKey for header context.
+// useDocumentState.tsx has selectedNodeRawKey in TabState: Tab state must
+// track selected node rawKey for header context.
 // ---------------------------------------------------------------------------
 
 func TestTabStateHasSelectedNodeRawKey(t *testing.T) {
@@ -208,17 +202,17 @@ func TestTabStateHasSelectedNodeRawKey(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "hooks", "useDocumentState.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-010: cannot read useDocumentState.tsx: %v", err)
+		t.Fatalf("cannot read useDocumentState.tsx: %v", err)
 	}
 	src := string(content)
 	if !strings.Contains(src, "selectedNodeRawKey") {
-		t.Fatalf("[P1] 2.7-STRUCT-010: useDocumentState.tsx TabState must have selectedNodeRawKey field")
+		t.Fatalf("useDocumentState.tsx TabState must have selectedNodeRawKey field")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.7-STRUCT-011 [P1]: DetailShared.tsx exports shared types and components
-// AC#2-#5: Shared rendering logic available for both panels.
+// DetailShared.tsx exports the shared types and components, so the rendering
+// logic is available to both panels.
 // ---------------------------------------------------------------------------
 
 func TestDetailSharedExports(t *testing.T) {
@@ -226,7 +220,7 @@ func TestDetailSharedExports(t *testing.T) {
 	path := filepath.Join(root, "frontend", "src", "components", "DetailShared.tsx")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("[P1] 2.7-STRUCT-011: cannot read DetailShared.tsx: %v", err)
+		t.Fatalf("cannot read DetailShared.tsx: %v", err)
 	}
 	src := string(content)
 
@@ -242,7 +236,7 @@ func TestDetailSharedExports(t *testing.T) {
 
 	for _, name := range requiredExports {
 		if !strings.Contains(src, name) {
-			t.Errorf("[P1] 2.7-STRUCT-011: DetailShared.tsx must contain %q", name)
+			t.Errorf("DetailShared.tsx must contain %q", name)
 		}
 	}
 }

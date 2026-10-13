@@ -11,16 +11,16 @@ import (
 )
 
 // diffUsage is the one-line usage string for the diff command.
-const diffUsage = "Usage: pdfdebug diff [--json] [--pretty] [--full] <left.pdf> <right.pdf>"
+var diffUsage = usageLine("diff")
 
 // runDiff handles the top-level `diff` command: a path-aligned structural diff
 // of two PDFs. It is the first command to take TWO positional args (both
 // required; a third is rejected). It uses a three-way exit contract distinct
-// from the `dump` commands (AC4):
+// from the `dump` commands:
 //
 //	0  ran successfully, the two documents are structurally IDENTICAL
 //	1  ran successfully AND the documents DIFFER (the scriptable signal)
-//	2  operational error (missing/unreadable file, bad args, parse failure)
+//	2  operational or usage error (missing/unreadable file, bad args, parse failure)
 //
 // The two non-zero codes are distinct so scripts can tell "differ" from
 // "broken file".
@@ -35,10 +35,9 @@ func runDiff(args []string) int {
 		return 2
 	}
 
-	// AC4: exactly two positional args. Guard empty, reject a single arg or a
-	// third arg - a usage error is operational (exit 2), never a partial run.
-	if fs.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, diffUsage)
+	// Exactly two positional args. A missing, single or third file is a usage
+	// error, which here is operational (exit 2), never a partial run.
+	if !requirePositionals(fs, 2, diffUsage) {
 		return 2
 	}
 	return execDiff(fs.Arg(0), fs.Arg(1), *jsonFlag, *prettyFlag, *fullFlag)
@@ -95,8 +94,12 @@ func execDiff(leftPath, rightPath string, jsonOut, pretty, full bool) (exitCode 
 // the counts and must be checked explicitly or a /Producer-only or
 // encryption-only change would wrongly report "identical" (exit 0).
 func diffIsIdentical(s pdfcore.DiffSummary) bool {
+	// A depth-capped walk (TruncatedSubtrees > 0) left a subtree unexplored, so
+	// the pair cannot be certified identical even with zero visible deltas.
+	// Exit 1 ("not provably identical") is the honest signal.
 	return s.Added == 0 && s.Removed == 0 && s.Changed == 0 &&
-		!s.VersionChanged && !s.EncryptionChanged && !s.InfoChanged && !s.XMPChanged
+		!s.VersionChanged && !s.EncryptionChanged && !s.InfoChanged && !s.XMPChanged &&
+		s.TruncatedSubtrees == 0
 }
 
 // printDiffPlain renders the summary plus a path-indented delta. NON-CONTRACTUAL
@@ -118,6 +121,11 @@ func printDiffPlain(out io.Writer, res *pdfcore.DiffResult, full bool) error {
 	}
 	if s.XMPChanged {
 		b.WriteString("XMP metadata changed\n")
+	}
+	if s.TruncatedSubtrees > 0 {
+		// Depth-cap honesty: state plainly that the walk was
+		// bounded so no consumer mistakes it for a complete comparison.
+		fmt.Fprintf(&b, "%d subtree(s) compared only to the depth cap (truncated); deeper differences cannot be ruled out\n", s.TruncatedSubtrees)
 	}
 	b.WriteString("\n")
 
@@ -142,21 +150,33 @@ func writeDiffLines(b *strings.Builder, n *pdfcore.DiffNode, depth int, full boo
 	}
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(b, "%s%s %s", indent, diffMarker(n.Status), n.Path)
+	// Summaries carry decoded text, so their control characters are escaped
+	// here for the same reason the tree and object rows escape theirs: an
+	// embedded newline would split one node across two lines and break the
+	// indentation that carries the path hierarchy. --json is unaffected.
+	left := pdfcore.EscapeDisplayValue(n.LeftSummary)
+	right := pdfcore.EscapeDisplayValue(n.RightSummary)
 	switch n.Status {
 	case "changed":
-		if len(n.Children) == 0 && (n.LeftSummary != "" || n.RightSummary != "") {
-			fmt.Fprintf(b, "  %s -> %s", n.LeftSummary, n.RightSummary)
+		if len(n.Children) == 0 && (left != "" || right != "") {
+			fmt.Fprintf(b, "  %s -> %s", left, right)
 		} else if len(n.ChangedKeys) > 0 {
 			fmt.Fprintf(b, "  keys: %s", strings.Join(n.ChangedKeys, ", "))
 		}
 	case "added":
-		if n.RightSummary != "" {
-			fmt.Fprintf(b, "  %s", n.RightSummary)
+		if right != "" {
+			fmt.Fprintf(b, "  %s", right)
 		}
 	case "removed":
-		if n.LeftSummary != "" {
-			fmt.Fprintf(b, "  %s", n.LeftSummary)
+		if left != "" {
+			fmt.Fprintf(b, "  %s", left)
 		}
+	}
+	if n.Truncated {
+		// The depth-cap tag: a truncated node carries
+		// Status "unchanged", so without this it would print without any
+		// indication its subtree was left unwalked.
+		b.WriteString("  [truncated: depth cap]")
 	}
 	b.WriteString("\n")
 	for _, c := range n.Children {
@@ -164,9 +184,12 @@ func writeDiffLines(b *strings.Builder, n *pdfcore.DiffNode, depth int, full boo
 	}
 }
 
-// diffNodeHasDelta reports whether n or any descendant is not "unchanged".
+// diffNodeHasDelta reports whether n or any descendant is not "unchanged", or
+// is depth-cap truncated. A truncated node reports Status "unchanged" but must
+// surface in the default (non-full) delta so its [truncated: depth cap] tag is
+// visible.
 func diffNodeHasDelta(n *pdfcore.DiffNode) bool {
-	if n.Status != "unchanged" {
+	if n.Status != "unchanged" || n.Truncated {
 		return true
 	}
 	for _, c := range n.Children {

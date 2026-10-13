@@ -1,21 +1,11 @@
 /**
- * Story 10.1: Async Plain Text Load with Cancel -- Vitest red-phase suite.
- *
- * TDD RED PHASE: every test below fails until PlainTextView is refactored
- * per Story 10-1 (collapse state machine to LoadState, loading card with
- * size disclosure + elapsed counter + Cancel, cancelled-state CTA,
- * GetPlainText/GetPlainTextSize/CancelPlainText wiring, stale-fetch guard,
- * fast-path under-debounce, zero-byte payload).
- *
- * Test IDs follow the 10-1-UNIT-NNN convention. Each test maps to one or
- * more ACs in the story spec.
+ * Async Plain Text Load with Cancel -- Vitest suite.
  *
  * Run: cd frontend && npx vitest run src/components/PlainTextView.async.test.tsx
  */
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-// RED PHASE: import resolves; the production code is the unimplemented half.
 import { PlainTextView } from './PlainTextView';
 import { AppProvider } from '../hooks/useDocumentState';
 
@@ -23,14 +13,12 @@ import { AppProvider } from '../hooks/useDocumentState';
 
 const mockGetPlainText = vi.fn();
 const mockGetPlainTextSize = vi.fn();
-const mockCancelPlainText = vi.fn();
 
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     GetPlainText: (...args: unknown[]) => mockGetPlainText(...args),
     GetPlainTextSize: (...args: unknown[]) => mockGetPlainTextSize(...args),
-    CancelPlainText: (...args: unknown[]) => mockCancelPlainText(...args),
   }),
 );
 
@@ -74,11 +62,33 @@ function deferred<T>(): {
   return { promise, resolve, reject };
 }
 
+// Helper: a controllable promise carrying a .cancel() spy, mimicking the Wails
+// CancellablePromise a bound call returns. cancel() rejects the promise with a
+// CancelError (name 'CancelError'), which is what the runtime does when a call
+// is aborted.
+function cancellable<T>(): {
+  promise: Promise<T> & { cancel: ReturnType<typeof vi.fn> };
+  resolve: (v: T) => void;
+} {
+  let resolveFn!: (v: T) => void;
+  let rejectFn!: (e: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolveFn = res;
+    rejectFn = rej;
+  }) as Promise<T> & { cancel: ReturnType<typeof vi.fn> };
+  promise.cancel = vi.fn(() => {
+    const err = new Error('load cancelled');
+    err.name = 'CancelError';
+    rejectFn(err);
+  });
+  return { promise, resolve: resolveFn };
+}
+
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-001 [P0] AC#1: first activation fires exactly one GetPlainText call.
+// First activation fires exactly one GetPlainText call.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-001: lazy fetch on first activation', () => {
+describe('lazy fetch on first activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -100,11 +110,11 @@ describe('10-1-UNIT-001: lazy fetch on first activation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-002 [P0] AC#2: loading card mounts after 200ms debounce with the
-// heading, size disclosure, elapsed counter, and Cancel button.
+// Loading card mounts after 200ms debounce with the heading, size
+// disclosure, elapsed counter, and Cancel button.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-002: loading card structure (AC2)', () => {
+describe('loading card structure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -136,25 +146,25 @@ describe('10-1-UNIT-002: loading card structure (AC2)', () => {
     });
 
     const card = screen.getByTestId('plain-text-loading-card');
-    // AC2 heading text.
+    // Heading text.
     expect(card.textContent).toContain('Loading plain text');
-    // AC2 size disclosure -- once GetPlainTextSize resolves (microtask flush).
+    // Size disclosure -- once GetPlainTextSize resolves (microtask flush).
     const sizeEl = screen.getByTestId('plain-text-loading-size');
     expect(sizeEl).toBeInTheDocument();
-    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form (Story 10.8 AC4).
+    // 487 MiB -> "487.0 MB" via formatBytes 1-decimal MB form.
     expect(sizeEl.textContent).toContain('487.0 MB');
-    // AC2 Cancel button with the literal "Cancel" label.
+    // Cancel button with the literal "Cancel" label.
     const cancelBtn = screen.getByTestId('plain-text-cancel-button');
     expect(cancelBtn.textContent).toBe('Cancel');
   });
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-004 [P0] AC#2: size disclosure renders empty while
-// GetPlainTextSize is unresolved; the card still mounts.
+// Size disclosure renders empty while GetPlainTextSize is
+// unresolved; the card still mounts.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-004: size disclosure tolerates unresolved size', () => {
+describe('size disclosure tolerates unresolved size', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -186,11 +196,10 @@ describe('10-1-UNIT-004: size disclosure tolerates unresolved size', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-005 [P0] AC#3: successful resolve unmounts the loading card and
-// renders content.
+// Successful resolve unmounts the loading card and renders content.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-005: success path renders content', () => {
+describe('success path renders content', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -207,24 +216,24 @@ describe('10-1-UNIT-005: success path renders content', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-006 [P0] AC#4: Cancel click invokes CancelPlainText(tabID).
+// Cancel click invokes CancelPlainText(tabID).
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-006: Cancel click invokes CancelPlainText', () => {
+describe('Cancel click aborts the bound call', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    const def = deferred<PlainTextDocumentFixture>();
-    mockGetPlainText.mockReturnValue(def.promise);
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  test('clicking Cancel invokes CancelPlainText("tab-1") and disables the button with "Cancelling" label', async () => {
+  test('clicking Cancel calls cancel() on the load promise and disables the button with "Cancelling" label', async () => {
+    const c = cancellable<PlainTextDocumentFixture>();
+    mockGetPlainText.mockReturnValue(c.promise);
+
     render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
     act(() => {
       vi.advanceTimersByTime(250);
@@ -238,8 +247,9 @@ describe('10-1-UNIT-006: Cancel click invokes CancelPlainText', () => {
       fireEvent.click(cancelBtn);
     });
 
-    expect(mockCancelPlainText).toHaveBeenCalledTimes(1);
-    expect(mockCancelPlainText).toHaveBeenCalledWith('tab-1');
+    // The bound call's cancel() was invoked (aborts it; the Wails runtime
+    // cancels the Go-side request context).
+    expect(c.promise.cancel).toHaveBeenCalledTimes(1);
 
     // The button is immediately disabled with the "Cancelling" label.
     const reread = screen.getByTestId('plain-text-cancel-button') as HTMLButtonElement;
@@ -249,15 +259,14 @@ describe('10-1-UNIT-006: Cancel click invokes CancelPlainText', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-007 [P0] AC#4 + AC#5: a cancellation rejection transitions to the
-// cancelled state with the documented body + CTA.
+// A cancellation rejection transitions to the cancelled state with the
+// documented body + CTA.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
+describe('cancelled state renders documented copy + CTA', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test('rejected GetPlainText with cancel-substring shows "Plain text load cancelled." + Load plain text CTA', async () => {
@@ -267,7 +276,7 @@ describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
     render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
 
     // Reject with a cancellation error (substring 'cancel' is the frontend
-    // contract per AC4: extractErrorMessage(err) contains 'cancel').
+    // contract: extractErrorMessage(err) contains 'cancel').
     await act(async () => {
       fetchDef.reject(new Error('context canceled'));
     });
@@ -276,7 +285,7 @@ describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
       expect(screen.getByTestId('plain-text-load-cta')).toBeInTheDocument();
     });
 
-    // AC5: cancelled-state copy + CTA label.
+    // cancelled-state copy + CTA label.
     expect(screen.getByText('Plain text load cancelled.')).toBeInTheDocument();
     const cta = screen.getByTestId('plain-text-load-cta');
     expect(cta.textContent).toBe('Load plain text');
@@ -284,16 +293,14 @@ describe('10-1-UNIT-007: cancelled state renders documented copy + CTA', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-008 [P0] AC#6: CTA click re-runs the fetch flow with a fresh
-// elapsed counter (0s).
+// CTA click re-runs the fetch flow with a fresh elapsed counter (0s).
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => {
+describe('cancelled CTA re-runs fetch with elapsed reset', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -322,7 +329,7 @@ describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => 
       fireEvent.click(screen.getByTestId('plain-text-load-cta'));
     });
 
-    // GetPlainText must have been called a second time (AC6).
+    // GetPlainText must have been called a second time.
     expect(mockGetPlainText).toHaveBeenCalledTimes(2);
 
     // Advance past the 200ms debounce; loading card mounts again.
@@ -336,11 +343,11 @@ describe('10-1-UNIT-008: cancelled CTA re-runs fetch with elapsed reset', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-009 [P0] AC#7: non-cancellation rejection renders the error state
-// with the mapped error message and a Retry button using the shared CTA testid.
+// non-cancellation rejection renders the error state with the mapped error
+// message and a Retry button using the shared CTA testid.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-009: error state shows Retry with shared CTA testid', () => {
+describe('error state shows Retry with shared CTA testid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -386,11 +393,11 @@ describe('10-1-UNIT-009: error state shows Retry with shared CTA testid', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-010 [P0] AC#8: document-tab switch mid-load triggers the stale-
-// fetch guard; the previous load's resolve does not mutate state on the new doc.
+// document-tab switch mid-load triggers the stale-fetch guard; the previous
+// load's resolve does not mutate state on the new doc.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-010: stale-fetch guard on document tab switch', () => {
+describe('stale-fetch guard on document tab switch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -442,11 +449,11 @@ describe('10-1-UNIT-010: stale-fetch guard on document tab switch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-011 [P0] AC#16: inner-tab toggle (active=true -> false -> true)
-// does NOT re-fetch after a successful load.
+// inner-tab toggle (active=true -> false -> true) does NOT re-fetch after a
+// successful load.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-011: inner-tab cache persists across active toggles', () => {
+describe('inner-tab cache persists across active toggles', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -471,11 +478,11 @@ describe('10-1-UNIT-011: inner-tab cache persists across active toggles', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-012 [P0] AC#17: document tab change resets to idle and clears
-// in-flight refs / elapsed counter.
+// Document tab change resets to idle and clears in-flight refs / elapsed
+// counter.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-012: document tab change resets state', () => {
+describe('document tab change resets state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
@@ -509,10 +516,10 @@ describe('10-1-UNIT-012: document tab change resets state', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-013 [P0] AC#20: fast-path under 200ms never mounts the loading card.
+// fast-path under 200ms never mounts the loading card.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-013: fast-path resolve < 200ms does not flash loading card', () => {
+describe('fast-path resolve < 200ms does not flash loading card', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -547,10 +554,10 @@ describe('10-1-UNIT-013: fast-path resolve < 200ms does not flash loading card',
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-014 [P0] AC#21: 0-byte payload renders the empty virtualized list.
+// 0-byte payload renders the empty virtualized list.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-014: zero-byte payload renders without error', () => {
+describe('zero-byte payload renders without error', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(zeroByteDoc);
@@ -577,11 +584,11 @@ describe('10-1-UNIT-014: zero-byte payload renders without error', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-015 [P0] AC#1, AC#2: at load start, GetPlainText AND
-// GetPlainTextSize are dispatched in parallel.
+// At load start, GetPlainText AND GetPlainTextSize are
+// dispatched in parallel.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-015: parallel dispatch of GetPlainText + GetPlainTextSize', () => {
+describe('parallel dispatch of GetPlainText + GetPlainTextSize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainText.mockResolvedValue(smallDoc);
@@ -601,17 +608,15 @@ describe('10-1-UNIT-015: parallel dispatch of GetPlainText + GetPlainTextSize', 
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-016 [P0] AC#4: extractErrorMessage on the rejection contains the
-// substring 'cancel' (case-insensitive). Cross-checked here on the frontend
-// side; the backend errors.Is(err, context.Canceled) identity is asserted in
-// the Go tests.
+// extractErrorMessage on the rejection contains the substring 'cancel'
+// (case-insensitive). Cross-checked here on the frontend side; the backend
+// errors.Is(err, context.Canceled) identity is asserted in the Go tests.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-016: cancellation rejection substring contract', () => {
+describe('cancellation rejection substring contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(50 * 1024 * 1024);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test.each([
@@ -633,19 +638,36 @@ describe('10-1-UNIT-016: cancellation rejection substring contract', () => {
     // Error pane NOT used for cancellation.
     expect(screen.queryByTestId('plain-text-error')).not.toBeInTheDocument();
   });
+
+  test('a CancelError rejection routes to cancelled by name even without a cancel substring', async () => {
+    const def = deferred<PlainTextDocumentFixture>();
+    mockGetPlainText.mockReturnValueOnce(def.promise);
+
+    render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: Wrapper });
+    await act(async () => {
+      // Message has no 'cancel' substring -- only the CancelError name routes it.
+      const err = new Error('aborted');
+      err.name = 'CancelError';
+      def.reject(err);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('plain-text-load-cta')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Plain text load cancelled.')).toBeInTheDocument();
+    expect(screen.queryByTestId('plain-text-error')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
-// 10-1-UNIT-017 [P0] AC#5 + AC#7: terminal states (cancelled / error) must NOT
-// auto-refetch on an inner-tab active toggle. The user-visible CTA is the
-// explicit retry surface; a silent re-fetch on tab toggle defeats AC5 / AC7.
+// Terminal states (cancelled / error) must NOT auto-refetch on an inner-tab
+// active toggle. The user-visible CTA is the explicit retry surface; a silent
+// re-fetch on tab toggle defeats it.
 // ---------------------------------------------------------------------------
 
-describe('10-1-UNIT-017: terminal states do not auto-refetch on active toggle', () => {
+describe('terminal states do not auto-refetch on active toggle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlainTextSize.mockResolvedValue(17);
-    mockCancelPlainText.mockResolvedValue(undefined);
   });
 
   test('cancelled state does NOT re-invoke GetPlainText on active false -> true', async () => {

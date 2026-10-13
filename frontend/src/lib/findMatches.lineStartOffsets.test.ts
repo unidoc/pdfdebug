@@ -1,20 +1,11 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC5 (finding #8) -- findMatches accepts a pre-built lineStartOffsets table.
- * AC6 (finding #20) -- findMatches accepts a pre-built haystack string.
- *
- * TDD RED PHASE: every test below is emitted as `test()`. They assert the
- * POST-FIX signature `findMatches(content, query, caseSensitive,
- * lineStartOffsets?, haystack?)`. The current signature
- * (findMatches.ts:86) takes only three params and unconditionally calls
- * buildLineStartOffsets(content) at line 93 and content.toLowerCase() at line
- * 91, so these will fail / not exercise the skip path until Task 4 lands.
+ * Frontend Hook and Render-Path Correctness --
+ * findMatches accepts a pre-built lineStartOffsets table.
+ * findMatches accepts a pre-built haystack string.
  *
  * These tests import buildLineStartOffsets to wrap it with a spy; that name is
  * already exported. A developer activates them by removing `.skip` after the
  * params are added.
- *
- * Test IDs follow the 10-7-UNIT-NNN convention.
  *
  * Run: cd frontend && npx vitest run src/lib/findMatches.lineStartOffsets.test.ts
  */
@@ -27,11 +18,11 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-001 [P1] AC5: when a caller-supplied lineStartOffsets is provided,
-// the internal buildLineStartOffsets(content) call is SKIPPED.
+// When a caller-supplied lineStartOffsets is provided, the internal
+// buildLineStartOffsets(content) call is SKIPPED.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-001: findMatches skips internal buildLineStartOffsets when offsets supplied', () => {
+describe('findMatches skips internal buildLineStartOffsets when offsets supplied', () => {
   test('buildLineStartOffsets is NOT called when an offset table is supplied', () => {
     const corpus = 'foo\nbar\nfoo';
     const offsets = findMatchesModule.buildLineStartOffsets(corpus);
@@ -51,12 +42,12 @@ describe('10-7-UNIT-001: findMatches skips internal buildLineStartOffsets when o
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-002 [P1] AC5: the supplied offset table drives the reported `line`
-// field. A VALID-but-distinct table that partitions the content into different
-// line boundaries than the natural split must change the reported lines.
+// The supplied offset table drives the reported `line` field. A
+// VALID-but-distinct table that partitions the content into different line
+// boundaries than the natural split must change the reported lines.
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-002: supplied offset table determines reported line numbers', () => {
+describe('supplied offset table determines reported line numbers', () => {
   test('line reflects the supplied partition, not the natural split', () => {
     // No newlines in the corpus, so the natural table is [0] (everything on
     // line 1). Supply a valid-but-distinct table that splits at offset 6 so
@@ -83,12 +74,12 @@ describe('10-7-UNIT-002: supplied offset table determines reported line numbers'
 });
 
 // ---------------------------------------------------------------------------
-// 10-7-UNIT-003 [P1] AC6: findMatches accepts a pre-built haystack and uses it
-// instead of computing content.toLowerCase() internally. The haystack length
-// must equal content length (Latin-1 length-preserving invariant).
+// findMatches accepts a pre-built haystack and uses it instead of computing
+// content.toLowerCase() internally. The haystack length must equal content
+// length (Latin-1 length-preserving invariant).
 // ---------------------------------------------------------------------------
 
-describe('10-7-UNIT-003: findMatches uses a supplied haystack (AC6)', () => {
+describe('findMatches uses a supplied haystack', () => {
   test('case-insensitive search uses the supplied lowercased haystack', () => {
     const content = 'FooBARfoo';
     const haystack = content.toLowerCase(); // 'foobarfoo'
@@ -107,9 +98,10 @@ describe('10-7-UNIT-003: findMatches uses a supplied haystack (AC6)', () => {
     expect(matches.map((m) => m.start)).toEqual([0, 6]);
   });
 
-  // Gap (automate): the load-bearing AC6 invariant is that toLowerCase is
+  // The load-bearing invariant is that toLowerCase is
   // length-preserving for the FULL Latin-1 range (U+00C0..U+00FF), not just
-  // ASCII. UNIT-003 only uses ASCII. Supply a haystack lowercased from accented
+  // ASCII. The existing offsets test only uses ASCII. Supply a haystack
+  // lowercased from accented
   // uppercase (E-acute U+00C9 -> e-acute U+00E9) and assert offsets still index
   // identically into content and haystack.
   test('accented Latin-1 haystack stays length-aligned with content so offsets are valid', () => {

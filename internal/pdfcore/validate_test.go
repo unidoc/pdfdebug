@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Co-located unit tests for the Story 13-5 structural rule engine. Fixtures are
+// Co-located unit tests for the structural rule engine. Fixtures are
 // hand-assembled via the shared assemblexref helper and opened through the same
 // Inspector.Open path the app uses. Each rule is exercised positive + negative.
 
@@ -284,7 +284,7 @@ func TestValidate_PDFUATaggedClean(t *testing.T) {
 }
 
 func TestValidate_EncryptedResultHelper(t *testing.T) {
-	res := EncryptedResult(ProfilePDFA1B)
+	res := EncryptedResult()
 	if res.Summary.Errors != 1 || len(res.Problems) != 1 {
 		t.Fatalf("EncryptedResult must carry exactly one error problem, got %+v", res)
 	}
@@ -481,5 +481,46 @@ func TestValidate_DirectOpenActionReported(t *testing.T) {
 	}
 	if !strings.Contains(p.Message, "OpenAction") {
 		t.Errorf("direct /OpenAction message should name /OpenAction, got %q", p.Message)
+	}
+}
+
+func TestValidate_DeviceColorOnAPageCarryingKids(t *testing.T) {
+	// The only page is a /Type /Page that also carries an empty /Kids; its
+	// device RGB fill must still be scanned.
+	withColor := assemblexref(
+		"%PDF-1.4\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /Kids [] /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n\n",
+		"4 0 obj\n<< /Length 21 >>\nstream\n1 0 0 rg 0 0 10 10 re f\nendstream\nendobj\n\n",
+	)
+	ins, tabID := writeTempPDF(t, "color-kids.pdf", withColor)
+	res, err := ins.Validate(tabID, ProfilePDFA1B)
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if problemByRule(res.Problems, "output-intent") == nil {
+		t.Errorf("output-intent rule must fire for device color on a page carrying /Kids:\n%+v", res.Problems)
+	}
+}
+
+func TestValidate_DeviceColorInAFormFromInheritedResources(t *testing.T) {
+	// The page has no /Resources of its own; the form XObject that fills with
+	// device RGB comes from the parent /Pages.
+	withColor := assemblexref(
+		"%PDF-1.4\n",
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << /XObject << /Fm0 5 0 R >> >> >>\nendobj\n\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n\n",
+		"4 0 obj\n<< /Length 7 >>\nstream\n/Fm0 Do\nendstream\nendobj\n\n",
+		"5 0 obj\n<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 21 >>\nstream\n1 0 0 rg 0 0 10 10 re f\nendstream\nendobj\n\n",
+	)
+	ins, tabID := writeTempPDF(t, "color-inherited.pdf", withColor)
+	res, err := ins.Validate(tabID, ProfilePDFA1B)
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if problemByRule(res.Problems, "output-intent") == nil {
+		t.Errorf("output-intent rule must fire for device color in a form reached through inherited /Resources:\n%+v", res.Problems)
 	}
 }

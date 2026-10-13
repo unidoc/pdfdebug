@@ -1,10 +1,7 @@
 /**
- * Story 9-8: Command palette grammar parser.
+ * Command palette grammar parser.
  *
- * TDD RED PHASE: This test imports `./parseQuery` which does not exist yet.
- * The module must fail to resolve until Task 4.2 lands.
- *
- * AC5 grammar contract:
+ * Grammar contract:
  *   - `847`              -> numeric, any gen
  *   - `847 0`            -> numeric, gen=0
  *   - `847 0 R`          -> numeric, gen=0 (PDF syntax)
@@ -18,10 +15,9 @@
  * Run: cd frontend && npx vitest run src/lib/palette/parseQuery.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED: this import fails until parseQuery.ts exists.
 import { parseQuery, type PaletteQuery } from './parseQuery';
 
-describe('parseQuery (AC5)', () => {
+describe('parseQuery', () => {
   describe('numeric form', () => {
     const cases: Array<[string, PaletteQuery]> = [
       ['847', { kind: 'numeric', objNum: 847, gen: null }],

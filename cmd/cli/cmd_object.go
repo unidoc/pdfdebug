@@ -11,6 +11,9 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
+// objectUsage is the one-line usage string for the object dump subcommand.
+var objectUsage = usageLine("dump object")
+
 // runObjectDump executes the object dump command and returns the exit code.
 func runObjectDump(args []string) int {
 	fs := flag.NewFlagSet("dump object", flag.ContinueOnError)
@@ -21,14 +24,24 @@ func runObjectDump(args []string) int {
 	resolveDepthFlag := fs.Int("resolve-depth", defaultResolveDepth, "Ref-following depth for --resolve")
 	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, objectUsage)
 		return 1
 	}
 
 	if *refFlag == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
+		fmt.Fprintln(os.Stderr, objectUsage)
 		return 1
 	}
+
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, objectUsage) {
+		return 1
+	}
+	filePath := fs.Arg(0)
+
 	if *resolveDepthFlag < 0 {
 		writeJSONError(os.Stderr, "invalid --resolve-depth: must be >= 0")
 		return 1
@@ -40,18 +53,12 @@ func runObjectDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, `Usage: pdfdebug dump object [--json] [--resolve [--resolve-depth N]] --ref "N G R" <file>`)
-		return 1
-	}
-
 	return execObjectDump(filePath, objNum, genNum, *jsonFlag, *prettyFlag, *resolveFlag, *resolveDepthFlag)
 }
 
 // objectDumpOutput wraps an ObjectDetail with the optional --resolve inline
 // expansion. Without --resolve the Resolved field is absent (omitempty), so the
-// default output is byte-for-byte the bare ObjectDetail (AC6 no-regression).
+// default output is byte-for-byte the bare ObjectDetail (no-regression).
 type objectDumpOutput struct {
 	*pdfcore.ObjectDetail
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
@@ -59,7 +66,7 @@ type objectDumpOutput struct {
 
 // refFormatHint is the canonical error/usage text naming both accepted --ref
 // forms and pointing at dump tree's pdfRef field. Kept coherent regardless of
-// which form the user attempted (AC2/AC4).
+// which form the user attempted.
 const refFormatHint = `invalid reference format: expected "N G R" (e.g., "5 0 R"); ` +
 	`the obj:G:N id form (e.g. "obj:0:5") is also accepted; ` +
 	`tip: dump tree emits a ready-to-paste pdfRef per node`
@@ -233,12 +240,14 @@ func printObjectPlain(out io.Writer, o objectDumpOutput) error {
 
 // valueEntryDisplay returns the human-readable form of a ValueEntry: its
 // Display string, falling back to Raw, annotated with the ref target for
-// references.
+// references. Control characters are escaped so one property is always exactly
+// one output line; the JSON form keeps the decoded string as it is.
 func valueEntryDisplay(v pdfcore.ValueEntry) string {
 	s := v.Display
 	if s == "" {
 		s = v.Raw
 	}
+	s = pdfcore.EscapeDisplayValue(s)
 	if v.Type == "reference" && v.RefTarget != "" {
 		s += " -> " + v.RefTarget
 	}

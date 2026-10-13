@@ -9,9 +9,9 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-// fontFlags extends byRefFlags with the font-only --glyphs verbosity toggle
-// (Story 13.3 AC3): without it the plain output is a bounded summary, with it
-// the full per-code mapping table. --glyphs has no effect on --json (the JSON
+// fontFlags extends byRefFlags with the font-only --glyphs verbosity toggle:
+// without it the plain output is a bounded summary, with it the
+// full per-code mapping table. --glyphs has no effect on --json (the JSON
 // surface is always complete).
 type fontFlags struct {
 	byRefFlags
@@ -22,7 +22,7 @@ type fontFlags struct {
 // shared parseByRefFlags path, `dump font` accepts the font-only --glyphs flag,
 // so it parses its own FlagSet and advertises --glyphs in the usage line.
 func runFontDump(args []string) int {
-	usage := `Usage: pdfdebug dump font [--glyphs] [--json] [--pretty] --ref "N G R" <file>
+	usage := usageLine("dump font") + `
 
   --glyphs   Print the full per-code mapping table (CODE GLYPH UNICODE TEXT).
              Without it, plain output is a bounded summary (row count + health).
@@ -42,8 +42,11 @@ Example: pdfdebug dump font --glyphs --ref "6 0 R" input.pdf`
 		fmt.Fprintln(os.Stderr, usage)
 		return 1
 	}
-	if *refFlag == "" || fs.Arg(0) == "" {
+	if *refFlag == "" {
 		fmt.Fprintln(os.Stderr, usage)
+		return 1
+	}
+	if !requirePositionals(fs, 1, usage) {
 		return 1
 	}
 
@@ -109,8 +112,8 @@ func printFontPlain(out io.Writer, v *pdfcore.FontView, glyphs bool) error {
 // printFontDetailPlain renders a single FontDetail as an aligned key/value
 // block, with the descendant CIDFont (composite Type0 fonts) appended. The
 // mapping table follows: a bounded summary (declared-code count + health
-// signals) by default, or the full per-code table when glyphs is true
-// (Story 13.3 AC3). NON-CONTRACTUAL.
+// signals) by default, or the full per-code table when glyphs is true.
+// NON-CONTRACTUAL.
 func printFontDetailPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) error {
 	if d == nil {
 		_, err := io.WriteString(out, "Font: (no detail)\n")
@@ -142,7 +145,7 @@ func printFontDetailPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) err
 	return nil
 }
 
-// printFontMappingPlain emits the Story 13.3 mapping section: a bounded summary
+// printFontMappingPlain emits the mapping section: a bounded summary
 // (declared-code count + health signals) by default, or the full aligned
 // per-code table (CODE GLYPH UNICODE TEXT) when glyphs is true.
 func printFontMappingPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) error {
@@ -157,7 +160,7 @@ func printFontMappingPlain(out io.Writer, d *pdfcore.FontDetail, glyphs bool) er
 		return t.Render(out)
 	}
 
-	// Bounded summary: row count + the AC2 health signals.
+	// Bounded summary: row count + the health signals.
 	var w kvWriter
 	w.Heading("Mapping")
 	w.Addf("Declared codes", "%d", len(d.MappingRows))

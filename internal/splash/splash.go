@@ -3,17 +3,16 @@
 // string renderer, and the inline HTML template that the Wails WebviewWindow
 // loads at boot. The Wails-side window creation, event subscription, and
 // thread dispatch live in main.go; this package is pure Go with no Wails
-// dependency so AC4 (min-display floor), AC7 (timeout race), and AC12
-// (version render) are unit-testable in isolation per story Task 6.1.
+// dependency, so the min-display floor, the timeout race and the version
+// render are unit-testable in isolation.
 //
-// Story 9.13 picked Option B (separate WebviewWindow as the splash) over
-// Option A (native pre-WebView window) because Wails v3 alpha.85 does not
-// expose a pre-WebView native window primitive on Windows; rolling our own
-// Win32 CreateWindowEx + NSWindow + GtkWindow trio would have ballooned the
-// estimate past the 3-point budget and added platform-CGO surface area
+// The splash is a separate WebviewWindow rather than a native pre-WebView
+// window: Wails v3 does not expose a pre-WebView native window primitive on
+// Windows, and hand-rolling a Win32 CreateWindowEx + NSWindow + GtkWindow trio
+// would add platform-CGO surface area
 // orthogonal to the v0.2.0 release. The Windows perception trade-off (the
 // splash itself pays WebView2 cold-init tax on a clean Win11 install) is
-// documented in the story Dev Notes. See deferred-work.md for the
+// documented in deferred-work.md; see it for the
 // follow-up to revisit when Wails exposes a true pre-WebView splash API.
 package splash
 
@@ -27,14 +26,14 @@ import (
 )
 
 // splashMinDisplayMs is the floor (in milliseconds) the splash must remain
-// visible before the dismissal handler is allowed to run. AC4: prevents a
-// flash-of-splash on fast platforms where the main window's WindowShow
+// visible before the dismissal handler is allowed to run. The floor prevents
+// a flash-of-splash on fast platforms where the main window's WindowShow
 // signal fires within a few hundred ms of splash creation.
 const splashMinDisplayMs = 400
 
 // splashTimeoutMs is the hard ceiling (in milliseconds) after which the
 // splash transitions to its error pane via the `splash:timeout` Wails
-// event. AC7: bounds the perceived hang on installs where the main
+// event. The ceiling bounds the perceived hang on installs where the main
 // window's WebView never reaches WindowShow (e.g. WebView2 missing on
 // Windows, WebKit2GTK missing on Linux).
 const splashTimeoutMs = 30000
@@ -193,7 +192,7 @@ func (s *Scheduler) fireTimeout() {
 }
 
 // RenderVersion converts the value of main.version into the display
-// string for the splash version label. AC12 requires the FULL semver
+// string for the splash version label. The label carries the FULL semver
 // including any prerelease suffix (e.g. v0.2.0-rc1, NOT 0.2.0). The
 // special-case `dev` (untagged local build) is rendered verbatim with no
 // "v" prefix so the build origin is obvious. Empty / whitespace-only
@@ -211,8 +210,8 @@ func RenderVersion(version string) string {
 }
 
 // splashHTMLTemplate is the inline HTML the splash WebviewWindow loads.
-// It is intentionally a single Go string constant (AC10: no external
-// assets, no fetch over IPC) -- the dev source mirror lives at
+// It is intentionally a single Go string constant (no external assets,
+// no fetch over IPC) -- the dev source mirror lives at
 // assets/splash/splash.html and must be kept in sync by hand.
 //
 // {{.Version}} is the only substitution point; Render(version) replaces
@@ -371,9 +370,9 @@ const splashHTMLTemplate = `<!DOCTYPE html>
   // window._wails to an object but does NOT define dispatchWailsEvent
   // (that lives in @wailsio/runtime/src/events.ts which is never loaded
   // for HTML-loaded windows). We define our own dispatchWailsEvent stub
-  // below so splash:dismiss (AC5 fade) and splash:timeout (AC7 error
-  // pane reveal) reach the splash. See review #3 in story 9-13 for the
-  // full analysis.
+  // below so splash:dismiss (fade) and splash:timeout (error pane
+  // reveal) reach the splash. See the splash review notes for the full
+  // analysis.
   //
   // The Close button on the error pane cannot Events.Emit back to Go
   // for the same reason. We instead use a hard signal: close the splash

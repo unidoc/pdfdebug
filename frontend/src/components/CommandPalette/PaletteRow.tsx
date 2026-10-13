@@ -1,9 +1,9 @@
 /**
  * @file Single result row in the Cmd+K palette. Renders the object ref,
  * /Type, and (when this row is highlighted) the breadcrumb path.
- * Story 9-8 Task 4.
  */
 import type { ObjectIndexEntry } from '../../types/palette';
+import { ROW_IDLE, ROW_SELECTED } from '../rowState';
 
 interface PaletteRowProps {
   entry: ObjectIndexEntry;
@@ -19,7 +19,7 @@ export function PaletteRow({ entry, highlighted, breadcrumb, onClick, testId }: 
   const ref = `${entry.objNum} ${entry.gen} R`;
   const suffix = entry.free ? '(free)' : !entry.reachable ? '(orphan)' : '';
   const baseClass = 'px-3 py-1.5 cursor-pointer text-sm font-ui flex flex-col';
-  const stateClass = highlighted ? 'bg-surface-selected' : 'hover:bg-surface-hover';
+  const stateClass = highlighted ? ROW_SELECTED : ROW_IDLE;
   const dimmedClass = entry.free || !entry.reachable ? 'text-text-muted italic' : 'text-text';
   return (
     <div

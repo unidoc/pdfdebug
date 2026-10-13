@@ -1,5 +1,5 @@
 /**
- * @file Pure-function literal-substring match finder for Story 10-2 Plain Text
+ * @file Pure-function literal-substring match finder for the Plain Text
  * find bar. Operates over the Latin-1 byte-for-codepoint string produced by
  * internal/pdfcore/plaintext.go's latin1Decode -- any query codepoint > U+00FF
  * cannot match by construction and short-circuits to an empty list.
@@ -12,7 +12,7 @@
 // buildLineStartOffsets goes through the live ESM export binding. A bare local
 // call would be inlined by the bundler and could not be intercepted by
 // vi.spyOn(module, 'buildLineStartOffsets'); routing through the namespace lets
-// the AC5 test assert the internal build is skipped when offsets are supplied.
+// the test assert the internal build is skipped when offsets are supplied.
 import * as self from './findMatches';
 
 /** One literal substring hit in the corpus. */
@@ -88,7 +88,7 @@ function hasNonLatin1(query: string): boolean {
  * Find every non-overlapping literal-substring occurrence of `query` in
  * `content`. Case-insensitive when `caseSensitive` is false. Returns an empty
  * array for empty query, empty corpus, query > corpus length, or any non-
- * Latin-1 codepoint in the query (AC12). Each Match carries 1-based line.
+ * Latin-1 codepoint in the query. Each Match carries 1-based line.
  *
  * `lineStartOffsets` and `haystack` are optional caller-supplied caches (#8,
  * #20). When omitted the function rebuilds them internally (backward-

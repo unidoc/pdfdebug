@@ -7,53 +7,128 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
-// its content stream. Returns empty string (no error) when the page has no
-// Contents entry. For pages with an array of content stream refs, returns the
-// first ref's node ID.
-func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
+// pageContentStreamNodeIDs resolves a 1-based page number to the ordered node
+// IDs of its content stream(s) in a SINGLE page-dict resolution: empty slice
+// (no error) when the page has no /Contents, one ID for a single indirect ref,
+// and, for an array, every indirect-ref element in order. A null element is
+// skipped - it is not a stream and carries no content (ISO 32000-1 7.8.2) - but
+// any other non-ref element is an ERROR naming its index and type, never a
+// silent skip, since dropping it could omit part of the page. An array whose
+// FIRST element is not an indirect ref is likewise an error (preserving the
+// GetPageContentStreamNodeID contract). The order is the concatenation order:
+// a page's content is the join of these streams (7.8.2).
+func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]string, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	// AC1: PageDict mutates the pdfcpu page-resolution cache; serialize.
+	// The page-tree walk dereferences through pdfcpu; serialize.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var pageDict pdfcpu_types.Dict
-	err = safeCall(func() error {
-		var e error
-		pageDict, _, _, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
-	})
+	leaf, err := doc.findPage(pageNum)
 	if err != nil {
-		return "", wrapPDFError(err)
+		return nil, fmt.Errorf("page %d: %w", pageNum, err)
 	}
-
-	if pageDict == nil {
-		return "", nil
+	if leaf == nil {
+		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
+	pageDict := leaf.dict
 
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
-		return "", nil
+		return nil, nil
 	}
 
 	switch v := contents.(type) {
 	case pdfcpu_types.IndirectRef:
-		return fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value()), nil
+		return []string{fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value())}, nil
 	case pdfcpu_types.Array:
 		if len(v) == 0 {
-			return "", nil
+			return nil, nil
 		}
-		ref, ok := v[0].(pdfcpu_types.IndirectRef)
-		if !ok {
-			return "", fmt.Errorf("contents array element is not an indirect reference")
+		ids := make([]string, 0, len(v))
+		for i, e := range v {
+			// A null element carries no content, so skipping it drops nothing
+			// (pdfcpu decodes PDF null to a Go nil element) - at ANY index,
+			// including the first. Anything else that is not an indirect ref is
+			// malformed - /Contents elements must be refs to streams (7.8.2) and
+			// streams are always indirect (7.3.8) - and is reported (with index +
+			// type) rather than skipped: silently dropping it could omit part of
+			// the page content, the exact failure this avoids.
+			if e == nil {
+				continue
+			}
+			ref, ok := e.(pdfcpu_types.IndirectRef)
+			if !ok {
+				return nil, fmt.Errorf("contents array element %d is not an indirect reference: %T", i, e)
+			}
+			ids = append(ids, fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()))
 		}
-		return fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()), nil
+		return ids, nil
 	default:
-		return "", fmt.Errorf("unexpected Contents type: %T", contents)
+		return nil, fmt.Errorf("unexpected Contents type: %T", contents)
 	}
+}
+
+// GetPageContentStreamNodeID resolves a 1-based page number to the node ID of
+// its FIRST content stream. Returns empty string (no error) when the page has
+// no Contents entry. Callers wanting the whole page content use
+// GetPageContentStream.
+func (ins *Inspector) GetPageContentStreamNodeID(tabID string, pageNum int) (string, error) {
+	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
+	if err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
+		return "", nil
+	}
+	return ids[0], nil
+}
+
+// GetPageContentStream returns the page's COMPLETE content stream: the decoded
+// content of every stream in its /Contents entry, concatenated in array order
+// and joined by a single newline (ISO 32000-1 7.8.2 requires whitespace between
+// streams so a token spanning a boundary - e.g. an operator split across two
+// streams, or `q` in stream 1 with its `Q` in stream 2 - does not fuse), then
+// tokenized and formatted as ONE program. Returns nil (no error) when the page
+// has no /Contents. A per-stream decode failure surfaces as a ContentStreamData
+// carrying Error (not a Go error), matching GetContentStream. On success the
+// returned NodeID is the first stream's node (a representative anchor); on a
+// decode failure it is the node of the stream that FAILED, which may be any
+// element of the array, so the caller can tell which one broke.
+func (ins *Inspector) GetPageContentStream(tabID string, pageNum int) (*ContentStreamData, error) {
+	ids, err := ins.pageContentStreamNodeIDs(tabID, pageNum)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	// Decode each stream via GetContentStream (which locks pdfMu per call, so we
+	// must NOT hold pdfMu here - pageContentStreamNodeIDs already released it).
+	raws := make([]string, 0, len(ids))
+	for _, id := range ids {
+		cs, err := ins.GetContentStream(tabID, id)
+		if err != nil {
+			return nil, err
+		}
+		if cs.Error != "" {
+			// Surface the first FAILING stream's decode/type failure verbatim.
+			// NodeID is that stream, not ids[0], so the error names the culprit.
+			return &ContentStreamData{NodeID: id, Error: cs.Error}, nil
+		}
+		raws = append(raws, cs.Raw)
+	}
+
+	combined := strings.Join(raws, "\n")
+	result := &ContentStreamData{NodeID: ids[0], Raw: combined}
+	if combined != "" {
+		result.Tokenized = tokenizeContentStream(combined)
+		result.Formatted = Format(result.Tokenized)
+	}
+	return result, nil
 }
 
 // GetPageNode resolves a 1-based page number to a fully-populated TreeNode for
@@ -67,24 +142,22 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 	if err != nil {
 		return nil, err
 	}
-	// PageDict mutates the pdfcpu page-resolution cache; serialize, same as
+	// The page-tree walk dereferences through pdfcpu; serialize, same as
 	// GetPageContentStreamNodeID.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	var pageDict pdfcpu_types.Dict
-	var indRef *pdfcpu_types.IndirectRef
-	err = safeCall(func() error {
-		var e error
-		pageDict, indRef, _, e = doc.PDFContext.PageDict(pageNum, false)
-		return e
-	})
+	leaf, err := doc.findPage(pageNum)
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, fmt.Errorf("page %d: %w", pageNum, err)
 	}
-	if pageDict == nil || indRef == nil {
+	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
+	if leaf.ref == nil {
+		return nil, fmt.Errorf("page %d not found: the page is a direct dictionary with no object reference", pageNum)
+	}
+	pageDict, indRef := leaf.dict, leaf.ref
 
 	objNum := indRef.ObjectNumber.Value()
 	gen := indRef.GenerationNumber.Value()
@@ -106,13 +179,13 @@ func (ins *Inspector) GetPageNode(tabID string, pageNum int) (*TreeNode, error) 
 // tree node. The node must resolve to a StreamDict (or variant). Decoded
 // results are cached per-document so repeated calls skip decompression.
 //
-// Story 10-5 AC3: streamMu is held for the ENTIRE resolve+decode+write path,
-// not dropped between cache check and write. The previous "drop lock for
-// decode, reacquire to write" pattern let two concurrent first-time callers
-// both decode and both clobber the cache, so each received a different
-// *ContentStreamData pointer. Holding the lock for the duration collapses
-// concurrent same-node calls to one decode pass; the second caller blocks,
-// then observes the populated cache and returns the same pointer.
+// streamMu is held for the ENTIRE resolve+decode+write path, not dropped
+// between cache check and write. Dropping it for the decode and reacquiring to
+// write would let two concurrent first-time callers both decode and both
+// clobber the cache, so each would receive a different *ContentStreamData
+// pointer. Holding the lock for the duration collapses concurrent same-node
+// calls to one decode pass; the second caller blocks, then observes the
+// populated cache and returns the same pointer.
 //
 // Lock order: pdfMu (outer) -> streamMu (inner). pdfcpu's Dereference inside
 // resolveNodeObject is guarded by pdfMu; streamMu guards the streamCache map.
@@ -132,11 +205,11 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Outer lock.
+	// Serialize pdfcpu access. Outer lock.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
-	// AC3: hold streamMu for the entire critical section (resolve+decode+write).
-	// No drop-and-reacquire between cache miss and cache write.
+	// Hold streamMu for the entire critical section (resolve+decode+write). No
+	// drop-and-reacquire between cache miss and cache write.
 	doc.streamMu.Lock()
 	defer doc.streamMu.Unlock()
 
@@ -348,11 +421,14 @@ func tokenizeContentStream(raw string) []Token {
 			continue
 		}
 
-		// Number: optional '-', then digits/dot, or '.' then digits.
-		// Also handle negative numbers: '-' followed by digit or '.'.
+		// Number: optional sign ('+' or '-'), then digits/dot, or '.' then digits.
+		// ISO 32000-1 7.3.3 permits a leading '+' or '-' on integers and reals.
 		if isNumberStart(raw, i, n) {
 			j := i
-			if raw[j] == '-' {
+			// Consume the leading sign so it is part of the number token, not a
+			// stray first char of the digit scan. Both '+' and '-' must be
+			// handled here or isNumberStart accepting '+' yields a malformed token.
+			if raw[j] == '-' || raw[j] == '+' {
 				j++
 			}
 			hasDot := false
@@ -417,10 +493,31 @@ func tokenizeContentStream(raw string) []Token {
 						// Check following byte is whitespace or EOF
 						afterEI := k + 2
 						if afterEI >= n || isWSByte(raw[afterEI]) {
-							// Emit data token (without the preceding whitespace)
+							// Emit data token (without the preceding whitespace).
+							// endIdx = k-1 already drops the single delimiter byte
+							// adjacent to 'E' (guaranteed whitespace by the check
+							// above).
 							endIdx := k - 1
 							if endIdx < dataStart {
 								endIdx = dataStart
+							}
+							// F3: if that delimiter is the LF of a "\r\nEI" CRLF pair,
+							// also drop the CR so the opaque data token carries no
+							// stray trailing '\r'. Bounded to a single EOL delimiter
+							// (one CRLF unit) -- deliberately NOT an unbounded
+							// whitespace run, which would strip whitespace-valued
+							// bytes (e.g. a 0x20 sample) that are legitimately part of
+							// the opaque inline-image payload.
+							// Irreducible caveat: with no inline-image length model
+							// (EI is found heuristically), a payload legitimately
+							// ending in a real 0x0D byte before a bare-LF delimiter
+							// ("...<0x0D>\nEI") is indistinguishable from a CRLF and
+							// that byte is dropped. Accepted tradeoff: bounding an
+							// opaque display token to a length model is out of scope,
+							// and not stripping the CR would reintroduce the stray
+							// '\r' this fix removes.
+							if endIdx > dataStart && raw[endIdx] == '\n' && raw[endIdx-1] == '\r' {
+								endIdx--
 							}
 							data := raw[dataStart:endIdx]
 							if len(data) > 0 {
@@ -479,7 +576,9 @@ func isNumberStart(raw string, i, n int) bool {
 	if ch == '.' {
 		return i+1 < n && raw[i+1] >= '0' && raw[i+1] <= '9'
 	}
-	if ch == '-' {
+	// A leading '+' or '-' is a number start only when followed by a digit, or
+	// by '.' + digit (ISO 32000-1 7.3.3). A bare sign stays a word/operator.
+	if ch == '-' || ch == '+' {
 		if i+1 < n {
 			next := raw[i+1]
 			if next >= '0' && next <= '9' {

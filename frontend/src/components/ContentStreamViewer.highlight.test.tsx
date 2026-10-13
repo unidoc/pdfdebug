@@ -1,10 +1,6 @@
 /**
- * Story 3.3: Content Stream Tokenizer with Syntax Highlighting (V1)
+ * Content Stream Tokenizer with Syntax Highlighting (V1)
  *
- * TDD RED PHASE: Tests MUST fail until syntax highlighting is implemented
- * in ContentStreamViewer.tsx.
- *
- * Test IDs: 3.3-UNIT-008 through 3.3-UNIT-013 (Vitest)
  * Run: cd frontend && npx vitest run src/components/ContentStreamViewer.highlight.test.tsx
  */
 import { render, screen } from '@testing-library/react';
@@ -12,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, test, expect } from 'vitest';
 import { ContentStreamViewer } from './ContentStreamViewer';
 
-// 9-6: see ContentStreamViewer.test.tsx for the rationale; this helper wraps
+// See ContentStreamViewer.test.tsx for the rationale; this helper wraps
 // a flat token fixture into a single FormattedLine so per-token highlight
 // assertions survive the prop rename without re-deriving operator boundaries.
 type TokFixture = ReadonlyArray<{ type: string; value: string; line: number; col: number }>;
@@ -46,12 +42,12 @@ const sampleTokens = [
 const multiLineRaw = 'BT\n/F1 12 Tf\n100 700 Td\n(Hello World) Tj\nET';
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-008 [P1]: Syntax highlighting applies distinct CSS classes for
-// operator, number, string, name, and comment token types.
-// AC#1: Operators visually distinct from operands.
+// Syntax highlighting applies distinct CSS classes for operator, number,
+// string, name, and comment token types.
+// Operators visually distinct from operands.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-008: Token type CSS classes', () => {
+describe('Token type CSS classes', () => {
   test('operator tokens have text-token-operator class', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -107,11 +103,11 @@ describe('3.3-UNIT-008: Token type CSS classes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-012 [P2]: Operator highlighting does not rely solely on color.
-// AC#3: Font weight or style also differentiates operators from operands.
+// Operator highlighting does not rely solely on color.
+// Font weight or style also differentiates operators from operands.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
+describe('Non-color differentiation (accessibility)', () => {
   test('operator tokens have font-semibold class', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -135,12 +131,11 @@ describe('3.3-UNIT-012: Non-color differentiation (accessibility)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-009 [P1]: Operator tooltip shows description on hover using
-// Radix UI Tooltip.
-// AC#2: Hovering over operator keyword shows brief description.
+// Operator tooltip shows description on hover using Radix UI Tooltip.
+// Hovering over operator keyword shows brief description.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-009: Operator tooltip', () => {
+describe('Operator tooltip', () => {
   test('operator token with description renders a tooltip trigger', () => {
     render(
       <ContentStreamViewer raw={multiLineRaw} formatted={toFormatted(sampleTokens)} />
@@ -184,12 +179,11 @@ describe('3.3-UNIT-009: Operator tooltip', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-FALLBACK [P1]: Falls back to plain text when tokenized is
-// null/undefined/empty.
-// AC#1: When tokenized is not provided, falls back to raw text rendering.
+// Falls back to plain text when tokenized is null/undefined/empty.
+// When tokenized is not provided, falls back to raw text rendering.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
+describe('Tokenized fallback to plain text', () => {
   test('renders plain text when tokenized is undefined', () => {
     render(<ContentStreamViewer raw={multiLineRaw} />);
 
@@ -220,12 +214,11 @@ describe('3.3-UNIT-FALLBACK: Tokenized fallback to plain text', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-LINENUMS [P1]: Line numbers still rendered correctly with
-// tokenized data.
+// Line numbers still rendered correctly with tokenized data.
 // ---------------------------------------------------------------------------
 
-describe('3.3-UNIT-LINENUMS: Line numbers with tokenized data', () => {
-  // Story 9-6: gutter is keyed by formatted-row index in formatted mode.
+describe('Line numbers with tokenized data', () => {
+  // Gutter is keyed by formatted-row index in formatted mode.
   // Build a 5-row fixture (one per logical operation) so the gutter shows 1..5.
   test('renders one gutter row per formatted line', () => {
     const fiveRows = [

@@ -1,6 +1,6 @@
 /**
  * @file Command-palette grammar parser. Pure function with no React or DOM.
- * Story 9-8 AC5 contract.
+ * Parses the palette query grammar.
  */
 
 /** Parsed palette query in one of four shapes. */

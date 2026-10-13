@@ -1,6 +1,6 @@
 /**
  * @file Embedded Data view -- document-level list of embedded/associated files
- * (attachments, ZUGFeRD/Factur-X invoice XML). Story 13.2. Lists every embedded
+ * (attachments, ZUGFeRD/Factur-X invoice XML). Lists every embedded
  * file from the catalog /AF array and the /Names/EmbeddedFiles name tree
  * (merged + deduped server-side). Selecting a row shows its /Filespec detail
  * with "Reveal in tree" (reuses NAVIGATE_TO_REF wiring via onNavigate) and a
@@ -14,6 +14,9 @@ import {
   SaveBytesToFile,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { formatBytes } from '../lib/formatBytes';
+import { ROW_SELECTED_FILL, TABLE_CELL_SELECTED_BAR, TABLE_ROW_IDLE } from './rowState';
+import { SMALL_BUTTON } from './buttonStyles';
 
 /** One embedded file, mirroring `pdfcore.EmbeddedFile`. */
 interface EmbeddedFileData {
@@ -39,20 +42,6 @@ export interface EmbeddedDataViewProps {
   onNavigate: (nodeId: string) => void;
   /** Fires with the file count once the fetch resolves (for the "(N)" tab label). */
   onLoaded?: (count: number) => void;
-}
-
-/** Renders a byte count as a compact human-readable size (e.g. "1.5 KB"). */
-function humanizeBytes(n: number): string {
-  if (n < 0) return '-';
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let val = n / 1024;
-  let i = 0;
-  while (val >= 1024 && i < units.length - 1) {
-    val /= 1024;
-    i += 1;
-  }
-  return `${val.toFixed(1)} ${units[i]}`;
 }
 
 /** True when a /Subtype MIME is text-like and safe to preview inline. */
@@ -210,16 +199,16 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
               return (
                 <tr
                   key={key}
-                  className={`border-b border-border cursor-pointer hover:bg-surface-hover ${isSel ? 'bg-surface-hover' : ''}`}
+                  className={`border-b border-border cursor-pointer ${isSel ? ROW_SELECTED_FILL : TABLE_ROW_IDLE}`}
                   tabIndex={0}
                   data-testid={`embedded-row-${key}`}
                   onClick={() => setSelectedKey(key)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedKey(key); } }}
                 >
-                  <td className="px-2 py-1 text-left text-text">{f.name || '-'}</td>
+                  <td className={`px-2 py-1 text-left text-text ${isSel ? TABLE_CELL_SELECTED_BAR : ''}`}>{f.name || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.afRelationship || '-'}</td>
                   <td className="px-2 py-1 text-left text-text">{f.subtype || '-'}</td>
-                  <td className="px-2 py-1 text-right text-text">{humanizeBytes(f.size)}</td>
+                  <td className="px-2 py-1 text-right text-text">{formatBytes(f.size)}</td>
                 </tr>
               );
             })}
@@ -237,7 +226,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
           <dl className="text-xs font-mono grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
             <dt className="text-text-muted">Relationship</dt><dd className="text-text">{selected.afRelationship || '-'}</dd>
             <dt className="text-text-muted">MIME</dt><dd className="text-text">{selected.subtype || '-'}</dd>
-            <dt className="text-text-muted">Size</dt><dd className="text-text">{humanizeBytes(selected.size)}</dd>
+            <dt className="text-text-muted">Size</dt><dd className="text-text">{formatBytes(selected.size)}</dd>
             <dt className="text-text-muted">Filespec</dt><dd className="text-text">{selected.filespecRef || '-'}</dd>
             <dt className="text-text-muted">EmbeddedFile</dt><dd className="text-text">{selected.embeddedFileRef || '-'}</dd>
             {selected.checkSum && (<><dt className="text-text-muted">CheckSum</dt><dd className="text-text break-all">{selected.checkSum}</dd></>)}
@@ -253,7 +242,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-reveal-in-tree"
               onClick={handleReveal}
               disabled={!selected.embeddedFileNodeId}
@@ -262,7 +251,7 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
             </button>
             <button
               type="button"
-              className="px-2 py-1 text-xs rounded border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
               data-testid="embedded-save"
               onClick={handleSave}
               disabled={!selected.embeddedFileNodeId}

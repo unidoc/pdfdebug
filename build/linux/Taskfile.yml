@@ -164,7 +164,7 @@ tasks:
     cmds:
       - wails3 tool package -name "{{.APP_NAME}}" -format archlinux -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
 
-  # NOTE (Story 4-5): the `generate:dotdesktop` task has been removed. The
+  # NOTE: the `generate:dotdesktop` task has been removed. The
   # `wails3 generate .desktop` generator does not support `--mime-type` or
   # `--exec-suffix`, so it stripped the manually-edited `MimeType=application/pdf;`
   # and `Exec=unidoc-pdf-debugger %f` from `unidoc-pdf-debugger.desktop` (commit

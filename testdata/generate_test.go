@@ -167,7 +167,7 @@ func imageXObjectPDFContent() []byte {
 	return bodyBytes
 }
 
-// fontsMixedPDFContent returns a multi-font PDF used by Story 9-9 tests.
+// fontsMixedPDFContent returns a multi-font PDF used by the font-inspection tests.
 // Covers: simple Type1 with named encoding, TrueType with /Differences, Type0
 // composite with Identity-H + CIDFontType2 descendant + a bfchar ToUnicode
 // CMap, and an unembedded reference font. The PDF references font streams in
@@ -266,7 +266,7 @@ func fontsMixedPDFContent() []byte {
 	return []byte(body + xref + trailer)
 }
 
-// --- Story 13-4 digital-signature fixtures (AC8) ------------------------------
+// --- digital-signature fixtures ------------------------------------------
 //
 // A REAL adbe.pkcs7.detached signature built programmatically: self-signed CA
 // + leaf signer cert via crypto/x509.CreateCertificate, a CMS SignedData
@@ -276,7 +276,7 @@ func fontsMixedPDFContent() []byte {
 // variants derive from the same builder by byte surgery.
 
 // sigFixtureContentsHexCap is the reserved /Contents hex capacity; the real
-// DER is ~2.5 KB, the remainder stays zero-padded (exercises the AC2
+// DER is ~2.5 KB, the remainder stays zero-padded (exercises the
 // trailing-zero-trim path).
 const sigFixtureContentsHexCap = 6144
 
@@ -494,14 +494,14 @@ func unsignedSigFieldPDFContent() []byte {
 	})
 }
 
-// --- Story 13-5 structural-compliance fixtures (AC6) --------------------------
+// --- structural-compliance fixtures --------------------------------------
 //
 // Programmatic negative fixtures (non-embedded font, device color without
 // OutputIntent, tagged vs untagged) plus the veraPDF-passing clean PDF/A-1b
-// positive fixture. The tests/13-5-compliance-validation acceptance suite
-// carries its own self-contained copies of the negative builders; these are the
-// testdata/ equivalents Task 2.0 asks for. The clean fixture is the one the
-// veraPDF oracle clean-case cross-check (13.5-INTG-051) reads.
+// positive fixture. The tests/compliance-validation acceptance suite carries
+// its own self-contained copies of the negative builders; these are the
+// testdata/ equivalents. The clean fixture is the one the veraPDF oracle
+// clean-case cross-check reads.
 
 // complAssemblePDF stitches a binary-marker header, object bodies, an xref
 // table, and a trailer with /Root 1 0 R plus optional trailerExtra.
@@ -575,9 +575,9 @@ func taggedPDFContent() []byte {
 // pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
 // passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
 // document /ID, no fonts, no device color, and a blank page. Provenance:
-// hand-assembled during Story 13-5 implementation and verified to pass
-// veraPDF 1.30.x --flavour 1b with zero failed clauses (the AC6 clean-case
-// oracle fixture; our rule set also flags zero errors on it).
+// hand-assembled and verified to pass veraPDF
+// 1.30.x --flavour 1b with zero failed clauses (the clean-case oracle fixture;
+// our rule set also flags zero errors on it).
 func pdfaCleanContent() []byte {
 	xmp := `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -721,7 +721,7 @@ func TestGenerateFixtures(t *testing.T) {
 		t.Logf("image-xobject.pdf created: %d pages", ctx.PageCount)
 	})
 
-	// Story 13-4 signature fixtures (AC8): a real programmatically signed
+	// Signature fixtures: a real programmatically signed
 	// adbe.pkcs7.detached PDF plus its byte-surgery variants and the unsigned
 	// placeholder. Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
@@ -750,9 +750,9 @@ func TestGenerateFixtures(t *testing.T) {
 		})
 	}
 
-	// Story 13-5 structural-compliance fixtures (AC6). Each must parse through
+	// Structural-compliance fixtures. Each must parse through
 	// pdfcpu's default validation; pdfa-1b-clean.pdf is the veraPDF oracle
-	// clean-case fixture (13.5-INTG-051).
+	// clean-case fixture.
 	complFixtures := []struct {
 		name    string
 		content func() []byte

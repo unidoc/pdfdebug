@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/verify-license.sh - enforces Apache 2.0 LICENSE + NOTICE compliance
-# and README/CONTRIBUTING structural invariants (Story 7.3).
+# and README/CONTRIBUTING structural invariants.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

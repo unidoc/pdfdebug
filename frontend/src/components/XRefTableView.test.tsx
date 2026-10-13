@@ -1,22 +1,20 @@
 /**
- * Story 9.11: XREF Table View Tests
+ * XREF Table View Tests
  *
- * TDD RED PHASE: Tests MUST fail until XRefTableView.tsx is created and
- * GetXRefTable is wired through the Wails bindings.
- *
- * Covers AC#2 (table shape + columns + status pill text + row count label),
- * AC#3 (in-use / in-objstm click navigation, free rows non-clickable),
- * AC#4 (semantic HTML + tabIndex + arrow-key row focus + Enter dispatch),
- * AC#5 (status pill text is load-bearing signal),
- * AC#10 (200ms loading debounce),
- * AC#12 (in-objstm click navigates to underlying object, NOT host objstm),
- * AC#13 (error rendering with mapped message).
+ * Covers:
+ *   - table shape, columns, status pill text and the row count label;
+ *   - in-use / in-objstm click navigation, free rows non-clickable;
+ *   - semantic HTML, tabIndex, arrow-key row focus and Enter dispatch;
+ *   - status pill text as a load-bearing signal;
+ *   - the 200ms loading debounce;
+ *   - in-objstm click navigating to the underlying object, NOT the host
+ *     objstm;
+ *   - error rendering with a mapped message.
  *
  * Run: cd frontend && npx vitest run src/components/XRefTableView.test.tsx
  */
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-// RED PHASE: this import fails until XRefTableView.tsx exists.
 import { XRefTableView } from './XRefTableView';
 
 // --- Mocks ---
@@ -63,11 +61,31 @@ const xrefSingleInUse: XRefTableFixture = {
   ],
 };
 
+// --- Find helpers. The find bar opens on Cmd+F; force the platform so the
+// window listener wants metaKey, then dispatch the shortcut / F3 at window. ---
+function forceMacPlatform() {
+  const original = Object.getOwnPropertyDescriptor(window.navigator, 'platform');
+  Object.defineProperty(window.navigator, 'platform', { configurable: true, get: () => 'MacIntel' });
+  return () => { if (original) Object.defineProperty(window.navigator, 'platform', original); };
+}
+
+function cmdF() {
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true, cancelable: true }));
+  });
+}
+
+function pressF3(shift = false) {
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F3', shiftKey: shift, bubbles: true, cancelable: true }));
+  });
+}
+
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-001 [P0] AC#2: renders all five always-present columns in order.
+// Renders all five always-present columns in order.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-001: column headers and order', () => {
+describe('column headers and order', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -84,10 +102,10 @@ describe('9.11-UNIT-001: column headers and order', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-002 [P0] AC#2: rows sorted ascending by object number.
+// Rows sorted ascending by object number.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-002: rows sorted by object number', () => {
+describe('rows sorted by object number', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -106,11 +124,11 @@ describe('9.11-UNIT-002: rows sorted by object number', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-003 [P0] AC#2 + AC#5: status pill text is "in-use" / "free" /
-// "in-objstm" -- load-bearing signal, NOT just color.
+// Status pill text is "in-use" / "free" / "in-objstm" -- load-bearing
+// signal, NOT just color.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-003: status pill text', () => {
+describe('status pill text', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -127,11 +145,11 @@ describe('9.11-UNIT-003: status pill text', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-004 [P0] AC#2: Offset column shows decimal byte offset for in-use,
-// "-" for free + in-objstm.
+// Offset column shows decimal byte offset for in-use, "-" for free +
+// in-objstm.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-004: Offset column sentinels', () => {
+describe('Offset column sentinels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -152,11 +170,11 @@ describe('9.11-UNIT-004: Offset column sentinels', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-005 [P0] AC#2 + AC#12: Host ObjStm column shows the host number
-// for in-objstm rows, "-" for free + in-use.
+// Host ObjStm column shows the host number for in-objstm rows, "-" for free
+// + in-use.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-005: Host ObjStm column sentinels', () => {
+describe('Host ObjStm column sentinels', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -175,11 +193,11 @@ describe('9.11-UNIT-005: Host ObjStm column sentinels', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-006 [P0] AC#3: clicking an in-use row dispatches onNavigate with
-// the nodeID (obj:<gen>:<num>).
+// Clicking an in-use row dispatches onNavigate with the nodeID
+// (obj:<gen>:<num>).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-006: in-use row click dispatches onNavigate', () => {
+describe('in-use row click dispatches onNavigate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefSingleInUse);
@@ -198,12 +216,12 @@ describe('9.11-UNIT-006: in-use row click dispatches onNavigate', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-007 [P0] AC#3 + AC#12: clicking an in-objstm row dispatches
-// onNavigate with the UNDERLYING object's nodeID (NOT the host objstm).
-// R4 of Story 9-11 risks list pins this distinction explicitly.
+// Clicking an in-objstm row dispatches onNavigate with the UNDERLYING
+// object's nodeID (NOT the host objstm). The risks list
+// pins this distinction explicitly.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-007: in-objstm row click navigates to underlying object', () => {
+describe('in-objstm row click navigates to underlying object', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -223,11 +241,10 @@ describe('9.11-UNIT-007: in-objstm row click navigates to underlying object', ()
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-008 [P0] AC#3 + AC#4: clicking a free row is a no-op (no
-// navigation target).
+// Clicking a free row is a no-op (no navigation target).
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-008: free row click is no-op', () => {
+describe('free row click is no-op', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -246,11 +263,10 @@ describe('9.11-UNIT-008: free row click is no-op', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-009 [P0] AC#4: Enter on a focused in-use row dispatches the same
-// navigation as a click.
+// Enter on a focused in-use row dispatches the same navigation as a click.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-009: Enter on in-use row triggers onNavigate', () => {
+describe('Enter on in-use row triggers onNavigate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefSingleInUse);
@@ -270,10 +286,10 @@ describe('9.11-UNIT-009: Enter on in-use row triggers onNavigate', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-010 [P0] AC#4: Enter on a focused FREE row is a no-op.
+// Enter on a focused FREE row is a no-op.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-010: Enter on free row is no-op', () => {
+describe('Enter on free row is no-op', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -293,11 +309,11 @@ describe('9.11-UNIT-010: Enter on free row is no-op', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-011 [P0] AC#4: ArrowDown moves focus from row N to row N+1.
-// ArrowUp moves focus to row N-1. Wrap-around NOT required.
+// ArrowDown moves focus from row N to row N+1. ArrowUp moves focus to
+// row N-1. Wrap-around NOT required.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-011: arrow keys move row focus', () => {
+describe('arrow keys move row focus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -328,11 +344,11 @@ describe('9.11-UNIT-011: arrow keys move row focus', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-012 [P1] AC#4: free rows are focusable (tabIndex=0) AND carry
-// aria-disabled="true" so screen readers announce the disabled state.
+// Free rows are focusable (tabIndex=0) AND carry aria-disabled="true" so
+// screen readers announce the disabled state.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-012: free row a11y attributes', () => {
+describe('free row a11y attributes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -350,11 +366,11 @@ describe('9.11-UNIT-012: free row a11y attributes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-013 [P0] AC#10: 200ms loading debounce. Under 200ms -> no
-// indicator. Over 200ms -> indicator visible.
+// 200ms loading debounce. Under 200ms -> no indicator. Over 200ms ->
+// indicator visible.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-013: 200ms loading debounce', () => {
+describe('200ms loading debounce', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -402,11 +418,11 @@ describe('9.11-UNIT-013: 200ms loading debounce', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-014 [P0] AC#13: error rendering. A rejected fetch surfaces the
-// mapped error message in data-testid="xref-error".
+// Error rendering. A rejected fetch surfaces the mapped error message in
+// data-testid="xref-error".
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-014: error rendering', () => {
+describe('error rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -422,19 +438,34 @@ describe('9.11-UNIT-014: error rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-015 [P1] AC#2: eager fetch on mount so the parent can populate
-// the "XREF (N)" tab label without waiting for first tab activation. The
-// `active` prop no longer gates the fetch (revised after 9-12).
+// The fetch is DEFERRED until the XREF tab is first
+// activated. The payload can be very large (a 129k-entry PDF serializes ~12 MB);
+// because the pane is force-mounted, an unconditional fetch would JSON.parse
+// ~12 MB and render all rows on the main thread on EVERY document open, freezing
+// the UI while the user is still on the Object tree. active=false must NOT fetch;
+// activation triggers a single fetch. (Supersedes the pre-perf "eager fetch on
+// mount regardless of active" behavior.)
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-015: eager fetch on mount', () => {
+describe('fetch deferred until activation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
   });
 
-  test('active=false still fetches eagerly', async () => {
+  test('active=false does not fetch', () => {
     render(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // render() flushes mount effects under act; with active=false the fetch
+    // effect exits synchronously, so no fetch is scheduled -- assert immediately.
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+  });
+
+  test('activation after an inactive mount triggers a single fetch', async () => {
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    expect(mockGetXRefTable).not.toHaveBeenCalled();
+    rerender(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
     await waitFor(() => {
       expect(mockGetXRefTable).toHaveBeenCalledWith('tab-1');
     });
@@ -448,14 +479,138 @@ describe('9.11-UNIT-015: eager fetch on mount', () => {
     });
     expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
   });
+
+  test('switching documents while XREF is inactive does NOT eagerly fetch; re-activating fetches the new doc', async () => {
+    // Distinct data per document so re-activation can be asserted by rendered rows.
+    mockGetXRefTable.mockImplementation((id: string) =>
+      Promise.resolve(id === 'tab-2' ? xrefSingleInUse : xrefBasic),
+    );
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await screen.findByTestId('xref-row-objnum-1'); // tab-1 fetched + rendered
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Switch documents with the XREF tab INACTIVE (parent lands on Object). A
+    // stale activation must NOT eagerly fetch the new, unopened document.
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).not.toHaveBeenCalledWith('tab-2');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+
+    // Re-activating XREF on the new document fetches and renders it.
+    rerender(<XRefTableView tabId="tab-2" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    expect(await screen.findByTestId('xref-row-objnum-7')).toBeInTheDocument();
+    expect(mockGetXRefTable).toHaveBeenCalledWith('tab-2');
+  });
+
+  test('returning to a previously-opened document on the Object tab does NOT eagerly re-fetch', async () => {
+    mockGetXRefTable.mockResolvedValue(xrefBasic);
+    // Doc A: open XREF (latches A).
+    const { rerender } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await screen.findByTestId('xref-row-objnum-1');
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1);
+    // Switch to doc B on the Object tab (inactive).
+    rerender(<XRefTableView tabId="tab-2" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Switch BACK to doc A, still on the Object tab (inactive). The latch must
+    // have been cleared on the first switch, so returning to A must NOT re-fetch.
+    rerender(<XRefTableView tabId="tab-1" active={false} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockGetXRefTable).toHaveBeenCalledTimes(1); // still just the original doc-A fetch
+  });
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-016 [P1] AC#2 + Task 6.10: onLoaded fires with the entry count
-// after a successful fetch.
+// Perf: the row list is viewport-virtualized -- a large xref (a 750-page PDF
+// can carry ~129k entries) must render only a bounded window of rows, not one
+// <tr> per entry, or the main thread freezes on render.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-016: onLoaded callback', () => {
+describe('row list is virtualized', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test('a large table renders only a bounded window of rows', async () => {
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+    const { container } = render(
+      <XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length).toBeGreaterThan(0);
+    });
+    // Only a small window commits to the DOM (jsdom viewport fallback ~= 36
+    // rows), never all 3000. A spacer <tr> reserves the off-window scroll height.
+    const rendered = container.querySelectorAll('[data-testid^="xref-row-objnum-"]').length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(200);
+    expect(container.querySelectorAll('tr[aria-hidden="true"]').length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Virtualization: ArrowDown past the rendered window scrolls the next row
+// into view and focuses it. DOM-sibling focus cannot work here because
+// off-window rows are unmounted; the handler walks the index.
+// ---------------------------------------------------------------------------
+
+describe('keyboard nav crosses the virtualization window', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => ({
+        objNum: i + 1,
+        gen: 0,
+        status: 'in-use' as const,
+        offset: (i + 1) * 16,
+        hostObjStm: 0,
+        nodeID: `obj:0:${i + 1}`,
+      })),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+  });
+
+  test('ArrowDown from the last in-window row focuses the next (initially unrendered) row', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    // Row 36 is at the edge of the initial ~36-row window; row 37 is not rendered.
+    const row36 = await screen.findByTestId('xref-row-36');
+    expect(screen.queryByTestId('xref-row-37')).toBeNull();
+    row36.focus();
+    fireEvent.keyDown(row36, { key: 'ArrowDown' });
+    // Row 37 must scroll in AND receive focus.
+    const row37 = await screen.findByTestId('xref-row-37');
+    await waitFor(() => expect(document.activeElement).toBe(row37));
+  });
+
+  test('ArrowUp at the top row does not wrap', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    const row1 = await screen.findByTestId('xref-row-1');
+    row1.focus();
+    fireEvent.keyDown(row1, { key: 'ArrowUp' });
+    // No wrap: focus stays on row 1.
+    expect(document.activeElement).toBe(row1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// onLoaded fires with the entry count after a successful fetch.
+// ---------------------------------------------------------------------------
+
+describe('onLoaded callback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetXRefTable.mockResolvedValue(xrefBasic);
@@ -471,10 +626,124 @@ describe('9.11-UNIT-016: onLoaded callback', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.11-UNIT-017 [P0] Task 6.8: empty state when no tabId / no document open.
+// Find: previous-match navigation (Prev button and Shift+F3) and the case
+// toggle control, asserted directly on the xref find instance.
 // ---------------------------------------------------------------------------
 
-describe('9.11-UNIT-017: empty state when no document', () => {
+describe('find previous navigation and case toggle', () => {
+  let restore: () => void;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetXRefTable.mockResolvedValue(xrefBasic);
+    restore = forceMacPlatform();
+  });
+  afterEach(() => restore());
+
+  test('Prev button wraps backward from the first match to the last', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    // "in-use" is the status of three rows.
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: 'in-use' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 3'));
+    fireEvent.click(screen.getByTestId('xref-find-prev'));
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('3 of 3');
+  });
+
+  test('Shift+F3 navigates to the previous match', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: 'in-use' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 3'));
+    pressF3(true);
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('3 of 3');
+  });
+
+  test('clicking Aa invokes the case-toggle callback', async () => {
+    const onFindCaseToggle = vi.fn();
+    render(
+      <XRefTableView
+        tabId="tab-1"
+        active={true}
+        onNavigate={vi.fn()}
+        onLoaded={vi.fn()}
+        onFindCaseToggle={onFindCaseToggle}
+      />,
+    );
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.click(screen.getByTestId('xref-find-case-toggle'));
+    expect(onFindCaseToggle).toHaveBeenCalledTimes(1);
+  });
+
+  test('the case-sensitive flag drives the Aa pressed state', async () => {
+    render(
+      <XRefTableView
+        tabId="tab-1"
+        active={true}
+        onNavigate={vi.fn()}
+        onLoaded={vi.fn()}
+        findCaseSensitive={true}
+        onFindCaseToggle={vi.fn()}
+      />,
+    );
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    expect(screen.getByTestId('xref-find-case-toggle').getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Find across the virtualization window: a match on an off-window row is not
+// rendered until navigation scrolls its index into the window, mirroring the
+// arrow-key scroll-into-view leg.
+// ---------------------------------------------------------------------------
+
+describe('find navigation crosses the virtualization window', () => {
+  let restore: () => void;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // A large table where only row index 0 (in-window) and row index 2499
+    // (off-window) carry the searchable offset; every other row is free and
+    // displays "-" for its offset.
+    const big: XRefTableFixture = {
+      tabId: 'tab-1',
+      entries: Array.from({ length: 3000 }, (_, i) => {
+        if (i === 0 || i === 2499) {
+          return { objNum: i + 1, gen: 0, status: 'in-use' as const, offset: 707070, hostObjStm: 0, nodeID: `obj:0:${i + 1}` };
+        }
+        return { objNum: i + 1, gen: 0, status: 'free' as const, offset: -1, hostObjStm: 0, nodeID: '' };
+      }),
+    };
+    mockGetXRefTable.mockResolvedValue(big);
+    restore = forceMacPlatform();
+  });
+  afterEach(() => restore());
+
+  test('Next scrolls an off-window match row into view and highlights it', async () => {
+    render(<XRefTableView tabId="tab-1" active={true} onNavigate={vi.fn()} onLoaded={vi.fn()} />);
+    await screen.findByTestId('xref-row-1');
+    cmdF();
+    fireEvent.change(screen.getByTestId('xref-find-input'), { target: { value: '707070' } });
+    await waitFor(() => expect(screen.getByTestId('xref-find-count').textContent).toBe('1 of 2'));
+    // The second match's row (objNum 2500) is outside the initial window.
+    expect(screen.queryByTestId('xref-row-2500')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('xref-find-next'));
+    expect(screen.getByTestId('xref-find-count').textContent).toBe('2 of 2');
+    const row2500 = await screen.findByTestId('xref-row-2500');
+    const activeMark = screen.getByTestId('xref-find-active-match');
+    expect(activeMark.textContent).toBe('707070');
+    expect(activeMark.closest('[data-testid="xref-row-2500"]')).toBe(row2500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Empty state when no tabId / no document open.
+// ---------------------------------------------------------------------------
+
+describe('empty state when no document', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

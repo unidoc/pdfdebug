@@ -7,15 +7,15 @@ import (
 )
 
 // These unit tests exercise the colorspace-family CLASSIFIER and blend-mode
-// reader branches that the end-to-end render-info.pdf fixture does not reach
-// (it carries only ICCBased + DeviceRGB/DeviceGray). AC3/AC9 explicitly call
-// out Separation/DeviceN tint-transform function TYPE, Indexed hival, and the
-// structural-only constraint (AC7). All inputs here are DIRECT (inline) objects,
-// so classifyColorSpace never dereferences and a nil *DocumentState is safe.
+// reader branches that the end-to-end render-info.pdf fixture does not reach (it
+// carries only ICCBased + DeviceRGB/DeviceGray). They cover
+// Separation/DeviceN tint-transform function TYPE, Indexed hival, and the
+// structural-only constraint. All inputs here are DIRECT (inline) objects, so
+// classifyColorSpace never dereferences and a nil *DocumentState is safe.
 
-// 11.6-UNIT-010 [P1] (AC3/AC7): a Separation colorspace classifies to family
-// "Separation", carries the alternate-space family, and the tint-transform
-// FUNCTION TYPE (structure) - never an evaluated tint value.
+// A Separation colorspace classifies to family "Separation", carries the
+// alternate-space family, and the tint-transform FUNCTION TYPE (structure) -
+// never an evaluated tint value.
 func TestClassifyColorSpace_Separation(t *testing.T) {
 	// [/Separation /SpotColor /DeviceCMYK <tintFn FunctionType 4>]
 	cs := pdfcpu_types.Array{
@@ -39,8 +39,8 @@ func TestClassifyColorSpace_Separation(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-011 [P1] (AC3/AC7): a DeviceN colorspace classifies to family
-// "DeviceN" with the alternate family and the tint-transform function TYPE.
+// A DeviceN colorspace classifies to family "DeviceN" with the alternate
+// family and the tint-transform function TYPE.
 func TestClassifyColorSpace_DeviceN(t *testing.T) {
 	// [/DeviceN [/C1 /C2] /DeviceRGB <tintFn FunctionType 0>]
 	cs := pdfcpu_types.Array{
@@ -64,8 +64,8 @@ func TestClassifyColorSpace_DeviceN(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-012 [P1] (AC3): an Indexed colorspace surfaces the palette hival
-// (array element 2), classified not evaluated.
+// An Indexed colorspace surfaces the palette hival (array element 2),
+// classified not evaluated.
 func TestClassifyColorSpace_IndexedHiVal(t *testing.T) {
 	// [/Indexed /DeviceRGB 255 <lookup>]
 	cs := pdfcpu_types.Array{
@@ -86,8 +86,8 @@ func TestClassifyColorSpace_IndexedHiVal(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-013 [P1] (AC3): a bare Name colorspace (DeviceGray/CalGray/Lab/
-// Pattern) classifies to that family with no further structure.
+// A bare Name colorspace (DeviceGray/CalGray/Lab/ Pattern) classifies to
+// that family with no further structure.
 func TestClassifyColorSpace_NameFamilies(t *testing.T) {
 	for _, name := range []string{"DeviceGray", "DeviceCMYK", "CalRGB", "Lab", "Pattern"} {
 		info := classifyColorSpace(nil, pdfcpu_types.Name(name))
@@ -97,11 +97,11 @@ func TestClassifyColorSpace_NameFamilies(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-014 [P1] (AC7 robustness): the alternate-colorspace recursion
-// budget terminates a deeply nested Separation->Separation->... alternate chain
-// instead of recursing without bound. depth 0 stops the descent so the
-// alternate family is not surfaced past the budget; the top family is still
-// classified (no panic, no overflow).
+// Robustness: the alternate-colorspace recursion budget terminates a deeply
+// nested Separation->Separation->... alternate chain instead of recursing
+// without bound. depth 0 stops the descent so the alternate family is not
+// surfaced past the budget; the top family is still classified (no panic, no
+// overflow).
 func TestClassifyColorSpace_AlternateDepthBudget(t *testing.T) {
 	// Two-level direct Separation chain: outer alternate is itself a Separation.
 	inner := pdfcpu_types.Array{
@@ -136,8 +136,8 @@ func TestClassifyColorSpace_AlternateDepthBudget(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-015 [P2] (AC2): a /BM array (the mode-fallback list form) reports
-// its first name; an empty or non-Name head reports "".
+// A /BM array (the mode-fallback list form) reports its first name; an empty
+// or non-Name head reports "".
 func TestBlendModeName_ArrayForm(t *testing.T) {
 	got := blendModeName(pdfcpu_types.Array{pdfcpu_types.Name("Darken"), pdfcpu_types.Name("Normal")})
 	if got != "Darken" {

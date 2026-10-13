@@ -1,15 +1,10 @@
 /**
- * Story 6.2: Image Preview in Detail Panel -- ImagePreview Component Tests
+ * Image Preview in Detail Panel -- ImagePreview Component Tests
  *
- * TDD RED PHASE: Tests MUST fail until ImagePreview.tsx is created.
- *
- * Test IDs: 6.2-UNIT-001, 6.2-UNIT-002, 6.2-UNIT-003, 6.2-UNIT-006,
- *           6.2-UNIT-007, 6.2-UNIT-010 (Vitest)
  * Run: cd frontend && npx vitest run src/components/ImagePreview.test.tsx
  */
 import { render, screen } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
-// RED PHASE: This import will fail until ImagePreview.tsx is created.
 import { ImagePreview } from './ImagePreview';
 
 // --- Test data fixtures ---
@@ -31,12 +26,12 @@ const defaultProps = {
 };
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-001 [P0]: ImagePreview renders base64 image in img tag
-// AC#1: Given an XObject image node is selected, Then the DetailPanel shows
-//       the rendered image via a data:${mimeType};base64,${base64} URI.
+// ImagePreview renders base64 image in img tag: Given an XObject image node
+// is selected, Then the DetailPanel shows
+// the rendered image via a data:${mimeType};base64,${base64} URI.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-001: ImagePreview renders base64 image', () => {
+describe('ImagePreview renders base64 image', () => {
   test('renders img element with correct data URI src', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -58,12 +53,12 @@ describe('6.2-UNIT-001: ImagePreview renders base64 image', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-002 [P0]: ImagePreview displays metadata below image
-// AC#1: Image metadata displayed below the image (dimensions, color space,
-//       encoding filter, bits per component).
+// ImagePreview displays metadata below image: Image metadata displayed
+// below the image (dimensions, color space,
+// encoding filter, bits per component).
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-002: ImagePreview metadata display', () => {
+describe('ImagePreview metadata display', () => {
   test('displays dimensions as "width x height px"', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -94,12 +89,12 @@ describe('6.2-UNIT-002: ImagePreview metadata display', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-003 [P0]: ImagePreview shows error when base64 is empty
-// AC#3: Given an image that cannot be rendered, Then the DetailPanel shows
-//       the error message with error styling, And no img element is present.
+// ImagePreview shows error when base64 is empty: Given an image that
+// cannot be rendered, Then the DetailPanel shows
+// the error message with error styling, And no img element is present.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-003: ImagePreview error display', () => {
+describe('ImagePreview error display', () => {
   const errorProps = {
     ...defaultProps,
     base64: '',
@@ -143,12 +138,12 @@ describe('6.2-UNIT-003: ImagePreview error display', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-006 [P1]: CSS constraints on img element for scaling
-// AC#2: Large images are scaled to fit within the panel using
-//       object-fit: contain and max-width: 100% constraints.
+// CSS constraints on img element for scaling: Large images are
+// scaled to fit within the panel using
+// object-fit: contain and max-width: 100% constraints.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-006: ImagePreview CSS constraints', () => {
+describe('ImagePreview CSS constraints', () => {
   test('img element has object-contain class', () => {
     render(<ImagePreview {...defaultProps} />);
 
@@ -172,11 +167,11 @@ describe('6.2-UNIT-006: ImagePreview CSS constraints', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-007 [P1]: Original dimensions shown for large images
-// AC#2: The original dimensions are shown in the metadata (e.g., "4000 x 6000 px").
+// Original dimensions shown for large images: The original dimensions are shown in
+// the metadata (e.g., "4000 x 6000 px").
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-007: ImagePreview large image dimensions', () => {
+describe('ImagePreview large image dimensions', () => {
   test('shows original dimensions for large images', () => {
     const largeProps = { ...defaultProps, width: 4000, height: 6000 };
     render(<ImagePreview {...largeProps} />);
@@ -187,11 +182,11 @@ describe('6.2-UNIT-007: ImagePreview large image dimensions', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6.2-UNIT-010 [P2]: ImagePreview handles missing/partial metadata
-// AC: No crash when metadata fields are zero/empty.
+// ImagePreview handles missing/partial metadata: no crash when metadata
+// fields are zero/empty.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-010: ImagePreview missing metadata', () => {
+describe('ImagePreview missing metadata', () => {
   const partialProps = {
     ...defaultProps,
     width: 0,
@@ -214,11 +209,11 @@ describe('6.2-UNIT-010: ImagePreview missing metadata', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Warning display (AC#4): Warning text shown above metadata
-// AC#4: When ImageData.warning is non-empty, an amber-colored notice is shown.
+// Warning display: when ImageData.warning is non-empty, an amber-coloured
+// notice is shown above the metadata.
 // ---------------------------------------------------------------------------
 
-describe('6.2-UNIT-012: ImagePreview warning display', () => {
+describe('ImagePreview warning display', () => {
   const warningProps = {
     ...defaultProps,
     warning: 'Image uses CMYK color space (colors may be inaccurate)',
@@ -247,5 +242,76 @@ describe('6.2-UNIT-012: ImagePreview warning display', () => {
     expect(
       screen.queryByTestId('image-preview-warning')
     ).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Downsampled-preview cue: a subtle caption appears only when the preview
+// pixels are reduced, and the metadata keeps reporting the REAL image
+// dimensions (never the thumbnail geometry).
+// ---------------------------------------------------------------------------
+
+describe('ImagePreview downsampled cue', () => {
+  test('shows the cue and keeps real dimensions when the preview is reduced', () => {
+    render(
+      <ImagePreview
+        {...defaultProps}
+        width={8192}
+        height={8192}
+        thumbWidth={2048}
+        thumbHeight={2048}
+      />
+    );
+    expect(screen.getByTestId('image-preview-reduced')).toHaveTextContent(
+      /downsampled preview/i
+    );
+    // The metadata reports the REAL image, not the reduced preview geometry.
+    const meta = screen.getByTestId('image-preview-metadata');
+    expect(meta.textContent).toContain('8192 x 8192 px');
+    expect(meta.textContent).not.toContain('2048');
+  });
+
+  test('no cue when the preview matches the real dimensions', () => {
+    render(
+      <ImagePreview {...defaultProps} thumbWidth={320} thumbHeight={240} />
+    );
+    expect(
+      screen.queryByTestId('image-preview-reduced')
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Size row: stored (compressed) size with the decoded in-memory size in
+// parentheses; each half appears only when known.
+// ---------------------------------------------------------------------------
+
+describe('ImagePreview size row', () => {
+  test('shows stored size with decoded in parentheses when both are known', () => {
+    render(
+      <ImagePreview {...defaultProps} storedBytes={848670} decodedBytes={81000000} />
+    );
+    const size = screen.getByTestId('image-preview-size');
+    expect(size.textContent).toMatch(/KB/);
+    expect(size.textContent).toMatch(/\(.*MB in memory\)/);
+  });
+
+  test('shows only the stored size when decoded is unknown', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={848670} decodedBytes={0} />);
+    const size = screen.getByTestId('image-preview-size');
+    expect(size.textContent).toMatch(/KB/);
+    expect(size.textContent).not.toMatch(/in memory/);
+  });
+
+  test('shows only the decoded size when stored is unknown', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={0} decodedBytes={81000000} />);
+    expect(screen.getByTestId('image-preview-size').textContent).toMatch(
+      /in memory/
+    );
+  });
+
+  test('no size row when neither is known', () => {
+    render(<ImagePreview {...defaultProps} storedBytes={0} decodedBytes={0} />);
+    expect(screen.queryByTestId('image-preview-size')).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Story 9.9: Font Inspection View -- DetailPanel integration tests.
+ * Font Inspection View -- DetailPanel integration tests.
  *
  * Updated for the unified GetFontView endpoint (replaces the prior
  * GetFontDetail + GetFontResourceMap two-call cascade). The backend now
@@ -47,10 +47,12 @@ vi.mock(
     GetObjectDetail: (...args: unknown[]) => mockGetObjectDetail(...args),
     GetContentStream: (...args: unknown[]) => mockGetContentStream(...args),
     GetImageData: (...args: unknown[]) => mockGetImageData(...args),
+    DescribeImage: vi.fn().mockResolvedValue({ width: 0, height: 0, colorSpace: '', estimatedBytes: 0 }),
+    SaveImageToFile: vi.fn().mockResolvedValue(''),
     GetReverseRefs: (...args: unknown[]) => mockGetReverseRefs(...args),
     GetFontView: (...args: unknown[]) => mockGetFontView(...args),
     GetXRefTable: vi.fn().mockResolvedValue({ tabId: '', entries: [] }),
-    // Story 13.2: the Embedded + Metadata tab panes forceMount, so DetailPanel
+    // The Embedded + Metadata tab panes forceMount, so DetailPanel
     // calls these on render; stub them so the mock does not throw.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetSignatures: vi.fn().mockResolvedValue([]),
@@ -167,11 +169,11 @@ function renderDetailPanelFor(
 }
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-201 [P0] AC#1 -- iconHint='font' + dict-type triggers FontPreview
-// in place of DictView. GetFontView is fetched and returns Kind:'detail'.
+// iconHint='font' + dict-type triggers FontPreview in place of DictView.
+// GetFontView is fetched and returns Kind:'detail'.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
+describe('iconHint=font swaps DictView -> FontPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -196,17 +198,17 @@ describe('9.9-UNIT-201: iconHint=font swaps DictView -> FontPreview', () => {
     });
     // The generic DictView's `/Type` row MUST NOT render -- it would
     // indicate the swap did not happen (DictView is rendered instead of /
-    // alongside FontPreview, which contradicts AC#1).
+    // alongside FontPreview, which contradicts the swap contract).
     expect(screen.queryByText('/Type')).not.toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-202 [P0] AC#1 fallback -- Kind:'neither' silently renders the
-// generic DictView. No error is involved in this path.
+// Fallback -- Kind:'neither' silently renders the generic DictView. No
+// error is involved in this path.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
+describe('Kind=neither silent DictView fallback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -221,7 +223,7 @@ describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
     });
     // No font-specific UI: no font-embedding badge, no font sections. Scope the
-    // query to the Object pane so it does NOT match the Story 13.2 "Embedded"
+    // query to the Object pane so it does NOT match the "Embedded"
     // tab trigger (a document-level tab, not font UI).
     const objectPane = screen.getByTestId('detail-pane-object');
     expect(within(objectPane).queryByText(/Embedded/)).not.toBeInTheDocument();
@@ -234,7 +236,7 @@ describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
     await waitFor(() => {
       expect(screen.getByText('/Type')).toBeInTheDocument();
     });
-    // AC#1 contract: silent fallback. No error banner.
+    // Contract: silent fallback. No error banner.
     expect(
       screen.queryByText(/Failed to load font detail/i)
     ).not.toBeInTheDocument();
@@ -242,11 +244,11 @@ describe('9.9-UNIT-202: Kind=neither silent DictView fallback', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-202b -- /Resources /Font roster view replaces silent DictView when
-// GetFontView returns Kind:'roster'.
+// /Resources /Font roster view replaces silent DictView when GetFontView
+// returns Kind:'roster'.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-202b: Kind=roster renders FontRosterPreview', () => {
+describe('Kind=roster renders FontRosterPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -290,13 +292,12 @@ describe('9.9-UNIT-202b: Kind=roster renders FontRosterPreview', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-203 [P0] AC#9 -- real backend error surfaces an inline error
-// message inside the dict-view slot (does NOT blank the panel). With the
-// unified endpoint, .catch only fires for genuine failures (malformed PDF,
-// unknown tab, pdfcpu panics).
+// Real backend error surfaces an inline error message inside the dict-view
+// slot (does NOT blank the panel). With the unified endpoint, .catch only
+// fires for genuine failures (malformed PDF, unknown tab, pdfcpu panics).
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-203: real error renders inline (does not crash)', () => {
+describe('real error renders inline (does not crash)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -340,11 +341,10 @@ describe('9.9-UNIT-203: real error renders inline (does not crash)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-204 [P0] AC#9 -- 200ms-debounced loading indicator with data-testid
-// "font-loading"
+// 200ms-debounced loading indicator with data-testid "font-loading"
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
+describe('200ms-debounced loading indicator', () => {
   // Manually-resolvable promise so the never-resolved state doesn't leak past
   // test teardown (which can trigger unhandled-rejection worker crashes).
   let resolveFont: ((v: unknown) => void) | null = null;
@@ -387,12 +387,12 @@ describe('9.9-UNIT-204: AC#9 200ms-debounced loading indicator', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-205 [P0] AC#1 negative -- iconHint='font' but detail.type !== 'dict'
-// (impossible in practice, but defensive). The fetch MUST be skipped because
-// the dict-type guard fails.
+// Negative -- iconHint='font' but detail.type !== 'dict' (impossible in
+// practice, but defensive). The fetch MUST be skipped because the dict-type
+// guard fails.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
+describe('iconHint=font + non-dict detail does NOT fetch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetReverseRefs.mockResolvedValue([]);
@@ -427,12 +427,12 @@ describe('9.9-UNIT-205: iconHint=font + non-dict detail does NOT fetch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-206 [P0] AC#1 negative -- iconHint is null / not 'font' -> no fetch.
-// Regression guard: a missing branch guard would fire GetFontView on every
-// dict selection, ballooning IPC traffic.
+// Negative -- iconHint is null / not 'font' -> no fetch. Regression guard: a
+// missing branch guard would fire GetFontView on every dict selection,
+// ballooning IPC traffic.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontView', () => {
+describe('iconHint != "font" does NOT trigger GetFontView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -457,11 +457,11 @@ describe('9.9-UNIT-206: iconHint != "font" does NOT trigger GetFontView', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-207 [P1] AC#11 -- header label reads "Font - <BaseFont>" when
-// FontPreview is active. Falls back to "Font" when BaseFont missing.
+// Header label reads "Font - <BaseFont>" when FontPreview is active.
+// Falls back to "Font" when BaseFont missing.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
+describe('detail-panel header label', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -493,13 +493,13 @@ describe('9.9-UNIT-207: AC#11 detail-panel header label', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9.9-UNIT-208 [P1] AC#10 -- a font dict reached through an IndirectRef chain
-// or packaged in ObjStm uses the same code path (resolveNodeObject already
-// handles both backend-side). The frontend just calls GetFontDetail; this
-// test pins that no special handling exists for the indirect case.
+// A font dict reached through an IndirectRef chain or packaged in ObjStm uses
+// the same code path (resolveNodeObject already handles both backend-side).
+// The frontend just calls GetFontDetail; this test pins that no special
+// handling exists for the indirect case.
 // ---------------------------------------------------------------------------
 
-describe('9.9-UNIT-208: AC#10 indirect-ref-chain / ObjStm transparent', () => {
+describe('indirect-ref-chain / ObjStm transparent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetObjectDetail.mockResolvedValue(fontDictDetail);
@@ -512,8 +512,8 @@ describe('9.9-UNIT-208: AC#10 indirect-ref-chain / ObjStm transparent', () => {
     await waitFor(() => {
       expect(mockGetFontView).toHaveBeenCalledTimes(1);
     });
-    // No retry, no second fetch. AC#10 is satisfied entirely at the backend
-    // through resolveNodeObject -- the frontend MUST stay dumb.
+    // No retry, no second fetch. Indirect-ref resolution is satisfied entirely
+    // at the backend through resolveNodeObject -- the frontend MUST stay dumb.
     expect(mockGetFontView).toHaveBeenCalledWith('tab-1', 'obj:0:5');
   });
 });

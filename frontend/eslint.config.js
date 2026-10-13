@@ -1,5 +1,5 @@
 // ESLint 9 flat config for the Wails React/TypeScript frontend.
-// Task 3.4 of Story 7.1: strict TS + React + React Hooks rules, typed linting
+// Strict TS + React + React Hooks rules, typed linting
 // via typescript-eslint projectService, with a dedicated ignores entry.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
@@ -49,7 +49,7 @@ export default [
       ...pluginReact.configs.flat.recommended.rules,
       ...pluginReactHooks.configs['recommended-latest'].rules,
       'no-console': 'warn',
-      // Absolute rules per story 7.1 Dev Notes ("absolute rules that MUST NOT be relaxed").
+      // Absolute rules that MUST NOT be relaxed.
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',

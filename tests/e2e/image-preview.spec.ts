@@ -1,28 +1,25 @@
 /**
- * E2E Acceptance Test for Story 6.2: Image Preview in Detail Panel
+ * E2E Acceptance Test for Image Preview in the Detail Panel
  *
- * TDD RED PHASE: Test MUST fail until Story 6-2 is implemented.
- *
- * Only the critical full-stack happy path (6.2-E2E-001) is tested at E2E level.
- * All component/state/loading/error tests are handled by Vitest in
+ * Only the critical full-stack happy path is tested at E2E level. All
+ * component/state/loading/error tests are handled by Vitest in
  * frontend/src/components/ImagePreview.test.tsx and
  * frontend/src/components/DetailPanel.test.tsx.
  *
- * Test IDs: 6.2-E2E-001
  * Run: npx playwright test tests/e2e/image-preview.spec.ts
  */
 import { test, expect } from '../support/fixtures';
 import { waitForWailsReady } from '../support/helpers/wails-helpers';
 
-test.describe('Story 6.2: Image Preview in Detail Panel (ATDD)', () => {
+test.describe('Image Preview in Detail Panel', () => {
   // ---------------------------------------------------------------------------
-  // 6.2-E2E-001 [P0]: User selects XObject image node in tree, sees image
-  //                    preview rendered in the detail panel with metadata.
-  // AC#1: Given an XObject image node is selected in the tree, When the
-  //       DetailPanel updates, Then it switches to image preview mode showing
-  //       the rendered image, And image metadata is displayed below the image.
+  // User selects XObject image node in tree, sees image
+  // preview rendered in the detail panel with metadata.
+  // Given an XObject image node is selected in the tree, When the
+  // DetailPanel updates, Then it switches to image preview mode showing
+  // the rendered image, And image metadata is displayed below the image.
   // ---------------------------------------------------------------------------
-  test('[P0] should show image preview when selecting an XObject image node', async ({ appPage }) => {
+  test('should show image preview when selecting an XObject image node', async ({ appPage }) => {
     await waitForWailsReady(appPage);
 
     // Given: application shows empty state

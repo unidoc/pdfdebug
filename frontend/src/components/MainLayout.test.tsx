@@ -1,9 +1,9 @@
 /**
- * 2.4-UNIT-003 / 2.5-INTG: MainLayout renders TreePanel component.
+ * MainLayout renders TreePanel component.
  *
- * Updated for Story 2-5: MainLayout now uses TreePanel instead of inline static list.
+ * MainLayout uses TreePanel instead of an inline static list.
  */
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   AppProvider,
@@ -44,6 +44,10 @@ vi.mock(
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
     GetObjectDetail: vi.fn(),
+    GetPageIndex: vi.fn(),
+    GetImageIndex: vi.fn(),
+    GetImagePages: vi.fn(),
+    GetImagePageGroups: vi.fn(),
   })
 );
 
@@ -126,7 +130,7 @@ function DispatchThenLayout({ action }: { action: AppAction }) {
   );
 }
 
-describe('2.4-UNIT-003: MainLayout tree content', () => {
+describe('MainLayout tree content', () => {
   test('shows Document Structure header when no document is open', () => {
     render(
       <AppProvider>
@@ -156,9 +160,11 @@ describe('2.4-UNIT-003: MainLayout tree content', () => {
 
     act(() => screen.getByTestId('dispatch').click());
 
-    expect(screen.getByText('Catalog')).toBeInTheDocument();
-    expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.getByText('Pages')).toBeInTheDocument();
+    // The rail and the Pages panel also say "Pages"; scope to the tree.
+    const tree = within(screen.getByTestId('tree-panel'));
+    expect(tree.getByText('Catalog')).toBeInTheDocument();
+    expect(tree.getByText('Type')).toBeInTheDocument();
+    expect(tree.getByText('Pages')).toBeInTheDocument();
   });
 
   test('uses TreePanel component with react-arborist tree', () => {
@@ -188,25 +194,24 @@ describe('2.4-UNIT-003: MainLayout tree content', () => {
 });
 
 /**
- * 4-5-UNIT-001: MainLayout pane structure.
+ * MainLayout pane structure.
  *
- * Replaces the deleted source-grep test `TestMainLayoutTwoColumnStructure`
- * (Story 4-5, test #4) which asserted the literal string
- * `preferredSize={300}` in MainLayout.tsx. That literal became conditional
- * in Story 4-4 (`{...(panelSizes ? {} : { preferredSize: 300 })}`), so the
- * grep broke even though behaviour was preserved.
+ * Asserted through rendering rather than by grepping MainLayout.tsx for
+ * `preferredSize={300}`: that literal is conditional,
+ * `{...(panelSizes ? {} : { preferredSize: 300 })}`, so a source grep reports a
+ * failure whenever the shape changes and behaviour does not.
  *
  * Known limitation: Allotment is mocked above as plain `<div>` because its
  * real implementation requires browser layout APIs not available in jsdom.
  * As a result this test ONLY confirms that the MainLayout JSX includes the
  * `main-layout`, `left-panel`, and `right-panel` testids. It does NOT
  * exercise Allotment-driven layout, resize, or persisted-size behaviour.
- * Real layout/resize coverage lives in Playwright E2E (out of scope for
- * Story 4-5). This is a strictly weaker assertion than the deleted
+ * Real layout/resize coverage lives in Playwright E2E. This is a strictly
+ * weaker assertion than the deleted
  * source-grep was attempting; the trade-off is that this test is immune to
  * whether `preferredSize` is literal, conditional, or removed entirely.
  */
-describe('4-5-UNIT-001: MainLayout pane structure', () => {
+describe('MainLayout pane structure', () => {
   test('renders both left and right panels by data-testid', () => {
     render(
       <AppProvider>

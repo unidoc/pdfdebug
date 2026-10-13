@@ -1,5 +1,4 @@
-// Story 13-2 RED-PHASE co-located unit tests for the document metadata view
-// (AC 3, 8).
+// Co-located unit tests for the document metadata view.
 //
 // Exercises the NEW pdfcore surface:
 //
@@ -10,9 +9,6 @@
 // pin the contract the story names: XMP packet bytes passed VERBATIM, /Info
 // fields surfaced, missing = empty (not error), undecodable /Metadata = empty
 // XMP + warning (never an error that fails the view).
-//
-// RED state: the package will not compile until metadata.go lands
-// GetDocumentMetadata + DocumentMetadata. Naming: 13.2-UNIT-NNN [Px].
 package pdfcore
 
 import (
@@ -69,7 +65,7 @@ func metadataPDF() []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-020 [P0] AC3: the XMP /Metadata stream is returned.
+// The XMP /Metadata stream is returned.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_ReturnsXMP(t *testing.T) {
@@ -77,17 +73,17 @@ func TestGetDocumentMetadata_ReturnsXMP(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-020: GetDocumentMetadata error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if md == nil || md.XMP == "" {
-		t.Fatalf("[P0] 13.2-UNIT-020: expected non-empty XMP, got %+v", md)
+		t.Fatalf("expected non-empty XMP, got %+v", md)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-021 [P0] AC3: the XMP bytes are passed VERBATIM -- no Go-side XML
-// parse/mutation. The exact marker survives byte-for-byte and the packet is not
-// re-escaped or re-serialized.
+// The XMP bytes are passed VERBATIM -- no Go-side XML parse/mutation. The exact
+// marker survives byte-for-byte and the packet is not re-escaped or
+// re-serialized.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
@@ -95,15 +91,15 @@ func TestGetDocumentMetadata_XMPVerbatim(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-021: error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if md.XMP != xmpPacket {
-		t.Errorf("[P0] 13.2-UNIT-021: XMP not verbatim\n got: %q\nwant: %q", md.XMP, xmpPacket)
+		t.Errorf("XMP not verbatim\n got: %q\nwant: %q", md.XMP, xmpPacket)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-022 [P0] AC3: /Info fields are surfaced when present.
+// /Info fields are surfaced when present.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
@@ -111,22 +107,21 @@ func TestGetDocumentMetadata_SurfacesInfoFields(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 13.2-UNIT-022: error: %v", err)
+		t.Fatalf("GetDocumentMetadata error: %v", err)
 	}
 	if got := md.Info["Title"]; got != "Invoice 2024-001" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Title] = %q, want %q", got, "Invoice 2024-001")
+		t.Errorf("Info[Title] = %q, want %q", got, "Invoice 2024-001")
 	}
 	if got := md.Info["Author"]; got != "ACME GmbH" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Author] = %q, want %q", got, "ACME GmbH")
+		t.Errorf("Info[Author] = %q, want %q", got, "ACME GmbH")
 	}
 	if got := md.Info["Producer"]; got != "pdfdebug-test" {
-		t.Errorf("[P0] 13.2-UNIT-022: Info[Producer] = %q, want %q", got, "pdfdebug-test")
+		t.Errorf("Info[Producer] = %q, want %q", got, "pdfdebug-test")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-023 [P1] AC3: missing /Metadata AND /Info is a normal empty result,
-// not an error.
+// Missing /Metadata AND /Info is a normal empty result, not an error.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
@@ -139,33 +134,32 @@ func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
 
 	md, err := ins.GetDocumentMetadata(tabID)
 	if err != nil {
-		t.Fatalf("[P1] 13.2-UNIT-023: missing metadata must NOT error, got %v", err)
+		t.Fatalf("missing metadata must NOT error, got %v", err)
 	}
 	if md == nil {
-		t.Fatalf("[P1] 13.2-UNIT-023: expected a non-nil empty result")
+		t.Fatalf("expected a non-nil empty result")
 	}
 	if md.XMP != "" {
-		t.Errorf("[P1] 13.2-UNIT-023: expected empty XMP, got %q", md.XMP)
+		t.Errorf("expected empty XMP, got %q", md.XMP)
 	}
 	if len(md.Info) != 0 {
-		t.Errorf("[P1] 13.2-UNIT-023: expected empty Info, got %+v", md.Info)
+		t.Errorf("expected empty Info, got %+v", md.Info)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-024 [P0] AC3/8: a /Metadata stream whose /Filter decode fails
-// surfaces as an EMPTY-XMP result PLUS a warning, never an error that fails the
-// view.
+// A /Metadata stream whose /Filter decode fails surfaces as an EMPTY-XMP result
+// PLUS a warning, never an error that fails the view.
 //
 // NOTE: pdfcpu STRICTLY decodes every stream's /Filter at file-read time
 // (ReadContextFile rejects a /FlateDecode /Metadata over garbage bytes with
 // "zlib: invalid header"), so an undecodable /Metadata is unreachable through
 // Inspector.Open with a hand-rolled fixture - the file would never open. The
-// AC8 contract is therefore asserted directly against decodeXMPStream, the pure
+// contract is therefore asserted directly against decodeXMPStream, the pure
 // decode/classify branch collectXMP delegates to: a /FlateDecode StreamDict
 // over non-zlib bytes whose Decode() fails must yield ("", warning), never an
-// error. (Original ATDD fixture revised during the green phase: it could not
-// parse under pdfcpu.)
+// error. The fixture is hand-assembled because a generated one could not parse
+// under pdfcpu.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
@@ -184,17 +178,17 @@ func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {
 
 	xmp, warning := decodeXMPStream(sd)
 	if xmp != "" {
-		t.Errorf("[P0] 13.2-UNIT-024: undecodable /Metadata must yield empty XMP, got %q", xmp)
+		t.Errorf("undecodable /Metadata must yield empty XMP, got %q", xmp)
 	}
 	if strings.TrimSpace(warning) == "" {
-		t.Errorf("[P0] 13.2-UNIT-024: undecodable /Metadata must surface a warning")
+		t.Errorf("undecodable /Metadata must surface a warning")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.2-UNIT-025 [P1] AC3: an UNFILTERED /Metadata stream (no /Filter) passes
-// its Raw bytes through VERBATIM as the XMP packet with NO warning -- the happy
-// counterpart to UNIT-024's undecodable path (metadata.go:119-123).
+// An UNFILTERED /Metadata stream (no /Filter) passes its Raw bytes through
+// VERBATIM as the XMP packet with NO warning -- the happy counterpart to
+// the undecodable-stream path (metadata.go:119-123).
 // ---------------------------------------------------------------------------
 
 func TestDecodeXMPStream_UnfilteredVerbatimNoWarning(t *testing.T) {
@@ -212,9 +206,9 @@ func TestDecodeXMPStream_UnfilteredVerbatimNoWarning(t *testing.T) {
 
 	xmp, warning := decodeXMPStream(sd)
 	if xmp != xmpPacket {
-		t.Errorf("[P1] 13.2-UNIT-025: unfiltered XMP not verbatim\n got: %q\nwant: %q", xmp, xmpPacket)
+		t.Errorf("unfiltered XMP not verbatim\n got: %q\nwant: %q", xmp, xmpPacket)
 	}
 	if warning != "" {
-		t.Errorf("[P1] 13.2-UNIT-025: unfiltered XMP must NOT warn, got %q", warning)
+		t.Errorf("unfiltered XMP must NOT warn, got %q", warning)
 	}
 }

@@ -10,7 +10,7 @@ import (
 // GetXRefTable returns the cross-reference table view for the document in
 // tabID. Lazy-built on first call, cached on the per-tab DocumentState; the
 // xref does not change for an opened document, so subsequent calls return the
-// cached pointer. Story 9-11.
+// cached pointer.
 //
 // The cache-check, build, and cache-store all happen under xrefTableMu so two
 // concurrent callers share one build pass (the second blocks, then sees the
@@ -22,9 +22,9 @@ func (ins *Inspector) GetXRefTable(tabID string) (*XRefTable, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access. Outer lock; xrefTableMu (inner) guards
-	// the cache. buildXRefTable iterates pdfcpu's XRefTable.Table which is
-	// not concurrent-read-safe.
+	// Serialize pdfcpu access. Outer lock; xrefTableMu (inner) guards the
+	// cache. buildXRefTable iterates pdfcpu's XRefTable.Table which is not
+	// concurrent-read-safe.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 

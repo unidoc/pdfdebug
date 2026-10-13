@@ -81,7 +81,7 @@ func execSourceDump(filePath string, f byRefFlags) (exitCode int) {
 
 // ensureTrailingNewline returns s with a single trailing newline appended when
 // it does not already end in one (so plain-text output always terminates with
-// a newline per AC2).
+// a newline).
 func ensureTrailingNewline(s string) string {
 	if s == "" || s[len(s)-1] == '\n' {
 		return s

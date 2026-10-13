@@ -1,17 +1,16 @@
 /**
- * Story 4.2: Multi-Document State Isolation
+ * Re-opening an open file: backend cleanup.
  *
- * 4.2-UNIT-008 [P1]: Dedup cleanup calls CloseDocument for duplicate tabId.
+ * When a document:opened event arrives with the same filePath as an existing
+ * tab, the reducer replaces that tab in place with the new parse, so the
+ * component layer frees the replaced tab id's backend document via
+ * CloseDocument and keeps the new one.
  *
- * Tests the component-layer cleanup: when a second document:opened event
- * arrives with the same filePath as an existing tab, the new tabId's backend
- * state is freed via CloseDocument.
- *
- * 4.4-UNIT-006 [P2] annotation: The OS file association path in main.go calls
- * openFileAndEmit, which emits the same document:opened event tested here.
- * The frontend event listener dispatches OPEN_DOCUMENT regardless of the
- * originating open path (menu, drag-and-drop, or file association). No
- * separate test is needed for the file association event flow.
+ * Annotation: The OS file association path in main.go calls openFileAndEmit,
+ * which emits the same document:opened event tested here. The frontend event
+ * listener dispatches OPEN_DOCUMENT regardless of the originating open path
+ * (menu, drag-and-drop, or file association). No separate test is needed for
+ * the file association event flow.
  *
  * Run: cd frontend && npx vitest run src/App.test.tsx
  */
@@ -37,7 +36,7 @@ vi.mock('@wailsio/runtime', () => ({
   },
 }));
 
-// Mock CloseDocument so we can assert it is called for the duplicate tabId
+// Mock CloseDocument so we can assert which tab id is freed
 const mockCloseDocument = vi.fn().mockResolvedValue(undefined);
 
 vi.mock(
@@ -51,20 +50,24 @@ vi.mock(
     GetObjectDetail: vi.fn(),
     GetContentStream: vi.fn(),
     GetAncestorPath: vi.fn(),
-    // Story 12-1 harness gap: ConsumePendingOpenFiles was missing from this mock,
+    // Harness gap: ConsumePendingOpenFiles was missing from this mock,
     // emitting 10 unhandled errors per run. Stubbed here so the cold-start drain
-    // resolves cleanly (Story 13.2 AC9 closes the pre-existing gap).
+    // resolves cleanly (closes the pre-existing gap).
     ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
-    // Story 13.2 new bound methods (AC9): mocked so DetailPanel's new tabs never
-    // widen the gap.
+    // New bound methods: mocked so DetailPanel's new tabs never widen
+    // the gap.
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
     SaveBytesToFile: vi.fn().mockResolvedValue(''),
-    // Story 13.6: the Diff tab imports DiffDocuments; stubbed so the factory
+    // The Diff tab imports DiffDocuments; stubbed so the factory
     // never throws on the new export (the picker only calls it after a second
     // file is chosen).
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
+    GetPageIndex: vi.fn(),
+    GetImageIndex: vi.fn(),
+    GetImagePages: vi.fn(),
+    GetImagePageGroups: vi.fn(),
   })
 );
 
@@ -82,6 +85,9 @@ vi.mock('./components/ErrorBanner', () => ({
 }));
 vi.mock('./components/TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar">Tabs</div>,
+}));
+vi.mock('./components/UpdateNotifier', () => ({
+  UpdateNotifier: () => null,
 }));
 
 // Helper: emit a simulated Wails event
@@ -104,7 +110,7 @@ const catalogNode = {
   error: '',
 };
 
-describe('4.2-UNIT-008: Dedup cleanup calls CloseDocument', () => {
+describe('re-opening an open file frees the replaced document', () => {
   beforeEach(() => {
     // Clear event handlers between tests
     for (const key of Object.keys(eventHandlers)) {
@@ -113,7 +119,7 @@ describe('4.2-UNIT-008: Dedup cleanup calls CloseDocument', () => {
     mockCloseDocument.mockClear();
   });
 
-  test('opening same file twice calls CloseDocument for the duplicate tabId', async () => {
+  test('opening the same file twice closes the old tab id, not the new one', async () => {
     // Dynamic import to ensure mocks are in place
     const { default: App } = await import('./App');
 
@@ -146,11 +152,33 @@ describe('4.2-UNIT-008: Dedup cleanup calls CloseDocument', () => {
       });
     });
 
-    // The reducer dedup logic activates the existing tab-1 instead of
-    // creating tab-duplicate. The component layer must call CloseDocument
-    // with the duplicate tabId to free backend resources.
+    // The reducer replaces tab-1 with tab-duplicate in place, so tab-1's
+    // backend document is the stale one.
     await waitFor(() => {
-      expect(mockCloseDocument).toHaveBeenCalledWith('tab-duplicate');
+      expect(mockCloseDocument).toHaveBeenCalledWith('tab-1');
     });
+    expect(mockCloseDocument).not.toHaveBeenCalledWith('tab-duplicate');
+  });
+
+  test('two opens of the same file before a re-render still close the first', async () => {
+    const { default: App } = await import('./App');
+    render(<App />);
+
+    act(() => {
+      for (const tabId of ['tab-a1', 'tab-a2']) {
+        emitEvent('document:opened', {
+          tabId,
+          fileName: 'same.pdf',
+          filePath: '/path/to/same.pdf',
+          rootNode: catalogNode,
+          rootChildren: [],
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(mockCloseDocument).toHaveBeenCalledWith('tab-a1');
+    });
+    expect(mockCloseDocument).not.toHaveBeenCalledWith('tab-a2');
   });
 });

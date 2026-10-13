@@ -1,57 +1,32 @@
-// Package open_source_docs_test provides acceptance tests for Story 7.3:
-// Open-Source Project Setup.
+// Package open_source_docs_test checks the repository's open-source and user
+// documentation against the files and binary it describes.
 //
-// These tests verify that the repository ships the open-source documentation
-// deliverables:
-//   - LICENSE  (rewritten to canonical Apache 2.0 with UniDoc copyright substitution)
-//   - NOTICE   (expanded with UniDoc ehf. attribution + 8 mandated third-party deps)
-//   - README.md (8 required H2 sections in order, screenshot ref, install/build/usage)
-//   - CONTRIBUTING.md (6 required H2 sections in order, test commands, release process)
-//   - scripts/verify-license.sh (executable, wired into .github/workflows/ci.yml)
-//   - scripts/fixtures/apache-2.0.txt, apache-2.0-with-copyright.txt
+// docs_test.go covers licensing and attribution: LICENSE byte-matches the
+// canonical Apache 2.0 text after the copyright substitution and the canonical
+// fixture is unmodified; NOTICE carries the UniDoc attribution, an entry with a
+// compatible license for each mandated dependency, and no Unicode copyright
+// glyph; scripts/verify-license.sh exists, is executable, runs in strict mode
+// and is referenced by the CI workflow; README links no _bmad-output path.
 //
-// These are TDD RED PHASE tests -- they MUST fail until Story 7.3 is implemented.
-// No t.Skip() sentinels (per story 7-1 and 7-2 dev-story outcome: the repo ships
-// TDD-red tests directly).
+// cli_usage_coverage_test.go and cli_usage_layout_test.go build the CLI once
+// (cli_harness_test.go) and check the CLI guide against it. The guide is
+// docs/cli-usage.md plus the reference pages under docs/cli/. Every command in
+// `pdfdebug --help` has one quick-reference row on the entry page, linked to
+// the docs/cli page holding its reference heading, whose synopsis is the
+// command's usage line as the binary prints it; every docs/cli page is
+// linked from the entry page and every relative link resolves; every
+// documented `dump` resource is dispatched; the sections come in the expected
+// order with their contract tokens; the CI example run under sh fails on
+// findings and on a missing file; and cli_exit_codes_test.go runs one command
+// per documented exit code and checks the binary's code against the guide's
+// exit-code lists.
 //
-// Test Levels: Static (Go) -- pure filesystem + string grep checks. No YAML
-// parsing dependency; no external modules. The test design scenarios
-// 7.3-STATIC-001 through 7.3-STATIC-006 are covered by the 14 test functions
-// below (multiple tests per scenario for granularity).
+// build_prerequisites_test.go checks that the Go, Wails and golangci-lint
+// versions in README and CONTRIBUTING match go.mod and the CI workflow, and
+// that README's CLI examples, GUI description and screenshot references and
+// CONTRIBUTING's release checklist are present.
 //
-// Trace (AC -> test):
-//   AC #1 (all four files present)             -> TestVerifyLicenseScriptExistsAndExecutable
-//                                                  (via fixtures + presence checks across other tests)
-//   AC #2 (LICENSE byte-matches canonical)     -> TestLicenseMatchesCanonicalWithSubstitution,
-//                                                  TestApache20FixtureIsCanonical,
-//                                                  TestLicenseCopyrightHasUniDocAttribution
-//   AC #3 (NOTICE attribution)                 -> TestNoticeHasRequiredAttributions,
-//                                                  TestNoticeHasNoUnicodeCopyright
-//   AC #4 (README H2 sections in order)        -> TestReadmeHasRequiredSections
-//   AC #5 (README screenshot)                  -> TestReadmeHasScreenshotReference
-//   AC #6 (README Installation subsections)    -> TestReadmeHasInstallationSubsections
-//   AC #7 (README Build-from-Source cmds)      -> TestReadmeBuildFromSourceHasAllCommands
-//   AC #8 (CONTRIBUTING structure)             -> TestContributingHasRequiredSections,
-//                                                  TestContributingRunningTestsHasAllCommands,
-//                                                  TestContributingReleaseProcessHasAppleCertRotation
-//   AC #9 (CI wire-up)                         -> TestVerifyLicenseScriptExistsAndExecutable,
-//                                                  TestCIWorkflowReferencesVerifyScript
-//
-// Test design scenarios (epic-7-test-design.md):
-//   7.3-STATIC-001 -> TestLicenseMatchesCanonicalWithSubstitution,
-//                     TestApache20FixtureIsCanonical,
-//                     TestLicenseCopyrightHasUniDocAttribution
-//   7.3-STATIC-002 -> TestNoticeHasRequiredAttributions,
-//                     TestNoticeHasNoUnicodeCopyright
-//   7.3-STATIC-003 -> TestReadmeHasRequiredSections,
-//                     TestReadmeHasScreenshotReference,
-//                     TestReadmeHasInstallationSubsections
-//   7.3-STATIC-004 -> TestContributingHasRequiredSections
-//   7.3-STATIC-005 -> TestReadmeBuildFromSourceHasAllCommands,
-//                     TestContributingRunningTestsHasAllCommands,
-//                     TestContributingReleaseProcessHasAppleCertRotation
-//   7.3-STATIC-006 -> TestVerifyLicenseScriptExistsAndExecutable,
-//                     TestCIWorkflowReferencesVerifyScript
+// Tests read structure and pinned tokens, never prose wording.
 //
 // Run: cd tests/open-source-docs && go test -v -count=1 ./...
 package open_source_docs_test
@@ -101,14 +76,13 @@ func readFileAtRoot(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-001 (P0): LICENSE byte-matches canonical Apache 2.0 text
-// Covers AC #2 (Task 1)
+// LICENSE byte-matches canonical Apache 2.0 text.
 // ---------------------------------------------------------------------------
 
 // TestLicenseMatchesCanonicalWithSubstitution asserts that LICENSE at repo root
 // is byte-identical to scripts/fixtures/apache-2.0-with-copyright.txt (the
 // canonical Apache 2.0 text with the documented UniDoc copyright substitution
-// applied). This is the primary byte-match contract per Epic 7 risk E7-R-004.
+// applied). This is the primary byte-match contract.
 func TestLicenseMatchesCanonicalWithSubstitution(t *testing.T) {
 	license := readFileAtRoot(t, "LICENSE")
 	fixture := readFileAtRoot(t, "scripts/fixtures/apache-2.0-with-copyright.txt")
@@ -189,7 +163,7 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 	content := readFileAtRoot(t, "LICENSE")
 
 	if !strings.Contains(content, "Copyright 2026 UniDoc ehf.") {
-		t.Errorf("LICENSE missing `Copyright 2026 UniDoc ehf.` substitution (Task 1.2)")
+		t.Errorf("LICENSE missing `Copyright 2026 UniDoc ehf.` substitution")
 	}
 	// The unmodified placeholder MUST be gone (otherwise the substitution was not applied).
 	if strings.Contains(content, "Copyright [yyyy] [name of copyright owner]") {
@@ -198,8 +172,7 @@ func TestLicenseCopyrightHasUniDocAttribution(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-002 (P0): NOTICE has UniDoc + third-party attributions
-// Covers AC #3 (Task 2)
+// NOTICE has UniDoc + third-party attributions.
 // ---------------------------------------------------------------------------
 
 // TestNoticeHasRequiredAttributions asserts NOTICE contains UniDoc ehf.,
@@ -209,7 +182,7 @@ func TestNoticeHasRequiredAttributions(t *testing.T) {
 	content := readFileAtRoot(t, "NOTICE")
 
 	required := []string{
-		"UniDoc ehf.",     // AC #3 UniDoc attribution
+		"UniDoc ehf.",     // UniDoc attribution
 		"(c)",             // ASCII copyright marker (project ASCII-only rule)
 		"Apache License",  // Apache 2.0 reference
 		"pdfcpu",          // Go runtime dep #1
@@ -240,8 +213,7 @@ func TestNoticeHasNoUnicodeCopyright(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.3-STATIC-006 (P1): Verify-license shell script exists and is wired into CI
-// Covers AC #9 (Task 5)
+// Verify-license shell script exists and is wired into CI.
 // ---------------------------------------------------------------------------
 
 // TestVerifyLicenseScriptExistsAndExecutable asserts scripts/verify-license.sh
@@ -276,22 +248,22 @@ func TestVerifyLicenseScriptExistsAndExecutable(t *testing.T) {
 }
 
 // TestCIWorkflowReferencesVerifyScript asserts .github/workflows/ci.yml
-// references the scripts/verify-license.sh invocation per AC #9.
+// references the scripts/verify-license.sh invocation.
 func TestCIWorkflowReferencesVerifyScript(t *testing.T) {
 	content := readFileAtRoot(t, ".github/workflows/ci.yml")
 
 	if !strings.Contains(content, "scripts/verify-license.sh") {
 		t.Errorf(".github/workflows/ci.yml does not reference `scripts/verify-license.sh` -- " +
-			"the `Verify open-source docs` step from AC #9 / Task 5.3 is not wired in")
+			"the `Verify open-source docs` step is not wired in")
 	}
-	// The step should also be labelled per Task 5.3.
+	// The step must also carry its label.
 	if !strings.Contains(content, "Verify open-source docs") {
-		t.Errorf(".github/workflows/ci.yml does not contain the `Verify open-source docs` step label (Task 5.3)")
+		t.Errorf(".github/workflows/ci.yml does not contain the `Verify open-source docs` step label")
 	}
 }
 
 // TestReadmeHasNoBmadOutputLinks guards against the specific anti-pattern
-// called out in story 7-3 Task 3.7: `_bmad-output` is a symlink that exits the
+// called out separately: `_bmad-output` is a symlink that exits the
 // code repo, so any GitHub-rendered link into it 404s. No markdown link in
 // README may reference that path.
 func TestReadmeHasNoBmadOutputLinks(t *testing.T) {
@@ -301,15 +273,15 @@ func TestReadmeHasNoBmadOutputLinks(t *testing.T) {
 	pattern := regexp.MustCompile(`\[[^\]]*\]\([^)]*_bmad-output[^)]*\)`)
 	if m := pattern.FindString(content); m != "" {
 		t.Errorf("README.md contains link into `_bmad-output/` which is a symlink exiting the code repo "+
-			"and will 404 on GitHub: %q (story 7-3 Task 3.7)", m)
+			"and will 404 on GitHub: %q", m)
 	}
 }
 
 // TestNoticeEntriesDeclareCompatibleLicense asserts each of the mandated
 // third-party attributions explicitly states a license compatible with
-// Apache 2.0 (i.e. MIT or Apache 2.0). This is the NOTICE-side mirror of
-// Task 2.3's license-compatibility audit and a regression guard against a
-// future maintainer dropping a license tag or adding a GPL/LGPL/AGPL dep.
+// Apache 2.0 (i.e. MIT or Apache 2.0). This is the NOTICE-side mirror of the
+// license-compatibility audit and a regression guard against a future
+// maintainer dropping a license tag or adding a GPL/LGPL/AGPL dep.
 func TestNoticeEntriesDeclareCompatibleLicense(t *testing.T) {
 	content := readFileAtRoot(t, "NOTICE")
 
@@ -326,14 +298,14 @@ func TestNoticeEntriesDeclareCompatibleLicense(t *testing.T) {
 	incompatible := []string{"GPL", "AGPL", "LGPL", "SSPL", "CC-BY-NC", "Commons Clause"}
 	for _, bad := range incompatible {
 		if strings.Contains(content, bad) {
-			t.Errorf("NOTICE references potentially Apache-incompatible license token %q -- "+
-				"project license policy (PRD line 56) forbids this", bad)
+			t.Errorf("NOTICE references potentially Apache-incompatible license token %q -- the project "+
+				"ships under Apache 2.0, so no attribution may carry copyleft or non-commercial terms", bad)
 		}
 	}
 }
 
 // TestVerifyLicenseScriptUsesStrictMode asserts scripts/verify-license.sh
-// declares `set -euo pipefail` (Task 5.1 contract: "any failure aborts"). A
+// declares `set -euo pipefail`, so any failure aborts the script. A
 // missing strict-mode pragma would let a silent failure mid-script pass CI
 // even though a downstream grep failed.
 func TestVerifyLicenseScriptUsesStrictMode(t *testing.T) {
@@ -343,6 +315,6 @@ func TestVerifyLicenseScriptUsesStrictMode(t *testing.T) {
 		t.Fatalf("scripts/verify-license.sh not readable: %v", err)
 	}
 	if !strings.Contains(string(content), "set -euo pipefail") {
-		t.Errorf("scripts/verify-license.sh missing `set -euo pipefail` strict-mode pragma (Task 5.1)")
+		t.Errorf("scripts/verify-license.sh missing `set -euo pipefail` strict-mode pragma")
 	}
 }

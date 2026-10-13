@@ -2,19 +2,22 @@ package pdfcore
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-001 [P0]: GetContentStream returns decoded plain text for a page's
-// Contents node using testdata/content-stream.pdf.
-// AC#1: Given a tree node ID corresponding to a page's Contents entry,
-//       When GetContentStream(tabID, nodeID) is called,
-//       Then it returns ContentStreamData with decoded plain text in Raw,
-//       And NodeID is populated correctly.
+// GetContentStream returns decoded plain text for a page's Contents node
+// using testdata/content-stream.pdf.
+// Given a tree node ID corresponding to a page's Contents entry,
+// When GetContentStream(tabID, nodeID) is called,
+// Then it returns ContentStreamData with decoded plain text in Raw,
+// And NodeID is populated correctly.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamValid(t *testing.T) {
@@ -53,8 +56,8 @@ func TestGetContentStreamValid(t *testing.T) {
 		t.Errorf("Raw does not contain 'ET': %q", result.Raw)
 	}
 
-	// 3.3-UNIT-007 [P1] / Task 2.3: Verify tokenizer integration in GetContentStream.
-	// Tokenized field must be non-nil, non-empty, and contain at least BT and ET operators.
+	// Verify tokenizer integration in GetContentStream. Tokenized field must be
+	// non-nil, non-empty, and contain at least BT and ET operators.
 	if result.Tokenized == nil {
 		t.Fatal("Tokenized is nil, want non-nil after tokenizer integration")
 	}
@@ -77,10 +80,10 @@ func TestGetContentStreamValid(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-005 [P0]: GetContentStream with non-stream nodeID returns error
-// in ContentStreamData.Error field, not a Go error.
-// AC#2: Given a node that is not a stream, When GetContentStream is called,
-//       Then ContentStreamData.Error is populated, Raw is empty, no Go error.
+// GetContentStream with non-stream nodeID returns error in
+// ContentStreamData.Error field, not a Go error.
+// Given a node that is not a stream, When GetContentStream is called,
+// Then ContentStreamData.Error is populated, Raw is empty, no Go error.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamNonStream(t *testing.T) {
@@ -103,7 +106,7 @@ func TestGetContentStreamNonStream(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-004 [P0]: GetContentStream with invalid tabID returns
+// GetContentStream with invalid tabID returns
 // ErrDocumentNotFound as a Go error.
 // ---------------------------------------------------------------------------
 
@@ -119,7 +122,7 @@ func TestGetContentStreamUnknownTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-005b [P0]: GetContentStream with empty nodeID returns Go error.
+// GetContentStream with empty nodeID returns Go error.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamEmptyNodeID(t *testing.T) {
@@ -131,9 +134,9 @@ func TestGetContentStreamEmptyNodeID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-006 [P0]: Decoded content stream is cached per-document; second
-// call returns same result without re-decoding.
-// AC#3: Caching requirement.
+// Decoded content stream is cached per-document; second call returns same
+// result without re-decoding.
+// Caching requirement.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamCached(t *testing.T) {
@@ -187,9 +190,9 @@ func TestGetContentStreamCached(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-006b [P0]: GetContentStream with error-prefixed nodeID returns
+// GetContentStream with error-prefixed nodeID returns
 // ContentStreamData.Error, no panic, no Go error.
-// AC#2: Graceful degradation for error nodes.
+// Graceful degradation for error nodes.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamErrorNode(t *testing.T) {
@@ -219,7 +222,7 @@ func TestGetContentStreamErrorNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-009 [P1]: ContentStreamData.NodeID field is populated correctly.
+// ContentStreamData.NodeID field is populated correctly.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamNodeIDPopulated(t *testing.T) {
@@ -240,9 +243,8 @@ func TestGetContentStreamNodeIDPopulated(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-011 [P2]: Empty content stream (zero-length) returns empty Raw
-// string and no error.
-// Edge case: page with no drawing commands.
+// Empty content stream (zero-length) returns empty Raw string and no
+// error. Edge case: page with no drawing commands.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamEmpty(t *testing.T) {
@@ -277,9 +279,9 @@ func TestGetContentStreamEmpty(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.1-UNIT-012 [P2]: Cache is cleared when document is closed. After
-// Inspector.Close(tabID), GetDocument returns ErrDocumentNotFound, confirming
-// the DocumentState (and its streamCache) has been removed.
+// Cache is cleared when document is closed. After Inspector.Close(tabID),
+// GetDocument returns ErrDocumentNotFound, confirming the DocumentState (and
+// its streamCache) has been removed.
 // ---------------------------------------------------------------------------
 
 func TestGetContentStreamCacheClearedOnClose(t *testing.T) {
@@ -327,8 +329,8 @@ func TestGetContentStreamCacheClearedOnClose(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5.3-UNIT: GetPageContentStreamNodeID resolves a page number to the node ID
-// of its content stream.
+// GetPageContentStreamNodeID resolves a page number to the node ID of its
+// content stream.
 // ---------------------------------------------------------------------------
 
 func TestGetPageContentStreamNodeID_ContentStreamPDF(t *testing.T) {
@@ -384,10 +386,9 @@ func TestGetPageContentStreamNodeID_UnknownTab(t *testing.T) {
 	}
 }
 
-// 5.3-PDFCORE-005 [P1]: GetPageContentStreamNodeID returns empty string (no
-// error) for a page with no Contents entry. Uses minimal.pdf whose page 1 has
-// no Contents key in its page dict.
-// AC#4: page with no content stream returns non-fatal empty result.
+// GetPageContentStreamNodeID returns empty string (no error) for a page with
+// no Contents entry. Uses minimal.pdf whose page 1 has no Contents key in its
+// page dict. A page with no content stream returns a non-fatal empty result.
 func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 	ins, tabID := openMinimal(t)
 	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
@@ -400,9 +401,193 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-001 [P0]: Tokenizer produces correct Token structs for a reference
-// content stream line: "BT /F1 12 Tf (Hello) Tj ET".
-// AC#1: tokenizeContentStream produces Token structs with type, value, line, col.
+// pageContentStreamNodeIDs enumerates the page's content-stream
+// refs (the concatenation order/set).
+//
+// Per ISO 32000-1 7.8.2 a page's content is the concatenation of its /Contents
+// array's STREAM refs, so a degenerate null / non-ref element contributes NO
+// stream and must be skipped (not counted, not concatenated). This test pins
+// that: a single indirect ref, a one-element array `[ref]`, and the degenerate
+// `[ref null]` all enumerate to 1 stream; a genuine multi-ref array `[ref ref]`
+// enumerates 2; a page with no /Contents enumerates 0.
+//
+// The `[ref null]` case is built by an in-memory page-dict mutation, not a disk
+// fixture: pdfcpu rejects an on-disk /Contents array containing a null element
+// at read time (DereferenceStreamDict: wrong type <nil>), so the only way to
+// drive that degenerate array into pageContentStreamNodeIDs is to inject it
+// after a valid open. This still exercises the production enumeration verbatim.
+// ---------------------------------------------------------------------------
+
+// contentStreamObj builds a minimal, valid content-stream object body numbered
+// n for the pageContentStreamNodeIDs fixtures.
+func contentStreamObj(n int) string {
+	body := "BT /F1 12 Tf 100 700 Td (x) Tj ET"
+	return fmt.Sprintf("%d 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n", n, len(body), body)
+}
+
+func TestPageContentStreamNodeIDs(t *testing.T) {
+	catalog := "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+	pages := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+
+	cases := []struct {
+		name string
+		page string
+		objs []string
+		want int
+	}{
+		{
+			name: "single indirect ref",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n",
+			objs: []string{contentStreamObj(4)},
+			want: 1,
+		},
+		{
+			name: "one-element array [ref]",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			objs: []string{contentStreamObj(4)},
+			want: 1,
+		},
+		{
+			name: "multi-ref array [ref ref]",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R 5 0 R] >>\nendobj\n",
+			objs: []string{contentStreamObj(4), contentStreamObj(5)},
+			want: 2,
+		},
+		{
+			name: "no /Contents entry",
+			page: "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+			objs: nil,
+			want: 0,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			objs := append([]string{catalog, pages, tc.page}, tc.objs...)
+			ins, tabID := writeTempPDF(t, "count.pdf", assembleDiffPDF(1, objs...))
+			ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+			got := len(ids)
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", tc.name, err)
+			}
+			if got != tc.want {
+				t.Errorf("%s: count = %d, want %d", tc.name, got, tc.want)
+			}
+		})
+	}
+
+	// Anti-false-positive: a degenerate [ref null] array must count 1, not 2.
+	// pdfcpu rejects this shape on disk, so open a valid [ref] fixture and inject
+	// the trailing null into the live page dict before the count call.
+	t.Run("degenerate array [ref null] is not truncation", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "refnull.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		// Inject the degenerate [ref null] shape the fix guards against.
+		pageDict["Contents"] = pdfcpu_types.Array{ref, nil}
+
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := len(ids); got != 1 {
+			t.Errorf("[ref null] stream count = %d, want 1 (a null element is not a stream, so it is skipped in concatenation)", got)
+		}
+	})
+
+	// A null at index 0 is skipped just like a null anywhere else (PR review:
+	// null handling must not depend on position). [null ref] enumerates the one
+	// real stream, exactly like [ref null].
+	t.Run("degenerate array [null ref] skips the leading null", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "nullref.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		// Inject the null AT INDEX 0.
+		pageDict["Contents"] = pdfcpu_types.Array{nil, ref}
+
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+		if err != nil {
+			t.Fatalf("[null ref] unexpected error: %v (a leading null must be skipped, not rejected)", err)
+		}
+		if got := len(ids); got != 1 {
+			t.Errorf("[null ref] stream count = %d, want 1 (leading null skipped like any other null)", got)
+		}
+	})
+
+	// A non-null, non-ref element is malformed rather than empty: /Contents
+	// elements are refs to streams (7.8.2) and streams are always indirect
+	// (7.3.8). Skipping it could omit real page content, so it must be reported.
+	// Same in-memory injection as above - pdfcpu rejects the shape on disk.
+	t.Run("[ref junk] errors instead of silently skipping", func(t *testing.T) {
+		objs := []string{
+			catalog,
+			pages,
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [4 0 R] >>\nendobj\n",
+			contentStreamObj(4),
+		}
+		ins, tabID := writeTempPDF(t, "refjunk.pdf", assembleDiffPDF(1, objs...))
+		doc, err := ins.GetDocument(tabID)
+		if err != nil {
+			t.Fatalf("GetDocument: %v", err)
+		}
+		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		if err != nil {
+			t.Fatalf("PageDict: %v", err)
+		}
+		arr, ok := pageDict["Contents"].(pdfcpu_types.Array)
+		if !ok || len(arr) != 1 {
+			t.Fatalf("fixture broken: /Contents = %v, want a one-element array", pageDict["Contents"])
+		}
+		ref := arr[0].(pdfcpu_types.IndirectRef)
+		pageDict["Contents"] = pdfcpu_types.Array{ref, pdfcpu_types.Integer(42)}
+
+		ids, err := ins.pageContentStreamNodeIDs(tabID, 1)
+		if err == nil {
+			t.Fatalf("[ref 42] returned %d ids and no error; a non-null non-ref element must be reported, not skipped", len(ids))
+		}
+		if !strings.Contains(err.Error(), "element 1") {
+			t.Errorf("error must name the offending index, got: %v", err)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Tokenizer produces correct Token structs for a reference content stream
+// line: "BT /F1 12 Tf (Hello) Tj ET".
+// tokenizeContentStream produces Token structs with type, value, line, col.
 // ---------------------------------------------------------------------------
 
 func TestTokenizeContentStream(t *testing.T) {
@@ -655,9 +840,9 @@ func TestTokenizeContentStream(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-002 [P0]: Tokenizer classifies all standard PDF operators correctly.
-// AC#1: Any non-number, non-string, non-name, non-comment word is classified
-// as "operator". Table-driven test against known operator list.
+// Tokenizer classifies all standard PDF operators correctly.
+// Any non-number, non-string, non-name, non-comment word is classified as
+// "operator". Table-driven test against known operator list.
 // ---------------------------------------------------------------------------
 
 func TestTokenizeContentStreamOperators(t *testing.T) {
@@ -691,8 +876,8 @@ func TestTokenizeContentStreamOperators(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-LINE-COL [P1]: Tokenizer Line and Col are 1-based and track
-// correctly across newlines.
+// Tokenizer Line and Col are 1-based and track correctly across
+// newlines.
 // ---------------------------------------------------------------------------
 
 func TestTokenizeContentStreamLineCol(t *testing.T) {
@@ -722,8 +907,8 @@ func TestTokenizeContentStreamLineCol(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.3-UNIT-EDGE [P2]: Tokenizer edge cases not covered by the main test suite.
-// Bare '-', bare '.', dict delimiters, unbalanced parens, \r\n line tracking.
+// Tokenizer edge cases not covered by the main test suite. Bare '-', bare '.',
+// dict delimiters, unbalanced parens, \r\n line tracking.
 // ---------------------------------------------------------------------------
 
 func TestTokenizeContentStreamEdgeCases(t *testing.T) {
@@ -829,9 +1014,9 @@ func TestTokenizeContentStreamEdgeCases(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9.6-UNIT-001 [P0]: Tokenizer delivers inline-image payloads opaquely.
+// Tokenizer delivers inline-image payloads opaquely.
 //
-// Locks the contract that Story 9-6's content-stream formatter depends on:
+// Locks the contract the content-stream formatter depends on:
 // for any BI..ID..<bytes>..EI sequence the tokenizer emits exactly
 // [..., {operator ID}, {string <payload>}, {operator EI}] with the payload
 // delivered as ONE string token regardless of whitespace, newlines, or the
@@ -888,8 +1073,137 @@ func TestTokenizeInlineImagePayloadOpaque(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3.3-BENCH-001 [P2]: Benchmark tokenizer on a ~100KB content stream.
-// Verifies O(n) performance and detects regressions.
+// inline-image data token has no trailing whitespace (F3). A "\r\nEI"
+// sequence must drop the CR as well as the LF delimiter (one CRLF unit), not
+// leave the stray '\r' the single-byte strip left behind, so the opaque data
+// token carries no trailing EOL fragment.
+// ---------------------------------------------------------------------------
+
+func TestTokenizeInlineImageTrailingWhitespaceStripped(t *testing.T) {
+	input := "q\r\nBI /W 1 /H 1 ID\x00\x01\x02\r\nEI\nQ"
+	toks := tokenizeContentStream(input)
+
+	idIdx, eiIdx := -1, -1
+	for i, tk := range toks {
+		if tk.Type == "operator" && tk.Value == "ID" && idIdx == -1 {
+			idIdx = i
+		}
+		if tk.Type == "operator" && tk.Value == "EI" && eiIdx == -1 && idIdx != -1 && i > idIdx {
+			eiIdx = i
+		}
+	}
+	if idIdx == -1 || eiIdx == -1 {
+		t.Fatalf("expected ID and EI operators; got tokens=%+v", toks)
+	}
+	if eiIdx-idIdx != 2 {
+		t.Fatalf("expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
+	}
+	payload := toks[idIdx+1]
+	if payload.Value != "\x00\x01\x02" {
+		t.Errorf("payload Value = %q, want %q (\"\\r\\n\" CRLF delimiter before EI must be stripped, CR included)", payload.Value, "\x00\x01\x02")
+	}
+	if strings.HasSuffix(payload.Value, "\r") || strings.HasSuffix(payload.Value, "\n") {
+		t.Errorf("payload Value = %q retains trailing whitespace", payload.Value)
+	}
+}
+
+// A whitespace-valued byte that is genuinely part of the opaque inline-image
+// payload (here a 0x20 sample immediately before the single-LF delimiter) must
+// be preserved. The EOL strip is bounded to one delimiter (CRLF unit), not an
+// unbounded whitespace run that would eat real data bytes.
+func TestTokenizeInlineImagePayloadWhitespaceValuedByteKept(t *testing.T) {
+	input := "q\nBI /W 1 /H 1 ID\x00\x20\nEI\nQ"
+	toks := tokenizeContentStream(input)
+
+	idIdx, eiIdx := -1, -1
+	for i, tk := range toks {
+		if tk.Type == "operator" && tk.Value == "ID" && idIdx == -1 {
+			idIdx = i
+		}
+		if tk.Type == "operator" && tk.Value == "EI" && eiIdx == -1 && idIdx != -1 && i > idIdx {
+			eiIdx = i
+		}
+	}
+	if idIdx == -1 || eiIdx == -1 {
+		t.Fatalf("expected ID and EI operators; got tokens=%+v", toks)
+	}
+	if eiIdx-idIdx != 2 {
+		t.Fatalf("expected exactly one payload token between ID and EI; got %d, sequence=%+v",
+			eiIdx-idIdx-1, toks[idIdx:eiIdx+1])
+	}
+	payload := toks[idIdx+1]
+	if payload.Value != "\x00\x20" {
+		t.Errorf("payload Value = %q, want %q (whitespace-valued payload byte before the single-LF delimiter must be preserved, not stripped)", payload.Value, "\x00\x20")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// leading-sign number tokenization (F1).
+//
+// ISO 32000-1 7.3.3 permits a leading '+' as well as '-' on integers and
+// reals, so a spec-valid operand like "+5" must classify as a SINGLE "number"
+// token rather than falling through to the word/operator branch. This
+// table-driven test feeds bare number byte-slices and asserts that.
+//
+// The bare "+"/"-" cases -- a sign not followed by a digit or ".digit" --
+// REMAIN word/operator tokens.
+// ---------------------------------------------------------------------------
+
+func TestTokenizeLeadingSignNumbers(t *testing.T) {
+	numberCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"leading plus integer", "+5", "+5"},
+		{"leading plus leading-dot real", "+.5", "+.5"},
+		{"leading minus integer", "-3", "-3"},
+		{"leading minus leading-dot real", "-.5", "-.5"},
+		{"leading plus real", "+5.0", "+5.0"},
+	}
+	for _, tc := range numberCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens := tokenizeContentStream(tc.input)
+			if len(tokens) != 1 {
+				t.Fatalf("%q: got %d tokens, want exactly 1 (single number token); tokens=%+v",
+					tc.input, len(tokens), tokens)
+			}
+			if tokens[0].Type != "number" {
+				t.Errorf("%q: token Type = %q, want \"number\"", tc.input, tokens[0].Type)
+			}
+			if tokens[0].Value != tc.want {
+				t.Errorf("%q: token Value = %q, want %q", tc.input, tokens[0].Value, tc.want)
+			}
+		})
+	}
+
+	// A bare sign not followed by a digit or ".digit" stays a word/operator
+	// token (unchanged behavior). Guards against an over-broad fix.
+	bareCases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"bare plus stays operator", "+ 10 Td", "+"},
+		{"bare minus stays operator", "- 10 Td", "-"},
+	}
+	for _, tc := range bareCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens := tokenizeContentStream(tc.input)
+			if len(tokens) == 0 {
+				t.Fatalf("%q: got 0 tokens, want at least 1", tc.input)
+			}
+			if tokens[0].Type != "operator" || tokens[0].Value != tc.want {
+				t.Errorf("%q: token[0] = %+v, want operator(%s)", tc.input, tokens[0], tc.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Benchmark tokenizer on a ~100KB content stream. Verifies O(n)
+// performance and detects regressions.
 // ---------------------------------------------------------------------------
 
 func BenchmarkTokenizeContentStream100KB(b *testing.B) {
@@ -908,48 +1222,34 @@ func BenchmarkTokenizeContentStream100KB(b *testing.B) {
 }
 
 // ---------------------------------------------------------------------------
-// Story 10-5 AC#3 -- concurrent cache-build race avoidance
+// Concurrent cache-build race avoidance
 // ---------------------------------------------------------------------------
 
-// Test_10_5_AC3_GetContentStreamConcurrentSameNode [P0] AC#3:
-// Two concurrent GetContentStream calls against the SAME nodeID with an
-// initially-empty streamCache must collapse to one resolve+decode pass; both
-// callers receive the same *ContentStreamData pointer and Raw is non-empty.
+// TestGetContentStreamConcurrentSameNode asserts two concurrent GetContentStream
+// calls against the SAME nodeID with an initially-empty streamCache collapse to
+// one resolve+decode pass: both callers receive the same *ContentStreamData
+// pointer and Raw is non-empty.
 //
 // The goroutines park on a shared `start` channel and are released
-// simultaneously so they hit the cache-check critical section in the same
-// window. Without that barrier the two calls could serialize naturally and
-// pass even if the bug were present.
+// simultaneously so they hit the cache-check critical section in the same window.
+// Without that barrier the two calls could serialize naturally and pass even when
+// streamMu is dropped between the cache check and the cache write.
 //
-// Pre-fix shape of GetContentStream (stream.go lines 77-145, baseline at
-// story creation): drops streamMu between the cache check and the
-// decode+write, so two callers can both miss the cache, both decode, and
-// both store their own result. The second cached entry clobbers the first
-// and they receive DIFFERENT *ContentStreamData pointers.
-//
-// Post-fix shape: streamMu is held for the entire resolve+decode+write so
-// the second caller observes the populated cache and returns the SAME
-// pointer.
-//
-// Failure mode this test catches: pointer inequality between the two
-// returned *ContentStreamData. A pass under the current code is possible
-// only if the OS happens to serialize the goroutines; the barrier makes
-// that path statistically unlikely. Combined with the AC2 -race soak
-// (which surfaces the streamCache write race directly), this is the
-// behavioural complement.
-func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
+// The failure mode this catches is pointer inequality between the two returned
+// *ContentStreamData.
+func TestGetContentStreamConcurrentSameNode(t *testing.T) {
 	ins, tabID := openContentStream(t)
 	t.Cleanup(func() { _ = ins.Close(tabID) })
 
 	// Resolve a real stream nodeID via the page-1 Contents lookup, matching
-	// the AC3 spec verbatim ("the node ID resolved via
+	// the spec verbatim ("the node ID resolved via
 	// GetPageContentStreamNodeID(tabID, 1)").
 	nodeID, err := ins.GetPageContentStreamNodeID(tabID, 1)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC3: GetPageContentStreamNodeID(1) failed: %v", err)
+		t.Fatalf("GetPageContentStreamNodeID(1) failed: %v", err)
 	}
 	if nodeID == "" {
-		t.Fatalf("[P0] 10-5-AC3: page 1 of content-stream.pdf has no Contents node -- fixture broken")
+		t.Fatalf("page 1 of content-stream.pdf has no Contents node -- fixture broken")
 	}
 
 	// Sanity check: cache MUST start empty. If a prior call populated it
@@ -957,12 +1257,12 @@ func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
 	// collapses and the test passes for the wrong reason.
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
-		t.Fatalf("[P0] 10-5-AC3: GetDocument failed: %v", err)
+		t.Fatalf("GetDocument failed: %v", err)
 	}
 	doc.streamMu.Lock()
 	if _, exists := doc.streamCache[nodeID]; exists {
 		doc.streamMu.Unlock()
-		t.Fatalf("[P0] 10-5-AC3: streamCache already populated for %q -- prerequisite violated", nodeID)
+		t.Fatalf("streamCache already populated for %q -- prerequisite violated", nodeID)
 	}
 	doc.streamMu.Unlock()
 
@@ -992,23 +1292,23 @@ func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
 
 	for i, e := range errs {
 		if e != nil {
-			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned error: %v", i, e)
+			t.Fatalf("goroutine %d returned error: %v", i, e)
 		}
 		if results[i] == nil {
-			t.Fatalf("[P0] 10-5-AC3: goroutine %d returned nil *ContentStreamData", i)
+			t.Fatalf("goroutine %d returned nil *ContentStreamData", i)
 		}
 	}
 
 	// Pointer equality: both goroutines MUST see the SAME cached pointer.
 	// Inequality is the bug signal (each goroutine wrote its own object).
 	if results[0] != results[1] {
-		t.Errorf("[P0] 10-5-AC3: concurrent GetContentStream returned different *ContentStreamData pointers (%p vs %p) -- expected pointer equality (single cache entry)", results[0], results[1])
+		t.Errorf("concurrent GetContentStream returned different *ContentStreamData pointers (%p vs %p) -- expected pointer equality (single cache entry)", results[0], results[1])
 	}
 
 	// Raw must be non-empty -- a clobbered placeholder (zero-length result
 	// written before decode completed) is the other tell-tale of the race.
 	if results[0] != nil && results[0].Raw == "" {
-		t.Errorf("[P0] 10-5-AC3: result[0].Raw is empty -- expected decoded content (clobbered placeholder?)")
+		t.Errorf("result[0].Raw is empty -- expected decoded content (clobbered placeholder?)")
 	}
 
 	// Cache must contain exactly one entry for this nodeID, and that entry
@@ -1018,13 +1318,13 @@ func Test_10_5_AC3_GetContentStreamConcurrentSameNode(t *testing.T) {
 	cacheLen := len(doc.streamCache)
 	doc.streamMu.Unlock()
 	if !ok {
-		t.Errorf("[P0] 10-5-AC3: streamCache missing %q after concurrent calls -- single resolve+decode pass should have written exactly one entry", nodeID)
+		t.Errorf("streamCache missing %q after concurrent calls -- single resolve+decode pass should have written exactly one entry", nodeID)
 	}
 	if cached != results[0] {
-		t.Errorf("[P0] 10-5-AC3: cached pointer differs from returned pointer (%p vs %p)", cached, results[0])
+		t.Errorf("cached pointer differs from returned pointer (%p vs %p)", cached, results[0])
 	}
 	if cacheLen < 1 {
-		t.Errorf("[P0] 10-5-AC3: streamCache size = %d, expected >= 1", cacheLen)
+		t.Errorf("streamCache size = %d, expected >= 1", cacheLen)
 	}
 }
 

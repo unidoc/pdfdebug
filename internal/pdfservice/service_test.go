@@ -1,8 +1,10 @@
 package pdfservice
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"unidoc-pdf-debugger/internal/pdfcore"
@@ -235,7 +237,7 @@ func TestGetAncestorPathUnknown(t *testing.T) {
 	}
 }
 
-// --- GetContentStream tests (Story 3-1) ---
+// --- GetContentStream tests ---
 
 func TestGetContentStreamValid(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -302,7 +304,7 @@ func TestGetContentStreamUnknown(t *testing.T) {
 	}
 }
 
-// --- GetImageData tests (Story 6-1) ---
+// --- GetImageData tests ---
 
 func TestGetImageData(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -343,7 +345,7 @@ func TestGetImageData(t *testing.T) {
 		t.Fatal("no image node found in image-xobject.pdf")
 	}
 
-	result, err := svc.GetImageData(info.TabID, imageNodeID)
+	result, err := svc.GetImageData(context.Background(), info.TabID, imageNodeID)
 	if err != nil {
 		t.Fatalf("GetImageData returned error: %v", err)
 	}
@@ -363,7 +365,7 @@ func TestGetImageData(t *testing.T) {
 
 func TestGetImageDataUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
-	_, err := svc.GetImageData("nonexistent-tab-id", "root")
+	_, err := svc.GetImageData(context.Background(), "nonexistent-tab-id", "root")
 	if err == nil {
 		t.Fatal("GetImageData with unknown tabID should return error")
 	}
@@ -372,7 +374,7 @@ func TestGetImageDataUnknownTab(t *testing.T) {
 	}
 }
 
-// --- GetFontDetail tests (Story 9-9) ---
+// --- GetFontDetail tests ---
 
 func TestGetFontDetail(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -458,53 +460,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// 9.4-UNIT-001: GoToPage exposes the pdfcore page-content-stream resolver to
-// the Wails service layer. Valid page resolves to a non-empty node ID;
-// out-of-range and unknown-tab paths surface as errors that map to user-facing
-// error messages on the frontend.
-
-func TestGoToPageValid(t *testing.T) {
-	svc := NewPDFService(nil)
-	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
-	if err != nil {
-		t.Fatalf("OpenFile failed: %v", err)
-	}
-	defer func() { _ = svc.CloseDocument(info.TabID) }()
-
-	nodeID, err := svc.GoToPage(info.TabID, 1)
-	if err != nil {
-		t.Fatalf("GoToPage(1) returned error: %v", err)
-	}
-	if nodeID == "" {
-		t.Error("GoToPage(1) returned empty node ID")
-	}
-}
-
-func TestGoToPageOutOfRange(t *testing.T) {
-	svc := NewPDFService(nil)
-	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "content-stream.pdf"))
-	if err != nil {
-		t.Fatalf("OpenFile failed: %v", err)
-	}
-	defer func() { _ = svc.CloseDocument(info.TabID) }()
-
-	if _, err := svc.GoToPage(info.TabID, 9999); err == nil {
-		t.Fatal("GoToPage with out-of-range page should error, got nil")
-	}
-}
-
-func TestGoToPageUnknownTab(t *testing.T) {
-	svc := NewPDFService(nil)
-	_, err := svc.GoToPage("does-not-exist", 1)
-	if err == nil {
-		t.Fatal("GoToPage with unknown tab should error, got nil")
-	}
-	if !errors.Is(err, pdfcore.ErrDocumentNotFound) {
-		t.Errorf("err = %v, want errors.Is(...,ErrDocumentNotFound)", err)
-	}
-}
-
-// --- GetXRefTable + GetPlainText tests (Story 9-11) ---
+// --- GetXRefTable + GetPlainText tests ---
 
 func TestGetXRefTableValid(t *testing.T) {
 	svc := NewPDFService(nil)
@@ -548,7 +504,7 @@ func TestGetPlainTextValid(t *testing.T) {
 	}
 	defer func() { _ = svc.CloseDocument(info.TabID) }()
 
-	pt, err := svc.GetPlainText(info.TabID)
+	pt, err := svc.GetPlainText(context.Background(), info.TabID)
 	if err != nil {
 		t.Fatalf("GetPlainText: %v", err)
 	}
@@ -565,7 +521,7 @@ func TestGetPlainTextValid(t *testing.T) {
 
 func TestGetPlainTextUnknownTab(t *testing.T) {
 	svc := NewPDFService(nil)
-	_, err := svc.GetPlainText("does-not-exist")
+	_, err := svc.GetPlainText(context.Background(), "does-not-exist")
 	if err == nil {
 		t.Fatal("expected error for unknown tab, got nil")
 	}
@@ -574,3 +530,73 @@ func TestGetPlainTextUnknownTab(t *testing.T) {
 	}
 }
 
+
+func TestGetPageIndexDelegatesToInspector(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	got, err := svc.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("GetPageIndex: %v", err)
+	}
+	want, err := svc.inspector.GetPageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("inspector GetPageIndex: %v", err)
+	}
+	if len(got) == 0 || len(got) != len(want) || got[0] != want[0] {
+		t.Errorf("service returned %d entries, inspector %d; want the same cached slice", len(got), len(want))
+	}
+	if len(got) != info.PageCount {
+		t.Errorf("got %d entries for a %d-page document", len(got), info.PageCount)
+	}
+}
+
+func TestGetPageIndexUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	if _, err := svc.GetPageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("err = %v, want ErrDocumentNotFound", err)
+	}
+}
+
+func TestGetImageIndexGetImagePagesAndGetImagePageGroupsDelegateToInspector(t *testing.T) {
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(filepath.Join(testdataDir(t), "image-xobject.pdf"))
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	got, err := svc.GetImageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("GetImageIndex: %v", err)
+	}
+	want, err := svc.inspector.GetImageIndex(info.TabID)
+	if err != nil {
+		t.Fatalf("inspector GetImageIndex: %v", err)
+	}
+	if len(got) == 0 || !reflect.DeepEqual(got, want) {
+		t.Fatalf("service returned %+v, inspector %+v; want the same entries", got, want)
+	}
+	pages, err := svc.GetImagePages(info.TabID, got[0].ObjNum)
+	if err != nil || len(pages) != got[0].PageCount {
+		t.Errorf("GetImagePages = %v, %v; want %d pages", pages, err, got[0].PageCount)
+	}
+	groups, err := svc.GetImagePageGroups(info.TabID)
+	wantGroups, _ := svc.inspector.GetImagePageGroups(info.TabID)
+	if err != nil || len(groups) == 0 || !reflect.DeepEqual(groups, wantGroups) {
+		t.Errorf("GetImagePageGroups = %+v, %v; want the inspector's groups %+v", groups, err, wantGroups)
+	}
+}
+
+func TestGetImageIndexGetImagePagesAndGetImagePageGroupsUnknownTab(t *testing.T) {
+	svc := NewPDFService(nil)
+	if _, err := svc.GetImageIndex("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImageIndex err = %v, want ErrDocumentNotFound", err)
+	}
+	if _, err := svc.GetImagePages("no-such-tab", 1); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImagePages err = %v, want ErrDocumentNotFound", err)
+	}
+	if _, err := svc.GetImagePageGroups("no-such-tab"); !errors.Is(err, pdfcore.ErrDocumentNotFound) {
+		t.Errorf("GetImagePageGroups err = %v, want ErrDocumentNotFound", err)
+	}
+}

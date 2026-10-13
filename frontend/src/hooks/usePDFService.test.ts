@@ -1,6 +1,6 @@
 /**
  * mapErrorMessage unit tests -- pure function, lowest viable test layer.
- * Covers the error keyword -> user-friendly message mapping from story 2-4.
+ * Covers the error keyword -> user-friendly message mapping.
  */
 import { describe, test, expect, vi } from 'vitest';
 import { mapErrorMessage } from './usePDFService';

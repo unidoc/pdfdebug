@@ -1,27 +1,21 @@
 /**
- * Story 10.2: Find Bar in Plain Text View -- pure-function red-phase suite.
- *
- * TDD RED PHASE: every test below fails until frontend/src/lib/findMatches.ts
- * is implemented per Task 2.
+ * Find Bar in Plain Text View -- pure-function suite.
  *
  * Scope:
- * - findMatches(content, query, caseSensitive): Match[] -- AC4 algorithm,
- *   AC12 non-Latin-1 detection, AC19 performance budget.
- * - buildLineStartOffsets(content): number[] -- AC4 memoizable line table.
- *
- * Test IDs follow the 10-2-UNIT-NNN convention.
+ * - findMatches(content, query, caseSensitive): Match[] -- algorithm,
+ *   non-Latin-1 detection, performance budget.
+ * - buildLineStartOffsets(content): number[] -- memoizable line table.
  *
  * Run: cd frontend && npx vitest run src/lib/findMatches.test.ts
  */
 import { describe, test, expect } from 'vitest';
-// RED PHASE: this import fails until Task 2.1 lands.
 import { findMatches, buildLineStartOffsets, type Match } from './findMatches';
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-001 [P0] AC#4: empty query yields zero matches.
+// Empty query yields zero matches.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-001: empty query', () => {
+describe('empty query', () => {
   test('empty query over non-empty corpus returns []', () => {
     expect(findMatches('hello world', '', false)).toEqual([]);
   });
@@ -32,10 +26,10 @@ describe('10-2-UNIT-001: empty query', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-002 [P0] AC#4: single literal substring match.
+// Single literal substring match.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-002: single match', () => {
+describe('single match', () => {
   test('finds one match in a single-line corpus', () => {
     const matches = findMatches('hello world', 'world', false);
     expect(matches).toHaveLength(1);
@@ -50,10 +44,10 @@ describe('10-2-UNIT-002: single match', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-003 [P0] AC#4: multiple matches across multiple lines.
+// Multiple matches across multiple lines.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-003: multiple matches', () => {
+describe('multiple matches', () => {
   test('finds all matches across LF-separated lines with 1-based line numbers', () => {
     const corpus = 'foo bar\nbaz foo\nfoo qux';
     const matches = findMatches(corpus, 'foo', false);
@@ -68,11 +62,11 @@ describe('10-2-UNIT-003: multiple matches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-004 [P0] AC#4 (Decision: non-overlapping): "aaaa" searched for
-// "aa" yields 2 matches at offsets [0, 2].
+// Decision: non-overlapping: "aaaa" searched for "aa" yields 2 matches at
+// offsets [0, 2].
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-004: non-overlapping matches', () => {
+describe('non-overlapping matches', () => {
   test('"aaaa" find "aa" returns 2 matches at offsets 0 and 2', () => {
     const matches = findMatches('aaaa', 'aa', false);
     expect(matches).toHaveLength(2);
@@ -89,10 +83,10 @@ describe('10-2-UNIT-004: non-overlapping matches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-005 [P0] AC#4: case-insensitive default.
+// case-insensitive default.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-005: case-insensitive default', () => {
+describe('case-insensitive default', () => {
   test('"HELVETICA" matches "helvetica" when caseSensitive=false', () => {
     const corpus = 'Font /HELVETICA bold';
     const matches = findMatches(corpus, 'helvetica', false);
@@ -107,10 +101,10 @@ describe('10-2-UNIT-005: case-insensitive default', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-006 [P0] AC#4: case-sensitive opt-in.
+// case-sensitive opt-in.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-006: case-sensitive when caseSensitive=true', () => {
+describe('case-sensitive when caseSensitive=true', () => {
   test('"HELVETICA" does NOT match "helvetica" when caseSensitive=true', () => {
     const corpus = 'Font /HELVETICA bold';
     expect(findMatches(corpus, 'helvetica', true)).toHaveLength(0);
@@ -125,10 +119,10 @@ describe('10-2-UNIT-006: case-sensitive when caseSensitive=true', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-007 [P0] AC#12: query with codepoint > U+00FF returns [].
+// Query with codepoint > U+00FF returns [].
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-007: non-Latin-1 query rejected', () => {
+describe('non-Latin-1 query rejected', () => {
   test('query containing U+2192 (right arrow) returns []', () => {
     expect(findMatches('hello world', 'hello→world', false)).toEqual([]);
   });
@@ -158,11 +152,11 @@ describe('10-2-UNIT-007: non-Latin-1 query rejected', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-008 [P0] AC#4: line number is 1-based and derived from a
-// memoized line-start offset table.
+// line number is 1-based and derived from a memoized line-start
+// offset table.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-008: line numbers are 1-based', () => {
+describe('line numbers are 1-based', () => {
   test('match on line 1 has line=1', () => {
     expect(findMatches('foo\nbar\nbaz', 'foo', false)[0].line).toBe(1);
   });
@@ -192,11 +186,11 @@ describe('10-2-UNIT-008: line numbers are 1-based', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-009 [P0] AC#4: buildLineStartOffsets returns 1-based-line offset
-// table where index i is the code-unit offset of line (i+1).
+// buildLineStartOffsets returns 1-based-line offset table where index i is
+// the code-unit offset of line (i+1).
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-009: buildLineStartOffsets', () => {
+describe('buildLineStartOffsets', () => {
   test('empty corpus -> table with a single zero (line 1 starts at offset 0)', () => {
     expect(buildLineStartOffsets('')).toEqual([0]);
   });
@@ -223,21 +217,21 @@ describe('10-2-UNIT-009: buildLineStartOffsets', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-010 [P0] AC#4: zero-byte / empty corpus edge case.
+// zero-byte / empty corpus edge case.
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-010: empty corpus', () => {
+describe('empty corpus', () => {
   test('empty corpus + any non-empty query returns []', () => {
     expect(findMatches('', 'anything', false)).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-011 [P0] AC#4: Match.end == Match.start + query.length for the
-// case-insensitive path (no normalization expansion).
+// Match.end == Match.start + query.length for the case-insensitive path
+// (no normalization expansion).
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-011: match end aligns with start + query.length', () => {
+describe('match end aligns with start + query.length', () => {
   test('case-insensitive: end - start equals query.length', () => {
     const matches = findMatches('FooBarFooBaz', 'foo', false);
     matches.forEach((m: Match) => {
@@ -254,16 +248,16 @@ describe('10-2-UNIT-011: match end aligns with start + query.length', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-012 [P1] AC#19: performance budget on a 25 MiB synthetic corpus
-// with ~10000 matches completes well under the CI ceiling.
+// Performance budget on a 25 MiB synthetic corpus with ~10000 matches
+// completes well under the CI ceiling.
 //
 // The CI assertion uses 500 ms to accommodate slow GHA runners; local dev
-// typically sees <50 ms (documented in Dev Notes). This test is the only
+// typically sees <50 ms (documented). This test is the only
 // place the perf budget is asserted -- if it fails, look for an algorithmic
 // regression (overlapping search, accidental regex, missed Latin-1 fast path).
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-012: performance budget', () => {
+describe('performance budget', () => {
   test('25 MiB corpus with 10000 matches completes in under 500 ms', () => {
     const chunk = 'helvetica padded with some other bytes to space them out\n';
     // Tuned so the final corpus is ~25 MiB and contains ~10000 "helvetica"
@@ -280,11 +274,11 @@ describe('10-2-UNIT-012: performance budget', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10-2-UNIT-013 [P1] AC#4: query equal to the entire corpus returns one match
-// covering [0, corpus.length).
+// Query equal to the entire corpus returns one match covering [0,
+// corpus.length).
 // ---------------------------------------------------------------------------
 
-describe('10-2-UNIT-013: query equal to corpus', () => {
+describe('query equal to corpus', () => {
   test('query == corpus returns single match spanning the whole corpus', () => {
     const corpus = 'exactly this content';
     const matches = findMatches(corpus, corpus, false);

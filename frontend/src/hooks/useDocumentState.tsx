@@ -2,7 +2,7 @@
  * @file Global application state via React context + useReducer.
  * Manages document tabs, node selection, navigation, and error banners.
  */
-import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
 
 // --- Types ---
 
@@ -19,16 +19,31 @@ export interface TreeNode {
   error: string;
   /**
    * "<num> <gen> R" for indirect objects; "" for inline scalars/arrays/dicts
-   * without an indirect identity. Renders as the [N G R] suffix on tree rows
-   * (Story 9-8 AC1).
+   * without an indirect identity. Renders as the [N G R] suffix on tree rows.
    */
   objectRef: string;
   /**
    * Literal /Type value of the resolved dict (e.g. "Pages", "Page", "Font");
    * "" when absent. Frontend dedups this against the semantic label before
-   * rendering /T:<TypeName> (Story 9-8 AC2).
+   * rendering /T:<TypeName>.
    */
   typeName: string;
+  /**
+   * What a scalar leaf says, decoded; "" for dicts, arrays, streams, refs and
+   * error nodes. An array element carries it too, even though its label
+   * already presents the same value clamped to the plain-text row's ceiling -
+   * the label is one CLI row, this is the whole value. Uncapped and unescaped:
+   * every tree row, array elements included, escapes its control characters in
+   * JS and clamps the result at TREE_VALUE_RENDER_CAP before rendering.
+   */
+  value: string;
+  /**
+   * Byte-exact stored form of value, sent whenever it says something value
+   * does not: every hex literal, and every literal carrying a PDF escape.
+   * Mirrored here to keep this type assignable to the generated binding; the
+   * GUI does not render it.
+   */
+  valueRaw: string;
 }
 
 /** Entry in the navigation history stack. */
@@ -41,7 +56,7 @@ export interface NavHistoryEntry {
 
 /**
  * One recent palette jump. Mirrors ObjectIndexEntry fields the palette needs
- * to re-render the row without re-querying the backend (Story 9-8 AC7).
+ * to re-render the row without re-querying the backend.
  */
 export interface RecentJump {
   objNum: number;
@@ -68,16 +83,22 @@ export interface TabState {
   navHistoryIndex: number;
   /**
    * Most-recent palette jumps for this tab, newest first. LRU capped at 5;
-   * deduped by nodeId. Lives in memory only -- dies with the tab on
-   * CLOSE_DOCUMENT (Story 9-8 AC7 / Task 5.3).
+   * Deduped by nodeId. Lives in memory only -- dies with the tab on
+   * CLOSE_DOCUMENT.
    */
   recentJumps: RecentJump[];
   /**
    * Plain Text find-bar case-sensitivity toggle. Persists across find-bar
-   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT
-   * (Story 10-2 AC10 / AC14).
+   * reopen on the same tab and dies with the tab on CLOSE_DOCUMENT.
    */
   findCaseSensitive: boolean;
+  /**
+   * Id of the left-rail destination this tab shows in the left panel. Each tab
+   * keeps its own; a new tab starts on Structure and re-opening the tab's file
+   * keeps it. Not persisted. Held as a plain string; the rail resolves an
+   * unknown id to its first destination.
+   */
+  leftView: string;
 }
 
 /** Top-level application state. */
@@ -86,7 +107,13 @@ export interface AppState {
   activeTabId: string | null;
   documentError: string | null;
   documentWarning: string | null;
-  goToPageOpen: boolean;
+  /** True while the left panel is collapsed to the rail alone, for every tab. */
+  leftPanelCollapsed: boolean;
+  /**
+   * Monotonic counter bumped by FOCUS_PAGES_JUMP. The Pages panel focuses its
+   * jump field whenever it changes.
+   */
+  pagesJumpFocusVersion: number;
   // Dialog visibility for an in-flight multi-file open. Set true on
   // BATCH_OPEN_START, false on BATCH_OPEN_COMPLETE.
   batchOpenActive: boolean;
@@ -103,8 +130,7 @@ export interface AppState {
   /**
    * Monotonic counter incremented on every ACTIVATE_TAB dispatch (even when
    * the target is the already-active tab). The Cmd+K palette subscribes to
-   * this so any user-initiated tab activation closes the palette, matching
-   * Story 9-8 AC10's intent.
+   * this so any user-initiated tab activation closes the palette.
    */
   tabActivationVersion: number;
   // True while a single-file open is in flight. Drives the inline loading
@@ -130,8 +156,9 @@ export type AppAction =
   | { type: 'DISMISS_WARNING' }
   | { type: 'NAVIGATE_BACK' }
   | { type: 'NAVIGATE_FORWARD' }
-  | { type: 'OPEN_GO_TO_PAGE' }
-  | { type: 'CLOSE_GO_TO_PAGE' }
+  | { type: 'SELECT_LEFT_VIEW'; payload: { view: string } }
+  | { type: 'TOGGLE_LEFT_PANEL' }
+  | { type: 'FOCUS_PAGES_JUMP' }
   | { type: 'BATCH_OPEN_START'; payload: { total: number } }
   | { type: 'BATCH_OPEN_CANCEL' }
   | { type: 'BATCH_OPEN_COMPLETE' }
@@ -146,7 +173,8 @@ const initialState: AppState = {
   activeTabId: null,
   documentError: null,
   documentWarning: null,
-  goToPageOpen: false,
+  leftPanelCollapsed: false,
+  pagesJumpFocusVersion: 0,
   batchOpenActive: false,
   batchOpenTotal: 0,
   batchOpenCompleted: 0,
@@ -156,6 +184,11 @@ const initialState: AppState = {
   openingFileName: null,
 };
 
+// Sets the left-rail view of the active tab; with no active tab, tabs are unchanged.
+function withActiveTabView(state: AppState, view: string): TabState[] {
+  return state.tabs.map((tab) => (tab.tabId === state.activeTabId ? { ...tab, leftView: view } : tab));
+}
+
 /**
  * Pure reducer for all app state transitions.
  * Exhaustive switch ensures every action is handled at compile time.
@@ -163,6 +196,18 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_DOCUMENT': {
+      // A repeated delivery of an open whose tab already exists only
+      // activates that tab: its selection, history and caches stay.
+      if (state.tabs.some((t) => t.tabId === action.payload.tabId)) {
+        const switched = state.activeTabId !== action.payload.tabId;
+        return {
+          ...state,
+          activeTabId: action.payload.tabId,
+          tabActivationVersion: switched ? state.tabActivationVersion + 1 : state.tabActivationVersion,
+          isOpening: false,
+          openingFileName: null,
+        };
+      }
       // Drive batch progress from OPEN_DOCUMENT itself: incrementing here is
       // atomic with the tab being added, so the count can never lag behind
       // the actual number of opened tabs.
@@ -189,31 +234,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : state.documentWarning)
           : null;
       const batchOpenCancelled = cancelDidNothing ? false : state.batchOpenCancelled;
-      // Duplicate file detection: if a tab with the same filePath exists, activate it.
-      // Backend resource cleanup for the discarded tabId is handled in App.jsx.
-      if (action.payload.filePath) {
-        const existing = state.tabs.find((t) => t.filePath === action.payload.filePath);
-        if (existing) {
-          // Dedup re-activates an existing tab. Bump the activation counter
-          // only when the resolved tab differs from the current active one,
-          // so subscribers (e.g. Cmd+K palette) treat it as a tab switch.
-          const activatedDifferentTab = state.activeTabId !== existing.tabId;
-          return {
-            ...state,
-            activeTabId: existing.tabId,
-            documentError: null,
-            documentWarning,
-            batchOpenCompleted,
-            batchOpenCancelled,
-            tabActivationVersion: activatedDifferentTab
-              ? state.tabActivationVersion + 1
-              : state.tabActivationVersion,
-            isOpening: false,
-            openingFileName: null,
-          };
-        }
-      }
-      const newTab: TabState = {
+      const parsed: TabState = {
         tabId: action.payload.tabId,
         fileName: action.payload.fileName,
         filePath: action.payload.filePath,
@@ -230,20 +251,34 @@ function appReducer(state: AppState, action: AppAction): AppState {
         navHistoryIndex: -1,
         recentJumps: [],
         findCaseSensitive: false,
+        leftView: 'structure',
       };
-      // Opening a new tab that becomes active is a tab-context change; bump
-      // the version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
+      // Re-opening a file already open in a tab replaces that tab's content in
+      // place with the new parse: the tab keeps its strip position, its rail
+      // view and its find case setting, and takes the new tab id.
+      // dispatchOpenedDocument (lib/openedDocuments.ts) releases the backend
+      // document of the replaced tab id.
+      const existingIndex = action.payload.filePath
+        ? state.tabs.findIndex((t) => t.filePath === action.payload.filePath)
+        : -1;
+      const tabs = existingIndex < 0
+        ? [...state.tabs, parsed]
+        : state.tabs.map((tab, i) => (i === existingIndex
+          ? { ...parsed, leftView: tab.leftView, findCaseSensitive: tab.findCaseSensitive }
+          : tab));
+      // Activating a different tab id is a tab-context change; bump the
+      // version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
       // CLOSE_DOCUMENT-of-active-tab path).
-      const activatedNewTab = state.activeTabId !== action.payload.tabId;
+      const activatedOtherTab = state.activeTabId !== action.payload.tabId;
       return {
         ...state,
-        tabs: [...state.tabs, newTab],
+        tabs,
         activeTabId: action.payload.tabId,
         documentError: null,
         documentWarning,
         batchOpenCompleted,
         batchOpenCancelled,
-        tabActivationVersion: activatedNewTab
+        tabActivationVersion: activatedOtherTab
           ? state.tabActivationVersion + 1
           : state.tabActivationVersion,
         isOpening: false,
@@ -354,11 +389,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'NAVIGATE_TO_REF': {
       if (state.activeTabId === null) return state;
+      // The reveal runs in the active tab's Structure tree, so that tab shows
+      // Structure: a reveal into a hidden or collapsed tree would move nothing
+      // on screen.
       return {
         ...state,
+        leftPanelCollapsed: false,
         tabs: state.tabs.map((tab) =>
           tab.tabId === state.activeTabId
-            ? { ...tab, pendingNavTarget: action.payload.targetNodeId, navError: null }
+            ? { ...tab, leftView: 'structure', pendingNavTarget: action.payload.targetNodeId, navError: null }
             : tab
         ),
       };
@@ -452,16 +491,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
         }),
       };
     }
-    case 'OPEN_GO_TO_PAGE': {
-      // No-op when no document is loaded; the dialog needs an active tab and
-      // a positive pageCount to be useful.
-      if (state.activeTabId === null) return state;
-      const active = state.tabs.find((t) => t.tabId === state.activeTabId);
-      if (!active || active.pageCount <= 0) return state;
-      return { ...state, goToPageOpen: true };
+    case 'SELECT_LEFT_VIEW': {
+      return { ...state, tabs: withActiveTabView(state, action.payload.view), leftPanelCollapsed: false };
     }
-    case 'CLOSE_GO_TO_PAGE': {
-      return { ...state, goToPageOpen: false };
+    case 'TOGGLE_LEFT_PANEL': {
+      return { ...state, leftPanelCollapsed: !state.leftPanelCollapsed };
+    }
+    case 'FOCUS_PAGES_JUMP': {
+      // Needs a document; not gated on pageCount, which is 0 when /Count
+      // could not be read even though the file may have pages.
+      if (state.activeTabId === null) return state;
+      return {
+        ...state,
+        tabs: withActiveTabView(state, 'pages'),
+        leftPanelCollapsed: false,
+        pagesJumpFocusVersion: state.pagesJumpFocusVersion + 1,
+      };
     }
     case 'BATCH_OPEN_START': {
       return {
@@ -523,7 +568,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_FIND_CASE_SENSITIVE': {
       const { tabId, value } = action.payload;
       // No-op when the target tab is absent so unknown-tabId dispatches do
-      // not corrupt other tabs (Story 10-2 AC10 boundary).
+      // not corrupt other tabs.
       if (!state.tabs.some((t) => t.tabId === tabId)) return state;
       return {
         ...state,
@@ -546,9 +591,47 @@ const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 
 // --- Provider ---
 
+/** localStorage key holding the left rail's `{ collapsed }` flag. */
+export const LEFT_RAIL_STORAGE_KEY = 'unidoc-pdf-debugger:left-rail';
+
+// Reads the persisted collapse flag. Anything but a boolean `collapsed`, or a
+// storage that throws, gives false. The rail view is per tab and not
+// persisted: every new tab starts on Structure.
+function readLeftRailCollapsed(): boolean {
+  try {
+    const raw = window.localStorage.getItem(LEFT_RAIL_STORAGE_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed !== null && typeof parsed === 'object') {
+        const { collapsed } = parsed as Record<string, unknown>;
+        if (typeof collapsed === 'boolean') return collapsed;
+      }
+    }
+  } catch {
+    // Unreadable storage falls back to the default.
+  }
+  return false;
+}
+
+function writeLeftRailCollapsed(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(LEFT_RAIL_STORAGE_KEY, JSON.stringify({ collapsed }));
+  } catch {
+    // Ignore write failures (private mode, blocked storage).
+  }
+}
+
+function initAppState(base: AppState): AppState {
+  return { ...base, leftPanelCollapsed: readLeftRailCollapsed() };
+}
+
 /** Context provider that makes app state and dispatch available to the tree. */
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [state, dispatch] = useReducer(appReducer, initialState, initAppState);
+
+  useEffect(() => {
+    writeLeftRailCollapsed(state.leftPanelCollapsed);
+  }, [state.leftPanelCollapsed]);
 
   return (
     <AppStateContext.Provider value={state}>
@@ -568,6 +651,23 @@ export function useAppState(): AppState {
     throw new Error('useAppState must be used within an AppProvider');
   }
   return context;
+}
+
+/** The active tab, or undefined when no tab is active. */
+export function selectActiveTab(state: AppState): TabState | undefined {
+  return state.tabs.find((t) => t.tabId === state.activeTabId);
+}
+
+/** Left-rail view of a tab, or 'structure' when there is no tab. */
+export function leftViewOf(tab: TabState | undefined): string {
+  return tab?.leftView ?? 'structure';
+}
+
+/**
+ * Left-rail view of the active tab, or 'structure' when no tab is active.
+ */
+export function selectActiveLeftView(state: AppState): string {
+  return leftViewOf(selectActiveTab(state));
 }
 
 /** Get the dispatch function for app actions. Must be called inside AppProvider. */

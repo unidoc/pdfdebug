@@ -1,18 +1,11 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC8 (finding #9) -- useWindowPersistence flushes pending writes on the last
- * unmount instead of discarding them.
+ * Frontend Hook and Render-Path Correctness --
+ * useWindowPersistence flushes pending writes on the last unmount instead of
+ * discarding them.
  *
- * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX cleanup at
- * useWindowPersistence.ts:184-192: when activeHookCount hits 0 AND a pending
- * write exists (pendingPanelSizes !== null || pendingGeometry !== null), call
- * flush() synchronously rather than nulling the buffers.
- *
- * Against the CURRENT code the cleanup does:
- *   if (activeHookCount <= 0) { clearTimeout(sharedTimer); ...; pendingPanelSizes = null; pendingGeometry = null; }
- * which DISCARDS the pending write -- so after unmount WITHOUT advancing the
- * fake debounce timer, localStorage is empty and these assertions fail. A
- * developer activates them by removing `.skip` after Task 6.
+ * The cleanup at useWindowPersistence.ts:184-192 calls flush() synchronously
+ * when activeHookCount hits 0 and a pending write exists (pendingPanelSizes !==
+ * null || pendingGeometry !== null), rather than nulling the buffers.
  *
  * The test proves the flush ran SYNCHRONOUSLY on unmount (not via the 500ms
  * debounce): fake timers are installed and never advanced.
@@ -21,8 +14,6 @@
  * lives at module scope in the hook. This file balances every mount with an
  * unmount so the count returns to 0 between tests; each test starts from a
  * clean count because the prior test unmounted its last consumer.
- *
- * Test IDs follow the 10-7-UNIT-NNN convention.
  *
  * Run: cd frontend && npx vitest run src/hooks/useWindowPersistence.flush-on-last-unmount.test.ts
  */
@@ -40,7 +31,7 @@ function clearStorage() {
   }
 }
 
-describe('10-7-UNIT-008: useWindowPersistence flushes on last unmount (AC8)', () => {
+describe('useWindowPersistence flushes on last unmount', () => {
   beforeEach(() => {
     clearStorage();
     vi.useFakeTimers();
@@ -60,7 +51,7 @@ describe('10-7-UNIT-008: useWindowPersistence flushes on last unmount (AC8)', ()
     // Pending write is buffered; debounce timer has NOT fired.
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    // Last consumer unmounts. Per AC8 this must flush() synchronously.
+    // Last consumer unmounts. This must flush() synchronously.
     unmount();
 
     // No fake-timer advance. If the write is present, the flush was synchronous.

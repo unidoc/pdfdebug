@@ -13,71 +13,101 @@ import (
 // version is overridden via -ldflags "-X main.version=x.y.z" in release builds.
 var version = "dev"
 
+// deprecatedPlaintextNotice is the single stderr line the `dump plaintext`
+// alias writes before running `dump bytes`. Unconditional: no TTY check and no
+// opt-out, because the people who most need it run the command from scripts.
+const deprecatedPlaintextNotice = `pdfdebug: "dump plaintext" is deprecated and will be removed in 0.6.0; use "dump bytes".`
+
 func main() {
 	// Suppress pdfcpu's internal log output so stderr stays clean for JSON errors.
 	log.SetOutput(io.Discard)
+	os.Exit(run(newNoticeEnv(), os.Args))
+}
 
-	if len(os.Args) < 2 {
+// run executes one invocation and returns its exit code. --version and -v
+// report the version and a live update check; every other command runs with
+// the end-of-run update notice, which never changes the code dispatch returns.
+func run(env *noticeEnv, args []string) int {
+	if len(args) >= 2 && (args[1] == "--version" || args[1] == "-v") {
+		return runVersion(env)
+	}
+	pending := startNotice(env, args[1:])
+	code := dispatch(args)
+	pending.finish()
+	return code
+}
+
+// dispatch routes args (program name first) to a command handler and returns
+// its exit code.
+func dispatch(args []string) int {
+	if len(args) < 2 {
 		printUsage(os.Stderr)
-		os.Exit(1)
+		return 1
 	}
 
-	switch os.Args[1] {
+	switch args[1] {
 	case "--help", "-h", "help":
 		printUsage(os.Stderr)
-		os.Exit(0)
-	case "--version", "-v":
-		_, _ = fmt.Fprintf(os.Stdout, "pdfdebug version %s\n", version)
-		os.Exit(0)
+		return 0
 	case "validate":
-		os.Exit(runValidate(os.Args[2:]))
+		return runValidate(args[2:])
 	case "diff":
-		os.Exit(runDiff(os.Args[2:]))
+		return runDiff(args[2:])
 	case "dump":
-		if len(os.Args) < 3 {
+		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "Usage: pdfdebug dump <resource> [flags] <file>")
-			os.Exit(1)
+			return 1
 		}
-		resource := os.Args[2]
-		remaining := os.Args[3:]
+		resource := args[2]
+		remaining := args[3:]
 		switch resource {
 		case "tree":
-			os.Exit(runTreeDump(remaining))
+			return runTreeDump(remaining)
 		case "object":
-			os.Exit(runObjectDump(remaining))
+			return runObjectDump(remaining)
 		case "stream":
-			os.Exit(runStreamDump(remaining))
+			return runStreamDump(remaining)
 		case "page":
-			os.Exit(runPageDump(remaining))
+			return runPageDump(remaining)
 		case "font":
-			os.Exit(runFontDump(remaining))
+			return runFontDump(remaining)
 		case "image":
-			os.Exit(runImageDump(remaining))
+			return runImageDump(remaining)
+		case "images":
+			return runImagesDump(remaining)
 		case "source":
-			os.Exit(runSourceDump(remaining))
+			return runSourceDump(remaining)
 		case "reverserefs":
-			os.Exit(runReverseRefsDump(remaining))
+			return runReverseRefsDump(remaining)
 		case "xref":
-			os.Exit(runXRefDump(remaining))
+			return runXRefDump(remaining)
 		case "objects":
-			os.Exit(runObjectsDump(remaining))
+			return runObjectsDump(remaining)
+		case "pages":
+			return runPagesDump(remaining)
+		case "bytes":
+			return runBytesDump(remaining)
 		case "plaintext":
-			os.Exit(runPlaintextDump(remaining))
+			// Deprecated alias. The notice is written here rather than inside the
+			// handler so it fires on a usage error too, and on stderr so piped
+			// stdout (a machine format) stays clean.
+			fmt.Fprintln(os.Stderr, deprecatedPlaintextNotice)
+			return runBytesDump(remaining)
 		case "embedded":
-			os.Exit(runEmbeddedDump(remaining))
+			return runEmbeddedDump(remaining)
 		case "metadata":
-			os.Exit(runMetadataDump(remaining))
+			return runMetadataDump(remaining)
 		case "signatures":
-			os.Exit(runSignaturesDump(remaining))
+			return runSignaturesDump(remaining)
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown resource: %s\n", resource)
 			printUsage(os.Stderr)
-			os.Exit(1)
+			return 1
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[1])
 		printUsage(os.Stderr)
-		os.Exit(1)
+		return 1
 	}
 }
 
@@ -88,33 +118,23 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage: pdfdebug <command> [flags]")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Commands (all emit human-readable plain text by default; add --json for structured JSON):")
-	_, _ = fmt.Fprintln(w, "  dump tree [--json] [--depth N] [--resolve [--resolve-depth N]] <file>  Dump the PDF object tree")
-	_, _ = fmt.Fprintln(w, "  dump object [--json] [--resolve [--resolve-depth N]] --ref \"N G R\" <file>  Dump a single PDF object")
-	_, _ = fmt.Fprintln(w, "  dump stream [--json|--raw|--ops] (--page N | --ref \"N G R\" | --xobject NAME ...) <file>  Dump a content stream")
-	_, _ = fmt.Fprintln(w, "  dump page --info N [--json] [--forms-recursive [--forms-depth D]] [--section SECTION] <file>  Assemble per-page render info (EXPERIMENTAL)")
-	_, _ = fmt.Fprintln(w, "  dump font [--json] --ref \"N G R\" <file>           Dump a font view (detail/roster/neither)")
-	_, _ = fmt.Fprintln(w, "  dump image [--json] [--metadata] --ref \"N G R\" <file>  Dump image XObject data (--metadata omits base64 in JSON)")
-	_, _ = fmt.Fprintln(w, "  dump source [--json] [--raw] --ref \"N G R\" <file>  Dump reserialized object source (PDF syntax)")
-	_, _ = fmt.Fprintln(w, "  dump reverserefs [--json] --ref \"N G R\" <file>    Dump inbound refs (who points at this object)")
-	_, _ = fmt.Fprintln(w, "  dump xref [--json] <file>                         Dump the cross-reference table")
-	_, _ = fmt.Fprintln(w, "  dump objects [--json] <file>                      Dump the object index (plural: every object)")
-	_, _ = fmt.Fprintln(w, "  dump plaintext [--json] <file>                    Dump document bytes as text (raw by default; --json wraps the decoded text)")
-	_, _ = fmt.Fprintln(w, "  dump embedded [--json] [--ref \"N G R\" | --name NAME] <file>  List embedded/associated files; --ref/--name extracts one's raw bytes to stdout")
-	_, _ = fmt.Fprintln(w, "  dump metadata [--json] <file>                     Dump the /Info dictionary fields and the XMP metadata packet")
-	_, _ = fmt.Fprintln(w, "  dump signatures [--json] <file>                   Decompose digital-signature fields (signer, chain, ByteRange coverage; no trust verdict)")
-	_, _ = fmt.Fprintln(w, "  validate [--profile pdfa-1b|pdfua-1-structural] [--json] <file>  Run bounded STRUCTURAL conformance checks (structural checks only - not full conformance; use veraPDF for authoritative validation)")
-	_, _ = fmt.Fprintln(w, "  diff [--json] [--pretty] [--full] <left.pdf> <right.pdf>  Path-aligned STRUCTURAL diff of two PDFs (object model, not byte/pixel; aligned by structural path, not object number)")
+	for _, line := range commandHelpLines() {
+		_, _ = fmt.Fprintln(w, line)
+	}
 	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "validate exit codes (a three-way contract distinct from dump's 0/2):")
+	_, _ = fmt.Fprintln(w, "validate exit codes (a three-way contract distinct from dump's 0/1/2, where 1 is a usage error):")
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, no structural errors found (NOT a compliance/valid verdict)")
-	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error (the CI compliance-gate signal)")
-	_, _ = fmt.Fprintln(w, "  2  operational error (missing/unreadable file, unknown profile, view failure)")
+	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error, or a gating rule could not be evaluated (the CI compliance-gate signal)")
+	_, _ = fmt.Fprintln(w, "  2  operational or usage error (missing/unreadable file, unknown profile, bad args, view failure)")
 	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural")
+	for _, line := range profileRuleLines() {
+		_, _ = fmt.Fprintln(w, line)
+	}
 	_, _ = fmt.Fprintln(w, "")
-	_, _ = fmt.Fprintln(w, "diff exit codes (a three-way contract distinct from dump's 0/2):")
+	_, _ = fmt.Fprintln(w, "diff exit codes (a three-way contract distinct from dump's 0/1/2, where 1 is a usage error):")
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, the two documents are structurally identical")
 	_, _ = fmt.Fprintln(w, "  1  ran successfully AND the documents differ (the scriptable signal)")
-	_, _ = fmt.Fprintln(w, "  2  operational error (missing/unreadable file, bad args, parse failure)")
+	_, _ = fmt.Fprintln(w, "  2  operational or usage error (missing/unreadable file, bad args, parse failure)")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Flags:")
 	_, _ = fmt.Fprintln(w, "  --json      Output structured JSON (default is human-readable plain text)")
@@ -136,7 +156,9 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump reverserefs --ref \"4 0 R\" file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump objects file.pdf")
-	_, _ = fmt.Fprintln(w, "  pdfdebug dump plaintext file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump pages file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump images file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump bytes file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --ref \"4 0 R\" file.pdf > factur-x.xml")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded --name factur-x.xml file.pdf > factur-x.xml")
@@ -150,7 +172,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Plain text is for reading and may change between releases. To parse output")
 	_, _ = fmt.Fprintln(w, "reliably (scripts, agents), pass --json. The --raw / --ops stream payloads and")
-	_, _ = fmt.Fprintln(w, "the raw `dump plaintext` bytes are separate machine formats.")
+	_, _ = fmt.Fprintln(w, "the raw `dump bytes` output are separate machine formats.")
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Note: `dump page --info` is EXPERIMENTAL - its JSON field set is not a frozen")
 	_, _ = fmt.Fprintln(w, "      contract and may change (the --json output carries a \"_stability\":")
@@ -200,6 +222,31 @@ type dumpFlags struct {
 	// zero-semantics and cannot share a name.
 	resolve      bool
 	resolveDepth int
+}
+
+// requirePositionals reports whether fs holds exactly want positional
+// arguments and none of them is empty. Go's flag package stops parsing at the
+// first non-flag argument, so a flag written after the file path arrives here
+// as an extra positional; accepting it silently would run
+// `dump tree file.pdf --json` as plain text at exit 0 while the caller waits
+// for JSON. An explicitly empty path (`dump tree ""`) satisfies the count but
+// names no file, so it is a shape error too, not a runtime "file not found".
+// The empty check runs at every want position, because `diff` takes two files.
+// On a rejection it writes usage to stderr and returns false; the caller
+// supplies its own exit code, which differs between the dump subcommands (1)
+// and validate/diff (2).
+func requirePositionals(fs *flag.FlagSet, want int, usage string) bool {
+	if fs.NArg() != want {
+		fmt.Fprintln(os.Stderr, usage)
+		return false
+	}
+	for i := range want {
+		if fs.Arg(i) == "" {
+			fmt.Fprintln(os.Stderr, usage)
+			return false
+		}
+	}
+	return true
 }
 
 // parseDumpFlags creates a FlagSet for dump subcommands with common flags.

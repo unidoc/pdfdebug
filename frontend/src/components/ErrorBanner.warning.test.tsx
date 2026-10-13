@@ -1,6 +1,5 @@
 /**
- * 2.9-UNIT: ErrorBanner severity-specific enhancements.
- * TDD RED PHASE -- these tests MUST fail until Story 2-9 is implemented.
+ * ErrorBanner severity-specific enhancements.
  *
  * Tests severity-aware data-testid, severity icons, and severity-aware
  * dismiss aria-label. Existing ErrorBanner.test.tsx covers baseline behavior.
@@ -9,9 +8,9 @@ import { render, screen } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import { ErrorBanner } from './ErrorBanner';
 
-describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
-  // 2.9-UNIT-002 [P2]: ErrorBanner severity-aware data-testid
-  test('[P1] warning severity uses data-testid="warning-banner"', () => {
+describe('ErrorBanner severity enhancements', () => {
+  // ErrorBanner severity-aware data-testid
+  test('warning severity uses data-testid="warning-banner"', () => {
     render(
       <ErrorBanner message="Structural errors" severity="warning" onDismiss={() => {}} />
     );
@@ -19,7 +18,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
     expect(screen.getByTestId('warning-banner')).toBeTruthy();
   });
 
-  test('[P1] error severity still uses data-testid="error-banner"', () => {
+  test('error severity still uses data-testid="error-banner"', () => {
     render(
       <ErrorBanner message="Fatal error" severity="error" onDismiss={() => {}} />
     );
@@ -27,7 +26,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
   });
 
   // Severity icons
-  test('[P1] error severity shows (x) icon', () => {
+  test('error severity shows (x) icon', () => {
     render(
       <ErrorBanner message="Fatal error" severity="error" onDismiss={() => {}} />
     );
@@ -35,7 +34,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
     expect(banner.textContent).toContain('(x)');
   });
 
-  test('[P1] warning severity shows (!) icon', () => {
+  test('warning severity shows (!) icon', () => {
     render(
       <ErrorBanner message="Structural errors" severity="warning" onDismiss={() => {}} />
     );
@@ -44,7 +43,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
   });
 
   // Severity-aware dismiss aria-label
-  test('[P1] warning dismiss button has aria-label "Dismiss warning"', () => {
+  test('warning dismiss button has aria-label "Dismiss warning"', () => {
     render(
       <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
     );
@@ -52,7 +51,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
     expect(dismissBtn).toBeTruthy();
   });
 
-  test('[P1] error dismiss button has aria-label "Dismiss error"', () => {
+  test('error dismiss button has aria-label "Dismiss error"', () => {
     render(
       <ErrorBanner message="err" severity="error" onDismiss={() => {}} />
     );
@@ -63,7 +62,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
   // Banner intentionally has no `dark:` variants -- the surrounding app shell
   // uses design-token CSS that does not flip on prefers-color-scheme, so a
   // dark-system-theme user otherwise gets a dark banner on a light shell.
-  test('[P2] error severity does not include dark: variants', () => {
+  test('error severity does not include dark: variants', () => {
     render(
       <ErrorBanner message="err" severity="error" onDismiss={() => {}} />
     );
@@ -71,7 +70,7 @@ describe('2.9-UNIT: ErrorBanner severity enhancements', () => {
     expect(banner.className).not.toContain('dark:');
   });
 
-  test('[P2] warning severity does not include dark: variants', () => {
+  test('warning severity does not include dark: variants', () => {
     render(
       <ErrorBanner message="warn" severity="warning" onDismiss={() => {}} />
     );

@@ -1,11 +1,13 @@
 package pdfservice
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -16,7 +18,7 @@ import (
 
 // inspectorAPI is the method set PDFService uses from the inspector backend.
 // Declaring it as an unexported interface (rather than holding a concrete
-// pointer) is the AC5 seam: tests inject a stub that panics with a synthetic
+// pointer) is the test seam: tests inject a stub that panics with a synthetic
 // runtime.Error to drive the recoverRuntimePanic path without needing a real
 // malformed PDF.
 //
@@ -32,17 +34,21 @@ type inspectorAPI interface {
 	GetObjectDetail(tabID string, nodeID string) (*pdfcore.ObjectDetail, error)
 	GetAncestorPath(tabID string, nodeID string) ([]string, error)
 	GetContentStream(tabID string, nodeID string) (*pdfcore.ContentStreamData, error)
-	GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error)
+	GetImageData(ctx context.Context, tabID string, nodeID string) (*pdfcore.ImageData, error)
+	DescribeImage(tabID string, nodeID string) (*pdfcore.ImageDescription, error)
+	GetImageBytes(tabID string, nodeID string) ([]byte, string, error)
 	GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error)
 	GetFontResourceMap(tabID string, nodeID string) (*pdfcore.FontResourceMap, error)
 	GetFontView(tabID string, nodeID string) (*pdfcore.FontView, error)
 	GetObjectSource(tabID string, nodeID string) (string, error)
 	GetReverseRefs(tabID string, nodeID string) ([]pdfcore.ReverseRef, error)
-	GetPageContentStreamNodeID(tabID string, pageNum int) (string, error)
 	GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error)
+	GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error)
+	GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, error)
+	GetImagePages(tabID string, objNum int) ([]pdfcore.ImagePageRef, error)
+	GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error)
 	GetXRefTable(tabID string) (*pdfcore.XRefTable, error)
-	GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error)
-	CancelPlainText(tabID string) error
+	GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error)
 	GetPlainTextSize(tabID string) (int64, error)
 	GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error)
 	GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error)
@@ -55,16 +61,15 @@ type inspectorAPI interface {
 // PDFService is the Wails-bound service that exposes PDF inspection to the
 // frontend. It delegates to the inspector backend for all PDF operations.
 //
-// The inspector field is typed as the inspectorAPI interface (Story 10-5
-// AC5 seam) rather than the concrete *pdfcore.Inspector; the production
-// constructor injects a *pdfcore.Inspector via pdfcore.NewInspector() and
-// tests inject a stub that panics with a runtime.Error to drive the
-// recoverRuntimePanic path.
+// The inspector field is typed as the inspectorAPI interface (the test seam)
+// rather than the concrete *pdfcore.Inspector; the production constructor
+// injects a *pdfcore.Inspector via pdfcore.NewInspector() and tests inject a
+// stub that panics with a runtime.Error to drive the recoverRuntimePanic path.
 type PDFService struct {
 	inspector inspectorAPI
 	app       *application.App
 	// pendingOpens buffers cold-start file-association paths until the
-	// frontend drains them (Story 12.1). Injected from main.go via
+	// frontend drains them. Injected from main.go via
 	// SetPendingOpens; nil in tests that do not exercise the cold-start path.
 	pendingOpens *pendingopen.Queue
 }
@@ -85,13 +90,12 @@ func NewPDFService(app *application.App) PDFService {
 // test-binary-crash diagnostic for genuine bugs not in the inspector's
 // documented panic surface).
 //
-// Story 10-5 AC5: each wrapper invokes the inspector call inside an
-// anonymous closure that owns the deferred recover; the closure writes its
-// result and error into outer locals (via shadow) and the recover overwrites
-// the error local via pointer if a runtime.Error fires. This pattern keeps
-// the method signatures stable (no named returns; the existing Story 10-3
-// signature-preservation contract continues to hold) while still letting
-// the recover replace the returned error.
+// Each wrapper invokes the inspector call inside an anonymous closure that
+// owns the deferred recover; the closure writes its result and error into
+// outer locals (via shadow) and the recover overwrites the error local via
+// pointer if a runtime.Error fires. This pattern keeps the method signatures
+// stable -- the signature-preservation contract continues to hold, with no
+// named returns -- while still letting the recover replace the returned error.
 func recoverRuntimePanic(methodName string, errOut *error) {
 	if r := recover(); r != nil {
 		if _, ok := r.(runtime.Error); !ok {
@@ -204,13 +208,29 @@ func (s *PDFService) GetContentStream(tabID string, nodeID string) (*pdfcore.Con
 	return result, err
 }
 
-// GetImageData extracts and encodes an image from the given node.
-func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageData, error) {
+// GetImageData extracts and encodes a downsampled preview of an image from the
+// given node. The full-resolution bytes never cross the IPC boundary. ctx is the
+// Wails per-call request context; cancelling the bound call (on navigation)
+// aborts the decode at its next checkpoint.
+func (s *PDFService) GetImageData(ctx context.Context, tabID string, nodeID string) (*pdfcore.ImageData, error) {
 	var result *pdfcore.ImageData
 	var err error
 	func() {
 		defer recoverRuntimePanic("GetImageData", &err)
-		result, err = s.inspector.GetImageData(tabID, nodeID)
+		result, err = s.inspector.GetImageData(ctx, tabID, nodeID)
+	}()
+	return result, err
+}
+
+// DescribeImage returns the decode-free pre-decode estimate for an image node:
+// its geometry and the decoded size that geometry implies, so the frontend can
+// warn before an expensive decode without any byte being inflated.
+func (s *PDFService) DescribeImage(tabID string, nodeID string) (*pdfcore.ImageDescription, error) {
+	var result *pdfcore.ImageDescription
+	var err error
+	func() {
+		defer recoverRuntimePanic("DescribeImage", &err)
+		result, err = s.inspector.DescribeImage(tabID, nodeID)
 	}()
 	return result, err
 }
@@ -219,7 +239,7 @@ func (s *PDFService) GetImageData(tabID string, nodeID string) (*pdfcore.ImageDa
 // /Type /Font dict node. Returns pdfcore.ErrNotAFont when the resolved dict
 // is not a Font dict (e.g. the iconHint='font' false positive on the
 // /Resources /Font resource map); the frontend treats this sentinel as a
-// signal to silently render the generic DictView (Story 9-9 AC1).
+// signal to silently render the generic DictView.
 func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDetail, error) {
 	var result *pdfcore.FontDetail
 	var err error
@@ -232,7 +252,7 @@ func (s *PDFService) GetFontDetail(tabID string, nodeID string) (*pdfcore.FontDe
 
 // GetObjectSource returns the reserialized PDF-syntax representation of an
 // indirect object. Inline-node selections return ("", nil) so the frontend
-// can render the AC3 empty state.
+// can render the empty state.
 func (s *PDFService) GetObjectSource(tabID string, nodeID string) (string, error) {
 	var result string
 	var err error
@@ -276,7 +296,7 @@ func (s *PDFService) GetFontView(tabID string, nodeID string) (*pdfcore.FontView
 
 // GetReverseRefs returns the inbound dict-graph references for the indirect
 // object identified by nodeID, sourced from the per-document reverse-ref
-// index built lazily on first call (Story 10-5 AC7). Returns
+// index built lazily on first call. Returns
 // pdfcore.ErrReverseRefIndexUnavailable when the index could not be built.
 //
 // Returns []*pdfcore.ReverseRef so the Wails-generated TS binding produces a
@@ -302,22 +322,8 @@ func (s *PDFService) GetReverseRefs(tabID string, nodeID string) ([]*pdfcore.Rev
 	return result, err
 }
 
-// GoToPage resolves a 1-based page number to the node ID of that page's
-// content stream, suitable for the frontend to dispatch as a NAVIGATE_TO_REF
-// target. Returns an error if the page number is out of range, the page has
-// no content stream, or the document/tab is unknown.
-func (s *PDFService) GoToPage(tabID string, pageNum int) (string, error) {
-	var result string
-	var err error
-	func() {
-		defer recoverRuntimePanic("GoToPage", &err)
-		result, err = s.inspector.GetPageContentStreamNodeID(tabID, pageNum)
-	}()
-	return result, err
-}
-
 // GetObjectIndex returns the full xref-derived object index for the document
-// in tabID. Powers the Cmd+K command palette (Story 9-8). Lazy on first call,
+// in tabID. Powers the Cmd+K command palette. Lazy on first call,
 // cached per document state.
 func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, error) {
 	var result []*pdfcore.ObjectIndexEntry
@@ -329,8 +335,64 @@ func (s *PDFService) GetObjectIndex(tabID string) ([]*pdfcore.ObjectIndexEntry, 
 	return result, err
 }
 
+// GetPageIndex returns the page index for the document in tabID: one entry per
+// page leaf in document order, plus unnumbered rows for page-tree entries that
+// are not pages. Powers the Pages navigator. Lazy on first call, cached per
+// document state.
+func (s *PDFService) GetPageIndex(tabID string) ([]*pdfcore.PageIndexEntry, error) {
+	var result []*pdfcore.PageIndexEntry
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetPageIndex", &err)
+		result, err = s.inspector.GetPageIndex(tabID)
+	}()
+	return result, err
+}
+
+// GetImageIndex returns the image index for the document in tabID: one entry
+// per image XObject referenced from page resources, deduplicated by object
+// reference, then error rows where the walk stopped. Powers the Images
+// navigator. Lazy on first call, cached per document state.
+func (s *PDFService) GetImageIndex(tabID string) ([]*pdfcore.ImageIndexEntry, error) {
+	var result []*pdfcore.ImageIndexEntry
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImageIndex", &err)
+		result, err = s.inspector.GetImageIndex(tabID)
+	}()
+	return result, err
+}
+
+// GetImagePages returns every page, ascending, whose resources reference the
+// image with object number objNum, each with its /Page node id. The Images
+// navigator calls it to list the pages past an entry's capped FirstPages.
+// Read from the cached image walk.
+func (s *PDFService) GetImagePages(tabID string, objNum int) ([]pdfcore.ImagePageRef, error) {
+	var result []pdfcore.ImagePageRef
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImagePages", &err)
+		result, err = s.inspector.GetImagePages(tabID, objNum)
+	}()
+	return result, err
+}
+
+// GetImagePageGroups returns the images of every numbered page that uses one
+// or that the walk did not finish, in document order, each with its
+// resource-name path and the page's node id. Powers the Images navigator's
+// by-page view. Read from the cached image walk.
+func (s *PDFService) GetImagePageGroups(tabID string) ([]pdfcore.ImagePageGroup, error) {
+	var result []pdfcore.ImagePageGroup
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetImagePageGroups", &err)
+		result, err = s.inspector.GetImagePageGroups(tabID)
+	}()
+	return result, err
+}
+
 // GetXRefTable returns the cross-reference table view for the document in
-// tabID. Lazy on first call, cached per document state. Story 9-11.
+// tabID. Lazy on first call, cached per document state.
 func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 	var result *pdfcore.XRefTable
 	var err error
@@ -342,45 +404,38 @@ func (s *PDFService) GetXRefTable(tabID string) (*pdfcore.XRefTable, error) {
 }
 
 // GetPlainText returns the Latin-1-decoded file bytes for the document in
-// tabID. Story 10-1 (replaces the 9-11 25 MiB cap + 9-12 "Load all" two-tier
-// model with a single uncapped lazy-load + cancellable chunked read). The
-// read is cancellable via CancelPlainText; cancellation surfaces an error
+// tabID. There is no size cap and no two-tier "Load all" step: a single
+// uncapped lazy load feeds a cancellable chunked read. The read is cancelled by
+// aborting the bound call from the frontend (the Wails-injected ctx propagates
+// to the read) or by closing the document; cancellation surfaces an error
 // satisfying errors.Is(err, context.Canceled).
 //
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
+// NOT wrapped by recoverRuntimePanic. GetPlainText reads raw
 // disk bytes and never calls into the PDF backend; a runtime.Error here is a
 // Go bug in our non-backend code and SHOULD crash loudly rather than be
 // laundered as "malformed PDF" (which would mislead the user).
-func (s *PDFService) GetPlainText(tabID string) (*pdfcore.PlainTextDocument, error) {
-	return s.inspector.GetPlainText(tabID)
-}
-
-// CancelPlainText cancels an in-flight GetPlainText for tabID. No-op when no
-// load is in flight. Returns ErrDocumentNotFound for unknown tabs. Story 10-1.
-//
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic (non-backend code path).
-func (s *PDFService) CancelPlainText(tabID string) error {
-	return s.inspector.CancelPlainText(tabID)
+func (s *PDFService) GetPlainText(ctx context.Context, tabID string) (*pdfcore.PlainTextDocument, error) {
+	return s.inspector.GetPlainText(ctx, tabID)
 }
 
 // GetPlainTextSize returns the on-disk byte size of the PDF backing tabID.
-// Powers the loading-card size disclosure on PlainTextView. Story 10-1.
+// Powers the loading-card size disclosure on PlainTextView.
 //
-// Story 10-5 AC5: NOT wrapped by recoverRuntimePanic (non-backend code path).
+// NOT wrapped by recoverRuntimePanic (non-backend code path).
 func (s *PDFService) GetPlainTextSize(tabID string) (int64, error) {
 	return s.inspector.GetPlainTextSize(tabID)
 }
 
 // SetPendingOpens injects the cold-start file-association queue from main.go.
-// Story 12.1: the queue is constructed in main.go (app-shell state) and wired
+// The queue is constructed in main.go (app-shell state) and wired
 // here so the bound ConsumePendingOpenFiles method can drain it.
 func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 	s.pendingOpens = q
 }
 
 // ConsumePendingOpenFiles drains and returns any file-association paths that
-// were buffered before the frontend was ready (cold start). Story 12.1 AC5:
-// thin delegation to Queue.Drain -- the frontend calls this immediately after
+// were buffered before the frontend was ready (cold start). A thin
+// delegation to Queue.Drain -- the frontend calls this immediately after
 // registering its document:opened listener. Returns nil when no queue is wired
 // (the unwired-or-empty case marshals to JSON null, which the frontend treats
 // as an empty list).
@@ -392,7 +447,7 @@ func (s *PDFService) ConsumePendingOpenFiles() []string {
 }
 
 // GetEmbeddedFiles enumerates the embedded/associated files for the document in
-// tabID (catalog /AF + /Names/EmbeddedFiles, merged and deduped). Story 13.2.
+// tabID (catalog /AF + /Names/EmbeddedFiles, merged and deduped).
 func (s *PDFService) GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, error) {
 	var result *pdfcore.EmbeddedFileList
 	var err error
@@ -405,7 +460,7 @@ func (s *PDFService) GetEmbeddedFiles(tabID string) (*pdfcore.EmbeddedFileList, 
 
 // GetEmbeddedFileBytes returns the decoded bytes of one embedded file, addressed
 // by the obj:G:N nodeID of its /EmbeddedFile stream. Wails marshals the []byte
-// as a base64 string to the frontend. Story 13.2.
+// as a base64 string to the frontend.
 func (s *PDFService) GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, error) {
 	var result []byte
 	var err error
@@ -417,7 +472,7 @@ func (s *PDFService) GetEmbeddedFileBytes(tabID string, nodeID string) ([]byte, 
 }
 
 // GetDocumentMetadata returns the document's XMP packet and /Info dictionary
-// fields for the document in tabID. Story 13.2.
+// fields for the document in tabID.
 func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadata, error) {
 	var result *pdfcore.DocumentMetadata
 	var err error
@@ -431,7 +486,7 @@ func (s *PDFService) GetDocumentMetadata(tabID string) (*pdfcore.DocumentMetadat
 // GetSignatures returns the decomposed digital-signature fields for the
 // document in tabID as a flat array (the frontend consumes the entry list
 // directly; an empty document yields an empty array). Structural
-// decomposition only - no trust verdict of any kind. Story 13.4.
+// decomposition only - no trust verdict of any kind.
 func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, error) {
 	var result []pdfcore.SignatureField
 	var err error
@@ -447,10 +502,10 @@ func (s *PDFService) GetSignatures(tabID string) ([]pdfcore.SignatureField, erro
 	return result, err
 }
 
-// Validate runs the bounded structural conformance rule set for profile
-// against the document in tabID and returns the problem list, tally, and
-// disclaimer. Structural checks only - not authoritative conformance. Story
-// 13.5.
+// Validate runs the named subset of structural checks for profile against
+// the document in tabID and returns the problem list, tally,
+// disclaimer, the profile's scope sentence and the rules that ran with their
+// outcomes. Structural checks only - not authoritative conformance.
 func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult, error) {
 	var result *pdfcore.ValidationResult
 	var err error
@@ -464,7 +519,7 @@ func (s *PDFService) Validate(tabID, profile string) (*pdfcore.ValidationResult,
 // DiffDocuments computes the path-aligned structural delta between two already
 // open documents (both tab IDs must be open in this service's inspector). It is
 // a read-only walk over both documents aligned by structural path, NOT object
-// number. Story 13.6.
+// number.
 func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffResult, error) {
 	var result *pdfcore.DiffResult
 	var err error
@@ -478,7 +533,7 @@ func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffR
 // SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
 // writes data to the chosen path, returning the saved path. An empty path (user
 // cancelled) returns ("", nil) so the frontend can treat cancel as a no-op.
-// Story 13.2: the GUI "Save..." action for an extracted embedded file. This is
+// The GUI "Save..." action for an extracted embedded file. This is
 // the first save-dialog path in the app (no prior SaveFile usage); it is NOT
 // part of inspectorAPI because it is an app-level dialog, not a PDF-backend
 // call.
@@ -500,4 +555,53 @@ func (s *PDFService) SaveBytesToFile(suggestedName string, data []byte) (string,
 		return "", err
 	}
 	return path, nil
+}
+
+// SaveImageToFile renders the FULL-resolution image for the given node
+// server-side and writes it to a path chosen via the native Save-file dialog,
+// returning the saved path. An empty path (user cancelled) returns ("", nil).
+// The full-resolution bytes never round-trip through the frontend: this is the
+// backend-direct save that keeps the transport cost the preview removes from
+// coming back for the save. suggestedName seeds the dialog filename; its
+// extension is replaced with the rendered image's actual extension.
+func (s *PDFService) SaveImageToFile(tabID, nodeID, suggestedName string) (string, error) {
+	if s.app == nil {
+		return "", fmt.Errorf("app not initialized")
+	}
+	var data []byte
+	var ext string
+	var err error
+	func() {
+		defer recoverRuntimePanic("SaveImageToFile", &err)
+		data, ext, err = s.inspector.GetImageBytes(tabID, nodeID)
+	}()
+	if err != nil {
+		return "", err
+	}
+	path, err := s.app.Dialog.SaveFile().
+		SetFilename(suggestedImageName(suggestedName, ext)).
+		PromptForSingleSelection()
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		// User cancelled the dialog.
+		return "", nil
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// suggestedImageName replaces any extension on suggested with ext, defaulting to
+// "image" when suggested is empty.
+func suggestedImageName(suggested, ext string) string {
+	if suggested == "" {
+		suggested = "image"
+	}
+	if i := strings.LastIndex(suggested, "."); i > 0 {
+		suggested = suggested[:i]
+	}
+	return suggested + ext
 }

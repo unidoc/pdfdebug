@@ -12,9 +12,9 @@ import (
 )
 
 // slowOpener is a pdfOpener stub that blocks inside OpenFile for sleepFor.
-// Used by Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes to
-// verify openFileAndEmitWithWarning returns BEFORE the parse completes
-// (AC8 50ms wallclock budget while the goroutine sleeps for 2s).
+// Used by TestOpenFileAndEmitReturnsBeforeParseCompletes to verify
+// openFileAndEmitWithWarning returns BEFORE the parse completes (50ms
+// wallclock budget while the goroutine sleeps for 2s).
 type slowOpener struct {
 	sleepFor    time.Duration
 	openCalled  atomic.Bool
@@ -66,19 +66,17 @@ func (r *recordingEmitter) snapshot() []string {
 	return out
 }
 
-// Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes [P0] AC#8:
-// openFileAndEmitWithWarning MUST return within 50ms while the parse is
-// still in flight (svc.OpenFile sleeps for 2s in this test). The function
-// dispatches the pdfcpu read to a goroutine so the Wails event-dispatch
-// goroutine is freed to service window resize / menu clicks during the
-// parse. The 50ms ceiling is wallclock budget accounting for race-detector
-// overhead, GC pause, and synchronous event-emit dispatch.
+// TestOpenFileAndEmitReturnsBeforeParseCompletes asserts
+// openFileAndEmitWithWarning returns within 50ms while the parse is still in
+// flight (svc.OpenFile sleeps for 2s here): it dispatches the pdfcpu read to a
+// goroutine so the Wails event-dispatch goroutine stays free to service window
+// resize and menu clicks. The 50ms ceiling is a wallclock budget covering
+// race-detector overhead, GC pause and synchronous event-emit dispatch.
 //
-// Verified at the unit layer via a slow-OpenFile seam (pdfOpener
-// interface) and a recording emitter (eventEmitter interface). The
-// production types *pdfservice.PDFService and *application.EventManager
-// satisfy these interfaces implicitly; this test injects stubs.
-func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
+// Driven through a slow-OpenFile seam (pdfOpener) and a recording emitter
+// (eventEmitter); *pdfservice.PDFService and *application.EventManager satisfy
+// both interfaces implicitly.
+func TestOpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	const parseDuration = 2 * time.Second
 	const latencyBudget = 50 * time.Millisecond
 
@@ -95,10 +93,10 @@ func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	openFileAndEmitWithWarning(opener, emitter, "/fake/path.pdf", "", &wg)
 	elapsed := time.Since(start)
 
-	// AC8 contract: return-time-versus-parse-time. The function MUST
+	// Contract: return-time-versus-parse-time. The function MUST
 	// return well before the 2s parse completes.
 	if elapsed > latencyBudget {
-		t.Errorf("[P0] 10-5-AC8: openFileAndEmitWithWarning returned in %v, exceeds %v budget (AC8: returns within 50ms while parse is in flight). Per AC8 flake-handling note: if CI flakes above 50ms, raise to 200ms; never to 0.", elapsed, latencyBudget)
+		t.Errorf("openFileAndEmitWithWarning returned in %v, exceeds %v budget (returns within 50ms while parse is in flight). flake-handling note: if CI flakes above 50ms, raise to 200ms; never to 0.", elapsed, latencyBudget)
 	}
 
 	// The dispatched goroutine MUST be in flight (OpenFile entered) before
@@ -109,7 +107,7 @@ func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	case <-opener.openReached:
 		// goroutine reached OpenFile and is now sleeping.
 	case <-time.After(latencyBudget):
-		t.Fatalf("[P0] 10-5-AC8: openFileAndEmitWithWarning returned but the dispatched goroutine did not reach OpenFile within %v -- contract violated (parse should already be in flight)", latencyBudget)
+		t.Fatalf("openFileAndEmitWithWarning returned but the dispatched goroutine did not reach OpenFile within %v -- contract violated (parse should already be in flight)", latencyBudget)
 	}
 
 	// document:load-start MUST be emitted synchronously (before return) so
@@ -118,7 +116,7 @@ func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	// synchronously (already does)" contract from the Decision section.
 	events := emitter.snapshot()
 	if len(events) == 0 || events[0] != "document:load-start" {
-		t.Errorf("[P0] 10-5-AC8: expected document:load-start to be emitted synchronously before return; got events=%v", events)
+		t.Errorf("expected document:load-start to be emitted synchronously before return; got events=%v", events)
 	}
 
 	// document:opened / document:error MUST NOT yet be emitted -- the
@@ -126,7 +124,7 @@ func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	// the parse completes, the dispatch shape is broken.
 	for _, e := range events[1:] {
 		if e == "document:opened" || e == "document:error" {
-			t.Errorf("[P0] 10-5-AC8: event %q fired before parse completed -- the pdfcpu read is not actually dispatched to a goroutine", e)
+			t.Errorf("event %q fired before parse completed -- the pdfcpu read is not actually dispatched to a goroutine", e)
 		}
 	}
 
@@ -143,19 +141,19 @@ func Test_10_5_AC8_OpenFileAndEmitReturnsBeforeParseCompletes(t *testing.T) {
 	case <-done:
 		// goroutine completed cleanly.
 	case <-time.After(parseDuration + 500*time.Millisecond):
-		t.Fatalf("[P0] 10-5-AC8: dispatched goroutine did not complete within %v -- wg.Done() not reached", parseDuration+500*time.Millisecond)
+		t.Fatalf("dispatched goroutine did not complete within %v -- wg.Done() not reached", parseDuration+500*time.Millisecond)
 	}
 
 	if !opener.openCalled.Load() {
-		t.Errorf("[P0] 10-5-AC8: slowOpener.OpenFile was never called -- the dispatched goroutine did not run")
+		t.Errorf("slowOpener.OpenFile was never called -- the dispatched goroutine did not run")
 	}
 }
 
-// 4.4-UNIT-005 [P2]: extractPDFPaths extracts .pdf paths from args.
+// extractPDFPaths extracts .pdf paths from args.
 //
-// AC#2: Given a second instance is launched with args containing PDF paths,
-// When extractPDFPaths parses the args,
-// Then it returns only the .pdf arguments (case-insensitive extension).
+// Given a second instance is launched with args containing PDF paths, When
+// extractPDFPaths parses the args, Then it returns only the .pdf arguments
+// (case-insensitive extension).
 func TestExtractPDFPaths(t *testing.T) {
 	tests := []struct {
 		name string
@@ -234,7 +232,7 @@ func TestExtractPDFPaths(t *testing.T) {
 	}
 }
 
-// TestRouteOpenPath pins the Story 12.1 AC7 routing decision shared by both
+// TestRouteOpenPath pins the routing decision shared by both
 // file-open callbacks. Before Drain (cold start) the path is queued and the
 // fake open func is NOT called; after Drain (warm/ready) the open func IS
 // called and the verdict is true. This is the only sanctioned automated pin on

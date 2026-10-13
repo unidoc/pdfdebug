@@ -19,8 +19,8 @@ func renderInfoFixture(t *testing.T) *Inspector {
 	return ins
 }
 
-// 11.6-UNIT-001 [P0] (AC1): page geometry resolves MediaBox + Rotate from the
-// /Pages ancestor (neither is on the page dict itself).
+// Page geometry resolves MediaBox + Rotate from the /Pages ancestor (neither
+// is on the page dict itself).
 func TestPageRenderInfo_GeometryInheritance(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{})
@@ -44,8 +44,8 @@ func TestPageRenderInfo_GeometryInheritance(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-002 [P0] (AC2): ExtGState carries BM/ca/CA and a resolved SMask
-// descriptor (None-vs-dict resolution).
+// ExtGState carries BM/ca/CA and a resolved SMask descriptor (None-vs-dict
+// resolution).
 func TestPageRenderInfo_ExtGStateAndSMask(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{})
@@ -80,9 +80,8 @@ func TestPageRenderInfo_ExtGStateAndSMask(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-003 [P0] (AC3): Form vs Image classification; Form carries
-// bbox/matrix/group, Image carries width/height + ICCBased colorspace family
-// with N + profile size.
+// Form vs Image classification; Form carries bbox/matrix/group, Image
+// carries width/height + ICCBased colorspace family with N + profile size.
 func TestPageRenderInfo_XObjectClassification(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{})
@@ -129,8 +128,8 @@ func TestPageRenderInfo_XObjectClassification(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-004 [P0] (AC1/AC7): Pattern/Shading entries are structural only
-// (name + ref + type integer), no evaluation.
+// Pattern/Shading entries are structural only (name + ref + type integer),
+// no evaluation.
 func TestPageRenderInfo_PatternShadingStructuralOnly(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{})
@@ -145,9 +144,9 @@ func TestPageRenderInfo_PatternShadingStructuralOnly(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-005 [P0] (AC4): recursive form walk resolves nested forms against
-// their OWN resources AND terminates a self-referential Do chain via the
-// form-object-ref visited set (no infinite loop).
+// Recursive form walk resolves nested forms against their OWN resources AND
+// terminates a self-referential Do chain via the form-object-ref visited set
+// (no infinite loop).
 func TestPageRenderInfo_RecursiveFormWalkTerminates(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{FormsRecursive: true, FormsDepth: 5})
@@ -182,11 +181,11 @@ func TestPageRenderInfo_RecursiveFormWalkTerminates(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-006 [P1] (AC4): --forms-depth bounds the walk. --forms-depth 1
-// expands exactly one level: the first-level Fm0 is walked (its OWN resources
-// are classified) and marked Truncated because it has nested forms, but those
-// 2nd-level forms are NOT emitted at all (AC4-004: a form below the cap must not
-// appear in the tree, not even as a marker naming its ref).
+// --forms-depth bounds the walk. --forms-depth 1 expands exactly one level: the
+// first-level Fm0 is walked (its OWN resources are classified) and marked
+// Truncated because it has nested forms, but those 2nd-level forms are NOT
+// emitted at all (a form below the cap must not appear in the tree, not even as
+// a marker naming its ref).
 func TestPageRenderInfo_FormsDepthTruncates(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{FormsRecursive: true, FormsDepth: 1})
@@ -207,8 +206,8 @@ func TestPageRenderInfo_FormsDepthTruncates(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-007 [P1] (AC4): without FormsRecursive, forms are listed in
-// xobjects but the Forms tree is not populated.
+// Without FormsRecursive, forms are listed in xobjects but the Forms
+// tree is not populated.
 func TestPageRenderInfo_NoRecursionByDefault(t *testing.T) {
 	ins := renderInfoFixture(t)
 	info, err := ins.PageRenderInfo("cli", 1, PageRenderOpts{})
@@ -220,9 +219,8 @@ func TestPageRenderInfo_NoRecursionByDefault(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-008 [P0] (AC6): out-of-range / non-positive page returns an error
-// whose message contains "not found" (the CLI maps that to exit 2), never a
-// panic.
+// out-of-range / non-positive page returns an error whose message contains
+// "not found" (the CLI maps that to exit 2), never a panic.
 func TestPageRenderInfo_OutOfRangeError(t *testing.T) {
 	ins := renderInfoFixture(t)
 	for _, p := range []int{0, -1, 999} {
@@ -237,8 +235,8 @@ func TestPageRenderInfo_OutOfRangeError(t *testing.T) {
 	}
 }
 
-// 11.6-UNIT-009 [P1] (AC6): a valid page with no /Resources yields empty
-// (non-nil) arrays at no error - an absent resource is a valid empty result.
+// A valid page with no /Resources yields empty (non-nil) arrays at no error
+// - an absent resource is a valid empty result.
 func TestPageRenderInfo_NoResourcesEmptyArrays(t *testing.T) {
 	ins := NewInspector()
 	path := filepath.Join(testdataDir(t), "minimal.pdf")

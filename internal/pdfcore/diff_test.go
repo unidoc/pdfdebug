@@ -1,10 +1,8 @@
-// Story 13-6 RED-PHASE unit tests for the path-aligned structural diff engine
-// (AC 1, 2, 3, 6).
+// Unit tests for the path-aligned structural diff engine.
 //
 // These are co-located pdfcore UNIT tests (the project's precedent for keystone
-// pdfcore logic; see resolve_ref_atdd_test.go for 11-5). They assert the
-// EXPECTED post-implementation behavior of the NEW diff engine that Task 1.2
-// will land in internal/pdfcore/diff.go:
+// pdfcore logic; see resolve_ref_atdd_test.go for ResolveRef). They assert the
+// behavior of the diff engine in internal/pdfcore/diff.go:
 //
 //	func (ins *Inspector) DiffDocuments(leftTabID, rightTabID string) (*DiffResult, error)
 //
@@ -27,12 +25,6 @@
 //	    XMPChanged                       bool  // XMP metadata packet
 //	}
 //
-// RED: diff.go does not exist yet, so this file (and the rest of the pdfcore
-// test package) fails to COMPILE until Task 1.2 lands the engine. That compile
-// failure IS the red state; the Dev step turns it green. `go build ./...`
-// (the CLI/app build) is unaffected -- _test.go files are excluded from builds.
-//
-// Naming: 13.6-UNIT-NNN [Px] per the story Testing Requirements (AC7).
 // Run: cd code && go test -run TestDiff ./internal/pdfcore/...
 //
 // Status literals are asserted as strings (not exported const names) to keep the
@@ -49,6 +41,7 @@ import (
 	"time"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // --- diff fixture assembler (custom /Root so numbering can be permuted) -------
@@ -122,8 +115,8 @@ func diffThreeLevelRenumbered() []byte {
 		"1 0 obj\n<< /Type /Pages /Parent 4 0 R /Kids [2 0 R] /Count 1 >>\nendobj\n", // PagesMid
 		"2 0 obj\n<< /Type /Pages /Parent 1 0 R /Kids [3 0 R] /Count 1 >>\nendobj\n", // PagesLeaf
 		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n", // Page
-		"4 0 obj\n<< /Type /Pages /Kids [1 0 R] /Count 1 >>\nendobj\n",              // PagesRoot
-		"5 0 obj\n<< /Type /Catalog /Pages 4 0 R >>\nendobj\n",                      // Catalog
+		"4 0 obj\n<< /Type /Pages /Kids [1 0 R] /Count 1 >>\nendobj\n",               // PagesRoot
+		"5 0 obj\n<< /Type /Catalog /Pages 4 0 R >>\nendobj\n",                       // Catalog
 	)
 }
 
@@ -199,10 +192,9 @@ func diffRetargetNamed() []byte {
 
 // --- two-document opener ------------------------------------------------------
 
-// openTwoForDiff writes both fixtures, verifies pdfcpu accepts each (guards an
-// eternally-red suite), opens BOTH into ONE Inspector under tabs "left"/"right"
-// (AC1: the diff is a read-only walk over two DocumentStates in one Inspector),
-// and returns the inspector + the two tab ids.
+// openTwoForDiff writes both fixtures, verifies pdfcpu accepts each, opens BOTH into ONE Inspector under tabs "left"/"right"
+// (the diff is a read-only walk over two DocumentStates in one Inspector), and
+// returns the inspector + the two tab ids.
 func openTwoForDiff(t *testing.T, leftName string, left []byte, rightName string, right []byte) (*Inspector, string, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -257,9 +249,184 @@ func containsStr(ss []string, s string) bool {
 	return false
 }
 
+// diffDeepChain builds a single-page PDF with a LINEAR chain of nested dict
+// refs hanging off the catalog's /Deep key: obj4 -> obj5 -> ... each
+// << /L (n+1) 0 R >>, terminating in a << /V value >> leaf. With chainLen well
+// above maxResolveDepth (32) the diff's depth cap cuts the chain before it
+// reaches the leaf, so a change in the leaf's /V is HIDDEN behind the shallow
+// summary at the cut. Mirrors testdata/correctness/
+// deep-change-{a,b}.pdf without touching disk.
+func diffDeepChain(chainLen int, leafValue string) []byte {
+	objs := []string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Deep 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+	}
+	base := 4 // first chain object number
+	for i := 0; i < chainLen; i++ {
+		num := base + i
+		objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /L %d 0 R >>\nendobj\n", num, num+1))
+	}
+	objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /V %s >>\nendobj\n", base+chainLen, leafValue))
+	return assembleDiffPDF(1, objs...)
+}
+
+// diffSharedDeepAndShallow builds a single-page PDF where ONE object is
+// reachable two ways: directly off the catalog's /Shallow key (depth 1, fully
+// walked) AND at the bottom of a linear /Deep chain long enough that the ref to
+// it lands past maxResolveDepth (depth-capped). It is the topology that made the
+// depth-cap over-count TruncatedSubtrees before reconcileTruncation: the shared
+// pair is fully accounted for on the shallow path, so the capped encounter hides
+// nothing. Catalog keys sort alphabetically, so /Deep is walked BEFORE /Shallow
+// (deep-first order) -- the case a mere check-reorder would not fix.
+func diffSharedDeepAndShallow(chainLen int, sharedValue string) []byte {
+	shared := 4 + chainLen // shared object number, immediately after the chain
+	objs := []string{
+		fmt.Sprintf("1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Shallow %d 0 R /Deep 4 0 R >>\nendobj\n", shared),
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
+	}
+	base := 4
+	for i := 0; i < chainLen; i++ {
+		num := base + i
+		// The last chain object (num == shared-1) points its /L at the shared obj.
+		objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /L %d 0 R >>\nendobj\n", num, num+1))
+	}
+	objs = append(objs, fmt.Sprintf("%d 0 obj\n<< /V %s >>\nendobj\n", shared, sharedValue))
+	return assembleDiffPDF(1, objs...)
+}
+
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-001 [P0] AC1/AC6: a document diffed against ITSELF (same bytes,
-// two tabs) yields an all-unchanged tree and a zero-delta summary.
+// Regression: a shared object reachable both shallow
+// (fully walked) and past the depth cap must NOT be counted as a truncated
+// subtree. Before reconcileTruncation the capped encounter over-counted
+// TruncatedSubtrees, flipping an IDENTICAL pair to a false "not identical" /
+// exit 1 -- the same false-positive class the spec's adversarial review
+// flagged. Exercises the deep-first DFS order.
+// ---------------------------------------------------------------------------
+
+func TestDiff_SharedRefWalkedElsewhereNotTruncated(t *testing.T) {
+	// Chain length == maxResolveDepth lands the shared ref EXACTLY at the first
+	// cap (diffChild depth 32), so the shared object is the only capped node and
+	// no deep-only intermediate is cut. Identical inputs: the sole "truncation"
+	// is that shared object seen past the cap on the /Deep path, which is fully
+	// walked on the /Shallow path.
+	pdf := diffSharedDeepAndShallow(maxResolveDepth, "111")
+	ins, l, r := openTwoForDiff(t, "sharedA.pdf", pdf, "sharedB.pdf", pdf)
+
+	res, err := ins.DiffDocuments(l, r)
+	if err != nil {
+		t.Fatalf("DiffDocuments returned error: %v", err)
+	}
+	if res.Summary.TruncatedSubtrees != 0 {
+		t.Errorf("TruncatedSubtrees = %d, want 0 (the shared object is fully walked on the shallow path)", res.Summary.TruncatedSubtrees)
+	}
+	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
+		t.Errorf("identical inputs reported deltas Added=%d Removed=%d Changed=%d, want all 0", res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
+	}
+	// No node may still carry the Truncated mark after reconciliation.
+	for _, n := range collectDiffNodes(res.Root) {
+		if n.Truncated {
+			t.Errorf("node %q still marked Truncated after reconciliation", n.Path)
+		}
+	}
+}
+
+// TestReconcileTruncation_EntryNotCompletion pins the honesty guarantee behind
+// the entry-populated enteredPairs set (PR review, diff.go:reconcileTruncation):
+// enteredPairs records a pair on diff ENTRY, not on completion of a full walk,
+// so a pair entered near the depth cap whose own subtree is then cut is in the
+// set exactly like a fully-walked pair. Clearing a redundant past-the-cap
+// encounter of such a pair must NOT zero TruncatedSubtrees, because the deeper,
+// genuinely-unresolved pair retains its own mark. Asserted directly on
+// reconcileTruncation + countDelta so it does not depend on a brittle
+// depth-33 PDF fixture.
+func TestReconcileTruncation_EntryNotCompletion(t *testing.T) {
+	// childP: a redundant past-cap encounter of pair "P" that WAS entered
+	// elsewhere -> in enteredPairs -> its mark clears.
+	// childQ: pair "Q" that was NEVER entered elsewhere (genuinely unresolved,
+	// e.g. a child of P cut when P's own entry walk hit the cap) -> survives.
+	childP := &DiffNode{Path: "/Root/P", Status: "unchanged", Kind: "ref", Truncated: true, capRefPair: "P"}
+	childQ := &DiffNode{Path: "/Root/Q", Status: "unchanged", Kind: "ref", Truncated: true, capRefPair: "Q"}
+	root := &DiffNode{Path: "/Root", Status: "unchanged", Kind: "dict", Children: []*DiffNode{childP, childQ}}
+
+	enteredPairs := map[string]bool{"P": true} // P entered elsewhere; Q was not
+
+	reconcileTruncation(root, enteredPairs)
+
+	if childP.Truncated {
+		t.Errorf("childP: a pair entered elsewhere should have its redundant mark cleared")
+	}
+	if !childQ.Truncated {
+		t.Errorf("childQ: a pair never entered elsewhere is genuinely unresolved and must stay truncated")
+	}
+	var s DiffSummary
+	countDelta(root, &s)
+	if s.TruncatedSubtrees != 1 {
+		t.Errorf("TruncatedSubtrees = %d, want 1: clearing an entered-but-not-fully-walked pair must not zero the count while a genuinely-unresolved pair remains", s.TruncatedSubtrees)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A deep chain diffed past the maxResolveDepth cap marks the cut
+// node DiffNode.Truncated and tallies it in DiffSummary.TruncatedSubtrees,
+// and does so only at the depth-cap arm (a self-diff of a SHALLOW graph
+// counts zero). This is the co-located pdfcore logic assertion, deferred until
+// the production types existed.
+// ---------------------------------------------------------------------------
+
+func TestDiff_DepthCapMarksTruncatedSubtree(t *testing.T) {
+	// A chain far deeper than maxResolveDepth (32); the two sides differ only in
+	// the leaf /V, well below the cut, so the difference is hidden.
+	left := diffDeepChain(45, "111")
+	right := diffDeepChain(45, "222")
+	ins, l, r := openTwoForDiff(t, "deepA.pdf", left, "deepB.pdf", right)
+
+	res, err := ins.DiffDocuments(l, r)
+	if err != nil {
+		t.Fatalf("DiffDocuments returned error: %v", err)
+	}
+
+	if res.Summary.TruncatedSubtrees < 1 {
+		t.Errorf("TruncatedSubtrees = %d, want >= 1 (the deep chain is cut at the depth cap)", res.Summary.TruncatedSubtrees)
+	}
+
+	nodes := collectDiffNodes(res.Root)
+	truncated := 0
+	for _, n := range nodes {
+		if n.Truncated {
+			truncated++
+			// A truncated node is the depth-capped ref, compared by shallow
+			// summary, so it carries Kind "ref" and no children.
+			if n.Kind != "ref" {
+				t.Errorf("truncated node %q kind = %q, want \"ref\"", n.Path, n.Kind)
+			}
+			if len(n.Children) != 0 {
+				t.Errorf("truncated node %q has %d children, want 0 (subtree not walked)", n.Path, len(n.Children))
+			}
+		}
+	}
+	if truncated != res.Summary.TruncatedSubtrees {
+		t.Errorf("%d nodes carry Truncated but summary counts %d", truncated, res.Summary.TruncatedSubtrees)
+	}
+
+	// Guardrail (the "only the depth cap is truncation" rule): a SHALLOW graph
+	// diffed against itself must not mark anything -- else every real PDF's
+	// back-edges/dedup would flip to a false non-identical.
+	shallow := diffOnePage()
+	ins2, l2, r2 := openTwoForDiff(t, "s1.pdf", shallow, "s2.pdf", shallow)
+	res2, err := ins2.DiffDocuments(l2, r2)
+	if err != nil {
+		t.Fatalf("shallow self-diff returned error: %v", err)
+	}
+	if res2.Summary.TruncatedSubtrees != 0 {
+		t.Errorf("shallow self-diff TruncatedSubtrees = %d, want 0 (cycles/dedup are not truncation)", res2.Summary.TruncatedSubtrees)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A document diffed against ITSELF (same bytes, two tabs) yields an
+// all-unchanged tree and a zero-delta summary.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SelfIsZeroDelta(t *testing.T) {
@@ -268,29 +435,29 @@ func TestDiff_SelfIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-001: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Root == nil {
-		t.Fatalf("[P0] 13.6-UNIT-001: result Root is nil")
+		t.Fatalf("result Root is nil")
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-001: Root.Status = %q, want unchanged", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged", res.Root.Status)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-001: self-diff summary not zero: +%d -%d ~%d",
+		t.Errorf("self-diff summary not zero: +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	for _, n := range collectDiffNodes(res.Root) {
 		if n.Status != "unchanged" {
-			t.Errorf("[P0] 13.6-UNIT-001: node %q has status %q in a self-diff (want all unchanged)", n.Path, n.Status)
+			t.Errorf("node %q has status %q in a self-diff (want all unchanged)", n.Path, n.Status)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-002 [P0] AC1: the ALIGNMENT GUARDRAIL. A renumbered-but-
-// structurally-identical pair must produce ZERO delta. If this shows a large
-// delta the diff is aligning by object number, not by structural path.
+// The ALIGNMENT GUARDRAIL. A renumbered-but-structurally-identical pair
+// must produce ZERO delta. If this shows a large delta the diff is aligning
+// by object number, not by structural path.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
@@ -298,23 +465,23 @@ func TestDiff_RenumberedIdenticalIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-002: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-002: path-alignment failed -- renumbered-but-identical pair shows delta +%d -%d ~%d (must be 0/0/0)",
+		t.Errorf("path-alignment failed -- renumbered-but-identical pair shows delta +%d -%d ~%d (must be 0/0/0)",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-002: Root.Status = %q, want unchanged for a renumbered-identical pair", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged for a renumbered-identical pair", res.Root.Status)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-002b [P0] AC1: the alignment guardrail at CUT points. A THREE-level
-// page tree renumbered asymmetrically must produce ZERO delta. The /Parent
-// back-edges are cut and compared by value summary; if that summary embedded
-// object numbers, the renumbered intermediate Pages nodes (different /Parent
-// numbers) would wrongly show as changed. Regression guard for the number-leak.
+// The alignment guardrail at CUT points. A THREE-level page tree renumbered
+// asymmetrically must produce ZERO delta. The /Parent back-edges are cut and
+// compared by value summary; if that summary embedded object numbers, the
+// renumbered intermediate Pages nodes (different /Parent numbers) would wrongly
+// show as changed. Regression guard for the number-leak.
 // ---------------------------------------------------------------------------
 
 func TestDiff_MultiLevelRenumberedIsZeroDelta(t *testing.T) {
@@ -322,20 +489,20 @@ func TestDiff_MultiLevelRenumberedIsZeroDelta(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-002b: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P0] 13.6-UNIT-002b: multi-level renumbered-identical pair shows delta +%d -%d ~%d (must be 0/0/0); cut-point summaries are leaking object numbers",
+		t.Errorf("multi-level renumbered-identical pair shows delta +%d -%d ~%d (must be 0/0/0); cut-point summaries are leaking object numbers",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 	if res.Root.Status != "unchanged" {
-		t.Errorf("[P0] 13.6-UNIT-002b: Root.Status = %q, want unchanged", res.Root.Status)
+		t.Errorf("Root.Status = %q, want unchanged", res.Root.Status)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-003 [P1] AC1: an object present only on the right is reported as
-// ADDED (both in the tree and the summary count).
+// An object present only on the right is reported as ADDED (both in the tree
+// and the summary count).
 // ---------------------------------------------------------------------------
 
 func TestDiff_AddedObject(t *testing.T) {
@@ -343,10 +510,10 @@ func TestDiff_AddedObject(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-003: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added < 1 {
-		t.Errorf("[P1] 13.6-UNIT-003: summary.Added = %d, want >=1", res.Summary.Added)
+		t.Errorf("summary.Added = %d, want >=1", res.Summary.Added)
 	}
 	var found *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -356,19 +523,19 @@ func TestDiff_AddedObject(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P1] 13.6-UNIT-003: no node with status \"added\" in the tree")
+		t.Fatalf("no node with status \"added\" in the tree")
 	}
 	if found.LeftSummary != "" {
-		t.Errorf("[P1] 13.6-UNIT-003: added node LeftSummary = %q, want empty (nothing on the left)", found.LeftSummary)
+		t.Errorf("added node LeftSummary = %q, want empty (nothing on the left)", found.LeftSummary)
 	}
 	if found.RightSummary == "" {
-		t.Errorf("[P1] 13.6-UNIT-003: added node RightSummary is empty, want the right value repr")
+		t.Errorf("added node RightSummary is empty, want the right value repr")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-004 [P1] AC1: the mirror of 003 -- an object present only on the
-// left (right is the baseline) is reported as REMOVED.
+// The mirror of 003 -- an object present only on the left (right is the
+// baseline) is reported as REMOVED.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RemovedObject(t *testing.T) {
@@ -376,10 +543,10 @@ func TestDiff_RemovedObject(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-004: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Removed < 1 {
-		t.Errorf("[P1] 13.6-UNIT-004: summary.Removed = %d, want >=1", res.Summary.Removed)
+		t.Errorf("summary.Removed = %d, want >=1", res.Summary.Removed)
 	}
 	var found *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -389,15 +556,15 @@ func TestDiff_RemovedObject(t *testing.T) {
 		}
 	}
 	if found == nil {
-		t.Fatalf("[P1] 13.6-UNIT-004: no node with status \"removed\" in the tree")
+		t.Fatalf("no node with status \"removed\" in the tree")
 	}
 	if found.RightSummary != "" {
-		t.Errorf("[P1] 13.6-UNIT-004: removed node RightSummary = %q, want empty (nothing on the right)", found.RightSummary)
+		t.Errorf("removed node RightSummary = %q, want empty (nothing on the right)", found.RightSummary)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-005 [P0] AC2: a modified dictionary is reported as CHANGED and its
+// A modified dictionary is reported as CHANGED and its
 // ChangedKeys names the modified key ("MediaBox").
 // ---------------------------------------------------------------------------
 
@@ -406,10 +573,10 @@ func TestDiff_ChangedDictReportsChangedKey(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-005: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Changed < 1 {
-		t.Errorf("[P0] 13.6-UNIT-005: summary.Changed = %d, want >=1", res.Summary.Changed)
+		t.Errorf("summary.Changed = %d, want >=1", res.Summary.Changed)
 	}
 	var pageNode *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -419,13 +586,13 @@ func TestDiff_ChangedDictReportsChangedKey(t *testing.T) {
 		}
 	}
 	if pageNode == nil {
-		t.Fatalf("[P0] 13.6-UNIT-005: no changed dict reports ChangedKeys containing \"MediaBox\"")
+		t.Fatalf("no changed dict reports ChangedKeys containing \"MediaBox\"")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-006 [P1] AC2: a modified scalar LEAF reports distinct left vs right
-// value summaries (the actual value change, not just "changed").
+// A modified scalar LEAF reports distinct left vs right value summaries (the
+// actual value change, not just "changed").
 // ---------------------------------------------------------------------------
 
 func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
@@ -433,7 +600,7 @@ func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-006: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	var leaf *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -443,15 +610,15 @@ func TestDiff_ChangedScalarLeafReportsBothValues(t *testing.T) {
 		}
 	}
 	if leaf == nil {
-		t.Fatalf("[P1] 13.6-UNIT-006: no changed scalar leaf carries both a LeftSummary and a RightSummary")
+		t.Fatalf("no changed scalar leaf carries both a LeftSummary and a RightSummary")
 	}
 	if leaf.LeftSummary == leaf.RightSummary {
-		t.Errorf("[P1] 13.6-UNIT-006: changed leaf has identical summaries %q; a value change must differ", leaf.LeftSummary)
+		t.Errorf("changed leaf has identical summaries %q; a value change must differ", leaf.LeftSummary)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-007 [P0] AC3: the document summary reports the page-count change.
+// The document summary reports the page-count change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryPageCountChange(t *testing.T) {
@@ -459,18 +626,18 @@ func TestDiff_SummaryPageCountChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P0] 13.6-UNIT-007: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.PageCountLeft != 1 {
-		t.Errorf("[P0] 13.6-UNIT-007: summary.PageCountLeft = %d, want 1", res.Summary.PageCountLeft)
+		t.Errorf("summary.PageCountLeft = %d, want 1", res.Summary.PageCountLeft)
 	}
 	if res.Summary.PageCountRight != 2 {
-		t.Errorf("[P0] 13.6-UNIT-007: summary.PageCountRight = %d, want 2", res.Summary.PageCountRight)
+		t.Errorf("summary.PageCountRight = %d, want 2", res.Summary.PageCountRight)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-008 [P1] AC3: a catalog /Version change is surfaced in the summary.
+// A catalog /Version change is surfaced in the summary.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryVersionChange(t *testing.T) {
@@ -478,18 +645,18 @@ func TestDiff_SummaryVersionChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-008: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.VersionChanged {
-		t.Errorf("[P1] 13.6-UNIT-008: summary.VersionChanged = false, want true (catalog /Version differs)")
+		t.Errorf("summary.VersionChanged = false, want true (catalog /Version differs)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-009 [P2] AC3 contract shape: the summary carries the enumerated
-// high-signal fields (encryption/info/xmp read outside the catalog walk). A
-// self-diff must leave every one of them false/zero. This also PINS the field
-// set at compile time so the CLI/GUI can rely on it.
+// Contract shape: the summary carries the enumerated high-signal fields
+// (encryption/info/xmp read outside the catalog walk). A self-diff must leave
+// every one of them false/zero. This also PINS the field set at compile time
+// so the CLI/GUI can rely on it.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryShapeStableOnSelfDiff(t *testing.T) {
@@ -498,22 +665,22 @@ func TestDiff_SummaryShapeStableOnSelfDiff(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P2] 13.6-UNIT-009: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	s := res.Summary
 	if s.VersionChanged || s.EncryptionChanged || s.InfoChanged || s.XMPChanged {
-		t.Errorf("[P2] 13.6-UNIT-009: self-diff flags must all be false, got version=%v enc=%v info=%v xmp=%v",
+		t.Errorf("self-diff flags must all be false, got version=%v enc=%v info=%v xmp=%v",
 			s.VersionChanged, s.EncryptionChanged, s.InfoChanged, s.XMPChanged)
 	}
 	if s.PageCountLeft != s.PageCountRight {
-		t.Errorf("[P2] 13.6-UNIT-009: self-diff page counts differ: %d vs %d", s.PageCountLeft, s.PageCountRight)
+		t.Errorf("self-diff page counts differ: %d vs %d", s.PageCountLeft, s.PageCountRight)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-010 [P2] AC1/AC6: a cyclic graph diffed against itself TERMINATES
-// (depth-bounded by maxResolveDepth) and does not hang or stack-overflow.
-// cyclePDF is the A->B->A fixture from resolve_ref_atdd_test.go.
+// A cyclic graph diffed against itself TERMINATES (depth-bounded by
+// maxResolveDepth) and does not hang or stack-overflow. cyclePDF is the
+// A->B->A fixture from resolve_ref_atdd_test.go.
 // ---------------------------------------------------------------------------
 
 func TestDiff_CyclicGraphTerminates(t *testing.T) {
@@ -522,24 +689,24 @@ func TestDiff_CyclicGraphTerminates(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P2] 13.6-UNIT-010: DiffDocuments returned error on a cyclic graph: %v", err)
+		t.Fatalf("DiffDocuments returned error on a cyclic graph: %v", err)
 	}
 	if res.Root == nil {
-		t.Fatalf("[P2] 13.6-UNIT-010: result Root is nil")
+		t.Fatalf("result Root is nil")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P2] 13.6-UNIT-010: cyclic self-diff should be zero delta, got +%d -%d ~%d",
+		t.Errorf("cyclic self-diff should be zero delta, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-012 [P1] AC2/AC7: a RETARGETED indirect ref (same structural path,
-// the ref points to a DIFFERENT object with different content AND a different
-// object number) is reported as a change by TARGET CONTENT, not object number.
-// This is the AC7-enumerated "retargeted ref" fixture, distinct from the
-// renumbered-identical guardrail: here the target genuinely differs, so the
-// diff must show a delta at /Root/OpenAction carrying the /S value change.
+// A RETARGETED indirect ref (same structural path, the ref points to a
+// DIFFERENT object with different content AND a different object number) is
+// reported as a change by TARGET CONTENT, not object number. This is the
+// enumerated "retargeted ref" fixture, distinct from the renumbered-identical
+// guardrail: here the target genuinely differs, so the diff must show a delta
+// at /Root/OpenAction carrying the /S value change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
@@ -547,10 +714,10 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Summary.Added == 0 && res.Summary.Changed == 0 {
-		t.Fatalf("[P1] 13.6-UNIT-012: retargeted ref produced no delta (+%d ~%d); the change was missed",
+		t.Fatalf("retargeted ref produced no delta (+%d ~%d); the change was missed",
 			res.Summary.Added, res.Summary.Changed)
 	}
 
@@ -562,10 +729,10 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 		}
 	}
 	if openAction == nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: no /Root/OpenAction node in the tree (ref not dereferenced by path)")
+		t.Fatalf("no /Root/OpenAction node in the tree (ref not dereferenced by path)")
 	}
 	if openAction.Status != "changed" {
-		t.Fatalf("[P1] 13.6-UNIT-012: /Root/OpenAction status = %q, want changed", openAction.Status)
+		t.Fatalf("Root/OpenAction status = %q, want changed", openAction.Status)
 	}
 	// The retarget must be reported by the TARGET's content: a changed /S leaf
 	// carrying the actual name values (/GoTo -> /Named), never a bare "N G R".
@@ -577,26 +744,26 @@ func TestDiff_RetargetedRefReportsTargetChange(t *testing.T) {
 		}
 	}
 	if sLeaf == nil {
-		t.Fatalf("[P1] 13.6-UNIT-012: no /Root/OpenAction/S leaf; retarget not compared by target content")
+		t.Fatalf("no /Root/OpenAction/S leaf; retarget not compared by target content")
 	}
 	if sLeaf.Status != "changed" {
-		t.Errorf("[P1] 13.6-UNIT-012: /Root/OpenAction/S status = %q, want changed", sLeaf.Status)
+		t.Errorf("Root/OpenAction/S status = %q, want changed", sLeaf.Status)
 	}
 	if !strings.Contains(sLeaf.LeftSummary, "GoTo") || !strings.Contains(sLeaf.RightSummary, "Named") {
-		t.Errorf("[P1] 13.6-UNIT-012: /S change reported as %q -> %q, want the target names (GoTo -> Named); a raw object number here means alignment leaked the ref target",
+		t.Errorf("S change reported as %q -> %q, want the target names (GoTo -> Named); a raw object number here means alignment leaked the ref target",
 			sLeaf.LeftSummary, sLeaf.RightSummary)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-011 [P1] AC6: DiffDocuments with an unknown tab id returns an error
-// (not a panic), so a parse/load failure never crashes the session.
+// DiffDocuments with an unknown tab id returns an error (not a panic), so a
+// parse/load failure never crashes the session.
 // ---------------------------------------------------------------------------
 
 func TestDiff_UnknownTabReturnsError(t *testing.T) {
 	ins := NewInspector()
 	if _, err := ins.DiffDocuments("nope-left", "nope-right"); err == nil {
-		t.Errorf("[P1] 13.6-UNIT-011: DiffDocuments on unknown tabs returned nil error, want an error")
+		t.Errorf("DiffDocuments on unknown tabs returned nil error, want an error")
 	}
 }
 
@@ -623,10 +790,10 @@ func diffDiamondLadder(levels int) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-013 [P1] AC6: a shared subgraph reachable by exponentially many
-// structural paths (a diamond "ladder") is diffed in LINEAR time via the global
-// cross-path (left,right)-pair dedup. Without it the walk is O(2^levels) and
-// hangs. Guards the shared-/Resources re-walk and the crafted-diamond DoS.
+// A shared subgraph reachable by exponentially many structural paths (a diamond
+// "ladder") is diffed in LINEAR time via the global cross-path
+// (left,right)-pair dedup. Without it the walk is O(2^levels) and hangs. Guards
+// the shared-/Resources re-walk and the crafted-diamond DoS.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SharedSubgraphDedupTerminates(t *testing.T) {
@@ -646,14 +813,14 @@ func TestDiff_SharedSubgraphDedupTerminates(t *testing.T) {
 
 	select {
 	case err := <-errc:
-		t.Fatalf("[P1] 13.6-UNIT-013: DiffDocuments error on a shared-subgraph graph: %v", err)
+		t.Fatalf("DiffDocuments error on a shared-subgraph graph: %v", err)
 	case res := <-done:
 		if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-			t.Errorf("[P1] 13.6-UNIT-013: shared-subgraph self-diff should be zero delta, got +%d -%d ~%d",
+			t.Errorf("shared-subgraph self-diff should be zero delta, got +%d -%d ~%d",
 				res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 		}
 	case <-time.After(10 * time.Second):
-		t.Fatalf("[P1] 13.6-UNIT-013: DiffDocuments did not terminate within 10s on a diamond ladder; cross-path dedup regressed (exponential re-walk)")
+		t.Fatalf("DiffDocuments did not terminate within 10s on a diamond ladder; cross-path dedup regressed (exponential re-walk)")
 	}
 }
 
@@ -675,12 +842,12 @@ func diffInfoProducer(producer string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-014 [P1] AC3: a trailer /Info-only difference is surfaced as
-// InfoChanged WITHOUT bumping the node counts, proving /Info is read from the
-// DocumentState trailer (off the catalog walk) as AC3 requires. This is the
-// exact fact that makes the CLI's exit-1-on-flags-only-change contract necessary
-// (the counts stay 0/0/0). The /Producer strings are the SAME length so the only
-// possible source of a delta is the /Info comparison, not an object size change.
+// A trailer /Info-only difference is surfaced as InfoChanged WITHOUT bumping the
+// node counts, proving /Info is read from the DocumentState trailer (off the
+// catalog walk), not from the object graph. This is the exact fact that makes
+// the CLI's exit-1-on-flags-only-change contract necessary (the counts stay
+// 0/0/0). The /Producer strings are the SAME length so the only possible
+// source of a delta is the /Info comparison, not an object size change.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryInfoChange(t *testing.T) {
@@ -688,13 +855,13 @@ func TestDiff_SummaryInfoChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-014: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.InfoChanged {
-		t.Errorf("[P1] 13.6-UNIT-014: summary.InfoChanged = false, want true (trailer /Info /Producer differs)")
+		t.Errorf("summary.InfoChanged = false, want true (trailer /Info /Producer differs)")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P1] 13.6-UNIT-014: /Info lives OFF the catalog walk, so node counts must stay 0/0/0, got +%d -%d ~%d",
+		t.Errorf("Info lives OFF the catalog walk, so node counts must stay 0/0/0, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
@@ -716,10 +883,10 @@ func diffXMP(packet string) []byte {
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-015 [P1] AC3: a catalog /Metadata XMP change (equal-length packet,
-// so the stream dict is identical and the object walk sees no delta) is surfaced
-// as XMPChanged. Guards AC3's XMP fact AND the Out-of-Scope "stream bytes are not
-// diffed" boundary in one shot: node counts stay 0/0/0, XMPChanged is true.
+// A catalog /Metadata XMP change (equal-length packet, so the stream dict is
+// identical and the object walk sees no delta) is surfaced as XMPChanged. Guards
+// the XMP fact AND the Out-of-Scope "stream bytes are not diffed" boundary in one
+// shot: node counts stay 0/0/0, XMPChanged is true.
 // ---------------------------------------------------------------------------
 
 func TestDiff_SummaryXMPChange(t *testing.T) {
@@ -727,23 +894,23 @@ func TestDiff_SummaryXMPChange(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-015: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if !res.Summary.XMPChanged {
-		t.Errorf("[P1] 13.6-UNIT-015: summary.XMPChanged = false, want true (catalog /Metadata XMP packet differs)")
+		t.Errorf("summary.XMPChanged = false, want true (catalog /Metadata XMP packet differs)")
 	}
 	if res.Summary.Added != 0 || res.Summary.Removed != 0 || res.Summary.Changed != 0 {
-		t.Errorf("[P1] 13.6-UNIT-015: equal-length XMP means the stream dict is identical and bodies are not diffed, so node counts must stay 0/0/0, got +%d -%d ~%d",
+		t.Errorf("equal-length XMP means the stream dict is identical and bodies are not diffed, so node counts must stay 0/0/0, got +%d -%d ~%d",
 			res.Summary.Added, res.Summary.Removed, res.Summary.Changed)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 13.6-UNIT-016 [P1] AC2: a KEY added to a dict present on BOTH sides is
-// reported as an added CHILD node under that dict AND named in the parent's
-// ChangedKeys - the "which keys were added/removed/modified" granularity of AC2,
-// distinct from a wholly-added object (13.6-UNIT-003). The right catalog gains a
-// /Metadata key vs the left; the shared /Root dict must report it.
+// A KEY added to a dict present on BOTH sides is reported as an added CHILD node
+// under that dict AND named in the parent's ChangedKeys - the "which keys were
+// added/removed/modified" granularity, distinct from a wholly-added object.
+// The right catalog gains a /Metadata key vs the left; the shared /Root dict
+// must report it.
 // ---------------------------------------------------------------------------
 
 func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
@@ -751,13 +918,13 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 
 	res, err := ins.DiffDocuments(l, r)
 	if err != nil {
-		t.Fatalf("[P1] 13.6-UNIT-016: DiffDocuments returned error: %v", err)
+		t.Fatalf("DiffDocuments returned error: %v", err)
 	}
 	if res.Root.Status != "changed" {
-		t.Fatalf("[P1] 13.6-UNIT-016: /Root status = %q, want changed (a key was added to the catalog)", res.Root.Status)
+		t.Fatalf("Root status = %q, want changed (a key was added to the catalog)", res.Root.Status)
 	}
 	if !containsStr(res.Root.ChangedKeys, "Metadata") {
-		t.Errorf("[P1] 13.6-UNIT-016: /Root.ChangedKeys = %v, want it to name the added key \"Metadata\"", res.Root.ChangedKeys)
+		t.Errorf("Root.ChangedKeys = %v, want it to name the added key \"Metadata\"", res.Root.ChangedKeys)
 	}
 	var meta *DiffNode
 	for _, n := range collectDiffNodes(res.Root) {
@@ -767,9 +934,91 @@ func TestDiff_ChangedDictReportsAddedKey(t *testing.T) {
 		}
 	}
 	if meta == nil {
-		t.Fatalf("[P1] 13.6-UNIT-016: no /Root/Metadata node; an added key must appear as an added child")
+		t.Fatalf("no /Root/Metadata node; an added key must appear as an added child")
 	}
 	if meta.Status != "added" {
-		t.Errorf("[P1] 13.6-UNIT-016: /Root/Metadata status = %q, want added", meta.Status)
+		t.Errorf("Root/Metadata status = %q, want added", meta.Status)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The changed/unchanged decision runs on the byte-exact rendering while the
+// displayed summaries are decoded. Two strings that decode to the same text
+// from different bytes are a real difference and must report "changed" - and
+// must say what differs, which the decoded summaries cannot.
+// ---------------------------------------------------------------------------
+
+func TestScalarLeaf_ByteDifferentStringsThatDecodeAlikeShowTheirBytes(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		left, right         pdfcpu_types.Object
+		wantLeft, wantRight string
+	}{
+		{
+			// UTF-16BE hex against a plain literal: both decode to "A".
+			name:      "utf16be hex against a plain literal",
+			left:      pdfcpu_types.HexLiteral("FEFF0041"),
+			right:     pdfcpu_types.StringLiteral("A"),
+			wantLeft:  "<FEFF0041>",
+			wantRight: "(A)",
+		},
+		{
+			// pdfcpu unescapes already-decoded hex bytes, so the 0x5C is
+			// dropped and both sides decode to "AB".
+			name:      "hex escape quirk collapses two different blobs",
+			left:      pdfcpu_types.HexLiteral("415C42"),
+			right:     pdfcpu_types.HexLiteral("4142"),
+			wantLeft:  "<415C42>",
+			wantRight: "<4142>",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar", tc.left, tc.right, false)
+
+			if node.Status != "changed" {
+				t.Errorf("status = %q, want changed: the bytes differ even though the decodes match", node.Status)
+			}
+			if node.LeftSummary != tc.wantLeft || node.RightSummary != tc.wantRight {
+				t.Errorf("summaries = %q / %q, want the byte-exact %q / %q: two identical summaries on a changed row say nothing",
+					node.LeftSummary, node.RightSummary, tc.wantLeft, tc.wantRight)
+			}
+		})
+	}
+}
+
+func TestScalarLeaf_ChangedTextKeepsItsDecodedSummaries(t *testing.T) {
+	node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar",
+		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0042"), false)
+
+	if node.Status != "changed" {
+		t.Errorf("status = %q, want changed", node.Status)
+	}
+	if node.LeftSummary != "A" || node.RightSummary != "B" {
+		t.Errorf("summaries = %q / %q, want the decoded %q / %q: the byte-exact fallback is only for a decode collision",
+			node.LeftSummary, node.RightSummary, "A", "B")
+	}
+}
+
+func TestScalarLeaf_CarvedOutBinaryKeepsItsStandIn(t *testing.T) {
+	left := pdfcpu_types.HexLiteral(strings.Repeat("AB", 64))
+	right := pdfcpu_types.HexLiteral(strings.Repeat("CD", 64))
+	node := scalarLeaf("/Root/AcroForm/Fields[0]/V/Contents", "scalar", left, right, true)
+
+	if node.Status != "changed" {
+		t.Errorf("status = %q, want changed", node.Status)
+	}
+	want := "<binary, 64 bytes>"
+	if node.LeftSummary != want || node.RightSummary != want {
+		t.Errorf("summaries = %q / %q, want %q on both sides: the blob must not come back on the row",
+			node.LeftSummary, node.RightSummary, want)
+	}
+}
+
+func TestScalarLeaf_IdenticalBytesStayUnchanged(t *testing.T) {
+	node := scalarLeaf("/Root/StructTreeRoot/Alt", "scalar",
+		pdfcpu_types.HexLiteral("FEFF0041"), pdfcpu_types.HexLiteral("FEFF0041"), false)
+
+	if node.Status != "unchanged" {
+		t.Errorf("status = %q, want unchanged", node.Status)
 	}
 }

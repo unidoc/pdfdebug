@@ -104,7 +104,6 @@ Per Unix convention 2 is typically misuse, 1 is generic failure, >2 application-
 
 - The `pdfservice` package is a thin proxy over `Inspector`. Consider whether you actually need the package boundary. `Inspector` itself could be the Wails service. Smaller surface area.
 - The Go side does most of the heavy lifting; the React side has more state than it should (per-tab caches, navigation history, batch progress, palette state, find-bar state across hooks). Consider whether `useReducer` over a single store wouldn't be cleaner. The current sprawl makes test scaffolding heavy (1453-line `useDocumentState.test.tsx`).
-- `_bmad-output` and `_bmad` symlinks into a sibling repo (`../docs`) make the build sensitive to repo layout; a CI clone with submodules or git-subtree would be more robust than a bare relative symlink.
 
 ## Top priorities
 

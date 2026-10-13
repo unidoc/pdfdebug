@@ -1,8 +1,8 @@
-// 4-5: deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
-//      duplicate-prevention not separately covered, accept regression risk).
+// Deleted TestPlatformConditionalQuit (source-grep; macOS Quit-in-AppMenu
+// duplicate-prevention not separately covered, accept regression risk).
 
-// Package app_shell_test provides acceptance tests for Story 1.4:
-// Native Menu Bar and Application Shell.
+// Package app_shell_test provides acceptance tests for Native Menu Bar and
+// Application Shell.
 //
 // These tests verify that:
 //   - main.go is cleaned up (template boilerplate removed) and contains
@@ -77,72 +77,68 @@ func fileExists(t *testing.T, relPath string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Native menu bar with File menu (Open, Close, Quit)
-// Test IDs: 1.4-INTG-001 through 1.4-INTG-005
+// Native menu bar with File menu (Open, Close, Quit)
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-001 (P0): main.go template boilerplate removed
-// AC#1 prerequisite: GreetService, time ticker, init() removed
+// main.go template boilerplate removed: GreetService, the time ticker and
+// init() are gone.
 
 
-// 1.4-INTG-002 (P0): greetservice.go deleted
-// AC#1 prerequisite: Template leftover file removed
+// greetservice.go deleted: the template leftover file is removed.
 
 func TestGreetServiceFileDeleted(t *testing.T) {
 	if fileExists(t, "greetservice.go") {
-		t.Error("[P0] greetservice.go still exists -- must be deleted (template leftover)")
+		t.Error("greetservice.go still exists -- must be deleted (template leftover)")
 	}
 }
 
-// 1.4-INTG-003, 1.4-INTG-004, 1.4-INTG-005 (Story 4-5):
-// TestNativeMenuBarCreated, TestPlatformConditionalQuit, and TestMainGoSetupOrdering
-// were source-grep assertions on main.go. TestNativeMenuBarCreated and
-// TestMainGoSetupOrdering are replaced by tests/boot-smoke (boot path runs to
-// the event loop without panic). TestPlatformConditionalQuit is delete-only;
+// TestNativeMenuBarCreated, TestPlatformConditionalQuit, and
+// TestMainGoSetupOrdering were source-grep assertions on main.go.
+// TestNativeMenuBarCreated and TestMainGoSetupOrdering are replaced by
+// tests/boot-smoke (boot path runs to the event loop without panic).
+// TestPlatformConditionalQuit is delete-only;
 // macOS Quit-in-AppMenu duplicate-prevention is not separately covered after
 // deletion (regression risk accepted; structural breakage would surface in the
 // build matrix and at first manual smoke).
 
 // ---------------------------------------------------------------------------
-// AC#3: Window minimum size 800x600
-// Test ID: 1.4-UNIT-005 (P2)
+// Window minimum size 800x600
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#3 + Task 1.5: Window configuration (Title, Width, Height, URL)
+// Window configuration (Title, Width, Height, URL)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Task 1.6/1.7: Window styling (no hidden title bar, correct background)
+// Window styling (no hidden title bar, correct background)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// Task 1.1: Services field removed from application.Options
+// Services field removed from application.Options
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#6: AppProvider with React Context + useReducer
-// Test IDs: 1.4-INTG-006 through 1.4-INTG-010
+// AppProvider with React Context + useReducer
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-006 (P0): useDocumentState.tsx exists with required exports
+// useDocumentState.tsx exists with required exports
 
 func TestUseDocumentStateFileExists(t *testing.T) {
 	// File uses .tsx extension because it contains JSX (AppProvider component)
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P0] frontend/src/hooks/useDocumentState.tsx does not exist -- must be created for AppProvider")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist -- must be created for AppProvider")
 	}
 }
 
-// 1.4-INTG-007 (P0): AppProvider, useAppState, useAppDispatch exported
+// AppProvider, useAppState, useAppDispatch exported
 
 func TestUseDocumentStateExports(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P0] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
@@ -150,152 +146,150 @@ func TestUseDocumentStateExports(t *testing.T) {
 	// Must export AppProvider component
 	appProviderExportRe := regexp.MustCompile(`export\s+(function|const)\s+AppProvider`)
 	if !appProviderExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported AppProvider component")
+		t.Error("useDocumentState.tsx missing exported AppProvider component")
 	}
 
 	// Must export useAppState hook
 	useAppStateExportRe := regexp.MustCompile(`export\s+(function|const)\s+useAppState`)
 	if !useAppStateExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported useAppState hook")
+		t.Error("useDocumentState.tsx missing exported useAppState hook")
 	}
 
 	// Must export useAppDispatch hook
 	useAppDispatchExportRe := regexp.MustCompile(`export\s+(function|const)\s+useAppDispatch`)
 	if !useAppDispatchExportRe.MatchString(content) {
-		t.Error("[P0] useDocumentState.tsx missing exported useAppDispatch hook")
+		t.Error("useDocumentState.tsx missing exported useAppDispatch hook")
 	}
 }
 
-// 1.4-INTG-008 (P1): AppState shape with tabs and activeTabId
+// AppState shape with tabs and activeTabId
 
 func TestAppStateShape(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define AppState interface/type
 	if !strings.Contains(content, "AppState") {
-		t.Error("[P1] useDocumentState.tsx missing AppState type/interface definition")
+		t.Error("useDocumentState.tsx missing AppState type/interface definition")
 	}
 
 	// Must have tabs field
 	if !strings.Contains(content, "tabs") {
-		t.Error("[P1] useDocumentState.tsx AppState missing 'tabs' field")
+		t.Error("useDocumentState.tsx AppState missing 'tabs' field")
 	}
 
 	// Must have activeTabId field
 	if !strings.Contains(content, "activeTabId") {
-		t.Error("[P1] useDocumentState.tsx AppState missing 'activeTabId' field")
+		t.Error("useDocumentState.tsx AppState missing 'activeTabId' field")
 	}
 
 	// Must define TabState interface/type
 	if !strings.Contains(content, "TabState") {
-		t.Error("[P1] useDocumentState.tsx missing TabState type/interface definition")
+		t.Error("useDocumentState.tsx missing TabState type/interface definition")
 	}
 
 	// TabState must have tabId and fileName
 	if !strings.Contains(content, "tabId") {
-		t.Error("[P1] useDocumentState.tsx TabState missing 'tabId' field")
+		t.Error("useDocumentState.tsx TabState missing 'tabId' field")
 	}
 	if !strings.Contains(content, "fileName") {
-		t.Error("[P1] useDocumentState.tsx TabState missing 'fileName' field")
+		t.Error("useDocumentState.tsx TabState missing 'fileName' field")
 	}
 }
 
-// 1.4-INTG-009 (P1): AppAction types defined
+// AppAction types defined
 
 func TestAppActionTypes(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define AppAction type
 	if !strings.Contains(content, "AppAction") {
-		t.Error("[P1] useDocumentState.tsx missing AppAction type definition")
+		t.Error("useDocumentState.tsx missing AppAction type definition")
 	}
 
 	// Must include OPEN_DOCUMENT action type
 	if !strings.Contains(content, "OPEN_DOCUMENT") {
-		t.Error("[P1] useDocumentState.tsx missing OPEN_DOCUMENT action type")
+		t.Error("useDocumentState.tsx missing OPEN_DOCUMENT action type")
 	}
 
 	// Must include CLOSE_DOCUMENT action type
 	if !strings.Contains(content, "CLOSE_DOCUMENT") {
-		t.Error("[P1] useDocumentState.tsx missing CLOSE_DOCUMENT action type")
+		t.Error("useDocumentState.tsx missing CLOSE_DOCUMENT action type")
 	}
 }
 
-// 1.4-INTG-010 (P1): Two separate contexts for state and dispatch
+// Two separate contexts for state and dispatch
 
 func TestTwoSeparateContexts(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must use useReducer
 	if !strings.Contains(content, "useReducer") {
-		t.Error("[P1] useDocumentState.tsx must use useReducer for state management")
+		t.Error("useDocumentState.tsx must use useReducer for state management")
 	}
 
 	// Must use createContext (at least twice for state + dispatch)
 	createContextCount := strings.Count(content, "createContext")
 	if createContextCount < 2 {
-		t.Errorf("[P1] useDocumentState.tsx must create two separate contexts (state + dispatch), found %d createContext calls", createContextCount)
+		t.Errorf("useDocumentState.tsx must create two separate contexts (state + dispatch), found %d createContext calls", createContextCount)
 	}
 
 	// Must define appReducer function
 	if !strings.Contains(content, "appReducer") {
-		t.Error("[P1] useDocumentState.tsx missing appReducer function")
+		t.Error("useDocumentState.tsx missing appReducer function")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// AC#2, AC#5: MainLayout component with allotment two-column layout
-// Test IDs: 1.4-UNIT-001, 1.4-UNIT-003, 1.4-INTG-011 through 1.4-INTG-015
+// MainLayout component with allotment two-column layout
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-011 (P0): MainLayout.tsx exists
+// MainLayout.tsx exists
 
 func TestMainLayoutFileExists(t *testing.T) {
 	if !fileExists(t, "frontend/src/components/MainLayout.tsx") {
-		t.Fatal("[P0] frontend/src/components/MainLayout.tsx does not exist -- must be created for two-column layout")
+		t.Fatal("frontend/src/components/MainLayout.tsx does not exist -- must be created for two-column layout")
 	}
 }
 
-// 1.4-UNIT-001 (Story 4-5): TestMainLayoutTwoColumnStructure was a source-grep
-// on MainLayout.tsx asserting the literal `preferredSize={300}`. Story 4-4
-// made `preferredSize` conditional on persisted state, breaking the grep while
+// TestMainLayoutTwoColumnStructure was a source-grep on MainLayout.tsx
+// asserting the literal `preferredSize={300}`. That literal became
+// `preferredSize` conditional on persisted state, breaking the grep while
 // behaviour was preserved. Replaced by an extension of
-// frontend/src/components/MainLayout.test.tsx (4-5-UNIT-001) that asserts both
-// `left-panel` and `right-panel` testids render.
+// frontend/src/components/MainLayout.test.tsx that asserts both `left-panel`
+// and `right-panel` testids render.
 
-// 1.4-UNIT-003 (P2): Semantic HTML elements used
-
-
-// 1.4-INTG-012 (P0): MainLayout data-testid attributes
+// Semantic HTML elements used
 
 
-// 1.4-INTG-013 (P1): MainLayout placeholder content
+// MainLayout data-testid attributes
 
 
-// 1.4-INTG-014 (P1): MainLayout uses h-full for full height
+// MainLayout placeholder content
 
 
-// 1.4-INTG-015 (P1): MainLayout exported as named export (not default)
+// MainLayout uses h-full for full height
+
+
+// MainLayout exported as named export (not default)
 
 
 // ---------------------------------------------------------------------------
-// AC#6: App.jsx integrates AppProvider, MainLayout, and EmptyState
-// Test IDs: 1.4-INTG-016 through 1.4-INTG-020
+// App.jsx integrates AppProvider, MainLayout, and EmptyState
 // ---------------------------------------------------------------------------
 
-// 1.4-INTG-016 (P0): App.jsx wraps content in AppProvider
+// App.jsx wraps content in AppProvider
 
 func TestAppJsxWrapsInAppProvider(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -303,21 +297,21 @@ func TestAppJsxWrapsInAppProvider(t *testing.T) {
 	// Must import AppProvider from useDocumentState
 	appProviderImportRe := regexp.MustCompile(`import\s+.*AppProvider.*from\s+['"].*hooks/useDocumentState['"]`)
 	if !appProviderImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must import AppProvider from './hooks/useDocumentState'")
+		t.Error("App.jsx must import AppProvider from './hooks/useDocumentState'")
 	}
 
 	// Must render <AppProvider>
 	if !strings.Contains(content, "<AppProvider>") {
-		t.Error("[P0] App.jsx must render <AppProvider> to provide context to child components")
+		t.Error("App.jsx must render <AppProvider> to provide context to child components")
 	}
 
 	// Must close </AppProvider>
 	if !strings.Contains(content, "</AppProvider>") {
-		t.Error("[P0] App.jsx must close </AppProvider>")
+		t.Error("App.jsx must close </AppProvider>")
 	}
 }
 
-// 1.4-INTG-017 (P0): App.jsx imports and conditionally renders MainLayout
+// App.jsx imports and conditionally renders MainLayout
 
 func TestAppJsxRendersMainLayout(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -325,16 +319,16 @@ func TestAppJsxRendersMainLayout(t *testing.T) {
 	// Must import MainLayout
 	mainLayoutImportRe := regexp.MustCompile(`import\s+.*MainLayout.*from\s+['"].*components/MainLayout['"]`)
 	if !mainLayoutImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must import MainLayout from './components/MainLayout'")
+		t.Error("App.jsx must import MainLayout from './components/MainLayout'")
 	}
 
 	// Must reference MainLayout in render (conditional)
 	if !strings.Contains(content, "<MainLayout") {
-		t.Error("[P0] App.jsx must render <MainLayout /> (conditionally, when document is open)")
+		t.Error("App.jsx must render <MainLayout /> (conditionally, when document is open)")
 	}
 }
 
-// 1.4-INTG-018 (P0): App.jsx still renders EmptyState
+// App.jsx still renders EmptyState
 
 func TestAppJsxStillRendersEmptyState(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -342,16 +336,16 @@ func TestAppJsxStillRendersEmptyState(t *testing.T) {
 	// Must still import EmptyState
 	emptyStateImportRe := regexp.MustCompile(`import\s+.*EmptyState.*from`)
 	if !emptyStateImportRe.MatchString(content) {
-		t.Error("[P0] App.jsx must still import EmptyState component")
+		t.Error("App.jsx must still import EmptyState component")
 	}
 
 	// Must still render <EmptyState
 	if !strings.Contains(content, "<EmptyState") {
-		t.Error("[P0] App.jsx must still render <EmptyState /> (when no document is open)")
+		t.Error("App.jsx must still render <EmptyState /> (when no document is open)")
 	}
 }
 
-// 1.4-INTG-019 (P1): App.jsx uses useAppState hook for conditional rendering
+// App.jsx uses useAppState hook for conditional rendering
 
 func TestAppJsxUsesAppStateHook(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
@@ -359,36 +353,36 @@ func TestAppJsxUsesAppStateHook(t *testing.T) {
 	// Must import useAppState
 	useAppStateImportRe := regexp.MustCompile(`import\s+.*useAppState.*from\s+['"].*hooks/useDocumentState['"]`)
 	if !useAppStateImportRe.MatchString(content) {
-		t.Error("[P1] App.jsx must import useAppState from './hooks/useDocumentState'")
+		t.Error("App.jsx must import useAppState from './hooks/useDocumentState'")
 	}
 
 	// Must call useAppState()
 	if !strings.Contains(content, "useAppState()") {
-		t.Error("[P1] App.jsx must call useAppState() to access application state")
+		t.Error("App.jsx must call useAppState to access application state")
 	}
 
 	// Must reference activeTabId for conditional rendering
 	if !strings.Contains(content, "activeTabId") {
-		t.Error("[P1] App.jsx must use activeTabId from state for conditional rendering")
+		t.Error("App.jsx must use activeTabId from state for conditional rendering")
 	}
 }
 
-// 1.4-INTG-020 (P1): AppContent wrapper component exists inside App.jsx
-// Hooks must be called inside AppProvider, so a wrapper component is needed
+// AppContent wrapper component exists inside App.jsx: hooks must be called
+// inside AppProvider, so a wrapper component is needed.
 
 func TestAppContentWrapperComponent(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
 	// Must define AppContent (or similar inner component) that uses hooks inside AppProvider
 	if !strings.Contains(content, "AppContent") {
-		t.Error("[P1] App.jsx must define an AppContent wrapper component (hooks must be called inside AppProvider)")
+		t.Error("App.jsx must define an AppContent wrapper component (hooks must be called inside AppProvider)")
 	}
 
 	// AppContent must be rendered inside AppProvider
 	// Pattern: <AppProvider> ... <AppContent ... </AppProvider>
 	appContentInsideProviderRe := regexp.MustCompile(`(?s)<AppProvider>.*<AppContent.*</AppProvider>`)
 	if !appContentInsideProviderRe.MatchString(content) {
-		t.Error("[P1] App.jsx: AppContent must be rendered inside <AppProvider> (hooks require context)")
+		t.Error("App.jsx: AppContent must be rendered inside <AppProvider> (hooks require context)")
 	}
 }
 
@@ -408,93 +402,93 @@ func TestNoBarrelFilesInNewDirectories(t *testing.T) {
 		for _, ext := range []string{"index.ts", "index.tsx"} {
 			indexPath := filepath.Join(root, dir, ext)
 			if _, err := os.Stat(indexPath); err == nil {
-				t.Errorf("[P0] %s/%s exists -- barrel files are forbidden by project rules", dir, ext)
+				t.Errorf("%s/%s exists -- barrel files are forbidden by project rules", dir, ext)
 			}
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.4-UNIT-002 (P1): Platform-aware shortcut hint renders correctly
-// AC#1 (related): EmptyState uses getShortcutHint from platform.ts
+// Platform-aware shortcut hint renders correctly: EmptyState uses
+// getShortcutHint from platform.ts.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-UNIT-004 (P2): Focus indicator applied to interactive elements
-// AC#5 (related): Accessibility focus-visible ring on buttons
+// Focus indicator applied to interactive elements: an accessibility
+// focus-visible ring on buttons.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-021 (P1): ErrorBoundary wraps Allotment in MainLayout
-// Defensive: ErrorBoundary catches render errors in split panels
+// ErrorBoundary wraps Allotment in MainLayout, defensively, so it catches
+// render errors in the split panels.
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-022 (P1): useDocumentState initial state is correct
-// Verify initialState has empty tabs and null activeTabId
+// useDocumentState initial state is correct.
+// Verify initialState has empty tabs and null activeTabId.
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateInitialState(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P1] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// Must define initialState
 	if !strings.Contains(content, "initialState") {
-		t.Error("[P1] useDocumentState.tsx missing initialState definition")
+		t.Error("useDocumentState.tsx missing initialState definition")
 	}
 
 	// initialState must have empty tabs array
 	emptyTabsRe := regexp.MustCompile(`tabs\s*:\s*\[\s*\]`)
 	if !emptyTabsRe.MatchString(content) {
-		t.Error("[P1] useDocumentState.tsx initialState must have tabs: []")
+		t.Error("useDocumentState.tsx initialState must have tabs: []")
 	}
 
 	// initialState must have null activeTabId
 	nullActiveTabRe := regexp.MustCompile(`activeTabId\s*:\s*null`)
 	if !nullActiveTabRe.MatchString(content) {
-		t.Error("[P1] useDocumentState.tsx initialState must have activeTabId: null")
+		t.Error("useDocumentState.tsx initialState must have activeTabId: null")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 1.4-INTG-023 (P2): useDocumentState context null guards
-// Hooks throw meaningful errors when used outside AppProvider
+// useDocumentState context null guards: the hooks throw meaningful errors when
+// used outside AppProvider.
 // ---------------------------------------------------------------------------
 
 func TestUseDocumentStateContextNullGuards(t *testing.T) {
 	if !fileExists(t, "frontend/src/hooks/useDocumentState.tsx") {
-		t.Fatal("[P2] frontend/src/hooks/useDocumentState.tsx does not exist")
+		t.Fatal("frontend/src/hooks/useDocumentState.tsx does not exist")
 	}
 
 	content := readFile(t, "frontend/src/hooks/useDocumentState.tsx")
 
 	// useAppState must throw when context is null
 	if !strings.Contains(content, "useAppState must be used within") {
-		t.Error("[P2] useAppState hook missing null-guard error message")
+		t.Error("useAppState hook missing null-guard error message")
 	}
 
 	// useAppDispatch must throw when context is null
 	if !strings.Contains(content, "useAppDispatch must be used within") {
-		t.Error("[P2] useAppDispatch hook missing null-guard error message")
+		t.Error("useAppDispatch hook missing null-guard error message")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// App.jsx keeps .jsx extension (regression guard from Story 1.3)
+// App.jsx keeps its .jsx extension -- regression guard
 // ---------------------------------------------------------------------------
 
 func TestAppJsxExtensionPreserved(t *testing.T) {
 	if !fileExists(t, "frontend/src/App.jsx") {
-		t.Fatal("[P0] frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
+		t.Fatal("frontend/src/App.jsx does not exist -- must keep .jsx extension per project convention")
 	}
 
 	if fileExists(t, "frontend/src/App.tsx") {
-		t.Error("[P0] frontend/src/App.tsx exists -- App should remain .jsx per project convention")
+		t.Error("frontend/src/App.tsx exists -- App should remain .jsx per project convention")
 	}
 }

@@ -79,10 +79,18 @@ func buildCLI(t *testing.T) string {
 }
 
 // runCLI executes the CLI binary with args and returns stdout, stderr,
-// and the exit code.
+// and the exit code. The child inherits the test process's working directory.
 func runCLI(t *testing.T, binPath string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
+	return runCLIIn(t, "", binPath, args...)
+}
+
+// runCLIIn is runCLI with the child's working directory set to dir (empty means
+// inherit), so a test can pass a relative path such as ./-leading-dash.pdf.
+func runCLIIn(t *testing.T, dir, binPath string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
 	cmd := exec.Command(binPath, args...)
+	cmd.Dir = dir
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -99,7 +107,7 @@ func runCLI(t *testing.T, binPath string, args ...string) (stdout, stderr string
 }
 
 // runCLIRaw executes the CLI binary and returns stdout as raw bytes (for
-// byte-exact comparisons such as `dump plaintext` Latin-1 re-encoding).
+// byte-exact comparisons such as `dump bytes` Latin-1 re-encoding).
 func runCLIRaw(t *testing.T, binPath string, args ...string) (stdout []byte, stderr string, exitCode int) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
@@ -115,6 +123,19 @@ func runCLIRaw(t *testing.T, binPath string, args ...string) (stdout []byte, std
 		}
 	}
 	return out, errBuf.String(), exitCode
+}
+
+// copyTestdataFile copies the named file out of testdata/ to dst, so a test can
+// exercise a path spelling the repo cannot carry (a leading dash, say).
+func copyTestdataFile(t *testing.T, name, dst string) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(testdataDir(t), name))
+	if err != nil {
+		t.Fatalf("failed to read testdata/%s: %v", name, err)
+	}
+	if err := os.WriteFile(dst, content, 0o600); err != nil {
+		t.Fatalf("failed to write %s: %v", dst, err)
+	}
 }
 
 // mustParseJSON parses s as JSON into target, failing the test on error.

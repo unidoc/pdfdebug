@@ -8,9 +8,9 @@ import { vi } from 'vitest';
 // jump hits the 5s vitest test timeout. Polyfilling `jest` here makes
 // jestFakeTimersAreEnabled() see vitest's mocked setTimeout and use
 // advanceTimersToNextTimer() to drain pending timers between callback
-// retries. Story 10-1 PlainTextView.async tests depend on this path.
+// retries. The PlainTextView.async tests depend on this path.
 //
-// Story 10-1 dev-step bridge.
+// PlainTextView.async dev-step bridge.
 type JestLike = {
   advanceTimersByTime: typeof vi.advanceTimersByTime;
   runAllTicks: typeof vi.runAllTicks;

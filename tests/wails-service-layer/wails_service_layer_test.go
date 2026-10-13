@@ -1,7 +1,5 @@
-// Package wails_service_layer_test provides acceptance tests for Story 2.3:
-// Wails Service Layer -- Bind PDF Core to Frontend.
-//
-// These are TDD RED PHASE tests -- they MUST fail until Story 2-3 is implemented.
+// Package wails_service_layer_test provides acceptance tests for Wails Service
+// Layer -- Bind PDF Core to Frontend.
 //
 // Test Levels: Unit (Go) -- source file content parsing + delegated test execution.
 // No browser interaction required; all criteria are Go package validation.
@@ -13,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -52,14 +51,14 @@ func readFile(t *testing.T, relPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: PDFService struct exists with correct methods
+// PDFService struct exists with correct methods
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-001 [P1]: PDFService.OpenFile() delegates to Inspector.Open()
-// AC#1: Given a valid PDF, When PDFService.OpenFile(path) is called,
-//       Then it delegates to Inspector.Open() and returns DocumentInfo
-//       with non-empty TabID, correct FileName, PageCount > 0.
+// PDFService.OpenFile() delegates to Inspector.Open(): Given a valid
+// PDF, When PDFService.OpenFile(path) is called,
+// Then it delegates to Inspector.Open() and returns DocumentInfo
+// with non-empty TabID, correct FileName, PageCount > 0.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFile(t *testing.T) {
@@ -77,19 +76,19 @@ func TestPDFServiceOpenFile(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-001: PDFService.OpenFile() valid PDF test failed:\n%s", string(output))
+		t.Fatalf("PDFService.OpenFile() valid PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-001: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-002 [P1]: PDFService.CloseDocument() delegates to Inspector.Close()
-// AC#1: Given a previously opened document, When CloseDocument(tabID) is called,
-//       Then it delegates to Inspector.Close() and returns nil error.
-//       And calling again with the same tabID returns ErrDocumentNotFound.
+// PDFService.CloseDocument() delegates to Inspector.Close(): Given a previously
+// opened document, When CloseDocument(tabID) is called,
+// Then it delegates to Inspector.Close() and returns nil error.
+// And calling again with the same tabID returns ErrDocumentNotFound.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceCloseDocument(t *testing.T) {
@@ -104,19 +103,19 @@ func TestPDFServiceCloseDocument(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-002: PDFService.CloseDocument() test failed:\n%s", string(output))
+		t.Fatalf("PDFService.CloseDocument() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-002: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-003 [P1]: PDFService.GetTreeRoot() delegates to pdfcore
-// AC#1: Given an opened document, When GetTreeRoot(tabID) is called,
-//       Then it delegates to Inspector.GetTreeRoot() and returns TreeNode
-//       with ID "root".
+// PDFService.GetTreeRoot() delegates to pdfcore: Given an opened
+// document, When GetTreeRoot(tabID) is called,
+// Then it delegates to Inspector.GetTreeRoot() and returns TreeNode
+// with ID "root".
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetTreeRoot(t *testing.T) {
@@ -133,19 +132,19 @@ func TestPDFServiceGetTreeRoot(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-003: PDFService.GetTreeRoot() test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetTreeRoot() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-003: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-004 [P1]: PDFService.GetChildren() delegates to pdfcore
-// AC#1: Given an opened document, When GetChildren(tabID, "root") is called,
-//       Then it delegates to Inspector.GetChildren() and returns non-empty
-//       []*TreeNode slice.
+// PDFService.GetChildren() delegates to pdfcore: Given an opened document,
+// When GetChildren(tabID, "root") is called,
+// Then it delegates to Inspector.GetChildren() and returns non-empty
+// []*TreeNode slice.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetChildren(t *testing.T) {
@@ -161,18 +160,18 @@ func TestPDFServiceGetChildren(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-004: PDFService.GetChildren() test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetChildren() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-004: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-005 [P1]: PDFService.GetObjectDetail() returns stub error
-// AC#1: Given any input, When GetObjectDetail(tabID, nodeID) is called,
-//       Then it returns a "not implemented" error (stub until Story 2-6).
+// PDFService.GetObjectDetail() returns stub error: Given any input,
+// When GetObjectDetail(tabID, nodeID) is called,
+// Then it returns a "not implemented" error while it is a stub.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceGetObjectDetail(t *testing.T) {
@@ -187,18 +186,18 @@ func TestPDFServiceGetObjectDetail(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-005: PDFService.GetObjectDetail() test failed:\n%s", string(output))
+		t.Fatalf("PDFService.GetObjectDetail() test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-005: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-UNIT-006 [P1]: PDFService methods with invalid tabID return error
-// AC#2: Given a PDFService method, When called with an unknown tabID,
-//       Then it returns an error (propagated from pdfcore).
+// PDFService methods with invalid tabID return error: Given a
+// PDFService method, When called with an unknown tabID,
+// Then it returns an error (propagated from pdfcore).
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceInvalidTabID(t *testing.T) {
@@ -214,39 +213,39 @@ func TestPDFServiceInvalidTabID(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-UNIT-006: PDFService invalid tabID tests failed:\n%s", string(output))
+		t.Fatalf("PDFService invalid tabID tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-UNIT-006: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// AC#1: Wails service registration in main.go
+// Wails service registration in main.go
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-001 [P1]: PDFService is registered in main.go via app.RegisterService()
-// AC#1: Given main.go, When reviewed, Then PDFService is created and registered
-//       using app.RegisterService() (NOT the Services: field in Options).
-// ---------------------------------------------------------------------------
-
-
-// ---------------------------------------------------------------------------
-// 2.3-INTG-002 [P1]: main.go does NOT use Services: field in application.Options
-// AC#1: The app-shell test TestServicesFieldRemoved must still pass.
-//       Services: field and application.NewService must not co-occur in Options.
+// PDFService is registered in main.go via app.RegisterService(): Given main.go,
+// When reviewed, Then PDFService is created and registered
+// using app.RegisterService() (NOT the Services: field in Options).
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// AC#3: Architecture compliance -- pdfservice is thin adapter
+// main.go does NOT use Services: field in application.Options: The app-shell
+// test TestServicesFieldRemoved must still pass.
+// Services: field and application.NewService must not co-occur in Options.
+// ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
+// Architecture compliance -- pdfservice is thin adapter
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-003 [P1]: service.go exists in internal/pdfservice/
-// AC#3: PDFService struct and methods live in internal/pdfservice/service.go.
+// service.go exists in internal/pdfservice: PDFService struct and methods
+// live in internal/pdfservice/service.go.
 // ---------------------------------------------------------------------------
 
 func TestServiceFileExists(t *testing.T) {
@@ -254,35 +253,45 @@ func TestServiceFileExists(t *testing.T) {
 
 	servicePath := filepath.Join(root, "internal", "pdfservice", "service.go")
 	if _, err := os.Stat(servicePath); os.IsNotExist(err) {
-		t.Fatal("[P1] 2.3-INTG-003: internal/pdfservice/service.go does not exist")
+		t.Fatal("internal/pdfservice/service.go does not exist")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-004 [P1]: PDFService struct holds *pdfcore.Inspector
-// AC#3: PDFService holds a *pdfcore.Inspector instance, not a documents map.
+// PDFService is backed by a pdfcore Inspector injected at construction, and
+// keeps no documents map of its own.
 // ---------------------------------------------------------------------------
+
+// inspectorInjection matches the NewPDFService composite-literal entry that
+// injects the concrete backend, regardless of the column padding gofmt gives it.
+var inspectorInjection = regexp.MustCompile(`inspector:\s+pdfcore\.NewInspector\(\),`)
 
 func TestPDFServiceStructHoldsInspector(t *testing.T) {
 	content := readFile(t, "internal/pdfservice/service.go")
 
 	if !strings.Contains(content, "type PDFService struct") {
-		t.Fatal("[P1] 2.3-INTG-004: service.go missing PDFService struct")
+		t.Fatal("service.go missing PDFService struct")
 	}
 
-	if !strings.Contains(content, "*pdfcore.Inspector") {
-		t.Error("[P1] 2.3-INTG-004: PDFService does not hold *pdfcore.Inspector")
+	// The struct field is typed as the inspectorAPI test seam, so the concrete
+	// backend shows up at the injection point in NewPDFService. Anchored there:
+	// "*pdfcore.Inspector" on its own matches only the doc comment above the
+	// struct. The gap after the key is matched as a run of whitespace because
+	// gofmt sets that column from the longest key in the composite literal, so
+	// adding an entry with a longer key than "inspector" repads this line.
+	if !inspectorInjection.MatchString(content) {
+		t.Error("NewPDFService must inject pdfcore.NewInspector() as the inspector backend")
 	}
 
 	// Must NOT have its own documents map
 	if strings.Contains(content, "documents map[") {
-		t.Error("[P1] 2.3-INTG-004: PDFService has a documents map -- that belongs in pdfcore.Inspector")
+		t.Error("PDFService has a documents map -- that belongs in pdfcore.Inspector")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-005 [P1]: PDFService has correct method signatures
-// AC#1: All five service methods are exported with correct signatures.
+// PDFService has correct method signatures: All five service methods
+// are exported with correct signatures.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceMethodSignatures(t *testing.T) {
@@ -301,19 +310,19 @@ func TestPDFServiceMethodSignatures(t *testing.T) {
 
 	for _, m := range requiredMethods {
 		if !strings.Contains(content, m.signature) {
-			t.Errorf("[P1] 2.3-INTG-005: service.go missing method: %s", m.name)
+			t.Errorf("service.go missing method: %s", m.name)
 		}
 	}
 
 	// Verify NewPDFService constructor exists
 	if !strings.Contains(content, "func NewPDFService(") {
-		t.Error("[P1] 2.3-INTG-005: service.go missing NewPDFService() constructor")
+		t.Error("service.go missing NewPDFService() constructor")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-006 [P1]: pdfservice has zero pdfcpu imports (thin adapter)
-// AC#3: pdfservice delegates to pdfcore -- it never imports pdfcpu directly.
+// Pdfservice has zero pdfcpu imports (thin adapter): pdfservice delegates to
+// pdfcore -- it never imports pdfcpu directly.
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
@@ -322,7 +331,7 @@ func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
 	pdfserviceDir := filepath.Join(root, "internal", "pdfservice")
 	entries, err := os.ReadDir(pdfserviceDir)
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-006: cannot read internal/pdfservice/ directory: %v", err)
+		t.Fatalf("cannot read internal/pdfservice/ directory: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -335,20 +344,20 @@ func TestPdfserviceZeroPdfcpuImports(t *testing.T) {
 		filePath := filepath.Join(pdfserviceDir, entry.Name())
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Errorf("[P1] cannot read %s: %v", entry.Name(), err)
+			t.Errorf("cannot read %s: %v", entry.Name(), err)
 			continue
 		}
 		if strings.Contains(string(content), "pdfcpu") {
-			t.Errorf("[P1] 2.3-INTG-006: %s imports pdfcpu -- pdfservice must not touch pdfcpu directly", entry.Name())
+			t.Errorf("%s imports pdfcpu -- pdfservice must not touch pdfcpu directly", entry.Name())
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-007 [P1]: pdfservice is the Wails adapter layer
-// AC#3: pdfservice delegates to pdfcore. As the Wails adapter layer it may
-//       import Wails packages (e.g. application for dialog access). Only
-//       pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
+// Pdfservice is the Wails adapter layer: pdfservice delegates to pdfcore.
+// As the Wails adapter layer it may
+// import Wails packages (e.g. application for dialog access). Only
+// pdfcore must remain Wails-free (verified in TestPdfcoreNoRegression).
 // ---------------------------------------------------------------------------
 
 func TestPdfserviceIsWailsAdapter(t *testing.T) {
@@ -357,7 +366,7 @@ func TestPdfserviceIsWailsAdapter(t *testing.T) {
 	pdfserviceDir := filepath.Join(root, "internal", "pdfservice")
 	entries, err := os.ReadDir(pdfserviceDir)
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-007: cannot read internal/pdfservice/ directory: %v", err)
+		t.Fatalf("cannot read internal/pdfservice/ directory: %v", err)
 	}
 
 	// Ensure pdfservice does NOT import pdfcpu directly (only via pdfcore)
@@ -371,18 +380,18 @@ func TestPdfserviceIsWailsAdapter(t *testing.T) {
 		filePath := filepath.Join(pdfserviceDir, entry.Name())
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			t.Errorf("[P1] cannot read %s: %v", entry.Name(), err)
+			t.Errorf("cannot read %s: %v", entry.Name(), err)
 			continue
 		}
 		if strings.Contains(string(content), "pdfcpu") {
-			t.Errorf("[P1] 2.3-INTG-007: %s imports pdfcpu directly -- pdfservice must delegate to pdfcore", entry.Name())
+			t.Errorf("%s imports pdfcpu directly -- pdfservice must delegate to pdfcore", entry.Name())
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-008 [P1]: Round-trip test: OpenFile -> GetTreeRoot -> GetChildren -> CloseDocument
-// AC#1: Full service lifecycle with no errors.
+// Round-trip test: OpenFile -> GetTreeRoot -> GetChildren -> CloseDocument: Full service
+// lifecycle with no errors.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceRoundTrip(t *testing.T) {
@@ -400,17 +409,17 @@ func TestPDFServiceRoundTrip(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-008: Round-trip test failed:\n%s", string(output))
+		t.Fatalf("Round-trip test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-008: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-009 [P1]: OpenFile with nonexistent path returns error
-// AC#2: Error propagation from pdfcore through pdfservice.
+// OpenFile with nonexistent path returns error: Error propagation
+// from pdfcore through pdfservice.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileNonExistent(t *testing.T) {
@@ -420,17 +429,17 @@ func TestPDFServiceOpenFileNonExistent(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-009: OpenFile nonexistent path test failed:\n%s", string(output))
+		t.Fatalf("OpenFile nonexistent path test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-009: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-010 [P1]: OpenFile with malformed PDF returns error
-// AC#2: Error propagation for malformed PDF.
+// OpenFile with malformed PDF returns error: Error propagation
+// for malformed PDF.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileMalformed(t *testing.T) {
@@ -440,17 +449,17 @@ func TestPDFServiceOpenFileMalformed(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-010: OpenFile malformed PDF test failed:\n%s", string(output))
+		t.Fatalf("OpenFile malformed PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-010: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-011 [P1]: OpenFile with encrypted PDF returns error
-// AC#2: Error propagation for encrypted PDF.
+// OpenFile with encrypted PDF returns error: Error propagation
+// for encrypted PDF.
 // ---------------------------------------------------------------------------
 
 func TestPDFServiceOpenFileEncrypted(t *testing.T) {
@@ -460,27 +469,27 @@ func TestPDFServiceOpenFileEncrypted(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-011: OpenFile encrypted PDF test failed:\n%s", string(output))
+		t.Fatalf("OpenFile encrypted PDF test failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-011: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// AC#4 (Task 4): Verification -- project compiles, vet passes
+// Verification -- project compiles, vet passes
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-012 [P1]: go build ./... compiles the full project
-// AC#4.4: Full project compiles with pdfservice integrated.
+// go build ./... compiles the full project: Full project
+// compiles with pdfservice integrated.
 // ---------------------------------------------------------------------------
 
 func TestProjectCompiles(t *testing.T) {
 	root := projectRoot(t)
 
-	// Build packages in story 2-3 scope: internal packages and root main.
+	// Build packages in scope: internal packages and root main.
 	// cmd/cli/ and build/ios/ have pre-existing empty main stubs (no func main)
 	// that are out of scope for this story -- exclude them.
 	packages := []string{
@@ -492,14 +501,13 @@ func TestProjectCompiles(t *testing.T) {
 		cmd.Dir = root
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("[P1] 2.3-INTG-012: go build %s failed:\n%s", pkg, string(output))
+			t.Fatalf("go build %s failed:\n%s", pkg, string(output))
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-013 [P1]: go vet ./... passes on the full project
-// AC#4.3: No vet warnings.
+// go vet ./... passes on the full project: No vet warnings.
 // ---------------------------------------------------------------------------
 
 func TestProjectVet(t *testing.T) {
@@ -509,13 +517,13 @@ func TestProjectVet(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-013: go vet ./... failed:\n%s", string(output))
+		t.Fatalf("go vet ./... failed:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-014 [P1]: All pdfservice unit tests pass
-// AC#4.1: go test ./internal/pdfservice/... passes.
+// All pdfservice unit tests pass
+// go test ./internal/pdfservice/... passes.
 // ---------------------------------------------------------------------------
 
 func TestAllPdfserviceTestsPass(t *testing.T) {
@@ -525,17 +533,17 @@ func TestAllPdfserviceTestsPass(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-014: pdfservice test suite failed:\n%s", string(output))
+		t.Fatalf("pdfservice test suite failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-014: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-015 [P1]: All pdfcore tests still pass (no regression)
-// AC#4.2: Existing pdfcore tests are not broken by pdfservice addition.
+// All pdfcore tests still pass (no regression): Existing pdfcore tests
+// are not broken by pdfservice addition.
 // ---------------------------------------------------------------------------
 
 func TestPdfcoreNoRegression(t *testing.T) {
@@ -545,17 +553,17 @@ func TestPdfcoreNoRegression(t *testing.T) {
 	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-015: pdfcore regression -- tests failed:\n%s", string(output))
+		t.Fatalf("pdfcore regression -- tests failed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-015: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-016 [P1]: App-shell TestServicesFieldRemoved still passes
-// AC#4.2b: The existing app-shell acceptance test must not regress.
+// App-shell TestServicesFieldRemoved still passes: the existing app-shell
+// acceptance test must not regress.
 // ---------------------------------------------------------------------------
 
 func TestAppShellNoRegression(t *testing.T) {
@@ -568,17 +576,17 @@ func TestAppShellNoRegression(t *testing.T) {
 	cmd.Dir = appShellDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("[P1] 2.3-INTG-016: app-shell TestServicesFieldRemoved regressed:\n%s", string(output))
+		t.Fatalf("app-shell TestServicesFieldRemoved regressed:\n%s", string(output))
 	}
 
 	if !strings.Contains(string(output), "PASS") {
-		t.Fatalf("[P1] 2.3-INTG-016: expected PASS in output but got:\n%s", string(output))
+		t.Fatalf("expected PASS in output but got:\n%s", string(output))
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 2.3-INTG-017 [P1]: service_test.go exists in internal/pdfservice/
-// AC#3: Unit tests co-located with production code.
+// service_test.go exists in internal/pdfservice: Unit tests
+// co-located with production code.
 // ---------------------------------------------------------------------------
 
 func TestServiceTestFileExists(t *testing.T) {
@@ -586,6 +594,6 @@ func TestServiceTestFileExists(t *testing.T) {
 
 	testPath := filepath.Join(root, "internal", "pdfservice", "service_test.go")
 	if _, err := os.Stat(testPath); os.IsNotExist(err) {
-		t.Fatal("[P1] 2.3-INTG-017: internal/pdfservice/service_test.go does not exist")
+		t.Fatal("internal/pdfservice/service_test.go does not exist")
 	}
 }

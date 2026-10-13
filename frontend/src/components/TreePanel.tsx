@@ -2,106 +2,22 @@
  * @file PDF object-tree panel. Renders the hierarchical document structure
  * using react-arborist with lazy child loading and cross-reference navigation.
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
-import { BookOpen, FolderTree, FileText, FileCode, Image as ImageIcon, Type, type LucideIcon } from 'lucide-react';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
-
-/**
- * Map a backend iconHint to a lucide-react icon component. Returns null for
- * "default" and unknown hints so untyped scalars/arrays render without
- * decoration and the tree stays visually quiet.
- */
-function iconForHint(hint: string): LucideIcon | null {
-  switch (hint) {
-    case 'catalog': return BookOpen;
-    case 'pages':   return FolderTree;
-    case 'page':    return FileText;
-    case 'stream':  return FileCode;
-    case 'image':   return ImageIcon;
-    case 'font':    return Type;
-    default:        return null;
-  }
-}
-
-/** Shape consumed by react-arborist. Mapped from backend TreeNode. */
-interface TreeNodeData {
-  id: string;         // path-unique display ID for react-arborist
-  backendId: string;  // original backend ID for API calls
-  name: string;
-  children: TreeNodeData[] | null;
-  rawKey: string;
-  nodeType: string;
-  valueType: string;
-  hasChildren: boolean;
-  childCount: number;
-  iconHint: string;
-  error: string;
-  objectRef: string;
-  typeName: string;
-}
-
-/**
- * Convert a backend TreeNode to the react-arborist data shape.
- * parentTreeId is prepended to create a path-unique display ID so that
- * the same PDF object appearing in multiple places (e.g., /Parent back-ref)
- * gets distinct IDs and react-arborist doesn't collapse the wrong node.
- */
-function toTreeNodeData(node: TreeNode, parentTreeId?: string): TreeNodeData {
-  const displayId = parentTreeId ? `${parentTreeId}>${node.id}` : node.id;
-  return {
-    id: displayId,
-    backendId: node.id,
-    name: node.label,
-    rawKey: node.rawKey,
-    nodeType: node.nodeType,
-    valueType: node.valueType,
-    hasChildren: node.hasChildren,
-    childCount: node.childCount,
-    iconHint: node.iconHint,
-    error: node.error,
-    objectRef: node.objectRef ?? '',
-    typeName: node.typeName ?? '',
-    children: node.hasChildren ? [] : null,
-  };
-}
-
-/**
- * Decide whether the /T:<typeName> suffix should be rendered for a tree row.
- * AC2 dedup: suppress when the semantic label already encodes the type.
- *   - exact case-insensitive match (e.g. label "Pages" vs typeName "Pages")
- *   - "Font:" prefix label (e.g. "Font: Helvetica" vs typeName "Font")
- * Otherwise render. Empty typeName -> never render.
- */
-function shouldRenderTypeSuffix(label: string, typeName: string): boolean {
-  if (typeName === '') return false;
-  const lbl = label.toLowerCase();
-  const tn = typeName.toLowerCase();
-  if (lbl === tn) return false;
-  if (tn === 'font' && lbl.startsWith('font:')) return false;
-  return true;
-}
-
-/**
- * Derive a react-arborist openState map from tree data. A node is "open"
- * if it has children and its children array is non-empty (i.e., children
- * were fetched and the node was expanded).
- */
-function deriveOpenState(data: TreeNodeData[]): Record<string, boolean> {
-  const state: Record<string, boolean> = {};
-  function walk(nodes: TreeNodeData[]) {
-    for (const n of nodes) {
-      if (n.hasChildren && Array.isArray(n.children) && n.children.length > 0) {
-        state[n.id] = true;
-        walk(n.children);
-      }
-    }
-  }
-  walk(data);
-  return state;
-}
+import {
+  RowStateContext,
+  NodeRenderer,
+  toTreeNodeData,
+  deriveOpenState,
+  findDisplayId,
+  findNode,
+  updateNodeChildren,
+  useLazyChildren,
+  type TreeNodeData,
+} from './treeRows';
 
 /** Per-tab tree state cache entry. */
 interface TabTreeCache {
@@ -114,106 +30,6 @@ function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): 
   const root = toTreeNodeData(rootNode);
   root.children = rootChildren ? rootChildren.map((c) => toTreeNodeData(c, root.id)) : [];
   return [root];
-}
-
-/** Recursively find a node by ID and replace its children immutably. */
-function updateNodeChildren(
-  data: TreeNodeData[],
-  parentId: string,
-  newChildren: TreeNodeData[],
-): TreeNodeData[] {
-  return data.map((node) => {
-    if (node.id === parentId) {
-      return { ...node, children: newChildren };
-    }
-    if (Array.isArray(node.children) && node.children.length > 0) {
-      return { ...node, children: updateNodeChildren(node.children, parentId, newChildren) };
-    }
-    return node;
-  });
-}
-
-/** Custom row renderer for tree nodes. Handles selection, flash, and error styling. */
-function NodeRenderer({ node, style, dragHandle, isLoading, flashNodeIdRef }: NodeRendererProps<TreeNodeData> & { isLoading?: boolean; flashNodeIdRef?: React.RefObject<string | null> }) {
-  const data = node.data;
-  const isError = data.error !== '';
-  const isSelected = node.isSelected;
-  const isInternal = node.isInternal;
-  const isFlashing = data.id === flashNodeIdRef?.current;
-
-  // Hide rawKey when the inline objectRef suffix is rendered. PDFBox-style
-  // rows show "Pages [2 0 R]" rather than "Pages /Pages [2 0 R]" -- the
-  // /<bareKey> rawKey adds nothing once the ref is visible (Story 9-8 AC1).
-  const showRawKey = data.rawKey !== '' && data.rawKey !== data.name && data.objectRef === '';
-
-  const rowClasses = [
-    'flex items-center h-[28px] text-sm font-ui cursor-pointer',
-    isFlashing ? 'bg-surface-selected ring-2 ring-border-focus border-l-2 border-l-transparent' : '',
-    isSelected && !isFlashing ? 'bg-surface-selected border-l-2 border-l-border-focus' : '',
-    !isSelected && !isFlashing ? 'border-l-2 border-l-transparent' : '',
-    !isSelected && !isFlashing ? 'hover:bg-surface-hover' : '',
-  ].join(' ');
-
-  return (
-    <div
-      style={style}
-      data-testid="tree-node"
-      data-node-id={data.id}
-      className={rowClasses}
-      ref={dragHandle}
-    >
-      {/* Expand/collapse arrow */}
-      <span
-        className={`w-4 text-center text-text-muted flex-shrink-0 ${isLoading ? 'animate-pulse' : ''} ${node.data.id && node.isInternal ? 'cursor-pointer' : ''}`}
-        {...(isLoading ? { 'data-testid': 'tree-loading-indicator' } : {})}
-        onClick={(e) => {
-          if (isInternal) {
-            e.stopPropagation();
-            node.toggle();
-          }
-        }}
-      >
-        {isInternal ? (node.isOpen ? 'v' : '>') : ''}
-      </span>
-
-      {/* Error warning icon */}
-      {isError && (
-        <span className="text-error mr-1 flex-shrink-0" aria-hidden="true">!</span>
-      )}
-
-      {/* Type icon driven by backend iconHint */}
-      {(() => {
-        const Icon = iconForHint(data.iconHint);
-        if (Icon === null) return null;
-        return <Icon size={14} className="text-text-muted mr-1.5 flex-shrink-0" aria-hidden="true" />;
-      })()}
-
-      {/* Label */}
-      <span className={`whitespace-nowrap ${isError ? 'text-text-muted' : 'text-text'}`}>{data.name}</span>
-
-      {/* Raw key */}
-      {showRawKey && (
-        <span className="text-text-muted ml-1.5 text-xs">{data.rawKey}</span>
-      )}
-
-      {/* Inline object ref [N G R] (Story 9-8 AC1) */}
-      {data.objectRef !== '' && (
-        <span
-          className="text-text-muted ml-1.5 text-xs whitespace-nowrap"
-          title={`Object ${data.objectRef}${data.typeName ? ` /Type ${data.typeName}` : ''}`}
-        >
-          [{data.objectRef}]
-        </span>
-      )}
-
-      {/* /T:<TypeName> suffix with dedup (Story 9-8 AC2) */}
-      {shouldRenderTypeSuffix(data.name, data.typeName) && (
-        <span className="text-text-muted ml-1.5 text-xs whitespace-nowrap">
-          /T:{data.typeName}
-        </span>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -244,11 +60,6 @@ export function TreePanel() {
   if (activeTabId && treeDataCache.current[activeTabId]) {
     openState = treeDataCache.current[activeTabId].openState;
   }
-  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
-  // timerRef delays the loading spinner by 200ms to avoid flicker on fast loads
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // requestRef is a generation counter to cancel stale child-fetch responses
-  const requestRef = useRef<number>(0);
   // Refs mirror state for use inside async callbacks without stale closures.
   // useLatest keeps .current synced to the latest render value (#28); the
   // imperative treeDataRef writes inside async flows below still apply because
@@ -256,13 +67,17 @@ export function TreePanel() {
   // the same value, so render-phase mirroring never clobbers a fresher write.
   const selectedNodeIdRef = useLatest(selectedNodeId);
   const treeDataRef = useLatest(treeData);
+  const activeTabIdRef = useLatest(activeTabId);
   const treeRef = useRef<TreeApi<TreeNodeData> | undefined>(undefined);
-  const [, setFlashNodeId] = useState<string | null>(null);
-  const flashNodeIdRef = useRef<string | null>(null);
+  const [flashNodeId, setFlashNodeId] = useState<string | null>(null);
 
   // Container sizing for react-arborist
   const containerRef = useRef<HTMLDivElement>(null);
+  // dimensions holds the last non-zero size, so a collapsed (zero-sized) pane
+  // keeps the Tree mounted with its expansion, scroll and focus; hasSize is
+  // the current reading.
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [hasSize, setHasSize] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -270,10 +85,10 @@ export function TreePanel() {
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
+        const { width, height } = entry.contentRect;
+        const sized = width > 0 && height > 0;
+        setHasSize(sized);
+        if (sized) setDimensions({ width, height });
       }
     });
     ro.observe(el);
@@ -319,19 +134,19 @@ export function TreePanel() {
   // selectedNodeIdRef is now mirrored during render via useLatest (#28); the
   // dedicated sync effect is no longer needed.
 
-  // Cleanup pending timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+  // The arborist Tree mounts once the container has had a size and there is
+  // data, and stays mounted while collapsed. A reveal waits for the container
+  // to be sized now, so its scrollTo and open calls land on a visible tree.
+  const treeMounted = dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0;
+  const treeReady = treeMounted && hasSize;
 
   // Navigate to a cross-reference target: fetch ancestor path, expand each
   // ancestor (including intermediate dict/arr nodes), scroll to the target,
-  // select it, and flash-highlight briefly.
+  // select it, and flash-highlight briefly. Waits for treeReady, so a reveal
+  // requested while the left panel is collapsed runs once it has a size.
   // Uses a `cancelled` flag so an outdated navigation is discarded on cleanup.
   useEffect(() => {
-    if (!pendingNavTarget || !activeTabId) return;
+    if (!pendingNavTarget || !activeTabId || !treeReady) return;
     let cancelled = false;
 
     (async () => {
@@ -340,16 +155,8 @@ export function TreePanel() {
         if (cancelled) return;
 
         // Search by backendId since ancestor path contains backend IDs
-        function findByBackendId(data: TreeNodeData[], backendId: string): TreeNodeData | null {
-          for (const n of data) {
-            if (n.backendId === backendId) return n;
-            if (n.children) {
-              const found = findByBackendId(n.children, backendId);
-              if (found) return found;
-            }
-          }
-          return null;
-        }
+        const findByBackendId = (data: TreeNodeData[], backendId: string) =>
+          findNode(data, (n) => n.backendId === backendId);
 
         // Expand a single node: fetch children if not loaded, open in tree.
         // Updates treeDataRef directly so subsequent reads within this async
@@ -433,11 +240,9 @@ export function TreePanel() {
           payload: { nodeId: targetNode.backendId, label: targetNode.name, rawKey: targetNode.rawKey, iconHint: targetNode.iconHint },
         });
 
-        // Flash effect
-        flashNodeIdRef.current = targetNode.id;
+        // Flash effect (delivered to rows via RowStateContext)
         setFlashNodeId(targetNode.id);
         setTimeout(() => {
-          flashNodeIdRef.current = null;
           setFlashNodeId(null);
         }, 100);
 
@@ -450,7 +255,7 @@ export function TreePanel() {
 
     return () => { cancelled = true; };
     // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
-  }, [pendingNavTarget, activeTabId, dispatch, treeDataRef]);
+  }, [pendingNavTarget, activeTabId, treeReady, dispatch, treeDataRef]);
 
   // Auto-dismiss navError after 3 seconds
   useEffect(() => {
@@ -462,60 +267,28 @@ export function TreePanel() {
   }, [navError, dispatch]);
 
   /** Lazy-load children when a node is expanded for the first time. */
-  const handleToggle = useCallback(async (id: string) => {
-    if (!activeTabId) return;
-
-    // Find the node in tree data to check if children need loading
-    function findNode(data: TreeNodeData[], nodeId: string): TreeNodeData | null {
-      for (const n of data) {
-        if (n.id === nodeId) return n;
-        if (n.children) {
-          const found = findNode(n.children, nodeId);
-          if (found) return found;
+  const { loadingNodeId, toggle: handleToggle } = useLazyChildren(
+    activeTabId,
+    (id) => findNode(treeDataRef.current, (n) => n.id === id),
+    (tabId, id, mapped) => {
+      // A load that finishes after a tab switch updates only its own tab's
+      // cache; the displayed tree belongs to another tab.
+      if (tabId !== activeTabIdRef.current) {
+        const cached = treeDataCache.current[tabId];
+        if (cached) {
+          const updated = updateNodeChildren(cached.data, id, mapped);
+          treeDataCache.current[tabId] = { data: updated, openState: deriveOpenState(updated) };
         }
+        return;
       }
-      return null;
-    }
-
-    const node = findNode(treeDataRef.current, id);
-    if (!node) return;
-
-    // Only fetch if opening and children haven't been loaded yet
-    if (Array.isArray(node.children) && node.children.length === 0) {
-      // Cancel any pending timer
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setLoadingNodeId(null);
-
-      const generation = ++requestRef.current;
-      timerRef.current = setTimeout(() => setLoadingNodeId(id), 200);
-
-      try {
-        // Use backendId for API call, display id for tree state updates
-        const children = await GetChildren(activeTabId, node.backendId);
-        if (requestRef.current !== generation) return;
-        const mapped = (children || []).filter((c): c is TreeNode => c !== null).map((c) => toTreeNodeData(c, node.id));
-        setTreeData((prev) => {
-          const updated = updateNodeChildren(prev, id, mapped);
-          treeDataRef.current = updated;
-          if (activeTabId) {
-            const os = deriveOpenState(updated);
-            treeDataCache.current[activeTabId] = { data: updated, openState: os };
-          }
-          return updated;
-        });
-      } catch {
-        // Fetch failed -- keep children as [] so the node stays expandable
-        // and the user can retry by toggling again.
-      } finally {
-        if (requestRef.current === generation) {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = null;
-          setLoadingNodeId(null);
-        }
-      }
-    }
-    // treeDataRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
-  }, [activeTabId, treeDataRef]);
+      setTreeData((prev) => {
+        const updated = updateNodeChildren(prev, id, mapped);
+        treeDataRef.current = updated;
+        treeDataCache.current[tabId] = { data: updated, openState: deriveOpenState(updated) };
+        return updated;
+      });
+    },
+  );
 
   /** Dispatch SELECT_NODE on single-node selection. Uses backendId for API calls. */
   const handleSelect = useCallback((nodes: { id: string; data: TreeNodeData }[]) => {
@@ -530,18 +303,25 @@ export function TreePanel() {
     // selectedNodeIdRef is a stable useLatest ref; listed to satisfy exhaustive-deps.
   }, [dispatch, selectedNodeIdRef]);
 
-  // Map backendId to display id for react-arborist's selection prop
-  function findDisplayId(data: TreeNodeData[], backendId: string): string | undefined {
-    for (const n of data) {
-      if (n.backendId === backendId) return n.id;
-      if (n.children) {
-        const found = findDisplayId(n.children, backendId);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }
-  const selectionDisplayId = selectedNodeId ? findDisplayId(treeData, selectedNodeId) : undefined;
+  // Memoized so the `selection` prop keeps a stable identity across renders that
+  // change neither the selection nor the tree. react-arborist rebuilds its entire
+  // O(N) node model whenever ANY prop identity in treeProps changes (see its
+  // provider's `api.update(treeProps)` memo), so an unstable prop forces a full
+  // rebuild on every render -- pathological on large trees.
+  const selectionDisplayId = useMemo(
+    () => (selectedNodeId ? findDisplayId(treeData, selectedNodeId) : undefined),
+    [selectedNodeId, treeData],
+  );
+
+  // Fully stable child render-prop: an inline arrow (or one keyed on loadingNodeId)
+  // is a new function whenever it changes, and react-arborist rebuilds its whole
+  // O(N) model on any Tree prop identity change. Per-row loading/flash now flow
+  // through RowStateContext instead, so this never needs to change.
+  const renderNode = useCallback(
+    (props: NodeRendererProps<TreeNodeData>) => <NodeRenderer {...props} />,
+    [],
+  );
+  const rowState = useMemo(() => ({ loadingNodeId, flashNodeId }), [loadingNodeId, flashNodeId]);
 
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
@@ -549,7 +329,8 @@ export function TreePanel() {
         Document Structure
       </div>
       <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
-        {dimensions.width > 0 && dimensions.height > 0 && treeData.length > 0 && (
+        {treeMounted && (
+          <RowStateContext.Provider value={rowState}>
           <Tree<TreeNodeData>
             key={activeTabId ?? ''}
             ref={treeRef}
@@ -569,10 +350,9 @@ export function TreePanel() {
             width={dimensions.width}
             height={dimensions.height}
           >
-            {(props: NodeRendererProps<TreeNodeData>) => (
-              <NodeRenderer {...props} isLoading={loadingNodeId === props.node.id} flashNodeIdRef={flashNodeIdRef} />
-            )}
+            {renderNode}
           </Tree>
+          </RowStateContext.Provider>
         )}
         {navError && (
           <div

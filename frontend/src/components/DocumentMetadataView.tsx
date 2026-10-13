@@ -1,6 +1,6 @@
 /**
  * @file Document Metadata view -- the catalog /Metadata XMP packet and the
- * trailer /Info dictionary fields. Story 13.2. The XMP packet is rendered as
+ * trailer /Info dictionary fields. The XMP packet is rendered as
  * PLAIN TEXT only (never injected as HTML) in a read-only, scrollable, bounded
  * region; Info fields render as a key/value block.
  */

@@ -1,0 +1,107 @@
+package embedded_data_inspector_test
+
+import (
+	"strings"
+	"testing"
+)
+
+// ---------------------------------------------------------------------------
+// `dump embedded` plain-text default lists the embedded files as a
+// human-readable table carrying name, relationship, MIME, and size.
+// ---------------------------------------------------------------------------
+
+func TestEmbeddedList_PlainTableHasFields(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := writeTempPDF(t, "embedded.pdf", embeddedPDF("<?xml version=\"1.0\"?><Invoice/>"))
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "embedded", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
+	}
+	assertNotJSON(t, stdout)
+
+	lower := strings.ToLower(stdout)
+	// The display name must appear.
+	if !strings.Contains(stdout, "factur-x.xml") {
+		t.Errorf("expected display name in table:\n%s", stdout)
+	}
+	// AFRelationship (Data) is the ZUGFeRD discriminator -- must be visible.
+	if !strings.Contains(stdout, "Data") {
+		t.Errorf("expected AFRelationship 'Data' in table:\n%s", stdout)
+	}
+	// MIME subtype.
+	if !strings.Contains(lower, "text/xml") {
+		t.Errorf("expected MIME text/xml in table:\n%s", stdout)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// `dump embedded --json` emits a structured array, one element per embedded
+// file, carrying the discriminating fields.
+// ---------------------------------------------------------------------------
+
+func TestEmbeddedList_JSONIsStructuredArray(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := writeTempPDF(t, "embedded.pdf", embeddedPDF("<?xml version=\"1.0\"?><Invoice/>"))
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "embedded", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
+	}
+	trimmed := strings.TrimSpace(stdout)
+	if trimmed == "" || trimmed[0] != '[' {
+		t.Fatalf("--json must emit a top-level array, got:\n%s", stdout)
+	}
+	var arr []map[string]any
+	mustParseJSON(t, stdout, &arr)
+	if len(arr) != 1 {
+		t.Fatalf("expected 1 embedded file, got %d:\n%s", len(arr), stdout)
+	}
+	e := arr[0]
+	if name, _ := e["name"].(string); name != "factur-x.xml" {
+		t.Errorf("name = %v, want factur-x.xml", e["name"])
+	}
+	// The AFRelationship key must be present and equal to Data.
+	rel, _ := e["afRelationship"].(string)
+	if rel != "Data" {
+		t.Errorf("afRelationship = %v, want Data", e["afRelationship"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Plain-text-default contract: the plain-text list is ASCII-only and ends
+// with a trailing newline.
+// ---------------------------------------------------------------------------
+
+func TestEmbeddedList_PlainIsASCIIWithTrailingNewline(t *testing.T) {
+	bin := buildCLI(t)
+	pdf := writeTempPDF(t, "embedded.pdf", embeddedPDF("<x/>"))
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "embedded", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", ec, stderr)
+	}
+	assertASCII(t, stdout)
+	assertTrailingNewline(t, stdout)
+}
+
+// ---------------------------------------------------------------------------
+// A document with no embedded files lists an empty result (exit 0), not an
+// error.
+// ---------------------------------------------------------------------------
+
+func TestEmbeddedList_NoneIsEmptyExitZero(t *testing.T) {
+	bin := buildCLI(t)
+	// metadataPDF has /Metadata + /Info but NO embedded files.
+	pdf := writeTempPDF(t, "no-embedded.pdf", metadataPDF())
+
+	stdout, stderr, ec := runCLI(t, bin, "dump", "embedded", "--json", pdf)
+	if ec != 0 {
+		t.Fatalf("expected exit 0 for no-attachments doc, got %d (stderr: %s)", ec, stderr)
+	}
+	var arr []map[string]any
+	mustParseJSON(t, stdout, &arr)
+	if len(arr) != 0 {
+		t.Errorf("expected empty array, got %d entries:\n%s", len(arr), stdout)
+	}
+}

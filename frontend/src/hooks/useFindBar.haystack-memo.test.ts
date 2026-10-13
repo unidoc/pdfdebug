@@ -1,27 +1,17 @@
 /**
- * Story 10.7: Frontend Hook and Render-Path Correctness
- * AC6 (finding #20) -- useFindBar memoizes the corpus-wide toLowerCase().
+ * Frontend Hook and Render-Path Correctness --
+ * useFindBar memoizes the corpus-wide toLowerCase().
  *
- * TDD RED PHASE: emitted as `test()`. Asserts the POST-FIX contract:
  * useFindBar memoizes `haystack = useMemo(() => caseSensitive ? content :
  * content.toLowerCase(), [content, caseSensitive])` and passes it to
  * findMatches, so the corpus-length toLowerCase fires at most once per
  * (content, caseSensitive) pair across the find session.
  *
- * The CURRENT implementation calls findMatches(content, deferredQuery,
- * caseSensitive) inside a useMemo keyed on [content, deferredQuery,
- * caseSensitive] (useFindBar.ts:101-104). findMatches.ts:91 runs
- * content.toLowerCase() on EVERY recompute -- i.e. once per keystroke -- so the
- * corpus-length toLowerCase count after 10 keystrokes is ~10, not 1. This test
- * fails against current code; a developer activates it after Task 4.
- *
- * Counting strategy (per AC6): wrap String.prototype.toLowerCase with a counter
- * that records the LENGTH of each `this`. The short-query needle is lowercased
- * once per keystroke too, so we MUST filter by receiver length and only count
- * calls on a string of corpus length (>= 1 MB). Asserting "toLowerCase called
- * once" globally would fail because the needle is lowercased every keystroke.
- *
- * Test IDs follow the 10-7-HOOK-NNN convention.
+ * Counting strategy: wrap String.prototype.toLowerCase with a counter that
+ * records the LENGTH of each `this`. The short-query needle is lowercased once
+ * per keystroke too, so we MUST filter by receiver length and only count calls
+ * on a string of corpus length (>= 1 MB). Asserting "toLowerCase called once"
+ * globally would fail because the needle is lowercased every keystroke.
  *
  * Run: cd frontend && npx vitest run src/hooks/useFindBar.haystack-memo.test.ts
  */
@@ -43,14 +33,14 @@ function forceMacPlatform() {
 }
 
 // 10 MB Latin-1 corpus -- the smallest size where the toLowerCase win is
-// measurable in CI without flaking (Dev Notes). Contains "needle" tokens so
+// measurable in CI without flaking. Contains "needle" tokens so
 // the search does real work.
 const CORPUS = ('the quick brown FOX jumps over needle padding bytes here\n').repeat(
   Math.ceil((10 * 1024 * 1024) / 56),
 );
 const CORPUS_LEN = CORPUS.length;
 
-describe('10-7-HOOK-004: useFindBar memoizes corpus toLowerCase (AC6)', () => {
+describe('useFindBar memoizes corpus toLowerCase', () => {
   let restore: () => void;
   let originalToLowerCase: typeof String.prototype.toLowerCase;
   // Lengths of the receiver string for every toLowerCase call during the test.

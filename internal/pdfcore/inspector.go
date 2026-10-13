@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -18,7 +17,7 @@ import (
 
 // DocumentState holds the parsed pdfcpu context and metadata for one open PDF.
 //
-// Lock ordering (Story 10-5):
+// Lock ordering:
 //
 //   - pdfMu is the OUTER lock for every pdfcpu-touching Inspector method.
 //     pdfcpu's XRefTable is not concurrent-read-safe (Dereference mutates the
@@ -26,84 +25,90 @@ import (
 //     acquires pdfMu for the duration of the pdfcpu call sequence.
 //
 //   - pdfMu MUST be acquired BEFORE any per-feature mutex (streamMu,
-//     objectIndexMu, xrefTableMu) when the feature path calls into pdfcpu.
+//     xrefTableMu, and the mutexes inside the objectIndex and pageIndex lazy
+//     caches) when the feature path calls into pdfcpu.
 //
-//   - plainTextMu and plainTextCancelMu are DISJOINT from pdfMu; the
-//     plaintext path does not call into pdfcpu inside its critical section.
+//   - The imageIndex cache mutex is the one exception: it is taken BEFORE
+//     pdfMu. imageTree holds it for the whole image walk, so concurrent
+//     callers wait on one build, and the build takes and releases pdfMu
+//     itself for the page-walk fetch and then for one page at a time, so
+//     other calls on the document run between pages. Nothing takes the
+//     imageIndex mutex while holding pdfMu, and a built image walk is read
+//     without pdfMu. Order: imageIndex mutex, then pdfMu, then the pageIndex
+//     cache mutex.
 //
-//   - ins.mu (Inspector.documents map) -> plainTextCancelMu is the new edge
-//     introduced by AC4: Inspector.Open invokes closeDocLocked on the prior
-//     entry while holding ins.mu, and closeDocLocked acquires
-//     plainTextCancelMu. No path acquires ins.mu while holding
-//     plainTextCancelMu, so this edge is acyclic.
+//   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
+//     into pdfcpu inside its critical section.
+//
+//   - Document close is signalled by cancelling doc.closeCtx (a per-document
+//     context set at Open). closeDocLocked calls doc.closeCancel, which never
+//     acquires plainTextMu, so a close preempts an in-flight read without
+//     contending against the mutex the read holds for the entire I/O.
 type DocumentState struct {
 	FilePath   string
 	PDFContext *pdfcpu_model.Context
 	PageCount  int
-	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat
-	// (Story 10.6 AC7). Surfaced by Inspector.GetPlainTextSize directly (no
-	// re-stat) and threaded into readPlainText for the buffer pre-size. If the
-	// underlying file is moved or deleted after Open, this value is unchanged.
+	// FileSize is the byte size of FilePath captured ONCE at Open via os.Stat.
+	// Surfaced by Inspector.GetPlainTextSize directly (no re-stat) and threaded
+	// into readPlainText for the buffer pre-size. If the underlying file is
+	// moved or deleted after Open, this value is unchanged.
 	FileSize int64
 
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
 	// GetDocument returns. Methods that do NOT call pdfcpu (GetPlainText,
-	// GetPlainTextSize, CancelPlainText, Open, Close, GetDocument) are exempt.
-	// See lock-ordering note on the struct doc comment. Story 10-5 AC1.
+	// GetPlainTextSize, Open, Close, GetDocument) are exempt.
+	// See lock-ordering note on the struct doc comment.
 	pdfMu sync.Mutex
 
-	// revBuildOnce gates the lazy reverse-refs build. The reverse-ref index is
-	// no longer built at Open time; the first GetReverseRefs call triggers
-	// buildReverseRefsOnce which runs the BFS under pdfMu inside the Once's
-	// inner function. Story 10-5 AC7.
+	// revBuildOnce gates the lazy reverse-refs build. Open does not build the
+	// reverse-ref index; the first GetReverseRefs call triggers
+	// buildReverseRefsOnce, which runs the BFS under pdfMu inside the Once's
+	// inner function.
 	revBuildOnce sync.Once
 
 	streamMu    sync.Mutex
 	streamCache map[string]*ContentStreamData
 
 	// reverseRefs maps (objNum, gen) -> inbound dict-graph references. Built
-	// lazily on the first GetReverseRefs call via revBuildOnce (Story 10-5 AC7;
-	// pre-AC7 the build ran eagerly inside Open). The trailer's /Root pointer
-	// is NOT recorded as a reverse ref (the catalog is treated as having no
-	// incoming edges by construction). Nil means the build has not yet run OR
-	// the build failed -- check revRefsBuildFailed to distinguish.
+	// lazily on the first GetReverseRefs call via revBuildOnce; Open does not
+	// build it. The trailer's /Root pointer is NOT recorded as a reverse ref
+	// (the catalog is treated as having no incoming edges by construction).
+	// Nil means the build has not yet run OR the build failed -- check
+	// revRefsBuildFailed to distinguish.
 	reverseRefs        map[[2]int][]ReverseRef
 	revRefsBuildFailed bool
 
-	// objectIndex caches the per-tab GetObjectIndex result. Lazy on first call;
-	// invalidated implicitly when the DocumentState pointer is replaced by a
-	// re-Open under the same tabID (Story 9-8 Task 3.4).
-	objectIndexMu    sync.Mutex
-	objectIndexCache []*ObjectIndexEntry
+	// objectIndex caches the per-tab GetObjectIndex result, pageIndex the
+	// page-tree walk behind GetPageIndex and page-number lookups, and
+	// imageIndex the image walk behind GetImageIndex, GetImagePages and
+	// GetImagePageGroups. All are lazy on first call; a re-Open under the same
+	// tabID replaces this DocumentState, so the new one starts empty.
+	objectIndex lazyCache[[]*ObjectIndexEntry]
+	pageIndex   lazyCache[*pageTree]
+	imageIndex  lazyCache[*imageTree]
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced
-	// by a re-Open under the same tabID. Story 9-11 Task 1.6.
+	// by a re-Open under the same tabID.
 	xrefTableMu    sync.Mutex
 	xrefTableCache *XRefTable
 
 	// plainTextCache caches the per-tab GetPlainText result. Lazy on first
 	// call; mutex coverage includes the I/O so concurrent callers share one
-	// disk read. Story 9-11 Task 2.9 (cap removed in Story 10-1).
+	// disk read. There is no size cap.
 	plainTextMu    sync.Mutex
 	plainTextCache *PlainTextDocument
 
-	// plainTextLoadCancel is the cancel func for the in-flight GetPlainText
-	// chunked read. Nil when no load is in flight. Guarded by
-	// plainTextCancelMu (NOT plainTextMu) so CancelPlainText can preempt a
-	// read without contending against the mutex the read itself holds for the
-	// entire I/O. Story 10-1.
-	//
-	// plainTextClosed is set by Inspector.Close under plainTextCancelMu so a
-	// GetPlainText goroutine that has acquired the cancel mutex AFTER Close
-	// already ran can observe the close and bail out instead of leaking the
-	// read to natural completion (would defeat AC9's "one chunk-read cycle"
-	// guarantee in the race where Close fires between GetDocument and the
-	// cancel-func registration).
-	plainTextCancelMu   sync.Mutex
-	plainTextLoadCancel context.CancelFunc
-	plainTextClosed     bool
+	// closeCtx is cancelled when the document is closed or re-Opened under the
+	// same tabID (closeDocLocked -> closeCancel). GetPlainText merges it into
+	// the read context so an in-flight chunked read bails within one chunk-read
+	// cycle and releases its file handle; DiffDocuments polls it per visited
+	// node, and the image walk build before every page. Set once at Open and
+	// never reassigned; closeCancel is goroutine-safe and idempotent, so
+	// cancelling it needs no mutex and never touches plainTextMu.
+	closeCtx    context.Context
+	closeCancel context.CancelFunc
 }
 
 // Inspector manages open PDF documents keyed by tab ID. All methods are
@@ -168,6 +173,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
+	closeCtx, closeCancel := context.WithCancel(context.Background())
 	doc := &DocumentState{
 		FilePath:   absPath,
 		PDFContext: ctx,
@@ -176,21 +182,24 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		FileSize: fileSize,
 
 		streamCache: make(map[string]*ContentStreamData),
+
+		closeCtx:    closeCtx,
+		closeCancel: closeCancel,
 	}
 
-	// AC7: reverse-refs build is deferred to the first GetReverseRefs call via
-	// revBuildOnce; Open no longer touches the index. The build-failure log
-	// line moves to buildReverseRefsOnce.
+	// The reverse-refs build is deferred to the first GetReverseRefs call via
+	// revBuildOnce; Open does not touch the index. The build-failure log line
+	// lives in buildReverseRefsOnce.
 
 	ins.mu.Lock()
-	// AC4: if a document is already registered under this tabID, release the
+	// If a document is already registered under this tabID, release the
 	// prior DocumentState's per-doc resources (cancel an in-flight plaintext
-	// load, flag plainTextClosed) BEFORE inserting the new entry. Without
-	// this, a tabID collision would leak the prior cancel func and let the
-	// prior plaintext read complete naturally. closeDocLocked does NOT
-	// acquire ins.mu (we hold it); calling the public Close would
-	// self-deadlock since Go mutexes are not reentrant.
-	if prior, ok := ins.documents[tabID]; ok && prior != nil {
+	// load via its closeCtx) BEFORE inserting the new entry. Without this, a
+	// tabID collision would let the prior plaintext read complete naturally.
+	// closeDocLocked does NOT acquire ins.mu (we hold it); calling the public
+	// Close would self-deadlock since Go mutexes are not reentrant.
+	prior, ok := ins.documents[tabID]
+	if ok && prior != nil {
 		closeDocLocked(prior)
 	}
 	ins.documents[tabID] = doc
@@ -207,14 +216,15 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 }
 
 // Close removes the document associated with tabID from the inspector. If a
-// GetPlainText load is in flight for this tab, the cancel func is invoked
-// before the document is dropped so the read goroutine returns
-// context.Canceled within one chunk-read cycle and releases its file handle.
-// Story 10-1.
+// GetPlainText load is in flight for this tab, cancelling doc.closeCtx makes
+// the read return context.Canceled within one chunk-read cycle and release its
+// file handle before the document is dropped. An in-flight DiffDocuments that
+// walks this document stops at its next visited node and releases both pdfMu
+// locks.
 //
-// Critical: the cancel invocation acquires plainTextCancelMu only, NEVER
-// plainTextMu (which the read goroutine holds for the entire I/O). Holding
-// plainTextMu here would deadlock against the active read.
+// Critical: cancelling closeCtx never acquires plainTextMu (which the read
+// goroutine holds for the entire I/O), so a close cannot deadlock against the
+// active read.
 func (ins *Inspector) Close(tabID string) error {
 	ins.mu.Lock()
 	doc, ok := ins.documents[tabID]
@@ -226,7 +236,7 @@ func (ins *Inspector) Close(tabID string) error {
 	ins.mu.Unlock()
 
 	// Release per-doc resources outside ins.mu so a slow cancel callback
-	// cannot block other Inspector calls. AC4: the same helper is invoked by
+	// cannot block other Inspector calls. The same helper is invoked by
 	// Inspector.Open against a prior entry on tabID collision, but in that
 	// path the caller holds ins.mu and must not drop it (would race with the
 	// concurrent map insert).
@@ -234,25 +244,21 @@ func (ins *Inspector) Close(tabID string) error {
 	return nil
 }
 
-// closeDocLocked releases per-DocumentState resources: it sets plainTextClosed
-// and invokes plainTextLoadCancel if registered. It acquires ONLY
-// plainTextCancelMu; the caller controls whether ins.mu is held.
+// closeDocLocked releases per-DocumentState resources: it cancels doc.closeCtx,
+// which preempts an in-flight GetPlainText read within one chunk-read cycle. It
+// takes no lock of its own (closeCancel is goroutine-safe and idempotent and
+// never touches plainTextMu); the caller controls whether ins.mu is held.
 //
 // Naming: "Locked" follows the Go convention "the caller is responsible for
 // the higher-level lock". Inspector.Close holds ins.mu briefly to delete the
 // map entry, drops it, then calls closeDocLocked. Inspector.Open holds ins.mu
 // across the closeDocLocked + map-insert pair to keep the lifecycle atomic.
-// Story 10-5 AC4.
 func closeDocLocked(doc *DocumentState) {
 	if doc == nil {
 		return
 	}
-	doc.plainTextCancelMu.Lock()
-	doc.plainTextClosed = true
-	cancel := doc.plainTextLoadCancel
-	doc.plainTextCancelMu.Unlock()
-	if cancel != nil {
-		cancel()
+	if doc.closeCancel != nil {
+		doc.closeCancel()
 	}
 }
 
@@ -290,7 +296,7 @@ func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, erro
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access for the duration of the resolve + property
+	// Serialize pdfcpu access for the duration of the resolve + property
 	// extraction. pdfcpu's Dereference is not concurrent-read-safe.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
@@ -342,39 +348,25 @@ func (ins *Inspector) GetObjectDetail(tabID, nodeID string) (*ObjectDetail, erro
 		detail.Properties = buildPropertyEntries(v)
 	case pdfcpu_types.Array:
 		detail.Type = "array"
-		detail.Elements = buildArrayEntries(v)
+		detail.Elements = buildArrayEntries(v, inheritsBinaryCarveOut(doc, nodeID))
 	default:
+		// The key is not in scope here, so it is recovered from the node ID:
+		// without it a signature /Contents selected directly as a node would
+		// decode where the same key inside its parent dict does not.
 		detail.Type = "scalar"
-		ve := valueEntryFromObject(obj)
+		ve := valueEntryFromObject(obj, inheritsBinaryCarveOut(doc, nodeID))
 		detail.ScalarValue = &ve
 	}
 
 	return detail, nil
 }
 
-func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
+// valueEntryFromObject renders one PDF value for the detail view. Display
+// carries the decoded form and Raw the byte-exact one; they are no longer
+// written identically for strings. binary marks a carved-out binary-carrying
+// string, whose Display is a fixed-width summary while Raw keeps the bytes.
+func valueEntryFromObject(obj pdfcpu_types.Object, binary bool) ValueEntry {
 	switch v := obj.(type) {
-	case pdfcpu_types.Name:
-		d := "/" + string(v)
-		return ValueEntry{Type: "name", Display: d, Raw: d}
-	case pdfcpu_types.StringLiteral:
-		d := "(" + string(v) + ")"
-		return ValueEntry{Type: "string", Display: d, Raw: d}
-	case pdfcpu_types.HexLiteral:
-		d := "<" + string(v) + ">"
-		return ValueEntry{Type: "string", Display: d, Raw: d}
-	case pdfcpu_types.Integer:
-		d := strconv.Itoa(int(v))
-		return ValueEntry{Type: "number", Display: d, Raw: d}
-	case pdfcpu_types.Float:
-		d := strconv.FormatFloat(float64(v), 'f', -1, 64)
-		return ValueEntry{Type: "number", Display: d, Raw: d}
-	case pdfcpu_types.Boolean:
-		d := "false"
-		if bool(v) {
-			d = "true"
-		}
-		return ValueEntry{Type: "boolean", Display: d, Raw: d}
 	case pdfcpu_types.IndirectRef:
 		num := v.ObjectNumber.Value()
 		gen := v.GenerationNumber.Value()
@@ -385,10 +377,32 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 		return ValueEntry{Type: "dict", Display: "<< ... >>", Raw: "<< ... >>"}
 	case pdfcpu_types.Array:
 		return ValueEntry{Type: "array", Display: "[...]", Raw: "[...]"}
+	}
+
+	entry := ValueEntry{Type: valueEntryType(obj), Display: scalarText(obj), Raw: scalarRaw(obj)}
+	if binary && isStringObject(obj) {
+		entry.Display = binaryStringSummary(obj)
+	}
+	return entry
+}
+
+// valueEntryType classifies a scalar for the detail view's type column. It
+// mirrors classifyObject's valueType vocabulary except for the unhandled arm,
+// which the detail view has always named "unknown".
+func valueEntryType(obj pdfcpu_types.Object) string {
+	switch obj.(type) {
+	case pdfcpu_types.Name:
+		return "name"
+	case pdfcpu_types.StringLiteral, pdfcpu_types.HexLiteral:
+		return "string"
+	case pdfcpu_types.Integer, pdfcpu_types.Float:
+		return "number"
+	case pdfcpu_types.Boolean:
+		return "boolean"
 	case nil:
-		return ValueEntry{Type: "null", Display: "null", Raw: "null"}
+		return "null"
 	default:
-		return ValueEntry{Type: "unknown", Display: "Unknown", Raw: "Unknown"}
+		return "unknown"
 	}
 }
 
@@ -401,10 +415,10 @@ func valueEntryFromObject(obj pdfcpu_types.Object) ValueEntry {
 //     via doc.PDFContext.Dereference (caller MUST hold doc.pdfMu; the only
 //     call site is GetObjectDetail, which acquires pdfMu before invoking).
 //
-// Story 10.6 AC3: the prior single-arg signature could not reach pdfcpu's
-// Dereference so streams with an indirect /Length whose StreamLength field was
-// left nil (a corner the spec permits and pdfcpu's older reads occasionally
-// expose) reported Length=0 in the inspector UI.
+// doc is threaded in for case 3 alone: without it there is no way to reach
+// pdfcpu's Dereference, and a stream with an indirect /Length whose
+// StreamLength field is left nil (a corner the spec permits and pdfcpu's older
+// reads occasionally expose) would report Length=0 in the inspector UI.
 func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo {
 	var sd pdfcpu_types.StreamDict
 	switch v := obj.(type) {
@@ -426,7 +440,7 @@ func extractStreamInfo(doc *DocumentState, obj pdfcpu_types.Object) *StreamInfo 
 	if sd.StreamLength != nil {
 		info.Length = *sd.StreamLength
 	} else if lenObj, ok := sd.Dict["Length"]; ok {
-		// AC3 fallback: pdfcpu sometimes leaves StreamLength nil even when the
+		// Fallback: pdfcpu sometimes leaves StreamLength nil even when the
 		// dict carries a usable /Length. Honor the Integer form directly; for
 		// the IndirectRef form, dereference via doc.PDFContext.
 		switch lv := lenObj.(type) {
@@ -464,7 +478,7 @@ func buildPropertyEntries(d pdfcpu_types.Dict) []PropertyEntry {
 	for key, val := range d {
 		entries = append(entries, PropertyEntry{
 			Key:   "/" + key,
-			Value: valueEntryFromObject(val),
+			Value: valueEntryFromObject(val, binaryStringKey(d, key)),
 		})
 	}
 	slices.SortFunc(entries, func(a, b PropertyEntry) int {
@@ -473,10 +487,13 @@ func buildPropertyEntries(d pdfcpu_types.Dict) []PropertyEntry {
 	return entries
 }
 
-func buildArrayEntries(arr pdfcpu_types.Array) []ValueEntry {
+// buildArrayEntries renders an array's elements. binary is inherited from the
+// array's own key: a signature /Cert may hold an array of certificate strings,
+// and its elements carry no key of their own.
+func buildArrayEntries(arr pdfcpu_types.Array, binary bool) []ValueEntry {
 	entries := make([]ValueEntry, 0, len(arr))
 	for _, elem := range arr {
-		entries = append(entries, valueEntryFromObject(elem))
+		entries = append(entries, valueEntryFromObject(elem, binary))
 	}
 	return entries
 }
@@ -494,9 +511,9 @@ func (ins *Inspector) GetAncestorPath(tabID, nodeID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AC1: serialize pdfcpu access for the recursive walk. The recursive
-	// helper getAncestorPathDepth calls into pdfcpu (findPathToObject ->
-	// Dereference); locking once here covers the whole walk.
+	// Serialize pdfcpu access for the recursive walk. The recursive helper
+	// getAncestorPathDepth calls into pdfcpu (findPathToObject -> Dereference);
+	// locking once here covers the whole walk.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 	return ins.getAncestorPathDepth(doc, tabID, nodeID, 0)
@@ -551,9 +568,9 @@ func findPathToObject(doc *DocumentState, targetNodeID string) ([]string, error)
 	visited := map[string]bool{"root": true}
 	queue := []queueEntry{{nodeID: "root", obj: rootDict, path: []string{"root"}, depth: 0}}
 
-	// AC2 (Story 10.6): no depth cap. The visited-set already prevents cycles;
-	// the prior depth guard made findPathToObject fail to surface
-	// legitimate-but-deep paths in PDFs with page-tree chains over 32 levels.
+	// No depth cap: the visited-set already prevents cycles, and a depth guard
+	// here would make findPathToObject fail to surface legitimate-but-deep paths
+	// in PDFs with page-tree chains over 32 levels.
 	for len(queue) > 0 {
 		entry := queue[0]
 		queue = queue[1:]

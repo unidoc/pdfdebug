@@ -9,7 +9,8 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-const metadataUsage = "Usage: pdfdebug dump metadata [--json] <file>"
+// metadataUsage is the one-line usage string for the metadata dump subcommand.
+var metadataUsage = usageLine("dump metadata")
 
 // runMetadataDump parses flags and dispatches the document-metadata command,
 // printing the /Info dictionary fields and the XMP packet.
@@ -23,12 +24,10 @@ func runMetadataDump(args []string) int {
 		return 1
 	}
 
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintln(os.Stderr, metadataUsage)
+	if !requirePositionals(fs, 1, metadataUsage) {
 		return 1
 	}
-	return execMetadataDump(filePath, *jsonFlag, *prettyFlag)
+	return execMetadataDump(fs.Arg(0), *jsonFlag, *prettyFlag)
 }
 
 // execMetadataDump opens the PDF and writes the metadata view as an aligned
@@ -70,13 +69,18 @@ func execMetadataDump(filePath string, jsonOut, pretty bool) (exitCode int) {
 // printMetadataPlain renders DocumentMetadata as an aligned "Key: value" Info
 // block followed by the verbatim XMP packet. NON-CONTRACTUAL; use --json to
 // parse. infoFieldOrder fixes the row order so output is stable.
+//
+// ASCII-only applies to the Info block. The XMP packet is UTF-8 XML and is
+// passed through verbatim, so this command can emit non-ASCII bytes below the
+// "XMP:" heading.
 func printMetadataPlain(out io.Writer, md *pdfcore.DocumentMetadata) error {
 	var w kvWriter
 	w.Heading("Info:")
 	any := false
 	for _, key := range infoFieldOrder {
 		if v, ok := md.Info[key]; ok && v != "" {
-			w.Add("  "+key, v)
+			// This surface is ASCII-only.
+			w.Add("  "+key, asciiSafe(v))
 			any = true
 		}
 	}
@@ -96,7 +100,7 @@ func printMetadataPlain(out io.Writer, md *pdfcore.DocumentMetadata) error {
 	if xmp == "" {
 		xmp = "(none)"
 	}
-	// Ensure a trailing newline so the plain-text 13-1 contract holds even when
+	// Ensure a trailing newline so the plain-text-default contract holds even when
 	// the XMP packet does not end in one.
 	if len(xmp) == 0 || xmp[len(xmp)-1] != '\n' {
 		xmp += "\n"

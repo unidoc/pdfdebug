@@ -1,10 +1,11 @@
 /**
- * 2.4-UNIT-002 [P1]: EmptyState drop zone highlights on drag-over with PDF file.
+ * EmptyState drop zone highlights on drag-over with PDF file.
  *
  * Tests visual feedback for drag-and-drop interactions and the presence of
  * data-file-drop-target attribute required by Wails.
  */
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { AppProvider } from '../hooks/useDocumentState';
 import { EmptyState } from './EmptyState';
@@ -43,7 +44,7 @@ function makeDragEvent(type: string, mimeType?: string) {
   };
 }
 
-describe('2.4-UNIT-002: EmptyState drop zone', () => {
+describe('EmptyState drop zone', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -71,22 +72,18 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
 
     // During drag-over with PDF, drop zone should have focus border class
     expect(dropZone.className).toContain('border-border-focus');
-    expect(dropZone.className).toContain('bg-surface-selected');
+    expect(dropZone.className).toContain('bg-surface-armed');
   });
 
   // ---------------------------------------------------------------------------
-  // Story 10.8 AC1 (RED PHASE): the per-file invalid flash is REMOVED. The drop
-  // zone must NEVER claim pre-drop knowledge it does not have. For ANY drag
-  // combination (PDF-only, mixed, non-PDF-only) the hint stays the constant
-  // "Drop a PDF file here" in text-text-muted, and the error styling
-  // ("PDF files only" / text-error) is never applied.
-  //
-  // These assertions FAIL against the current EmptyState.tsx because the
-  // dragenter/drop handlers still call setIsInvalidFile and the derived
-  // hintText/hintColor still branch on it.
+  // The drop zone carries no per-file invalid flash: it must never claim
+  // pre-drop knowledge it does not have. For ANY drag combination (PDF-only,
+  // mixed, non-PDF-only) the hint stays the constant "Drop a PDF file here"
+  // in text-text-muted, and the error styling ("PDF files only" /
+  // text-error) is never applied.
   // ---------------------------------------------------------------------------
 
-  test('10-8-UNIT-001 [P1] AC1: non-PDF drag does NOT show error flash', () => {
+  test('non-PDF drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -104,7 +101,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-002 [P1] AC1: mixed-file drag does NOT show error flash', () => {
+  test('mixed-file drag does NOT show error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -125,7 +122,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).toContain('text-text-muted');
   });
 
-  test('10-8-UNIT-003 [P1] AC1: PDF-only drag keeps the standard hint (no error)', () => {
+  test('PDF-only drag keeps the standard hint (no error)', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -140,7 +137,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
     expect(hint.className).not.toContain('text-error');
   });
 
-  test('10-8-UNIT-004 [P1] AC1: dropping a non-PDF file shows no error flash', () => {
+  test('dropping a non-PDF file shows no error flash', () => {
     renderEmptyState();
     const emptyState = screen.getByTestId('empty-state');
 
@@ -170,7 +167,7 @@ describe('2.4-UNIT-002: EmptyState drop zone', () => {
 
     fireEvent.dragLeave(emptyState);
     expect(dropZone.className).toContain('border-border');
-    expect(dropZone.className).not.toContain('bg-surface-selected');
+    expect(dropZone.className).not.toContain('bg-surface-armed');
   });
 
   test('renders Open File button and shortcut hint', () => {
@@ -236,9 +233,10 @@ describe('EmptyState loading variant', () => {
 // Mirrors the drag-drop multi-file flow so users get parity between the two
 // gestures.
 // ---------------------------------------------------------------------------
-import { OpenFile, GetTreeRoot, GetChildren, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { useAppState } from '../hooks/useDocumentState';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 import { BatchOpenDialog } from './BatchOpenDialog';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 function MultiOpenHarness() {
   const state = useAppState();
@@ -322,5 +320,37 @@ describe('Open File dialog: multi-select', () => {
     await act(async () => {});
     expect(screen.getByTestId('tab-count').textContent).toBe('0');
     expect(OpenFile as unknown as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+  });
+
+  test('re-opening a path opened earlier in the session closes the old backend document', async () => {
+    (_OpenFileDialog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(['/a.pdf']);
+    (OpenFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tabId: 'tab-new', fileName: 'a.pdf', filePath: '/a.pdf',
+      pageCount: 1, fileSize: 100, error: '',
+    });
+    (GetTreeRoot as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'root', label: 'Catalog', rawKey: '', nodeType: 'dict', valueType: '',
+      hasChildren: true, childCount: 0, iconHint: 'catalog', error: '',
+    });
+    (GetChildren as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (CloseDocument as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+    function SeedTab() {
+      const dispatch = useAppDispatch();
+      useEffect(() => {
+        dispatchOpenedDocument(dispatch, [], { tabId: 'tab-old', fileName: 'a.pdf', filePath: '/a.pdf', pageCount: 1, rootNode: null, rootChildren: null });
+      }, [dispatch]);
+      return null;
+    }
+
+    render(<AppProvider><SeedTab /><MultiOpenHarness /></AppProvider>);
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
+    act(() => screen.getByTestId('open-file-button').click());
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(CloseDocument).toHaveBeenCalledWith('tab-old');
+    expect(CloseDocument).not.toHaveBeenCalledWith('tab-new');
+    expect(screen.getByTestId('tab-count').textContent).toBe('1');
   });
 });

@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26.x'
+          go-version: '1.27.x'
           cache-dependency-path: |
             go.sum
             tests/**/go.sum
@@ -68,11 +68,11 @@ jobs:
 
       - name: Install Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.103
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.18
 
       - name: Install golangci-lint v2
         shell: bash
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
       - name: Install frontend deps
         shell: bash
@@ -123,19 +123,30 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           win_subset=(
-            11-6-page-render-info
-            13-1-cli-output-format-normalization
-            13-2-embedded-data-inspector
-            13-3-font-cmap-glyph
-            13-4-signature-decomposition
-            13-5-compliance-validation
-            13-6-structural-diff
+            page-render-info
+            cli-output-format-normalization
+            embedded-data-inspector
+            font-cmap-glyph
+            signature-decomposition
+            compliance-validation
+            structural-diff
+            bounded-decode
             cli-object-query
             cli-page-render
             cli-stream-retrieval
             cli-tree-dump
             cli-views
+            update-notice
           )
+          # A win_subset entry that names no suite does not fail to match, it
+          # silently fails in_subset and the Windows leg prints a skip line and
+          # stays green with less coverage. Fail hard instead, on every runner.
+          missing=()
+          for s in "${win_subset[@]}"; do [[ -d "tests/$s" ]] || missing+=("$s"); done
+          if (( ${#missing[@]} > 0 )); then
+            echo "win_subset entries with no tests/<name>/ directory: ${missing[*]}"
+            exit 1
+          fi
           in_subset() {
             local n="$1"
             for s in "${win_subset[@]}"; do [[ "$s" == "$n" ]] && return 0; done

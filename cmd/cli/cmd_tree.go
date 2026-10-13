@@ -12,32 +12,54 @@ import (
 
 // treeNodeOutput extends TreeNode with a recursive children field for CLI output.
 type treeNodeOutput struct {
-	ID          string            `json:"id"`
-	Label       string            `json:"label"`
-	RawKey      string            `json:"rawKey,omitempty"`
-	NodeType    string            `json:"nodeType"`
-	ValueType   string            `json:"valueType,omitempty"`
-	HasChildren bool              `json:"hasChildren"`
-	ChildCount  int               `json:"childCount"`
-	IconHint    string            `json:"iconHint,omitempty"`
-	PdfRef      string            `json:"pdfRef,omitempty"`
-	TypeName    string            `json:"typeName,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	Children    []*treeNodeOutput `json:"children,omitempty"`
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	RawKey      string `json:"rawKey,omitempty"`
+	NodeType    string `json:"nodeType"`
+	ValueType   string `json:"valueType,omitempty"`
+	HasChildren bool   `json:"hasChildren"`
+	ChildCount  int    `json:"childCount"`
+	IconHint    string `json:"iconHint,omitempty"`
+	PdfRef      string `json:"pdfRef,omitempty"`
+	TypeName    string `json:"typeName,omitempty"`
+	// Value is the decoded scalar value of a leaf, uncapped and unescaped:
+	// truncating or escaping the machine contract would degrade what --json
+	// exists for. Omitted for containers, refs and error nodes, so the key's
+	// presence means "this is a scalar, and here is what it says". Array
+	// elements carry it as well as their Label; the plain-text row does not
+	// repeat it.
+	Value string `json:"value,omitempty"`
+	// ValueRaw is Value's byte-exact stored form, emitted wherever it says
+	// something Value does not.
+	ValueRaw string            `json:"valueRaw,omitempty"`
+	Error    string            `json:"error,omitempty"`
+	Children []*treeNodeOutput `json:"children,omitempty"`
 	// Resolved is the inline ref-following expansion produced by --resolve via
 	// pdfcore.ResolveRef. Populated only for indirect-object nodes (id prefix
 	// "obj:") when --resolve is set; nil (omitted) otherwise. Strictly additive:
-	// without --resolve the field is absent, preserving today's bytes (AC6).
+	// without --resolve the field is absent, preserving today's bytes.
 	Resolved *pdfcore.ResolvedNode `json:"resolved,omitempty"`
 }
+
+// treeUsage is the one-line usage string for the tree dump subcommand.
+var treeUsage = usageLine("dump tree")
 
 // runTreeDump executes the tree dump command and returns the exit code.
 func runTreeDump(args []string) int {
 	fs, flags, err := parseDumpFlags("dump tree", args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
+		fmt.Fprintln(os.Stderr, treeUsage)
 		return 1
 	}
+
+	// The argument SHAPE is checked before any flag VALUE, so a flag written
+	// after the file (which Go's flag package delivers as a spare positional)
+	// draws the usage line rather than a complaint about a flag the caller
+	// never passed.
+	if !requirePositionals(fs, 1, treeUsage) {
+		return 1
+	}
+	filePath := fs.Arg(0)
 
 	// Reject negative depth; treat as user error rather than silently clamping.
 	if flags.depth < 0 {
@@ -54,12 +76,6 @@ func runTreeDump(args []string) int {
 	// is a usage error; an absent --page roots at the catalog.
 	if flags.pageSet && flags.page < 1 {
 		writeJSONError(os.Stderr, "invalid --page: must be >= 1 (pages are 1-based)")
-		return 1
-	}
-
-	filePath := fs.Arg(0)
-	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Usage: pdfdebug dump tree [--json] [--pretty] [--depth N] [--page N] <file>\n")
 		return 1
 	}
 
@@ -148,6 +164,10 @@ func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
 		b.WriteByte(' ')
 		b.WriteString(meta)
 	}
+	if n.Value != "" && !labelCarriesValue(n) {
+		b.WriteString(" = ")
+		b.WriteString(pdfcore.ClampDisplayValue(n.Value, pdfcore.TreeValueCap))
+	}
 	if n.Error != "" {
 		b.WriteString(" [error: ")
 		b.WriteString(n.Error)
@@ -157,6 +177,14 @@ func writeTreeNode(b *strings.Builder, n *treeNodeOutput, depth int) {
 	for _, c := range n.Children {
 		writeTreeNode(b, c, depth+1)
 	}
+}
+
+// labelCarriesValue reports whether a row's Label already presents the node's
+// value. An array element's rawKey is its index, "[0]", and its label is the
+// rendered value, so the row prints the value once rather than twice; a
+// dictionary entry's rawKey is "/Key" and its label is the key name.
+func labelCarriesValue(n *treeNodeOutput) bool {
+	return strings.HasPrefix(n.RawKey, "[")
 }
 
 // treeNodeTypeMeta returns the trailing type classifier for a tree row: the
@@ -229,7 +257,7 @@ func buildTree(ins *pdfcore.Inspector, tabID string, node *pdfcore.TreeNode, dep
 // convertNode maps a pdfcore.TreeNode to the CLI output struct. pdfRef is
 // surfaced only for indirect-object nodes (id prefix "obj:"); the synthetic
 // catalog "root" node carries an ObjectRef internally but is not addressable as
-// "N G R", so AC1 requires it to omit pdfRef.
+// "N G R", so pdfRef is omitted for it.
 func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 	pdfRef := ""
 	if strings.HasPrefix(n.ID, "obj:") {
@@ -246,6 +274,8 @@ func convertNode(n *pdfcore.TreeNode) *treeNodeOutput {
 		IconHint:    n.IconHint,
 		PdfRef:      pdfRef,
 		TypeName:    n.TypeName,
+		Value:       n.Value,
+		ValueRaw:    n.ValueRaw,
 		Error:       n.Error,
 	}
 }

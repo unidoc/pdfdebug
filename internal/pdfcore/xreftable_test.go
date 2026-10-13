@@ -1,4 +1,4 @@
-// Story 9-11: XREF Table extraction tests.
+// XREF Table extraction tests.
 //
 // Tests are named to match the runPdfcoreTest patterns pinned in
 // tests/detail-panel-tabs/detail_panel_tabs_test.go.
@@ -32,7 +32,6 @@ func openWithFixture(t *testing.T, fixture string) (*Inspector, string, *Documen
 
 // TestGetXRefTableBasicShape verifies the table is populated for a minimal
 // fixture, every non-free row is in-use, and the table is sorted by ObjNum.
-// 9.11-INTG-002.
 func TestGetXRefTableBasicShape(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -65,7 +64,7 @@ func TestGetXRefTableBasicShape(t *testing.T) {
 
 // TestGetXRefTableSortedByObjNumThenGen verifies the (ObjNum asc, Gen asc) sort
 // order. pdfcpu's map iteration is non-deterministic; the sort is the only
-// stability guarantee. 9.11-INTG-003.
+// stability guarantee.
 func TestGetXRefTableSortedByObjNumThenGen(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "multipage.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -86,7 +85,7 @@ func TestGetXRefTableSortedByObjNumThenGen(t *testing.T) {
 }
 
 // TestGetXRefTableSkipsObjectZero verifies obj 0 (the free-list head) is never
-// emitted. 9.11-INTG-004.
+// emitted.
 func TestGetXRefTableSkipsObjectZero(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "multipage.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -101,7 +100,7 @@ func TestGetXRefTableSkipsObjectZero(t *testing.T) {
 }
 
 // TestGetXRefTableStatusLiterals verifies the Status strings exactly match the
-// IPC contract: "in-use" / "free" / "in-objstm". 9.11-INTG-005.
+// IPC contract: "in-use" / "free" / "in-objstm".
 func TestGetXRefTableStatusLiterals(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -118,7 +117,7 @@ func TestGetXRefTableStatusLiterals(t *testing.T) {
 }
 
 // TestGetXRefTableNodeIDEncoding verifies NodeID is "obj:<gen>:<num>" for
-// in-use / in-objstm entries and "" for free entries. 9.11-INTG-006.
+// in-use / in-objstm entries and "" for free entries.
 func TestGetXRefTableNodeIDEncoding(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "multipage.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -163,12 +162,12 @@ func intToStr(n int) string {
 	return string(digits)
 }
 
-// TestGetXRefTableCompressedNodeIDTargetsUnderlying pins the AC12 contract:
+// TestGetXRefTableCompressedNodeIDTargetsUnderlying pins the contract:
 // in-objstm rows expose the UNDERLYING object's NodeID, not the host objstm's.
-// This is the structural invariant -- we cannot guarantee that the fixture
-// has compressed entries, so the test is best-effort: if none are present we
-// skip rather than fail, but for any compressed row we find we assert the
-// NodeID matches the underlying obj number with gen=0. 9.11-INTG-007.
+// This is the structural invariant -- we cannot guarantee that the fixture has
+// compressed entries, so the test is best-effort: if none are present we skip
+// rather than fail, but for any compressed row we find we assert the NodeID
+// matches the underlying obj number with gen=0.
 func TestGetXRefTableCompressedNodeIDTargetsUnderlying(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "multipage.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -192,13 +191,13 @@ func TestGetXRefTableCompressedNodeIDTargetsUnderlying(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Skip("no in-objstm entries in this fixture; AC12 NodeID assertion not exercised at backend layer")
+		t.Skip("no in-objstm entries in this fixture; the NodeID assertion is not exercised at the backend layer")
 	}
 }
 
 // TestGetXRefTableHostObjStmSentinel verifies HostObjStm is 0 for in-use and
 // free rows; for in-objstm rows it carries the host objstm's object number
-// (verified non-zero when present). 9.11-INTG-008.
+// (verified non-zero when present).
 func TestGetXRefTableHostObjStmSentinel(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -220,7 +219,7 @@ func TestGetXRefTableHostObjStmSentinel(t *testing.T) {
 }
 
 // TestGetXRefTableOffsetSentinel verifies Offset is -1 for non-in-use rows and
-// non-negative for in-use rows. 9.11-INTG-009.
+// non-negative for in-use rows.
 func TestGetXRefTableOffsetSentinel(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	table, err := ins.GetXRefTable(tabID)
@@ -246,7 +245,6 @@ func TestGetXRefTableOffsetSentinel(t *testing.T) {
 // either (a) Open fails (which is fine; the test still validates the contract
 // that GetXRefTable cannot be reached without an open document), or (b) Open
 // succeeds and GetXRefTable returns a result or wrapped error without panic.
-// 9.11-INTG-010.
 func TestGetXRefTableSafeCallOnMalformed(t *testing.T) {
 	ins := NewInspector()
 	tabID := "tab-malformed"
@@ -269,7 +267,7 @@ func TestGetXRefTableSafeCallOnMalformed(t *testing.T) {
 
 // TestGetXRefTableCacheReturnsSamePointer verifies the cache returns the same
 // pointer across calls, and that dropping the cache forces a rebuild that
-// returns a different pointer with deeply-equal contents. 9.11-INTG-011.
+// returns a different pointer with deeply-equal contents.
 func TestGetXRefTableCacheReturnsSamePointer(t *testing.T) {
 	ins, tabID, doc := openWithFixture(t, "minimal.pdf")
 	first, err := ins.GetXRefTable(tabID)
@@ -303,8 +301,8 @@ func TestGetXRefTableCacheReturnsSamePointer(t *testing.T) {
 }
 
 // TestGetXRefTableConcurrentCallsShareBuild smoke-tests the mutex coverage:
-// concurrent callers must converge on one cached pointer. 9.11-INTG-011
-// supporting assertion.
+// concurrent callers must converge on one cached pointer. supporting
+// assertion.
 func TestGetXRefTableConcurrentCallsShareBuild(t *testing.T) {
 	ins, tabID, _ := openWithFixture(t, "minimal.pdf")
 	var wg sync.WaitGroup

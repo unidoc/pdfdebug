@@ -14,11 +14,15 @@
 
 UniDoc PDF Debugger is a desktop PDF structure inspector that exposes the internal object graph of any PDF file. It pairs a native GUI with a complementary CLI. Core capabilities:
 
-- PDF object tree with lazy expansion for large documents
-- Object-info panel with raw dictionary/array/stream metadata
-- Content stream viewer with PDF operator decoding
-- Image resource extraction and in-app preview
-- CLI dumps for object tree, single object, and decoded content streams
+- Object tree with lazy expansion for large documents, showing each scalar's value
+- Pages and Images navigators: every page leaf in order, and every image XObject with the pages that use it
+- Object detail, with the selected object's PDF source in a pane below the navigator
+- Content stream viewer with PDF operator decoding, and image preview with sample-interpretation metadata
+- XREF table, embedded files, `/Info` and XMP metadata, and digital signatures (decomposed, no trust verdict)
+- Structural validation against a named subset of PDF/A-1b or PDF/UA-1 rules (not a conformance verdict)
+- Structural diff of two PDFs, aligned by path rather than object number
+- Find an object by reference, or jump to a page by number
+- A `pdfdebug` CLI that covers the same inspection surface, with plain-text or JSON output
 
 The tool exists because no modern native PDF debugger combines structure navigation, content-stream inspection, and compliance-oriented read-only access in one place. Existing alternatives are either commercial-only, browser-limited, or abandoned.
 
@@ -26,7 +30,9 @@ It is built for three audiences: PDF developers building SDKs and generators who
 
 ## Screenshot
 
-![UniDoc PDF Debugger main window: document structure tree on the left, object properties and stream metadata stacked below it, syntax-highlighted content stream on the right.](docs/screenshots/main-window.png)
+![UniDoc PDF Debugger main window with two files open in tabs. The Structure navigator on the left rail is selected; the document tree is expanded down to a page's /Contents stream, with that object's source in the Object Source pane below the tree. The Object tab on the right shows the formatted, syntax-highlighted content stream.](docs/screenshots/main-window.png)
+
+![The Images navigator listing 220 images in Flat view, sorted by first use, one row per image with its reference, size, filter, colour space, page count and badges such as SMask and APP14. The selected JPEG's dictionary is in Object Source below the list, and the Object tab shows the image preview above its Image Metadata: dimensions, colour space, filter, size, interpretation and the Adobe APP14 marker.](docs/screenshots/images-navigator.png)
 
 ## Installation
 
@@ -94,9 +100,9 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.25.x
+- Go 1.27.x
 - Node.js 20 LTS (CI pin; matches release artifacts)
-- Wails v3 CLI `v3.0.0-alpha.74`
+- Wails v3 CLI `v3.0.0-beta.18`
 
 > Node version note: `.nvmrc` sets Node 24 for local dev convenience, but CI runs Node 20 LTS -- either works locally, but CI is the authoritative pin.
 
@@ -113,7 +119,7 @@ Per-platform prerequisites:
 git clone https://github.com/unidoc/pdfdebug && cd pdfdebug
 
 # 2. Install the pinned Wails v3 CLI (version suffix MUST match go.mod)
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.74
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.18
 
 # 3. Install frontend deps
 npm ci --prefix frontend
@@ -127,8 +133,9 @@ wails3 dev
 
 # 5b. Production GUI build
 wails3 build     # or: task build
+task package     # packaged build; on macOS this is the .app bundle
 
-# 6. CLI build (Epic 5)
+# 6. CLI build
 go build -o bin/pdfdebug ./cmd/cli
 ```
 
@@ -136,7 +143,7 @@ go build -o bin/pdfdebug ./cmd/cli
 
 ### GUI
 
-Open a PDF via File > Open or drag-drop into the window. Explore the object tree on the left; the detail pane in the middle shows the selected object, and the info pane on the right shows metadata. Content streams and images open inline.
+Open a PDF via File > Open... or drag and drop it onto the window; each file gets its own tab. The left rail switches the left pane between Structure (the object tree, shown by default), Pages and Images (Cmd/Ctrl+1, 2 and 3). Whichever is chosen, Object Source sits below it and shows the selected object as PDF syntax. The detail panel on the right has tabs for Object, XREF, Plain Text, Embedded, Metadata, Validate and Diff, plus Signatures when the file has signature fields. The Object tab shows a dictionary, a decoded content stream or an image preview, depending on what is selected. Navigate > Find Object... (Cmd/Ctrl+K) jumps to an object by reference, and Go to Page... (Cmd/Ctrl+G) opens the Pages jump field.
 
 ### CLI
 
@@ -156,12 +163,14 @@ run `pdfdebug --help`.
 ```bash
 pdfdebug dump tree --depth 3 sample.pdf
 pdfdebug dump object --ref "7 0 R" sample.pdf
-pdfdebug dump stream --page 1 sample.pdf
+pdfdebug dump pages sample.pdf
+pdfdebug validate --profile pdfua-1-structural sample.pdf
+pdfdebug diff old.pdf new.pdf
 ```
 
 ## Architecture
 
-- Go 1.25 application core with Wails v3 (alpha) binding to a native WebView
+- Go 1.27 application core with Wails v3 (beta) binding to a native WebView
 - React 18 with TypeScript on the frontend; Vite build pipeline
 - PDF parsing via [pdfcpu](https://github.com/pdfcpu/pdfcpu)
 - Tailwind CSS utility styling with a shadcn-style component library (Radix UI primitives under the hood)

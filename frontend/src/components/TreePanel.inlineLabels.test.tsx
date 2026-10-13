@@ -1,16 +1,12 @@
 /**
- * Story 9-8: TreePanel inline object-ref + /T:Type suffix rendering.
- *
- * TDD RED PHASE: These tests pin the AC1/AC2/AC3 label-suffix contract.
- * They will fail until TreePanel.tsx is updated to render `objectRef`
- * (and the dedup-aware `/T:typeName` suffix) on each tree row.
+ * TreePanel inline object-ref + /T:Type suffix rendering.
  *
  * Source contract (backend, see internal/pdfcore/objectindex_test.go):
  *   - TreeNode.objectRef: "<num> <gen> R" for indirect objects, "" otherwise
  *   - TreeNode.typeName:  literal /Type value (e.g. "Pages", "Page", "Font"),
  *                         "" when the dict has no /Type key
  *
- * Render contract (AC2 dedup rule):
+ * Render contract (dedup rule):
  *   - Append `[objectRef]` after the semantic label when objectRef !== ""
  *   - Append `/T:typeName` after the ref when typeName !== "" AND
  *     typeName is NOT already encoded in the semantic label. The label
@@ -18,11 +14,11 @@
  *     Font nodes use semantic label "Font: <BaseFont>" which prefixes
  *     "Font", so /T:Font is also suppressed.
  *
- * AC3: clicking a tree row still dispatches SELECT_NODE (existing behavior);
- *      the inline label is read-only display, never NAVIGATE_TO_REF.
+ * clicking a tree row still dispatches SELECT_NODE (existing behavior);
+ * the inline label is read-only display, never NAVIGATE_TO_REF.
  *
  * Run: cd frontend && npx vitest run \
- *      src/components/TreePanel.inlineLabels.test.tsx
+ * src/components/TreePanel.inlineLabels.test.tsx
  */
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -76,10 +72,9 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-// --- Fixtures: TreeNodes the backend will emit once 9-8 lands. The
-// `objectRef` / `typeName` fields are the new additions. We assume the
-// existing TreeNode TS type will be extended; cast through unknown so the
-// RED-phase compile passes whichever way the type is widened. ---
+// --- Fixtures: TreeNodes the backend emits with inline labels. `objectRef` and
+// `typeName` are the added fields; cast through unknown so the fixtures
+// compile whichever way the TreeNode TS type is widened. ---
 
 type AnyNode = Record<string, unknown>;
 
@@ -90,7 +85,7 @@ const catalogNode: AnyNode = {
 };
 
 // Indirect object with semantic label "Pages" already encoding /Type /Pages
-// -- /T:Pages must be suppressed per AC2 dedup rule.
+// -- /T:Pages must be suppressed by the dedup rule.
 const pagesIndirect: AnyNode = {
   id: 'obj:0:2', label: 'Pages', rawKey: '/Pages', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 2, iconHint: 'pages',
@@ -98,7 +93,7 @@ const pagesIndirect: AnyNode = {
 };
 
 // Indirect object with /Type /Font and BaseFont -- semantic label is
-// "Font: Helvetica"; /T:Font is suppressed per AC2 dedup rule.
+// "Font: Helvetica"; /T:Font is suppressed by the dedup rule.
 const fontIndirect: AnyNode = {
   id: 'obj:0:5', label: 'Font: Helvetica', rawKey: '/F1', nodeType: 'dict',
   valueType: 'reference', hasChildren: true, childCount: 5, iconHint: 'font',
@@ -154,10 +149,10 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC1 -- inline [N G R] on indirect objects
+// Inline [N G R] on indirect objects
 // ---------------------------------------------------------------------------
 
-describe('AC1: inline object ref suffix', () => {
+describe('inline object ref suffix', () => {
   test('indirect object node renders [N G R] suffix after the semantic label', async () => {
     const user = userEvent.setup();
     render(
@@ -186,8 +181,7 @@ describe('AC1: inline object ref suffix', () => {
     await user.click(screen.getByTestId('dispatch'));
 
     // Collect text of every tree-node row, then assert each indirect-object
-    // row contains its ref. In RED phase, none of the rows contain the
-    // bracketed ref form, so this fails.
+    // row contains its ref in the bracketed form.
     const rows = await screen.findAllByTestId('tree-node');
     const textAll = rows.map((r) => r.textContent ?? '').join('|');
     expect(textAll).toMatch(/\[2 0 R\]/);
@@ -197,10 +191,10 @@ describe('AC1: inline object ref suffix', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC2 -- /T:<TypeName> suffix with dedup rule
+// /T:<TypeName> suffix with dedup rule
 // ---------------------------------------------------------------------------
 
-describe('AC2: /T:<TypeName> suffix and dedup', () => {
+describe('/T:<TypeName> suffix and dedup', () => {
   test('/T:Pages is SUPPRESSED when semantic label already says "Pages"', async () => {
     const user = userEvent.setup();
     render(
@@ -254,10 +248,10 @@ describe('AC2: /T:<TypeName> suffix and dedup', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3 -- inline label is read-only; click still selects, never NAVIGATE_TO_REF
+// Inline label is read-only; click still selects, never NAVIGATE_TO_REF
 // ---------------------------------------------------------------------------
 
-describe('AC3: inline label is read-only display', () => {
+describe('inline label is read-only display', () => {
   test('clicking the row whose label contains [2 0 R] does NOT set pendingNavTarget', async () => {
     function NavProbe() {
       const state = useAppState();
@@ -283,9 +277,8 @@ describe('AC3: inline label is read-only display', () => {
     act(() => { screen.getByTestId('dispatch').click(); });
 
     const rows = await screen.findAllByTestId('tree-node');
-    // Locate the Pages indirect row. Use the [2 0 R] suffix as the locator
-    // -- in RED this assertion fails because the suffix isn't rendered;
-    // in GREEN the row is uniquely identified by it.
+    // Locate the Pages indirect row. The [2 0 R] suffix identifies it
+    // uniquely.
     const pagesRow = rows.find((el) => el.textContent?.includes('[2 0 R]'));
     expect(pagesRow).toBeDefined();
     await user.click(pagesRow!);

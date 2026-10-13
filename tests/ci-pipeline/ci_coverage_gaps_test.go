@@ -1,18 +1,18 @@
 // Package ci_pipeline_test: additional static-validation tests closing coverage
-// gaps in the Story 7.1 CI pipeline.
+// gaps in the CI pipeline.
 //
-// These tests target concrete behaviors mandated by Story 7.1 tasks and Review
-// findings that were not asserted by the original 26 ATDD tests:
+// These tests target concrete CI behaviours that the original acceptance suite
+// did not assert:
 //
-//   - workflow_dispatch trigger (Task 1.2)
-//   - per-suite loop step-level timeout-minutes value (Task 2.2)
-//   - golangci-lint --timeout 5m invocation flag (Task 1.5 step 9)
-//   - root go test -timeout 10m invocation flag (Task 1.5 step 10)
-//   - wails3 generate bindings step (Review #1 critical fix)
-//   - bindings generation ordering before frontend steps (Review #1 ordering)
-//   - .golangci.yml exclusion paths fully populated (Review #2 build path fix)
-//   - .golangci.yml staticcheck.checks tuning (Review #2 QF disables)
-//   - frontend/eslint.config.js ignores include test files (Review #2 fix)
+//   - workflow_dispatch trigger
+//   - per-suite loop step-level timeout-minutes value
+//   - golangci-lint --timeout 5m invocation flag
+//   - root go test -timeout 10m invocation flag
+//   - wails3 generate bindings step
+//   - bindings generation ordering before frontend steps
+//   - .golangci.yml exclusion paths fully populated
+//   - .golangci.yml staticcheck.checks tuning
+//   - frontend/eslint.config.js ignores include test files
 //
 // All tests stay at integration/Go level (lowest viable layer for
 // infrastructure-as-code), per test pyramid and the caller's directive to avoid
@@ -48,8 +48,7 @@ func stepIndexByPredicate(t *testing.T, predicate func(map[string]interface{}) b
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-027 (P1): workflow_dispatch trigger present for manual reruns
-// Covers Task 1.2 (workflow_dispatch allows manual re-runs from the GitHub UI)
+// workflow_dispatch trigger present for manual reruns.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowDispatchTrigger(t *testing.T) {
@@ -63,15 +62,15 @@ func TestCIWorkflowDispatchTrigger(t *testing.T) {
 		t.Fatalf("ci.yml: `on:` is not a map")
 	}
 	if _, ok := onMap["workflow_dispatch"]; !ok {
-		t.Errorf("ci.yml: `on.workflow_dispatch` trigger missing (Task 1.2 requires manual rerun support)")
+		t.Errorf("ci.yml: `on.workflow_dispatch` trigger missing (required for manual rerun support)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-028 (P0): per-suite loop step-level timeout-minutes == 20
-// Covers Task 2.2 (step-level 20-minute cap so hung per-suite module cannot
-// consume job budget). The existing TestCIWorkflowPerSuiteModuleLoop only
-// asserts the field is present; this asserts the exact 20-minute value.
+// per-suite loop step-level timeout-minutes == 20.
+// A step-level 20-minute cap, so a hung per-suite module cannot consume the
+// job budget. The existing TestCIWorkflowPerSuiteModuleLoop only asserts the
+// field is present; this asserts the exact 20-minute value.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
@@ -92,20 +91,20 @@ func TestCIWorkflowPerSuiteLoopTimeoutValue(t *testing.T) {
 	}
 	tRaw, ok := loopStep["timeout-minutes"]
 	if !ok {
-		t.Fatalf("ci.yml: per-suite loop missing timeout-minutes (Task 2.2)")
+		t.Fatalf("ci.yml: per-suite loop missing timeout-minutes")
 	}
 	tVal, ok := tRaw.(int)
 	if !ok {
 		t.Fatalf("ci.yml: per-suite loop timeout-minutes not an int, got %T", tRaw)
 	}
 	if tVal != 20 {
-		t.Errorf("ci.yml: per-suite loop timeout-minutes must be 20 (Task 2.2), got %d", tVal)
+		t.Errorf("ci.yml: per-suite loop timeout-minutes must be 20, got %d", tVal)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-029 (P1): golangci-lint invoked with explicit --timeout flag
-// Covers Task 1.5 step 9 (`golangci-lint run --timeout 5m ./...`)
+// golangci-lint invoked with explicit --timeout flag.
+// The invocation is `golangci-lint run --timeout 5m ./...`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
@@ -114,40 +113,40 @@ func TestCIWorkflowGolangciLintTimeoutFlag(t *testing.T) {
 	// invocation without any --timeout flag.
 	re := regexp.MustCompile(`golangci-lint\s+run[^\n]*--timeout\s+\d+[ms]`)
 	if !re.MatchString(run) {
-		t.Errorf("ci.yml: `golangci-lint run` must pass an explicit `--timeout` (Task 1.5 step 9)")
+		t.Errorf("ci.yml: `golangci-lint run` must pass an explicit `--timeout`")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-030 (P1): root `go test ./...` uses explicit -timeout flag
-// Covers Task 1.5 step 10 (`go test ./... -timeout 10m`)
+// root `go test ./...` uses explicit -timeout flag.
+// The invocation is `go test ./... -timeout 10m`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowGoTestRootTimeoutFlag(t *testing.T) {
 	run := stepRunBodies(t)
 	re := regexp.MustCompile(`go test \./\.\.\.[^\n]*-timeout\s+\d+[ms]`)
 	if !re.MatchString(run) {
-		t.Errorf("ci.yml: root `go test ./...` must pass explicit `-timeout` (Task 1.5 step 10)")
+		t.Errorf("ci.yml: root `go test ./...` must pass explicit `-timeout`")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-031 (P0): wails3 generate bindings step present
-// Covers Review #1 critical fix (16 frontend files import from ../bindings/...
-// which is gitignored; without this step every frontend CI step fails).
+// wails3 generate bindings step present.
+// 16 frontend files import from ../bindings/..., which is gitignored, so
+// without this step every frontend CI step fails.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsGenerateBindingsStep(t *testing.T) {
 	run := stepRunBodies(t)
 	if !strings.Contains(run, "wails3 generate bindings") {
-		t.Errorf("ci.yml: `wails3 generate bindings` step missing (Review #1: frontend imports would fail without generated bindings)")
+		t.Errorf("ci.yml: `wails3 generate bindings` step missing (frontend imports would fail without generated bindings)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-032 (P0): bindings generation must run before frontend typecheck,
-// lint, and test. Review #1 finding: otherwise unresolved-import errors block
-// the first frontend step on every CI run.
+// Bindings generation must run before frontend typecheck, lint, and test.
+// Otherwise unresolved-import errors block the first
+// frontend step on every CI run.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
@@ -174,16 +173,16 @@ func TestCIWorkflowBindingsBeforeFrontendSteps(t *testing.T) {
 			continue
 		}
 		if idx <= bindingsIdx {
-			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d) -- Review #1 ordering requirement", pat, idx, bindingsIdx)
+			t.Errorf("ci.yml: step `%s` (index %d) must come AFTER `wails3 generate bindings` (index %d)", pat, idx, bindingsIdx)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-033 (P0): bindings step runs after frontend deps installed
-// (`npm ci --prefix frontend`). `wails3 generate bindings` writes TypeScript
-// files under `frontend/bindings/`; node_modules must already exist or the
-// generated imports resolve to nothing. Dev ordered it this way intentionally.
+// Bindings step runs after frontend deps installed (`npm ci --prefix
+// frontend`). `wails3 generate bindings` writes TypeScript files under
+// `frontend/bindings/`; node_modules must already exist or the generated
+// imports resolve to nothing. Dev ordered it this way intentionally.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowBindingsAfterNpmCi(t *testing.T) {
@@ -204,9 +203,9 @@ func TestCIWorkflowBindingsAfterNpmCi(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-034 (P0): Wails CLI install precedes bindings generation and
-// wails3 build. If the CLI is installed after either, the step fails at
-// `command not found: wails3`.
+// Wails CLI install precedes bindings generation and wails3 build. If the
+// CLI is installed after either, the step fails at `command not found:
+// wails3`.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
@@ -238,8 +237,8 @@ func TestCIWorkflowWailsCLIBeforeUses(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-035 (P1): .golangci.yml excludes `build` path
-// Covers Review #2 fix -- `build/ios/app_options_default.go` has an `unused`
+// .golangci.yml excludes `build` path.
+// Covers `build/ios/app_options_default.go` has an `unused`
 // scaffold, so the `build` directory must be in exclusions.paths to keep
 // golangci-lint exit 0.
 // ---------------------------------------------------------------------------
@@ -268,7 +267,7 @@ func TestGolangciLintExcludesBuildPath(t *testing.T) {
 			found[s] = true
 		}
 	}
-	// Review #2 adds `build`; the other five are from Task 4.1 baseline.
+	// `build` was added later; the other five are the baseline.
 	required := []string{"bindings", "frontend", "dist", "bin", "node_modules", "build"}
 	for _, r := range required {
 		if !found[r] {
@@ -278,9 +277,9 @@ func TestGolangciLintExcludesBuildPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-036 (P2): .golangci.yml disables QF1003 and QF1008 quick-fix
-// style refactors (Review #2 fix -- these fired on pre-existing style patterns
-// across cmd/cli/ and internal/pdfcore/).
+// .golangci.yml disables QF1003 and QF1008 quick-fix style refactors (Review
+// #2 fix -- these fired on pre-existing style patterns across cmd/cli/ and
+// internal/pdfcore/).
 // ---------------------------------------------------------------------------
 
 func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
@@ -295,7 +294,7 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 	}
 	settings, _ := linters["settings"].(map[string]interface{})
 	if settings == nil {
-		t.Fatalf(".golangci.yml: linters.settings missing (Review #2 requires staticcheck tuning)")
+		t.Fatalf(".golangci.yml: linters.settings missing (staticcheck tuning is required)")
 	}
 	sc, _ := settings["staticcheck"].(map[string]interface{})
 	if sc == nil {
@@ -316,16 +315,17 @@ func TestGolangciLintStaticcheckQFDisabled(t *testing.T) {
 	}
 	for _, disabled := range []string{"-QF1003", "-QF1008"} {
 		if !found[disabled] {
-			t.Errorf(".golangci.yml: staticcheck.checks must disable %q (Review #2 pre-existing style patterns)", disabled)
+			t.Errorf(".golangci.yml: staticcheck.checks must disable %q (pre-existing style patterns)", disabled)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-037 (P1): eslint.config.js ignores test files and test-setup
+// eslint.config.js ignores test files and test-setup.
 // Covers eslint.config.js ignores block: `**/*.test.ts`, `**/*.test.tsx`,
-// `src/test-setup.ts`. tsconfig.json explicitly excludes test files, so without
-// these ignores typed linting throws "file not included in any project".
+// `src/test-setup.ts`. tsconfig.json explicitly excludes test files, so
+// without these ignores typed linting throws "file not included in any
+// project".
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigIgnoresTestFiles(t *testing.T) {
@@ -340,9 +340,9 @@ func TestESLintConfigIgnoresTestFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-038 (P2): eslint.config.js enforces `no-console: warn`
-// Dev Notes: "already de-facto convention; keep as warn not error to avoid
-// churn". Guards against accidental downgrade/removal.
+// eslint.config.js enforces `no-console: warn`. It stays a warning rather than
+// an error because the rule is already de-facto convention and promoting it
+// would create churn; this guards against an accidental downgrade or removal.
 // ---------------------------------------------------------------------------
 
 func TestESLintConfigNoConsoleWarn(t *testing.T) {
@@ -350,14 +350,14 @@ func TestESLintConfigNoConsoleWarn(t *testing.T) {
 	// Accept single or double quotes around keys/values.
 	re := regexp.MustCompile(`['"]no-console['"]\s*:\s*['"]warn['"]`)
 	if !re.MatchString(content) {
-		t.Errorf("frontend/eslint.config.js: `no-console: warn` rule missing (Task 3.4 Dev Notes)")
+		t.Errorf("frontend/eslint.config.js: `no-console: warn` rule missing")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-039 (P1): .gitattributes marks binary asset extensions as binary
-// Prevents git from mangling PDF fixtures (used by every acceptance test suite
-// under tests/) when users clone on Windows. Implementation adds pdf/png/jpg/
+// .gitattributes marks binary asset extensions as binary, which prevents git
+// from mangling PDF fixtures (used by every acceptance suite under tests/)
+// when users clone on Windows. Implementation adds pdf/png/jpg/
 // jpeg/gif/ico/icns/ttf/otf/woff/woff2/eot -- assert the critical ones used by
 // test fixtures (pdf, png).
 // ---------------------------------------------------------------------------
@@ -372,8 +372,8 @@ func TestGitattributesBinaryPatterns(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7.1-STATIC-040 (P2): this new ci-pipeline module is picked up by the
-// per-suite loop. The loop skips `e2e` and `support`; ci-pipeline is neither,
+// This new ci-pipeline module is picked up by the per-suite loop. The loop
+// skips `e2e` and `support`; ci-pipeline is neither,
 // so its tests must be invoked by `go test ./...` inside `tests/ci-pipeline/`.
 // Catch future regressions where someone adds `ci-pipeline` to the skip list.
 // ---------------------------------------------------------------------------
