@@ -2,7 +2,7 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
-## [0.5.0] - 2026-10-13
+## [0.5.0] - 2026-10-14
 
 Left-rail navigators for structure, pages and images, an image preview, update notices in the app and the CLI, and a CLI that says what it checked and rejects invocations it would have misread. Moves the app runtime to Wails v3 beta.
 
