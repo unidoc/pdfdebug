@@ -653,11 +653,21 @@ export function useAppState(): AppState {
   return context;
 }
 
+/** The active tab, or undefined when no tab is active. */
+export function selectActiveTab(state: AppState): TabState | undefined {
+  return state.tabs.find((t) => t.tabId === state.activeTabId);
+}
+
+/** Left-rail view of a tab, or 'structure' when there is no tab. */
+export function leftViewOf(tab: TabState | undefined): string {
+  return tab?.leftView ?? 'structure';
+}
+
 /**
  * Left-rail view of the active tab, or 'structure' when no tab is active.
  */
 export function selectActiveLeftView(state: AppState): string {
-  return state.tabs.find((t) => t.tabId === state.activeTabId)?.leftView ?? 'structure';
+  return leftViewOf(selectActiveTab(state));
 }
 
 /** Get the dispatch function for app actions. Must be called inside AppProvider. */
