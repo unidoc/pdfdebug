@@ -1,82 +1,44 @@
 /**
  * The object source and detail panels render the selected node, so after a
- * render error a new selection, a history step or a tab switch gives them
- * another render. The navigator panels reset on a tab change only.
+ * render error a new selection, a history step or a tab change gives them
+ * another render. The navigator panels reset on a tab change only. The
+ * fallback's Try again button renders a failed panel again in place.
  */
-import { render, screen, act } from '@testing-library/react';
-import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AppProvider, useAppDispatch, type AppAction } from '../hooks/useDocumentState';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { AppProvider } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
+import {
+  DispatchCapture,
+  caughtCount,
+  openDocument,
+  selectNode,
+  send,
+  setupBoundaryTestEnv,
+} from './mainLayoutTestUtils';
 
-vi.mock('allotment', () => {
-  function Pane({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>;
-  }
-  function Allotment({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>;
-  }
-  Allotment.Pane = Pane;
-  return { Allotment };
-});
-
+vi.mock('allotment', async () => (await import('./mainLayoutTestUtils')).allotmentMock());
 vi.mock('allotment/dist/style.css', () => ({}));
+vi.mock('../hooks/useWindowPersistence', async () =>
+  (await import('./mainLayoutTestUtils')).windowPersistenceMock());
+vi.mock('../../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', async () =>
+  (await import('./mainLayoutTestUtils')).pdfServiceMock());
 
-vi.mock('../hooks/useWindowPersistence', () => ({
-  useWindowPersistence: () => ({
-    panelSizes: null,
-    savePanelSizes: vi.fn(),
-  }),
-}));
-
-vi.mock(
-  '../../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
-  () => ({
-    OpenFile: vi.fn(),
-    GetTreeRoot: vi.fn(),
-    GetChildren: vi.fn(),
-    CloseDocument: vi.fn(),
-    OpenFileDialog: vi.fn(),
-    GetObjectDetail: vi.fn(),
-    GetPageIndex: vi.fn(),
-    GetImageIndex: vi.fn(),
-    GetImagePages: vi.fn(),
-    GetImagePageGroups: vi.fn(),
-  })
-);
-
-// Each panel throws while its fail condition matches; null never matches.
+// The nodes each panel throws on, and the tab the Pages navigator throws on.
 const failOn = vi.hoisted(() => ({
-  detail: null as string | null,
-  source: null as string | null,
+  detail: [] as string[],
+  source: [] as string[],
   pagesTab: null as string | null,
 }));
 
-const selectedNodeId = vi.hoisted(
-  () => (state: { activeTabId: string | null; tabs: { tabId: string; selectedNodeId: string | null }[] }) =>
-    state.tabs.find((t) => t.tabId === state.activeTabId)?.selectedNodeId ?? null
-);
+vi.mock('./DetailPanel', async () => ({
+  DetailPanel: (await import('./mainLayoutTestUtils')).failingSelectionPanel('detail-panel-ok', () => failOn.detail),
+}));
 
-vi.mock('./DetailPanel', async () => {
-  const { useAppState } = await import('../hooks/useDocumentState');
-  return {
-    DetailPanel: () => {
-      const node = selectedNodeId(useAppState());
-      if (node !== null && node === failOn.detail) throw new Error(`detail fails on ${node}`);
-      return <div data-testid="detail-panel-ok" />;
-    },
-  };
-});
-
-vi.mock('./ObjectInfoPanel', async () => {
-  const { useAppState } = await import('../hooks/useDocumentState');
-  return {
-    ObjectSourcePanel: () => {
-      const node = selectedNodeId(useAppState());
-      if (node !== null && node === failOn.source) throw new Error(`source fails on ${node}`);
-      return <div data-testid="object-source-ok" />;
-    },
-  };
-});
+vi.mock('./ObjectInfoPanel', async () => ({
+  ObjectSourcePanel: (await import('./mainLayoutTestUtils')).failingSelectionPanel('object-source-ok', () => failOn.source),
+}));
 
 vi.mock('./PagesPanel', async () => {
   const { useAppState } = await import('../hooks/useDocumentState');
@@ -89,77 +51,13 @@ vi.mock('./PagesPanel', async () => {
   };
 });
 
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-let consoleError: ReturnType<typeof vi.spyOn>;
-
-// React's dev build reports a caught render error as a window error event,
-// which jsdom prints unless the event is cancelled.
-function swallowWindowError(event: ErrorEvent) {
-  event.preventDefault();
-}
+const consoleError = setupBoundaryTestEnv();
 
 beforeEach(() => {
-  failOn.detail = null;
-  failOn.source = null;
+  failOn.detail = [];
+  failOn.source = [];
   failOn.pagesTab = null;
-  (globalThis as Record<string, unknown>).ResizeObserver = MockResizeObserver;
-  window.addEventListener('error', swallowWindowError);
-  // React and the boundary both log the caught render error.
-  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
-
-afterEach(() => {
-  consoleError.mockRestore();
-  window.removeEventListener('error', swallowWindowError);
-  delete (globalThis as Record<string, unknown>).ResizeObserver;
-});
-
-let dispatch: (action: AppAction) => void = () => {};
-
-function DispatchCapture() {
-  dispatch = useAppDispatch();
-  return null;
-}
-
-const catalogNode = {
-  id: 'root',
-  label: 'Catalog',
-  rawKey: '',
-  nodeType: 'dict',
-  valueType: '',
-  hasChildren: true,
-  childCount: 0,
-  iconHint: 'catalog',
-  error: '',
-};
-
-function send(action: AppAction) {
-  act(() => {
-    dispatch(action);
-  });
-}
-
-function selectNode(nodeId: string) {
-  send({ type: 'SELECT_NODE', payload: { nodeId } });
-}
-
-function openDocument(tabId: string) {
-  send({
-    type: 'OPEN_DOCUMENT',
-    payload: {
-      tabId,
-      fileName: `${tabId}.pdf`,
-      filePath: `/path/to/${tabId}.pdf`,
-      rootNode: catalogNode,
-      rootChildren: [],
-    },
-  });
-}
 
 function renderOpen() {
   render(
@@ -182,7 +80,7 @@ const panels = [
 
 describe('MainLayout selection-driven panel recovery', () => {
   test.each(panels)('selecting another node renders a failed $name panel again', ({ key, okTestId }) => {
-    failOn[key] = 'obj:0:3';
+    failOn[key] = ['obj:0:3'];
     renderOpen();
     selectNode('obj:0:3');
     expect(screen.queryByTestId(okTestId)).not.toBeInTheDocument();
@@ -194,8 +92,8 @@ describe('MainLayout selection-driven panel recovery', () => {
     expect(fallbackCount()).toBe(0);
   });
 
-  test.each(panels)('a history step renders a failed $name panel again', ({ key, okTestId }) => {
-    failOn[key] = 'obj:0:4';
+  test.each(panels)('a Back step renders a failed $name panel again', ({ key, okTestId }) => {
+    failOn[key] = ['obj:0:4'];
     renderOpen();
     selectNode('obj:0:3');
     selectNode('obj:0:4');
@@ -207,8 +105,22 @@ describe('MainLayout selection-driven panel recovery', () => {
     expect(fallbackCount()).toBe(0);
   });
 
+  test.each(panels)('a Forward step renders a failed $name panel again', ({ key, okTestId }) => {
+    failOn[key] = ['obj:0:3'];
+    renderOpen();
+    selectNode('obj:0:3');
+    selectNode('obj:0:4');
+    send({ type: 'NAVIGATE_BACK' });
+    expect(fallbackCount()).toBe(1);
+
+    send({ type: 'NAVIGATE_FORWARD' });
+
+    expect(screen.getByTestId(okTestId)).toBeInTheDocument();
+    expect(fallbackCount()).toBe(0);
+  });
+
   test.each(panels)('opening another document renders a failed $name panel again', ({ key, okTestId }) => {
-    failOn[key] = 'obj:0:3';
+    failOn[key] = ['obj:0:3'];
     renderOpen();
     selectNode('obj:0:3');
     expect(fallbackCount()).toBe(1);
@@ -219,16 +131,70 @@ describe('MainLayout selection-driven panel recovery', () => {
     expect(fallbackCount()).toBe(0);
   });
 
-  test.each(panels)('selecting a node whose $name panel fails catches the error once', ({ key }) => {
-    failOn[key] = 'obj:0:3';
+  test.each(panels)('switching to an open tab renders a failed $name panel again', ({ key, okTestId }) => {
+    failOn[key] = ['obj:0:3'];
     renderOpen();
     selectNode('obj:0:4');
-    consoleError.mockClear();
+    openDocument('tab-2');
+    selectNode('obj:0:3');
+    expect(fallbackCount()).toBe(1);
+
+    send({ type: 'ACTIVATE_TAB', payload: { tabId: 'tab-1' } });
+
+    expect(screen.getByTestId(okTestId)).toBeInTheDocument();
+    expect(fallbackCount()).toBe(0);
+  });
+
+  test.each(panels)('closing the active tab renders a failed $name panel again', ({ key, okTestId }) => {
+    failOn[key] = ['obj:0:3'];
+    renderOpen();
+    selectNode('obj:0:4');
+    openDocument('tab-2');
+    selectNode('obj:0:3');
+    expect(fallbackCount()).toBe(1);
+
+    send({ type: 'CLOSE_DOCUMENT', payload: { tabId: 'tab-2' } });
+
+    expect(screen.getByTestId(okTestId)).toBeInTheDocument();
+    expect(fallbackCount()).toBe(0);
+  });
+
+  test.each(panels)('selecting a node whose $name panel fails catches the error once', ({ key }) => {
+    failOn[key] = ['obj:0:3'];
+    renderOpen();
+    selectNode('obj:0:4');
+    consoleError().mockClear();
 
     selectNode('obj:0:3');
 
-    const caught = consoleError.mock.calls.filter((args) => args[0] === 'ErrorBoundary caught:');
-    expect(caught).toHaveLength(1);
+    expect(caughtCount(consoleError())).toBe(1);
+    expect(fallbackCount()).toBe(1);
+  });
+
+  test.each(panels)('Try again renders a failed $name panel on the same node', async ({ key, okTestId }) => {
+    const user = userEvent.setup();
+    failOn[key] = ['obj:0:3'];
+    renderOpen();
+    selectNode('obj:0:3');
+    expect(fallbackCount()).toBe(1);
+
+    failOn[key] = [];
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(screen.getByTestId(okTestId)).toBeInTheDocument();
+    expect(fallbackCount()).toBe(0);
+  });
+
+  test.each(panels)('a $name panel that fails on the next node too catches the error once', ({ key }) => {
+    failOn[key] = ['obj:0:3', 'obj:0:4'];
+    renderOpen();
+    selectNode('obj:0:3');
+    expect(fallbackCount()).toBe(1);
+    consoleError().mockClear();
+
+    selectNode('obj:0:4');
+
+    expect(caughtCount(consoleError())).toBe(1);
     expect(fallbackCount()).toBe(1);
   });
 
