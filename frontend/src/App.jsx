@@ -19,6 +19,10 @@ import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
+import { ReloadToast } from './components/ReloadToast'
+import { DiskChangeAnnouncer, announceDiskChange } from './components/DiskChangeAnnouncer'
+import { applyDiskStatusEvent, retainDiskStatus } from './lib/diskStatusStore'
+import { reloadTab } from './lib/reloadDocument'
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -46,6 +50,63 @@ function AppContent() {
   // Ref mirrors tabs for use inside event handler closures without stale captures
   const tabsRef = useRef(tabs)
   useEffect(() => { tabsRef.current = tabs }, [tabs])
+  const activeTabIdRef = useRef(activeTabId)
+  useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
+
+  // On-disk status entries live only as long as their tab: a closed or
+  // replaced tab id drops its entry, which clears its marker.
+  useEffect(() => {
+    retainDiskStatus(tabs.map((t) => t.tabId))
+  }, [tabs])
+
+  // Reload from disk (File > Reload from Disk, its Cmd/Ctrl+R accelerator, and
+  // F5) always acts on the active tab, stale or not.
+  useEffect(() => {
+    const reloadActive = () => {
+      const id = activeTabIdRef.current
+      if (id) void reloadTab(dispatch, () => tabsRef.current, id)
+    }
+    /** @param {EventTarget | null} target */
+    function isInTextField(target) {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
+    }
+    /** @param {KeyboardEvent} e */
+    function onKeyDown(e) {
+      if (e.key !== 'F5' || e.repeat) return
+      if (isInTextField(e.target)) return
+      e.preventDefault()
+      reloadActive()
+    }
+    const offReload = Events.On('document:reload-active', reloadActive)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      offReload()
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [dispatch])
+
+  // Watcher events go to the disk-status store, never to AppState, so a status
+  // update re-renders only the subscribed tab item, note and announcer.
+  // Events for tab ids not in the tab list (a Diff right side) are ignored.
+  useEffect(() => {
+    return Events.On('document:disk-status', (event) => {
+      const data = event?.data
+      if (!data || typeof data.tabId !== 'string') return
+      const tab = tabsRef.current.find((t) => t.tabId === data.tabId)
+      if (!tab) return
+      const applied = applyDiskStatusEvent({
+        tabId: data.tabId,
+        seq: Number(data.seq) || 0,
+        state: String(data.state ?? ''),
+        loadedModTime: Number(data.loadedModTime) || 0,
+        diskModTime: Number(data.diskModTime) || 0,
+        diskSize: Number(data.diskSize) || 0,
+      })
+      if (applied && data.state === 'changed') announceDiskChange(`${tab.fileName} changed on disk`)
+    })
+  }, [])
 
   // Sync navigation menu enabled state with backend
   const prevNavState = useRef({ canGoBack: false, canGoForward: false })
@@ -355,6 +416,8 @@ function AppContent() {
       <BatchOpenDialog />
       <CommandPalette />
       <UpdateNotifier />
+      <ReloadToast />
+      <DiskChangeAnnouncer />
     </div>
   )
 }

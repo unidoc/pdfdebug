@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { FILE_CHANGED_MESSAGE } from '../lib/fileChange';
 import { SMALL_BUTTON } from './buttonStyles';
 
 /** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
@@ -64,6 +65,8 @@ export interface SignaturesViewProps {
    * fetch of its own; when omitted the view self-fetches on tabId change.
    */
   data?: SignatureEntryData[] | null;
+  /** True when the parent's fetch was refused because the file changed on disk. */
+  fileChanged?: boolean;
 }
 
 /** Extracts the CN component from an X.509 DN string, falling back to the
@@ -266,7 +269,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
  * `data` prop is provided (DetailPanel's one-fetch-per-document contract);
  * self-fetches on tabId change otherwise.
  */
-export function SignaturesView({ tabId, active: _active, onNavigate, data }: SignaturesViewProps) {
+export function SignaturesView({ tabId, active: _active, onNavigate, data, fileChanged }: SignaturesViewProps) {
   const [entries, setEntries] = useState<SignatureEntryData[] | null>(data ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -300,6 +303,13 @@ export function SignaturesView({ tabId, active: _active, onNavigate, data }: Sig
         data-testid="signatures-empty-nodoc"
       >
         No document open
+      </div>
+    );
+  }
+  if (fileChanged) {
+    return (
+      <div className="p-3 text-text-muted text-sm" data-testid="signatures-file-changed">
+        {FILE_CHANGED_MESSAGE}
       </div>
     );
   }

@@ -21,6 +21,8 @@ import {
   GetPlainTextSize,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { FILE_CHANGED_MESSAGE, isFileChangedMessage } from '../lib/fileChange';
+import { markTabFromDiskCheck } from '../lib/diskCheck';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useFindBar } from '../hooks/useFindBar';
 import { FindBar } from './FindBar';
@@ -190,6 +192,13 @@ export function PlainTextView({ tabId, active }: PlainTextViewProps) {
           loadStateRef.current = 'cancelled';
           setLoadState('cancelled');
           setCancelling(false);
+        } else if (isFileChangedMessage(msg)) {
+          // The backend refused bytes from a file that changed since Open:
+          // show the reload hint and mark the tab from a fresh disk check.
+          loadStateRef.current = 'error';
+          setError(FILE_CHANGED_MESSAGE);
+          setLoadState('error');
+          markTabFromDiskCheck(tabIdAtFetch);
         } else {
           loadStateRef.current = 'error';
           setError(msg);

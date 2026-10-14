@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"time"
 
@@ -116,11 +115,16 @@ const maxHoleProbeBytes = 4 * 1024 * 1024
 // /Fields array (walking /Kids hierarchies with inherited /FT), decomposes
 // each CMS-based /Contents into signer/chain/algorithm facts, and measures
 // /ByteRange coverage against the file. Per-signature failures degrade to
-// per-entry error fields; the call itself fails only for unknown tabs or a
-// document-level pdfcpu failure. Runs under doc.pdfMu and inside safeCall.
+// per-entry error fields; the call itself fails only for unknown tabs, a
+// document-level pdfcpu failure, or ErrFileChanged when the file on disk no
+// longer matches the Open fingerprint (checked before the walk and on every
+// hole read during it). Runs under doc.pdfMu and inside safeCall.
 func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
+		return nil, err
+	}
+	if err := verifyPath(doc.FilePath, doc.fingerprint); errors.Is(err, ErrFileChanged) {
 		return nil, err
 	}
 	// Serialize pdfcpu access: the walk dereferences the AcroForm, fields,
@@ -128,6 +132,7 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
+	doc.sigReadErr = nil
 	list := &SignatureList{Signatures: []SignatureField{}}
 	err = safeCall(func() error {
 		list.Signatures = collectSignatures(doc)
@@ -135,6 +140,9 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	})
 	if err != nil {
 		return nil, wrapPDFError(err)
+	}
+	if doc.sigReadErr != nil {
+		return nil, doc.sigReadErr
 	}
 	return list, nil
 }
@@ -621,7 +629,11 @@ func holeMatchesContents(doc *DocumentState, sig pdfcpu_types.Dict, holeStart, h
 	if holeEnd <= holeStart || holeEnd-holeStart > maxHoleProbeBytes {
 		return false
 	}
-	span, err := readFileSpan(doc.FilePath, holeStart, holeEnd)
+	span, err := readFileSpan(doc.FilePath, doc.fingerprint, holeStart, holeEnd)
+	if errors.Is(err, ErrFileChanged) {
+		doc.sigReadErr = err
+		return false
+	}
 	if err != nil || len(span) < 2 {
 		return false
 	}
@@ -633,15 +645,27 @@ func holeMatchesContents(doc *DocumentState, sig pdfcpu_types.Dict, holeStart, h
 	return strings.EqualFold(inner, want)
 }
 
-// readFileSpan reads the byte range [start, end) from the file at path.
-func readFileSpan(path string, start, end int64) ([]byte, error) {
-	fh, err := os.Open(path)
+// beforeFileSpanRead, when set, runs right before readFileSpan opens the file.
+// Nil in production; tests use it to change the file during a walk.
+var beforeFileSpanRead func(path string)
+
+// readFileSpan reads the byte range [start, end) from the file at path. The
+// open handle must match fp before and after the read; otherwise it returns
+// ErrFileChanged.
+func readFileSpan(path string, fp FileFingerprint, start, end int64) ([]byte, error) {
+	if beforeFileSpanRead != nil {
+		beforeFileSpanRead(path)
+	}
+	fh, err := openVerified(path, fp)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = fh.Close() }()
 	buf := make([]byte, end-start)
 	if _, err := fh.ReadAt(buf, start); err != nil {
+		return nil, err
+	}
+	if err := verifyHandle(fh, fp); err != nil {
 		return nil, err
 	}
 	return buf, nil

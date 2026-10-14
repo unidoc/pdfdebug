@@ -36,6 +36,9 @@ func execSignaturesDump(filePath string, flags docViewFlags) (exitCode int) {
 		return code
 	}
 	defer func() { _ = ins.Close("cli") }()
+	if afterCLIOpen != nil {
+		afterCLIOpen(filePath)
+	}
 
 	list, err := ins.GetSignatures("cli")
 	if err != nil {

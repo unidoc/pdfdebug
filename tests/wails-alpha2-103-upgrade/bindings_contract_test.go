@@ -23,7 +23,7 @@ import (
 //	App.jsx                : ConsumePendingOpenFiles
 //	ObjectInfoPanel.tsx    : GetObjectSource
 //	DetailPanel.tsx        : GetObjectDetail, GetContentStream, GetImageData,
-//	                         GetReverseRefs, GetFontView
+//	                         GetReverseRefs, GetFontView, GetDiskStatus
 //	XRefTableView.tsx      : GetXRefTable
 //	CommandPalette.tsx     : GetAncestorPath
 //	TreePanel.tsx          : GetChildren, GetAncestorPath
@@ -34,6 +34,7 @@ import (
 //	usePDFService.ts       : OpenFile, GetTreeRoot, GetChildren, CloseDocument,
 //	                         OpenFileDialog
 //	lib/openedDocuments.ts : CloseDocument
+//	lib/diskCheck.ts       : GetDiskStatus
 //
 // If the dev adds/removes a frontend import in the same change, this list moves
 // WITH the real consumer dependency -- which is exactly the contract we want,
@@ -58,6 +59,7 @@ var consumerBoundMethods = []string{
 	"GetImageIndex",
 	"GetImagePages",
 	"GetImagePageGroups",
+	"GetDiskStatus",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

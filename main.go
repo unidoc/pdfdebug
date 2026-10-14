@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"log"
@@ -17,6 +18,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"unidoc-pdf-debugger/internal/clitool"
+	"unidoc-pdf-debugger/internal/filewatch"
 	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pdfservice"
 	"unidoc-pdf-debugger/internal/pendingopen"
@@ -385,6 +387,34 @@ func wireInstallCLIMenuItem(app *application.App, appSub *application.Menu) {
 	}
 }
 
+// diskWatchService runs the disk watcher for the app's lifetime. Only the
+// Wails lifecycle methods are exported, so it adds no frontend binding.
+type diskWatchService struct {
+	w *filewatch.Watcher
+}
+
+// ServiceStartup starts the watcher's scheduler.
+func (s *diskWatchService) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
+	s.w.Start()
+	return nil
+}
+
+// ServiceShutdown stops the scheduler without waiting for stats in flight.
+func (s *diskWatchService) ServiceShutdown() error {
+	s.w.Stop()
+	return nil
+}
+
+// diskStatusEmitter forwards settled watcher events to the frontend.
+type diskStatusEmitter struct {
+	app *application.App
+}
+
+// Emit sends ev as a document:disk-status event.
+func (e diskStatusEmitter) Emit(ev filewatch.Event) {
+	e.app.Event.Emit("document:disk-status", ev)
+}
+
 func main() {
 	// --version short-circuit: must run BEFORE application.New so that
 	// `unidoc-pdf-debugger --version` does not spin up a Wails webview/window
@@ -449,6 +479,11 @@ func main() {
 	pdfService.SetPendingOpens(openQueue)
 
 	app.RegisterService(application.NewService(&pdfService))
+
+	// Disk watcher: polls every open document's file and emits
+	// document:disk-status once a change has settled.
+	diskWatcher := pdfservice.WatchDiskStatus(&pdfService, diskStatusEmitter{app: app}, filewatch.SystemClock{})
+	app.RegisterService(application.NewService(&diskWatchService{w: diskWatcher}))
 
 	// Update-notification service. Version-aware; skips the check on "dev".
 	updateSvc := updateservice.NewUpdateService(app, version)
@@ -622,6 +657,15 @@ func main() {
 		SetAccelerator("CmdOrCtrl+w").
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit("document:close-active", nil)
+		})
+	fileMenu.Add("Reload from Disk").
+		SetAccelerator("CmdOrCtrl+r").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("document:reload-active", nil)
+		})
+	fileMenu.Add("Compare with File on Disk").
+		OnClick(func(ctx *application.Context) {
+			app.Event.Emit("document:compare-active", nil)
 		})
 	if runtime.GOOS != "darwin" {
 		fileMenu.AddSeparator()
@@ -860,6 +904,16 @@ func main() {
 		mainReadyOnce.Do(func() {
 			splashScheduler.MainWindowReady()
 		})
+	})
+
+	// Poll faster while the main window has focus. Wails handles each window
+	// event on its own goroutine, so both handlers pass the window's current
+	// focus state instead of trusting which event fired last.
+	window.OnWindowEvent(events.Common.WindowFocus, func(_ *application.WindowEvent) {
+		diskWatcher.SetFocused(window.IsFocused())
+	})
+	window.OnWindowEvent(events.Common.WindowLostFocus, func(_ *application.WindowEvent) {
+		diskWatcher.SetFocused(window.IsFocused())
 	})
 
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {

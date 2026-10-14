@@ -46,6 +46,9 @@ func execBytesDump(filePath string, f docViewFlags) (exitCode int) {
 		return code
 	}
 	defer func() { _ = ins.Close("cli") }()
+	if afterCLIOpen != nil {
+		afterCLIOpen(filePath)
+	}
 
 	if f.json {
 		// Only the --json path needs the decoded payload. GetPlainText performs a

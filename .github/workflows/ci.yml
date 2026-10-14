@@ -137,6 +137,7 @@ jobs:
             cli-tree-dump
             cli-views
             update-notice
+            file-change-detection
           )
           # A win_subset entry that names no suite does not fail to match, it
           # silently fails in_subset and the Windows leg prints a skip line and

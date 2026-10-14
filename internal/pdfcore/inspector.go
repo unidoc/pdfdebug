@@ -3,7 +3,9 @@ package pdfcore
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -53,6 +55,15 @@ type DocumentState struct {
 	// into readPlainText for the buffer pre-size. If the underlying file is
 	// moved or deleted after Open, this value is unchanged.
 	FileSize int64
+
+	// fingerprint is the size, mtime and file identity of FilePath from the
+	// pre-parse stat at Open. Reads of the file after Open check their handle
+	// against it and refuse bytes from a file that changed.
+	fingerprint FileFingerprint
+
+	// sigReadErr carries ErrFileChanged out of a GetSignatures walk when a
+	// hole read finds the file changed. Guarded by pdfMu; reset per call.
+	sigReadErr error
 
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
@@ -146,6 +157,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("%w: path is a directory", ErrDocumentNotFound)
 	}
 	fileSize := fi.Size()
+	fingerprint := newFileFingerprint(fi)
 
 	var ctx *pdfcpu_model.Context
 	err = safeCall(func() error {
@@ -154,6 +166,14 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return e
 	})
 	if err != nil {
+		// The file vanished between the stat and the parse (a delete-then-write
+		// save), or another process holds it without read sharing.
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %w", ErrDocumentNotFound, err)
+		}
+		if isFileBusy(err) {
+			return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
+		}
 		return nil, wrapPDFError(err)
 	}
 
@@ -180,6 +200,8 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		PageCount:  pageCount,
 
 		FileSize: fileSize,
+
+		fingerprint: fingerprint,
 
 		streamCache: make(map[string]*ContentStreamData),
 

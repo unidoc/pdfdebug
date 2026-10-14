@@ -142,7 +142,8 @@ export interface AppState {
 
 /** Union of all actions the app reducer handles. */
 export type AppAction =
-  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; pageCount?: number; rootNode: TreeNode | null; rootChildren: TreeNode[] | null } }
+  // reload: a reload of an open tab; it skips the batch-open bookkeeping and keeps the warning.
+  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; pageCount?: number; rootNode: TreeNode | null; rootChildren: TreeNode[] | null; reload?: boolean } }
   | { type: 'ACTIVATE_TAB'; payload: { tabId: string } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
   | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; iconHint?: string; isHistoryNav?: boolean } }
@@ -211,7 +212,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // Drive batch progress from OPEN_DOCUMENT itself: incrementing here is
       // atomic with the tab being added, so the count can never lag behind
       // the actual number of opened tabs.
-      const inBatch = state.batchOpenTotal > 0;
+      // A reload is not part of any batch: it leaves the counters, the cancel
+      // flag and the warning text exactly as they are.
+      const isReload = action.payload.reload === true;
+      const inBatch = !isReload && state.batchOpenTotal > 0;
       const batchOpenCompleted = inBatch
         ? state.batchOpenCompleted + 1
         : state.batchOpenCompleted;
@@ -226,7 +230,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // (after BATCH_OPEN_COMPLETE, due to Wails' goroutine race) update the
       // displayed count. When not cancelled, OPEN_DOCUMENT clears the warning
       // as before.
-      const documentWarning = cancelDidNothing
+      const documentWarning = isReload ? state.documentWarning : cancelDidNothing
         ? null
         : state.batchOpenCancelled
           ? (inBatch

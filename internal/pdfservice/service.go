@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"unidoc-pdf-debugger/internal/filewatch"
 	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pendingopen"
 )
@@ -56,6 +57,8 @@ type inspectorAPI interface {
 	GetSignatures(tabID string) (*pdfcore.SignatureList, error)
 	Validate(tabID, profile string) (*pdfcore.ValidationResult, error)
 	DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffResult, error)
+	TabIDs() []string
+	DiskStatus(tabID string) (pdfcore.DiskStatus, error)
 }
 
 // PDFService is the Wails-bound service that exposes PDF inspection to the
@@ -72,6 +75,10 @@ type PDFService struct {
 	// frontend drains them. Injected from main.go via
 	// SetPendingOpens; nil in tests that do not exercise the cold-start path.
 	pendingOpens *pendingopen.Queue
+	// diskStatusRecorded receives every GetDiskStatus result so the watcher
+	// treats it as the tab's last reported status. Set by WatchDiskStatus;
+	// nil in tests that do not run a watcher.
+	diskStatusRecorded func(tabID string, st pdfcore.DiskStatus)
 }
 
 // NewPDFService creates a PDFService backed by a fresh Inspector.
@@ -528,6 +535,37 @@ func (s *PDFService) DiffDocuments(leftTabID, rightTabID string) (*pdfcore.DiffR
 		result, err = s.inspector.DiffDocuments(leftTabID, rightTabID)
 	}()
 	return result, err
+}
+
+// GetDiskStatus stats the file behind tabID and compares it with the
+// fingerprint taken when it was opened: current, changed or missing. The
+// result is recorded in the disk watcher as the tab's last reported status.
+func (s *PDFService) GetDiskStatus(tabID string) (*pdfcore.DiskStatus, error) {
+	var result *pdfcore.DiskStatus
+	var err error
+	func() {
+		defer recoverRuntimePanic("GetDiskStatus", &err)
+		var st pdfcore.DiskStatus
+		st, err = s.inspector.DiskStatus(tabID)
+		if err != nil {
+			return
+		}
+		result = &st
+		if s.diskStatusRecorded != nil {
+			s.diskStatusRecorded(tabID, st)
+		}
+	}()
+	return result, err
+}
+
+// WatchDiskStatus builds a disk watcher over every document open in s and
+// wires GetDiskStatus results into it. A package function rather than a
+// method so it adds no frontend binding. The caller starts and stops the
+// watcher.
+func WatchDiskStatus(s *PDFService, emit filewatch.Emitter, clk filewatch.Clock) *filewatch.Watcher {
+	w := filewatch.New(s.inspector, emit, clk)
+	s.diskStatusRecorded = w.RecordReported
+	return w
 }
 
 // SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
