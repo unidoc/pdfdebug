@@ -5,6 +5,7 @@ package pdfcore
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -73,6 +74,11 @@ func diagLockAndOpen(t *testing.T, path string) string {
 	if err == nil {
 		_ = syscall.CloseHandle(h3)
 	}
+	h4, err := syscall.CreateFile(p, syscall.GENERIC_READ, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL|syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	fmt.Fprintf(&b, "  second CreateFile(GENERIC_READ, share=R|W, BACKUP_SEMANTICS): handle=%v err=%v\n", h4, err)
+	if err == nil {
+		_ = syscall.CloseHandle(h4)
+	}
 	_, err = NewInspector().Open("tab-diag", path)
 	fmt.Fprintf(&b, "  Inspector.Open: err=%v\n", err)
 	return b.String()
@@ -94,5 +100,7 @@ func TestFileBusyDiagnostic(t *testing.T) {
 			report += fmt.Sprintf("write %s: %v\n", local, err)
 		}
 	}
+	out, err := exec.Command("whoami", "/priv").CombinedOutput()
+	report += fmt.Sprintf("whoami /priv (err=%v):\n%s", err, out)
 	t.Errorf("diagnostic report:\n%s", report)
 }
