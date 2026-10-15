@@ -312,6 +312,38 @@ describe('reload triggers', () => {
     await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
     expect(bindings.OpenFile).toHaveBeenCalledTimes(1);
   });
+
+  test('a menu event for the same press after a fast reload finished does not reload again', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    fireEvent.keyDown(window, { key: 'r', ...mod });
+    await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
+    act(() => emitEvent('document:reload-active'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(bindings.OpenFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('two menu reloads in a row both reload', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+
+    act(() => emitEvent('document:reload-active'));
+    await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
+    mockOpenResult('tab-fresh-2', t.pathA);
+    act(() => emitEvent('document:reload-active'));
+
+    await waitFor(() => expect(tabOrder()).toEqual(['tab-fresh-2']));
+    expect(bindings.OpenFile).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('reload outcome', () => {
@@ -438,6 +470,19 @@ describe('on-disk status events', () => {
     deliverOpen(t.a, t.pathA);
 
     await waitFor(() => expect(watched).toHaveBeenLastCalledWith([t.a]));
+  });
+
+  test('a per-tab state change with the same tab ids does not call the backend', async () => {
+    const t = ids();
+    const watched = vi.mocked(SetWatchedTabs);
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    await waitFor(() => expect(watched).toHaveBeenLastCalledWith([t.a]));
+    watched.mockClear();
+
+    act(() => emitEvent('navigate:goToPage'));
+
+    expect(watched).not.toHaveBeenCalled();
   });
 
   test('a changed event marks the tab and announces it once', () => {

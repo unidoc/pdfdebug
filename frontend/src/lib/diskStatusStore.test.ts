@@ -7,7 +7,7 @@
  *     - drops an event whose seq is not above the last one applied for the tab
  *       (also after the entry was removed)
  *     - a 'current' event removes the tab's entry
- *   setDiskStatusFromCheck(tabId, {state, loadedModTime, diskModTime, diskSize})
+ *   setDiskStatusFromCheck(tabId, {state, loadedModTime, diskModTime, diskSize}, seqAtRequest)
  *     - writes a GetDiskStatus result; 'current' removes the entry
  *   retainDiskStatus(tabIds) drops entries for every other tab
  *   readDiskStatus(tabId) / useDiskStatus(tabId) return the entry or undefined
@@ -20,6 +20,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   applyDiskStatusEvent,
   setDiskStatusFromCheck,
+  diskStatusSeq,
   retainDiskStatus,
   readDiskStatus,
   useDiskStatus,
@@ -69,16 +70,27 @@ describe('diskStatusStore', () => {
   });
 
   test('a GetDiskStatus result marks or clears the tab', () => {
-    setDiskStatusFromCheck('t1', { state: 'changed', loadedModTime: loaded, diskModTime: loaded + 1, diskSize: 10 });
+    setDiskStatusFromCheck('t1', { state: 'changed', loadedModTime: loaded, diskModTime: loaded + 1, diskSize: 10 }, diskStatusSeq('t1'));
     expect(readDiskStatus('t1')?.state).toBe('changed');
-    setDiskStatusFromCheck('t1', { state: 'current', loadedModTime: loaded, diskModTime: loaded, diskSize: 10 });
+    setDiskStatusFromCheck('t1', { state: 'current', loadedModTime: loaded, diskModTime: loaded, diskSize: 10 }, diskStatusSeq('t1'));
     expect(readDiskStatus('t1')).toBeUndefined();
   });
 
   test('a watcher event after a check result still applies', () => {
     applyDiskStatusEvent(ev('t1', 3, 'changed'));
-    setDiskStatusFromCheck('t1', { state: 'missing', loadedModTime: loaded, diskModTime: 0, diskSize: 0 });
+    setDiskStatusFromCheck('t1', { state: 'missing', loadedModTime: loaded, diskModTime: 0, diskSize: 0 }, diskStatusSeq('t1'));
     applyDiskStatusEvent(ev('t1', 4, 'current'));
+    expect(readDiskStatus('t1')).toBeUndefined();
+  });
+
+  test('a check result older than a watcher event applied since the request is dropped', () => {
+    applyDiskStatusEvent(ev('t1', 3, 'changed'));
+    const seqAtRequest = diskStatusSeq('t1');
+    applyDiskStatusEvent(ev('t1', 4, 'current'));
+
+    const written = setDiskStatusFromCheck('t1', { state: 'changed', loadedModTime: loaded, diskModTime: loaded + 1, diskSize: 10 }, seqAtRequest);
+
+    expect(written).toBe(false);
     expect(readDiskStatus('t1')).toBeUndefined();
   });
 

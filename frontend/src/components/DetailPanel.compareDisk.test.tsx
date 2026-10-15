@@ -436,6 +436,41 @@ describe('reload from the Diff header', () => {
     expect(b.CloseDocument).not.toHaveBeenCalledWith(t.a);
   });
 
+  test('a failed promotion sets only the error banner', async () => {
+    const t = ids();
+    mount();
+    open(t.a, t.pathA);
+    b.GetDiskStatus.mockResolvedValue(diskStatusOf('changed'));
+    b.OpenFile.mockResolvedValue(diskDoc(t.disk, t.pathA));
+    emit('document:compare-active');
+    await waitFor(() => expect(b.DiffDocuments).toHaveBeenCalledWith(t.a, t.disk));
+    act(() => dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: 'earlier warning' } }));
+    act(() => dispatch({ type: 'OPENING_START', payload: { fileName: 'x.pdf' } }));
+    b.GetTreeRoot.mockRejectedValue(new Error('malformed PDF: bad xref'));
+
+    fireEvent.click(await screen.findByTestId('diff-reload'));
+
+    await waitFor(() => expect(state.documentError).toBe('Could not reload a.pdf: file is damaged or not a valid PDF'));
+    expect(state.documentWarning).toBe('earlier warning');
+    expect(state.isOpening).toBe(true);
+    expect(state.tabs.map((x) => x.tabId)).toEqual([t.a]);
+  });
+
+  test('the promoted copy\'s parse warning replaces the banner in one dispatch', async () => {
+    const t = ids();
+    mount();
+    open(t.a, t.pathA);
+    b.GetDiskStatus.mockResolvedValue(diskStatusOf('changed'));
+    b.OpenFile.mockResolvedValue({ ...diskDoc(t.disk, t.pathA), error: 'This PDF has structural errors. Some objects may display incorrectly.' });
+    emit('document:compare-active');
+    await waitFor(() => expect(b.DiffDocuments).toHaveBeenCalledWith(t.a, t.disk));
+
+    fireEvent.click(await screen.findByTestId('diff-reload'));
+
+    await waitFor(() => expect(state.activeTabId).toBe(t.disk));
+    expect(state.documentWarning).toBe('This PDF has structural errors. Some objects may display incorrectly.');
+  });
+
   test('a file picked with Compare with another PDF gets no header Reload', async () => {
     const t = ids();
     mount();

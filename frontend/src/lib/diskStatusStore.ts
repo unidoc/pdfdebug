@@ -77,9 +77,22 @@ export function applyDiskStatusEvent(ev: DiskStatusEvent): boolean {
   return true;
 }
 
-/** Writes a GetDiskStatus result for tabId; `current` removes the entry. */
-export function setDiskStatusFromCheck(tabId: string, info: DiskStatusInfo): void {
-  write(tabId, lastSeq.get(tabId) ?? 0, info);
+/** Seq of the last watcher event applied for tabId, 0 when none. */
+export function diskStatusSeq(tabId: string): number {
+  return lastSeq.get(tabId) ?? 0;
+}
+
+/**
+ * Writes a GetDiskStatus result for tabId; `current` removes the entry.
+ * seqAtRequest is diskStatusSeq(tabId) when the check was requested: a
+ * watcher event applied since then is newer than the result, which is
+ * dropped. Returns whether the result was written.
+ */
+export function setDiskStatusFromCheck(tabId: string, info: DiskStatusInfo, seqAtRequest: number): boolean {
+  const seq = lastSeq.get(tabId) ?? 0;
+  if (seq > seqAtRequest) return false;
+  write(tabId, seq, info);
+  return true;
 }
 
 /** Drops entries (and seq history) of every tab not in tabIds. */

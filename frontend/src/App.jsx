@@ -2,7 +2,7 @@
  * @file Root application component. Wires Wails runtime events to app state
  * and renders either the empty state or the main three-panel layout.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
 import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
@@ -24,6 +24,9 @@ import { ReloadToast } from './components/ReloadToast'
 import { DiskChangeAnnouncer, announceDiskChange } from './components/DiskChangeAnnouncer'
 import { applyDiskStatusEvent, retainDiskStatus } from './lib/diskStatusStore'
 import { reloadTab } from './lib/reloadDocument'
+
+/** Window in which a Cmd/Ctrl+R keydown and the menu event count as one press. */
+const SHORTCUT_ECHO_MS = 1000
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -57,35 +60,47 @@ function AppContent() {
   // On-disk status entries live only as long as their tab: a closed or
   // replaced tab id drops its entry, which clears its marker. The backend
   // watcher polls only the tab ids in the strip, never a backend-only Diff
-  // right side.
+  // right side. Keyed on the ids so per-tab state changes (selection,
+  // history) do not call the backend.
+  const tabIdsKey = useMemo(() => tabs.map((t) => t.tabId).join('\n'), [tabs])
   useEffect(() => {
-    const ids = tabs.map((t) => t.tabId)
+    const ids = tabIdsKey === '' ? [] : tabIdsKey.split('\n')
     retainDiskStatus(ids)
     Promise.resolve(SetWatchedTabs(ids)).catch(() => {})
-  }, [tabs])
+  }, [tabIdsKey])
 
   // Reload from disk (File > Reload from Disk, its Cmd/Ctrl+R accelerator, and
   // F5) always acts on the active tab, stale or not. Cmd/Ctrl+R is also
   // handled here so it works before the native menu is live and never reaches
-  // the webview's own page reload; reloadTab ignores the second trigger when
-  // the menu accelerator fires too.
+  // the webview's own page reload. One press can arrive both as the keydown
+  // and as the menu event, in either order: a trigger from the other source
+  // within SHORTCUT_ECHO_MS of the last one is that echo and is ignored.
   useEffect(() => {
     const reloadActive = () => {
       const id = activeTabIdRef.current
       if (id) void reloadTab(dispatch, () => tabsRef.current, id)
     }
+    let lastShortcut = { source: '', at: -Infinity }
+    /** @param {'key' | 'menu'} source */
+    const reloadFromShortcut = (source) => {
+      const now = performance.now()
+      if (lastShortcut.source !== source && now - lastShortcut.at < SHORTCUT_ECHO_MS) return
+      lastShortcut = { source, at: now }
+      reloadActive()
+    }
     const wantsMeta = getPlatformModifier() === 'Cmd'
     /** @param {KeyboardEvent} e */
     function onKeyDown(e) {
       const mod = wantsMeta ? e.metaKey : e.ctrlKey
-      const isReloadKey = e.key === 'F5' || (mod && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R'))
-      if (!isReloadKey) return
+      const isModR = mod && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R')
+      if (e.key !== 'F5' && !isModR) return
       // Cmd/Ctrl+R never reaches the webview reload, even in a text field.
       e.preventDefault()
       if (e.repeat || isInTextField(e.target)) return
-      reloadActive()
+      if (isModR) reloadFromShortcut('key')
+      else reloadActive()
     }
-    const offReload = Events.On('document:reload-active', reloadActive)
+    const offReload = Events.On('document:reload-active', () => reloadFromShortcut('menu'))
     window.addEventListener('keydown', onKeyDown)
     return () => {
       offReload()
@@ -377,14 +392,6 @@ function AppContent() {
   // native menu item in main.go also emits navigate:goToPage; this listener
   // exists so the shortcut works even before the menu is opened.
   useEffect(() => {
-    /** @param {EventTarget | null} target */
-    function isInTextField(target) {
-      if (!(target instanceof HTMLElement)) return false
-      const tag = target.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return true
-      if (target.isContentEditable) return true
-      return false
-    }
     const wantsMeta = getPlatformModifier() === 'Cmd'
     /** @param {KeyboardEvent} e */
     function handler(e) {

@@ -9,12 +9,12 @@ import * as Tabs from '@radix-ui/react-tabs';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Events } from '@wailsio/runtime';
 import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument, GetDiskStatus, GetTreeRoot, GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
+import { ContentStreamData, DocumentInfo, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { FILE_MISSING_MESSAGE, isFileBusyMessage, isFileChangedMessage } from '../lib/fileChange';
 import { markTabFromDiskCheck } from '../lib/diskCheck';
-import { setDiskStatusFromCheck, type DiskStatusInfo } from '../lib/diskStatusStore';
+import { diskStatusSeq, setDiskStatusFromCheck, type DiskStatusInfo } from '../lib/diskStatusStore';
 import { formatTimestamp } from '../lib/formatTimestamp';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 import { reloadTab, reloadedMessage, reloadFailureReason } from '../lib/reloadDocument';
@@ -63,20 +63,10 @@ const REV_REFS_UNAVAILABLE_MARKER = 'reverse-ref index unavailable';
 /** Disk size above which Compare asks before loading a second copy. */
 const COMPARE_CONFIRM_BYTES = 500 * 1024 * 1024;
 
-/** Document metadata returned by OpenFile. */
-interface OpenedDocumentInfo {
-  tabId: string;
-  fileName: string;
-  filePath: string;
-  pageCount: number;
-  fileSize: number;
-  error: string;
-}
-
 /** A Diff right side parsed by Compare from the active tab's own file. */
 interface DiskCopy {
   tabId: string;
-  info: OpenedDocumentInfo;
+  info: DocumentInfo;
   diskModTime: number;
 }
 
@@ -732,7 +722,7 @@ function DetailPanelInner() {
     setDiffError(null);
     OpenFile(req.filePath)
       .then((info: unknown) => {
-        const di = info as OpenedDocumentInfo | null;
+        const di = info as DocumentInfo | null;
         if (!di?.tabId) return;
         if (mountedRef.current && activeTabIdRef.current === req.tabId) {
           setDiskCopy({ tabId: di.tabId, info: di, diskModTime: req.diskModTime });
@@ -762,13 +752,14 @@ function DetailPanelInner() {
     const tabId = activeTabIdRef.current;
     const tab = tabsRef.current.find((t) => t.tabId === tabId);
     if (!tabId || !tab?.filePath) return;
+    const seqAtRequest = diskStatusSeq(tabId);
     GetDiskStatus(tabId)
       .then((res: unknown) => {
         if (!res) return;
         const st = res as DiskStatusInfo;
         // The backend recorded this result as reported, so it is stored even
         // when the compare itself is dropped below; the watcher will not send it.
-        if (tabsRef.current.some((t) => t.tabId === tabId)) setDiskStatusFromCheck(tabId, st);
+        if (tabsRef.current.some((t) => t.tabId === tabId)) setDiskStatusFromCheck(tabId, st, seqAtRequest);
         if (!mountedRef.current || activeTabIdRef.current !== tabId) return;
         if (st.state === 'missing') {
           setDiffRightTabId(null);
@@ -823,14 +814,14 @@ function DetailPanelInner() {
           rootNode,
           rootChildren: rootChildren as TreeNode[] | null,
           reload: true,
+          warning: info.error || null,
         });
-        if (info.error) dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: info.error } });
         showReloadToast(reloadedMessage(info.fileName));
         markTabFromDiskCheck(copy.tabId);
       })
       .catch((err: unknown) => {
         if (!mountedRef.current || diffRightTabIdRef.current !== copy.tabId) return;
-        dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: `Could not reload ${info.fileName}: ${reloadFailureReason(extractErrorMessage(err))}` } });
+        dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: `Could not reload ${info.fileName}: ${reloadFailureReason(extractErrorMessage(err))}`, reload: true } });
       })
       .finally(() => {
         promotingRef.current = false;

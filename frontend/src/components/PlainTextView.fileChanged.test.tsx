@@ -61,6 +61,16 @@ describe('Plain Text on a file changed on disk', () => {
     expect(readDiskStatus('tab-1')).toBeUndefined();
   });
 
+  test('a file locked by another app shows the busy hint and does not check the disk', async () => {
+    mockGetPlainText.mockRejectedValue(envelope('file is busy: another process has it open: read x.pdf: lock violation'));
+
+    render(<PlainTextView tabId="tab-1" active={true} />, { wrapper: ProviderWrapper });
+
+    expect(await screen.findByText('File is in use by another app. Reload to try again.')).toBeInTheDocument();
+    expect(screen.queryByText(/lock violation/)).not.toBeInTheDocument();
+    expect(mockGetDiskStatus).not.toHaveBeenCalled();
+  });
+
   test('other load errors keep the generic error and do not check the disk', async () => {
     mockGetPlainText.mockRejectedValue(envelope('malformed PDF: read failed'));
 
