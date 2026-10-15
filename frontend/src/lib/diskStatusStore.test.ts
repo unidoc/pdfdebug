@@ -94,6 +94,16 @@ describe('diskStatusStore', () => {
     expect(readDiskStatus('t1')).toBeUndefined();
   });
 
+  test('a check result for a tab that left the tab list is dropped', () => {
+    retainDiskStatus(['t1', 't2']);
+    retainDiskStatus(['t2']);
+
+    const written = setDiskStatusFromCheck('t1', { state: 'changed', loadedModTime: loaded, diskModTime: loaded + 1, diskSize: 10 }, 0);
+
+    expect(written).toBe(false);
+    expect(readDiskStatus('t1')).toBeUndefined();
+  });
+
   test('retain drops entries of tabs that left the tab list', () => {
     applyDiskStatusEvent(ev('t1', 1, 'changed'));
     applyDiskStatusEvent(ev('t2', 1, 'changed'));

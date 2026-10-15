@@ -8,16 +8,15 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef, memo } fro
 import * as Tabs from '@radix-ui/react-tabs';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Events } from '@wailsio/runtime';
-import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument, GetDiskStatus, GetTreeRoot, GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument, GetTreeRoot, GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, DocumentInfo, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
-import { FILE_MISSING_MESSAGE, isFileBusyMessage, isFileChangedMessage } from '../lib/fileChange';
-import { markTabFromDiskCheck } from '../lib/diskCheck';
-import { diskStatusSeq, setDiskStatusFromCheck, type DiskStatusInfo } from '../lib/diskStatusStore';
+import { FILE_MISSING_MESSAGE, isFileChangedMessage } from '../lib/fileChange';
+import { checkDiskStatus, markTabFromDiskCheck } from '../lib/diskCheck';
 import { formatTimestamp } from '../lib/formatTimestamp';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
-import { reloadTab, reloadedMessage, reloadFailureReason } from '../lib/reloadDocument';
+import { reloadActiveTab, reloadedMessage, reloadFailureReason } from '../lib/reloadDocument';
 import { showReloadToast } from './ReloadToast';
 import { StaleNote } from './StaleNote';
 import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
@@ -188,12 +187,6 @@ function DetailPanelInner() {
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
-  // True when GetSignatures was refused because the file changed on disk, or
-  // because another app has it locked: the Signatures tab stays visible and
-  // shows the reload hint. Only a document with signed fields reads the file,
-  // so neither is ever set for an unsigned document.
-  const [signaturesFileChanged, setSignaturesFileChanged] = useState(false);
-  const [signaturesFileBusy, setSignaturesFileBusy] = useState(false);
   // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
@@ -245,8 +238,6 @@ function DetailPanelInner() {
     setXrefEntryCount(null);
     setEmbeddedCount(null);
     setSignatures(null);
-    setSignaturesFileChanged(false);
-    setSignaturesFileBusy(false);
     setDiffRightTabId(null);
     setDiffError(null);
     setCompareConfirm(null);
@@ -276,30 +267,22 @@ function DetailPanelInner() {
 
   // One signature fetch per document tab. The result is passed
   // down to SignaturesView via the data prop so the view never issues a
-  // second fetch. A fetch failure hides the tab (empty list) and logs.
+  // second fetch. A fetch failure hides the tab (empty list) and logs. A
+  // signature whose hole could not be checked because the file changed marks
+  // the tab from a fresh disk check.
   useEffect(() => {
     if (!activeTabId) return;
     let cancelled = false;
     GetSignatures(activeTabId)
       .then((result: unknown) => {
         if (cancelled) return;
-        setSignatures((Array.isArray(result) ? result : []) as SignatureEntryData[]);
+        const list = (Array.isArray(result) ? result : []) as SignatureEntryData[];
+        setSignatures(list);
+        if (list.some((sig) => isFileChangedMessage(sig.holeCheckError ?? ''))) markTabFromDiskCheck(activeTabId);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         setSignatures([]);
-        // A read refused because the file changed keeps the tab visible with
-        // the reload hint and marks the tab from a fresh disk check.
-        const message = extractErrorMessage(err);
-        if (isFileChangedMessage(message)) {
-          setSignaturesFileChanged(true);
-          markTabFromDiskCheck(activeTabId);
-          return;
-        }
-        if (isFileBusyMessage(message)) {
-          setSignaturesFileBusy(true);
-          return;
-        }
         // eslint-disable-next-line no-console
         console.warn('GetSignatures failed:', err);
       });
@@ -707,8 +690,7 @@ function DetailPanelInner() {
    * reload flow with the menu item and F5.
    */
   const handleReload = useCallback(() => {
-    const id = activeTabIdRef.current;
-    if (id) void reloadTab(dispatch, () => tabsRef.current, id);
+    reloadActiveTab(dispatch, () => tabsRef.current, activeTabIdRef.current);
   }, [dispatch]);
 
   /**
@@ -752,14 +734,11 @@ function DetailPanelInner() {
     const tabId = activeTabIdRef.current;
     const tab = tabsRef.current.find((t) => t.tabId === tabId);
     if (!tabId || !tab?.filePath) return;
-    const seqAtRequest = diskStatusSeq(tabId);
-    GetDiskStatus(tabId)
-      .then((res: unknown) => {
-        if (!res) return;
-        const st = res as DiskStatusInfo;
-        // The backend recorded this result as reported, so it is stored even
-        // when the compare itself is dropped below; the watcher will not send it.
-        if (tabsRef.current.some((t) => t.tabId === tabId)) setDiskStatusFromCheck(tabId, st, seqAtRequest);
+    // checkDiskStatus stores the result even when the compare itself is
+    // dropped below.
+    checkDiskStatus(tabId)
+      .then((st) => {
+        if (!st) return;
         if (!mountedRef.current || activeTabIdRef.current !== tabId) return;
         if (st.state === 'missing') {
           setDiffRightTabId(null);
@@ -932,7 +911,7 @@ function DetailPanelInner() {
   // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
-  const showSignaturesTab = (signatures?.length ?? 0) > 0 || signaturesFileChanged || signaturesFileBusy;
+  const showSignaturesTab = (signatures?.length ?? 0) > 0;
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). The header
@@ -1440,8 +1419,6 @@ function DetailPanelInner() {
               active={detailView === 'signatures'}
               onNavigate={handleSignaturesNavigate}
               data={signatures}
-              fileChanged={signaturesFileChanged}
-              fileBusy={signaturesFileBusy}
             />
           </Tabs.Content>
         )}

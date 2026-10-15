@@ -5,7 +5,7 @@
 import type { Dispatch } from 'react';
 import { CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { AppAction, TabState } from '../hooks/useDocumentState';
-import { openPDFFile } from '../hooks/usePDFService';
+import { openErrorKind, openPDFFile } from '../hooks/usePDFService';
 import { dispatchOpenedDocument } from './openedDocuments';
 import { extractErrorMessage } from './extractErrorMessage';
 import { isFileBusyMessage } from './fileChange';
@@ -17,10 +17,25 @@ const reloading = new Set<string>();
 
 /** Short reason for a failed reload, from the extracted backend message. */
 export function reloadFailureReason(message: string): string {
-  if (/document not found/i.test(message)) return 'file not found';
-  if (/encrypted|password/i.test(message)) return 'file is encrypted';
-  if (/malformed/i.test(message)) return 'file is damaged or not a valid PDF';
-  return 'unexpected error';
+  switch (openErrorKind(message)) {
+    case 'notFound':
+      return 'file not found';
+    case 'encrypted':
+      return 'file is encrypted';
+    case 'malformed':
+      return 'file is damaged or not a valid PDF';
+    default:
+      return 'unexpected error';
+  }
+}
+
+/** Reloads activeTabId when there is one: the shared path of every reload trigger. */
+export function reloadActiveTab(
+  dispatch: Dispatch<AppAction>,
+  getTabs: () => readonly TabState[],
+  activeTabId: string | null,
+): void {
+  if (activeTabId) void reloadTab(dispatch, getTabs, activeTabId);
 }
 
 /** Pill text after a successful reload of fileName. */

@@ -35,6 +35,11 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 let entries = new Map<string, DiskStatusEntry>();
 const lastSeq = new Map<string, number>();
+// Tab ids passed to the last retainDiskStatus, and ids that left the tab list
+// since. Tab ids are never reused, so a late result for a released id is
+// dropped.
+let retained = new Set<string>();
+const released = new Set<string>();
 
 function notify() {
   for (const l of listeners) l();
@@ -70,6 +75,7 @@ function write(tabId: string, seq: number, info: DiskStatusInfo) {
  * event removes the entry.
  */
 export function applyDiskStatusEvent(ev: DiskStatusEvent): boolean {
+  if (released.has(ev.tabId)) return false;
   const last = lastSeq.get(ev.tabId);
   if (last !== undefined && ev.seq <= last) return false;
   lastSeq.set(ev.tabId, ev.seq);
@@ -86,18 +92,27 @@ export function diskStatusSeq(tabId: string): number {
  * Writes a GetDiskStatus result for tabId; `current` removes the entry.
  * seqAtRequest is diskStatusSeq(tabId) when the check was requested: a
  * watcher event applied since then is newer than the result, which is
- * dropped. Returns whether the result was written.
+ * dropped; the watcher then emits its own view again. A result for a tab that
+ * has left the tab list is dropped too. Returns whether the result was written.
  */
 export function setDiskStatusFromCheck(tabId: string, info: DiskStatusInfo, seqAtRequest: number): boolean {
+  if (released.has(tabId)) return false;
   const seq = lastSeq.get(tabId) ?? 0;
   if (seq > seqAtRequest) return false;
   write(tabId, seq, info);
   return true;
 }
 
-/** Drops entries (and seq history) of every tab not in tabIds. */
+/**
+ * Drops entries (and seq history) of every tab not in tabIds; ids that were
+ * in the previous list and are not in this one are released for good.
+ */
 export function retainDiskStatus(tabIds: readonly string[]): void {
   const keep = new Set(tabIds);
+  for (const id of retained) {
+    if (!keep.has(id)) released.add(id);
+  }
+  retained = keep;
   for (const id of lastSeq.keys()) {
     if (!keep.has(id)) lastSeq.delete(id);
   }
@@ -129,5 +144,7 @@ export function useDiskStatus(tabId: string | null | undefined): DiskStatusEntry
 export function resetDiskStatusStore(): void {
   entries = new Map();
   lastSeq.clear();
+  retained = new Set();
+  released.clear();
   notify();
 }

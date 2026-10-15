@@ -265,10 +265,28 @@ describe('stale note', () => {
   });
 });
 
-describe('signatures refused because the file changed', () => {
-  test('keeps the Signatures tab, shows the reload hint and marks the tab', async () => {
+function signedEntry(holeCheckError: string) {
+  return {
+    fieldName: 'Signature1',
+    fieldNodeId: '4 0 R',
+    signed: true,
+    type: 'signature',
+    subFilter: 'adbe.pkcs7.detached',
+    notes: ['trust not verified - structural decomposition only'],
+    certificates: [],
+    byteRange: [0, 100, 200, 50],
+    coversWholeFile: true,
+    trailingGap: 0,
+    holeMatchesContents: false,
+    coverageError: '',
+    holeCheckError,
+  };
+}
+
+describe('signatures on a file that changed on disk', () => {
+  test('keeps every signature, notes the hole as not checked and marks the tab', async () => {
     const p = paths();
-    b.GetSignatures.mockRejectedValue(envelope('file changed on disk since it was opened'));
+    b.GetSignatures.mockResolvedValue([signedEntry('file changed on disk since it was opened')]);
     b.GetDiskStatus.mockResolvedValue({ state: 'changed', loadedModTime: at(14, 0), diskModTime: at(14, 5), diskSize: 4096 });
     mount();
     open(p.a, p.pathA);
@@ -279,18 +297,19 @@ describe('signatures refused because the file changed', () => {
     expect(screen.getByTestId('stale-note')).toBeInTheDocument();
 
     fireEvent.click(sigTab);
-    expect(await screen.findByText('File changed on disk. Reload to view.')).toBeInTheDocument();
+    expect(await screen.findByText('not checked: File changed on disk. Reload to view.')).toBeInTheDocument();
+    expect(screen.getByText('adbe.pkcs7.detached')).toBeInTheDocument();
   });
 
-  test('a file locked by another app keeps the Signatures tab with the busy hint', async () => {
+  test('a file locked by another app notes the hole as busy and checks nothing', async () => {
     const p = paths();
-    b.GetSignatures.mockRejectedValue(envelope('file is busy: another process has it open'));
+    b.GetSignatures.mockResolvedValue([signedEntry('file is busy: another process has it open')]);
     mount();
     open(p.a, p.pathA);
 
     const sigTab = await screen.findByRole('tab', { name: /signatures/i });
     fireEvent.click(sigTab);
-    expect(await screen.findByText('File is in use by another app. Reload to try again.')).toBeInTheDocument();
+    expect(await screen.findByText('not checked: File is in use by another app. Reload to try again.')).toBeInTheDocument();
     expect(b.GetDiskStatus).not.toHaveBeenCalled();
   });
 

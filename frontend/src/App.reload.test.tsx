@@ -330,6 +330,46 @@ describe('reload triggers', () => {
     expect(bindings.OpenFile).toHaveBeenCalledTimes(1);
   });
 
+  test('Cmd/Ctrl+R in a text field swallows the menu echo too', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    fireEvent.keyDown(input, { key: 'r', ...mod });
+    act(() => emitEvent('document:reload-active'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(bindings.OpenFile).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  test('a held Cmd/Ctrl+R reloads once and swallows the menu echoes of its repeats', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    fireEvent.keyDown(window, { key: 'r', ...mod });
+    await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
+    fireEvent.keyDown(window, { key: 'r', repeat: true, ...mod });
+    act(() => emitEvent('document:reload-active'));
+    fireEvent.keyDown(window, { key: 'r', repeat: true, ...mod });
+    act(() => emitEvent('document:reload-active'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(bindings.OpenFile).toHaveBeenCalledTimes(1);
+  });
+
   test('two menu reloads in a row both reload', async () => {
     const t = ids();
     render(<App />);
@@ -496,6 +536,18 @@ describe('on-disk status events', () => {
     const announcer = screen.getByTestId('disk-change-announcer');
     expect(announcer).toHaveAttribute('aria-live', 'polite');
     expect(announcer).toHaveTextContent('a.pdf changed on disk');
+  });
+
+  test('a refresh of an already changed tab is not announced again', () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    diskStatus(t.a, 1, 'changed');
+    const announced = screen.getByTestId('disk-change-announcer').firstChild;
+
+    diskStatus(t.a, 2, 'changed');
+
+    expect(screen.getByTestId('disk-change-announcer').firstChild).toBe(announced);
   });
 
   test('an event does not disturb the active view', () => {

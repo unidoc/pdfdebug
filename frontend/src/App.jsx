@@ -22,8 +22,8 @@ import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
 import { ReloadToast } from './components/ReloadToast'
 import { DiskChangeAnnouncer, announceDiskChange } from './components/DiskChangeAnnouncer'
-import { applyDiskStatusEvent, retainDiskStatus } from './lib/diskStatusStore'
-import { reloadTab } from './lib/reloadDocument'
+import { applyDiskStatusEvent, readDiskStatus, retainDiskStatus } from './lib/diskStatusStore'
+import { reloadActiveTab } from './lib/reloadDocument'
 
 /** Window in which a Cmd/Ctrl+R keydown and the menu event count as one press. */
 const SHORTCUT_ECHO_MS = 1000
@@ -76,17 +76,18 @@ function AppContent() {
   // and as the menu event, in either order: a trigger from the other source
   // within SHORTCUT_ECHO_MS of the last one is that echo and is ignored.
   useEffect(() => {
-    const reloadActive = () => {
-      const id = activeTabIdRef.current
-      if (id) void reloadTab(dispatch, () => tabsRef.current, id)
-    }
+    const reloadActive = () => reloadActiveTab(dispatch, () => tabsRef.current, activeTabIdRef.current)
     let lastShortcut = { source: '', at: -Infinity }
-    /** @param {'key' | 'menu'} source */
-    const reloadFromShortcut = (source) => {
+    /**
+     * Records a press and reports whether it is new rather than the echo of
+     * one from the other source.
+     * @param {'key' | 'menu'} source
+     */
+    const notePress = (source) => {
       const now = performance.now()
-      if (lastShortcut.source !== source && now - lastShortcut.at < SHORTCUT_ECHO_MS) return
+      if (lastShortcut.source !== source && now - lastShortcut.at < SHORTCUT_ECHO_MS) return false
       lastShortcut = { source, at: now }
-      reloadActive()
+      return true
     }
     const wantsMeta = getPlatformModifier() === 'Cmd'
     /** @param {KeyboardEvent} e */
@@ -96,11 +97,17 @@ function AppContent() {
       if (e.key !== 'F5' && !isModR) return
       // Cmd/Ctrl+R never reaches the webview reload, even in a text field.
       e.preventDefault()
-      if (e.repeat || isInTextField(e.target)) return
-      if (isModR) reloadFromShortcut('key')
-      else reloadActive()
+      const swallowed = e.repeat || isInTextField(e.target)
+      if (isModR) {
+        // A swallowed press is still recorded, so its menu echo is dropped too.
+        if (notePress('key') && !swallowed) reloadActive()
+        return
+      }
+      if (!swallowed) reloadActive()
     }
-    const offReload = Events.On('document:reload-active', () => reloadFromShortcut('menu'))
+    const offReload = Events.On('document:reload-active', () => {
+      if (notePress('menu')) reloadActive()
+    })
     window.addEventListener('keydown', onKeyDown)
     return () => {
       offReload()
@@ -118,6 +125,7 @@ function AppContent() {
       if (!data || typeof data.tabId !== 'string') return
       const tab = tabsRef.current.find((t) => t.tabId === data.tabId)
       if (!tab) return
+      const wasChanged = readDiskStatus(data.tabId)?.state === 'changed'
       const applied = applyDiskStatusEvent({
         tabId: data.tabId,
         seq: Number(data.seq) || 0,
@@ -126,7 +134,8 @@ function AppContent() {
         diskModTime: Number(data.diskModTime) || 0,
         diskSize: Number(data.diskSize) || 0,
       })
-      if (applied && data.state === 'changed') announceDiskChange(`${tab.fileName} changed on disk`)
+      // A refresh of an already changed tab (new times) is not announced again.
+      if (applied && data.state === 'changed' && !wasChanged) announceDiskChange(`${tab.fileName} changed on disk`)
     })
   }, [])
 
