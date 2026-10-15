@@ -104,6 +104,7 @@ func TestGetDiskStatusResultIsRecordedInTheWatcher(t *testing.T) {
 	clk := tickClock{ticks: make(chan time.Time)}
 	events := make(chanEmitter, 8)
 	w := WatchDiskStatus(&svc, events, clk)
+	svc.SetWatchedTabs([]string{info.TabID})
 	w.Start()
 	t.Cleanup(w.Stop)
 
@@ -139,6 +140,66 @@ func TestGetDiskStatusResultIsRecordedInTheWatcher(t *testing.T) {
 		case clk.ticks <- time.Now():
 		case <-deadline:
 			t.Fatal("no current event: the GetDiskStatus result was not recorded as the last reported status")
+		}
+	}
+}
+
+// The watcher polls only tab ids passed to SetWatchedTabs: a backend-only
+// document (a Diff right side) whose file changes emits nothing until the
+// frontend adds its id.
+func TestWatcherPollsOnlyWatchedTabs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "minimal.pdf")
+	data, err := os.ReadFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := NewPDFService(nil)
+	info, err := svc.OpenFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.CloseDocument(info.TabID) })
+
+	clk := tickClock{ticks: make(chan time.Time)}
+	events := make(chanEmitter, 8)
+	w := WatchDiskStatus(&svc, events, clk)
+	w.Start()
+	t.Cleanup(w.Stop)
+
+	other, err := os.ReadFile(filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, other, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 6; i++ {
+		select {
+		case ev := <-events:
+			t.Fatalf("unwatched tab emitted %+v", ev)
+		case clk.ticks <- time.Now():
+		case <-time.After(2 * time.Second):
+			t.Fatal("watcher stopped taking ticks")
+		}
+	}
+
+	svc.SetWatchedTabs([]string{info.TabID})
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case ev := <-events:
+			if ev.TabID != info.TabID || ev.State != pdfcore.DiskStateChanged {
+				t.Fatalf("event %+v, want changed for %s", ev, info.TabID)
+			}
+			return
+		case clk.ticks <- time.Now():
+		case <-deadline:
+			t.Fatal("no changed event after the tab was watched")
 		}
 	}
 }

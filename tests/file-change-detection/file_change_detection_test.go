@@ -99,7 +99,7 @@ func TestSignaturesRefuseChangedFile(t *testing.T) {
 		"TestFileChangeSignaturesRefuseChangedFile",
 		"TestFileChangeSignaturesRefuseDeletedFile",
 		"TestFileChangeSignaturesRefuseChangeDuringWalk",
-		"TestFileChangeSignaturesRefuseChangedUnsignedFile",
+		"TestFileChangeSignaturesIgnoreChangeOnUnsignedFile",
 		"TestFileChangeSignaturesUnchangedFileReportsAsBefore",
 	)
 }
@@ -130,6 +130,7 @@ func TestDiskStatusAgainstOpenFingerprint(t *testing.T) {
 		"TestGetDiskStatusReportsCurrentThenChanged",
 		"TestGetDiskStatusUnknownTab",
 		"TestGetDiskStatusResultIsRecordedInTheWatcher",
+		"TestWatcherPollsOnlyWatchedTabs",
 	)
 }
 
@@ -141,6 +142,7 @@ func TestBusyFileIsNotAParseFailure(t *testing.T) {
 			"TestFileBusyRecognisesWindowsErrnos",
 			"TestFileBusyOpenOfExclusivelyLockedFile",
 			"TestFileBusyPlainTextReadOfExclusivelyLockedFile",
+			"TestFileBusySignaturesHoleReadOfLockedFile",
 		)
 		return
 	}

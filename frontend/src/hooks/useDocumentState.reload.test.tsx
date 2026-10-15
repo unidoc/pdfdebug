@@ -133,15 +133,28 @@ describe('reload replaces the tab like a new open', () => {
     expect(state.tabActivationVersion).toBe(version + 1);
   });
 
-  test('activates the reloaded tab when another tab became active meanwhile', () => {
+  test('a reload that lands after the user switched tabs leaves the other tab active', () => {
     mount();
     open('a1', '/docs/a.pdf');
     open('b1', '/docs/b.pdf');
+    const version = state.tabActivationVersion;
+
+    reload('a2', '/docs/a.pdf');
+
+    expect(state.activeTabId).toBe('b1');
+    expect(state.tabs.map((t) => t.tabId)).toEqual(['a2', 'b1']);
+    expect(state.tabActivationVersion).toBe(version);
+  });
+
+  test('a reload of the active tab keeps it active under the new id', () => {
+    mount();
+    open('a1', '/docs/a.pdf');
+    open('b1', '/docs/b.pdf');
+    send({ type: 'ACTIVATE_TAB', payload: { tabId: 'a1' } });
 
     reload('a2', '/docs/a.pdf');
 
     expect(state.activeTabId).toBe('a2');
-    expect(state.tabs.map((t) => t.tabId)).toEqual(['a2', 'b1']);
   });
 });
 
@@ -179,14 +192,60 @@ describe('reload leaves batch-open bookkeeping alone', () => {
     expect(state.batchOpenCancelled).toBe(true);
   });
 
-  test('a reload outside any batch keeps an unrelated warning', () => {
+  test('a clean reload of the active tab clears its structural warning', () => {
     mount();
     open('a1', '/docs/a.pdf');
     send({ type: 'SET_DOCUMENT_WARNING', payload: { message: 'This PDF has structural errors. Some objects may display incorrectly.' } });
 
     reload('a2', '/docs/a.pdf');
 
+    expect(state.documentWarning).toBeNull();
+  });
+
+  test('a reload of the active tab shows the warning of the new parse', () => {
+    mount();
+    open('a1', '/docs/a.pdf');
+
+    open('a2', '/docs/a.pdf', { reload: true, warning: 'This PDF has structural errors. Some objects may display incorrectly.' });
+
     expect(state.documentWarning).toBe('This PDF has structural errors. Some objects may display incorrectly.');
+  });
+
+  test('a reload in the background keeps the active tab\'s warning', () => {
+    mount();
+    open('a1', '/docs/a.pdf');
+    open('b1', '/docs/b.pdf');
+    send({ type: 'SET_DOCUMENT_WARNING', payload: { message: 'b has a warning' } });
+
+    reload('a2', '/docs/a.pdf');
+
+    expect(state.documentWarning).toBe('b has a warning');
+  });
+
+  test('a reload leaves an open in progress alone', () => {
+    mount();
+    open('a1', '/docs/a.pdf');
+    send({ type: 'OPENING_START', payload: { fileName: 'x.pdf' } });
+    expect(state.isOpening).toBe(true);
+
+    reload('a2', '/docs/a.pdf');
+
+    expect(state.isOpening).toBe(true);
+    expect(state.openingFileName).toBe('x.pdf');
+  });
+
+  test('a failed reload sets only the error banner', () => {
+    mount();
+    open('a1', '/docs/a.pdf');
+    send({ type: 'SET_DOCUMENT_WARNING', payload: { message: 'This PDF has structural errors. Some objects may display incorrectly.' } });
+    send({ type: 'OPENING_START', payload: { fileName: 'x.pdf' } });
+
+    send({ type: 'SET_DOCUMENT_ERROR', payload: { message: 'Could not reload a.pdf: file not found', reload: true } });
+
+    expect(state.documentError).toBe('Could not reload a.pdf: file not found');
+    expect(state.documentWarning).toBe('This PDF has structural errors. Some objects may display incorrectly.');
+    expect(state.isOpening).toBe(true);
+    expect(state.openingFileName).toBe('x.pdf');
   });
 
   test('a real open of the same file still runs batch bookkeeping', () => {

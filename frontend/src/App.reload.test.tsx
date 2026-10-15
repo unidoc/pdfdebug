@@ -16,6 +16,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { AppState } from './hooks/useDocumentState';
 import { resetDiskStatusStore } from './lib/diskStatusStore';
 import App from './App';
+import { getPlatformModifier } from './lib/platform';
+import { SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 
 type EventHandler = (event: { data: Record<string, unknown> }) => void;
 const eventHandlers: Record<string, EventHandler[]> = {};
@@ -48,6 +50,7 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   GetChildren: (...a: unknown[]) => bindings.GetChildren(...a),
   CloseDocument: (...a: unknown[]) => bindings.CloseDocument(...a),
   GetDiskStatus: (...a: unknown[]) => bindings.GetDiskStatus(...a),
+  SetWatchedTabs: vi.fn().mockResolvedValue(undefined),
   OpenFileDialog: vi.fn(),
   ConsumePendingOpenFiles: vi.fn().mockResolvedValue([]),
   GetObjectDetail: vi.fn(),
@@ -264,7 +267,50 @@ describe('reload triggers', () => {
     mockOpenResult(t.fresh, t.pathA);
     act(() => emitEvent('document:reload-active'));
     await waitFor(() => expect(bindings.OpenFile).toHaveBeenCalledWith(t.pathA));
-    expect(bindings.GetDiskStatus).not.toHaveBeenCalled();
+    expect(bindings.GetDiskStatus).not.toHaveBeenCalledWith(t.a);
+  });
+
+  test('Cmd/Ctrl+R reloads the active tab and prevents the webview reload', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    const notPrevented = fireEvent.keyDown(window, { key: 'r', ...mod });
+
+    expect(notPrevented).toBe(false);
+    await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
+  });
+
+  test('Cmd/Ctrl+R in a text field is swallowed without reloading', () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    const notPrevented = fireEvent.keyDown(input, { key: 'r', ...mod });
+
+    expect(notPrevented).toBe(false);
+    expect(bindings.OpenFile).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  test('the menu event and the keydown for one Cmd/Ctrl+R press open the file once', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    const mod = getPlatformModifier() === 'Cmd' ? { metaKey: true } : { ctrlKey: true };
+
+    fireEvent.keyDown(window, { key: 'r', ...mod });
+    act(() => emitEvent('document:reload-active'));
+
+    await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
+    expect(bindings.OpenFile).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -364,9 +410,36 @@ describe('reload outcome', () => {
     await waitFor(() => expect(tabOrder()).toEqual([t.fresh]));
     expect(screen.queryByTestId(`tab-disk-dot-${t.fresh}`)).not.toBeInTheDocument();
   });
+
+  test('a change that landed while the reload parsed marks the new tab at once', async () => {
+    const t = ids();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+    mockOpenResult(t.fresh, t.pathA);
+    bindings.GetDiskStatus.mockImplementation((id: string) => Promise.resolve(
+      id === t.fresh
+        ? { state: 'changed', loadedModTime: 1, diskModTime: 2, diskSize: 10 }
+        : { state: 'current', loadedModTime: 1, diskModTime: 1, diskSize: 10 },
+    ));
+
+    act(() => emitEvent('document:reload-active'));
+
+    await waitFor(() => expect(screen.getByTestId(`tab-disk-dot-${t.fresh}`)).toBeInTheDocument());
+    expect(bindings.GetDiskStatus).toHaveBeenCalledWith(t.fresh);
+  });
 });
 
 describe('on-disk status events', () => {
+  test('the backend watches exactly the tab ids in the strip', async () => {
+    const t = ids();
+    const watched = vi.mocked(SetWatchedTabs);
+    watched.mockClear();
+    render(<App />);
+    deliverOpen(t.a, t.pathA);
+
+    await waitFor(() => expect(watched).toHaveBeenLastCalledWith([t.a]));
+  });
+
   test('a changed event marks the tab and announces it once', () => {
     const t = ids();
     render(<App />);

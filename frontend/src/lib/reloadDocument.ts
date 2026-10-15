@@ -10,6 +10,7 @@ import { dispatchOpenedDocument } from './openedDocuments';
 import { extractErrorMessage } from './extractErrorMessage';
 import { isFileBusyMessage } from './fileChange';
 import { showReloadToast } from '../components/ReloadToast';
+import { markTabFromDiskCheck } from './diskCheck';
 
 /** Tab ids with a reload in flight; a second trigger for one of them is ignored. */
 const reloading = new Set<string>();
@@ -30,9 +31,10 @@ export function reloadedMessage(fileName: string): string {
 /**
  * Reloads tabId from disk. The tab is replaced only after the new parse fully
  * succeeds. getTabs must return the live tab list: when the tab left it while
- * the parse ran, the new document is closed and nothing changes. A busy file
- * shows the pill; any other failure sets the document error and keeps the old
- * tab untouched.
+ * the parse ran, the new document is closed and nothing changes. A reload
+ * that lands after the user switched tabs replaces the tab without taking
+ * focus. A busy file shows the pill; any other failure sets the document error
+ * and keeps the old tab untouched.
  */
 export async function reloadTab(
   dispatch: Dispatch<AppAction>,
@@ -54,7 +56,7 @@ export async function reloadTab(
         showReloadToast(`${tab.fileName} is in use by another app - try again`);
         return;
       }
-      dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: `Could not reload ${tab.fileName}: ${reloadFailureReason(msg)}` } });
+      dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: `Could not reload ${tab.fileName}: ${reloadFailureReason(msg)}`, reload: true } });
       return;
     }
     if (!getTabs().some((t) => t.tabId === tabId)) {
@@ -69,10 +71,11 @@ export async function reloadTab(
       rootNode: result.rootNode,
       rootChildren: result.rootChildren,
       reload: true,
+      warning: result.warning ?? null,
     });
-    if (result.warning) {
-      dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: result.warning } });
-    }
+    // The file can change again while the parse runs; the watcher may already
+    // have reported that for the new id before its tab existed.
+    markTabFromDiskCheck(result.tabId);
     showReloadToast(reloadedMessage(result.fileName || tab.fileName));
   } finally {
     reloading.delete(tabId);

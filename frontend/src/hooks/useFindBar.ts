@@ -47,7 +47,8 @@ export interface UseFindBarReturn {
 }
 
 /** True when the event target is an unrelated text input (mirror App.jsx). */
-function isInTextField(target: EventTarget | null): boolean {
+/** True when target is a text input, a textarea or a contentEditable element. */
+export function isInTextField(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return true;

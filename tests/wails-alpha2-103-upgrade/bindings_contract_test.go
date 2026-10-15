@@ -20,7 +20,7 @@ import (
 // not a count. Sourced from the non-test `import { ... } from
 // '.../pdfservice/pdfservice.js'` sites:
 //
-//	App.jsx                : ConsumePendingOpenFiles
+//	App.jsx                : ConsumePendingOpenFiles, SetWatchedTabs
 //	ObjectInfoPanel.tsx    : GetObjectSource
 //	DetailPanel.tsx        : GetObjectDetail, GetContentStream, GetImageData,
 //	                         GetReverseRefs, GetFontView, GetDiskStatus
@@ -60,6 +60,7 @@ var consumerBoundMethods = []string{
 	"GetImagePages",
 	"GetImagePageGroups",
 	"GetDiskStatus",
+	"SetWatchedTabs",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

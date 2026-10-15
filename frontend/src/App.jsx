@@ -4,10 +4,11 @@
  */
 import { useEffect, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
-import { ConsumePendingOpenFiles } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
+import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
 import { mapErrorMessage, openPDFFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
+import { isInTextField } from './hooks/useFindBar'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
 import { dispatchOpenedDocument } from './lib/openedDocuments'
 import { getPlatformModifier } from './lib/platform'
@@ -54,29 +55,34 @@ function AppContent() {
   useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
 
   // On-disk status entries live only as long as their tab: a closed or
-  // replaced tab id drops its entry, which clears its marker.
+  // replaced tab id drops its entry, which clears its marker. The backend
+  // watcher polls only the tab ids in the strip, never a backend-only Diff
+  // right side.
   useEffect(() => {
-    retainDiskStatus(tabs.map((t) => t.tabId))
+    const ids = tabs.map((t) => t.tabId)
+    retainDiskStatus(ids)
+    Promise.resolve(SetWatchedTabs(ids)).catch(() => {})
   }, [tabs])
 
   // Reload from disk (File > Reload from Disk, its Cmd/Ctrl+R accelerator, and
-  // F5) always acts on the active tab, stale or not.
+  // F5) always acts on the active tab, stale or not. Cmd/Ctrl+R is also
+  // handled here so it works before the native menu is live and never reaches
+  // the webview's own page reload; reloadTab ignores the second trigger when
+  // the menu accelerator fires too.
   useEffect(() => {
     const reloadActive = () => {
       const id = activeTabIdRef.current
       if (id) void reloadTab(dispatch, () => tabsRef.current, id)
     }
-    /** @param {EventTarget | null} target */
-    function isInTextField(target) {
-      if (!(target instanceof HTMLElement)) return false
-      const tag = target.tagName
-      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
-    }
+    const wantsMeta = getPlatformModifier() === 'Cmd'
     /** @param {KeyboardEvent} e */
     function onKeyDown(e) {
-      if (e.key !== 'F5' || e.repeat) return
-      if (isInTextField(e.target)) return
+      const mod = wantsMeta ? e.metaKey : e.ctrlKey
+      const isReloadKey = e.key === 'F5' || (mod && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R'))
+      if (!isReloadKey) return
+      // Cmd/Ctrl+R never reaches the webview reload, even in a text field.
       e.preventDefault()
+      if (e.repeat || isInTextField(e.target)) return
       reloadActive()
     }
     const offReload = Events.On('document:reload-active', reloadActive)
@@ -89,7 +95,8 @@ function AppContent() {
 
   // Watcher events go to the disk-status store, never to AppState, so a status
   // update re-renders only the subscribed tab item, note and announcer.
-  // Events for tab ids not in the tab list (a Diff right side) are ignored.
+  // Events for tab ids not in the tab list yet (a reload still fetching its
+  // tree) are ignored; reloadTab checks the new id once its tab exists.
   useEffect(() => {
     return Events.On('document:disk-status', (event) => {
       const data = event?.data

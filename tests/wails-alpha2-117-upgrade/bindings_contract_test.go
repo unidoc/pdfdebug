@@ -53,6 +53,7 @@ var consumerBoundMethods = []string{
 	"GetImagePages",
 	"GetImagePageGroups",
 	"GetDiskStatus",
+	"SetWatchedTabs",
 }
 
 // bindingRelPath is the regenerated Wails JS binding for PDFService.

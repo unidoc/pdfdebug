@@ -76,6 +76,7 @@ vi.mock(
   '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     OpenFile: vi.fn(),
+    SetWatchedTabs: vi.fn().mockResolvedValue(undefined),
     GetTreeRoot: vi.fn(),
     GetChildren: vi.fn(),
     CloseDocument: vi.fn().mockResolvedValue(undefined),

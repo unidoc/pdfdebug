@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -79,6 +80,42 @@ type PDFService struct {
 	// treats it as the tab's last reported status. Set by WatchDiskStatus;
 	// nil in tests that do not run a watcher.
 	diskStatusRecorded func(tabID string, st pdfcore.DiskStatus)
+	// watched holds the tab ids the frontend shows in its tab strip; the
+	// disk watcher polls only these.
+	watched *watchedTabs
+}
+
+// watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
+// documents (a Diff right side) are never in it.
+type watchedTabs struct {
+	mu  sync.Mutex
+	ids map[string]bool
+}
+
+// watchSource is the disk watcher's view of the inspector: only watched tabs
+// that are still open.
+type watchSource struct {
+	inspector inspectorAPI
+	watched   *watchedTabs
+}
+
+// TabIDs returns the open documents whose tab ids are in the watched set.
+func (w watchSource) TabIDs() []string {
+	open := w.inspector.TabIDs()
+	w.watched.mu.Lock()
+	defer w.watched.mu.Unlock()
+	var ids []string
+	for _, id := range open {
+		if w.watched.ids[id] {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// DiskStatus delegates to the inspector.
+func (w watchSource) DiskStatus(tabID string) (pdfcore.DiskStatus, error) {
+	return w.inspector.DiskStatus(tabID)
 }
 
 // NewPDFService creates a PDFService backed by a fresh Inspector.
@@ -86,6 +123,7 @@ func NewPDFService(app *application.App) PDFService {
 	return PDFService{
 		inspector: pdfcore.NewInspector(),
 		app:       app,
+		watched:   &watchedTabs{ids: map[string]bool{}},
 	}
 }
 
@@ -558,12 +596,31 @@ func (s *PDFService) GetDiskStatus(tabID string) (*pdfcore.DiskStatus, error) {
 	return result, err
 }
 
-// WatchDiskStatus builds a disk watcher over every document open in s and
-// wires GetDiskStatus results into it. A package function rather than a
-// method so it adds no frontend binding. The caller starts and stops the
-// watcher.
+// SetWatchedTabs replaces the set of tab ids the disk watcher polls with the
+// ids in the frontend tab strip. Documents opened backend-only are left out,
+// so they are not polled and no status is recorded for them.
+func (s *PDFService) SetWatchedTabs(tabIDs []string) {
+	if s.watched == nil {
+		return
+	}
+	ids := make(map[string]bool, len(tabIDs))
+	for _, id := range tabIDs {
+		ids[id] = true
+	}
+	s.watched.mu.Lock()
+	s.watched.ids = ids
+	s.watched.mu.Unlock()
+}
+
+// WatchDiskStatus builds a disk watcher over the documents in s whose tab ids
+// were passed to SetWatchedTabs, and wires GetDiskStatus results into it. A
+// package function rather than a method so it adds no frontend binding. The
+// caller starts and stops the watcher.
 func WatchDiskStatus(s *PDFService, emit filewatch.Emitter, clk filewatch.Clock) *filewatch.Watcher {
-	w := filewatch.New(s.inspector, emit, clk)
+	if s.watched == nil {
+		s.watched = &watchedTabs{ids: map[string]bool{}}
+	}
+	w := filewatch.New(watchSource{inspector: s.inspector, watched: s.watched}, emit, clk)
 	s.diskStatusRecorded = w.RecordReported
 	return w
 }

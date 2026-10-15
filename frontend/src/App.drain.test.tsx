@@ -54,6 +54,7 @@ const mockCloseDocument = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
   OpenFile: (...a: unknown[]) => mockOpenFile(...a),
+  SetWatchedTabs: vi.fn().mockResolvedValue(undefined),
   GetTreeRoot: (...a: unknown[]) => mockGetTreeRoot(...a),
   GetChildren: (...a: unknown[]) => mockGetChildren(...a),
   CloseDocument: (...a: unknown[]) => mockCloseDocument(...a),

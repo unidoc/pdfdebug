@@ -142,12 +142,15 @@ export interface AppState {
 
 /** Union of all actions the app reducer handles. */
 export type AppAction =
-  // reload: a reload of an open tab; it skips the batch-open bookkeeping and keeps the warning.
-  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; pageCount?: number; rootNode: TreeNode | null; rootChildren: TreeNode[] | null; reload?: boolean } }
+  // reload: a reload of an open tab; it skips the batch-open bookkeeping and
+  // leaves the open-in-progress state alone. warning: the reloaded parse's
+  // warning, shown when the reloaded tab is active.
+  | { type: 'OPEN_DOCUMENT'; payload: { tabId: string; fileName: string; filePath: string; pageCount?: number; rootNode: TreeNode | null; rootChildren: TreeNode[] | null; reload?: boolean; warning?: string | null } }
   | { type: 'ACTIVATE_TAB'; payload: { tabId: string } }
   | { type: 'CLOSE_DOCUMENT'; payload: { tabId: string } }
   | { type: 'SELECT_NODE'; payload: { nodeId: string; label?: string; rawKey?: string; iconHint?: string; isHistoryNav?: boolean } }
-  | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string } }
+  // reload: a failed reload; only the error banner changes.
+  | { type: 'SET_DOCUMENT_ERROR'; payload: { message: string; reload?: boolean } }
   | { type: 'DISMISS_ERROR' }
   | { type: 'NAVIGATE_TO_REF'; payload: { targetNodeId: string } }
   | { type: 'CLEAR_NAV_TARGET' }
@@ -212,8 +215,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // Drive batch progress from OPEN_DOCUMENT itself: incrementing here is
       // atomic with the tab being added, so the count can never lag behind
       // the actual number of opened tabs.
-      // A reload is not part of any batch: it leaves the counters, the cancel
-      // flag and the warning text exactly as they are.
+      // A reload is not part of any batch: it leaves the counters and the
+      // cancel flag exactly as they are.
       const isReload = action.payload.reload === true;
       const inBatch = !isReload && state.batchOpenTotal > 0;
       const batchOpenCompleted = inBatch
@@ -230,7 +233,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // (after BATCH_OPEN_COMPLETE, due to Wails' goroutine race) update the
       // displayed count. When not cancelled, OPEN_DOCUMENT clears the warning
       // as before.
-      const documentWarning = isReload ? state.documentWarning : cancelDidNothing
+      const documentWarning = cancelDidNothing
         ? null
         : state.batchOpenCancelled
           ? (inBatch
@@ -265,6 +268,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
       const existingIndex = action.payload.filePath
         ? state.tabs.findIndex((t) => t.filePath === action.payload.filePath)
         : -1;
+      // A reload of a background tab (the user switched away while it parsed)
+      // replaces it without taking focus; a reload of the active tab keeps it
+      // active under the new id.
+      const replacedId = existingIndex >= 0 ? state.tabs[existingIndex].tabId : null;
+      const reloadInBackground = isReload && replacedId !== null && replacedId !== state.activeTabId;
+      const activeTabId = reloadInBackground ? state.activeTabId : action.payload.tabId;
       const tabs = existingIndex < 0
         ? [...state.tabs, parsed]
         : state.tabs.map((tab, i) => (i === existingIndex
@@ -273,11 +282,28 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // Activating a different tab id is a tab-context change; bump the
       // version so the Cmd+K palette closes (mirrors ACTIVATE_TAB and the
       // CLOSE_DOCUMENT-of-active-tab path).
-      const activatedOtherTab = state.activeTabId !== action.payload.tabId;
+      const activatedOtherTab = state.activeTabId !== activeTabId;
+      if (isReload) {
+        // The reloaded parse's warning replaces the banner only when its tab is
+        // the active one; the batch-cancel note is never replaced.
+        const reloadWarning = reloadInBackground || state.batchOpenCancelled
+          ? state.documentWarning
+          : action.payload.warning ?? null;
+        return {
+          ...state,
+          tabs,
+          activeTabId,
+          documentError: reloadInBackground ? state.documentError : null,
+          documentWarning: reloadWarning,
+          tabActivationVersion: activatedOtherTab
+            ? state.tabActivationVersion + 1
+            : state.tabActivationVersion,
+        };
+      }
       return {
         ...state,
         tabs,
-        activeTabId: action.payload.tabId,
+        activeTabId,
         documentError: null,
         documentWarning,
         batchOpenCompleted,
@@ -374,6 +400,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SET_DOCUMENT_ERROR': {
+      // A failed reload leaves the warning and any open in progress alone.
+      if (action.payload.reload) {
+        return { ...state, documentError: action.payload.message };
+      }
       // In multi-tab mode, preserve existing tabs -- the error banner is
       // informational about the failed open attempt, not a reason to close
       // every open document.
