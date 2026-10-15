@@ -36,6 +36,9 @@ func execSignaturesDump(filePath string, flags docViewFlags) (exitCode int) {
 		return code
 	}
 	defer func() { _ = ins.Close("cli") }()
+	if afterCLIOpen != nil {
+		afterCLIOpen(filePath)
+	}
 
 	list, err := ins.GetSignatures("cli")
 	if err != nil {
@@ -151,9 +154,12 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 					w.Addf("Coverage note", "signed range does not start at byte 0 (starts at %d)", s.ByteRange[0])
 				}
 			}
-			if s.HoleMatchesContents {
+			switch {
+			case s.HoleCheckError != "":
+				w.Add("Hole matches /Contents", "not checked: "+s.HoleCheckError)
+			case s.HoleMatchesContents:
 				w.Add("Hole matches /Contents", "yes")
-			} else {
+			default:
 				w.Add("Hole matches /Contents", "no (excluded span differs from the /Contents extent)")
 			}
 		}

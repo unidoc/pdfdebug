@@ -3,7 +3,9 @@ package pdfcore
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -53,6 +55,11 @@ type DocumentState struct {
 	// into readPlainText for the buffer pre-size. If the underlying file is
 	// moved or deleted after Open, this value is unchanged.
 	FileSize int64
+
+	// fingerprint is the size, mtime and file identity of FilePath from the
+	// pre-parse stat at Open. Reads of the file after Open check their handle
+	// against it and refuse bytes from a file that changed.
+	fingerprint FileFingerprint
 
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
@@ -135,6 +142,9 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("%w: empty file path", ErrDocumentNotFound)
 	}
 
+	// The fingerprint comes from the stat before the parse. A save that lands
+	// during the parse leaves the document reading as changed, so the read
+	// guard refuses its bytes and the watcher marks the tab.
 	fi, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -145,7 +155,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	if fi.IsDir() {
 		return nil, fmt.Errorf("%w: path is a directory", ErrDocumentNotFound)
 	}
-	fileSize := fi.Size()
+	fingerprint := newFileFingerprint(fi)
 
 	var ctx *pdfcpu_model.Context
 	err = safeCall(func() error {
@@ -154,8 +164,17 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return e
 	})
 	if err != nil {
+		// The file vanished between the stat and the parse (a delete-then-write
+		// save), or another process holds it without read sharing.
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %w", ErrDocumentNotFound, err)
+		}
+		if isFileBusy(err) {
+			return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
+		}
 		return nil, wrapPDFError(err)
 	}
+	fileSize := fi.Size()
 
 	var warning string
 	pageCount := 0
@@ -180,6 +199,8 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		PageCount:  pageCount,
 
 		FileSize: fileSize,
+
+		fingerprint: fingerprint,
 
 		streamCache: make(map[string]*ContentStreamData),
 

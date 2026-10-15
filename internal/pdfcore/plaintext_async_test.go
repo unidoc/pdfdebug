@@ -320,6 +320,7 @@ func TestGetPlainTextAsyncZeroByteFile(t *testing.T) {
 	ins.mu.Lock()
 	ins.documents[tabID] = &DocumentState{
 		FilePath:    path,
+		fingerprint: newFileFingerprint(fi),
 		streamCache: make(map[string]*ContentStreamData),
 		closeCtx:    closeCtx,
 		closeCancel: closeCancel,

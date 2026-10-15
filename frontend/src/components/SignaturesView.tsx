@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { FILE_BUSY_MESSAGE, FILE_CHANGED_MESSAGE, isFileBusyMessage, isFileChangedMessage } from '../lib/fileChange';
 import { SMALL_BUTTON } from './buttonStyles';
 
 /** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
@@ -48,6 +49,8 @@ export interface SignatureEntryData {
   trailingGap?: number;
   holeMatchesContents?: boolean;
   coverageError?: string;
+  /** Set when the hole could not be read from disk (file changed or busy). */
+  holeCheckError?: string;
 }
 
 /** Props for {@link SignaturesView}. */
@@ -64,6 +67,13 @@ export interface SignaturesViewProps {
    * fetch of its own; when omitted the view self-fetches on tabId change.
    */
   data?: SignatureEntryData[] | null;
+}
+
+/** UI text for a hole that could not be read from disk. */
+function holeCheckMessage(raw: string): string {
+  if (isFileChangedMessage(raw)) return FILE_CHANGED_MESSAGE;
+  if (isFileBusyMessage(raw)) return FILE_BUSY_MESSAGE;
+  return raw;
 }
 
 /** Extracts the CN component from an X.509 DN string, falling back to the
@@ -199,7 +209,8 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
               />
               <Row
                 label="Hole matches /Contents"
-                value={entry.holeMatchesContents ? 'yes' : 'no'}
+                value={entry.holeCheckError ? `not checked: ${holeCheckMessage(entry.holeCheckError)}` : entry.holeMatchesContents ? 'yes' : 'no'}
+                testid="signature-hole"
               />
             </>
           ) : null}

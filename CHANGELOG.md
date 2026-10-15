@@ -2,6 +2,15 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- File > "Reload from Disk" (Cmd+R on macOS, Ctrl+R on Windows and Linux, and F5 everywhere) opens the active tab's file again in place. The tab keeps its position and its left-rail view; the tree, selection, detail panel, history and recent jumps reset as for a fresh open. A short "reloaded - view reset" note appears at the top of the window. A reload that finishes after you switched to another tab replaces that tab without taking focus. If the file is gone or no longer parses, the old tab stays as it was and the error banner says why; on Windows a file another app has locked shows "in use by another app - try again" instead
+- Open files are watched for changes on disk, background tabs included. When a file is rewritten, replaced or deleted, its tab gets a small amber dot (2 to 4 seconds after the write while the window has focus, 10 to 20 seconds otherwise, also for a file a generator keeps rewriting) and a tooltip with the time it changed. The detail panel shows "Document updated" with Reload and Compare buttons, or "File not found". Nothing reloads by itself, and the marker never moves focus or shifts the layout. Detection compares size, modification time and file identity, so an in-place rewrite that keeps all three is not seen
+- File > "Compare with File on Disk" diffs the open version against the file as it is now on disk, in the Diff panel, labelled "On disk (14:05)". Files over 500 MB ask first. Reload in the Diff header then makes the compared copy the tab's document without parsing it again
+- Plain Text and the CLI's `dump bytes` (raw and `--json`) refuse to read a file that changed since it was parsed ("file changed on disk") instead of mixing the old structure with the new bytes. Signatures and `dump signatures` keep every signature's details and show the /Contents hole check as "not checked" for such a file; they used to report a hole mismatch. On Windows a file another app has locked shows "File is in use by another app" in Plain Text and in the hole check instead
+
 ## [0.5.0] - 2026-10-14
 
 Left-rail navigators for structure, pages and images, an image preview, update notices in the app and the CLI, and a CLI that says what it checked and rejects invocations it would have misread. Moves the app runtime to Wails v3 beta.

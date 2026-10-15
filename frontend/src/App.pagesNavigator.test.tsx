@@ -55,6 +55,7 @@ const mockGetPageIndex = vi.fn();
 
 vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
   OpenFile: vi.fn(),
+  SetWatchedTabs: vi.fn().mockResolvedValue(undefined),
   GetTreeRoot: vi.fn(),
   GetChildren: vi.fn().mockResolvedValue([]),
   CloseDocument: vi.fn().mockResolvedValue(undefined),

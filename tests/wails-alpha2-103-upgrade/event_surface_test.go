@@ -37,6 +37,9 @@ var goEmittedEvents = []string{
 	"splash:dismiss",
 	"splash:dismissed",
 	"splash:timeout",
+	"document:reload-active",
+	"document:compare-active",
+	"document:disk-status",
 }
 
 // TestGoEventEmitNamesPreserved asserts every Go-emitted event name still appears
@@ -68,6 +71,9 @@ var jsConsumedEvents = []string{
 	"splash:dismissed",
 	"common:WindowDidMove",
 	"common:WindowDidResize",
+	"document:reload-active",
+	"document:compare-active",
+	"document:disk-status",
 }
 
 // TestJsEventOnNamesPreserved asserts every event the frontend listens for still
@@ -76,7 +82,7 @@ var jsConsumedEvents = []string{
 // -- the same pattern TestJsToGoEventContract uses -- avoids the brittle
 // whole-tree-grep failure mode, where a bare literal false-passes on a match in a
 // comment or an unrelated string. Every consumed event is verified subscribed via
-// this call form (App.jsx, main.jsx, TabBar.tsx).
+// this call form (App.jsx, main.jsx, TabBar.tsx, DetailPanel.tsx).
 func TestJsEventOnNamesPreserved(t *testing.T) {
 	src := loadFrontendSrcConcat(t)
 	for _, name := range jsConsumedEvents {
