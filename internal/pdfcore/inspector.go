@@ -57,7 +57,7 @@ type DocumentState struct {
 	FileSize int64
 
 	// fingerprint is the size, mtime and file identity of FilePath from the
-	// pre-parse stat at Open. Reads of the file after Open check their handle
+	// pre-parse stat of the parse Open kept. Reads of the file after Open check their handle
 	// against it and refuse bytes from a file that changed.
 	fingerprint FileFingerprint
 
@@ -132,6 +132,14 @@ func NewInspector() *Inspector {
 	}
 }
 
+// openAttempts bounds how often Open parses a file that changed during the
+// parse.
+const openAttempts = 3
+
+// afterOpenParse, when set, runs after each parse in Open, before the file is
+// stat'ed again. Nil in production; tests use it to change the file mid-open.
+var afterOpenParse func(path string)
+
 // Open parses a PDF file and registers it under the given tab ID. Returns
 // document metadata including page count and file size.
 func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
@@ -142,36 +150,54 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		return nil, fmt.Errorf("%w: empty file path", ErrDocumentNotFound)
 	}
 
-	fi, err := os.Stat(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("%w: %v", ErrDocumentNotFound, err)
+	// A save that lands while the file is parsed would pair the new bytes with
+	// the old stat. The file is stat'ed again after the parse and parsed again
+	// on a mismatch, up to openAttempts times; the last attempt keeps its
+	// pre-parse stat, so a file still being written opens as changed.
+	var (
+		fi          os.FileInfo
+		fingerprint FileFingerprint
+		ctx         *pdfcpu_model.Context
+		err         error
+	)
+	for attempt := 1; ; attempt++ {
+		fi, err = os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("%w: %v", ErrDocumentNotFound, err)
+			}
+			return nil, err
 		}
-		return nil, err
-	}
-	if fi.IsDir() {
-		return nil, fmt.Errorf("%w: path is a directory", ErrDocumentNotFound)
+		if fi.IsDir() {
+			return nil, fmt.Errorf("%w: path is a directory", ErrDocumentNotFound)
+		}
+		fingerprint = newFileFingerprint(fi)
+
+		err = safeCall(func() error {
+			var e error
+			ctx, e = pdfcpu_api.ReadContextFile(filePath)
+			return e
+		})
+		if err != nil {
+			// The file vanished between the stat and the parse (a delete-then-write
+			// save), or another process holds it without read sharing.
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil, fmt.Errorf("%w: %w", ErrDocumentNotFound, err)
+			}
+			if isFileBusy(err) {
+				return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
+			}
+			return nil, wrapPDFError(err)
+		}
+		if afterOpenParse != nil {
+			afterOpenParse(filePath)
+		}
+		after, statErr := os.Stat(filePath)
+		if statErr != nil || fingerprint.Matches(after) || attempt == openAttempts {
+			break
+		}
 	}
 	fileSize := fi.Size()
-	fingerprint := newFileFingerprint(fi)
-
-	var ctx *pdfcpu_model.Context
-	err = safeCall(func() error {
-		var e error
-		ctx, e = pdfcpu_api.ReadContextFile(filePath)
-		return e
-	})
-	if err != nil {
-		// The file vanished between the stat and the parse (a delete-then-write
-		// save), or another process holds it without read sharing.
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("%w: %w", ErrDocumentNotFound, err)
-		}
-		if isFileBusy(err) {
-			return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
-		}
-		return nil, wrapPDFError(err)
-	}
 
 	var warning string
 	pageCount := 0

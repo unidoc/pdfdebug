@@ -105,15 +105,11 @@ func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 // is observed between chunks -- the caller must NOT wrap this through
 // wrapPDFError.
 //
-// If the underlying file grows between Open and this call, the buffer cap
-// under-allocates and append() handles reallocation correctly (the 4 GiB
-// ceiling still uses the cached size, so a file that grows past the ceiling
-// post-Open is read up to whatever bytes are produced by the read loop).
-//
 // The open handle is checked against fp before the first chunk and again after
 // the last one, so bytes from a file that changed since Open (or during the
-// read) are never returned; a mismatch or a missing file returns
-// ErrFileChanged.
+// read), including one that grew or shrank, are never returned; a mismatch or
+// a missing file returns ErrFileChanged. A read refused by another process's
+// lock returns ErrFileBusy.
 func readPlainText(ctx context.Context, path string, size int64, fp FileFingerprint, tabID string) (*PlainTextDocument, error) {
 	totalBytes := size
 

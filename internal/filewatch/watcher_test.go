@@ -403,6 +403,23 @@ func TestWatcherRecordedStatusLetsReturnToCurrentEmit(t *testing.T) {
 	}
 }
 
+// A status recorded from GetDiskStatus restarts the settle streak: an older
+// observation still counting toward a change cannot complete against it.
+func TestWatcherRecordedStatusRestartsSettleStreak(t *testing.T) {
+	h := start(t, "a")
+	h.warm("a")
+	h.src.set("a", changed(200, loadedMs+1), nil)
+	h.check("a")
+	h.w.RecordReported("a", current())
+	h.check("a")
+	h.src.set("a", current(), nil)
+	h.check("a")
+	h.check("a")
+	if evs := h.em.forTab("a"); len(evs) != 0 {
+		t.Errorf("events %+v, want none: the change never settled after the recorded current", evs)
+	}
+}
+
 func TestWatcherEventJSONShape(t *testing.T) {
 	h := start(t, "a")
 	h.warm("a")

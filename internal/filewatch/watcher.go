@@ -183,7 +183,11 @@ func (w *Watcher) run() {
 				ts = &tabState{}
 				tabs[id] = ts
 			}
+			// The recorded status supersedes any half-settled observation, so
+			// a stat already in flight cannot settle against it.
 			ts.lastReported = st
+			ts.candidate = pdfcore.DiskStatus{}
+			ts.streak = 0
 		}
 		if dirty && newFocus != focused {
 			entering := newFocus

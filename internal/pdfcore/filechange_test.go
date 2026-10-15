@@ -515,3 +515,78 @@ func TestDiskStatusJSONShape(t *testing.T) {
 		}
 	}
 }
+
+// A save that lands while Open parses makes Open parse again, so the document
+// and its fingerprint describe the same file and it opens as current.
+func TestOpenParsesAgainWhenTheFileChangesDuringTheParse(t *testing.T) {
+	path := copyFixtureToTemp(t, "minimal.pdf")
+	calls := 0
+	afterOpenParse = func(p string) {
+		calls++
+		if calls == 1 {
+			overwriteWithFixture(t, p, "multipage.pdf")
+		}
+	}
+	t.Cleanup(func() { afterOpenParse = nil })
+
+	ins := NewInspector()
+	info, err := ins.Open("tab-open-race", path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close("tab-open-race") })
+	if calls != 2 {
+		t.Errorf("parses = %d, want 2 (one more after the change)", calls)
+	}
+
+	ref := NewInspector()
+	want, err := ref.Open("tab-ref", filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ref.Close("tab-ref") })
+	if info.PageCount != want.PageCount {
+		t.Errorf("page count %d, want %d from the file saved during the parse", info.PageCount, want.PageCount)
+	}
+	st, err := ins.DiskStatus("tab-open-race")
+	if err != nil || st.State != DiskStateCurrent {
+		t.Errorf("DiskStatus after Open = %+v, %v; want current", st, err)
+	}
+}
+
+// A file that keeps changing through every parse opens after openAttempts
+// parses with the stat taken before the last one, so it reads as changed.
+func TestOpenOfAFileStillBeingWrittenOpensAsChanged(t *testing.T) {
+	path := copyFixtureToTemp(t, "minimal.pdf")
+	calls := 0
+	afterOpenParse = func(p string) {
+		calls++
+		f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = f.WriteString("\n")
+		_ = f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		later := time.Now().Add(time.Duration(calls) * time.Hour)
+		if err := os.Chtimes(p, later, later); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { afterOpenParse = nil })
+
+	ins := NewInspector()
+	if _, err := ins.Open("tab-open-busy-write", path); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = ins.Close("tab-open-busy-write") })
+	if calls != openAttempts {
+		t.Errorf("parses = %d, want %d", calls, openAttempts)
+	}
+	st, err := ins.DiskStatus("tab-open-busy-write")
+	if err != nil || st.State != DiskStateChanged {
+		t.Errorf("DiskStatus after Open = %+v, %v; want changed", st, err)
+	}
+}

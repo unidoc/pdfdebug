@@ -123,6 +123,8 @@ func TestDiskStatusAgainstOpenFingerprint(t *testing.T) {
 		"TestDiskStatusCurrentChangedMissing",
 		"TestDiskStatusDetectsRenameOver",
 		"TestFileChangeSizeOnlyChangeIsDetected",
+		"TestOpenParsesAgainWhenTheFileChangesDuringTheParse",
+		"TestOpenOfAFileStillBeingWrittenOpensAsChanged",
 		"TestDiskStatusUnknownTab",
 		"TestDiskStatusJSONShape",
 	)
@@ -158,6 +160,7 @@ func TestWatcherSettleRules(t *testing.T) {
 		"TestWatcherSettleReportsMissingAfterTwoChecks",
 		"TestWatcherStatErrorResetsSettleStreak",
 		"TestWatcherRecordedStatusLetsReturnToCurrentEmit",
+		"TestWatcherRecordedStatusRestartsSettleStreak",
 		"TestWatcherEventJSONShape",
 		"TestWatcherNewTabStartsAtBaselineWithoutEvent",
 	)
