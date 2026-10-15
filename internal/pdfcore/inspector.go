@@ -61,10 +61,6 @@ type DocumentState struct {
 	// against it and refuse bytes from a file that changed.
 	fingerprint FileFingerprint
 
-	// sigReadErr carries ErrFileChanged out of a GetSignatures walk when a
-	// hole read finds the file changed. Guarded by pdfMu; reset per call.
-	sigReadErr error
-
 	// pdfMu serializes pdfcpu access for this DocumentState. Acquired by every
 	// Inspector.GetX method that calls into pdfcpu, immediately after
 	// GetDocument returns. Methods that do NOT call pdfcpu (GetPlainText,

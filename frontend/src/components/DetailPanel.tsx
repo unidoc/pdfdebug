@@ -12,7 +12,7 @@ import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveIma
 import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
-import { FILE_MISSING_MESSAGE, isFileChangedMessage } from '../lib/fileChange';
+import { FILE_MISSING_MESSAGE, isFileBusyMessage, isFileChangedMessage } from '../lib/fileChange';
 import { markTabFromDiskCheck } from '../lib/diskCheck';
 import { setDiskStatusFromCheck, type DiskStatusInfo } from '../lib/diskStatusStore';
 import { formatTimestamp } from '../lib/formatTimestamp';
@@ -198,9 +198,12 @@ function DetailPanelInner() {
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
-  // True when GetSignatures was refused because the file changed on disk: the
-  // Signatures tab stays visible and shows the reload hint.
+  // True when GetSignatures was refused because the file changed on disk, or
+  // because another app has it locked: the Signatures tab stays visible and
+  // shows the reload hint. Only a document with signed fields reads the file,
+  // so neither is ever set for an unsigned document.
   const [signaturesFileChanged, setSignaturesFileChanged] = useState(false);
+  const [signaturesFileBusy, setSignaturesFileBusy] = useState(false);
   // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
@@ -253,6 +256,7 @@ function DetailPanelInner() {
     setEmbeddedCount(null);
     setSignatures(null);
     setSignaturesFileChanged(false);
+    setSignaturesFileBusy(false);
     setDiffRightTabId(null);
     setDiffError(null);
     setCompareConfirm(null);
@@ -296,9 +300,14 @@ function DetailPanelInner() {
         setSignatures([]);
         // A read refused because the file changed keeps the tab visible with
         // the reload hint and marks the tab from a fresh disk check.
-        if (isFileChangedMessage(extractErrorMessage(err))) {
+        const message = extractErrorMessage(err);
+        if (isFileChangedMessage(message)) {
           setSignaturesFileChanged(true);
           markTabFromDiskCheck(activeTabId);
+          return;
+        }
+        if (isFileBusyMessage(message)) {
+          setSignaturesFileBusy(true);
           return;
         }
         // eslint-disable-next-line no-console
@@ -932,7 +941,7 @@ function DetailPanelInner() {
   // The Signatures tab exists only when the document has >= 1 signature
   // field (hidden while unresolved or empty -- a deliberate departure from
   // the always-visible tabs, avoiding a permanently empty tab).
-  const showSignaturesTab = (signatures?.length ?? 0) > 0 || signaturesFileChanged;
+  const showSignaturesTab = (signatures?.length ?? 0) > 0 || signaturesFileChanged || signaturesFileBusy;
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). The header
@@ -1441,6 +1450,7 @@ function DetailPanelInner() {
               onNavigate={handleSignaturesNavigate}
               data={signatures}
               fileChanged={signaturesFileChanged}
+              fileBusy={signaturesFileBusy}
             />
           </Tabs.Content>
         )}

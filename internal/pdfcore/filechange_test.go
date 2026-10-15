@@ -261,17 +261,17 @@ func TestFileChangeSignaturesRefuseChangeDuringWalk(t *testing.T) {
 	}
 }
 
-// An unsigned file has no hole to read, so only the check before the walk can
-// refuse it.
-func TestFileChangeSignaturesRefuseChangedUnsignedFile(t *testing.T) {
+// A document without signed fields never reads the file, so a change on disk
+// does not refuse the walk: it reports the same empty list as before.
+func TestFileChangeSignaturesIgnoreChangeOnUnsignedFile(t *testing.T) {
 	ins, path := openTempCopy(t, "minimal.pdf", "tab-sig-unsigned")
 	overwriteWithFixture(t, path, "multipage.pdf")
 	list, err := ins.GetSignatures("tab-sig-unsigned")
-	if !errors.Is(err, ErrFileChanged) {
-		t.Fatalf("err = %v, want ErrFileChanged for a changed file without signatures", err)
+	if err != nil {
+		t.Fatalf("err = %v, want nil for a changed file without signatures", err)
 	}
-	if list != nil {
-		t.Errorf("a changed file must return no signature list, got %+v", list)
+	if list == nil || len(list.Signatures) != 0 {
+		t.Errorf("want an empty signature list, got %+v", list)
 	}
 }
 

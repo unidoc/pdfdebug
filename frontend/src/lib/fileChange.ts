@@ -12,6 +12,9 @@ export const FILE_BUSY_MARKER = 'file is busy';
 /** Shown in place of a view whose read was refused because the file changed. */
 export const FILE_CHANGED_MESSAGE = 'File changed on disk. Reload to view.';
 
+/** Shown in place of a view whose read was refused because another app has the file locked. */
+export const FILE_BUSY_MESSAGE = 'File is in use by another app. Reload to try again.';
+
 /** Shown when the file is no longer at its path. */
 export const FILE_MISSING_MESSAGE = 'File no longer found at this path';
 

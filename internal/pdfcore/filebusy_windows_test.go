@@ -77,6 +77,18 @@ func TestFileBusyPlainTextReadOfExclusivelyLockedFile(t *testing.T) {
 	}
 }
 
+// A signature hole read of a file another handle holds an exclusive
+// byte-range lock on returns ErrFileBusy, not a hole mismatch.
+func TestFileBusySignaturesHoleReadOfLockedFile(t *testing.T) {
+	ins, path := openTempCopy(t, "signed.pdf", "tab-busy-sig")
+	lockWholeFile(t, path)
+
+	list, err := ins.GetSignatures("tab-busy-sig")
+	if !errors.Is(err, ErrFileBusy) {
+		t.Fatalf("GetSignatures of a locked file: err = %v, list = %+v, want ErrFileBusy", err, list)
+	}
+}
+
 var procLockFileEx = syscall.NewLazyDLL("kernel32.dll").NewProc("LockFileEx")
 
 // lockWholeFile takes an exclusive byte-range lock on all of path through a

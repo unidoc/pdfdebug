@@ -87,22 +87,6 @@ func verifyHandle(f *os.File, fp FileFingerprint) error {
 	return nil
 }
 
-// verifyPath stats path against fp: ErrFileChanged on a mismatch or a missing
-// file (wrapping fs.ErrNotExist), nil on a match, other stat errors as is.
-func verifyPath(path string, fp FileFingerprint) error {
-	fi, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%w: %w", ErrFileChanged, err)
-		}
-		return err
-	}
-	if !fp.Matches(fi) {
-		return ErrFileChanged
-	}
-	return nil
-}
-
 // TabIDs returns the tab IDs of every open document, in no particular order.
 func (ins *Inspector) TabIDs() []string {
 	ins.mu.Lock()

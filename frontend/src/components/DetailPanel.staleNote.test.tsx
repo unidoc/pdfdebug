@@ -282,6 +282,18 @@ describe('signatures refused because the file changed', () => {
     expect(await screen.findByText('File changed on disk. Reload to view.')).toBeInTheDocument();
   });
 
+  test('a file locked by another app keeps the Signatures tab with the busy hint', async () => {
+    const p = paths();
+    b.GetSignatures.mockRejectedValue(envelope('file is busy: another process has it open'));
+    mount();
+    open(p.a, p.pathA);
+
+    const sigTab = await screen.findByRole('tab', { name: /signatures/i });
+    fireEvent.click(sigTab);
+    expect(await screen.findByText('File is in use by another app. Reload to try again.')).toBeInTheDocument();
+    expect(b.GetDiskStatus).not.toHaveBeenCalled();
+  });
+
   test('another GetSignatures error still hides the tab and checks nothing', async () => {
     const p = paths();
     b.GetSignatures.mockRejectedValue(envelope('malformed PDF: bad acroform'));
