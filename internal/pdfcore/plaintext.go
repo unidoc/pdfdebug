@@ -156,6 +156,9 @@ func readPlainText(ctx context.Context, path string, size int64, fp FileFingerpr
 			break
 		}
 		if readErr != nil {
+			if isFileBusy(readErr) {
+				return nil, fmt.Errorf("%w: %w", ErrFileBusy, readErr)
+			}
 			return nil, fmt.Errorf("read %s: %w", path, readErr)
 		}
 		// Defensive: a Reader returning (0, nil) is allowed by io.Reader's

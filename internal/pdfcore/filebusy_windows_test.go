@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"unsafe"
 )
 
 const (
@@ -42,22 +43,14 @@ func TestFileBusyRecognisesWindowsErrnos(t *testing.T) {
 	}
 }
 
-// Opening a file another process holds without read sharing returns
+// Opening a file another handle holds an exclusive byte-range lock on returns
 // ErrFileBusy, not ErrMalformedPDF.
 func TestFileBusyOpenOfExclusivelyLockedFile(t *testing.T) {
 	path := copyFixtureToTemp(t, "minimal.pdf")
-	p, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	h, err := syscall.CreateFile(p, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
-	if err != nil {
-		t.Fatalf("lock file: %v", err)
-	}
-	defer func() { _ = syscall.CloseHandle(h) }()
+	lockWholeFile(t, path)
 
 	ins := NewInspector()
-	_, err = ins.Open("tab-busy", path)
+	_, err := ins.Open("tab-busy", path)
 	if !errors.Is(err, ErrFileBusy) {
 		t.Fatalf("Open of a locked file: err = %v, want ErrFileBusy", err)
 	}
@@ -69,25 +62,42 @@ func TestFileBusyOpenOfExclusivelyLockedFile(t *testing.T) {
 	}
 }
 
-// A plain-text read of a file another process holds without read sharing
-// returns ErrFileBusy, not ErrMalformedPDF.
+// A plain-text read of a file another handle holds an exclusive byte-range
+// lock on returns ErrFileBusy, not ErrMalformedPDF.
 func TestFileBusyPlainTextReadOfExclusivelyLockedFile(t *testing.T) {
 	ins, path := openTempCopy(t, "minimal.pdf", "tab-busy-read")
-	p, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	h, err := syscall.CreateFile(p, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
-	if err != nil {
-		t.Fatalf("lock file: %v", err)
-	}
-	defer func() { _ = syscall.CloseHandle(h) }()
+	lockWholeFile(t, path)
 
-	_, err = ins.GetPlainText(context.Background(), "tab-busy-read")
+	_, err := ins.GetPlainText(context.Background(), "tab-busy-read")
 	if !errors.Is(err, ErrFileBusy) {
 		t.Fatalf("GetPlainText of a locked file: err = %v, want ErrFileBusy", err)
 	}
 	if errors.Is(err, ErrMalformedPDF) {
 		t.Errorf("a busy file must not read as malformed: %v", err)
+	}
+}
+
+var procLockFileEx = syscall.NewLazyDLL("kernel32.dll").NewProc("LockFileEx")
+
+// lockWholeFile takes an exclusive byte-range lock on all of path through a
+// second handle, held until the test ends. Reads through any other handle then
+// fail with a lock violation. A share-mode lock is not used: os.Open sets
+// FILE_FLAG_BACKUP_SEMANTICS, which gets past it on an elevated CI runner.
+func lockWholeFile(t *testing.T, path string) {
+	t.Helper()
+	p, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := syscall.CreateFile(p, syscall.GENERIC_READ, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		t.Fatalf("open file to lock: %v", err)
+	}
+	t.Cleanup(func() { _ = syscall.CloseHandle(h) })
+	const lockfileFailImmediately, lockfileExclusiveLock = 0x1, 0x2
+	var ol syscall.Overlapped
+	r, _, e := procLockFileEx.Call(uintptr(h), lockfileExclusiveLock|lockfileFailImmediately, 0, 0xFFFFFFFF, 0xFFFFFFFF, uintptr(unsafe.Pointer(&ol)))
+	if r == 0 {
+		t.Fatalf("lock file: %v", e)
 	}
 }

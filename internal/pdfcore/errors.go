@@ -32,8 +32,8 @@ var (
 	// The text carries the marker the frontend matches.
 	ErrFileChanged = errors.New("file changed on disk since it was opened")
 	// ErrFileBusy indicates another process holds the file without read
-	// sharing (Windows sharing or lock violation). The text carries the marker
-	// the frontend matches.
+	// sharing or holds a byte-range lock over it (Windows sharing or lock
+	// violation). The text carries the marker the frontend matches.
 	ErrFileBusy = errors.New("file is busy: another process has it open")
 )
 
