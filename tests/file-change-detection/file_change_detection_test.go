@@ -91,24 +91,26 @@ func TestPlainTextReadRefusesChangedFile(t *testing.T) {
 	)
 }
 
-// Signature decomposition refuses a changed file, before the walk and during
-// it, instead of reporting a hole mismatch; an unchanged file reports as
-// before.
-func TestSignaturesRefuseChangedFile(t *testing.T) {
+// Signature decomposition on a changed file keeps every signature's parsed
+// details and notes the hole as not checked instead of reporting a mismatch;
+// an unchanged file reports as before.
+func TestSignaturesNoteChangedFile(t *testing.T) {
 	runColocated(t, "./internal/pdfcore/", true,
-		"TestFileChangeSignaturesRefuseChangedFile",
-		"TestFileChangeSignaturesRefuseDeletedFile",
-		"TestFileChangeSignaturesRefuseChangeDuringWalk",
+		"TestFileChangeSignaturesNoteChangedFile",
+		"TestFileChangeSignaturesNoteDeletedFile",
+		"TestFileChangeSignaturesNoteChangeDuringWalk",
 		"TestFileChangeSignaturesIgnoreChangeOnUnsignedFile",
 		"TestFileChangeSignaturesUnchangedFileReportsAsBefore",
 	)
 }
 
-// dump bytes --json and dump signatures on a file rewritten after the CLI
-// parsed it exit 2 with the file-changed message on stderr.
+// dump bytes (raw and --json) on a file rewritten after the CLI parsed it
+// exits 2 with the file-changed message on stderr; dump signatures prints the
+// hole check as not checked.
 func TestCLIReportsChangedFileAsViewError(t *testing.T) {
 	runColocated(t, "./cmd/cli/", false,
 		"TestCLIFileChangedBytesJSON",
+		"TestCLIFileChangedBytesRaw",
 		"TestCLIFileChangedSignatures",
 		"TestCLIFileChangedHookUnsetLeavesRunsUnaffected",
 	)
@@ -123,8 +125,7 @@ func TestDiskStatusAgainstOpenFingerprint(t *testing.T) {
 		"TestDiskStatusCurrentChangedMissing",
 		"TestDiskStatusDetectsRenameOver",
 		"TestFileChangeSizeOnlyChangeIsDetected",
-		"TestOpenParsesAgainWhenTheFileChangesDuringTheParse",
-		"TestOpenOfAFileStillBeingWrittenOpensAsChanged",
+		"TestCopyDocumentFileGuardsTheRawBytes",
 		"TestDiskStatusUnknownTab",
 		"TestDiskStatusJSONShape",
 	)
@@ -142,9 +143,11 @@ func TestBusyFileIsNotAParseFailure(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		runColocated(t, "./internal/pdfcore/", false,
 			"TestFileBusyRecognisesWindowsErrnos",
+			"TestStatWithIdentityCapturesTheFileIDAtStatTime",
 			"TestFileBusyOpenOfExclusivelyLockedFile",
 			"TestFileBusyPlainTextReadOfExclusivelyLockedFile",
 			"TestFileBusySignaturesHoleReadOfLockedFile",
+			"TestFileBusyCopyOfLockedFile",
 		)
 		return
 	}
@@ -156,7 +159,7 @@ func TestBusyFileIsNotAParseFailure(t *testing.T) {
 func TestWatcherSettleRules(t *testing.T) {
 	runColocated(t, "./internal/filewatch/", true,
 		"TestWatcherSettleReportsChangeAfterTwoIdenticalChecks",
-		"TestWatcherSettleIgnoresFileStillBeingWritten",
+		"TestWatcherSettleReportsFileStillBeingWritten",
 		"TestWatcherSettleReportsMissingAfterTwoChecks",
 		"TestWatcherStatErrorResetsSettleStreak",
 		"TestWatcherRecordedStatusLetsReturnToCurrentEmit",
@@ -172,6 +175,7 @@ func TestWatcherCadenceAndFocus(t *testing.T) {
 	runColocated(t, "./internal/filewatch/", true,
 		"TestWatcherCadenceFollowsFocus",
 		"TestWatcherFocusTakesCallerValueRegardlessOfOrder",
+		"TestWatcherMergedFocusGainStillChecks",
 		"TestWatcherChecksBackgroundTabsAndNeverEmitsForUnchangedOnes",
 	)
 }

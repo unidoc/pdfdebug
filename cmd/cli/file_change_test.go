@@ -1,6 +1,8 @@
-// A file rewritten after the CLI parsed it is reported as a view error
-// (stderr JSON, exit 2) instead of mixing the old parse with the new bytes.
-// afterCLIOpen runs right after openForCLI succeeds and rewrites the file.
+// A file rewritten after the CLI parsed it is reported instead of mixing the
+// old parse with the new bytes: dump bytes (raw and --json) exits 2 with a
+// stderr JSON error; dump signatures keeps the parsed details and prints the
+// hole check as not checked. afterCLIOpen runs right after openForCLI
+// succeeds and rewrites the file.
 //
 // Run: cd code && go test -run TestCLIFileChanged ./cmd/cli/
 
@@ -71,24 +73,50 @@ func TestCLIFileChangedBytesJSON(t *testing.T) {
 	}
 }
 
-func TestCLIFileChangedSignatures(t *testing.T) {
+func TestCLIFileChangedBytesRaw(t *testing.T) {
 	path := signedCopy(t)
 	called := rewriteAfterOpen(t)
 	var code int
-	var stderr string
-	captureStdout(t, func() {
+	var stdout, stderr string
+	stdout = captureStdout(t, func() {
 		stderr = captureStderr(t, func() {
-			code = execSignaturesDump(path, docViewFlags{})
+			code = execBytesDump(path, docViewFlags{})
 		})
 	})
 	if !*called {
-		t.Fatalf("afterCLIOpen was not called by dump signatures")
+		t.Fatalf("afterCLIOpen was not called by dump bytes")
 	}
 	if code != 2 {
 		t.Errorf("exit %d, want 2", code)
 	}
 	if !strings.Contains(stderr, "file changed on disk") {
 		t.Errorf("stderr %q must contain %q", stderr, "file changed on disk")
+	}
+	if stdout != "" {
+		t.Errorf("no bytes of the rewritten file may reach stdout, got %d bytes", len(stdout))
+	}
+}
+
+func TestCLIFileChangedSignatures(t *testing.T) {
+	path := signedCopy(t)
+	called := rewriteAfterOpen(t)
+	var code int
+	stdout := captureStdout(t, func() {
+		captureStderr(t, func() {
+			code = execSignaturesDump(path, docViewFlags{})
+		})
+	})
+	if !*called {
+		t.Fatalf("afterCLIOpen was not called by dump signatures")
+	}
+	if code != 0 {
+		t.Errorf("exit %d, want 0", code)
+	}
+	if !strings.Contains(stdout, "not checked: file changed on disk") {
+		t.Errorf("stdout must note the hole as not checked, got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "ByteRange") {
+		t.Errorf("stdout must keep the parsed signature details, got:\n%s", stdout)
 	}
 }
 

@@ -10,6 +10,7 @@ package pdfcore
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"strings"
 	"syscall"
@@ -78,14 +79,28 @@ func TestFileBusyPlainTextReadOfExclusivelyLockedFile(t *testing.T) {
 }
 
 // A signature hole read of a file another handle holds an exclusive
-// byte-range lock on returns ErrFileBusy, not a hole mismatch.
+// byte-range lock on is noted as busy on the signature, not a hole mismatch.
 func TestFileBusySignaturesHoleReadOfLockedFile(t *testing.T) {
 	ins, path := openTempCopy(t, "signed.pdf", "tab-busy-sig")
 	lockWholeFile(t, path)
 
 	list, err := ins.GetSignatures("tab-busy-sig")
-	if !errors.Is(err, ErrFileBusy) {
-		t.Fatalf("GetSignatures of a locked file: err = %v, list = %+v, want ErrFileBusy", err, list)
+	if err != nil {
+		t.Fatalf("GetSignatures of a locked file: %v", err)
+	}
+	if len(list.Signatures) == 0 || list.Signatures[0].HoleCheckError != ErrFileBusy.Error() {
+		t.Fatalf("signatures %+v, want holeCheckError %q", list.Signatures, ErrFileBusy.Error())
+	}
+}
+
+// Copying the raw bytes of a file another handle holds an exclusive byte-range
+// lock on returns ErrFileBusy.
+func TestFileBusyCopyOfLockedFile(t *testing.T) {
+	ins, path := openTempCopy(t, "minimal.pdf", "tab-busy-copy")
+	lockWholeFile(t, path)
+
+	if _, err := ins.CopyDocumentFile("tab-busy-copy", io.Discard); !errors.Is(err, ErrFileBusy) {
+		t.Fatalf("CopyDocumentFile of a locked file: err = %v, want ErrFileBusy", err)
 	}
 }
 

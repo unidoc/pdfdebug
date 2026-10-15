@@ -343,7 +343,10 @@ func TestWatcherSettleReportsChangeAfterTwoIdenticalChecks(t *testing.T) {
 	}
 }
 
-func TestWatcherSettleIgnoresFileStillBeingWritten(t *testing.T) {
+// A file rewritten on every check is still reported once its changed state
+// has held for two checks; when the writes stop, one refresh carries the final
+// size and time.
+func TestWatcherSettleReportsFileStillBeingWritten(t *testing.T) {
 	h := start(t, "a")
 	base := h.warm("a")
 	for size := int64(101); size <= 105; size++ {
@@ -351,12 +354,15 @@ func TestWatcherSettleIgnoresFileStillBeingWritten(t *testing.T) {
 		h.check("a")
 	}
 	h.check("a") // second identical observation of size 105
-	evs := h.waitEvents("a", 1)
-	if len(evs) != 1 || evs[0].ev.DiskSize != 105 {
-		t.Fatalf("events %+v, want one changed event for the final size 105", evs)
+	evs := h.waitEvents("a", 2)
+	if len(evs) != 2 {
+		t.Fatalf("events %+v, want a changed event and one refresh", evs)
 	}
-	if evs[0].callsAtEmit != base+6 {
-		t.Errorf("emitted after check %d, want 6 (nothing while the observation kept changing)", evs[0].callsAtEmit-base)
+	if evs[0].ev.State != "changed" || evs[0].ev.DiskSize != 102 || evs[0].callsAtEmit != base+2 {
+		t.Errorf("first event %+v at check %d, want changed with size 102 after check 2", evs[0].ev, evs[0].callsAtEmit-base)
+	}
+	if evs[1].ev.State != "changed" || evs[1].ev.DiskSize != 105 || evs[1].callsAtEmit != base+6 {
+		t.Errorf("refresh %+v at check %d, want changed with size 105 after check 6", evs[1].ev, evs[1].callsAtEmit-base)
 	}
 }
 
@@ -404,7 +410,9 @@ func TestWatcherRecordedStatusLetsReturnToCurrentEmit(t *testing.T) {
 }
 
 // A status recorded from GetDiskStatus restarts the settle streak: an older
-// observation still counting toward a change cannot complete against it.
+// observation still counting toward a change cannot complete against it. The
+// next settled observation is emitted even though it repeats the recorded
+// status, so a frontend that dropped the result converges.
 func TestWatcherRecordedStatusRestartsSettleStreak(t *testing.T) {
 	h := start(t, "a")
 	h.warm("a")
@@ -415,8 +423,14 @@ func TestWatcherRecordedStatusRestartsSettleStreak(t *testing.T) {
 	h.src.set("a", current(), nil)
 	h.check("a")
 	h.check("a")
-	if evs := h.em.forTab("a"); len(evs) != 0 {
-		t.Errorf("events %+v, want none: the change never settled after the recorded current", evs)
+	evs := h.waitEvents("a", 1)
+	if len(evs) != 1 || evs[0].ev.State != "current" {
+		t.Errorf("events %+v, want one current resync and no changed", evs)
+	}
+	h.check("a")
+	h.check("a")
+	if evs := h.em.forTab("a"); len(evs) != 1 {
+		t.Errorf("events %+v, want nothing more after the resync", evs)
 	}
 }
 
@@ -478,6 +492,23 @@ func TestWatcherFocusTakesCallerValueRegardlessOfOrder(t *testing.T) {
 	h.w.SetFocused(false)
 	h.w.SetFocused(true)
 	waitFor(t, "focused after the later call", func() bool { return h.clk.lastInterval() == 2*time.Second })
+}
+
+// Focus gained and lost again before the scheduler wakes still checks every
+// tab: the merged calls leave the focus value unchanged.
+func TestWatcherMergedFocusGainStillChecks(t *testing.T) {
+	h := start(t, "a")
+	waitFor(t, "first tick armed", func() bool { return h.clk.lastInterval() != 0 })
+	n := h.src.callCount("a")
+
+	h.w.mu.Lock()
+	h.w.focused = true
+	h.w.focusDirty = true
+	h.w.focusGained = true
+	h.w.mu.Unlock()
+	h.w.signal()
+
+	waitFor(t, "check on the merged focus gain", func() bool { return h.src.callCount("a") > n })
 }
 
 func TestWatcherChecksBackgroundTabsAndNeverEmitsForUnchangedOnes(t *testing.T) {

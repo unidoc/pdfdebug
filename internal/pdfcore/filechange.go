@@ -3,6 +3,7 @@ package pdfcore
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"time"
@@ -108,7 +109,7 @@ func (ins *Inspector) DiskStatus(tabID string) (DiskStatus, error) {
 		return DiskStatus{}, err
 	}
 	st := DiskStatus{LoadedModTime: doc.fingerprint.ModTime.UnixMilli()}
-	fi, err := os.Stat(doc.FilePath)
+	fi, err := statWithIdentity(doc.FilePath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			st.State = DiskStateMissing
@@ -124,4 +125,37 @@ func (ins *Inspector) DiskStatus(tabID string) (DiskStatus, error) {
 		st.State = DiskStateChanged
 	}
 	return st, nil
+}
+
+// CopyDocumentFile writes the bytes of the file behind tabID to w. The handle
+// is checked against the Open fingerprint before the first byte and again
+// after the last: a file that changed or is gone returns ErrFileChanged
+// (before anything is written when the change came first), and a read refused
+// by another process's lock returns ErrFileBusy. Any other error is the copy's.
+func (ins *Inspector) CopyDocumentFile(tabID string, w io.Writer) (int64, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return 0, err
+	}
+	f, err := openVerified(doc.FilePath, doc.fingerprint)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = f.Close() }()
+	n, err := io.Copy(w, busyReader{f})
+	if err != nil {
+		return n, err
+	}
+	return n, verifyHandle(f, doc.fingerprint)
+}
+
+// busyReader reports a read refused by another process's lock as ErrFileBusy.
+type busyReader struct{ f *os.File }
+
+func (r busyReader) Read(p []byte) (int, error) {
+	n, err := r.f.Read(p)
+	if err != nil && isFileBusy(err) {
+		err = fmt.Errorf("%w: %w", ErrFileBusy, err)
+	}
+	return n, err
 }

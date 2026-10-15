@@ -93,6 +93,10 @@ type SignatureField struct {
 	HoleMatchesContents bool `json:"holeMatchesContents"`
 	// CoverageError is the malformed-/ByteRange degradation note.
 	CoverageError string `json:"coverageError"`
+	// HoleCheckError is set when the hole could not be read from disk: the
+	// ErrFileChanged or ErrFileBusy text. HoleMatchesContents is then false
+	// and means "not checked"; every other field comes from the parse.
+	HoleCheckError string `json:"holeCheckError"`
 }
 
 // SignatureList is the document-level enumeration of signature fields in
@@ -115,11 +119,12 @@ const maxHoleProbeBytes = 4 * 1024 * 1024
 // /Fields array (walking /Kids hierarchies with inherited /FT), decomposes
 // each CMS-based /Contents into signer/chain/algorithm facts, and measures
 // /ByteRange coverage against the file. Per-signature failures degrade to
-// per-entry error fields; the call itself fails only for unknown tabs, a
-// document-level pdfcpu failure, or a hole read that finds the file changed
-// (ErrFileChanged) or locked by another process (ErrFileBusy); the walk stops
-// at that read. A document without signed fields never reads the file. Runs
-// under doc.pdfMu and inside safeCall.
+// per-entry error fields; the call itself fails only for unknown tabs or a
+// document-level pdfcpu failure. Only the hole check reads the file: a read
+// refused because the file changed (ErrFileChanged) or is locked by another
+// process (ErrFileBusy) sets HoleCheckError on that signature, and later
+// signatures carry the same note without reading. Runs under doc.pdfMu and
+// inside safeCall.
 func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -131,49 +136,48 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	defer doc.pdfMu.Unlock()
 
 	list := &SignatureList{Signatures: []SignatureField{}}
-	var readErr error
 	err = safeCall(func() error {
-		list.Signatures, readErr = collectSignatures(doc)
+		list.Signatures = collectSignatures(doc)
 		return nil
 	})
 	if err != nil {
 		return nil, wrapPDFError(err)
 	}
-	if readErr != nil {
-		return nil, readErr
-	}
 	return list, nil
 }
 
-// collectSignatures walks /AcroForm /Fields in document order. It stops at the
-// first hole read that returns ErrFileChanged or ErrFileBusy and returns that
-// error. Caller MUST hold doc.pdfMu and run inside safeCall.
-func collectSignatures(doc *DocumentState) ([]SignatureField, error) {
+// holeRead carries the first refused hole read of one GetSignatures walk, so
+// later signatures skip the read and carry the same note.
+type holeRead struct {
+	refused error
+}
+
+// collectSignatures walks /AcroForm /Fields in document order. Caller MUST
+// hold doc.pdfMu and run inside safeCall.
+func collectSignatures(doc *DocumentState) []SignatureField {
 	sigs := []SignatureField{}
 	cat, err := doc.PDFContext.Catalog()
 	if err != nil {
-		return sigs, nil
+		return sigs
 	}
 	acro := asDict(dereference(doc, cat["AcroForm"]))
 	if acro == nil {
-		return sigs, nil
+		return sigs
 	}
+	hr := &holeRead{}
 	for _, elem := range dereferenceArray(doc, acro["Fields"]) {
-		if err := walkSignatureField(doc, elem, "", "", 0, &sigs); err != nil {
-			return nil, err
-		}
+		walkSignatureField(doc, hr, elem, "", "", 0, &sigs)
 	}
-	return sigs, nil
+	return sigs
 }
 
 // walkSignatureField recurses one field-tree node. /FT is inheritable via the
 // kid walk (inheritedFT); a kid carrying its own /T is a child FIELD to
 // recurse into, while /T-less kids are widget annotations of THIS field.
-// Terminal fields whose effective /FT is Sig are appended to out. A file read
-// error from buildSignatureField stops the walk.
-func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField) error {
+// Terminal fields whose effective /FT is Sig are appended to out.
+func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField) {
 	if depth > maxNodeIDDepth {
-		return nil
+		return
 	}
 	fieldNodeID := ""
 	if ref, ok := obj.(pdfcpu_types.IndirectRef); ok {
@@ -181,7 +185,7 @@ func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName,
 	}
 	d := asDict(dereference(doc, obj))
 	if d == nil {
-		return nil
+		return
 	}
 
 	name := parentName
@@ -204,28 +208,20 @@ func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName,
 			continue
 		}
 		if _, hasT := kd["T"]; hasT {
-			if err := walkSignatureField(doc, kid, name, ft, depth+1, out); err != nil {
-				return err
-			}
+			walkSignatureField(doc, hr, kid, name, ft, depth+1, out)
 			recursed = true
 		}
 	}
 	if recursed || ft != "Sig" {
-		return nil
+		return
 	}
-	f, err := buildSignatureField(doc, d, name, fieldNodeID)
-	if err != nil {
-		return err
-	}
-	*out = append(*out, f)
-	return nil
+	*out = append(*out, buildSignatureField(doc, hr, d, name, fieldNodeID))
 }
 
 // buildSignatureField distills one terminal signature field into its
 // structural facts: /V resolution, dictionary entries, coverage measurement,
-// and per-SubFilter decomposition routing. The error is ErrFileChanged or
-// ErrFileBusy from the hole read; every other problem is a per-entry field.
-func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fieldNodeID string) (SignatureField, error) {
+// and per-SubFilter decomposition routing.
+func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Dict, name, fieldNodeID string) SignatureField {
 	f := SignatureField{
 		FieldName:    name,
 		FieldNodeID:  fieldNodeID,
@@ -237,13 +233,13 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 	if !hasV {
 		// An unsigned placeholder is listed with no decomposition and no
 		// error.
-		return f, nil
+		return f
 	}
 	var sig pdfcpu_types.Dict
 	if ref, isRef := vObj.(pdfcpu_types.IndirectRef); isRef {
 		sig = asDict(dereference(doc, vObj))
 		if sig == nil {
-			return f, nil
+			return f
 		}
 		f.SignatureRef = refString(ref)
 		f.SignatureNodeID = nodeIDFromRef(ref)
@@ -252,7 +248,7 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 		// the ref fields empty.
 		sig = asDict(vObj)
 		if sig == nil {
-			return f, nil
+			return f
 		}
 	}
 
@@ -274,9 +270,7 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 	f.Location = stringValue(dereference(doc, sig["Location"]))
 	f.ContactInfo = stringValue(dereference(doc, sig["ContactInfo"]))
 
-	if err := computeByteRangeCoverage(doc, sig, &f); err != nil {
-		return f, err
-	}
+	computeByteRangeCoverage(doc, hr, sig, &f)
 
 	switch {
 	case isCMSSubFilter(f.SubFilter):
@@ -292,7 +286,7 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 	default:
 		f.Notes = append(f.Notes, "subFilter not decomposed")
 	}
-	return f, nil
+	return f
 }
 
 // isCMSSubFilter reports whether sub names a CMS-based signature whose
@@ -570,42 +564,41 @@ func stripPDFWhitespace(s string) string {
 // computeByteRangeCoverage measures /ByteRange against the file: whole-file
 // coverage, the trailing gap, and whether the excluded hole exactly equals the
 // /Contents hex-string extent. Malformed arrays degrade to CoverageError. This
-// is explicitly a measurement, never a validity verdict. The error is
-// ErrFileChanged or ErrFileBusy from the hole read.
-func computeByteRangeCoverage(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) error {
+// is explicitly a measurement, never a validity verdict.
+func computeByteRangeCoverage(doc *DocumentState, hr *holeRead, sig pdfcpu_types.Dict, f *SignatureField) {
 	brObj, ok := sig["ByteRange"]
 	if !ok {
 		f.CoverageError = "/ByteRange missing"
-		return nil
+		return
 	}
 	arr := dereferenceArray(doc, brObj)
 	if arr == nil {
 		f.CoverageError = "/ByteRange is not an array"
-		return nil
+		return
 	}
 	ints := make([]int64, 0, len(arr))
 	for _, e := range arr {
 		n, isInt := dereference(doc, e).(pdfcpu_types.Integer)
 		if !isInt {
 			f.CoverageError = "/ByteRange contains a non-integer entry"
-			return nil
+			return
 		}
 		ints = append(ints, int64(n))
 	}
 	f.ByteRange = ints
 	if len(ints)%2 == 1 {
 		f.CoverageError = fmt.Sprintf("/ByteRange has an odd number of entries (%d)", len(ints))
-		return nil
+		return
 	}
 	if len(ints) != 4 {
 		f.CoverageError = fmt.Sprintf("/ByteRange has %d entries; expected 4 (offset length offset length)", len(ints))
-		return nil
+		return
 	}
 	size := doc.FileSize
 	for _, n := range ints {
 		if n < 0 {
 			f.CoverageError = "/ByteRange contains a negative value"
-			return nil
+			return
 		}
 		// Bound every entry by the file size BEFORE summing. A crafted value
 		// (e.g. 2^62) would otherwise overflow the start+len sums below to a
@@ -614,31 +607,34 @@ func computeByteRangeCoverage(doc *DocumentState, sig pdfcpu_types.Dict, f *Sign
 		// failure. Bounding each entry keeps every sum in [0, 2*size].
 		if n > size {
 			f.CoverageError = "/ByteRange value exceeds the file size"
-			return nil
+			return
 		}
 	}
 	start1, len1, start2, len2 := ints[0], ints[1], ints[2], ints[3]
 	if start1+len1 > size || start2+len2 > size {
 		f.CoverageError = "/ByteRange extends past the end of the file"
-		return nil
+		return
 	}
 	holeStart := start1 + len1
 	if start2 < holeStart {
 		f.CoverageError = "/ByteRange ranges overlap"
-		return nil
+		return
 	}
 	f.TrailingGap = size - (start2 + len2)
 	f.CoversWholeFile = start1 == 0 && f.TrailingGap == 0
-	match, err := holeMatchesContents(doc, sig, holeStart, start2)
+	match, err := holeMatchesContents(doc, hr, sig, holeStart, start2)
 	f.HoleMatchesContents = match
-	return err
+	if err != nil {
+		f.HoleCheckError = err.Error()
+	}
 }
 
 // holeMatchesContents reads the excluded span from disk and reports whether it
 // is exactly the /Contents hex string: '<' + the dict's hex payload + '>'. A
-// file that changed (ErrFileChanged) or is locked by another process
-// (ErrFileBusy) is returned as an error; any other read failure is a mismatch.
-func holeMatchesContents(doc *DocumentState, sig pdfcpu_types.Dict, holeStart, holeEnd int64) (bool, error) {
+// file that changed or is locked by another process returns ErrFileChanged or
+// ErrFileBusy (the bare sentinel) and is recorded in hr, so later holes are
+// not read; any other read failure is a mismatch.
+func holeMatchesContents(doc *DocumentState, hr *holeRead, sig pdfcpu_types.Dict, holeStart, holeEnd int64) (bool, error) {
 	hx, ok := dereference(doc, sig["Contents"]).(pdfcpu_types.HexLiteral)
 	if !ok {
 		return false, nil
@@ -646,9 +642,17 @@ func holeMatchesContents(doc *DocumentState, sig pdfcpu_types.Dict, holeStart, h
 	if holeEnd <= holeStart || holeEnd-holeStart > maxHoleProbeBytes {
 		return false, nil
 	}
+	if hr.refused != nil {
+		return false, hr.refused
+	}
 	span, err := readFileSpan(doc.FilePath, doc.fingerprint, holeStart, holeEnd)
-	if errors.Is(err, ErrFileChanged) || errors.Is(err, ErrFileBusy) {
-		return false, err
+	switch {
+	case errors.Is(err, ErrFileChanged):
+		hr.refused = ErrFileChanged
+		return false, hr.refused
+	case errors.Is(err, ErrFileBusy):
+		hr.refused = ErrFileBusy
+		return false, hr.refused
 	}
 	if err != nil || len(span) < 2 {
 		return false, nil

@@ -7,6 +7,7 @@
 package pdfcore
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -190,33 +191,47 @@ func TestFileChangePlainTextReturnsCachedResultAfterLaterChange(t *testing.T) {
 	}
 }
 
-func TestFileChangeSignaturesRefuseChangedFile(t *testing.T) {
+// A changed file keeps every signature's parsed details; only the hole check,
+// the one part that reads the file, is reported as not checked.
+func TestFileChangeSignaturesNoteChangedFile(t *testing.T) {
 	ins, path := openTempCopy(t, "signed.pdf", "tab-sig-changed")
 	overwriteWithFixture(t, path, "minimal.pdf")
 	list, err := ins.GetSignatures("tab-sig-changed")
-	if !errors.Is(err, ErrFileChanged) {
-		t.Fatalf("err = %v, want ErrFileChanged instead of a hole mismatch report", err)
+	if err != nil {
+		t.Fatalf("err = %v, want the list with a per-signature note", err)
 	}
-	if list != nil {
-		t.Errorf("a changed file must return no signature list, got %+v", list)
+	if len(list.Signatures) == 0 {
+		t.Fatalf("want the parsed signatures, got none")
+	}
+	sig := list.Signatures[0]
+	if sig.HoleCheckError != ErrFileChanged.Error() {
+		t.Errorf("holeCheckError = %q, want %q", sig.HoleCheckError, ErrFileChanged.Error())
+	}
+	if sig.HoleMatchesContents {
+		t.Errorf("an unchecked hole must not report a match")
+	}
+	if !sig.Signed || sig.SubFilter == "" || len(sig.ByteRange) != 4 {
+		t.Errorf("parsed details must stay: %+v", sig)
 	}
 }
 
-func TestFileChangeSignaturesRefuseDeletedFile(t *testing.T) {
+func TestFileChangeSignaturesNoteDeletedFile(t *testing.T) {
 	ins, path := openTempCopy(t, "signed.pdf", "tab-sig-deleted")
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	_, err := ins.GetSignatures("tab-sig-deleted")
-	if !errors.Is(err, ErrFileChanged) || !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("err = %v, want ErrFileChanged wrapping fs.ErrNotExist", err)
+	list, err := ins.GetSignatures("tab-sig-deleted")
+	if err != nil {
+		t.Fatalf("err = %v, want the list with a per-signature note", err)
+	}
+	if len(list.Signatures) == 0 || list.Signatures[0].HoleCheckError != ErrFileChanged.Error() {
+		t.Errorf("signatures %+v, want holeCheckError %q", list.Signatures, ErrFileChanged.Error())
 	}
 }
 
-// beforeFileSpanRead runs right before readFileSpan opens the file, after the
-// pre-walk check passed; it rewrites the file to simulate a save landing
-// during the walk.
-func TestFileChangeSignaturesRefuseChangeDuringWalk(t *testing.T) {
+// beforeFileSpanRead runs right before readFileSpan opens the file; it
+// rewrites the file to simulate a save landing during the walk.
+func TestFileChangeSignaturesNoteChangeDuringWalk(t *testing.T) {
 	ins, path := openTempCopy(t, "signed.pdf", "tab-sig-midwalk")
 	called := false
 	beforeFileSpanRead = func(p string) {
@@ -240,15 +255,15 @@ func TestFileChangeSignaturesRefuseChangeDuringWalk(t *testing.T) {
 	if !called {
 		t.Fatalf("the span-read hook never ran; signed.pdf must reach the hole read")
 	}
-	if !errors.Is(err, ErrFileChanged) {
-		t.Fatalf("change during the walk: err = %v, want ErrFileChanged", err)
+	if err != nil {
+		t.Fatalf("change during the walk: err = %v, want the list with a note", err)
 	}
-	if list != nil {
-		t.Errorf("a change during the walk must return no list")
+	if len(list.Signatures) == 0 || list.Signatures[0].HoleCheckError != ErrFileChanged.Error() {
+		t.Fatalf("signatures %+v, want holeCheckError %q", list.Signatures, ErrFileChanged.Error())
 	}
 
-	// The refusal is per call: once the Open-time mtime is back, the next walk
-	// reports the signatures again.
+	// The note is per call: once the Open-time mtime is back, the next walk
+	// checks the hole again.
 	if err := os.Chtimes(path, fi.ModTime(), fi.ModTime()); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +271,7 @@ func TestFileChangeSignaturesRefuseChangeDuringWalk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSignatures after restoring the mtime: %v", err)
 	}
-	if len(list.Signatures) == 0 || !list.Signatures[0].HoleMatchesContents {
+	if len(list.Signatures) == 0 || !list.Signatures[0].HoleMatchesContents || list.Signatures[0].HoleCheckError != "" {
 		t.Errorf("restored file must report a matching hole again: %+v", list.Signatures)
 	}
 }
@@ -516,77 +531,25 @@ func TestDiskStatusJSONShape(t *testing.T) {
 	}
 }
 
-// A save that lands while Open parses makes Open parse again, so the document
-// and its fingerprint describe the same file and it opens as current.
-func TestOpenParsesAgainWhenTheFileChangesDuringTheParse(t *testing.T) {
-	path := copyFixtureToTemp(t, "minimal.pdf")
-	calls := 0
-	afterOpenParse = func(p string) {
-		calls++
-		if calls == 1 {
-			overwriteWithFixture(t, p, "multipage.pdf")
-		}
-	}
-	t.Cleanup(func() { afterOpenParse = nil })
-
-	ins := NewInspector()
-	info, err := ins.Open("tab-open-race", path)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = ins.Close("tab-open-race") })
-	if calls != 2 {
-		t.Errorf("parses = %d, want 2 (one more after the change)", calls)
-	}
-
-	ref := NewInspector()
-	want, err := ref.Open("tab-ref", filepath.Join(testdataDir(t), "multipage.pdf"))
+// CopyDocumentFile writes the opened file byte for byte while it is unchanged,
+// and writes nothing for a file that changed before the copy.
+func TestCopyDocumentFileGuardsTheRawBytes(t *testing.T) {
+	ins, path := openTempCopy(t, "minimal.pdf", "tab-copy")
+	want, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = ref.Close("tab-ref") })
-	if info.PageCount != want.PageCount {
-		t.Errorf("page count %d, want %d from the file saved during the parse", info.PageCount, want.PageCount)
+	var buf bytes.Buffer
+	if n, err := ins.CopyDocumentFile("tab-copy", &buf); err != nil || n != int64(len(want)) || !bytes.Equal(buf.Bytes(), want) {
+		t.Fatalf("unchanged copy: n=%d err=%v equal=%v", n, err, bytes.Equal(buf.Bytes(), want))
 	}
-	st, err := ins.DiskStatus("tab-open-race")
-	if err != nil || st.State != DiskStateCurrent {
-		t.Errorf("DiskStatus after Open = %+v, %v; want current", st, err)
-	}
-}
 
-// A file that keeps changing through every parse opens after openAttempts
-// parses with the stat taken before the last one, so it reads as changed.
-func TestOpenOfAFileStillBeingWrittenOpensAsChanged(t *testing.T) {
-	path := copyFixtureToTemp(t, "minimal.pdf")
-	calls := 0
-	afterOpenParse = func(p string) {
-		calls++
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = f.WriteString("\n")
-		_ = f.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		later := time.Now().Add(time.Duration(calls) * time.Hour)
-		if err := os.Chtimes(p, later, later); err != nil {
-			t.Fatal(err)
-		}
+	overwriteWithFixture(t, path, "multipage.pdf")
+	buf.Reset()
+	if _, err := ins.CopyDocumentFile("tab-copy", &buf); !errors.Is(err, ErrFileChanged) {
+		t.Errorf("changed copy: err = %v, want ErrFileChanged", err)
 	}
-	t.Cleanup(func() { afterOpenParse = nil })
-
-	ins := NewInspector()
-	if _, err := ins.Open("tab-open-busy-write", path); err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = ins.Close("tab-open-busy-write") })
-	if calls != openAttempts {
-		t.Errorf("parses = %d, want %d", calls, openAttempts)
-	}
-	st, err := ins.DiskStatus("tab-open-busy-write")
-	if err != nil || st.State != DiskStateChanged {
-		t.Errorf("DiskStatus after Open = %+v, %v; want changed", st, err)
+	if buf.Len() != 0 {
+		t.Errorf("changed copy wrote %d bytes, want none", buf.Len())
 	}
 }

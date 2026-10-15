@@ -54,9 +54,17 @@ type Event struct {
 // tabState is the scheduler-owned settle state of one tab.
 type tabState struct {
 	lastReported pdfcore.DiskStatus
-	candidate    pdfcore.DiskStatus
-	streak       int
-	inFlight     bool
+	// candidate is the latest observation. stateStreak counts consecutive
+	// observations with its State; sameStreak counts consecutive observations
+	// equal to it in every field.
+	candidate   pdfcore.DiskStatus
+	stateStreak int
+	sameStreak  int
+	// resync makes the next settled observation emit even when it repeats
+	// lastReported, so the frontend gets the watcher's view after a recorded
+	// GetDiskStatus result it may have dropped.
+	resync   bool
+	inFlight bool
 }
 
 type statResult struct {
@@ -78,12 +86,13 @@ type Watcher struct {
 	stop    chan struct{}
 	done    chan struct{}
 
-	mu         sync.Mutex
-	focused    bool
-	focusDirty bool
-	records    map[string]pdfcore.DiskStatus
-	started    bool
-	stopOnce   sync.Once
+	mu          sync.Mutex
+	focused     bool
+	focusDirty  bool
+	focusGained bool
+	records     map[string]pdfcore.DiskStatus
+	started     bool
+	stopOnce    sync.Once
 }
 
 // New returns a Watcher that starts in focused mode. Call Start to run it.
@@ -127,18 +136,23 @@ func (w *Watcher) Stop() {
 
 // SetFocused switches between the focused and unfocused interval. The last
 // call wins, so callers pass the window's current focus state rather than the
-// event that fired. Entering focused mode checks every tab immediately.
+// event that fired. A call with focused true checks every tab immediately,
+// even when a later call already took focus away again.
 func (w *Watcher) SetFocused(focused bool) {
 	w.mu.Lock()
 	w.focused = focused
 	w.focusDirty = true
+	if focused {
+		w.focusGained = true
+	}
 	w.mu.Unlock()
 	w.signal()
 }
 
-// RecordReported sets the status last reported for tabID, so a later return
-// to the Open fingerprint emits current even when the watcher never reported
-// the change itself.
+// RecordReported sets the status last reported for tabID, as GetDiskStatus
+// reported it to the frontend. The tab's next settled observation is emitted
+// even if it repeats that status, so a frontend that dropped the result as
+// older than a watcher event still converges on the watcher's view.
 func (w *Watcher) RecordReported(tabID string, st pdfcore.DiskStatus) {
 	w.mu.Lock()
 	w.records[tabID] = st
@@ -173,8 +187,8 @@ func (w *Watcher) run() {
 		w.mu.Lock()
 		records := w.records
 		w.records = map[string]pdfcore.DiskStatus{}
-		newFocus, dirty := w.focused, w.focusDirty
-		w.focusDirty = false
+		newFocus, dirty, gained := w.focused, w.focusDirty, w.focusGained
+		w.focusDirty, w.focusGained = false, false
 		w.mu.Unlock()
 
 		for id, st := range records {
@@ -187,15 +201,17 @@ func (w *Watcher) run() {
 			// a stat already in flight cannot settle against it.
 			ts.lastReported = st
 			ts.candidate = pdfcore.DiskStatus{}
-			ts.streak = 0
+			ts.stateStreak, ts.sameStreak = 0, 0
+			ts.resync = true
 		}
 		if dirty && newFocus != focused {
-			entering := newFocus
 			focused = newFocus
 			tick = w.clk.After(intervalFor(focused))
-			if entering {
-				w.checkAll(tabs)
-			}
+		}
+		// Focus gained and lost again before this wake still counts as a
+		// focus event.
+		if gained {
+			w.checkAll(tabs)
 		}
 	}
 
@@ -221,7 +237,7 @@ func (w *Watcher) run() {
 				continue
 			}
 			if r.err != nil {
-				ts.streak = 0
+				ts.stateStreak, ts.sameStreak = 0, 0
 				ts.candidate = pdfcore.DiskStatus{}
 				continue
 			}
@@ -270,26 +286,36 @@ func (w *Watcher) stat(tabID string) {
 	}
 }
 
-// settle records one observation and returns the event to emit when two
-// consecutive identical observations differ from the last reported status.
-// A tab that stays current never emits.
+// settle records obs and reports whether it completes a transition to emit.
+// A state seen on two checks in a row is settled even while its times keep
+// changing, so a file rewritten faster than the poll interval is still
+// reported. Once settled, a change of state emits; within the same state, new
+// times emit only after two identical observations, so a file being written
+// produces one change event and one refresh when it stops. Two current
+// observations never emit unless a resync is pending.
 func settle(ts *tabState, obs pdfcore.DiskStatus) (Event, bool) {
-	if obs == ts.candidate && ts.streak > 0 {
-		ts.streak++
+	if ts.stateStreak > 0 && obs.State == ts.candidate.State {
+		ts.stateStreak++
+		if obs == ts.candidate {
+			ts.sameStreak++
+		} else {
+			ts.sameStreak = 1
+		}
 	} else {
-		ts.candidate = obs
-		ts.streak = 1
+		ts.stateStreak, ts.sameStreak = 1, 1
 	}
-	if ts.streak < 2 {
+	ts.candidate = obs
+	if ts.stateStreak < 2 {
 		return Event{}, false
 	}
 	last := ts.lastReported
-	if obs.State == pdfcore.DiskStateCurrent && last.State == pdfcore.DiskStateCurrent {
+	emit := ts.resync ||
+		obs.State != last.State ||
+		(obs.State != pdfcore.DiskStateCurrent && ts.sameStreak >= 2 && obs != last)
+	if !emit {
 		return Event{}, false
 	}
-	if obs == last {
-		return Event{}, false
-	}
+	ts.resync = false
 	ts.lastReported = obs
 	return Event{
 		State:         obs.State,

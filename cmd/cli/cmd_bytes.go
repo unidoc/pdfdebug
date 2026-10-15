@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"os"
+
+	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
 // runBytesDump parses flags and dispatches the document-level byte dump.
@@ -33,6 +35,8 @@ func runBytesDump(args []string) int {
 // substitution is lossy and cannot be reversed, so re-encoding the decoded
 // string would corrupt every control byte. Reading the file directly keeps the
 // raw dump truly byte-for-byte without adding any PDF semantics (thin presenter).
+// Both paths refuse a file that changed since the parse ("file changed on
+// disk", exit 2).
 func execBytesDump(filePath string, f docViewFlags) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -73,15 +77,13 @@ func execBytesDump(filePath string, f docViewFlags) (exitCode int) {
 	}
 
 	// Verbatim source bytes: stream the file directly (the decoded Content is
-	// lossy for control bytes and cannot reproduce the source). io.Copy streams
-	// in fixed-size chunks rather than allocating the whole file like os.ReadFile.
-	src, err := os.Open(filePath)
-	if err != nil {
-		writeJSONError(os.Stderr, err.Error())
-		return 2
-	}
-	defer func() { _ = src.Close() }()
-	if _, err := io.Copy(os.Stdout, src); err != nil {
+	// lossy for control bytes and cannot reproduce the source), in fixed-size
+	// chunks rather than allocating the whole file like os.ReadFile.
+	if _, err := ins.CopyDocumentFile("cli", os.Stdout); err != nil {
+		if errors.Is(err, pdfcore.ErrFileChanged) || errors.Is(err, pdfcore.ErrFileBusy) {
+			writeJSONError(os.Stderr, err.Error())
+			return 2
+		}
 		fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
 		return 2
 	}

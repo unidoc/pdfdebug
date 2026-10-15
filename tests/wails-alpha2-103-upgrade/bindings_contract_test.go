@@ -23,7 +23,7 @@ import (
 //	App.jsx                : ConsumePendingOpenFiles, SetWatchedTabs
 //	ObjectInfoPanel.tsx    : GetObjectSource
 //	DetailPanel.tsx        : GetObjectDetail, GetContentStream, GetImageData,
-//	                         GetReverseRefs, GetFontView, GetDiskStatus
+//	                         GetReverseRefs, GetFontView
 //	XRefTableView.tsx      : GetXRefTable
 //	CommandPalette.tsx     : GetAncestorPath
 //	TreePanel.tsx          : GetChildren, GetAncestorPath
