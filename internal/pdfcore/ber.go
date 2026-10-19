@@ -2,25 +2,25 @@ package pdfcore
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math"
 )
-
-// maxCMSBytes caps the extent of the top-level CMS element in a /Contents
-// payload and the size of its normalized copy. Zero padding after the element
-// is not counted.
-const maxCMSBytes = 8 << 20
 
 // maxBERDepth caps BER nesting. The top-level element is at depth 1; segments
 // of a constructed string count like any other element.
 const maxBERDepth = 64
 
-var errCMSTooLarge = errors.New("CMS element at offset 0 is larger than 8 MiB")
+// berTail locates non-zero bytes after the top-level element. count is 0 when
+// the element is followed by nothing or by zero bytes only.
+type berTail struct {
+	offset int // first byte after the element
+	count  int // bytes from offset through the last non-zero byte
+}
 
 // normalizeBER reads exactly one top-level BER element from in and returns a
-// new buffer holding its DER-form re-encoding. The bytes after the element
-// must all be 0x00 (the /Contents padding); anything else is an error. in is
+// new buffer holding its DER-form re-encoding. Bytes after the element do not
+// fail the call: zero bytes (the /Contents padding) are ignored, and when any
+// is non-zero tail reports where they start and how far they reach. in is
 // never written to.
 //
 // The rewrite turns indefinite lengths into minimal definite lengths,
@@ -31,47 +31,69 @@ var errCMSTooLarge = errors.New("CMS element at offset 0 is larger than 8 MiB")
 // minimal lengths and no constructed strings; SET OF ordering, minimal INTEGER
 // encoding, BOOLEAN values and string charsets are not checked.
 //
-// isBER is true when the output differs from the input element, so a DER
-// payload round-trips byte-identical with isBER false. Work is bounded by
-// maxCMSBytes and maxBERDepth; peak allocation is the output buffer plus a
-// 4-byte length record per constructed element and a 1-byte unused-bits record
-// per flattened BIT STRING.
-func normalizeBER(in []byte) (der []byte, isBER bool, err error) {
+// isBER is true when the element uses any of the forms above. A first,
+// check-only pass validates the element and detects those forms without
+// allocating; when it finds none the element is returned as a copy with isBER
+// false. Otherwise a recording pass stores, in pre-order, the normalized
+// content length of every constructed element and the unused-bits octet of
+// every flattened BIT STRING, and an emitting pass writes the re-encoding from
+// those records. Lengths are bounded by the input (a declared length past the
+// end of its enclosing element is a truncation), nesting by maxBERDepth. Each
+// output element is at most 4 bytes longer than its input encoding beyond what
+// its children add. For DER input the only allocation is the returned copy.
+// For BER input peak allocation is the output buffer plus the records, which
+// are proportional to the input: an 8-byte length per constructed element
+// (each takes at least 2 input bytes) and 1 byte per flattened BIT STRING.
+func normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error) {
 	n := &berNormalizer{in: in}
-	end, total, err := n.element(0, len(in), 1)
+	end, _, err := n.element(0, len(in), 1)
 	if err != nil {
-		return nil, false, err
+		return nil, false, berTail{}, err
 	}
-	for i := end; i < len(in); i++ {
+	for i := len(in) - 1; i >= end; i-- {
 		if in[i] != 0 {
-			return nil, false, fmt.Errorf("trailing data after the CMS ContentInfo at offset %d (not zero padding)", end)
+			tail = berTail{offset: end, count: i - end + 1}
+			break
 		}
 	}
-	if total > maxCMSBytes {
-		return nil, false, errCMSTooLarge
+	if !n.ber {
+		return bytes.Clone(in[:end]), false, tail, nil
 	}
-	// Second pass over the validated input writes into a buffer of the final
-	// size, using the content lengths recorded by the first pass.
+	n.pass = berRecord
+	_, total, err := n.element(0, len(in), 1)
+	if err != nil {
+		return nil, false, berTail{}, err
+	}
+	// The emitting pass writes into a buffer of the final size, using the
+	// records from the recording pass.
 	n.out = make([]byte, 0, total)
-	n.emit = true
+	n.pass = berEmit
 	if _, _, err := n.element(0, len(in), 1); err != nil {
-		return nil, false, err
+		return nil, false, berTail{}, err
 	}
-	return n.out, !bytes.Equal(n.out, in[:end]), nil
+	return n.out, true, tail, nil
 }
 
-// berNormalizer walks the input twice: a measuring pass that validates and
-// records, in pre-order, the normalized content length of every constructed
-// element and the unused-bits octet of every flattened BIT STRING, and an
-// emitting pass that writes the output from those records.
+// berPass selects what a walk of the input does besides validating it.
+type berPass int
+
+const (
+	berCheck  berPass = iota // validate and detect BER-only forms
+	berRecord                // also record constructed lengths and unused bits
+	berEmit                  // write the output from the records
+)
+
+// berNormalizer walks the input once for DER (check only) or three times for
+// BER (check, record, emit); see normalizeBER.
 type berNormalizer struct {
 	in         []byte
-	lens       []int32
+	lens       []int
 	unused     []byte
 	nextLen    int
 	nextUnused int
 	out        []byte
-	emit       bool
+	pass       berPass
+	ber        bool
 }
 
 type berHeader struct {
@@ -131,9 +153,6 @@ func appendBERLength(out []byte, n int) []byte {
 // limit.
 func (n *berNormalizer) header(off, limit int) (berHeader, error) {
 	var h berHeader
-	if off >= maxCMSBytes {
-		return h, errCMSTooLarge
-	}
 	if off >= limit {
 		return h, berTruncated(off, 1, limit)
 	}
@@ -179,6 +198,7 @@ func (n *berNormalizer) header(off, limit int) (berHeader, error) {
 			return h, fmt.Errorf("indefinite length on a primitive element at offset %d", off)
 		}
 		h.indefinite = true
+		n.ber = true
 	case l == 0xff:
 		return h, fmt.Errorf("unsupported length encoding at offset %d", off)
 	default:
@@ -194,19 +214,19 @@ func (n *berNormalizer) header(off, limit int) (berHeader, error) {
 			v = v<<8 | uint64(c)
 		}
 		p += k
-		// A length that cannot fit in the input is a truncation, whatever its
-		// size; the size cap applies only to content that is present.
 		if v > uint64(limit-p) {
 			return h, berTruncated(off, p-off+int(v), limit)
 		}
 		h.length = int(v)
+		// The long form is minimal only for a value of 128 or more in the
+		// fewest octets.
+		if k != berLenSize(h.length)-1 {
+			n.ber = true
+		}
 	}
 	h.hdrEnd = p
 	if !h.indefinite && h.length > limit-p {
 		return h, berTruncated(off, p-off+h.length, limit)
-	}
-	if p > maxCMSBytes || (!h.indefinite && h.length > maxCMSBytes-p) {
-		return h, errCMSTooLarge
 	}
 	return h, nil
 }
@@ -225,9 +245,6 @@ func (n *berNormalizer) step(off, p, limit int, indefinite bool) (done bool, end
 	}
 	if n.in[p] != 0x00 {
 		return false, 0, nil
-	}
-	if p+2 > maxCMSBytes {
-		return false, 0, errCMSTooLarge
 	}
 	if p+1 >= limit {
 		return false, 0, berTruncated(p, 2, limit)
@@ -255,7 +272,7 @@ func (n *berNormalizer) element(off, limit, depth int) (end, outLen int, err err
 	tag := n.in[off:h.tagEnd]
 	if !h.constructed {
 		content := n.in[h.hdrEnd : h.hdrEnd+h.length]
-		if n.emit {
+		if n.pass == berEmit {
 			n.out = append(n.out, tag...)
 			n.out = appendBERLength(n.out, len(content))
 			n.out = append(n.out, content...)
@@ -272,21 +289,25 @@ func (n *berNormalizer) element(off, limit, depth int) (end, outLen int, err err
 	base := tag[0] &^ 0x20
 	str := len(tag) == 1 && tag[0]&0xc0 == 0 && isBERStringTag(base)
 	bitString := str && base == 3
+	if str {
+		n.ber = true
+	}
 
 	lenIdx, unusedIdx := -1, -1
-	if n.emit {
+	switch n.pass {
+	case berEmit:
 		if str {
 			n.out = append(n.out, base)
 		} else {
 			n.out = append(n.out, tag...)
 		}
-		n.out = appendBERLength(n.out, int(n.lens[n.nextLen]))
+		n.out = appendBERLength(n.out, n.lens[n.nextLen])
 		n.nextLen++
 		if bitString {
 			n.out = append(n.out, n.unused[n.nextUnused])
 			n.nextUnused++
 		}
-	} else {
+	case berRecord:
 		lenIdx = len(n.lens)
 		n.lens = append(n.lens, 0)
 		if bitString {
@@ -322,7 +343,7 @@ func (n *berNormalizer) element(off, limit, depth int) (end, outLen int, err err
 		p = e
 	}
 	if lenIdx >= 0 {
-		n.lens[lenIdx] = int32(contentLen)
+		n.lens[lenIdx] = contentLen
 	}
 	if unusedIdx >= 0 {
 		n.unused[unusedIdx] = bs.lastUnused
@@ -364,7 +385,7 @@ func (n *berNormalizer) segment(parentOff, off, limit, depth int, base byte, bs 
 			bs.seen, bs.lastOff, bs.lastUnused = true, off, c[0]
 			c = c[1:]
 		}
-		if n.emit {
+		if n.pass == berEmit {
 			n.out = append(n.out, c...)
 		}
 		return h.hdrEnd + h.length, len(c), nil

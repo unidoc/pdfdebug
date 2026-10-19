@@ -543,6 +543,14 @@ func sigFixtureDetachedBadEOC(t *testing.T, signed []byte) []byte {
 	return p
 }
 
+// sigFixtureDetachedBERTrailing returns the sigFixtureDetachedBER payload
+// followed by DE AD BE EF, so non-zero bytes sit between the CMS and the zero
+// padding.
+func sigFixtureDetachedBERTrailing(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	return append(sigFixtureDetachedBER(t, signed), 0xDE, 0xAD, 0xBE, 0xEF)
+}
+
 // sigFixtureChildren splits concatenated DER elements.
 func sigFixtureChildren(t *testing.T, b []byte) []asn1.RawValue {
 	t.Helper()
@@ -859,8 +867,9 @@ func TestGenerateFixtures(t *testing.T) {
 	// Signature fixtures: a real programmatically signed
 	// adbe.pkcs7.detached PDF plus its byte-surgery variants, the unsigned
 	// placeholder, and the BER variants (openssl streamed, the Go-built
-	// indefinite-length detached shape, and that shape with a malformed final
-	// end-of-contents). Each must parse through pdfcpu's default validation.
+	// indefinite-length detached shape, that shape with a malformed final
+	// end-of-contents, and that shape with non-zero bytes after the CMS).
+	// Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
 		name    string
 		content func(t *testing.T) []byte
@@ -877,6 +886,9 @@ func TestGenerateFixtures(t *testing.T) {
 		}},
 		{"signed-ber-badeoc.pdf", func(t *testing.T) []byte {
 			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBadEOC})
+		}},
+		{"signed-ber-trailing.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBERTrailing})
 		}},
 	}
 	for _, fx := range sigFixtures {

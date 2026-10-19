@@ -3,7 +3,9 @@
  *
  * A signed entry with `cmsEncoding` "BER" or "DER" shows a "CMS encoding" row
  * (data-testid="signature-cms-encoding") right after "Signature algorithm";
- * an empty or missing value shows no row.
+ * an empty or missing value shows no row. A `cmsTrailingBytes` object adds a
+ * "Trailing bytes" row (data-testid="signature-cms-trailing-bytes") right
+ * after it, in the warning colour; without one there is no such row.
  *
  * Run: cd frontend && npx vitest run src/components/SignaturesView.cmsEncoding.test.tsx
  */
@@ -106,5 +108,29 @@ describe('SignaturesView CMS encoding row', () => {
     const beforeLabel = before?.previousElementSibling;
     expect(before?.textContent).toBe('RSA');
     expect(beforeLabel?.textContent).toBe('Signature algorithm');
+  });
+});
+
+describe('SignaturesView CMS trailing bytes row', () => {
+  test('cmsTrailingBytes shows the count and offset right after the CMS encoding row', async () => {
+    await renderWith({ ...baseEntry, cmsEncoding: 'BER', cmsTrailingBytes: { offset: 2028, count: 4 } });
+    const row = screen.getByTestId('signature-cms-trailing-bytes');
+    expect(row.textContent).toBe('4 bytes after the CMS at offset 2028 contain non-zero data');
+    expect(row.className).toContain('text-warning');
+    expect(row.previousElementSibling?.textContent).toBe('Trailing bytes');
+    expect(row.previousElementSibling?.previousElementSibling).toBe(
+      screen.getByTestId('signature-cms-encoding')
+    );
+  });
+
+  test('missing cmsTrailingBytes shows no row', async () => {
+    await renderWith({ ...baseEntry, cmsEncoding: 'DER' });
+    expect(screen.queryByTestId('signature-cms-trailing-bytes')).not.toBeInTheDocument();
+    expect(screen.getByTestId('signature-card').textContent).not.toContain('Trailing bytes');
+  });
+
+  test('null cmsTrailingBytes shows no row', async () => {
+    await renderWith({ ...baseEntry, cmsEncoding: 'DER', cmsTrailingBytes: null });
+    expect(screen.queryByTestId('signature-cms-trailing-bytes')).not.toBeInTheDocument();
   });
 });

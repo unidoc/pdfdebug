@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -241,27 +242,68 @@ func TestGetSignatures_MalformedEndOfContentsFixtureFailsCleanly(t *testing.T) {
 	assertCleanCMSFailure(t, f, "Sig1")
 }
 
-func TestGetSignatures_BERWithTrailingGarbageFailsCleanly(t *testing.T) {
-	payload := append(berAllIndef(t, signedPDFContentInfo(t)), 0x01, 0x02)
-	ins, tabID := writeTempPDF(t, "signed-ber-trailing.pdf",
-		sigUnitPDF(t, sigUnitOpt{contentsHex: hex.EncodeToString(payload)}))
-	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, list, err)
-	assertCleanCMSFailure(t, f, "Sig1")
-	if !strings.Contains(f.DecomposeError, "trailing data") {
-		t.Errorf("DecomposeError = %q, want the trailing-data reason", f.DecomposeError)
+// assertFullDecompose checks a signature built from the signed.pdf CMS: no
+// decompose error, both certificates, the signer identified and the
+// SignerInfo algorithms read.
+func assertFullDecompose(t *testing.T, f SignatureField) {
+	t.Helper()
+	if f.DecomposeError != "" {
+		t.Errorf("DecomposeError = %q, want empty", f.DecomposeError)
+	}
+	if len(f.Certificates) != 2 {
+		t.Errorf("Certificates = %+v, want 2", f.Certificates)
+	}
+	if !f.SignerIdentified || f.Signer == nil || f.Signer.Subject != "CN=Fixture Signer,O=UniDoc Fixtures" {
+		t.Errorf("Signer = %+v, SignerIdentified = %v, want the fixture signer", f.Signer, f.SignerIdentified)
+	}
+	if f.DigestAlgorithm != "SHA-256" || f.SignatureAlgorithm != "RSA" {
+		t.Errorf("algorithms = %q / %q, want SHA-256 / RSA", f.DigestAlgorithm, f.SignatureAlgorithm)
 	}
 }
 
-func TestGetSignatures_DERWithTrailingGarbageFailsCleanly(t *testing.T) {
-	payload := append(bytes.Clone(signedPDFContentInfo(t)), 0x00, 0x00, 0x05)
-	ins, tabID := writeTempPDF(t, "signed-der-trailing.pdf",
-		sigUnitPDF(t, sigUnitOpt{contentsHex: hex.EncodeToString(payload)}))
-	list, err := ins.GetSignatures(tabID)
-	f := oneSigField(t, list, err)
-	assertCleanCMSFailure(t, f, "Sig1")
-	if !strings.Contains(f.DecomposeError, "trailing data") {
-		t.Errorf("DecomposeError = %q, want the trailing-data reason", f.DecomposeError)
+func TestGetSignatures_NonZeroBytesAfterTheCMSAreReportedAndDecompositionGoesOn(t *testing.T) {
+	der := signedPDFContentInfo(t)
+	ber := berAllIndef(t, der)
+	cases := []struct {
+		name    string
+		payload []byte
+		enc     string
+		want    CMSTrailingBytes
+	}{
+		{"DER", append(bytes.Clone(der), 0x00, 0x00, 0x05), "DER", CMSTrailingBytes{Offset: len(der), Count: 3}},
+		{"BER", append(bytes.Clone(ber), 0x01, 0x02, 0x00, 0x00), "BER", CMSTrailingBytes{Offset: len(ber), Count: 2}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ins, tabID := writeTempPDF(t, "signed-trailing.pdf",
+				sigUnitPDF(t, sigUnitOpt{contentsHex: hex.EncodeToString(tc.payload)}))
+			list, err := ins.GetSignatures(tabID)
+			f := oneSigField(t, list, err)
+			assertFullDecompose(t, f)
+			if f.CMSEncoding != tc.enc {
+				t.Errorf("CMSEncoding = %q, want %q", f.CMSEncoding, tc.enc)
+			}
+			if f.CMSTrailingBytes == nil || *f.CMSTrailingBytes != tc.want {
+				t.Errorf("CMSTrailingBytes = %+v, want %+v", f.CMSTrailingBytes, tc.want)
+			}
+			for _, n := range f.Notes {
+				if strings.Contains(n, "after the CMS") {
+					t.Errorf("unexpected note %q, want the bytes reported only in CMSTrailingBytes", n)
+				}
+			}
+		})
+	}
+}
+
+func TestGetSignatures_ZeroPaddingReportsNoTrailingBytes(t *testing.T) {
+	f := openSigFixture(t, "signed-ber-detached.pdf")
+	if f.CMSTrailingBytes != nil {
+		t.Errorf("CMSTrailingBytes = %+v, want nil for zero padding", f.CMSTrailingBytes)
+	}
+	for _, n := range f.Notes {
+		if strings.Contains(n, "after the CMS") {
+			t.Errorf("unexpected note %q for zero padding", n)
+		}
 	}
 }
 
@@ -270,13 +312,17 @@ func TestParseCMSSignedData_LeavesInputBytesUnchanged(t *testing.T) {
 	ber = append(ber, make([]byte, 64)...) // /Contents zero padding
 	orig := bytes.Clone(ber)
 
-	sd, enc, err := parseCMSSignedData(ber)
+	res, err := parseCMSSignedData(ber)
 	if err != nil {
 		t.Fatalf("parseCMSSignedData error: %v", err)
 	}
-	if enc != "BER" {
-		t.Errorf("encoding = %q, want BER", enc)
+	if res.encoding != "BER" {
+		t.Errorf("encoding = %q, want BER", res.encoding)
 	}
+	if res.tail != (berTail{}) {
+		t.Errorf("tail = %+v, want none for zero padding", res.tail)
+	}
+	sd := res.sd
 	if sd == nil || len(sd.Certificates.Bytes) == 0 || len(sd.SignerInfos) != 1 {
 		t.Errorf("parsed SignedData incomplete: %+v", sd)
 	}
@@ -287,44 +333,82 @@ func TestParseCMSSignedData_LeavesInputBytesUnchanged(t *testing.T) {
 
 func TestParseCMSSignedData_DERPayloadReportsDER(t *testing.T) {
 	raw := fixtureCMSPayload(t, "signed.pdf")
-	_, enc, err := parseCMSSignedData(raw)
+	res, err := parseCMSSignedData(raw)
 	if err != nil {
 		t.Fatalf("parseCMSSignedData error: %v", err)
 	}
-	if enc != "DER" {
-		t.Errorf("encoding = %q, want DER", enc)
+	if res.encoding != "DER" {
+		t.Errorf("encoding = %q, want DER", res.encoding)
 	}
 }
 
-func TestUnmarshalCMS_RejectsJunkAfterSignedDataInsideContent(t *testing.T) {
-	ci := signedPDFContentInfo(t)
+// rebuildSignedData returns the signed.pdf ContentInfo with its SignedData
+// fields passed through edit and every enclosing length recomputed; extra is
+// appended inside the [0] wrapper after the SignedData.
+func rebuildSignedData(t *testing.T, edit func(fields [][]byte) [][]byte, extra []byte) []byte {
+	t.Helper()
 	var outer struct {
 		ContentType asn1.ObjectIdentifier
 		Content     asn1.RawValue `asn1:"explicit,tag:0"`
 	}
-	if _, err := asn1.Unmarshal(ci, &outer); err != nil {
+	if _, err := asn1.Unmarshal(signedPDFContentInfo(t), &outer); err != nil {
 		t.Fatalf("signed.pdf ContentInfo: %v", err)
 	}
-	// Rebuild [0] with the SignedData followed by a stray NULL.
-	inner := append(bytes.Clone(outer.Content.Bytes), 0x05, 0x00)
-	oid := mustMarshal(t, outer.ContentType)
-	wrapped := berDef(0xA0, inner)
-	junk := berDef(0x30, oid, wrapped)
+	var sd asn1.RawValue
+	if _, err := asn1.Unmarshal(outer.Content.Bytes, &sd); err != nil {
+		t.Fatalf("signed.pdf SignedData: %v", err)
+	}
+	var fields [][]byte
+	for c := sd.Bytes; len(c) > 0; {
+		var f asn1.RawValue
+		rest, err := asn1.Unmarshal(c, &f)
+		if err != nil {
+			t.Fatalf("signed.pdf SignedData field: %v", err)
+		}
+		fields = append(fields, f.FullBytes)
+		c = rest
+	}
+	if edit != nil {
+		fields = edit(fields)
+	}
+	wrapped := berDef(0xA0, berDef(0x30, fields...), extra)
+	return berDef(0x30, mustMarshal(t, outer.ContentType), wrapped)
+}
 
-	if _, err := unmarshalCMS(junk); err == nil {
-		t.Errorf("unmarshalCMS accepted a ContentInfo whose [0] carries bytes after the SignedData")
+func TestGetSignatures_BytesAfterSignedDataInsideContentInfoAreANote(t *testing.T) {
+	payload := rebuildSignedData(t, nil, []byte{0x05, 0x00})
+	ins, tabID := writeTempPDF(t, "signed-inner-rest.pdf",
+		sigUnitPDF(t, sigUnitOpt{contentsHex: hex.EncodeToString(payload)}))
+	list, err := ins.GetSignatures(tabID)
+	f := oneSigField(t, list, err)
+	assertFullDecompose(t, f)
+	if f.CMSEncoding != "DER" {
+		t.Errorf("CMSEncoding = %q, want DER", f.CMSEncoding)
+	}
+	if f.CMSTrailingBytes != nil {
+		t.Errorf("CMSTrailingBytes = %+v, want nil (the bytes are inside the ContentInfo)", f.CMSTrailingBytes)
+	}
+	if want := "2 bytes after the SignedData inside the ContentInfo"; !slices.Contains(f.Notes, want) {
+		t.Errorf("Notes = %q, want %q", f.Notes, want)
 	}
 }
 
-func TestUnmarshalCMS_RejectsBytesAfterContentInfo(t *testing.T) {
-	der := append(bytes.Clone(signedPDFContentInfo(t)), 0x00)
+func TestParseCMSSignedData_ReportsNonZeroBytesAfterTheContentInfo(t *testing.T) {
+	ci := signedPDFContentInfo(t)
+	raw := append(bytes.Clone(ci), 0xFF, 0x00)
 
-	_, err := unmarshalCMS(der)
-	if err == nil {
-		t.Fatal("unmarshalCMS accepted a ContentInfo followed by a stray byte")
+	res, err := parseCMSSignedData(raw)
+	if err != nil {
+		t.Fatalf("parseCMSSignedData error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "1 bytes after the ContentInfo") {
-		t.Errorf("error = %q, want the bytes-after-ContentInfo reason", err.Error())
+	if want := (berTail{offset: len(ci), count: 1}); res.tail != want {
+		t.Errorf("tail = %+v, want %+v", res.tail, want)
+	}
+	if res.innerRest != 0 {
+		t.Errorf("innerRest = %d, want 0", res.innerRest)
+	}
+	if res.sd == nil || len(res.sd.SignerInfos) != 1 {
+		t.Errorf("parsed SignedData incomplete: %+v", res.sd)
 	}
 }
 
@@ -345,16 +429,23 @@ func TestGetSignatures_DeepNestingDegradesPerSignature(t *testing.T) {
 	}
 }
 
-func TestGetSignatures_OversizedPayloadDegradesPerSignature(t *testing.T) {
-	payload := berDef(0x04, make([]byte, maxCMSBytes+1-5))
-	ins, tabID := writeTempPDF(t, "signed-huge.pdf",
+func TestGetSignatures_LargeDERPayloadDecomposes(t *testing.T) {
+	// A [1] crls field holding a 9 MiB OCTET STRING, between the
+	// certificates and the signerInfos.
+	big := berDef(0xA1, berDef(0x04, make([]byte, 9<<20)))
+	payload := rebuildSignedData(t, func(fields [][]byte) [][]byte {
+		last := len(fields) - 1
+		return append(append(fields[:last:last], big), fields[last])
+	}, nil)
+	ins, tabID := writeTempPDF(t, "signed-large.pdf",
 		sigUnitPDF(t, sigUnitOpt{contentsHex: hex.EncodeToString(payload)}))
 	list, err := ins.GetSignatures(tabID)
 	f := oneSigField(t, list, err)
-	if f.DecomposeError == "" {
-		t.Errorf("DecomposeError empty, want the size-cap failure")
+	assertFullDecompose(t, f)
+	if f.CMSEncoding != "DER" {
+		t.Errorf("CMSEncoding = %q, want DER", f.CMSEncoding)
 	}
-	if !strings.Contains(f.DecomposeError, "larger than 8 MiB") {
-		t.Errorf("DecomposeError = %q, want the size-cap reason", f.DecomposeError)
+	if f.CMSTrailingBytes != nil {
+		t.Errorf("CMSTrailingBytes = %+v, want nil", f.CMSTrailingBytes)
 	}
 }

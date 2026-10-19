@@ -1,8 +1,16 @@
 package ber_cms_signatures_test
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
 const berPlainText = "BER (normalized to DER for parsing)"
+
+// trailingText is the trailing-bytes text for signed-ber-trailing.pdf: DE AD
+// BE EF right after the 2028-byte CMS.
+const trailingText = "4 bytes after the CMS at offset 2028 contain non-zero data"
 
 func TestDumpSignaturesJSON_DetachedBERSignatureDecomposes(t *testing.T) {
 	e := dumpSignaturesJSON(t, "signed-ber-detached.pdf")
@@ -84,5 +92,54 @@ func TestDumpSignaturesPlain_MalformedBERHasNoEncodingLine(t *testing.T) {
 	}
 	if _, ok := plainLine(stdout, "Decompose error"); !ok {
 		t.Errorf("no \"Decompose error:\" line in plain output:\n%s", stdout)
+	}
+}
+
+func TestDumpSignaturesJSON_NonZeroBytesAfterCMSAreReported(t *testing.T) {
+	e := dumpSignaturesJSON(t, "signed-ber-trailing.pdf")
+	if e.DecomposeError != "" {
+		t.Errorf("decomposeError = %q, want empty", e.DecomposeError)
+	}
+	if got := cmsEncoding(t, e); got != "BER" {
+		t.Errorf("cmsEncoding = %q, want BER", got)
+	}
+	if len(e.Certificates) != 2 || !e.SignerIdentified {
+		t.Errorf("certificates = %d, signerIdentified = %v, want 2 / true", len(e.Certificates), e.SignerIdentified)
+	}
+	if e.CMSTrailingBytes == nil || *e.CMSTrailingBytes != (trailingBytes{Offset: 2028, Count: 4}) {
+		t.Errorf("cmsTrailingBytes = %+v, want {2028 4}", e.CMSTrailingBytes)
+	}
+	if slices.ContainsFunc(e.Notes, func(n string) bool { return strings.Contains(n, "after the CMS") }) {
+		t.Errorf("notes = %q, want the trailing bytes reported only in cmsTrailingBytes", e.Notes)
+	}
+}
+
+func TestDumpSignaturesJSON_ZeroPaddingOmitsTrailingBytes(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "dump", "signatures", "--json", fixture(t, "signed-ber-detached.pdf"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0\nstderr: %s", code, stderr)
+	}
+	if strings.Contains(stdout, "cmsTrailingBytes") {
+		t.Errorf("--json has a cmsTrailingBytes key for a zero-padded payload:\n%s", stdout)
+	}
+}
+
+func TestDumpSignaturesPlain_NonZeroBytesAfterCMSShowTrailingBytesLine(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "dump", "signatures", fixture(t, "signed-ber-trailing.pdf"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0\nstderr: %s", code, stderr)
+	}
+	got, ok := plainLine(stdout, "Trailing bytes")
+	if !ok {
+		t.Fatalf("no \"Trailing bytes:\" line in plain output:\n%s", stdout)
+	}
+	if got != trailingText {
+		t.Errorf("Trailing bytes = %q, want %q", got, trailingText)
+	}
+	if n := strings.Count(stdout, "after the CMS"); n != 1 {
+		t.Errorf("plain output mentions the trailing bytes %d times, want once:\n%s", n, stdout)
+	}
+	if _, ok := plainLine(stdout, "Decompose error"); ok {
+		t.Errorf("plain output has a \"Decompose error:\" line:\n%s", stdout)
 	}
 }

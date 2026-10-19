@@ -13,8 +13,8 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ### Changed
 
-- Non-zero bytes after the CMS in a signature's /Contents are now a decompose error, and so are bytes after the SignedData inside the ContentInfo's `[0]` wrapper. Zero padding after the CMS is still accepted. Such a signature used to decompose and ignore the extra bytes
-- A CMS element over 8 MiB, or nested more than 64 levels deep, is now a decompose error for DER signatures too. DER signatures used to decompose with no size or nesting limit
+- Non-zero bytes after the CMS in a signature's /Contents, or after the SignedData inside the ContentInfo's `[0]` wrapper, are now reported, and the signature still decomposes in full. Bytes after the CMS show once, as `Trailing bytes: 4 bytes after the CMS at offset 2028 contain non-zero data` in plain text, as `cmsTrailingBytes` (`offset`, `count`) in `--json`, and as a "Trailing bytes" row in the Signatures panel. Bytes after the SignedData get a note with the byte count. Such bytes used to be ignored without a word. Zero padding is not reported
+- A CMS nested more than 64 levels deep is now a decompose error for DER signatures too. DER signatures used to decompose with no nesting limit
 
 ### Fixed
 

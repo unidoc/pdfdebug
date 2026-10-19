@@ -53,6 +53,8 @@ export interface SignatureEntryData {
   holeCheckError?: string;
   /** Encoding of the /Contents CMS as found: "DER", "BER", or empty. */
   cmsEncoding?: string;
+  /** Non-zero bytes after the CMS in /Contents; absent when there are none. */
+  cmsTrailingBytes?: { offset: number; count: number } | null;
 }
 
 /** Props for {@link SignaturesView}. */
@@ -90,12 +92,24 @@ function datePart(ts: string): string {
   return ts.slice(0, 10);
 }
 
-/** A small key/value row in a signature card. */
-function Row({ label, value, testid }: { label: string; value: string; testid?: string }) {
+/** A small key/value row in a signature card; tone="warning" colors the value as a warning. */
+function Row({
+  label,
+  value,
+  testid,
+  tone,
+}: {
+  label: string;
+  value: string;
+  testid?: string;
+  tone?: 'warning';
+}) {
   return (
     <>
       <dt className="text-text-muted">{label}</dt>
-      <dd className="text-text break-all" data-testid={testid}>{value}</dd>
+      <dd className={`${tone === 'warning' ? 'text-warning' : 'text-text'} break-all`} data-testid={testid}>
+        {value}
+      </dd>
     </>
   );
 }
@@ -190,6 +204,14 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
               label="CMS encoding"
               value={entry.cmsEncoding === 'BER' ? 'BER (normalized to DER for parsing)' : entry.cmsEncoding}
               testid="signature-cms-encoding"
+            />
+          )}
+          {entry.cmsTrailingBytes && (
+            <Row
+              label="Trailing bytes"
+              value={`${entry.cmsTrailingBytes.count} bytes after the CMS at offset ${entry.cmsTrailingBytes.offset} contain non-zero data`}
+              testid="signature-cms-trailing-bytes"
+              tone="warning"
             />
           )}
           <Row label="SubFilter" value={entry.subFilter || '-'} />

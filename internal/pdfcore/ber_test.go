@@ -2,8 +2,7 @@
 //
 // Surface under test:
 //
-//	normalizeBER(in []byte) (der []byte, isBER bool, err error)
-//	const maxCMSBytes = 8 << 20
+//	normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error)
 //	const maxBERDepth = 64
 //
 // Inputs are hand-built byte slices. Expected DER is built either by hand or
@@ -305,6 +304,13 @@ func berOKCases(t testing.TB) []berOKCase {
 			wantBER: false,
 		},
 		{
+			name: "definite parent whose content grows past 127 when an empty BIT STRING flattens gets a long-form length",
+			in:   berDef(0x30, []byte{0x23, 0x00}, berDef(0x04, bytes.Repeat([]byte{0x5A}, 123))),
+			want: append([]byte{0x30, 0x81, 0x80, 0x03, 0x01, 0x00},
+				berDef(0x04, bytes.Repeat([]byte{0x5A}, 123))...),
+			wantBER: true,
+		},
+		{
 			name:    "nesting at depth 64 is accepted",
 			in:      berNestIndef(63, []byte{0x04, 0x01, 0xAA}),
 			want:    berNestDef(63, []byte{0x04, 0x01, 0xAA}),
@@ -373,11 +379,6 @@ func berErrCases() []berErrCase {
 		{"tag number that does not fit in 31 bits",
 			[]byte{0x1F, 0x88, 0x80, 0x80, 0x80, 0x00, 0x00},
 			[]string{"unsupported tag encoding at offset 0"}},
-		{"non-zero trailing bytes after a DER element", []byte{0x02, 0x01, 0x05, 0x01},
-			[]string{"trailing data after the CMS ContentInfo at offset 3"}},
-		{"non-zero trailing bytes after a BER element",
-			[]byte{0x30, 0x80, 0x02, 0x01, 0x05, 0x00, 0x00, 0x07},
-			[]string{"trailing data after the CMS ContentInfo at offset 7"}},
 		{"nesting at depth 65", berNestIndef(64, []byte{0x04, 0x01, 0xAA}),
 			[]string{"BER nesting deeper than 64 at offset 128"}},
 		{"constructed OCTET STRING with a segment of another type",
@@ -407,13 +408,36 @@ func berErrCases() []berErrCase {
 	}
 }
 
+type berTailCase struct {
+	name     string
+	in       []byte
+	want     []byte
+	wantBER  bool
+	wantTail berTail
+}
+
+func berTailCases() []berTailCase {
+	return []berTailCase{
+		{"one non-zero byte after a DER element", []byte{0x02, 0x01, 0x05, 0x01},
+			[]byte{0x02, 0x01, 0x05}, false, berTail{offset: 3, count: 1}},
+		{"non-zero byte after a BER element",
+			[]byte{0x30, 0x80, 0x02, 0x01, 0x05, 0x00, 0x00, 0x07},
+			[]byte{0x30, 0x03, 0x02, 0x01, 0x05}, true, berTail{offset: 7, count: 1}},
+		{"count runs from the element end through the last non-zero byte, zero padding after it excluded",
+			[]byte{0x02, 0x01, 0x05, 0x00, 0xDE, 0x00, 0xEF, 0x00, 0x00},
+			[]byte{0x02, 0x01, 0x05}, false, berTail{offset: 3, count: 4}},
+		{"zero padding only reports no tail", []byte{0x02, 0x01, 0x05, 0x00, 0x00},
+			[]byte{0x02, 0x01, 0x05}, false, berTail{}},
+	}
+}
+
 // --- table tests -------------------------------------------------------------
 
 func TestNormalizeBER_Normalizes(t *testing.T) {
 	for _, tc := range berOKCases(t) {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			out, isBER, err := normalizeBER(tc.in)
+			out, isBER, tail, err := normalizeBER(tc.in)
 			if err != nil {
 				t.Fatalf("normalizeBER error: %v", err)
 			}
@@ -422,6 +446,33 @@ func TestNormalizeBER_Normalizes(t *testing.T) {
 			}
 			if isBER != tc.wantBER {
 				t.Errorf("isBER = %v, want %v", isBER, tc.wantBER)
+			}
+			if tail != (berTail{}) {
+				t.Errorf("tail = %+v, want none", tail)
+			}
+			if !bytes.Equal(tc.in, orig) {
+				t.Errorf("input was modified")
+			}
+		})
+	}
+}
+
+func TestNormalizeBER_ReportsNonZeroBytesAfterTheElement(t *testing.T) {
+	for _, tc := range berTailCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			orig := bytes.Clone(tc.in)
+			out, isBER, tail, err := normalizeBER(tc.in)
+			if err != nil {
+				t.Fatalf("normalizeBER error: %v", err)
+			}
+			if !bytes.Equal(out, tc.want) {
+				t.Errorf("output = % X\nwant     % X", out, tc.want)
+			}
+			if isBER != tc.wantBER {
+				t.Errorf("isBER = %v, want %v", isBER, tc.wantBER)
+			}
+			if tail != tc.wantTail {
+				t.Errorf("tail = %+v, want %+v", tail, tc.wantTail)
 			}
 			if !bytes.Equal(tc.in, orig) {
 				t.Errorf("input was modified")
@@ -434,7 +485,7 @@ func TestNormalizeBER_RejectsMalformedInput(t *testing.T) {
 	for _, tc := range berErrCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			_, _, err := normalizeBER(tc.in)
+			_, _, _, err := normalizeBER(tc.in)
 			if err == nil {
 				t.Fatalf("normalizeBER accepted % X, want an error containing %q", tc.in, tc.want)
 			}
@@ -453,7 +504,7 @@ func TestNormalizeBER_RejectsMalformedInput(t *testing.T) {
 func TestNormalizeBER_ReturnsANewBuffer(t *testing.T) {
 	in := mustMarshal(t, berOuter{Inner: berInner{A: 5}})
 	orig := bytes.Clone(in)
-	out, _, err := normalizeBER(in)
+	out, _, _, err := normalizeBER(in)
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
@@ -466,61 +517,31 @@ func TestNormalizeBER_ReturnsANewBuffer(t *testing.T) {
 	}
 }
 
-func TestNormalizeBER_ElementOverSizeCapFails(t *testing.T) {
-	// A primitive OCTET STRING whose full encoding (5-byte header + content)
-	// is one byte over the cap.
-	in := berDef(0x04, make([]byte, maxCMSBytes+1-5))
-	if len(in) != maxCMSBytes+1 {
-		t.Fatalf("test input is %d bytes, want %d", len(in), maxCMSBytes+1)
+func TestNormalizeBER_DERInputTakesTheCopyPath(t *testing.T) {
+	elem := mustMarshal(t, berOuter{Inner: berInner{A: 5}})
+	in := append(bytes.Clone(elem), 0x00, 0x00, 0x00)
+	out, isBER, tail, err := normalizeBER(in)
+	if err != nil {
+		t.Fatalf("normalizeBER error: %v", err)
 	}
-	_, _, err := normalizeBER(in)
-	if err == nil {
-		t.Fatal("normalizeBER accepted an element larger than maxCMSBytes")
+	if isBER {
+		t.Errorf("isBER = true for a DER element")
 	}
-	if !strings.Contains(err.Error(), "CMS element at offset 0 is larger than 8 MiB") {
-		t.Errorf("error = %q, want the size-cap message", err.Error())
+	if tail != (berTail{}) {
+		t.Errorf("tail = %+v, want none", tail)
 	}
-}
-
-// Inputs near the size cap whose walk crosses it after the first header: the
-// normalized output outgrowing the cap, a child starting at the cap, and an
-// end-of-contents that would end past it.
-func TestNormalizeBER_WalkPastSizeCapFails(t *testing.T) {
-	cases := []struct {
-		name string
-		in   func() []byte
-	}{
-		{"indefinite-to-definite rewrite grows the output past the cap", func() []byte {
-			// 8 MiB of input; each indefinite level gains a byte as a 4-octet
-			// definite header (2+2 bytes become 1+4).
-			return berNestIndef(2, berDef(0x04, make([]byte, maxCMSBytes-13)))
-		}},
-		{"child element starts at the cap", func() []byte {
-			in := append([]byte{0x30, 0x80}, berDef(0x04, make([]byte, maxCMSBytes-7))...)
-			return append(in, 0x04, 0x00, 0x00, 0x00)
-		}},
-		{"end-of-contents runs past the cap", func() []byte {
-			in := append([]byte{0x30, 0x80}, berDef(0x04, make([]byte, maxCMSBytes-8))...)
-			return append(in, 0x00, 0x00)
-		}},
+	if !bytes.Equal(out, in[:len(elem)]) {
+		t.Errorf("output = % X, want % X", out, in[:len(elem)])
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, _, err := normalizeBER(tc.in())
-			if err == nil {
-				t.Fatal("normalizeBER accepted an input whose walk crosses maxCMSBytes")
-			}
-			if !strings.Contains(err.Error(), "CMS element at offset 0 is larger than 8 MiB") {
-				t.Errorf("error = %q, want the size-cap message", err.Error())
-			}
-		})
+	if &out[0] == &in[0] {
+		t.Errorf("output shares the input's backing array")
 	}
 }
 
-func TestNormalizeBER_ZeroPaddingBeyondSizeCapIsAccepted(t *testing.T) {
+func TestNormalizeBER_LargeZeroPaddingIsAccepted(t *testing.T) {
 	elem := []byte{0x02, 0x01, 0x05}
-	in := append(bytes.Clone(elem), make([]byte, maxCMSBytes+1)...)
-	out, isBER, err := normalizeBER(in)
+	in := append(bytes.Clone(elem), make([]byte, 9<<20)...)
+	out, isBER, tail, err := normalizeBER(in)
 	if err != nil {
 		t.Fatalf("normalizeBER error on a small element in a large zero-padded buffer: %v", err)
 	}
@@ -529,6 +550,9 @@ func TestNormalizeBER_ZeroPaddingBeyondSizeCapIsAccepted(t *testing.T) {
 	}
 	if isBER {
 		t.Errorf("isBER = true, want false (zero padding is not part of the element)")
+	}
+	if tail != (berTail{}) {
+		t.Errorf("tail = %+v, want none", tail)
 	}
 }
 
@@ -541,7 +565,7 @@ func TestNormalizeBER_FullyIndefiniteCMSNormalizesToOriginalDER(t *testing.T) {
 	ci := rv.FullBytes
 	ber := berAllIndef(t, ci)
 
-	out, isBER, err := normalizeBER(ber)
+	out, isBER, _, err := normalizeBER(ber)
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
@@ -552,7 +576,7 @@ func TestNormalizeBER_FullyIndefiniteCMSNormalizesToOriginalDER(t *testing.T) {
 		t.Errorf("normalized output differs from the original DER ContentInfo (len %d vs %d)", len(out), len(ci))
 	}
 
-	out2, isBER2, err := normalizeBER(der)
+	out2, isBER2, _, err := normalizeBER(der)
 	if err != nil {
 		t.Fatalf("normalizeBER error on the zero-padded DER payload: %v", err)
 	}
@@ -564,22 +588,26 @@ func TestNormalizeBER_FullyIndefiniteCMSNormalizesToOriginalDER(t *testing.T) {
 	}
 }
 
-// Normalizing a 64-deep input near the size cap must not allocate a buffer per
-// nesting level.
+// Normalizing a 64-deep BER input holding a 12 MiB OCTET STRING must not
+// allocate a buffer per nesting level.
 func TestNormalizeBER_AllocationStaysProportionalToInput(t *testing.T) {
-	in := berNestIndef(63, berDef(0x04, make([]byte, 8<<20-1024)))
+	in := berNestIndef(63, berDef(0x04, make([]byte, 12<<20)))
 
 	var before, after runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&before)
-	out, _, err := normalizeBER(in)
+	out, isBER, _, err := normalizeBER(in)
 	runtime.ReadMemStats(&after)
 
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
-	if len(out) == 0 || len(out) > maxCMSBytes {
-		t.Fatalf("output length %d outside (0, maxCMSBytes]", len(out))
+	if !isBER {
+		t.Errorf("isBER = false for an indefinite-length input")
+	}
+	// Each of the 64 elements adds at most 4 bytes.
+	if len(out) == 0 || len(out) > len(in)+4*64 {
+		t.Fatalf("output length %d outside (0, %d]", len(out), len(in)+4*64)
 	}
 	alloc := after.TotalAlloc - before.TotalAlloc
 	if limit := uint64(3 * len(in)); alloc >= limit {
@@ -587,16 +615,57 @@ func TestNormalizeBER_AllocationStaysProportionalToInput(t *testing.T) {
 	}
 }
 
+// DER input is validated without building records: the returned copy is the
+// only allocation.
+func TestNormalizeBER_DERAllocatesOnlyTheCopy(t *testing.T) {
+	der := fixtureCMSPayload(t, "signed.pdf")
+	allocs := testing.AllocsPerRun(10, func() {
+		if _, isBER, _, err := normalizeBER(der); err != nil || isBER {
+			t.Fatalf("normalizeBER: isBER=%v err=%v, want DER", isBER, err)
+		}
+	})
+	if allocs != 1 {
+		t.Errorf("normalizeBER made %v allocations for DER input, want 1", allocs)
+	}
+}
+
+// derElementCount returns the number of elements in one DER element,
+// itself included.
+func derElementCount(t *testing.T, der []byte) int {
+	t.Helper()
+	var rv asn1.RawValue
+	if _, err := asn1.Unmarshal(der, &rv); err != nil {
+		t.Fatalf("derElementCount: %v", err)
+	}
+	n := 1
+	if !rv.IsCompound {
+		return n
+	}
+	for c := rv.Bytes; len(c) > 0; {
+		var child asn1.RawValue
+		rest, err := asn1.Unmarshal(c, &child)
+		if err != nil {
+			t.Fatalf("derElementCount: %v", err)
+		}
+		n += derElementCount(t, child.FullBytes)
+		c = rest
+	}
+	return n
+}
+
 // --- fuzz --------------------------------------------------------------------
 
 // FuzzNormalizeBER holds, for every input: no panic, input unchanged, and on
-// success an output that is one complete DER element within the size cap and
-// that normalizes to itself.
+// success an output that is one complete DER element, no more than 4 bytes
+// per element longer than the input, and that normalizes to itself.
 func FuzzNormalizeBER(f *testing.F) {
 	for _, tc := range berOKCases(f) {
 		f.Add(tc.in)
 	}
 	for _, tc := range berErrCases() {
+		f.Add(tc.in)
+	}
+	for _, tc := range berTailCases() {
 		f.Add(tc.in)
 	}
 	for _, name := range []string{"signed.pdf", "signed-ber.pdf", "signed-ber-detached.pdf"} {
@@ -605,15 +674,15 @@ func FuzzNormalizeBER(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, in []byte) {
 		orig := bytes.Clone(in)
-		out, _, err := normalizeBER(in)
+		out, _, tail, err := normalizeBER(in)
 		if !bytes.Equal(in, orig) {
 			t.Fatalf("input was modified")
 		}
 		if err != nil {
 			return
 		}
-		if len(out) > maxCMSBytes {
-			t.Fatalf("output length %d exceeds maxCMSBytes", len(out))
+		if tail.count < 0 || tail.offset+tail.count > len(in) {
+			t.Fatalf("tail %+v outside the %d-byte input", tail, len(in))
 		}
 		var rv asn1.RawValue
 		rest, perr := asn1.Unmarshal(out, &rv)
@@ -623,12 +692,21 @@ func FuzzNormalizeBER(f *testing.F) {
 		if len(rest) != 0 {
 			t.Fatalf("output has %d bytes after the element", len(rest))
 		}
-		again, isBER, err := normalizeBER(out)
+		// Each element adds at most 4 bytes beyond its children's growth: 1 to
+		// 5 length octets out against at least 1 in, contents copied, and an
+		// empty flattened BIT STRING gains only its 1-byte unused-bits octet.
+		if limit := len(in) + 4*derElementCount(t, out); len(out) > limit {
+			t.Fatalf("output length %d exceeds %d (input %d + 4 per output element)", len(out), limit, len(in))
+		}
+		again, isBER, againTail, err := normalizeBER(out)
 		if err != nil {
 			t.Fatalf("normalizing the output failed: %v\nout % X", err, out)
 		}
 		if isBER {
 			t.Fatalf("normalized output still reports BER\nout % X", out)
+		}
+		if againTail != (berTail{}) {
+			t.Fatalf("normalized output reports a tail %+v", againTail)
 		}
 		if !bytes.Equal(again, out) {
 			t.Fatalf("normalization is not idempotent\nout   % X\nagain % X", out, again)

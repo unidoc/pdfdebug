@@ -4,10 +4,12 @@
 // generated signature fixtures in testdata/. Covers output shape and exit
 // codes only; normalizer edge cases live in the pdfcore unit tests.
 //
-// JSON field asserted here (additive to the existing signature entry):
+// JSON fields asserted here (additive to the existing signature entry):
 //
-//	cmsEncoding  string  "DER" | "BER" | "" (payload did not decode to a
-//	                     complete element, or the SubFilter is not CMS)
+//	cmsEncoding       string  "DER" | "BER" | "" (payload did not decode to a
+//	                          complete element, or the SubFilter is not CMS)
+//	cmsTrailingBytes  object  {offset, count} of non-zero bytes after the CMS;
+//	                          omitted when there are none
 //
 // Run: cd tests/ber-cms-signatures && go test -count=1 ./...
 package ber_cms_signatures_test
@@ -113,18 +115,26 @@ type certInfo struct {
 	Serial  string `json:"serial"`
 }
 
+// trailingBytes is the cmsTrailingBytes object.
+type trailingBytes struct {
+	Offset int `json:"offset"`
+	Count  int `json:"count"`
+}
+
 // sigEntry is the subset of a `dump signatures --json` entry this suite reads.
 // CMSEncoding is a pointer so a missing key is told apart from "".
 type sigEntry struct {
-	FieldName        string     `json:"fieldName"`
-	Signed           bool       `json:"signed"`
-	SubFilter        string     `json:"subFilter"`
-	DigestAlgorithm  string     `json:"digestAlgorithm"`
-	Signer           *certInfo  `json:"signer"`
-	SignerIdentified bool       `json:"signerIdentified"`
-	Certificates     []certInfo `json:"certificates"`
-	DecomposeError   string     `json:"decomposeError"`
-	CMSEncoding      *string    `json:"cmsEncoding"`
+	FieldName        string         `json:"fieldName"`
+	Signed           bool           `json:"signed"`
+	SubFilter        string         `json:"subFilter"`
+	DigestAlgorithm  string         `json:"digestAlgorithm"`
+	Signer           *certInfo      `json:"signer"`
+	SignerIdentified bool           `json:"signerIdentified"`
+	Certificates     []certInfo     `json:"certificates"`
+	DecomposeError   string         `json:"decomposeError"`
+	CMSEncoding      *string        `json:"cmsEncoding"`
+	CMSTrailingBytes *trailingBytes `json:"cmsTrailingBytes"`
+	Notes            []string       `json:"notes"`
 }
 
 // dumpSignaturesJSON runs `dump signatures --json` on a fixture, requires

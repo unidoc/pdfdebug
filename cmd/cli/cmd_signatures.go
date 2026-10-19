@@ -131,6 +131,9 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 			}
 			w.Add("CMS encoding", enc)
 		}
+		if t := s.CMSTrailingBytes; t != nil {
+			w.Addf("Trailing bytes", "%d bytes after the CMS at offset %d contain non-zero data", t.Count, t.Offset)
+		}
 		if len(s.Certificates) > 0 {
 			w.Addf("Certificates", "%d embedded", len(s.Certificates))
 			for j, c := range s.Certificates {
