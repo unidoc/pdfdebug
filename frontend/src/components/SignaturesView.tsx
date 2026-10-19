@@ -12,6 +12,7 @@ import { GetSignatures } from '../../bindings/unidoc-pdf-debugger/internal/pdfse
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { FILE_BUSY_MESSAGE, FILE_CHANGED_MESSAGE, isFileBusyMessage, isFileChangedMessage } from '../lib/fileChange';
 import { SMALL_BUTTON } from './buttonStyles';
+import { ProblemCallout, type ProblemTone } from './ProblemCallout';
 
 /** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
 export interface SignatureCertInfo {
@@ -71,6 +72,43 @@ export interface SignaturesViewProps {
    * fetch of its own; when omitted the view self-fetches on tabId change.
    */
   data?: SignatureEntryData[] | null;
+  /**
+   * Parent-side fetch failure message. When set the view renders it in place
+   * of the cards, as it does for its own failed fetch.
+   */
+  fetchError?: string | null;
+}
+
+/** Tab-level problem summary for a signature list: tone plus hover text. */
+export interface SignaturesIssue {
+  tone: ProblemTone;
+  title: string;
+}
+
+/** Formats "N signature(s) <rest>" with the right plural. */
+function countPhrase(n: number, rest: string): string {
+  return `${n} signature${n === 1 ? '' : 's'} ${rest}`;
+}
+
+/**
+ * Summarizes the problems in a signature list for the tab marker. Error tone
+ * when any entry has a decompose or coverage error; warning tone when none
+ * does but any has non-zero trailing bytes after the CMS; null when clean.
+ */
+export function signaturesIssue(list: SignatureEntryData[]): SignaturesIssue | null {
+  const decompose = list.filter((s) => s.decomposeError).length;
+  const coverage = list.filter((s) => s.coverageError).length;
+  if (decompose > 0 || coverage > 0) {
+    const parts: string[] = [];
+    if (decompose > 0) parts.push(countPhrase(decompose, 'could not be decomposed'));
+    if (coverage > 0) parts.push(countPhrase(coverage, 'could not be checked for ByteRange coverage'));
+    return { tone: 'error', title: parts.join('; ') };
+  }
+  const trailing = list.filter((s) => s.cmsTrailingBytes).length;
+  if (trailing > 0) {
+    return { tone: 'warning', title: countPhrase(trailing, trailing === 1 ? 'has non-zero bytes after the CMS' : 'have non-zero bytes after the CMS') };
+  }
+  return null;
 }
 
 /** UI text for a hole that could not be read from disk. */
@@ -80,11 +118,57 @@ function holeCheckMessage(raw: string): string {
   return raw;
 }
 
+/** Splits an RFC 4514 DN fragment on sep where sep is not backslash-escaped. */
+function splitUnescaped(s: string, sep: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\' && i + 1 < s.length) {
+      cur += s[i] + s[++i];
+    } else if (s[i] === sep) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += s[i];
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Removes RFC 4514 backslash escapes from an attribute value. */
+function unescapeDNValue(v: string): string {
+  return v.replace(/\\(.)/g, '$1');
+}
+
 /** Extracts the CN component from an X.509 DN string, falling back to the
  *  full DN. Card rows show the CN; the expanded chain shows full DNs. */
 function cnOf(dn: string): string {
-  const m = /(?:^|,)CN=([^,]+)/.exec(dn);
-  return m ? m[1] : dn;
+  for (const rdn of splitUnescaped(dn, ',')) {
+    for (const atv of splitUnescaped(rdn, '+')) {
+      if (atv.startsWith('CN=')) return unescapeDNValue(atv.slice(3));
+    }
+  }
+  return dn;
+}
+
+/** Renders an RFC 4514 DN for reading: RDNs joined by ", ", multi-valued RDN
+ *  parts by " + ", escapes removed, and a value that holds a separator, a quote
+ *  or edge spaces put in double quotes so the parts stay unambiguous. */
+function formatDN(dn: string): string {
+  return splitUnescaped(dn, ',')
+    .map((rdn) =>
+      splitUnescaped(rdn, '+')
+        .map((atv) => {
+          const eq = atv.indexOf('=');
+          if (eq < 0) return unescapeDNValue(atv);
+          const v = unescapeDNValue(atv.slice(eq + 1));
+          const quoted = /[,+"]|^\s|\s$/.test(v) ? `"${v.replace(/"/g, '\\"')}"` : v;
+          return atv.slice(0, eq + 1) + quoted;
+        })
+        .join(' + ')
+    )
+    .join(', ');
 }
 
 /** Returns the date part (YYYY-MM-DD) of an RFC 3339 timestamp. */
@@ -179,6 +263,13 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
         </div>
       )}
 
+      {entry.signed && (entry.decomposeError || entry.coverageError) && (
+        <ProblemCallout tone="error" testid="signature-problem" className="mb-2">
+          {entry.decomposeError && <div>Could not decompose this signature: {entry.decomposeError}</div>}
+          {entry.coverageError && <div>Could not check ByteRange coverage: {entry.coverageError}</div>}
+        </ProblemCallout>
+      )}
+
       {entry.signed && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
           {entry.signer && (
@@ -223,9 +314,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
           {entry.reason && <Row label="Reason" value={entry.reason} />}
           {entry.location && <Row label="Location" value={entry.location} />}
           {entry.contactInfo && <Row label="Contact" value={entry.contactInfo} />}
-          {entry.coverageError ? (
-            <Row label="Coverage error" value={entry.coverageError} testid="signature-coverage-error" />
-          ) : entry.byteRange && entry.byteRange.length === 4 ? (
+          {!entry.coverageError && entry.byteRange && entry.byteRange.length === 4 ? (
             <>
               <Row label="ByteRange" value={`[${entry.byteRange.join(' ')}]`} />
               <Row
@@ -245,9 +334,6 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
               />
             </>
           ) : null}
-          {entry.decomposeError && (
-            <Row label="Decompose error" value={entry.decomposeError} testid="signature-decompose-error" />
-          )}
           {otherNotes.map((n, i) => (
             <Row key={i} label="Note" value={n} />
           ))}
@@ -271,8 +357,8 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
             <ul className="mt-1 pl-2 border-l border-border" data-testid="signature-cert-chain-list">
               {certificates.map((c, i) => (
                 <li key={i} className="py-1">
-                  <div className="text-text">{c.subject}</div>
-                  <div className="text-text-muted">issued by {c.issuer}</div>
+                  <div className="text-text">{formatDN(c.subject)}</div>
+                  <div className="text-text-muted">issued by {formatDN(c.issuer)}</div>
                   <div className="text-text-muted">
                     serial {c.serial}, {datePart(c.notBefore)} to {datePart(c.notAfter)}
                   </div>
@@ -305,10 +391,11 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
 
 /**
  * Document-level Signatures view. Renders the parent-cached list when the
- * `data` prop is provided (DetailPanel's one-fetch-per-document contract);
- * self-fetches on tabId change otherwise.
+ * `data` prop is provided (DetailPanel's one-fetch-per-document contract) and
+ * the parent's `fetchError` when that fetch failed; self-fetches on tabId
+ * change otherwise.
  */
-export function SignaturesView({ tabId, active: _active, onNavigate, data }: SignaturesViewProps) {
+export function SignaturesView({ tabId, active: _active, onNavigate, data, fetchError }: SignaturesViewProps) {
   const [entries, setEntries] = useState<SignatureEntryData[] | null>(data ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -345,10 +432,11 @@ export function SignaturesView({ tabId, active: _active, onNavigate, data }: Sig
       </div>
     );
   }
-  if (error) {
+  const shownError = fetchError || error;
+  if (shownError) {
     return (
       <div className="p-3 text-error text-sm" data-testid="signatures-error">
-        {error}
+        {shownError}
       </div>
     );
   }

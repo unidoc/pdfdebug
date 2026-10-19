@@ -7,6 +7,9 @@
  *    always-visible tabs).
  *  - Visibility is driven by ONE GetSignatures fetch per document tab, made on
  *    mount and cached in state -- no refetch on tab switches.
+ *  - The tab label carries an issue marker: error tone for a decompose or
+ *    coverage error, warning tone for trailing CMS bytes only, none when clean.
+ *  - A failed fetch shows the tab with an error marker and the message.
  *
  * The new bound method (GetSignatures) is stubbed in the binding mock here so
  * DetailPanel's new tab does not widen the App.test.tsx vi.mock gap (mirrors
@@ -154,6 +157,54 @@ describe('DetailPanel Signatures tab', () => {
     fireEvent.click(screen.getByRole('tab', { name: /signatures/i }));
     fireEvent.click(screen.getByRole('tab', { name: /object/i }));
     fireEvent.click(screen.getByRole('tab', { name: /signatures/i }));
+    expect(mockGetSignatures).toHaveBeenCalledTimes(1);
+  });
+
+  // A clean signature list puts no marker on the tab.
+  test('no issue marker when signatures are clean', async () => {
+    mockGetSignatures.mockResolvedValue(oneSignature);
+    renderPanel([openAction]);
+
+    await waitFor(() => screen.getByRole('tab', { name: /signatures/i }));
+    expect(screen.queryByTestId('tab-issue-signatures')).not.toBeInTheDocument();
+  });
+
+  // A decompose error marks the tab in the error tone with an accessible label.
+  test('error marker for a decompose error', async () => {
+    mockGetSignatures.mockResolvedValue([{ ...oneSignature[0], decomposeError: 'asn1: indefinite length' }]);
+    renderPanel([openAction]);
+
+    const marker = await screen.findByTestId('tab-issue-signatures');
+    expect(marker.getAttribute('data-tone')).toBe('error');
+    expect(marker.className).toContain('bg-error');
+    expect(marker.getAttribute('title')).toBe('1 signature could not be decomposed');
+    expect(screen.getByRole('img', { name: '1 signature could not be decomposed' })).toBe(marker);
+    expect(screen.getByTestId('detail-tab-signatures').contains(marker)).toBe(true);
+  });
+
+  // Trailing CMS bytes alone mark the tab in the warning tone.
+  test('warning marker for trailing CMS bytes only', async () => {
+    mockGetSignatures.mockResolvedValue([{ ...oneSignature[0], cmsTrailingBytes: { offset: 100, count: 8 } }]);
+    renderPanel([openAction]);
+
+    const marker = await screen.findByTestId('tab-issue-signatures');
+    expect(marker.getAttribute('data-tone')).toBe('warning');
+    expect(marker.className).toContain('bg-warning');
+    expect(marker.getAttribute('title')).toBe('1 signature has non-zero bytes after the CMS');
+  });
+
+  // A rejected fetch shows the tab with an error marker and the message in
+  // the tab body.
+  test('fetch failure shows the tab with marker and error text', async () => {
+    mockGetSignatures.mockRejectedValue(new Error('signatures: parse failed'));
+    renderPanel([openAction]);
+
+    const tab = await screen.findByRole('tab', { name: /signatures/i });
+    const marker = screen.getByTestId('tab-issue-signatures');
+    expect(marker.getAttribute('data-tone')).toBe('error');
+    expect(marker.getAttribute('title')).toBe('Could not load signatures: signatures: parse failed');
+    fireEvent.click(tab);
+    expect(screen.getByTestId('signatures-error').textContent).toBe('signatures: parse failed');
     expect(mockGetSignatures).toHaveBeenCalledTimes(1);
   });
 });

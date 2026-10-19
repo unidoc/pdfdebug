@@ -313,15 +313,16 @@ describe('signatures on a file that changed on disk', () => {
     expect(b.GetDiskStatus).not.toHaveBeenCalled();
   });
 
-  test('another GetSignatures error still hides the tab and checks nothing', async () => {
+  test('another GetSignatures error shows the tab with the error and checks nothing', async () => {
     const p = paths();
     b.GetSignatures.mockRejectedValue(envelope('malformed PDF: bad acroform'));
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount();
     open(p.a, p.pathA);
 
-    await waitFor(() => expect(b.GetSignatures).toHaveBeenCalledWith(p.a));
-    expect(screen.queryByRole('tab', { name: /signatures/i })).not.toBeInTheDocument();
+    const sigTab = await screen.findByRole('tab', { name: /signatures/i });
+    expect(screen.getByTestId('tab-issue-signatures').getAttribute('data-tone')).toBe('error');
+    fireEvent.click(sigTab);
+    expect(screen.getByTestId('signatures-error').textContent).toContain('malformed PDF: bad acroform');
     expect(b.GetDiskStatus).not.toHaveBeenCalled();
   });
 });

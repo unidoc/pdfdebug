@@ -209,7 +209,7 @@ func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Objec
 	}
 
 	name := parentName
-	if t := stringValue(dereference(doc, d["T"])); t != "" {
+	if t := textStringOrRaw(dereference(doc, d["T"])); t != "" {
 		if name == "" {
 			name = t
 		} else {
@@ -279,16 +279,16 @@ func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Di
 	if n, ok := dereference(doc, sig["SubFilter"]).(pdfcpu_types.Name); ok {
 		f.SubFilter = n.Value()
 	}
-	if raw := stringValue(dereference(doc, sig["M"])); raw != "" {
+	if raw := textStringOrRaw(dereference(doc, sig["M"])); raw != "" {
 		f.SigningTimeRaw = raw
 		if t, ok := pdfcpu_types.DateTime(raw, true); ok {
 			f.SigningTime = t.Format(time.RFC3339)
 		}
 	}
-	f.Name = stringValue(dereference(doc, sig["Name"]))
-	f.Reason = stringValue(dereference(doc, sig["Reason"]))
-	f.Location = stringValue(dereference(doc, sig["Location"]))
-	f.ContactInfo = stringValue(dereference(doc, sig["ContactInfo"]))
+	f.Name = textStringOrRaw(dereference(doc, sig["Name"]))
+	f.Reason = textStringOrRaw(dereference(doc, sig["Reason"]))
+	f.Location = textStringOrRaw(dereference(doc, sig["Location"]))
+	f.ContactInfo = textStringOrRaw(dereference(doc, sig["ContactInfo"]))
 
 	computeByteRangeCoverage(doc, hr, sig, &f)
 
