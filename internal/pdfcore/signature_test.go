@@ -28,10 +28,10 @@
 // /Contents payloads here are deliberately FAKE (non-CMS) hex -- enumeration
 // and ByteRange coverage are decomposition-independent facts, and a
 // DecomposeError on these fixtures is expected and ignored. Real-CMS
-// decomposition is covered black-box by the acceptance suite, which generates
-// a genuinely signed fixture. Layouts here are byte-identical (modulo the
-// /Contents capacity) to fixtures validated against pdfcpu default validation
-// when the suite was written.
+// decomposition is covered by signature_ber_test.go against the committed
+// signed fixtures in testdata/, and black-box by the acceptance suites.
+// Layouts here are byte-identical (modulo the /Contents capacity) to fixtures
+// validated against pdfcpu default validation when the suite was written.
 package pdfcore
 
 import (
@@ -61,6 +61,17 @@ type sigUnitOpt struct {
 	kids      bool   // parent/kids hierarchy with inherited /FT
 	directV   bool   // /V is a direct inline dict on the field
 	certHex   string // when non-empty, adds /Cert <certHex>
+	// contentsHex, when non-empty, is the whole /Contents hex payload: the
+	// hole is sized to exactly len(contentsHex) hex chars with no padding.
+	contentsHex string
+}
+
+// contentsHexLen is the /Contents hole capacity in hex chars for o.
+func (o sigUnitOpt) contentsHexLen() int {
+	if o.contentsHex != "" {
+		return len(o.contentsHex)
+	}
+	return sigUnitHexCap
 }
 
 // sigUnitDict renders a signature dict with a fixed-width /ByteRange
@@ -72,7 +83,7 @@ func sigUnitDict(o sigUnitOpt) string {
 	}
 	d := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /" + sub +
 		" /ByteRange [0000000000 0000000000 0000000000 0000000000]" +
-		" /Contents <" + strings.Repeat("0", sigUnitHexCap) + ">" +
+		" /Contents <" + strings.Repeat("0", o.contentsHexLen()) + ">" +
 		" /M (D:20260101120000+00'00') /Name (ATDD Signer) /Reason (Unit) /Location (Testville)"
 	if o.certHex != "" {
 		d += " /Cert <" + o.certHex + ">"
@@ -121,7 +132,7 @@ func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 		t.Fatal("sig fixture: no /Contents placeholder")
 	}
 	holeStart := ci + len("/Contents ")
-	holeEnd := holeStart + 1 + sigUnitHexCap + 1 // '<' + hex + '>'
+	holeEnd := holeStart + 1 + o.contentsHexLen() + 1 // '<' + hex + '>'
 
 	a := 0
 	b := holeStart + o.holeShift
@@ -134,7 +145,12 @@ func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 	}
 	copy(file[bi+len("/ByteRange "):], br)
 
-	// Fake non-CMS payload; trailing zeros exercise the padding trim path.
+	if o.contentsHex != "" {
+		copy(file[holeStart+1:], o.contentsHex)
+		return file
+	}
+	// Fake non-CMS payload followed by the zero padding; DE AD starts an
+	// element with an unsupported length encoding, so CMS decomposition fails.
 	copy(file[holeStart+1:], "DEADBEEF")
 	return file
 }

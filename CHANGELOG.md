@@ -11,6 +11,15 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - File > "Compare with File on Disk" diffs the open version against the file as it is now on disk, in the Diff panel, labelled "On disk (14:05)". Files over 500 MB ask first. Reload in the Diff header then makes the compared copy the tab's document without parsing it again
 - Plain Text and the CLI's `dump bytes` (raw and `--json`) refuse to read a file that changed since it was parsed ("file changed on disk") instead of mixing the old structure with the new bytes. Signatures and `dump signatures` keep every signature's details and show the /Contents hole check as "not checked" for such a file; they used to report a hole mismatch. On Windows a file another app has locked shows "File is in use by another app" in Plain Text and in the hole check instead
 
+### Changed
+
+- Non-zero bytes after the CMS in a signature's /Contents are now a decompose error, and so are bytes after the SignedData inside the ContentInfo's `[0]` wrapper. Zero padding after the CMS is still accepted. Such a signature used to decompose and ignore the extra bytes
+- A CMS element over 8 MiB, or nested more than 64 levels deep, is now a decompose error for DER signatures too. DER signatures used to decompose with no size or nesting limit
+
+### Fixed
+
+- Signatures whose CMS is BER-encoded with indefinite lengths, as DocuSign writes them, now decompose: signer, certificate chain and algorithms are listed instead of `CMS parse failed: asn1: syntax error: indefinite length found (not DER)`. `dump signatures` and the Signatures panel show the encoding as `CMS encoding: DER` or `BER (normalized to DER for parsing)`, and `--json` gains a `cmsEncoding` key (`DER`, `BER`, or empty when the payload did not decode). The normalized copy is used only for parsing; the /Contents bytes are left as they are in the file
+
 ## [0.5.0] - 2026-10-14
 
 Left-rail navigators for structure, pages and images, an image preview, update notices in the app and the CLI, and a CLI that says what it checked and rejects invocations it would have misread. Moves the app runtime to Wails v3 beta.

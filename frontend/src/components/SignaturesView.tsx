@@ -51,6 +51,8 @@ export interface SignatureEntryData {
   coverageError?: string;
   /** Set when the hole could not be read from disk (file changed or busy). */
   holeCheckError?: string;
+  /** Encoding of the /Contents CMS as found: "DER", "BER", or empty. */
+  cmsEncoding?: string;
 }
 
 /** Props for {@link SignaturesView}. */
@@ -182,6 +184,13 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
           {entry.digestAlgorithm && <Row label="Digest algorithm" value={entry.digestAlgorithm} />}
           {entry.signatureAlgorithm && (
             <Row label="Signature algorithm" value={entry.signatureAlgorithm} />
+          )}
+          {entry.cmsEncoding && (
+            <Row
+              label="CMS encoding"
+              value={entry.cmsEncoding === 'BER' ? 'BER (normalized to DER for parsing)' : entry.cmsEncoding}
+              testid="signature-cms-encoding"
+            />
           )}
           <Row label="SubFilter" value={entry.subFilter || '-'} />
           {entry.type && <Row label="Type" value={entry.type} />}

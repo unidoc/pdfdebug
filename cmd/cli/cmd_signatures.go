@@ -124,6 +124,13 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 		if s.SignatureAlgorithm != "" {
 			w.Add("Signature algorithm", s.SignatureAlgorithm)
 		}
+		if s.CMSEncoding != "" {
+			enc := s.CMSEncoding
+			if enc == "BER" {
+				enc += " (normalized to DER for parsing)"
+			}
+			w.Add("CMS encoding", enc)
+		}
 		if len(s.Certificates) > 0 {
 			w.Addf("Certificates", "%d embedded", len(s.Certificates))
 			for j, c := range s.Certificates {
