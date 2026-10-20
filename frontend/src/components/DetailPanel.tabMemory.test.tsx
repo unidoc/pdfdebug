@@ -1,7 +1,8 @@
 /**
  * The detail tab (Object, XREF, Plain Text, ...) is remembered per document
  * tab: switching back restores it, a document seen for the first time opens on
- * Object, and a restored Signatures tab waits for the signature list.
+ * Object, a restored Signatures tab shows Object until the signature list
+ * resolves, and Diff is not restored because its comparison is not kept.
  *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.tabMemory.test.tsx
  */
@@ -206,6 +207,45 @@ describe('DetailPanel keeps the active tab per document', () => {
 
     activate(t.a);
     await waitFor(() => expectActive('signatures'));
+  });
+
+  test('while the signature list loads after a switch back, Object is shown', async () => {
+    const t = ids();
+    let pending: ((v: unknown) => void) | null = null;
+    let callsA = 0;
+    b.GetSignatures.mockImplementation((tabId: string) => {
+      if (tabId !== t.a) return Promise.resolve([]);
+      callsA += 1;
+      if (callsA === 1) return Promise.resolve([signature]);
+      return new Promise((resolve) => {
+        pending = resolve;
+      });
+    });
+    mount();
+    open(t.a, t.pathA);
+    fireEvent.click(await screen.findByTestId('detail-tab-signatures'));
+    open(t.b, t.pathB);
+
+    activate(t.a);
+    await waitFor(() => expect(pending).not.toBeNull());
+    expectActive('object');
+
+    await act(async () => {
+      pending?.([signature]);
+    });
+    await waitFor(() => expectActive('signatures'));
+  });
+
+  test('a document left on Diff comes back on Object', async () => {
+    const t = ids();
+    mount();
+    open(t.a, t.pathA);
+    fireEvent.click(screen.getByTestId('detail-tab-diff'));
+    expectActive('diff');
+    open(t.b, t.pathB);
+
+    activate(t.a);
+    expectActive('object');
   });
 
   test('a restored Signatures tab falls back to Object when the list is empty', async () => {

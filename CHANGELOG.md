@@ -18,7 +18,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ### Fixed
 
-- The detail panel keeps each document's tab. Switching to another document and back returns to the tab you left (XREF, Metadata, Signatures and so on) instead of Object. A newly opened or reloaded document still starts on Object
+- The detail panel keeps each document's tab. Switching to another document and back returns to the tab you left (XREF, Metadata, Signatures and so on) instead of Object. Diff is the exception: its comparison is not kept across a switch, so it comes back on Object. A newly opened or reloaded document still starts on Object
 - Signatures whose CMS is BER-encoded with indefinite lengths, as DocuSign writes them, now decompose: signer, certificate chain and algorithms are listed instead of `CMS parse failed: asn1: syntax error: indefinite length found (not DER)`. `dump signatures` and the Signatures panel show the encoding as `CMS encoding: DER` or `BER (normalized to DER for parsing)`, and `--json` gains a `cmsEncoding` key (`DER`, `BER`, or empty when the payload did not decode). The normalized copy is used only for parsing; the /Contents bytes are left as they are in the file
 - Signature field names, Name, Reason, Location, ContactInfo and signing time written as hex strings (`/T <454E56...>`) are decoded in `dump signatures` and the Signatures panel instead of shown as hex digits. UTF-16 hex strings decode too
 - The Signatures panel no longer cuts a signer or issuer name at an escaped comma: `CN=DocuSign\, Inc.` shows as `DocuSign, Inc.`, not `DocuSign\`. The expanded certificate chain shows names without backslash escapes, separated by `, `, with a value that contains a comma in quotes (`O="Entrust, Inc."`)

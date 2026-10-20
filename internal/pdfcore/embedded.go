@@ -313,8 +313,8 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 //
 // Used for two kinds of field. Decoding would corrupt the first: filespec
 // /Params /CheckSum, signature /Contents and /Cert, trailer /ID. The second is
-// only unwired: /Params /ModDate and the /Info date keys (legally text strings),
-// catalog /Lang, and the signature /T, /Name, /Reason, /Location, /ContactInfo.
+// only unwired: /Params /ModDate and the /Info date keys (legally text strings)
+// and catalog /Lang.
 //
 // Text fields use textStringOrRaw, which also falls back to this, so it must
 // not be re-pointed at the decoder.

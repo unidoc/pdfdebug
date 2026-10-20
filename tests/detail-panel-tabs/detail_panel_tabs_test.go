@@ -462,10 +462,10 @@ func TestDetailPanelTablistAriaLabel(t *testing.T) {
 }
 
 // detailView state exists and is remembered per document tab: on activeTabId
-// change the effect restores that tab's last view, falling back to 'object'
-// for a tab seen for the first time. The restore behavior itself is covered by
+// change the effect restores that tab's last view, except Diff, falling back
+// to 'object'. The restore behavior itself is covered by
 // frontend/src/components/DetailPanel.tabMemory.test.tsx; this checks the
-// source still has a per-tab store and the 'object' fallback.
+// source still reads the per-tab store and keeps the 'object' fallback.
 func TestDetailPanelDetailViewRestorePerTab(t *testing.T) {
 	src := readSource(t, "frontend/src/components/DetailPanel.tsx")
 	if !strings.Contains(src, "detailView") {
@@ -477,8 +477,11 @@ func TestDetailPanelDetailViewRestorePerTab(t *testing.T) {
 	if !strings.Contains(src, "viewByTabRef") {
 		t.Fatalf("DetailPanel.tsx must keep the detail view per document tab (viewByTabRef)")
 	}
-	if !strings.Contains(src, `viewByTabRef.current.get(activeTabId)) || 'object'`) {
-		t.Fatalf("DetailPanel.tsx must restore the tab's view on activeTabId change and fall back to 'object'")
+	if !strings.Contains(src, "viewByTabRef.current.get(activeTabId)") {
+		t.Fatalf("DetailPanel.tsx must restore the tab's view from viewByTabRef on activeTabId change")
+	}
+	if !strings.Contains(src, `: 'object');`) {
+		t.Fatalf("DetailPanel.tsx must fall back to 'object' when no view is remembered")
 	}
 }
 

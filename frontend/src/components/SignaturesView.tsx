@@ -300,7 +300,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
           {entry.cmsTrailingBytes && (
             <Row
               label="Trailing bytes"
-              value={`${entry.cmsTrailingBytes.count} bytes after the CMS at offset ${entry.cmsTrailingBytes.offset} contain non-zero data`}
+              value={`${entry.cmsTrailingBytes.count} ${entry.cmsTrailingBytes.count === 1 ? 'byte' : 'bytes'} after the CMS at offset ${entry.cmsTrailingBytes.offset} ${entry.cmsTrailingBytes.count === 1 ? 'contains' : 'contain'} non-zero data`}
               testid="signature-cms-trailing-bytes"
               tone="warning"
             />

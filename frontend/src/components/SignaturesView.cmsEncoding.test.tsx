@@ -123,6 +123,13 @@ describe('SignaturesView CMS trailing bytes row', () => {
     );
   });
 
+  test('a single trailing byte reads "1 byte"', async () => {
+    await renderWith({ ...baseEntry, cmsEncoding: 'DER', cmsTrailingBytes: { offset: 10, count: 1 } });
+    expect(screen.getByTestId('signature-cms-trailing-bytes').textContent).toBe(
+      '1 byte after the CMS at offset 10 contains non-zero data'
+    );
+  });
+
   test('missing cmsTrailingBytes shows no row', async () => {
     await renderWith({ ...baseEntry, cmsEncoding: 'DER' });
     expect(screen.queryByTestId('signature-cms-trailing-bytes')).not.toBeInTheDocument();

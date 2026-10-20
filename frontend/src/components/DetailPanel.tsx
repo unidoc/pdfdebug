@@ -175,8 +175,9 @@ function DetailPanelInner() {
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
   // The active DetailPanel tab, remembered per document tab: switching back to
-  // a document restores its last view, and a document seen for the first time
-  // (a new open, or a reload, which mints a new tabId) opens on 'object'.
+  // a document restores its last view (except Diff), and a document seen for
+  // the first time (a new open, or a reload, which mints a new tabId) opens on
+  // 'object'.
   const [detailView, setDetailView] = useState<DetailView>('object');
   const viewByTabRef = useRef(new Map<string, DetailView>());
   // Entry count from the XREF tab, used in the "XREF (N)" tab label.
@@ -192,6 +193,11 @@ function DetailPanelInner() {
   // GetSignatures failure message; shows the tab with an error marker and the
   // message as the tab body.
   const [signaturesError, setSignaturesError] = useState<string | null>(null);
+  // The view on screen. A remembered Signatures view shows Object until the
+  // signature list resolves, because the Signatures tab does not exist before
+  // then and Tabs.Root would have no matching tab.
+  const shownView: DetailView =
+    detailView === 'signatures' && signatures === null && signaturesError === null ? 'object' : detailView;
   // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
@@ -251,7 +257,10 @@ function DetailPanelInner() {
     for (const id of viewByTabRef.current.keys()) {
       if (!open.has(id)) viewByTabRef.current.delete(id);
     }
-    setDetailView((activeTabId && viewByTabRef.current.get(activeTabId)) || 'object');
+    // Diff is not restored: the comparison is cleared below on every switch,
+    // so a remembered Diff would only show the empty picker.
+    const remembered = activeTabId ? viewByTabRef.current.get(activeTabId) : undefined;
+    setDetailView(remembered && remembered !== 'diff' ? remembered : 'object');
     setXrefEntryCount(null);
     setEmbeddedCount(null);
     setSignatures(null);
@@ -873,7 +882,7 @@ function DetailPanelInner() {
     spans: objectSpans,
     matcher: substringSpanMatcher,
     caseSensitive: findCaseSensitive,
-    active: detailView === 'object',
+    active: shownView === 'object',
     ready: objectFindable,
     barTestId: 'object-find-bar',
   });
@@ -972,7 +981,7 @@ function DetailPanelInner() {
   return (
     <div className="h-full flex flex-col" data-testid="detail-panel">
       <Tabs.Root
-        value={detailView}
+        value={shownView}
         onValueChange={(v) => changeDetailView(v as DetailView)}
         activationMode="manual"
         className="h-full flex flex-col"
@@ -1340,7 +1349,7 @@ function DetailPanelInner() {
         >
           <XRefTableView
             tabId={activeTabId ?? ''}
-            active={detailView === 'xref'}
+            active={shownView === 'xref'}
             onNavigate={handleXRefNavigate}
             onLoaded={setXrefEntryCount}
             findCaseSensitive={findCaseSensitive}
@@ -1356,7 +1365,7 @@ function DetailPanelInner() {
         >
           <PlainTextView
             tabId={activeTabId ?? ''}
-            active={detailView === 'plaintext'}
+            active={shownView === 'plaintext'}
           />
         </Tabs.Content>
 
@@ -1368,7 +1377,7 @@ function DetailPanelInner() {
         >
           <EmbeddedDataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'embedded'}
+            active={shownView === 'embedded'}
             onNavigate={handleEmbeddedNavigate}
             onLoaded={setEmbeddedCount}
           />
@@ -1382,7 +1391,7 @@ function DetailPanelInner() {
         >
           <DocumentMetadataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'metadata'}
+            active={shownView === 'metadata'}
           />
         </Tabs.Content>
 
@@ -1394,7 +1403,7 @@ function DetailPanelInner() {
         >
           <ValidateView
             tabId={activeTabId ?? ''}
-            active={detailView === 'validate'}
+            active={shownView === 'validate'}
             onNavigate={handleValidateNavigate}
           />
         </Tabs.Content>
@@ -1431,7 +1440,7 @@ function DetailPanelInner() {
             <DiffView
               leftTabId={activeTabId ?? ''}
               rightTabId={diffRightTabId}
-              active={detailView === 'diff'}
+              active={shownView === 'diff'}
               rightLabel={rightDiskCopy ? `On disk (${formatTimestamp(rightDiskCopy.diskModTime)})` : undefined}
               onReload={rightDiskCopy ? handlePromote : undefined}
               onClose={() => {
@@ -1450,7 +1459,7 @@ function DetailPanelInner() {
           >
             <SignaturesView
               tabId={activeTabId ?? ''}
-              active={detailView === 'signatures'}
+              active={shownView === 'signatures'}
               onNavigate={handleSignaturesNavigate}
               data={signatures}
               fetchError={signaturesError}
