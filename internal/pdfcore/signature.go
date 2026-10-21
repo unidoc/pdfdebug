@@ -97,6 +97,26 @@ type SignatureField struct {
 	// ErrFileChanged or ErrFileBusy text. HoleMatchesContents is then false
 	// and means "not checked"; every other field comes from the parse.
 	HoleCheckError string `json:"holeCheckError"`
+	// CMSEncoding describes the /Contents bytes as found: "DER", or "BER"
+	// when they had to be normalized to DER before parsing (the parse runs on
+	// a normalized copy; the PDF bytes are untouched). Empty for non-CMS
+	// SubFilters and when the payload did not decode to a complete element.
+	CMSEncoding string `json:"cmsEncoding"`
+	// CMSTrailingBytes is set when non-zero bytes follow the CMS element in
+	// /Contents, where only zero padding is expected; nil otherwise. The CMS
+	// is decomposed regardless.
+	CMSTrailingBytes *CMSTrailingBytes `json:"cmsTrailingBytes,omitempty"`
+}
+
+// CMSTrailingBytes locates non-zero bytes after the CMS element in a
+// signature's decoded /Contents.
+type CMSTrailingBytes struct {
+	// Offset is the /Contents byte offset of the first byte after the CMS
+	// element.
+	Offset int `json:"offset"`
+	// Count is the number of bytes from Offset through the last non-zero
+	// byte; zero bytes after that are padding and not counted.
+	Count int `json:"count"`
 }
 
 // SignatureList is the document-level enumeration of signature fields in
@@ -189,7 +209,7 @@ func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Objec
 	}
 
 	name := parentName
-	if t := stringValue(dereference(doc, d["T"])); t != "" {
+	if t := textStringOrRaw(dereference(doc, d["T"])); t != "" {
 		if name == "" {
 			name = t
 		} else {
@@ -259,16 +279,16 @@ func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Di
 	if n, ok := dereference(doc, sig["SubFilter"]).(pdfcpu_types.Name); ok {
 		f.SubFilter = n.Value()
 	}
-	if raw := stringValue(dereference(doc, sig["M"])); raw != "" {
+	if raw := textStringOrRaw(dereference(doc, sig["M"])); raw != "" {
 		f.SigningTimeRaw = raw
 		if t, ok := pdfcpu_types.DateTime(raw, true); ok {
 			f.SigningTime = t.Format(time.RFC3339)
 		}
 	}
-	f.Name = stringValue(dereference(doc, sig["Name"]))
-	f.Reason = stringValue(dereference(doc, sig["Reason"]))
-	f.Location = stringValue(dereference(doc, sig["Location"]))
-	f.ContactInfo = stringValue(dereference(doc, sig["ContactInfo"]))
+	f.Name = textStringOrRaw(dereference(doc, sig["Name"]))
+	f.Reason = textStringOrRaw(dereference(doc, sig["Reason"]))
+	f.Location = textStringOrRaw(dereference(doc, sig["Location"]))
+	f.ContactInfo = textStringOrRaw(dereference(doc, sig["ContactInfo"]))
 
 	computeByteRangeCoverage(doc, hr, sig, &f)
 
@@ -301,9 +321,9 @@ func isCMSSubFilter(sub string) bool {
 //
 // PKCS#7 is not a stdlib type; these are the minimal RFC 5652 structs needed
 // to surface certificates, the signer identity, and the SignerInfo algorithms.
-// encoding/asn1 is strict DER: BER indefinite-length blobs (some CAdES
-// signers) degrade to the per-signature DecomposeError, which is acceptable
-// decompose-and-display behavior.
+// encoding/asn1 is strict DER, so the parse runs on a DER-normalized copy of
+// the /Contents bytes (normalizeBER). The copy never leaves decomposeCMS's
+// call tree; the original bytes stay as read from the PDF.
 
 // oidCMSSignedData is id-signedData (1.2.840.113549.1.7.2).
 var oidCMSSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
@@ -374,18 +394,28 @@ func algorithmName(oid asn1.ObjectIdentifier) string {
 
 // decomposeCMS parses the /Contents CMS blob and surfaces the certificate set,
 // the identified signer, and the SignerInfo algorithms. Failures set the
-// per-signature DecomposeError and leave the structural facts intact.
+// per-signature DecomposeError and leave the structural facts intact. Non-zero
+// bytes after the CMS set CMSTrailingBytes; bytes after the SignedData inside
+// the ContentInfo become a note. Decomposition goes on in both cases.
 func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
 	raw, err := pdfStringBytes(doc, sig["Contents"])
 	if err != nil {
 		f.DecomposeError = "/Contents unreadable: " + err.Error()
 		return
 	}
-	sd, err := parseCMSSignedData(raw)
+	res, err := parseCMSSignedData(raw)
+	f.CMSEncoding = res.encoding
+	if res.tail.count > 0 {
+		f.CMSTrailingBytes = &CMSTrailingBytes{Offset: res.tail.offset, Count: res.tail.count}
+	}
+	if res.innerRest > 0 {
+		f.Notes = append(f.Notes, fmt.Sprintf("%d bytes after the SignedData inside the ContentInfo", res.innerRest))
+	}
 	if err != nil {
 		f.DecomposeError = "CMS parse failed: " + err.Error()
 		return
 	}
+	sd := res.sd
 
 	certs, err := x509.ParseCertificates(sd.Certificates.Bytes)
 	if err != nil {
@@ -415,39 +445,58 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 	}
 }
 
-// parseCMSSignedData unmarshals a ContentInfo(SignedData) DER blob. The
-// /Contents value is zero-padded to its reserved size; DER is length-prefixed
-// so asn1.Unmarshal reads exactly the SignedData and ignores the trailing
-// padding. We deliberately do NOT bytes.TrimRight the 0x00 padding: that would
-// corrupt a CMS blob whose DER legitimately ends in 0x00 (same class of bug as
-// the /Cert path).
-func parseCMSSignedData(raw []byte) (*cmsSignedData, error) {
-	if len(raw) == 0 {
-		return nil, errors.New("empty payload")
-	}
-	return unmarshalCMS(raw)
+// cmsParse is what parseCMSSignedData read from a /Contents payload.
+type cmsParse struct {
+	sd        *cmsSignedData
+	encoding  string  // "DER", "BER", or "" when the payload did not decode
+	tail      berTail // non-zero bytes after the CMS element
+	innerRest int     // bytes after the SignedData inside the [0] wrapper
 }
 
-// unmarshalCMS parses one strict-DER ContentInfo(SignedData).
-func unmarshalCMS(der []byte) (*cmsSignedData, error) {
-	if len(der) == 0 {
-		return nil, errors.New("empty payload")
+// parseCMSSignedData normalizes a BER or DER ContentInfo(SignedData) blob to
+// DER and unmarshals it. The encoding and tail are filled in as soon as the
+// normalizer succeeds, even when the CMS parse then fails. The /Contents value
+// is zero-padded to its reserved size; bytes after the ContentInfo are never
+// an error, and non-zero ones are reported in tail. The padding is never
+// stripped with bytes.TrimRight, which would corrupt a CMS blob whose encoding
+// legitimately ends in 0x00. raw is not modified.
+func parseCMSSignedData(raw []byte) (cmsParse, error) {
+	if len(raw) == 0 {
+		return cmsParse{}, errors.New("empty payload")
 	}
+	der, isBER, tail, err := normalizeBER(raw)
+	if err != nil {
+		return cmsParse{}, err
+	}
+	res := cmsParse{encoding: "DER", tail: tail}
+	if isBER {
+		res.encoding = "BER"
+	}
+	res.sd, res.innerRest, err = unmarshalCMS(der)
+	return res, err
+}
+
+// unmarshalCMS parses one strict-DER ContentInfo(SignedData) holding exactly
+// one element, as normalizeBER returns it. innerRest is the number of bytes
+// after the SignedData inside the ContentInfo's [0] wrapper; they are not an
+// error.
+func unmarshalCMS(der []byte) (sd *cmsSignedData, innerRest int, err error) {
 	var ci cmsContentInfo
 	if _, err := asn1.Unmarshal(der, &ci); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if !ci.ContentType.Equal(oidCMSSignedData) {
-		return nil, fmt.Errorf("not a CMS SignedData (content type %s)", ci.ContentType.String())
+		return nil, 0, fmt.Errorf("not a CMS SignedData (content type %s)", ci.ContentType.String())
 	}
 	if len(ci.Content.Bytes) == 0 {
-		return nil, errors.New("ContentInfo carries no content")
+		return nil, 0, errors.New("ContentInfo carries no content")
 	}
-	var sd cmsSignedData
-	if _, err := asn1.Unmarshal(ci.Content.Bytes, &sd); err != nil {
-		return nil, err
+	sd = &cmsSignedData{}
+	rest, err := asn1.Unmarshal(ci.Content.Bytes, sd)
+	if err != nil {
+		return nil, 0, err
 	}
-	return &sd, nil
+	return sd, len(rest), nil
 }
 
 // matchSignerCert resolves SignerInfo's SignerIdentifier CHOICE against the

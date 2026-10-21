@@ -11,6 +11,19 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - File > "Compare with File on Disk" diffs the open version against the file as it is now on disk, in the Diff panel, labelled "On disk (14:05)". Files over 500 MB ask first. Reload in the Diff header then makes the compared copy the tab's document without parsing it again
 - Plain Text and the CLI's `dump bytes` (raw and `--json`) refuse to read a file that changed since it was parsed ("file changed on disk") instead of mixing the old structure with the new bytes. Signatures and `dump signatures` keep every signature's details and show the /Contents hole check as "not checked" for such a file; they used to report a hole mismatch. On Windows a file another app has locked shows "File is in use by another app" in Plain Text and in the hole check instead
 
+### Changed
+
+- Non-zero bytes after the CMS in a signature's /Contents, or after the SignedData inside the ContentInfo's `[0]` wrapper, are now reported, and the signature still decomposes in full. Bytes after the CMS show once, as `Trailing bytes: 4 bytes after the CMS at offset 2028 contain non-zero data` in plain text, as `cmsTrailingBytes` (`offset`, `count`) in `--json`, and as a "Trailing bytes" row in the Signatures panel. Bytes after the SignedData get a note with the byte count. Such bytes used to be ignored without a word. Zero padding is not reported
+- A CMS nested more than 64 levels deep is now a decompose error for DER signatures too. DER signatures used to decompose with no nesting limit
+
+### Fixed
+
+- The detail panel keeps each document's tab. Switching to another document and back returns to the tab you left (XREF, Metadata, Signatures and so on) instead of Object. Diff is the exception: its comparison is not kept across a switch, so it comes back on Object. A newly opened or reloaded document still starts on Object
+- Signatures whose CMS is BER-encoded with indefinite lengths, as DocuSign writes them, now decompose: signer, certificate chain and algorithms are listed instead of `CMS parse failed: asn1: syntax error: indefinite length found (not DER)`. `dump signatures` and the Signatures panel show the encoding as `CMS encoding: DER` or `BER (normalized to DER for parsing)`, and `--json` gains a `cmsEncoding` key (`DER`, `BER`, or empty when the payload did not decode). The normalized copy is used only for parsing; the /Contents bytes are left as they are in the file
+- Signature field names, Name, Reason, Location, ContactInfo and signing time written as hex strings (`/T <454E56...>`) are decoded in `dump signatures` and the Signatures panel instead of shown as hex digits. UTF-16 hex strings decode too
+- The Signatures panel no longer cuts a signer or issuer name at an escaped comma: `CN=DocuSign\, Inc.` shows as `DocuSign, Inc.`, not `DocuSign\`. The expanded certificate chain shows names without backslash escapes, separated by `, `, with a value that contains a comma in quotes (`O="Entrust, Inc."`)
+- A signature that cannot be decomposed, or whose ByteRange coverage cannot be checked, now shows a red notice at the top of its card (`Could not decompose this signature: ...`) instead of a gray row at the bottom, and the Signatures tab gets a red dot. Non-zero bytes after the CMS with no error give the tab an amber dot. When the signatures fail to load, the Signatures tab is shown with a red dot and the error instead of being hidden
+
 ## [0.5.0] - 2026-10-14
 
 Left-rail navigators for structure, pages and images, an image preview, update notices in the app and the CLI, and a CLI that says what it checked and rejects invocations it would have misread. Moves the app runtime to Wails v3 beta.

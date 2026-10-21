@@ -5,17 +5,21 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"math/big"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -275,9 +279,9 @@ func fontsMixedPDFContent() []byte {
 // identification cannot be positional. The malformed-Contents and not-covers
 // variants derive from the same builder by byte surgery.
 
-// sigFixtureContentsHexCap is the reserved /Contents hex capacity; the real
-// DER is ~2.5 KB, the remainder stays zero-padded (exercises the
-// trailing-zero-trim path).
+// sigFixtureContentsHexCap is the reserved /Contents hex capacity; the CMS
+// payloads are ~2-2.5 KB and the remainder of the hole stays zero-padded,
+// which the decomposer accepts after the ContentInfo.
 const sigFixtureContentsHexCap = 6144
 
 type sigFixtureAlgID struct {
@@ -431,15 +435,34 @@ func sigFixtureAssemblePDF(objs []string) []byte {
 	return []byte(body + xref + trailer)
 }
 
-// signedPDFContent builds a one-signature adbe.pkcs7.detached PDF whose
-// ByteRange is computed against the true /Contents hole and whose CMS blob is
-// signed over the actual ByteRange digest. shortfall subtracts from
-// ByteRange[3] (the not-covers variant); corrupt breaks the leading DER bytes
-// (the malformed-Contents variant, still a valid PDF).
-func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
+// sigFixtureOpt selects a signature-fixture variant.
+type sigFixtureOpt struct {
+	// subFilter is the /SubFilter name; empty means adbe.pkcs7.detached.
+	subFilter string
+	// shortfall subtracts from ByteRange[3] (the not-covers variant).
+	shortfall int
+	// corrupt breaks the leading payload bytes (the malformed-Contents
+	// variant, still a valid PDF).
+	corrupt bool
+	// cms builds the /Contents payload over signed, the file bytes outside
+	// the hole; nil means sigFixtureDetachedDER.
+	cms func(t *testing.T, signed []byte) []byte
+}
+
+// signedPDFContent builds a one-signature PDF whose ByteRange is computed
+// against the true /Contents hole and whose CMS payload is built over the
+// bytes that ByteRange covers.
+func signedPDFContent(t *testing.T, o sigFixtureOpt) []byte {
 	t.Helper()
-	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
-	sig := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached" +
+	sub := o.subFilter
+	if sub == "" {
+		sub = "adbe.pkcs7.detached"
+	}
+	build := o.cms
+	if build == nil {
+		build = sigFixtureDetachedDER
+	}
+	sig := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /" + sub +
 		" /ByteRange [0000000000 0000000000 0000000000 0000000000]" +
 		" /Contents <" + strings.Repeat("0", sigFixtureContentsHexCap) + ">" +
 		" /M (D:20260101120000+00'00') /Name (Fixture Signer) /Reason (Fixture) /Location (Testville) >>"
@@ -458,22 +481,20 @@ func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
 	holeStart := ci + len("/Contents ")
 	holeEnd := holeStart + 1 + sigFixtureContentsHexCap + 1 // '<' + hex + '>'
 
-	br := fmt.Sprintf("[%010d %010d %010d %010d]", 0, holeStart, holeEnd, len(file)-holeEnd-shortfall)
+	br := fmt.Sprintf("[%010d %010d %010d %010d]", 0, holeStart, holeEnd, len(file)-holeEnd-o.shortfall)
 	bi := bytes.Index(file, []byte("/ByteRange ["))
 	if bi < 0 {
 		t.Fatal("signature fixture: no /ByteRange placeholder")
 	}
 	copy(file[bi+len("/ByteRange "):], br)
 
-	// Digest over the two spans around the TRUE hole, then sign for real.
-	h := sha256.New()
-	h.Write(file[:holeStart])
-	h.Write(file[holeEnd:])
-	hx := hex.EncodeToString(sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, h.Sum(nil)))
+	// The payload covers the two spans around the TRUE hole.
+	signed := append(append([]byte{}, file[:holeStart]...), file[holeEnd:]...)
+	hx := hex.EncodeToString(build(t, signed))
 	if len(hx) > sigFixtureContentsHexCap {
 		t.Fatalf("signature fixture: contents capacity exceeded: %d", len(hx))
 	}
-	if corrupt {
+	if o.corrupt {
 		// Break the leading DER tag/length; keep valid hex so the PDF parses.
 		copy(file[holeStart+1:], "FFFFFFFFFFFFFFFF")
 		copy(file[holeStart+1+16:], hx[16:])
@@ -482,6 +503,128 @@ func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
 	}
 	// The remainder of the hole stays "0"-filled = trailing zero padding.
 	return file
+}
+
+// sigFixtureDetachedDER returns a DER detached ContentInfo(SignedData) over the
+// SHA-256 digest of signed, RSA-signed for real.
+func sigFixtureDetachedDER(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
+	digest := sha256.Sum256(signed)
+	return sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, digest[:])
+}
+
+// sigFixtureDetachedBER returns the sigFixtureDetachedDER payload with the
+// ContentInfo SEQUENCE, its [0] wrapper, the SignedData SEQUENCE and the
+// EncapContentInfo SEQUENCE re-encoded with indefinite length; everything
+// inside them stays definite DER. This is the shape DocuSign writes.
+func sigFixtureDetachedBER(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	ci := sigFixtureChildren(t, sigFixtureDetachedDER(t, signed)) // [ContentInfo]
+	ciKids := sigFixtureChildren(t, ci[0].Bytes)                  // OID, [0]
+	wrapKids := sigFixtureChildren(t, ciKids[1].Bytes)            // SignedData
+	sdKids := sigFixtureChildren(t, wrapKids[0].Bytes)            // version, algs, encap, certs, signerInfos
+	parts := make([][]byte, len(sdKids))
+	for i, k := range sdKids {
+		parts[i] = k.FullBytes
+	}
+	parts[2] = sigFixtureIndefinite(0x30, sigFixtureChildBytes(sigFixtureChildren(t, sdKids[2].Bytes))...)
+	sd := sigFixtureIndefinite(0x30, parts...)
+	wrap := sigFixtureIndefinite(0xA0, sd)
+	return sigFixtureIndefinite(0x30, ciKids[0].FullBytes, wrap)
+}
+
+// sigFixtureDetachedBadEOC returns the sigFixtureDetachedBER payload with its
+// final end-of-contents (the ContentInfo's) changed from 00 00 to 00 01.
+func sigFixtureDetachedBadEOC(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	p := sigFixtureDetachedBER(t, signed)
+	p[len(p)-1] = 0x01
+	return p
+}
+
+// sigFixtureDetachedBERTrailing returns the sigFixtureDetachedBER payload
+// followed by DE AD BE EF, so non-zero bytes sit between the CMS and the zero
+// padding.
+func sigFixtureDetachedBERTrailing(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	return append(sigFixtureDetachedBER(t, signed), 0xDE, 0xAD, 0xBE, 0xEF)
+}
+
+// sigFixtureChildren splits concatenated DER elements.
+func sigFixtureChildren(t *testing.T, b []byte) []asn1.RawValue {
+	t.Helper()
+	var out []asn1.RawValue
+	for len(b) > 0 {
+		var rv asn1.RawValue
+		rest, err := asn1.Unmarshal(b, &rv)
+		if err != nil {
+			t.Fatalf("signature fixture: re-encode parse: %v", err)
+		}
+		out = append(out, rv)
+		b = rest
+	}
+	return out
+}
+
+func sigFixtureChildBytes(kids []asn1.RawValue) [][]byte {
+	out := make([][]byte, len(kids))
+	for i, k := range kids {
+		out[i] = k.FullBytes
+	}
+	return out
+}
+
+// sigFixtureIndefinite encodes a one-byte constructed tag with the indefinite
+// length form: tag, 0x80, the content, then the 00 00 end-of-contents.
+func sigFixtureIndefinite(tag byte, content ...[]byte) []byte {
+	out := []byte{tag, 0x80}
+	for _, c := range content {
+		out = append(out, c...)
+	}
+	return append(out, 0x00, 0x00)
+}
+
+// sigFixtureOpenSSLStreamed signs the SHA-1 digest of signed with
+// "openssl cms -sign -stream", which writes BER: indefinite lengths on the
+// outer containers and the digest embedded as a constructed OCTET STRING, plus
+// openssl's default signed attributes. adbe.pkcs7.sha1 carries the SHA-1
+// digest of the signed range as eContent, so the attached output is valid for
+// that SubFilter. The committed signed-ber.pdf was generated with
+// OpenSSL 3.6.4 (25 Aug 2026); LibreSSL builds may lack the cms command.
+func sigFixtureOpenSSLStreamed(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	bin, err := exec.LookPath("openssl")
+	if err != nil {
+		t.Fatalf("openssl not on PATH; needed to generate signed-ber.pdf")
+	}
+	caDER, leafDER, _, leafKey := sigFixturePKI(t)
+	dir := t.TempDir()
+	write := func(name string, data []byte) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, data, 0o600); err != nil {
+			t.Fatalf("signature fixture: write %s: %v", name, err)
+		}
+		return p
+	}
+	digest := sha1.Sum(signed)
+	in := write("digest.bin", digest[:])
+	leaf := write("leaf.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER}))
+	key := write("leafkey.pem", pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafKey)}))
+	ca := write("ca.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}))
+	out := filepath.Join(dir, "cms.der")
+	cmd := exec.Command(bin, "cms", "-sign", "-binary", "-stream", "-nodetach", "-outform", "DER",
+		"-md", "sha1", "-in", in, "-signer", leaf, "-inkey", key, "-certfile", ca, "-out", out)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("openssl cms -sign failed: %v: %s", err, stderr.String())
+	}
+	der, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("signature fixture: read openssl output: %v", err)
+	}
+	return der
 }
 
 // unsignedSigFieldPDFContent builds a /FT /Sig placeholder field with NO /V.
@@ -722,16 +865,31 @@ func TestGenerateFixtures(t *testing.T) {
 	})
 
 	// Signature fixtures: a real programmatically signed
-	// adbe.pkcs7.detached PDF plus its byte-surgery variants and the unsigned
-	// placeholder. Each must parse through pdfcpu's default validation.
+	// adbe.pkcs7.detached PDF plus its byte-surgery variants, the unsigned
+	// placeholder, and the BER variants (openssl streamed, the Go-built
+	// indefinite-length detached shape, that shape with a malformed final
+	// end-of-contents, and that shape with non-zero bytes after the CMS).
+	// Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
 		name    string
 		content func(t *testing.T) []byte
 	}{
-		{"signed.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, false) }},
-		{"signed-notcovers.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 100, false) }},
-		{"signed-badcontents.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, true) }},
+		{"signed.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{}) }},
+		{"signed-notcovers.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{shortfall: 100}) }},
+		{"signed-badcontents.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{corrupt: true}) }},
 		{"unsigned-sig-field.pdf", func(t *testing.T) []byte { return unsignedSigFieldPDFContent() }},
+		{"signed-ber.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{subFilter: "adbe.pkcs7.sha1", cms: sigFixtureOpenSSLStreamed})
+		}},
+		{"signed-ber-detached.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBER})
+		}},
+		{"signed-ber-badeoc.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBadEOC})
+		}},
+		{"signed-ber-trailing.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBERTrailing})
+		}},
 	}
 	for _, fx := range sigFixtures {
 		t.Run(fx.name, func(t *testing.T) {

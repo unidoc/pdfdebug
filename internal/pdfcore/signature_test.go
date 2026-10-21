@@ -28,10 +28,10 @@
 // /Contents payloads here are deliberately FAKE (non-CMS) hex -- enumeration
 // and ByteRange coverage are decomposition-independent facts, and a
 // DecomposeError on these fixtures is expected and ignored. Real-CMS
-// decomposition is covered black-box by the acceptance suite, which generates
-// a genuinely signed fixture. Layouts here are byte-identical (modulo the
-// /Contents capacity) to fixtures validated against pdfcpu default validation
-// when the suite was written.
+// decomposition is covered by signature_ber_test.go against the committed
+// signed fixtures in testdata/, and black-box by the acceptance suites.
+// Layouts here are byte-identical (modulo the /Contents capacity) to fixtures
+// validated against pdfcpu default validation when the suite was written.
 package pdfcore
 
 import (
@@ -61,6 +61,20 @@ type sigUnitOpt struct {
 	kids      bool   // parent/kids hierarchy with inherited /FT
 	directV   bool   // /V is a direct inline dict on the field
 	certHex   string // when non-empty, adds /Cert <certHex>
+	// contentsHex, when non-empty, is the whole /Contents hex payload: the
+	// hole is sized to exactly len(contentsHex) hex chars with no padding.
+	contentsHex string
+	// hexText writes the default layout's /T as the hex string <53696731>
+	// ("Sig1") and /Reason as UTF-16BE hex ("Ünit").
+	hexText bool
+}
+
+// contentsHexLen is the /Contents hole capacity in hex chars for o.
+func (o sigUnitOpt) contentsHexLen() int {
+	if o.contentsHex != "" {
+		return len(o.contentsHex)
+	}
+	return sigUnitHexCap
 }
 
 // sigUnitDict renders a signature dict with a fixed-width /ByteRange
@@ -72,8 +86,13 @@ func sigUnitDict(o sigUnitOpt) string {
 	}
 	d := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /" + sub +
 		" /ByteRange [0000000000 0000000000 0000000000 0000000000]" +
-		" /Contents <" + strings.Repeat("0", sigUnitHexCap) + ">" +
-		" /M (D:20260101120000+00'00') /Name (ATDD Signer) /Reason (Unit) /Location (Testville)"
+		" /Contents <" + strings.Repeat("0", o.contentsHexLen()) + ">" +
+		" /M (D:20260101120000+00'00') /Name (ATDD Signer) /Location (Testville)"
+	if o.hexText {
+		d += " /Reason <FEFF00DC006E00690074>"
+	} else {
+		d += " /Reason (Unit)"
+	}
 	if o.certHex != "" {
 		d += " /Cert <" + o.certHex + ">"
 	}
@@ -87,6 +106,10 @@ func sigUnitDict(o sigUnitOpt) string {
 func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 	t.Helper()
 	sig := sigUnitDict(o)
+	fieldT := "(Sig1)"
+	if o.hexText {
+		fieldT = "<53696731>"
+	}
 	var objs []string
 	switch {
 	case o.kids:
@@ -110,7 +133,7 @@ func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>\nendobj\n",
 			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
 			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>\nendobj\n",
-			"4 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Sig /T (Sig1) /Rect [0 0 0 0] /P 3 0 R /F 132 /V 5 0 R >>\nendobj\n",
+			"4 0 obj\n<< /Type /Annot /Subtype /Widget /FT /Sig /T " + fieldT + " /Rect [0 0 0 0] /P 3 0 R /F 132 /V 5 0 R >>\nendobj\n",
 			"5 0 obj\n" + sig + "\nendobj\n",
 		}
 	}
@@ -121,7 +144,7 @@ func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 		t.Fatal("sig fixture: no /Contents placeholder")
 	}
 	holeStart := ci + len("/Contents ")
-	holeEnd := holeStart + 1 + sigUnitHexCap + 1 // '<' + hex + '>'
+	holeEnd := holeStart + 1 + o.contentsHexLen() + 1 // '<' + hex + '>'
 
 	a := 0
 	b := holeStart + o.holeShift
@@ -134,7 +157,12 @@ func sigUnitPDF(t *testing.T, o sigUnitOpt) []byte {
 	}
 	copy(file[bi+len("/ByteRange "):], br)
 
-	// Fake non-CMS payload; trailing zeros exercise the padding trim path.
+	if o.contentsHex != "" {
+		copy(file[holeStart+1:], o.contentsHex)
+		return file
+	}
+	// Fake non-CMS payload followed by the zero padding; DE AD starts an
+	// element with an unsupported length encoding, so CMS decomposition fails.
 	copy(file[holeStart+1:], "DEADBEEF")
 	return file
 }
@@ -300,6 +328,19 @@ func TestGetSignatures_UnsignedPlaceholder(t *testing.T) {
 // A DIRECT (inline dict) /V is legal -- listed with an empty SignatureRef,
 // never dropped.
 // ---------------------------------------------------------------------------
+
+func TestGetSignatures_HexTextStringsAreDecoded(t *testing.T) {
+	ins, tabID := writeTempPDF(t, "signed-hextext.pdf", sigUnitPDF(t, sigUnitOpt{hexText: true}))
+
+	list, err := ins.GetSignatures(tabID)
+	f := oneSigField(t, list, err)
+	if f.FieldName != "Sig1" {
+		t.Errorf("FieldName = %q, want Sig1 decoded from the hex /T", f.FieldName)
+	}
+	if f.Reason != "\u00dcnit" {
+		t.Errorf("Reason = %q, want \u00dcnit decoded from UTF-16BE hex", f.Reason)
+	}
+}
 
 func TestGetSignatures_DirectVEmptyRef(t *testing.T) {
 	ins, tabID := writeTempPDF(t, "signed-directv.pdf", sigUnitPDF(t, sigUnitOpt{directV: true}))

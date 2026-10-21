@@ -77,7 +77,7 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 			w.Gap()
 		}
 		w.Heading(fmt.Sprintf("Signature field %d of %d", i+1, len(sigs)))
-		w.Add("Field", dashIfEmpty(s.FieldName))
+		w.Add("Field", asciiSafe(dashIfEmpty(s.FieldName)))
 		if !s.Signed {
 			w.Add("Status", "unsigned (placeholder field, no /V)")
 			continue
@@ -95,23 +95,23 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 			if s.SigningTime != "" {
 				v = s.SigningTime + " (raw " + s.SigningTimeRaw + ")"
 			}
-			w.Add("Signing time", v)
+			w.Add("Signing time", asciiSafe(v))
 		}
 		if s.Name != "" {
-			w.Add("Name", s.Name)
+			w.Add("Name", asciiSafe(s.Name))
 		}
 		if s.Reason != "" {
-			w.Add("Reason", s.Reason)
+			w.Add("Reason", asciiSafe(s.Reason))
 		}
 		if s.Location != "" {
-			w.Add("Location", s.Location)
+			w.Add("Location", asciiSafe(s.Location))
 		}
 		if s.ContactInfo != "" {
-			w.Add("Contact", s.ContactInfo)
+			w.Add("Contact", asciiSafe(s.ContactInfo))
 		}
 		if s.Signer != nil {
-			w.Add("Signer", s.Signer.Subject)
-			w.Add("Issuer", s.Signer.Issuer)
+			w.Add("Signer", asciiSafe(s.Signer.Subject))
+			w.Add("Issuer", asciiSafe(s.Signer.Issuer))
 			w.Add("Serial", s.Signer.Serial)
 			w.Add("Validity", s.Signer.NotBefore+" to "+s.Signer.NotAfter)
 		} else if s.DecomposeError == "" {
@@ -124,11 +124,25 @@ func printSignaturesPlain(out io.Writer, sigs []pdfcore.SignatureField) error {
 		if s.SignatureAlgorithm != "" {
 			w.Add("Signature algorithm", s.SignatureAlgorithm)
 		}
+		if s.CMSEncoding != "" {
+			enc := s.CMSEncoding
+			if enc == "BER" {
+				enc += " (normalized to DER for parsing)"
+			}
+			w.Add("CMS encoding", enc)
+		}
+		if t := s.CMSTrailingBytes; t != nil {
+			verb := "contain"
+			if t.Count == 1 {
+				verb = "contains"
+			}
+			w.Addf("Trailing bytes", "%d %s after the CMS at offset %d %s non-zero data", t.Count, plural(t.Count, "byte"), t.Offset, verb)
+		}
 		if len(s.Certificates) > 0 {
 			w.Addf("Certificates", "%d embedded", len(s.Certificates))
 			for j, c := range s.Certificates {
 				w.Add(fmt.Sprintf("  cert %d", j+1),
-					c.Subject+" (issuer "+c.Issuer+", serial "+c.Serial+")")
+					asciiSafe(c.Subject+" (issuer "+c.Issuer+", serial "+c.Serial+")"))
 			}
 		}
 		if s.DecomposeError != "" {

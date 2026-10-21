@@ -40,7 +40,8 @@ import { XRefTableView } from './XRefTableView';
 import { PlainTextView } from './PlainTextView';
 import { EmbeddedDataView } from './EmbeddedDataView';
 import { DocumentMetadataView } from './DocumentMetadataView';
-import { SignaturesView, type SignatureEntryData } from './SignaturesView';
+import { SignaturesView, signaturesIssue, type SignatureEntryData } from './SignaturesView';
+import { TabIssueMarker } from './TabIssueMarker';
 import { ValidateView } from './ValidateView';
 import { DiffView } from './DiffView';
 import { SMALL_BUTTON } from './buttonStyles';
@@ -173,10 +174,12 @@ function DetailPanelInner() {
   const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
-  // per-document local state for the active DetailPanel tab.
-  // Resets to 'object' on activeTabId change so a fresh document opens on the
-  // per-selection view. Mirrors the streamViewMode pattern.
+  // The active DetailPanel tab, remembered per document tab: switching back to
+  // a document restores its last view (except Diff), and a document seen for
+  // the first time (a new open, or a reload, which mints a new tabId) opens on
+  // 'object'.
   const [detailView, setDetailView] = useState<DetailView>('object');
+  const viewByTabRef = useRef(new Map<string, DetailView>());
   // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
@@ -187,6 +190,14 @@ function DetailPanelInner() {
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
+  // GetSignatures failure message; shows the tab with an error marker and the
+  // message as the tab body.
+  const [signaturesError, setSignaturesError] = useState<string | null>(null);
+  // The view on screen. A remembered Signatures view shows Object until the
+  // signature list resolves, because the Signatures tab does not exist before
+  // then and Tabs.Root would have no matching tab.
+  const shownView: DetailView =
+    detailView === 'signatures' && signatures === null && signaturesError === null ? 'object' : detailView;
   // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
@@ -233,11 +244,27 @@ function DetailPanelInner() {
   const diffRightTabIdRef = useRef(diffRightTabId);
   diffRightTabIdRef.current = diffRightTabId;
 
+  /** Sets the active detail view and remembers it for the active document tab. */
+  const changeDetailView = useCallback((view: DetailView) => {
+    const tabId = activeTabIdRef.current;
+    if (tabId) viewByTabRef.current.set(tabId, view);
+    setDetailView(view);
+  }, []);
+
   useEffect(() => {
-    setDetailView('object');
+    // Drop remembered views of closed tabs, then restore this tab's view.
+    const open = new Set(tabsRef.current.map((t) => t.tabId));
+    for (const id of viewByTabRef.current.keys()) {
+      if (!open.has(id)) viewByTabRef.current.delete(id);
+    }
+    // Diff is not restored: the comparison is cleared below on every switch,
+    // so a remembered Diff would only show the empty picker.
+    const remembered = activeTabId ? viewByTabRef.current.get(activeTabId) : undefined;
+    setDetailView(remembered && remembered !== 'diff' ? remembered : 'object');
     setXrefEntryCount(null);
     setEmbeddedCount(null);
     setSignatures(null);
+    setSignaturesError(null);
     setDiffRightTabId(null);
     setDiffError(null);
     setCompareConfirm(null);
@@ -267,7 +294,7 @@ function DetailPanelInner() {
 
   // One signature fetch per document tab. The result is passed
   // down to SignaturesView via the data prop so the view never issues a
-  // second fetch. A fetch failure hides the tab (empty list) and logs. A
+  // second fetch. A fetch failure keeps the message so the tab shows it. A
   // signature whose hole could not be checked because the file changed marks
   // the tab from a fresh disk check.
   useEffect(() => {
@@ -282,9 +309,7 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setSignatures([]);
-        // eslint-disable-next-line no-console
-        console.warn('GetSignatures failed:', err);
+        setSignaturesError(extractErrorMessage(err));
       });
     return () => { cancelled = true; };
   }, [activeTabId]);
@@ -620,9 +645,9 @@ function DetailPanelInner() {
    * the user never sees a flash of "XREF active + new selection".
    */
   const handleXRefNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Embedded "Reveal in tree" handler: switches to the Object tab BEFORE
@@ -630,9 +655,9 @@ function DetailPanelInner() {
    * in one render (mirrors handleXRefNavigate).
    */
   const handleEmbeddedNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
@@ -640,9 +665,9 @@ function DetailPanelInner() {
    * field node fallback) in one render.
    */
   const handleSignaturesNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Validate "jump to object" handler: switches to the Object tab BEFORE
@@ -650,9 +675,9 @@ function DetailPanelInner() {
    * render (mirrors handleSignaturesNavigate).
    */
   const handleValidateNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Pick a second PDF to diff against the active document. Opens a
@@ -709,7 +734,7 @@ function DetailPanelInner() {
         if (mountedRef.current && activeTabIdRef.current === req.tabId) {
           setDiskCopy({ tabId: di.tabId, info: di, diskModTime: req.diskModTime });
           setDiffRightTabId(di.tabId);
-          setDetailView('diff');
+          changeDetailView('diff');
         } else {
           CloseDocument(di.tabId).catch(() => {});
         }
@@ -718,12 +743,12 @@ function DetailPanelInner() {
         if (!mountedRef.current || activeTabIdRef.current !== req.tabId) return;
         setDiffRightTabId(null);
         setDiffError(extractErrorMessage(err));
-        setDetailView('diff');
+        changeDetailView('diff');
       })
       .finally(() => {
         comparingRef.current = false;
       });
-  }, []);
+  }, [changeDetailView]);
 
   /**
    * Compare with File on Disk for the active tab. Checks the disk first: a
@@ -743,7 +768,7 @@ function DetailPanelInner() {
         if (st.state === 'missing') {
           setDiffRightTabId(null);
           setDiffError(FILE_MISSING_MESSAGE);
-          setDetailView('diff');
+          changeDetailView('diff');
           return;
         }
         const req = { tabId, filePath: tab.filePath, fileName: tab.fileName, diskSize: st.diskSize, diskModTime: st.diskModTime };
@@ -757,9 +782,9 @@ function DetailPanelInner() {
         if (!mountedRef.current || activeTabIdRef.current !== tabId) return;
         setDiffRightTabId(null);
         setDiffError(extractErrorMessage(err));
-        setDetailView('diff');
+        changeDetailView('diff');
       });
-  }, [runCompare]);
+  }, [runCompare, changeDetailView]);
 
   // File > Compare with File on Disk. DetailPanel owns the Diff state, so it
   // subscribes here; with no document open the handler does nothing.
@@ -857,7 +882,7 @@ function DetailPanelInner() {
     spans: objectSpans,
     matcher: substringSpanMatcher,
     caseSensitive: findCaseSensitive,
-    active: detailView === 'object',
+    active: shownView === 'object',
     ready: objectFindable,
     barTestId: 'object-find-bar',
   });
@@ -909,9 +934,20 @@ function DetailPanelInner() {
   }, [objectFind]);
 
   // The Signatures tab exists only when the document has >= 1 signature
-  // field (hidden while unresolved or empty -- a deliberate departure from
-  // the always-visible tabs, avoiding a permanently empty tab).
-  const showSignaturesTab = (signatures?.length ?? 0) > 0;
+  // field or the fetch failed (hidden while unresolved or empty -- a
+  // deliberate departure from the always-visible tabs, avoiding a permanently
+  // empty tab).
+  const showSignaturesTab = (signatures?.length ?? 0) > 0 || signaturesError !== null;
+  const signaturesTabIssue = signaturesError !== null
+    ? { tone: 'error' as const, title: `Could not load signatures: ${signaturesError}` }
+    : signaturesIssue(signatures ?? []);
+  // A restored Signatures view waits for the list; once it resolves with no
+  // signature fields the tab does not exist, so fall back to Object.
+  useEffect(() => {
+    if (detailView === 'signatures' && signatures !== null && !showSignaturesTab) {
+      changeDetailView('object');
+    }
+  }, [detailView, signatures, showSignaturesTab, changeDetailView]);
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). The header
@@ -945,8 +981,8 @@ function DetailPanelInner() {
   return (
     <div className="h-full flex flex-col" data-testid="detail-panel">
       <Tabs.Root
-        value={detailView}
-        onValueChange={(v) => setDetailView(v as DetailView)}
+        value={shownView}
+        onValueChange={(v) => changeDetailView(v as DetailView)}
         activationMode="manual"
         className="h-full flex flex-col"
       >
@@ -986,7 +1022,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-object"
-              onClick={() => setDetailView('object')}
+              onClick={() => changeDetailView('object')}
             >
               Object
             </button>
@@ -996,7 +1032,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-xref"
-              onClick={() => setDetailView('xref')}
+              onClick={() => changeDetailView('xref')}
             >
               {xrefLabel}
             </button>
@@ -1006,7 +1042,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-plaintext"
-              onClick={() => setDetailView('plaintext')}
+              onClick={() => changeDetailView('plaintext')}
             >
               Plain Text
             </button>
@@ -1016,7 +1052,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-embedded"
-              onClick={() => setDetailView('embedded')}
+              onClick={() => changeDetailView('embedded')}
             >
               {embeddedLabel}
             </button>
@@ -1026,7 +1062,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-metadata"
-              onClick={() => setDetailView('metadata')}
+              onClick={() => changeDetailView('metadata')}
             >
               Metadata
             </button>
@@ -1036,7 +1072,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-validate"
-              onClick={() => setDetailView('validate')}
+              onClick={() => changeDetailView('validate')}
             >
               Validate
             </button>
@@ -1046,7 +1082,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-diff"
-              onClick={() => setDetailView('diff')}
+              onClick={() => changeDetailView('diff')}
             >
               Diff
             </button>
@@ -1057,9 +1093,16 @@ function DetailPanelInner() {
                 type="button"
                 className={tabTriggerClass}
                 data-testid="detail-tab-signatures"
-                onClick={() => setDetailView('signatures')}
+                onClick={() => changeDetailView('signatures')}
               >
                 Signatures
+                {signaturesTabIssue && (
+                  <TabIssueMarker
+                    tone={signaturesTabIssue.tone}
+                    title={signaturesTabIssue.title}
+                    testid="tab-issue-signatures"
+                  />
+                )}
               </button>
             </Tabs.Trigger>
           )}
@@ -1306,7 +1349,7 @@ function DetailPanelInner() {
         >
           <XRefTableView
             tabId={activeTabId ?? ''}
-            active={detailView === 'xref'}
+            active={shownView === 'xref'}
             onNavigate={handleXRefNavigate}
             onLoaded={setXrefEntryCount}
             findCaseSensitive={findCaseSensitive}
@@ -1322,7 +1365,7 @@ function DetailPanelInner() {
         >
           <PlainTextView
             tabId={activeTabId ?? ''}
-            active={detailView === 'plaintext'}
+            active={shownView === 'plaintext'}
           />
         </Tabs.Content>
 
@@ -1334,7 +1377,7 @@ function DetailPanelInner() {
         >
           <EmbeddedDataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'embedded'}
+            active={shownView === 'embedded'}
             onNavigate={handleEmbeddedNavigate}
             onLoaded={setEmbeddedCount}
           />
@@ -1348,7 +1391,7 @@ function DetailPanelInner() {
         >
           <DocumentMetadataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'metadata'}
+            active={shownView === 'metadata'}
           />
         </Tabs.Content>
 
@@ -1360,7 +1403,7 @@ function DetailPanelInner() {
         >
           <ValidateView
             tabId={activeTabId ?? ''}
-            active={detailView === 'validate'}
+            active={shownView === 'validate'}
             onNavigate={handleValidateNavigate}
           />
         </Tabs.Content>
@@ -1397,7 +1440,7 @@ function DetailPanelInner() {
             <DiffView
               leftTabId={activeTabId ?? ''}
               rightTabId={diffRightTabId}
-              active={detailView === 'diff'}
+              active={shownView === 'diff'}
               rightLabel={rightDiskCopy ? `On disk (${formatTimestamp(rightDiskCopy.diskModTime)})` : undefined}
               onReload={rightDiskCopy ? handlePromote : undefined}
               onClose={() => {
@@ -1416,9 +1459,10 @@ function DetailPanelInner() {
           >
             <SignaturesView
               tabId={activeTabId ?? ''}
-              active={detailView === 'signatures'}
+              active={shownView === 'signatures'}
               onNavigate={handleSignaturesNavigate}
               data={signatures}
+              fetchError={signaturesError}
             />
           </Tabs.Content>
         )}
