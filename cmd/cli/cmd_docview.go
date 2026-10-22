@@ -8,16 +8,17 @@ import (
 )
 
 // docViewFlags holds the parsed flags common to the document-level dump
-// subcommands (xref, objects, pages, images, bytes, signatures). None take --ref.
+// subcommands (xref, objects, pages, structure, images, bytes, signatures). None
+// take --ref.
 type docViewFlags struct {
 	pretty bool
-	json   bool // opt into JSON: structured for xref/objects/pages/images/signatures, the text wrapper for bytes
+	json   bool // opt into JSON: structured for xref/objects/pages/structure/images/signatures, the text wrapper for bytes
 }
 
 // parseDocViewFlags builds and parses a FlagSet for a document-level dump
 // subcommand. resource is the bare resource name used in the usage message.
 // --json is read into f.json uniformly; the handler decides its meaning: a
-// format switch for xref/objects/pages/images/signatures (plain-text default
+// format switch for xref/objects/pages/structure/images/signatures (plain-text default
 // -> JSON) or a payload wrapper for bytes (raw bytes default -> decoded JSON
 // payload). On failure it writes usage and returns ok=false.
 func parseDocViewFlags(resource string, args []string) (filePath string, f docViewFlags, ok bool) {

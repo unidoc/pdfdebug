@@ -763,3 +763,152 @@ type DocumentInfo struct {
 	FileSize  int64  `json:"fileSize"`
 	Error     string `json:"error"`
 }
+
+// StructureReport is the tagged-structure dump returned by
+// Inspector.GetStructure: the structure tree from /StructTreeRoot, and per
+// numbered page the ParentTree array next to the MCIDs found in the page's
+// content streams. Anything malformed is reported on the row it belongs to;
+// Problems holds findings with no row of their own. Refs are "N G R" strings.
+type StructureReport struct {
+	HasStructTree     bool               `json:"hasStructTree"`
+	RootRef           string             `json:"rootRef"`           // "" when direct or absent
+	HasParentTree     bool               `json:"hasParentTree"`     // root /ParentTree present
+	ParentTreeRef     string             `json:"parentTreeRef"`     // "" when direct or absent
+	Marked            *bool              `json:"marked"`            // catalog /MarkInfo /Marked; nil when absent
+	DocLang           string             `json:"docLang"`           // catalog /Lang, decoded
+	ParentTreeNextKey *int               `json:"parentTreeNextKey"` // nil when absent
+	RoleMap           []RoleMapEntry     `json:"roleMap"`           // in key order
+	Elements          []*StructKid       `json:"elements"`          // the root's /K, in order
+	Pages             []*StructPage      `json:"pages"`             // every numbered page
+	OtherParentTree   []ParentTreeEntry  `json:"otherParentTree"`   // ParentTree keys no page's /StructParents names
+	Problems          []StructureProblem `json:"problems"`          // findings with no row of their own
+	Counts            StructureCounts    `json:"counts"`
+}
+
+// RoleMapEntry is one /RoleMap mapping from a structure type to another.
+type RoleMapEntry struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// StructKid is one /K entry. Kind is "element", "mcid", "mcr", "objr" or
+// "error"; an error kid carries only Err.
+type StructKid struct {
+	Kind          string      `json:"kind"`
+	Element       *StructElem `json:"element,omitempty"` // kind "element"
+	MCID          *int        `json:"mcid,omitempty"`    // kinds "mcid", "mcr"
+	Page          int         `json:"page"`              // effective page number; 0 when unknown
+	PageInherited bool        `json:"pageInherited"`     // page not from the kid's own /Pg
+	StmRef        string      `json:"stmRef,omitempty"`  // kind "mcr" with /Stm
+	ObjRef        string      `json:"objRef,omitempty"`  // kind "objr": /Obj
+	ObjType       string      `json:"objType,omitempty"` // kind "objr": "Annot/Link", "XObject/Form", ...
+	Err           string      `json:"error,omitempty"`
+}
+
+// StructElem is one structure element. Text fields are decoded text strings;
+// Alt, ActualText and E are nil when absent, so an empty value is visible.
+type StructElem struct {
+	Ref           string       `json:"ref"` // "" for a direct dictionary
+	NodeID        string       `json:"nodeId"`
+	S             string       `json:"s"`       // /S as written; "" when absent or not a name
+	MappedS       string       `json:"mappedS"` // /S followed through /RoleMap; "" when not mapped
+	PgRef         string       `json:"pgRef"`   // own /Pg ref; "" when absent
+	Page          int          `json:"page"`    // own /Pg, else nearest ancestor's; 0 when none or not a page
+	PageInherited bool         `json:"pageInherited"`
+	Title         string       `json:"title,omitempty"` // /T
+	Lang          string       `json:"lang,omitempty"`
+	Alt           *string      `json:"alt,omitempty"`
+	ActualText    *string      `json:"actualText,omitempty"`
+	E             *string      `json:"e,omitempty"`
+	Kids          []*StructKid `json:"kids"`
+	Err           string       `json:"error,omitempty"`
+}
+
+// StructPage is one numbered page of a StructureReport: its ParentTree array
+// (through /StructParents), its content streams' marked-content counts, every
+// MCID marked in them, and the per-MCID alignment of those three sources.
+type StructPage struct {
+	PageNum       int              `json:"pageNum"`
+	Ref           string           `json:"ref"`
+	StructParents *int             `json:"structParents"`             // nil when absent
+	ParentTree    []ParentTreeSlot `json:"parentTree"`                // the array at that key, index = MCID
+	ParentTreeErr string           `json:"parentTreeError,omitempty"` // key missing, value not an array, ...
+	Streams       []MarkedStream   `json:"streams"`                   // one per /Contents stream, in order
+	ContentMCIDs  []ContentMCID    `json:"contentMcids"`              // every BDC carrying an MCID, in content order
+	Alignment     []MCIDAlignment  `json:"alignment"`                 // ascending MCID
+	Err           string           `json:"error,omitempty"`           // page unreadable, /Contents malformed
+}
+
+// ParentTreeSlot is one entry of a page's ParentTree array: the element that
+// owns the content item with that MCID. ElementRef is "" for a null slot.
+type ParentTreeSlot struct {
+	MCID       int    `json:"mcid"`
+	ElementRef string `json:"elementRef"`
+	S          string `json:"s"`
+	Err        string `json:"error,omitempty"`
+}
+
+// MarkedStream is the marked-content balance of one content stream. Depth is
+// the number of open marked-content sequences, carried from one stream of a
+// page to the next.
+type MarkedStream struct {
+	Ref        string `json:"ref"`
+	Opens      int    `json:"opens"`           // BMC + BDC
+	Closes     int    `json:"closes"`          // EMC
+	DepthAtEnd int    `json:"depthAtEnd"`      // depth after this stream
+	MinDepth   int    `json:"minDepth"`        // lowest depth reached; negative when an EMC had nothing to close
+	Err        string `json:"error,omitempty"` // decode failure: the stream is not scanned
+}
+
+// ContentMCID is one BDC in a page's content whose property list carries an
+// /MCID, or whose operands or property list could not be read. MCID is -1
+// when Err is set.
+type ContentMCID struct {
+	MCID       int    `json:"mcid"`
+	Tag        string `json:"tag"`    // the BDC tag name, e.g. "P"
+	Stream     int    `json:"stream"` // index into StructPage.Streams
+	Line       int    `json:"line"`
+	Col        int    `json:"col"`
+	Depth      int    `json:"depth"`           // marked-content depth of this BDC, 1 = outermost
+	ParentMCID *int   `json:"parentMcid"`      // innermost enclosing open sequence with an MCID; nil when none
+	Err        string `json:"error,omitempty"` // property-list name not found, /MCID not an integer, ...
+}
+
+// MCIDAlignment lines up one MCID of a page across the content streams, the
+// page's ParentTree array and the structure tree. Consistent is true exactly
+// when the content marks it once, the ParentTree slot names an element, and
+// that element is the only tree element claiming it.
+type MCIDAlignment struct {
+	MCID              int      `json:"mcid"`
+	ContentCount      int      `json:"contentCount"`
+	ParentTreeElement string   `json:"parentTreeElement"` // "" for no slot, a null slot or a slot with an error
+	ParentTreeS       string   `json:"parentTreeS"`
+	TreeElements      []string `json:"treeElements"` // refs of elements whose /K names this MCID on this page; "(direct)" for a direct element
+	Consistent        bool     `json:"consistent"`
+}
+
+// ParentTreeEntry is a ParentTree key that no page's /StructParents names,
+// typically an annotation's or XObject's /StructParent.
+type ParentTreeEntry struct {
+	Key        int    `json:"key"`
+	ElementRef string `json:"elementRef"`
+	S          string `json:"s"`
+	Err        string `json:"error,omitempty"`
+}
+
+// StructureProblem is a finding with no row of its own: Where names the
+// object or number-tree node, Message what is wrong with it.
+type StructureProblem struct {
+	Where   string `json:"where"`
+	Message string `json:"message"`
+}
+
+// StructureCounts totals the structure tree and the content MCIDs.
+type StructureCounts struct {
+	Elements     int `json:"elements"`
+	MCIDKids     int `json:"mcidKids"`
+	MCRKids      int `json:"mcrKids"`
+	OBJRKids     int `json:"objrKids"`
+	ErrorKids    int `json:"errorKids"`
+	ContentMCIDs int `json:"contentMcids"`
+}

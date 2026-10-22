@@ -85,6 +85,8 @@ func dispatch(args []string) int {
 			return runObjectsDump(remaining)
 		case "pages":
 			return runPagesDump(remaining)
+		case "structure":
+			return runStructureDump(remaining)
 		case "bytes":
 			return runBytesDump(remaining)
 		case "plaintext":
@@ -157,6 +159,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump objects file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump pages file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump structure file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump images file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump bytes file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded file.pdf")

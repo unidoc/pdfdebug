@@ -33,8 +33,13 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
-	pageDict := leaf.dict
+	return contentStreamIDs(leaf.dict)
+}
 
+// contentStreamIDs returns the node IDs of pageDict's /Contents stream(s) in
+// concatenation order, with the contract pageContentStreamNodeIDs documents.
+// Callers that dereference through pdfcpu hold pdfMu.
+func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
 		return nil, nil
@@ -219,52 +224,17 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 		return cached, nil
 	}
 
-	var obj pdfcpu_types.Object
-	err = safeCall(func() error {
-		var e error
-		obj, e = resolveNodeObject(doc, nodeID)
-		return e
-	})
+	raw, decodeErr, err := doc.decodeContentStreamLocked(nodeID)
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, err
 	}
-
-	// Extract the StreamDict from the resolved object.
-	var sd pdfcpu_types.StreamDict
-	switch v := obj.(type) {
-	case pdfcpu_types.StreamDict:
-		sd = v
-	case pdfcpu_types.ObjectStreamDict:
-		sd = v.StreamDict
-	case pdfcpu_types.XRefStreamDict:
-		sd = v.StreamDict
-	default:
+	if decodeErr != "" {
 		result := &ContentStreamData{
 			NodeID: nodeID,
-			Error:  "node is not a stream object",
+			Error:  decodeErr,
 		}
 		doc.streamCache[nodeID] = result
 		return result, nil
-	}
-
-	// Decode the stream inside safeCall (pdfcpu can panic).
-	err = safeCall(func() error {
-		return sd.Decode()
-	})
-	if err != nil {
-		result := &ContentStreamData{
-			NodeID: nodeID,
-			Error:  fmt.Sprintf("failed to decode stream: %v", err),
-		}
-		doc.streamCache[nodeID] = result
-		return result, nil
-	}
-
-	var raw string
-	if sd.Content != nil {
-		raw = string(sd.Content)
-	} else {
-		raw = string(sd.Raw)
 	}
 
 	result := &ContentStreamData{
@@ -277,6 +247,47 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	}
 	doc.streamCache[nodeID] = result
 	return result, nil
+}
+
+// decodeContentStreamLocked resolves nodeID and returns its decoded stream
+// content. decodeErr carries a failure that belongs in the result (the node is
+// not a stream, or decoding failed); err a failure to resolve the node. It
+// neither reads nor writes streamCache and does not take streamMu. Callers
+// hold pdfMu.
+func (d *DocumentState) decodeContentStreamLocked(nodeID string) (raw string, decodeErr string, err error) {
+	var obj pdfcpu_types.Object
+	err = safeCall(func() error {
+		var e error
+		obj, e = resolveNodeObject(d, nodeID)
+		return e
+	})
+	if err != nil {
+		return "", "", wrapPDFError(err)
+	}
+
+	var sd pdfcpu_types.StreamDict
+	switch v := obj.(type) {
+	case pdfcpu_types.StreamDict:
+		sd = v
+	case pdfcpu_types.ObjectStreamDict:
+		sd = v.StreamDict
+	case pdfcpu_types.XRefStreamDict:
+		sd = v.StreamDict
+	default:
+		return "", "node is not a stream object", nil
+	}
+
+	// Decode the stream inside safeCall (pdfcpu can panic).
+	if err := safeCall(func() error {
+		return sd.Decode()
+	}); err != nil {
+		return "", fmt.Sprintf("failed to decode stream: %v", err), nil
+	}
+
+	if sd.Content != nil {
+		return string(sd.Content), "", nil
+	}
+	return string(sd.Raw), "", nil
 }
 
 // tokenizeContentStream performs lexical tokenization of a PDF content stream,
