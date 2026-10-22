@@ -67,6 +67,22 @@ type structureWalker struct {
 	claims map[int]map[int][]string
 	// parentTree holds the ParentTree entries by key.
 	parentTree map[int]pdfcpu_types.Object
+	// streamUses counts, per content stream node ID, the page scans still to
+	// come that read it.
+	streamUses map[string]int
+	// streamMemo holds the decoded tokens of a content stream that a later
+	// page scan still reads, so a shared stream is decoded once per walk.
+	// An entry is dropped after its last use.
+	streamMemo map[string]decodedStream
+	// decodes counts content stream decodes.
+	decodes int
+}
+
+// decodedStream is one content stream's tokens, or the error that stopped
+// its decode.
+type decodedStream struct {
+	tokens []Token
+	err    string
 }
 
 func newStructureWalker(ctx *pdfcpu_model.Context) *structureWalker {
@@ -84,6 +100,8 @@ func newStructureWalker(ctx *pdfcpu_model.Context) *structureWalker {
 		visited:    map[int]bool{},
 		claims:     map[int]map[int][]string{},
 		parentTree: map[int]pdfcpu_types.Object{},
+		streamUses: map[string]int{},
+		streamMemo: map[string]decodedStream{},
 	}
 }
 
@@ -127,6 +145,7 @@ func (d *DocumentState) structurePhase1(w *structureWalker) ([]*pageLeaf, error)
 		pt, ptErr := d.pageTree()
 		leaves = pt.leaves
 		w.readTree(leaves)
+		w.countStreamUses(leaves)
 		if ptErr != nil {
 			w.problem("page tree", fmt.Sprintf("page-tree walk stopped after %d pages: %v; later pages not listed", len(leaves), ptErr))
 		}
@@ -146,6 +165,19 @@ func (d *DocumentState) scanPageLocked(w *structureWalker, leaf *pageLeaf, sp *S
 	guard(func() { w.scanPage(d, leaf, sp) }, func(msg string) {
 		sp.Err = joinErr(sp.Err, "page could not be read: "+msg)
 	})
+}
+
+// countStreamUses counts how many page scans read each content stream.
+func (w *structureWalker) countStreamUses(leaves []*pageLeaf) {
+	for _, leaf := range leaves {
+		if leaf.err != nil {
+			continue
+		}
+		refs, _ := contentStreamRefs(leaf.dict)
+		for _, ref := range refs {
+			w.streamUses[nodeIDForRef(ref)]++
+		}
+	}
 }
 
 // problem records a finding with no row of its own.
@@ -177,7 +209,8 @@ func (w *structureWalker) readTree(leaves []*pageLeaf) {
 		w.readCatalog(catalog)
 	}
 
-	named := map[int]bool{}
+	// named maps each /StructParents key to the first page that has it.
+	named := map[int]int{}
 	for i, leaf := range leaves {
 		sp := &StructPage{
 			PageNum:      i + 1,
@@ -198,7 +231,12 @@ func (w *structureWalker) readTree(leaves []*pageLeaf) {
 			sp.ParentTreeErr = "the ParentTree entry could not be read: " + msg
 		})
 		if sp.StructParents != nil {
-			named[*sp.StructParents] = true
+			key := *sp.StructParents
+			if first, dup := named[key]; dup {
+				w.problem(fmt.Sprintf("page %d", sp.PageNum), fmt.Sprintf("/StructParents %d is also the key of page %d; both pages bind to the same ParentTree entry", key, first))
+			} else {
+				named[key] = sp.PageNum
+			}
 		}
 	}
 	w.readOtherParentTree(named)
@@ -290,7 +328,7 @@ func (w *structureWalker) readRoot(root pdfcpu_types.Dict, where string) {
 			r.ParentTreeRef = refString(ref)
 			ptWhere += " " + r.ParentTreeRef
 		}
-		entries, _, problems := walkNumberTree(w.ctx, o, ptWhere)
+		entries, problems := walkNumberTree(w.ctx, o, ptWhere)
 		w.parentTree = entries
 		r.Problems = append(r.Problems, problems...)
 	}
@@ -528,7 +566,7 @@ func (w *structureWalker) readElement(d pdfcpu_types.Dict, e *StructElem, id str
 	default:
 		e.S = s.Value()
 	}
-	if typ := nameOf(w.deref(d["Type"])); typ != "" && typ != "StructElem" && e.S == "" {
+	if typ := nameOf(w.deref(d["Type"])); typ != "" && typ != "StructElem" {
 		errs = append(errs, fmt.Sprintf("/Type /%s is not StructElem", typ))
 	}
 	if e.S != "" {
@@ -683,10 +721,10 @@ func (w *structureWalker) elementRefOf(o pdfcpu_types.Object) (ref, s, msg strin
 }
 
 // readOtherParentTree lists the ParentTree keys no page names.
-func (w *structureWalker) readOtherParentTree(named map[int]bool) {
+func (w *structureWalker) readOtherParentTree(named map[int]int) {
 	keys := make([]int, 0, len(w.parentTree))
 	for k := range w.parentTree {
-		if !named[k] {
+		if _, isNamed := named[k]; !isNamed {
 			keys = append(keys, k)
 		}
 	}
@@ -704,31 +742,30 @@ func (w *structureWalker) readOtherParentTree(named map[int]bool) {
 }
 
 // scanPage decodes the page's content streams in /Contents order and scans
-// their marked content. Callers hold pdfMu.
+// their marked content. A stream that a later page also reads is decoded once
+// and its tokens kept until that page's scan. Callers hold pdfMu.
 func (w *structureWalker) scanPage(d *DocumentState, leaf *pageLeaf, sp *StructPage) {
 	if leaf.err != nil {
 		return
 	}
-	ids, err := contentStreamIDs(leaf.dict)
+	refs, err := contentStreamRefs(leaf.dict)
 	if err != nil {
 		sp.Err = joinErr(sp.Err, err.Error())
 		return
 	}
 	props := w.propertyLookup(leaf)
 	st := &mcState{}
-	for i, id := range ids {
-		ms := MarkedStream{Ref: nodeIDToRef(id)}
-		raw, decodeErr, err := d.decodeContentStreamLocked(id)
-		switch {
-		case err != nil:
-			ms.Err = err.Error()
-		case decodeErr != "":
-			ms.Err = decodeErr
-		}
+	for i, ref := range refs {
+		ms := MarkedStream{Ref: refString(ref)}
+		ds := w.decodeStream(d, nodeIDForRef(ref))
+		ms.Err = ds.err
 		if ms.Err != "" {
 			ms.DepthAtEnd, ms.MinDepth = len(st.stack), len(st.stack)
+			// The stream's content is unknown, so operands read before it
+			// do not carry past it.
+			st.clearOperands()
 		} else {
-			rows := scanMarkedContent(tokenizeContentStream(raw), i, props, st, &ms)
+			rows := scanMarkedContent(ds.tokens, i, props, st, &ms)
 			sp.ContentMCIDs = append(sp.ContentMCIDs, rows...)
 		}
 		sp.Streams = append(sp.Streams, ms)
@@ -740,22 +777,45 @@ func (w *structureWalker) scanPage(d *DocumentState, leaf *pageLeaf, sp *StructP
 	}
 }
 
+// decodeStream returns the tokens of the content stream id for one use by a
+// page scan, from streamMemo when an earlier page decoded it. Callers hold
+// pdfMu.
+func (w *structureWalker) decodeStream(d *DocumentState, id string) decodedStream {
+	ds, memo := w.streamMemo[id]
+	if !memo {
+		w.decodes++
+		raw, decodeErr, err := d.decodeContentStreamLocked(id)
+		switch {
+		case err != nil:
+			ds.err = err.Error()
+		case decodeErr != "":
+			ds.err = decodeErr
+		default:
+			ds.tokens = tokenizeContentStream(raw)
+		}
+	}
+	w.streamUses[id]--
+	if w.streamUses[id] > 0 {
+		w.streamMemo[id] = ds
+	} else {
+		delete(w.streamMemo, id)
+		delete(w.streamUses, id)
+	}
+	return ds
+}
+
 // propertyLookup returns the named-property-list lookup for a page: its
-// effective /Resources /Properties, each level dereferenced.
+// effective /Resources /Properties, each level dereferenced once here.
+// Callers hold pdfMu, and so does every call of the returned lookup.
 func (w *structureWalker) propertyLookup(leaf *pageLeaf) propertyLookup {
+	var props pdfcpu_types.Dict
+	if res, ok := w.deref(leaf.attrs.resources).(pdfcpu_types.Dict); ok {
+		props, _ = w.deref(res["Properties"]).(pdfcpu_types.Dict)
+	}
 	return func(name string) (pdfcpu_types.Object, error) {
-		notFound := fmt.Errorf("property list /%s not found in /Resources /Properties", name)
-		res, ok := w.deref(leaf.attrs.resources).(pdfcpu_types.Dict)
-		if !ok {
-			return nil, notFound
-		}
-		props, ok := w.deref(res["Properties"]).(pdfcpu_types.Dict)
-		if !ok {
-			return nil, notFound
-		}
 		entry, found := props.Find(name)
 		if !found {
-			return nil, notFound
+			return nil, fmt.Errorf("property list /%s not found in /Resources /Properties", name)
 		}
 		pl, ok := w.deref(entry).(pdfcpu_types.Dict)
 		if !ok {
@@ -809,15 +869,6 @@ func (w *structureWalker) align(sp *StructPage) []MCIDAlignment {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].MCID < out[j].MCID })
 	return out
-}
-
-// nodeIDToRef renders an "obj:<gen>:<num>" node ID as "N G R".
-func nodeIDToRef(id string) string {
-	var gen, num int
-	if _, err := fmt.Sscanf(id, "obj:%d:%d", &gen, &num); err != nil {
-		return id
-	}
-	return fmt.Sprintf("%d %d R", num, gen)
 }
 
 // appendErr appends msg to errs when it is not empty.

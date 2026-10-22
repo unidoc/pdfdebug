@@ -206,11 +206,14 @@ func TestGetStructure_ElementEntryShapes(t *testing.T) {
 				t.Errorf("Alt %v ActualText %v, want nil when absent", e.Alt, e.ActualText)
 			}
 		}, ""},
-		{"/Type other than StructElem with an /S", "<< /Type /Foo /S /P >>", func(t *testing.T, e *StructElem) {
+		{"/Type other than StructElem with an /S", "<< /Type /Foo /S /P /Pg 3 0 R /K 0 >>", func(t *testing.T, e *StructElem) {
 			if e.S != "P" {
 				t.Errorf("S = %q, want P", e.S)
 			}
-		}, ""},
+			if len(e.Kids) != 1 || e.Kids[0].Kind != "mcid" {
+				t.Errorf("kids = %v, want the element walked with its one MCID kid", kindsOf(e.Kids))
+			}
+		}, "/Type /Foo is not StructElem"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -401,6 +404,70 @@ func TestGetStructure_NamedPropertyListLookup(t *testing.T) {
 	}
 }
 
+func TestGetStructure_PagesSharingAStructParentsKeyAreAProblem(t *testing.T) {
+	all := []rawObj{
+		{1, "<< /Type /Catalog /Pages 2 0 R /StructTreeRoot 5 0 R >>"},
+		{5, "<< /Type /StructTreeRoot /K [10 0 R] /ParentTree 6 0 R >>"},
+		{6, "<< /Nums [0 [10 0 R]] >>"},
+		{10, "<< /Type /StructElem /S /P /Pg 3 0 R /K 0 >>"},
+	}
+	all = append(all, structPagesObjs(3, nil, []string{"/StructParents 0", "/StructParents 1", "/StructParents 0"})...)
+	r := rawStructure(t, rawPDF(all...))
+	var found []StructureProblem
+	for _, p := range r.Problems {
+		if strings.Contains(p.Message, "/StructParents 0") {
+			found = append(found, p)
+		}
+	}
+	if len(found) != 1 || found[0].Where != "page 3" || !strings.Contains(found[0].Message, "page 1") {
+		t.Errorf("problems = %+v, want one at page 3 naming key 0 and page 1", r.Problems)
+	}
+	for _, p := range r.Problems {
+		if strings.Contains(p.Message, "/StructParents 1") {
+			t.Errorf("unshared key reported: %+v", p)
+		}
+	}
+	if len(r.OtherParentTree) != 0 {
+		t.Errorf("OtherParentTree = %+v, want none: key 0 is named", r.OtherParentTree)
+	}
+}
+
+func TestGetStructure_SharedContentStreamIsDecodedOnce(t *testing.T) {
+	_, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R 4 0 R 7 0 R] /Count 3 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 20 0 R >>"},
+		rawObj{4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [20 0 R 21 0 R] >>"},
+		rawObj{7, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [21 0 R 20 0 R] >>"},
+		rawObj{20, rawStream("/P <</MCID 0>> BDC EMC")},
+		rawObj{21, rawStream("/P <</MCID 1>> BDC EMC")},
+	))
+	w := newStructureWalker(doc.PDFContext)
+	r, err := doc.buildStructure(w)
+	if err != nil {
+		t.Fatalf("buildStructure: %v", err)
+	}
+	if w.decodes != 2 {
+		t.Errorf("decodes = %d, want 2 (one per distinct stream)", w.decodes)
+	}
+	if len(w.streamMemo) != 0 || len(w.streamUses) != 0 {
+		t.Errorf("memo %d entries, uses %d entries after the walk, want both empty", len(w.streamMemo), len(w.streamUses))
+	}
+	want := [][]string{{"20 0 R"}, {"20 0 R", "21 0 R"}, {"21 0 R", "20 0 R"}}
+	for i, p := range r.Pages {
+		var refs []string
+		for _, s := range p.Streams {
+			if s.Err != "" {
+				t.Errorf("page %d stream %s: %s", p.PageNum, s.Ref, s.Err)
+			}
+			refs = append(refs, s.Ref)
+		}
+		if !slices.Equal(refs, want[i]) || len(p.ContentMCIDs) != len(want[i]) {
+			t.Errorf("page %d streams %v with %d MCID rows, want %v with one row each", p.PageNum, refs, len(p.ContentMCIDs), want[i])
+		}
+	}
+}
+
 func TestGetStructure_CloseBeforeTreeWalkCancels(t *testing.T) {
 	ins, doc := openUnvalidated(t, threePagePDF())
 	w := newStructureWalker(doc.PDFContext)
@@ -419,20 +486,6 @@ func TestGetStructure_CloseBeforeTreeWalkCancels(t *testing.T) {
 	}
 	if !slices.Equal(calls, []int{0}) {
 		t.Errorf("beforeLock calls = %v, want [0]", calls)
-	}
-}
-
-func TestNodeIDToRef(t *testing.T) {
-	cases := map[string]string{
-		"obj:0:12": "12 0 R",
-		"obj:3:7":  "7 3 R",
-		"root":     "root",
-		"":         "",
-	}
-	for in, want := range cases {
-		if got := nodeIDToRef(in); got != want {
-			t.Errorf("nodeIDToRef(%q) = %q, want %q", in, got, want)
-		}
 	}
 }
 

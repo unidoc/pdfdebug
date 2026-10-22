@@ -148,8 +148,8 @@ func TestStructurePlain_PageErrorLines(t *testing.T) {
 			{PageNum: 3, Streams: []pdfcore.MarkedStream{
 				{Ref: "20 0 R", Err: "failed to decode stream: bad"},
 				{Ref: "21 0 R", Opens: 1, Closes: 2, DepthAtEnd: 0, MinDepth: -1},
-				{Ref: "22 0 R", Opens: 1, Closes: 0, DepthAtEnd: 1, MinDepth: 0},
 				{Ref: "23 0 R", Opens: 1, Closes: 1},
+				{Ref: "22 0 R", Opens: 1, Closes: 0, DepthAtEnd: 1, MinDepth: 0},
 			}, ContentMCIDs: []pdfcore.ContentMCID{
 				{MCID: -1, Tag: "Span", Stream: 1, Line: 2, Col: 3, Err: "property list /MC9 not found"},
 				{MCID: -1, Stream: 7, Line: 1, Col: 1, Err: "BDC has 0 of its 2 operands"},
@@ -177,6 +177,31 @@ func TestStructurePlain_PageErrorLines(t *testing.T) {
 	}
 	if strings.Contains(out, "Pages with no /StructParents") {
 		t.Errorf("pages with errors collapsed:\n%s", out)
+	}
+}
+
+func TestStructurePlain_SequenceClosedInALaterStreamIsNotReportedOpen(t *testing.T) {
+	r := &pdfcore.StructureReport{
+		HasStructTree: true,
+		Pages: []*pdfcore.StructPage{
+			{PageNum: 1, Streams: []pdfcore.MarkedStream{
+				{Ref: "30 0 R", Opens: 1, DepthAtEnd: 1},
+				{Ref: "31 0 R", Closes: 1, MinDepth: 0},
+			}},
+			{PageNum: 2, Streams: []pdfcore.MarkedStream{
+				{Ref: "40 0 R", Opens: 2, Closes: 1, DepthAtEnd: 1},
+				{Ref: "41 0 R", Opens: 1, DepthAtEnd: 2, MinDepth: 1},
+			}},
+		},
+	}
+	out := structurePlain(r)
+	for _, absent := range []string{"stream 30 0 R", "stream 31 0 R", "stream 40 0 R"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("output has %q for a sequence that a later stream closes or that is still counted on the last stream:\n%s", absent, out)
+		}
+	}
+	if want := "  stream 41 0 R: BDC/BMC 1, EMC 0, depth at end 2, min depth 1\n"; !strings.Contains(out, want) {
+		t.Errorf("output missing %q for the page's last stream:\n%s", want, out)
 	}
 }
 

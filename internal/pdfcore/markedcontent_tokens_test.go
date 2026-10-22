@@ -230,15 +230,66 @@ func TestScanMarkedContentTokens_InlineImagePayloadIsNotScanned(t *testing.T) {
 	checkStream(t, streams[0], 1, 1, 0, 0)
 }
 
-func TestScanMarkedContentTokens_RowPositionIsTheFirstOperand(t *testing.T) {
+func TestScanMarkedContentTokens_RowPositionIsTheTag(t *testing.T) {
 	rows, _ := scanTokens(noProps(t), "q\n  /P <</MCID 0>> BDC EMC Q")
 	if len(rows) != 1 || rows[0].Line != 2 || rows[0].Col != 3 {
 		t.Errorf("rows = %+v, want line 2 col 3 (the tag)", rows)
+	}
+	rows, _ = scanTokens(noProps(t), "1 2\n /P <</MCID 0>> BDC EMC")
+	if len(rows) != 1 || rows[0].Line != 2 || rows[0].Col != 2 {
+		t.Errorf("rows = %+v, want line 2 col 2 (the tag, not the stray operands)", rows)
 	}
 	rows, _ = scanTokens(noProps(t), "  BDC")
 	if len(rows) != 1 || rows[0].Line != 1 || rows[0].Col != 3 || !strings.Contains(rows[0].Err, "0 of its 2 operands") {
 		t.Errorf("rows = %+v, want the BDC position when it has no operands", rows)
 	}
+}
+
+func TestScanMarkedContentTokens_StrayLeadingOperandsKeepTheMCID(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		mcid    int
+		tag     string
+	}{
+		{"names before the tag", "/X /P <</MCID 0>> BDC EMC", 0, "P"},
+		{"numbers before the tag", "1 2 3 /Span <</MCID 4>> BDC EMC", 4, "Span"},
+		{"unclosed array before the tag", "[ /P <</MCID 2>> BDC EMC", 2, "P"},
+		{"unclosed dict before the tag", "<< /P <</MCID 5>> BDC EMC", 5, "P"},
+		{"name and unclosed dict before the tag", "/X << /P <</MCID 8>> BDC EMC", 8, "P"},
+		{"stray closer before the tag", "] /P <</MCID 6>> BDC EMC", 6, "P"},
+		{"property list dict never closed", "/P << /MCID 3 BDC EMC", 3, "P"},
+		{"unclosed array then unclosed dict", "[ /P << /MCID 7 BDC EMC", 7, "P"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rows, streams := scanTokens(noProps(t), tc.content)
+			if len(rows) != 1 || rows[0].MCID != tc.mcid || rows[0].Tag != tc.tag || rows[0].Err != "" {
+				t.Errorf("rows = %+v, want MCID %d tag %s with no error", rows, tc.mcid, tc.tag)
+			}
+			checkStream(t, streams[0], 1, 1, 0, 0)
+		})
+	}
+}
+
+func TestScanMarkedContentTokens_TagThatIsAContainerIsAnErrorRow(t *testing.T) {
+	rows, _ := scanTokens(noProps(t), "/X [/P] <</MCID 0>> BDC EMC")
+	if len(rows) != 1 || rows[0].MCID != -1 || !strings.Contains(rows[0].Err, "not a tag name") {
+		t.Errorf("rows = %+v, want one not-a-tag-name error row", rows)
+	}
+}
+
+func TestScanMarkedContentTokens_OperandsCarryAcrossStreams(t *testing.T) {
+	rows, streams := scanTokens(noProps(t), "q /P", "<</MCID 0", ">> BDC EMC Q")
+	if len(rows) != 1 || rows[0].MCID != 0 || rows[0].Tag != "P" || rows[0].Err != "" {
+		t.Fatalf("rows = %+v, want MCID 0 tag P from operands split over three streams", rows)
+	}
+	if r := rows[0]; r.Stream != 0 || r.Line != 1 || r.Col != 3 || r.Depth != 1 {
+		t.Errorf("row = %+v, want stream 0 line 1 col 3 (the tag) at depth 1", r)
+	}
+	checkStream(t, streams[0], 0, 0, 0, 0)
+	checkStream(t, streams[1], 0, 0, 0, 0)
+	checkStream(t, streams[2], 1, 1, 0, 0)
 }
 
 func TestScanMarkedContentTokens_OtherOperatorsResetOperands(t *testing.T) {

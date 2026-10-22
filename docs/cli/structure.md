@@ -82,9 +82,14 @@ tree deeper than 256 levels says where it stops.
 Each page with a `/StructParents` entry, any marked content, an MCID the tree
 attributes to it, or an error gets a block. The first line has the
 `/StructParents` key, the number of content streams and the BDC/BMC and EMC
-counts. A stream that fails to decode, ends with sequences still open, or
-closes one it never opened gets its own line, and so does each BDC and each
-ParentTree slot that could not be read. The table has one row per MCID:
+counts. A page's content streams are read as one concatenated stream, so a
+sequence opened in one stream may close in a later one and a BDC's operands may
+start in one stream and end in the next. A stream that fails to decode or
+closes a sequence it never opened gets its own line, and so does the page's
+last stream when sequences are still open at its end. Each BDC and each
+ParentTree slot that could not be read gets a line too. A BDC's tag and
+property list are its last two operands; anything before them is ignored. The
+table has one row per MCID:
 
 - `CONTENT` - how many BDCs in the page's content carry that MCID.
 - `PARENTTREE` - the element in that slot of the page's ParentTree array.
@@ -94,7 +99,8 @@ A row is marked `*` unless the content marks the MCID once, the ParentTree slot
 names an element, and that element is the only one in `TREE`. The pages that get
 no block are collapsed into one line. ParentTree keys
 no page names (an annotation's `/StructParent`, or an orphan) are listed under
-"Other ParentTree keys", and malformed ParentTree nodes under "Problems".
+"Other ParentTree keys". "Problems" lists malformed ParentTree nodes and pages
+that share a `/StructParents` key with an earlier page.
 
 MCIDs inside Form XObjects are not aligned: an MCR with `/Stm` is listed in the
 tree but left out of the page table, and `Do` is not followed.

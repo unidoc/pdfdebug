@@ -2,7 +2,6 @@ package pdfcore
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
@@ -25,15 +24,14 @@ type numberTreeWalker struct {
 
 // walkNumberTree reads the number tree (ISO 32000-1 7.9.7) rooted at root and
 // returns every key with its value as stored (possibly an indirect reference;
-// callers dereference), the keys in ascending order, and every malformed node
-// it met. A malformed node is reported and the walk goes on: a node that is
+// callers dereference) and every malformed node it met. A malformed node is reported and the walk goes on: a node that is
 // not a dictionary, has neither /Kids nor /Nums, an odd-length /Nums, a
 // non-integer key, a bad /Limits or a key outside it, keys out of order
 // within one leaf, a
 // duplicate key (the first value is kept), a node reached twice, and a node
 // deeper than maxNumberTreeDepth. where prefixes every problem location.
 // Callers hold pdfMu.
-func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where string) (entries map[int]pdfcpu_types.Object, order []int, problems []StructureProblem) {
+func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where string) (entries map[int]pdfcpu_types.Object, problems []StructureProblem) {
 	w := &numberTreeWalker{
 		ctx:     ctx,
 		where:   where,
@@ -42,12 +40,7 @@ func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where s
 		visited: map[int]bool{},
 	}
 	w.visit(root, true, 1)
-	order = make([]int, 0, len(w.entries))
-	for k := range w.entries {
-		order = append(order, k)
-	}
-	sort.Ints(order)
-	return w.entries, order, w.problems
+	return w.entries, w.problems
 }
 
 // ntNodeLabel names a node for problem locations: its reference, or "(direct)".

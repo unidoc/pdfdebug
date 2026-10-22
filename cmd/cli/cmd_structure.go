@@ -252,11 +252,14 @@ func writeStructPages(b *strings.Builder, pages []*pdfcore.StructPage) {
 				fmt.Fprintf(b, "  ParentTree slot %d: error: %s\n", s.MCID, asciiSafe(s.Err))
 			}
 		}
-		for _, s := range p.Streams {
+		for i, s := range p.Streams {
+			// Depth carries across a page's streams, so only the last stream's
+			// DepthAtEnd shows a sequence left open.
+			unclosed := i == len(p.Streams)-1 && s.DepthAtEnd != 0
 			switch {
 			case s.Err != "":
 				b.WriteString("  stream " + s.Ref + ": error: " + asciiSafe(s.Err) + "\n")
-			case s.MinDepth < 0 || s.DepthAtEnd != 0:
+			case s.MinDepth < 0 || unclosed:
 				fmt.Fprintf(b, "  stream %s: BDC/BMC %d, EMC %d, depth at end %d, min depth %d\n", s.Ref, s.Opens, s.Closes, s.DepthAtEnd, s.MinDepth)
 			}
 		}

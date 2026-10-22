@@ -64,7 +64,7 @@ func TestWalkNumberTree_NodeShapes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			entries, order, problems := walkRawNumberTree(t, tc.objs...)
+			entries, problems := walkRawNumberTree(t, tc.objs...)
 			if len(problems) != len(tc.problems) {
 				t.Errorf("problems:\n%s\nwant %d: %v", problemsText(problems), len(tc.problems), tc.problems)
 			}
@@ -80,9 +80,6 @@ func TestWalkNumberTree_NodeShapes(t *testing.T) {
 				}
 			}
 			checkIntEntries(t, entries, tc.want)
-			if len(order) != len(tc.want) {
-				t.Errorf("order = %v, want %d keys", order, len(tc.want))
-			}
 		})
 	}
 }

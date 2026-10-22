@@ -207,10 +207,37 @@ func TestMarkedContentScan_StrayOpenSpanEndsAtNextOperator(t *testing.T) {
 	checkStream(t, p.Streams[0], 1, 1, 0, 0)
 }
 
-func TestMarkedContentScan_BDCWithoutTagIsAnErrorRow(t *testing.T) {
-	p := scanPage(t, "<< /Properties << /MCID << /MCID 5 >> >> >>", []string{rawStream("<</MCID 0>> BDC EMC")})
+func TestMarkedContentScan_BDCWhoseTagIsNotANameIsAnErrorRow(t *testing.T) {
+	p := scanPage(t, "<< /Properties << /MCID << /MCID 5 >> >> >>", []string{rawStream("5 <</MCID 0>> BDC EMC")})
 	checkContentMCIDs(t, p, []mcidRow{{-1, "", 0, 1, -1, "not a tag name"}})
 	checkStream(t, p.Streams[0], 1, 1, 0, 0)
+}
+
+func TestMarkedContentScan_EscapedPropertyListNameIsDecodedBeforeLookup(t *testing.T) {
+	p := scanPage(t, "<< /Properties << /MC0 << /MCID 4 >> >> >>", []string{rawStream("/Span /MC#30 BDC EMC")})
+	checkContentMCIDs(t, p, []mcidRow{{4, "Span", 0, 1, -1, ""}})
+}
+
+func TestMarkedContentScan_BadEscapeInPropertyListNameIsAnErrorRow(t *testing.T) {
+	p := scanPage(t, "<< /Properties << /MC0 << /MCID 4 >> >> >>", []string{rawStream("/Span /MC#3 BDC EMC")})
+	checkContentMCIDs(t, p, []mcidRow{{-1, "Span", 0, 1, -1, "does not decode"}})
+}
+
+func TestMarkedContentScan_BDCOperandsSplitAcrossStreams(t *testing.T) {
+	p := scanPage(t, "<< /Properties << /MC0 << /MCID 1 >> >> >>", []string{
+		rawStream("/P <</MCID 0>>"),
+		rawStream("BDC EMC /Span"),
+		rawStream("/MC0 BDC EMC"),
+	})
+	checkContentMCIDs(t, p, []mcidRow{{0, "P", 0, 1, -1, ""}, {1, "Span", 1, 1, -1, ""}})
+	if a := alignmentMCIDs(p); len(a) != 2 {
+		t.Errorf("alignment MCIDs = %v, want 0 and 1", a)
+	}
+}
+
+func TestMarkedContentScan_UndecodableStreamDropsPendingOperands(t *testing.T) {
+	p := scanPage(t, "", []string{rawStream("/P <</MCID 0>>"), undecodableStream, rawStream("BDC EMC")})
+	checkContentMCIDs(t, p, []mcidRow{{-1, "", 2, 1, -1, "0 of its 2 operands"}})
 }
 
 func TestMarkedContentScan_DanglingMCIDInNamedPropertyListIsAnErrorRow(t *testing.T) {
@@ -226,6 +253,7 @@ func TestMarkedContentScan_BDCWithUnreadableOperandsIsAnErrorRow(t *testing.T) {
 	}{
 		{"tag only", "/P BDC EMC", "1 of its 2 operands"},
 		{"no operands", "BDC EMC", "0 of its 2 operands"},
+		{"property list only", "<</MCID 0>> BDC EMC", "1 of its 2 operands"},
 		{"number as property list", "/P 5 BDC EMC", "not a dictionary or a name"},
 		{"array as property list", "/P [1] BDC EMC", "not a dictionary or a name"},
 	}

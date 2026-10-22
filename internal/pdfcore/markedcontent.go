@@ -14,10 +14,14 @@ type mcOpen struct {
 	hasMCID bool
 }
 
-// mcState is the stack of open marked-content sequences, carried from one
-// content stream of a page to the next.
+// mcState is the scan state carried from one content stream of a page to the
+// next, so the page's streams scan as one concatenated stream: the stack of
+// open marked-content sequences and the operands not yet consumed by an
+// operator, with the index of the stream each operand came from.
 type mcState struct {
-	stack []mcOpen
+	stack     []mcOpen
+	operands  []Token
+	opStreams []int
 }
 
 // propertyLookup resolves a named property list (BDC with a name operand) in
@@ -28,7 +32,8 @@ type propertyLookup func(name string) (mcid pdfcpu_types.Object, err error)
 
 // scanMarkedContent counts BMC/BDC/EMC in one stream's tokens into ms and
 // returns a row for every BDC whose property list carries an /MCID. st is
-// updated in place so nesting carries into the next stream.
+// updated in place so nesting and pending operands carry into the next
+// stream.
 //
 // The tokenizer types delimiters and the keywords true, false and null as
 // operators, so operands are collected by value: <<, >>, [, ], true, false and
@@ -37,18 +42,17 @@ type propertyLookup func(name string) (mcid pdfcpu_types.Object, err error)
 func scanMarkedContent(tokens []Token, streamIdx int, props propertyLookup, st *mcState, ms *MarkedStream) []ContentMCID {
 	var rows []ContentMCID
 	ms.MinDepth = len(st.stack)
-	var operands []Token
 	for _, tok := range tokens {
 		if tok.Type == "comment" {
 			continue
 		}
 		if tok.Type != "operator" {
-			operands = append(operands, tok)
+			st.pushOperand(tok, streamIdx)
 			continue
 		}
 		switch tok.Value {
 		case "<<", ">>", "[", "]", "true", "false", "null":
-			operands = append(operands, tok)
+			st.pushOperand(tok, streamIdx)
 			continue
 		}
 		switch tok.Value {
@@ -57,11 +61,10 @@ func scanMarkedContent(tokens []Token, streamIdx int, props propertyLookup, st *
 			st.stack = append(st.stack, mcOpen{})
 		case "BDC":
 			ms.Opens++
-			row, ok := bdcRow(operands, tok, props)
+			row, ok := bdcRow(st.operands, st.opStreams, tok, streamIdx, props)
 			parent := innermostMCID(st.stack)
 			open := mcOpen{}
 			if ok {
-				row.Stream = streamIdx
 				row.ParentMCID = parent
 				if row.Err == "" {
 					open = mcOpen{mcid: row.MCID, hasMCID: true}
@@ -81,10 +84,22 @@ func scanMarkedContent(tokens []Token, streamIdx int, props propertyLookup, st *
 				ms.MinDepth = min(ms.MinDepth, len(st.stack))
 			}
 		}
-		operands = operands[:0]
+		st.clearOperands()
 	}
 	ms.DepthAtEnd = len(st.stack)
 	return rows
+}
+
+// pushOperand records tok, read from stream streamIdx, as a pending operand.
+func (st *mcState) pushOperand(tok Token, streamIdx int) {
+	st.operands = append(st.operands, tok)
+	st.opStreams = append(st.opStreams, streamIdx)
+}
+
+// clearOperands drops the pending operands.
+func (st *mcState) clearOperands() {
+	st.operands = st.operands[:0]
+	st.opStreams = st.opStreams[:0]
 }
 
 // innermostMCID returns the MCID of the innermost open sequence that has
@@ -99,32 +114,52 @@ func innermostMCID(stack []mcOpen) *int {
 	return nil
 }
 
-// bdcRow reads a BDC's operands (tag, then an inline dictionary or a property
-// list name). ok is false when the property list has no /MCID, so the BDC
-// gets no row. Operands that are not a tag name followed by a dictionary or a
-// name, a property list that cannot be read, or an /MCID that is not a
-// non-negative integer give a row with MCID -1 and Err set.
-func bdcRow(operands []Token, op Token, props propertyLookup) (row ContentMCID, ok bool) {
-	pos := op
-	if len(operands) > 0 {
-		pos = operands[0]
+// bdcRow reads a BDC's operands. The property list is the last operand
+// object (an inline dictionary or a property list name), or, when that is not
+// a closed dictionary, a dictionary still open at the operator; the tag is the object before it, and anything earlier
+// is ignored. opStreams holds the stream index of each operand token; the
+// row's Stream, Line and Col are the tag's, else the first operand's, else the
+// operator's (in stream opStream). ok is false when the property list has no
+// /MCID, so the BDC gets no row. Fewer than two operand objects, a tag that is
+// not a name, a property list that is neither a dictionary nor a name or
+// cannot be read, or an /MCID that is not a non-negative integer give a row
+// with MCID -1 and Err set.
+func bdcRow(operands []Token, opStreams []int, op Token, opStream int, props propertyLookup) (row ContentMCID, ok bool) {
+	row = ContentMCID{MCID: -1, Stream: opStream, Line: op.Line, Col: op.Col}
+	at := func(i int) {
+		row.Stream, row.Line, row.Col = opStreams[i], operands[i].Line, operands[i].Col
 	}
-	row = ContentMCID{MCID: -1, Line: pos.Line, Col: pos.Col}
-	if len(operands) > 0 && operands[0].Type == "name" {
-		row.Tag = strings.TrimPrefix(operands[0].Value, "/")
-	}
-	if len(operands) < 2 {
-		row.Err = fmt.Sprintf("BDC has %d of its 2 operands (a tag and a property list)", len(operands))
+	n := len(operands)
+	if n == 0 {
+		row.Err = "BDC has 0 of its 2 operands (a tag and a property list)"
 		return row, true
 	}
-	if operands[0].Type != "name" {
-		row.Err = fmt.Sprintf("BDC operands start with %q, not a tag name; property list not read", operands[0].Value)
+	propStart := operandStart(operands, n-1)
+	// With no closed dictionary last, a "<<" still open is the property list.
+	if operands[propStart].Value != "<<" {
+		if u := unclosedDictStart(operands); u > 0 {
+			propStart = u
+		}
+	}
+	if propStart == 0 {
+		at(0)
+		if n == 1 && operands[0].Type == "name" {
+			row.Tag = strings.TrimPrefix(operands[0].Value, "/")
+		}
+		row.Err = "BDC has 1 of its 2 operands (a tag and a property list)"
 		return row, true
 	}
-	prop := operands[1]
+	tagStart := operandStart(operands, propStart-1)
+	at(tagStart)
+	if tagStart != propStart-1 || operands[tagStart].Type != "name" {
+		row.Err = fmt.Sprintf("BDC operand %q before the property list is not a tag name; property list not read", operands[tagStart].Value)
+		return row, true
+	}
+	row.Tag = strings.TrimPrefix(operands[tagStart].Value, "/")
+	prop := operands[propStart:]
 	switch {
-	case prop.Type == "operator" && prop.Value == "<<":
-		val, found := inlineMCID(operands[1:])
+	case prop[0].Type == "operator" && prop[0].Value == "<<":
+		val, found := inlineMCID(prop)
 		if !found {
 			return row, false
 		}
@@ -136,8 +171,13 @@ func bdcRow(operands []Token, op Token, props propertyLookup) (row ContentMCID, 
 		}
 		row.Err = fmt.Sprintf("/MCID %s is not an integer", val.Value)
 		return row, true
-	case prop.Type == "name":
-		name := strings.TrimPrefix(prop.Value, "/")
+	case len(prop) == 1 && prop[0].Type == "name":
+		// /Properties keys are #xx-decoded by the parser, so the operand is too.
+		name, err := pdfcpu_types.DecodeName(strings.TrimPrefix(prop[0].Value, "/"))
+		if err != nil {
+			row.Err = fmt.Sprintf("property list name %s does not decode: %v", prop[0].Value, err)
+			return row, true
+		}
 		mcid, err := props(name)
 		if err != nil {
 			row.Err = err.Error()
@@ -153,8 +193,55 @@ func bdcRow(operands []Token, op Token, props propertyLookup) (row ContentMCID, 
 		}
 		return row, true
 	}
-	row.Err = fmt.Sprintf("BDC property list operand %q is not a dictionary or a name", prop.Value)
+	row.Err = fmt.Sprintf("BDC property list operand %q is not a dictionary or a name", prop[0].Value)
 	return row, true
+}
+
+// unclosedDictStart returns the index of the outermost "<<" still open at the
+// end of toks, or -1 when none is.
+func unclosedDictStart(toks []Token) int {
+	var open []int
+	for i, t := range toks {
+		if t.Type != "operator" {
+			continue
+		}
+		switch t.Value {
+		case "<<", "[":
+			open = append(open, i)
+		case ">>", "]":
+			if len(open) > 0 {
+				open = open[:len(open)-1]
+			}
+		}
+	}
+	for _, i := range open {
+		if toks[i].Value == "<<" {
+			return i
+		}
+	}
+	return -1
+}
+
+// operandStart returns the index of the first token of the operand object
+// that ends at toks[end]: a dictionary or array is matched back to its
+// opening delimiter. An unmatched closing delimiter extends the object to
+// index 0.
+func operandStart(toks []Token, end int) int {
+	depth := 0
+	for i := end; i >= 0; i-- {
+		if t := toks[i]; t.Type == "operator" {
+			switch t.Value {
+			case ">>", "]":
+				depth++
+			case "<<", "[":
+				depth--
+			}
+		}
+		if depth <= 0 {
+			return i
+		}
+	}
+	return 0
 }
 
 // setMCID stores a non-negative n as the row's MCID, or an error for a

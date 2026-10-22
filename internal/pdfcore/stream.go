@@ -40,6 +40,22 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 // concatenation order, with the contract pageContentStreamNodeIDs documents.
 // Callers that dereference through pdfcpu hold pdfMu.
 func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
+	refs, err := contentStreamRefs(pageDict)
+	if err != nil || refs == nil {
+		return nil, err
+	}
+	ids := make([]string, len(refs))
+	for i, ref := range refs {
+		ids[i] = nodeIDForRef(ref)
+	}
+	return ids, nil
+}
+
+// contentStreamRefs returns the indirect references of pageDict's /Contents
+// stream(s) in concatenation order: nil when there is none, one for a single
+// reference, and every reference element of an array with null elements
+// skipped. Any other array element or /Contents value is an error.
+func contentStreamRefs(pageDict pdfcpu_types.Dict) ([]pdfcpu_types.IndirectRef, error) {
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
 		return nil, nil
@@ -47,12 +63,12 @@ func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
 
 	switch v := contents.(type) {
 	case pdfcpu_types.IndirectRef:
-		return []string{fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value())}, nil
+		return []pdfcpu_types.IndirectRef{v}, nil
 	case pdfcpu_types.Array:
 		if len(v) == 0 {
 			return nil, nil
 		}
-		ids := make([]string, 0, len(v))
+		refs := make([]pdfcpu_types.IndirectRef, 0, len(v))
 		for i, e := range v {
 			// A null element carries no content, so skipping it drops nothing
 			// (pdfcpu decodes PDF null to a Go nil element) - at ANY index,
@@ -68,9 +84,9 @@ func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
 			if !ok {
 				return nil, fmt.Errorf("contents array element %d is not an indirect reference: %T", i, e)
 			}
-			ids = append(ids, fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()))
+			refs = append(refs, ref)
 		}
-		return ids, nil
+		return refs, nil
 	default:
 		return nil, fmt.Errorf("unexpected Contents type: %T", contents)
 	}

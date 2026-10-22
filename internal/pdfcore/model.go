@@ -850,7 +850,8 @@ type ParentTreeSlot struct {
 
 // MarkedStream is the marked-content balance of one content stream. Depth is
 // the number of open marked-content sequences, carried from one stream of a
-// page to the next.
+// page to the next, so only the page's last stream's DepthAtEnd shows a
+// sequence left open.
 type MarkedStream struct {
 	Ref        string `json:"ref"`
 	Opens      int    `json:"opens"`           // BMC + BDC
@@ -862,7 +863,8 @@ type MarkedStream struct {
 
 // ContentMCID is one BDC in a page's content whose property list carries an
 // /MCID, or whose operands or property list could not be read. MCID is -1
-// when Err is set.
+// when Err is set. Stream, Line and Col locate the BDC's tag operand, which
+// may sit in an earlier stream than the operator.
 type ContentMCID struct {
 	MCID       int    `json:"mcid"`
 	Tag        string `json:"tag"`    // the BDC tag name, e.g. "P"

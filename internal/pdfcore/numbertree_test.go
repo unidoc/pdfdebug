@@ -2,7 +2,6 @@ package pdfcore
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 
@@ -17,16 +16,16 @@ const numberTreeWhere = "NT"
 
 // walkRawNumberTree reads objs as a document and walks the number tree rooted
 // at object 10.
-func walkRawNumberTree(t *testing.T, objs ...rawObj) (map[int]pdfcpu_types.Object, []int, []StructureProblem) {
+func walkRawNumberTree(t *testing.T, objs ...rawObj) (map[int]pdfcpu_types.Object, []StructureProblem) {
 	t.Helper()
 	_, doc := openUnvalidated(t, numberTreePDF(objs...))
-	entries, order, problems := walkNumberTree(doc.PDFContext, *pdfcpu_types.NewIndirectRef(10, 0), numberTreeWhere)
+	entries, problems := walkNumberTree(doc.PDFContext, *pdfcpu_types.NewIndirectRef(10, 0), numberTreeWhere)
 	for _, p := range problems {
 		if !strings.Contains(p.Where, numberTreeWhere) {
 			t.Errorf("problem location %q does not carry the caller's prefix %q", p.Where, numberTreeWhere)
 		}
 	}
-	return entries, order, problems
+	return entries, problems
 }
 
 // problemText is a problem's location and message on one line.
@@ -75,19 +74,11 @@ func TestWalkNumberTree_WellFormed(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			entries, order, problems := walkRawNumberTree(t, tc.objs...)
+			entries, problems := walkRawNumberTree(t, tc.objs...)
 			if len(problems) != 0 {
 				t.Errorf("unexpected problems:\n%s", problemsText(problems))
 			}
 			checkIntEntries(t, entries, tc.want)
-			want := make([]int, 0, len(tc.want))
-			for k := range tc.want {
-				want = append(want, k)
-			}
-			slices.Sort(want)
-			if !slices.Equal(order, want) {
-				t.Errorf("order = %v, want %v", order, want)
-			}
 		})
 	}
 }
@@ -136,7 +127,7 @@ func TestWalkNumberTree_ReportsMalformedNodes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			entries, _, problems := walkRawNumberTree(t, tc.objs...)
+			entries, problems := walkRawNumberTree(t, tc.objs...)
 			if len(problems) == 0 {
 				t.Fatalf("no problem reported")
 			}
@@ -158,15 +149,12 @@ func TestWalkNumberTree_ReportsMalformedNodes(t *testing.T) {
 }
 
 func TestWalkNumberTree_DuplicateKeyKeepsFirstValueAndNamesBothNodes(t *testing.T) {
-	entries, order, problems := walkRawNumberTree(t,
+	entries, problems := walkRawNumberTree(t,
 		rawObj{10, "<< /Kids [11 0 R 12 0 R] >>"},
 		rawObj{11, "<< /Limits [0 1] /Nums [0 100 1 101] >>"},
 		rawObj{12, "<< /Limits [1 2] /Nums [1 201 2 202] >>"},
 	)
 	checkIntEntries(t, entries, map[int]int{0: 100, 1: 101, 2: 202})
-	if !slices.Equal(order, []int{0, 1, 2}) {
-		t.Errorf("order = %v, want every key once: [0 1 2]", order)
-	}
 	found := false
 	for _, p := range problems {
 		text := problemText(p)
@@ -180,14 +168,11 @@ func TestWalkNumberTree_DuplicateKeyKeepsFirstValueAndNamesBothNodes(t *testing.
 }
 
 func TestWalkNumberTree_KidPointingBackAtRootIsReportedOnce(t *testing.T) {
-	entries, order, problems := walkRawNumberTree(t,
+	entries, problems := walkRawNumberTree(t,
 		rawObj{10, "<< /Kids [11 0 R 10 0 R] >>"},
 		rawObj{11, "<< /Limits [0 1] /Nums [0 100 1 101] >>"},
 	)
 	checkIntEntries(t, entries, map[int]int{0: 100, 1: 101})
-	if !slices.Equal(order, []int{0, 1}) {
-		t.Errorf("order = %v, want every key once: [0 1]", order)
-	}
 	n := 0
 	for _, p := range problems {
 		if strings.Contains(p.Message, "reached twice") {
@@ -216,7 +201,7 @@ func TestWalkNumberTree_DepthPastCapIsReported(t *testing.T) {
 			objs = append(objs, rawObj{num, "<< /Limits [0 0] /Nums [0 100] >>"})
 		}
 	}
-	_, _, problems := walkRawNumberTree(t, objs...)
+	_, problems := walkRawNumberTree(t, objs...)
 	found := false
 	for _, p := range problems {
 		if strings.Contains(p.Message, "64") && strings.Contains(p.Message, "deep") {
@@ -229,7 +214,7 @@ func TestWalkNumberTree_DepthPastCapIsReported(t *testing.T) {
 }
 
 func TestWalkNumberTree_ReturnsValuesAsStored(t *testing.T) {
-	entries, _, problems := walkRawNumberTree(t,
+	entries, problems := walkRawNumberTree(t,
 		rawObj{10, "<< /Nums [0 11 0 R] >>"},
 		rawObj{11, "[12 0 R null]"},
 		rawObj{12, "<< /S /P >>"},
