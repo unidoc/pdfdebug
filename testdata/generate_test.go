@@ -770,6 +770,64 @@ func structureBrokenPDFContent() []byte {
 	}, "")
 }
 
+// uaStructuralXMP is the XMP packet of the ua-structural fixtures: dc:title
+// matching /Info /Title and pdfuaid:part 1.
+const uaStructuralXMP = `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">UA structural fixture</rdf:li></rdf:Alt></dc:title>
+   <pdfuaid:part>1</pdfuaid:part>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`
+
+// uaStructuralPDF is a one-page tagged document for the pdfua-1-structural
+// content rules with at most one fault. The clean document has the catalog
+// entries PDF/UA-1 asks for (/MarkInfo, /Lang, /StructTreeRoot,
+// /ViewerPreferences /DisplayDocTitle, an XMP /Metadata with dc:title and
+// pdfuaid:part, a matching /Info /Title), a page whose /Contents is the array
+// [6 0 R 7 0 R] with MCID 0 in the first stream and MCID 1 in the second, and
+// a Document element with two P children, each claiming one MCID through a
+// ParentTree slot. fault is one of "", "unbalanced" (an EMC with nothing open
+// at the start of the content), "duplicate-mcid" (the second stream marks
+// MCID 0 again), "orphan-mcid" (the second stream also marks MCID 2, which has
+// no ParentTree slot), "nested-mcid" (MCID 1 opens inside the open MCID 0
+// sequence) and "empty-s" (the second P has /S with the empty name).
+func uaStructuralPDF(fault string) []byte {
+	first := "/P <</MCID 0>> BDC 0 0 m 100 100 l S EMC"
+	second := "/P <</MCID 1>> BDC 0 100 m 100 0 l S EMC"
+	secondS := "/P"
+	switch fault {
+	case "unbalanced":
+		first = "EMC " + first
+	case "duplicate-mcid":
+		second = "/P <</MCID 0>> BDC 0 100 m 100 0 l S EMC"
+	case "orphan-mcid":
+		second += " /P <</MCID 2>> BDC 50 0 m 50 100 l S EMC"
+	case "nested-mcid":
+		first = "/P <</MCID 0>> BDC 0 0 m 100 100 l S /P <</MCID 1>> BDC 0 100 m 100 0 l S EMC EMC"
+		second = "/Artifact BMC 0 50 m 100 50 l S EMC"
+	case "empty-s":
+		secondS = "/"
+	}
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 5 0 R /ViewerPreferences << /DisplayDocTitle true >> /Metadata 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [6 0 R 7 0 R] /StructParents 0 /Resources << >> >>\nendobj\n",
+		complStreamObj(4, "/Type /Metadata /Subtype /XML ", uaStructuralXMP),
+		"5 0 obj\n<< /Type /StructTreeRoot /K 10 0 R /ParentTree 8 0 R /ParentTreeNextKey 1 >>\nendobj\n",
+		complStreamObj(6, "", first),
+		complStreamObj(7, "", second),
+		"8 0 obj\n<< /Nums [0 [11 0 R 12 0 R]] >>\nendobj\n",
+		"9 0 obj\n<< /Title (UA structural fixture) >>\nendobj\n",
+		"10 0 obj\n<< /Type /StructElem /S /Document /P 5 0 R /K [11 0 R 12 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Type /StructElem /S /P /P 10 0 R /Pg 3 0 R /K 0 >>\nendobj\n",
+		"12 0 obj\n<< /Type /StructElem /S " + secondS + " /P 10 0 R /Pg 3 0 R /K 1 >>\nendobj\n",
+	}, "/Info 9 0 R ")
+}
+
 // pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
 // passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
 // document /ID, no fonts, no device color, and a blank page. Provenance:
@@ -977,6 +1035,12 @@ func TestGenerateFixtures(t *testing.T) {
 		{"pdfa-1b-clean.pdf", pdfaCleanContent},
 		{"structure.pdf", structurePDFContent},
 		{"structure-broken.pdf", structureBrokenPDFContent},
+		{"ua-structural-clean.pdf", func() []byte { return uaStructuralPDF("") }},
+		{"ua-structural-unbalanced.pdf", func() []byte { return uaStructuralPDF("unbalanced") }},
+		{"ua-structural-duplicate-mcid.pdf", func() []byte { return uaStructuralPDF("duplicate-mcid") }},
+		{"ua-structural-orphan-mcid.pdf", func() []byte { return uaStructuralPDF("orphan-mcid") }},
+		{"ua-structural-nested-mcid.pdf", func() []byte { return uaStructuralPDF("nested-mcid") }},
+		{"ua-structural-empty-s.pdf", func() []byte { return uaStructuralPDF("empty-s") }},
 	}
 	for _, fx := range complFixtures {
 		t.Run(fx.name, func(t *testing.T) {

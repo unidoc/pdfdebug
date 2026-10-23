@@ -23,17 +23,21 @@ The three command families use different contracts.
 `validate`:
 
 - 0 - it ran and found no errors. This is not a conformance verdict.
-- 1 - it found at least one error. Under `pdfa-1b` it also exits 1 when a rule
-  could not be evaluated, and for an encrypted file, which is reported as one
-  `no-encryption` error.
+- 1 - it found at least one error, or a rule whose severity is error could
+  not be evaluated. Every `pdfa-1b` rule is an error rule. Under
+  `pdfua-1-structural` the error rules are the marked-content ones: a
+  marked-content imbalance or a page content stream that cannot be decoded, a
+  duplicate MCID, an MCID that does not reach the ParentTree or cannot be read,
+  and an MCID nested inside another. An encrypted file under `pdfa-1b` is
+  reported as one `no-encryption` error and also exits 1.
 - 2 - operational or usage error: a missing file, an unknown profile, an
   unknown flag, the wrong number of files, a flag after the file, or an
   encrypted file under `pdfua-1-structural`.
 
-Every `pdfua-1-structural` rule reports a warning, so that profile exits 0 no
-matter what it finds. A rule that could not be evaluated reports an info
-problem and also exits 0. A job that should fail on either has to read
-`summary.warnings` and `summary.info` from `--json`.
+The `pdfua-1-structural` catalog rules (`marked`, `struct-tree-root`, `lang`)
+and `struct-elem-type` report warnings, which exit 0. One of them that could
+not be evaluated reports an info problem and also exits 0. A job that should
+fail on those has to read `summary.warnings` and `summary.info` from `--json`.
 
 `diff`:
 
@@ -46,8 +50,9 @@ problem and also exits 0. A job that should fail on either has to read
 `pdfdebug --help` exits 0, but `--help` on a subcommand exits non-zero: 1 for
 `dump`, 2 for `validate` and `diff`.
 
-This script fails a CI step when `validate` cannot run or reports anything. It
-is plain `sh` and needs `jq`; it drops into any CI system that runs shell steps.
+This script fails a CI step when `validate` cannot run, exits 1 on an error,
+or reports anything else. It is plain `sh` and needs `jq`; it drops into any
+CI system that runs shell steps.
 
 ```sh
 rc=0

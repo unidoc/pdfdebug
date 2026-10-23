@@ -28,7 +28,7 @@
  *
  * Run: cd frontend && npx vitest run src/components/ValidateView.test.tsx
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { ValidateView } from './ValidateView';
 
@@ -474,5 +474,95 @@ describe('ValidateView scope and rules checked', () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     expect(screen.getByTestId('validate-disclaimer').textContent).toBe(DISCLAIMER_TEXT);
+  });
+});
+
+/** A pdfua-1-structural result with one page-scoped content error and one catalog warning. */
+const uaContentErrorResult = {
+  profile: 'pdfua-1-structural',
+  summary: { errors: 1, warnings: 1, info: 0 },
+  problems: [
+    {
+      ruleId: 'mcid-unique',
+      profile: 'pdfua-1-structural',
+      severity: 'error',
+      message: 'page 1: MCID 0 marks 2 BDC sequences: stream 7 0 R line 1 col 1, stream 8 0 R line 1 col 1',
+      objRef: '3 0 R',
+      objNodeId: 'obj:0:3',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2',
+    },
+    {
+      ruleId: 'lang',
+      profile: 'pdfua-1-structural',
+      severity: 'warning',
+      message: 'document /Lang is missing',
+      objRef: '',
+      objNodeId: '',
+      specRef: 'ISO 14289-1:2014, 7.2',
+    },
+  ],
+  disclaimer: DISCLAIMER_TEXT,
+  scope: uaScope,
+  rules: [
+    ...uaRules.map((r) => (r.ruleId === 'lang' ? { ...r, findings: 1 } : r)),
+    {
+      ruleId: 'mcid-unique',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2',
+      severity: 'error',
+      checks: "no MCID marks more than one BDC in a page's content stream",
+      evaluated: true,
+      findings: 1,
+    },
+  ],
+};
+
+describe('ValidateView PDF/UA content-rule errors', () => {
+  beforeEach(() => {
+    mockValidate.mockResolvedValue(uaContentErrorResult);
+  });
+
+  async function runUA(onNavigate = vi.fn()) {
+    render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfua-1-structural' } });
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/MCID 0 marks 2 BDC/));
+    return onNavigate;
+  }
+
+  test('a PDF/UA error finding renders under Errors and the catalog warning under Warnings', async () => {
+    await runUA();
+
+    expect(mockValidate).toHaveBeenCalledWith('tab-1', 'pdfua-1-structural');
+    const errors = screen.getByTestId('validate-group-error');
+    const warnings = screen.getByTestId('validate-group-warning');
+    expect(within(errors).getByText(/MCID 0 marks 2 BDC/)).toBeInTheDocument();
+    expect(within(errors).queryByText(/\/Lang is missing/)).toBeNull();
+    expect(within(warnings).getByText(/\/Lang is missing/)).toBeInTheDocument();
+    expect(within(warnings).queryByText(/MCID 0 marks 2 BDC/)).toBeNull();
+  });
+
+  test('the summary line counts the PDF/UA error and warning', async () => {
+    await runUA();
+
+    expect(screen.getByTestId('validate-summary').textContent?.startsWith('1 error, 1 warning')).toBe(true);
+  });
+
+  test('clicking the PDF/UA error row navigates to its page node', async () => {
+    const onNavigate = await runUA();
+
+    const row = screen.getByText(/MCID 0 marks 2 BDC/).closest('[data-testid="validate-problem"]');
+    expect(row).not.toBeNull();
+    fireEvent.click(row as Element);
+    expect(onNavigate).toHaveBeenCalledWith('obj:0:3');
+  });
+
+  test('pressing Enter on the PDF/UA error row navigates to its page node', async () => {
+    const onNavigate = await runUA();
+
+    const row = screen.getByText(/MCID 0 marks 2 BDC/).closest('[data-testid="validate-problem"]');
+    expect(row).not.toBeNull();
+    fireEvent.keyDown(row as Element, { key: 'Enter' });
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('obj:0:3');
   });
 });

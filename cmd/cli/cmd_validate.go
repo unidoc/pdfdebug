@@ -21,7 +21,7 @@ var validateUsage = usageLine("validate")
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate), or
-//	   a rule of a gating profile could not be evaluated
+//	   an error-severity rule could not be evaluated
 //	2  operational or usage error (missing/unreadable file, unknown profile, bad
 //	   args, view failure)
 //
@@ -97,10 +97,11 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 
 // renderValidate writes the result (plain text default, --json opts in) and
 // returns the compliance-gate exit code: 1 when any error-severity problem was
-// found, else 0. It ALSO returns 1 (fail closed) when a gating-profile rule
-// could not be evaluated (degraded to an info problem) - reporting exit 0 "no
-// structural errors" for a file whose required rule never actually ran would
-// silently pass a CI gate on an unverified document.
+// found, else 0. It ALSO returns 1 (fail closed) when a rule whose registry
+// severity is error could not be evaluated (degraded to an info problem) -
+// reporting exit 0 "no structural errors" for a file whose required rule never
+// actually ran would silently pass a CI gate on an unverified document. A
+// warning-severity rule that could not be evaluated does not gate.
 func renderValidate(res *pdfcore.ValidationResult, jsonOut, pretty bool) int {
 	if jsonOut {
 		if err := emit(os.Stdout, res, pretty); err != nil {
@@ -111,13 +112,21 @@ func renderValidate(res *pdfcore.ValidationResult, jsonOut, pretty bool) int {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
-	if res.Summary.Errors > 0 {
-		return 1
-	}
-	if res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+	if res.Summary.Errors > 0 || errorRuleNotEvaluated(res) {
 		return 1
 	}
 	return 0
+}
+
+// errorRuleNotEvaluated reports whether a rule whose registry severity is
+// error could not be evaluated in res.
+func errorRuleNotEvaluated(res *pdfcore.ValidationResult) bool {
+	for _, r := range res.Rules {
+		if !r.Evaluated && r.Severity == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 // severityOrder is the display order for the grouped plain-text problem list.
@@ -207,9 +216,9 @@ func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 		fmt.Fprintf(&b, ", %d %s", res.Summary.Info, plural(res.Summary.Info, "info problem"))
 	}
 	b.WriteString("\n")
-	// renderValidate exits 1 on an info problem under a gating profile even with
-	// no errors; name that cause next to the summary.
-	if res.Summary.Errors == 0 && res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+	// renderValidate exits 1 when an error-severity rule could not be
+	// evaluated even with no errors; name that cause next to the summary.
+	if res.Summary.Errors == 0 && errorRuleNotEvaluated(res) {
 		b.WriteString("Exit status 1: a rule that gates the exit code could not be evaluated\n")
 	}
 	_, err := io.WriteString(out, b.String())
