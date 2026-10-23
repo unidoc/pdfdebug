@@ -254,6 +254,7 @@ func TestMarkedContentScan_BDCWithUnreadableOperandsIsAnErrorRow(t *testing.T) {
 		{"tag only", "/P BDC EMC", "1 of its 2 operands"},
 		{"no operands", "BDC EMC", "0 of its 2 operands"},
 		{"property list only", "<</MCID 0>> BDC EMC", "1 of its 2 operands"},
+		{"unclosed property list only", "<< /MCID 0 BDC EMC", "1 of its 2 operands"},
 		{"number as property list", "/P 5 BDC EMC", "not a dictionary or a name"},
 		{"array as property list", "/P [1] BDC EMC", "not a dictionary or a name"},
 	}

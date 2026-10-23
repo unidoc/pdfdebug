@@ -23,6 +23,11 @@ const noPageMsg = "no page: the nearest /Pg (on the kid, its element or an ances
 // root's /K, where no element owns it.
 const rootMCIDMsg = "MCID directly under the structure tree root, with no element to own it; not aligned"
 
+// formXObjectNote is the note on a ParentTree array value no page's
+// /StructParents names: a Form XObject with marked content has its own
+// /StructParents and an array value (ISO 32000-1 14.7.4.4).
+const formXObjectNote = "array value no page's /StructParents names; may belong to a Form XObject's /StructParents"
+
 // directElement stands for a direct-dictionary element where a ref is shown.
 const directElement = "(direct)"
 
@@ -37,7 +42,8 @@ var errStructureCanceled = fmt.Errorf("structure walk canceled: %w", context.Can
 // malformed in the document is a finding in the report; the call fails only
 // for an unknown tab, a close during the walk (errors.Is context.Canceled) or
 // a pdfcpu failure outside every per-node guard. Not cached. Every content
-// stream of every page is decoded, without writing the stream cache.
+// stream of every page is read: from the stream cache when GetContentStream
+// already decoded it, else decoded here without writing the cache.
 func (ins *Inspector) GetStructure(tabID string) (*StructureReport, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
@@ -173,7 +179,7 @@ func (w *structureWalker) countStreamUses(leaves []*pageLeaf) {
 		if leaf.err != nil {
 			continue
 		}
-		refs, _ := contentStreamRefs(leaf.dict)
+		refs, _ := contentStreamRefs(w.ctx, leaf.dict)
 		for _, ref := range refs {
 			w.streamUses[nodeIDForRef(ref)]++
 		}
@@ -733,7 +739,7 @@ func (w *structureWalker) readOtherParentTree(named map[int]int) {
 		e := ParentTreeEntry{Key: k}
 		v := w.parentTree[k]
 		if _, isArr := w.deref(v).(pdfcpu_types.Array); isArr {
-			e.Err = "value is an array, but no page's /StructParents names this key"
+			e.Note = formXObjectNote
 		} else {
 			e.ElementRef, e.S, e.Err = w.elementRefOf(v)
 		}
@@ -748,7 +754,7 @@ func (w *structureWalker) scanPage(d *DocumentState, leaf *pageLeaf, sp *StructP
 	if leaf.err != nil {
 		return
 	}
-	refs, err := contentStreamRefs(leaf.dict)
+	refs, err := contentStreamRefs(w.ctx, leaf.dict)
 	if err != nil {
 		sp.Err = joinErr(sp.Err, err.Error())
 		return
@@ -771,17 +777,28 @@ func (w *structureWalker) scanPage(d *DocumentState, leaf *pageLeaf, sp *StructP
 		sp.Streams = append(sp.Streams, ms)
 	}
 	for _, c := range sp.ContentMCIDs {
-		if c.Err == "" {
+		if c.MCID >= 0 {
 			w.report.Counts.ContentMCIDs++
 		}
 	}
 }
 
 // decodeStream returns the tokens of the content stream id for one use by a
-// page scan, from streamMemo when an earlier page decoded it. Callers hold
-// pdfMu.
+// page scan: from streamMemo when an earlier page decoded it, else from an
+// entry GetContentStream already put in d's stream cache, else by decoding
+// it. The stream cache is read, never written. Callers hold pdfMu, so
+// streamMu is taken inside it, the order GetContentStream uses.
 func (w *structureWalker) decodeStream(d *DocumentState, id string) decodedStream {
 	ds, memo := w.streamMemo[id]
+	if !memo {
+		d.streamMu.Lock()
+		cached, hit := d.streamCache[id]
+		d.streamMu.Unlock()
+		memo = hit
+		if hit {
+			ds = decodedStream{tokens: cached.Tokenized, err: cached.Error}
+		}
+	}
 	if !memo {
 		w.decodes++
 		raw, decodeErr, err := d.decodeContentStreamLocked(id)
@@ -845,7 +862,7 @@ func (w *structureWalker) align(sp *StructPage) []MCIDAlignment {
 		return a
 	}
 	for _, c := range sp.ContentMCIDs {
-		if c.Err == "" {
+		if c.MCID >= 0 {
 			row(c.MCID).ContentCount++
 		}
 	}

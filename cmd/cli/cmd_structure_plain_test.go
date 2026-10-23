@@ -238,13 +238,14 @@ func TestStructurePlain_OtherParentTreeAndProblems(t *testing.T) {
 		HasStructTree: true,
 		OtherParentTree: []pdfcore.ParentTreeEntry{
 			{Key: 2, ElementRef: "17 0 R", S: "Link"},
-			{Key: 7, Err: "value is an array, but no page's /StructParents names this key"},
+			{Key: 7, Note: "array value no page's /StructParents names; may belong to a Form XObject's /StructParents"},
+			{Key: 9, Err: "value is an integer, not a reference to an element"},
 		},
 		Problems: []pdfcore.StructureProblem{{Where: "ParentTree 31 0 R, node 33 0 R", Message: "key 1 outside /Limits [0 0]"}},
 	}
 	out := structurePlain(r)
 	for _, want := range []string{
-		"\nOther ParentTree keys:\n  2  ->  17 0 R Link\n  7  ->    error: value is an array, but no page's /StructParents names this key\n",
+		"\nOther ParentTree keys:\n  2  ->  17 0 R Link\n  7  ->    note: array value no page's /StructParents names; may belong to a Form XObject's /StructParents\n  9  ->    error: value is an integer, not a reference to an element\n",
 		"\nProblems (1):\n  ParentTree 31 0 R, node 33 0 R: key 1 outside /Limits [0 0]\n",
 	} {
 		if !strings.Contains(out, want) {
@@ -381,5 +382,47 @@ func TestStructureDumpOnFixtures(t *testing.T) {
 			}
 			tc.check(t, out)
 		})
+	}
+}
+
+func TestStructurePlain_NonASCIIElementFieldsEscapedOnce(t *testing.T) {
+	r := &pdfcore.StructureReport{
+		HasStructTree: true,
+		Elements: []*pdfcore.StructKid{{Kind: "element", Element: &pdfcore.StructElem{
+			S: "\u00dcberschrift", MappedS: "H1", Ref: "10 0 R", Alt: strPtr("Logo"),
+		}}},
+	}
+	out := structurePlain(r)
+	want := `"\u00dcberschrift" (H1) 10 0 R  Alt "Logo"`
+	if !strings.Contains(out, "\n"+want+"\n") {
+		t.Errorf("output missing line %q:\n%s", want, out)
+	}
+}
+
+func TestStructurePlain_NonASCIIAlignmentCellKeepsColumnsAligned(t *testing.T) {
+	r := &pdfcore.StructureReport{
+		HasStructTree: true,
+		Pages: []*pdfcore.StructPage{{PageNum: 1, Alignment: []pdfcore.MCIDAlignment{
+			{MCID: 0, ContentCount: 1, ParentTreeElement: "10 0 R", ParentTreeS: "\u00dcberschrift", TreeElements: []string{"10 0 R"}, Consistent: true},
+		}}},
+	}
+	out := structurePlain(r)
+	header := lineOf(t, out, "PARENTTREE")
+	row := lineOf(t, out, "10 0 R")
+	if !strings.Contains(row, `10 0 R "\u00dcberschrift"`) {
+		t.Errorf("row %q does not carry the escaped /S cell", row)
+	}
+	if strings.HasPrefix(strings.TrimSpace(row), `"`) {
+		t.Errorf("row %q is escaped as a whole", row)
+	}
+	if h, c := strings.LastIndex(header, "TREE"), strings.LastIndex(row, "10 0 R"); h != c {
+		t.Errorf("TREE column at %d in header %q but at %d in row %q", h, header, c, row)
+	}
+}
+
+func TestStructurePlain_ElementSectionOnlyWithStructTree(t *testing.T) {
+	r := &pdfcore.StructureReport{Elements: []*pdfcore.StructKid{{Kind: "error", Err: "x"}}}
+	if out := structurePlain(r); strings.Contains(out, "Elements (") {
+		t.Errorf("element section printed with no structure tree:\n%s", out)
 	}
 }

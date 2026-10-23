@@ -303,7 +303,7 @@ func TestGetStructure_OtherParentTreeValueShapes(t *testing.T) {
 		rawObj{6, "<< /Nums [0 [] 7 [10 0 R] 8 11 0 R 9 5] >>"},
 	))
 	want := []ParentTreeEntry{
-		{Key: 7, Err: "value is an array, but no page's /StructParents names this key"},
+		{Key: 7, Note: formXObjectNote},
 		{Key: 8, ElementRef: "11 0 R", S: "Span"},
 		{Key: 9, Err: "value is an integer, not a reference to an element"},
 	}
@@ -499,5 +499,98 @@ func TestJoinErr(t *testing.T) {
 		if got := joinErr(tc.a, tc.b); got != tc.want {
 			t.Errorf("joinErr(%q, %q) = %q, want %q", tc.a, tc.b, got, tc.want)
 		}
+	}
+}
+
+func TestGetStructure_ContentsReferenceToArray(t *testing.T) {
+	ins, _ := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 8 0 R >>"},
+		rawObj{8, "[20 0 R null 21 0 R]"},
+		rawObj{20, rawStream("/P <</MCID 0>> BDC EMC")},
+		rawObj{21, rawStream("/P <</MCID 1>> BDC EMC")},
+	))
+	r, err := ins.GetStructure("raw")
+	if err != nil {
+		t.Fatalf("GetStructure: %v", err)
+	}
+	p := mustPage(t, r, 1)
+	var refs []string
+	for _, s := range p.Streams {
+		if s.Err != "" {
+			t.Errorf("stream %s: %s", s.Ref, s.Err)
+		}
+		refs = append(refs, s.Ref)
+	}
+	if p.Err != "" || !slices.Equal(refs, []string{"20 0 R", "21 0 R"}) {
+		t.Errorf("page Err %q, streams %v; want no error and streams 20 0 R, 21 0 R", p.Err, refs)
+	}
+	if len(p.ContentMCIDs) != 2 || p.ContentMCIDs[0].MCID != 0 || p.ContentMCIDs[1].MCID != 1 {
+		t.Errorf("ContentMCIDs = %+v, want MCIDs 0 and 1", p.ContentMCIDs)
+	}
+	for _, a := range p.Alignment {
+		if a.ContentCount != 1 {
+			t.Errorf("alignment row %+v, want content count 1", a)
+		}
+	}
+
+	cs, err := ins.GetPageContentStream("raw", 1)
+	if err != nil || cs == nil || cs.Error != "" {
+		t.Fatalf("GetPageContentStream = %+v, %v; want both streams", cs, err)
+	}
+	if cs.NodeID != "obj:0:20" || !strings.Contains(cs.Raw, "MCID 0") || !strings.Contains(cs.Raw, "MCID 1") {
+		t.Errorf("GetPageContentStream node %s raw %q, want node obj:0:20 with both streams", cs.NodeID, cs.Raw)
+	}
+}
+
+func TestGetStructure_UnclosedPropertyListMCIDCountsInAlignment(t *testing.T) {
+	all := []rawObj{
+		{1, "<< /Type /Catalog /Pages 2 0 R /StructTreeRoot 5 0 R >>"},
+		{5, "<< /Type /StructTreeRoot /K [10 0 R] /ParentTree 6 0 R >>"},
+		{6, "<< /Nums [0 [10 0 R]] >>"},
+		{10, "<< /Type /StructElem /S /P /Pg 3 0 R /K 0 >>"},
+	}
+	all = append(all, structPagesObjs(1, []string{"/P << /MCID 0 BDC (x) Tj EMC"}, []string{"/StructParents 0"})...)
+	r := rawStructure(t, rawPDF(all...))
+	p := mustPage(t, r, 1)
+	if len(p.ContentMCIDs) != 1 || p.ContentMCIDs[0].MCID != 0 || !strings.Contains(p.ContentMCIDs[0].Err, "no closing >>") {
+		t.Fatalf("ContentMCIDs = %+v, want MCID 0 with a no-closing->> error", p.ContentMCIDs)
+	}
+	if a := alignmentRow(t, p, 0); a.ContentCount != 1 || !a.Consistent {
+		t.Errorf("MCID 0 row = %+v, want content count 1 and consistent", a)
+	}
+	if r.Counts.ContentMCIDs != 1 {
+		t.Errorf("Counts.ContentMCIDs = %d, want 1", r.Counts.ContentMCIDs)
+	}
+}
+
+func TestGetStructure_ReadsStreamCacheEntryWithoutDecoding(t *testing.T) {
+	ins, doc := openUnvalidated(t, rawPDF(
+		rawObj{1, rawCatalog},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [20 0 R 21 0 R] >>"},
+		rawObj{20, rawStream("/P <</MCID 0>> BDC EMC")},
+		rawObj{21, rawStream("/P <</MCID 1>> BDC EMC")},
+	))
+	if _, err := ins.GetContentStream("raw", "obj:0:20"); err != nil {
+		t.Fatalf("GetContentStream: %v", err)
+	}
+	w := newStructureWalker(doc.PDFContext)
+	r, err := doc.buildStructure(w)
+	if err != nil {
+		t.Fatalf("buildStructure: %v", err)
+	}
+	if w.decodes != 1 {
+		t.Errorf("decodes = %d, want 1 (stream 20 0 R read from the cache)", w.decodes)
+	}
+	if p := mustPage(t, r, 1); len(p.ContentMCIDs) != 2 || p.ContentMCIDs[0].MCID != 0 || p.ContentMCIDs[1].MCID != 1 {
+		t.Errorf("ContentMCIDs = %+v, want MCIDs 0 and 1", p.ContentMCIDs)
+	}
+	doc.streamMu.Lock()
+	n := len(doc.streamCache)
+	doc.streamMu.Unlock()
+	if n != 1 {
+		t.Errorf("streamCache holds %d entries, want 1 (GetStructure does not write it)", n)
 	}
 }

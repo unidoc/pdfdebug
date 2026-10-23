@@ -68,7 +68,7 @@ func structurePlain(r *pdfcore.StructureReport) string {
 	} else {
 		writeStructureHeader(&b, r)
 	}
-	if r.HasStructTree || len(r.Elements) > 0 {
+	if r.HasStructTree {
 		c := r.Counts
 		fmt.Fprintf(&b, "\nElements (%d; kids: %d MCID, %d MCR, %d OBJR, %d error):\n",
 			c.Elements, c.MCIDKids, c.MCRKids, c.OBJRKids, c.ErrorKids)
@@ -79,17 +79,20 @@ func structurePlain(r *pdfcore.StructureReport) string {
 	if len(r.OtherParentTree) > 0 {
 		b.WriteString("\nOther ParentTree keys:\n")
 		for _, e := range r.OtherParentTree {
-			line := fmt.Sprintf("  %d  ->  %s", e.Key, joinNonEmpty(e.ElementRef, e.S))
-			if e.Err != "" {
-				line += "  error: " + e.Err
+			line := fmt.Sprintf("  %d  ->  %s", e.Key, joinNonEmpty(asciiSafe(e.ElementRef), asciiSafe(e.S)))
+			if e.Note != "" {
+				line += "  note: " + asciiSafe(e.Note)
 			}
-			b.WriteString(asciiSafe(line) + "\n")
+			if e.Err != "" {
+				line += "  error: " + asciiSafe(e.Err)
+			}
+			b.WriteString(line + "\n")
 		}
 	}
 	if len(r.Problems) > 0 {
 		fmt.Fprintf(&b, "\nProblems (%d):\n", len(r.Problems))
 		for _, p := range r.Problems {
-			b.WriteString("  " + asciiSafe(p.Where+": "+p.Message) + "\n")
+			b.WriteString("  " + asciiSafe(p.Where) + ": " + asciiSafe(p.Message) + "\n")
 		}
 	}
 	return b.String()
@@ -116,9 +119,9 @@ func writeStructureHeader(b *strings.Builder, r *pdfcore.StructureReport) {
 	if len(r.RoleMap) > 0 {
 		pairs := make([]string, len(r.RoleMap))
 		for i, e := range r.RoleMap {
-			pairs[i] = e.From + " -> " + orText(e.To, "?")
+			pairs[i] = asciiSafe(e.From) + " -> " + asciiSafe(orText(e.To, "?"))
 		}
-		b.WriteString("RoleMap: " + asciiSafe(strings.Join(pairs, ", ")) + "\n")
+		b.WriteString("RoleMap: " + strings.Join(pairs, ", ") + "\n")
 	}
 }
 
@@ -141,17 +144,17 @@ func writeStructKids(b *strings.Builder, kids []*pdfcore.StructKid, level int) {
 				line += fmt.Sprintf(" page %d", k.Page)
 			}
 			if k.StmRef != "" {
-				line += " stream " + k.StmRef
+				line += " stream " + asciiSafe(k.StmRef)
 			}
 		case "objr":
-			line = "OBJR " + joinNonEmpty(orText(k.ObjRef, "-"), k.ObjType)
+			line = "OBJR " + joinNonEmpty(asciiSafe(orText(k.ObjRef, "-")), asciiSafe(k.ObjType))
 		default:
-			line = "error: " + k.Err
+			line = "error: " + asciiSafe(k.Err)
 		}
 		if k.Kind != "error" && k.Kind != "element" && k.Err != "" {
-			line += "  error: " + k.Err
+			line += "  error: " + asciiSafe(k.Err)
 		}
-		b.WriteString(indent + asciiSafe(line) + "\n")
+		b.WriteString(indent + line + "\n")
 		if k.Element != nil {
 			writeStructKids(b, k.Element.Kids, level+1)
 		}
@@ -159,12 +162,14 @@ func writeStructKids(b *strings.Builder, kids []*pdfcore.StructKid, level int) {
 }
 
 // elementLine renders one element: S, mapped S, ref, page and text fields.
+// Each value is made ASCII-safe on its own, so the line is never escaped
+// again as a whole.
 func elementLine(e *pdfcore.StructElem) string {
-	parts := []string{orText(e.S, "(no /S)")}
+	parts := []string{asciiSafe(orText(e.S, "(no /S)"))}
 	if e.MappedS != "" {
-		parts[0] += " (" + e.MappedS + ")"
+		parts[0] += " (" + asciiSafe(e.MappedS) + ")"
 	}
-	parts[0] += " " + orText(e.Ref, "(direct)")
+	parts[0] += " " + asciiSafe(orText(e.Ref, "(direct)"))
 	if e.Page > 0 {
 		p := fmt.Sprintf("page %d", e.Page)
 		if e.PageInherited {
@@ -172,7 +177,7 @@ func elementLine(e *pdfcore.StructElem) string {
 		}
 		parts = append(parts, p)
 	} else if e.PgRef != "" {
-		parts = append(parts, "/Pg "+e.PgRef)
+		parts = append(parts, "/Pg "+asciiSafe(e.PgRef))
 	}
 	text := func(label, v string) {
 		c := pdfcore.ClampDisplayValue(v, pdfcore.TreeValueCap)
@@ -197,7 +202,7 @@ func elementLine(e *pdfcore.StructElem) string {
 		}
 	}
 	if e.Err != "" {
-		parts = append(parts, "error: "+e.Err)
+		parts = append(parts, "error: "+asciiSafe(e.Err))
 	}
 	return strings.Join(parts, "  ")
 }
@@ -282,14 +287,16 @@ func writeStructPages(b *strings.Builder, pages []*pdfcore.StructPage) {
 			if !a.Consistent {
 				mark, starred = "*", true
 			}
+			// Cells are escaped before rendering so column widths count the
+			// escaped text.
 			t.AddRow(strconv.Itoa(a.MCID), strconv.Itoa(a.ContentCount),
-				orText(joinNonEmpty(a.ParentTreeElement, a.ParentTreeS), "-"),
-				orText(strings.Join(a.TreeElements, ", "), "-"), mark)
+				orText(joinNonEmpty(asciiSafe(a.ParentTreeElement), asciiSafe(a.ParentTreeS)), "-"),
+				asciiSafe(orText(strings.Join(a.TreeElements, ", "), "-")), mark)
 		}
 		var tb strings.Builder
 		_ = t.Render(&tb)
 		for line := range strings.SplitSeq(strings.TrimSuffix(tb.String(), "\n"), "\n") {
-			b.WriteString("  " + asciiSafe(strings.TrimRight(line, " ")) + "\n")
+			b.WriteString("  " + strings.TrimRight(line, " ") + "\n")
 		}
 		if starred && !legend {
 			b.WriteString("  * = content count, ParentTree slot and tree claimants do not line up on one element\n")

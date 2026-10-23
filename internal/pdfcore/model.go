@@ -863,8 +863,10 @@ type MarkedStream struct {
 
 // ContentMCID is one BDC in a page's content whose property list carries an
 // /MCID, or whose operands or property list could not be read. MCID is -1
-// when Err is set. Stream, Line and Col locate the BDC's tag operand, which
-// may sit in an earlier stream than the operator.
+// when it could not be read; a row with MCID 0 or more counts in the
+// alignment even when Err is set (an inline property list with no closing
+// ">>"). Stream, Line and Col locate the BDC's tag operand, which may sit in
+// an earlier stream than the operator.
 type ContentMCID struct {
 	MCID       int    `json:"mcid"`
 	Tag        string `json:"tag"`    // the BDC tag name, e.g. "P"
@@ -890,11 +892,14 @@ type MCIDAlignment struct {
 }
 
 // ParentTreeEntry is a ParentTree key that no page's /StructParents names,
-// typically an annotation's or XObject's /StructParent.
+// typically an annotation's or XObject's /StructParent. An array value is
+// not read and carries Note instead of ElementRef: it may be a Form
+// XObject's /StructParents entry.
 type ParentTreeEntry struct {
 	Key        int    `json:"key"`
 	ElementRef string `json:"elementRef"`
 	S          string `json:"s"`
+	Note       string `json:"note,omitempty"`
 	Err        string `json:"error,omitempty"`
 }
 

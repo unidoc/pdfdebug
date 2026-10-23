@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // pageContentStreamNodeIDs resolves a 1-based page number to the ordered node
 // IDs of its content stream(s) in a SINGLE page-dict resolution: empty slice
 // (no error) when the page has no /Contents, one ID for a single indirect ref,
-// and, for an array, every indirect-ref element in order. A null element is
+// and, for an array (direct, or behind an indirect ref), every indirect-ref
+// element in order. A null element is
 // skipped - it is not a stream and carries no content (ISO 32000-1 7.8.2) - but
 // any other non-ref element is an ERROR naming its index and type, never a
 // silent skip, since dropping it could omit part of the page. An array whose
@@ -33,14 +35,14 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
-	return contentStreamIDs(leaf.dict)
+	return contentStreamIDs(doc.PDFContext, leaf.dict)
 }
 
 // contentStreamIDs returns the node IDs of pageDict's /Contents stream(s) in
 // concatenation order, with the contract pageContentStreamNodeIDs documents.
-// Callers that dereference through pdfcpu hold pdfMu.
-func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
-	refs, err := contentStreamRefs(pageDict)
+// Callers hold pdfMu.
+func contentStreamIDs(ctx *pdfcpu_model.Context, pageDict pdfcpu_types.Dict) ([]string, error) {
+	refs, err := contentStreamRefs(ctx, pageDict)
 	if err != nil || refs == nil {
 		return nil, err
 	}
@@ -54,11 +56,18 @@ func contentStreamIDs(pageDict pdfcpu_types.Dict) ([]string, error) {
 // contentStreamRefs returns the indirect references of pageDict's /Contents
 // stream(s) in concatenation order: nil when there is none, one for a single
 // reference, and every reference element of an array with null elements
-// skipped. Any other array element or /Contents value is an error.
-func contentStreamRefs(pageDict pdfcpu_types.Dict) ([]pdfcpu_types.IndirectRef, error) {
+// skipped. A reference to an array is followed and read as that array (ISO
+// 32000-1 7.8.2); a reference to anything else is returned as is. Any other
+// array element or /Contents value is an error. Callers hold pdfMu.
+func contentStreamRefs(ctx *pdfcpu_model.Context, pageDict pdfcpu_types.Dict) ([]pdfcpu_types.IndirectRef, error) {
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
 		return nil, nil
+	}
+	if ref, ok := contents.(pdfcpu_types.IndirectRef); ok {
+		if arr, isArr := derefIn(ctx, ref).(pdfcpu_types.Array); isArr {
+			contents = arr
+		}
 	}
 
 	switch v := contents.(type) {

@@ -258,8 +258,6 @@ func TestScanMarkedContentTokens_StrayLeadingOperandsKeepTheMCID(t *testing.T) {
 		{"unclosed dict before the tag", "<< /P <</MCID 5>> BDC EMC", 5, "P"},
 		{"name and unclosed dict before the tag", "/X << /P <</MCID 8>> BDC EMC", 8, "P"},
 		{"stray closer before the tag", "] /P <</MCID 6>> BDC EMC", 6, "P"},
-		{"property list dict never closed", "/P << /MCID 3 BDC EMC", 3, "P"},
-		{"unclosed array then unclosed dict", "[ /P << /MCID 7 BDC EMC", 7, "P"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -269,6 +267,36 @@ func TestScanMarkedContentTokens_StrayLeadingOperandsKeepTheMCID(t *testing.T) {
 			}
 			checkStream(t, streams[0], 1, 1, 0, 0)
 		})
+	}
+}
+
+func TestScanMarkedContentTokens_UnclosedPropertyListKeepsMCIDWithError(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		mcid    int
+	}{
+		{"property list dict never closed", "/P << /MCID 3 BDC EMC", 3},
+		{"unclosed array then unclosed dict", "[ /P << /MCID 7 BDC EMC", 7},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rows, streams := scanTokens(noProps(t), tc.content)
+			if len(rows) != 1 || rows[0].MCID != tc.mcid || rows[0].Tag != "P" || !strings.Contains(rows[0].Err, "no closing >>") {
+				t.Errorf("rows = %+v, want MCID %d tag P with a no-closing->> error", rows, tc.mcid)
+			}
+			checkStream(t, streams[0], 1, 1, 0, 0)
+		})
+	}
+}
+
+func TestScanMarkedContentTokens_UnclosedPropertyListMCIDIsParentOfNestedBDC(t *testing.T) {
+	rows, _ := scanTokens(noProps(t), "/P << /MCID 3 BDC /Span <</MCID 4>> BDC EMC EMC")
+	if len(rows) != 2 || rows[0].Err == "" || rows[1].Err != "" {
+		t.Fatalf("rows = %+v, want an error row for MCID 3 and a clean row for MCID 4", rows)
+	}
+	if rowParent(rows[1]) != 3 {
+		t.Errorf("MCID 4 parent = %d, want 3", rowParent(rows[1]))
 	}
 }
 

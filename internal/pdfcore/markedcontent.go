@@ -66,7 +66,7 @@ func scanMarkedContent(tokens []Token, streamIdx int, props propertyLookup, st *
 			open := mcOpen{}
 			if ok {
 				row.ParentMCID = parent
-				if row.Err == "" {
+				if row.MCID >= 0 {
 					open = mcOpen{mcid: row.MCID, hasMCID: true}
 				}
 			}
@@ -123,7 +123,8 @@ func innermostMCID(stack []mcOpen) *int {
 // /MCID, so the BDC gets no row. Fewer than two operand objects, a tag that is
 // not a name, a property list that is neither a dictionary nor a name or
 // cannot be read, or an /MCID that is not a non-negative integer give a row
-// with MCID -1 and Err set.
+// with MCID -1 and Err set. An inline dictionary with no closing ">>" keeps
+// its MCID and sets Err.
 func bdcRow(operands []Token, opStreams []int, op Token, opStream int, props propertyLookup) (row ContentMCID, ok bool) {
 	row = ContentMCID{MCID: -1, Stream: opStream, Line: op.Line, Col: op.Col}
 	at := func(i int) {
@@ -135,9 +136,10 @@ func bdcRow(operands []Token, opStreams []int, op Token, opStream int, props pro
 		return row, true
 	}
 	propStart := operandStart(operands, n-1)
-	// With no closed dictionary last, a "<<" still open is the property list.
+	// With no closed dictionary last, a "<<" still open is the property list,
+	// even as the first operand.
 	if operands[propStart].Value != "<<" {
-		if u := unclosedDictStart(operands); u > 0 {
+		if u := unclosedDictStart(operands); u >= 0 {
 			propStart = u
 		}
 	}
@@ -166,6 +168,9 @@ func bdcRow(operands []Token, opStreams []int, op Token, opStream int, props pro
 		if val.Type == "number" {
 			if n, err := strconv.Atoi(val.Value); err == nil {
 				setMCID(&row, n)
+				if row.Err == "" && unclosedDictStart(prop) == 0 {
+					row.Err = "property-list dictionary has no closing >>"
+				}
 				return row, true
 			}
 		}

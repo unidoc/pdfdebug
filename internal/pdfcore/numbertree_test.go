@@ -227,3 +227,11 @@ func TestWalkNumberTree_ReturnsValuesAsStored(t *testing.T) {
 		t.Errorf("key 0 = %#v, want the reference 11 0 R as stored", entries[0])
 	}
 }
+
+func TestWalkNumberTree_RepeatedKeyInOneLeafIsReportedOnceAsDuplicate(t *testing.T) {
+	entries, problems := walkRawNumberTree(t, rawObj{10, "<< /Nums [1 101 1 102 3 103] >>"})
+	if len(problems) != 1 || !strings.Contains(problems[0].Message, "key 1 already in node") {
+		t.Errorf("problems = %q, want one duplicate-key problem", problemsText(problems))
+	}
+	checkIntEntries(t, entries, map[int]int{1: 101, 3: 103})
+}

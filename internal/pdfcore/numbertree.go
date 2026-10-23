@@ -168,7 +168,8 @@ func (w *numberTreeWalker) readNums(nums pdfcpu_types.Array, label string, lo, h
 		if hasLimits && (key < lo || key > hi) {
 			w.problem(label, fmt.Sprintf("key %d outside /Limits [%d %d]", key, lo, hi))
 		}
-		if havePrev && key <= prev {
+		// An equal key is reported once, as a duplicate below.
+		if havePrev && key < prev {
 			w.problem(label, fmt.Sprintf("key %d after key %d: keys not in ascending order", key, prev))
 		}
 		prev, havePrev = key, true
