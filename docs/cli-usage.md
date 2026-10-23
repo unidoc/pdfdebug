@@ -86,6 +86,7 @@ Each description links to the command's section on its reference page.
 | `dump source` | [The reserialized object source (PDF syntax)](cli/structure.md#dump-source) | `--ref`, `--raw` |
 | `dump reverserefs` | [Inbound references (who points at this object)](cli/structure.md#dump-reverserefs) | `--ref` |
 | `dump xref` | [The cross-reference table](cli/structure.md#dump-xref) | - |
+| `dump structure` | [The structure tree and per-page ParentTree vs content MCIDs](cli/structure.md#dump-structure) | - |
 | `dump pages` | [The page index (every page leaf of the page tree, in document order)](cli/pages-and-content.md#dump-pages) | - |
 | `dump page` | [Assembled per-page render info **(EXPERIMENTAL)**](cli/pages-and-content.md#dump-page) | `--info N`, `--section`, `--forms-recursive` |
 | `dump stream` | [A decoded content stream (page, object, or XObject)](cli/pages-and-content.md#dump-stream) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
@@ -143,7 +144,7 @@ synopsis on its reference page shows which of them it takes.
 ## Reference pages
 
 - [Structure](cli/structure.md): `dump tree`, `dump object`, `dump objects`,
-  `dump source`, `dump reverserefs` and `dump xref`.
+  `dump source`, `dump reverserefs`, `dump xref` and `dump structure`.
 - [Pages and content](cli/pages-and-content.md): `dump pages`, `dump page`,
   `dump stream` and `dump bytes`.
 - [Images and fonts](cli/images-and-fonts.md): `dump images`, `dump image` and

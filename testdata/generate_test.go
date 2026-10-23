@@ -715,6 +715,61 @@ func taggedPDFContent() []byte {
 	}, "")
 }
 
+// structurePDFContent is a clean tagged two-page document for `dump
+// structure`: a RoleMap, a two-level ParentTree, an inline and a named
+// property list, an MCR kid and an OBJR kid for a Link annotation. Every
+// ParentTree slot, content MCID and tree MCID line up.
+func structurePDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 6 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /StructParents 0 /Resources << >> >>\nendobj\n",
+		"4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [8 0 R 9 0 R] /StructParents 1 /Resources << /Properties << /MC0 << /MCID 1 >> >> >> /Annots [5 0 R] >>\nendobj\n",
+		"5 0 obj\n<< /Type /Annot /Subtype /Link /Rect [72 600 200 620] /Border [0 0 0] /StructParent 2 >>\nendobj\n",
+		"6 0 obj\n<< /Type /StructTreeRoot /K 13 0 R /ParentTree 10 0 R /ParentTreeNextKey 3 /RoleMap << /Heading1 /H1 >> >>\nendobj\n",
+		complStreamObj(7, "", "/Heading1 <</MCID 0>> BDC 0 0 m EMC /P <</MCID 1>> BDC 0 0 m EMC"),
+		complStreamObj(8, "", "/P <</MCID 0>> BDC 0 0 m EMC"),
+		complStreamObj(9, "", "/Span /MC0 BDC 0 0 m EMC"),
+		"10 0 obj\n<< /Kids [11 0 R 12 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Limits [0 1] /Nums [0 [14 0 R 15 0 R] 1 [17 0 R 18 0 R]] >>\nendobj\n",
+		"12 0 obj\n<< /Limits [2 2] /Nums [2 18 0 R] >>\nendobj\n",
+		"13 0 obj\n<< /Type /StructElem /S /Document /P 6 0 R /K [14 0 R 15 0 R 16 0 R 18 0 R] >>\nendobj\n",
+		"14 0 obj\n<< /Type /StructElem /S /Heading1 /P 13 0 R /Pg 3 0 R /Lang (en) /K 0 >>\nendobj\n",
+		"15 0 obj\n<< /Type /StructElem /S /Figure /P 13 0 R /Pg 3 0 R /Alt (Company logo) /K 1 >>\nendobj\n",
+		"16 0 obj\n<< /Type /StructElem /S /Sect /P 13 0 R /Pg 4 0 R /K [17 0 R] >>\nendobj\n",
+		"17 0 obj\n<< /Type /StructElem /S /P /P 16 0 R /ActualText <FEFF00480065006C006C006F00200077006F0072006C0064> /K << /Type /MCR /MCID 0 /Pg 4 0 R >> >>\nendobj\n",
+		"18 0 obj\n<< /Type /StructElem /S /Link /P 13 0 R /Pg 4 0 R /K [1 << /Type /OBJR /Obj 5 0 R >>] >>\nendobj\n",
+	}, "")
+}
+
+// structureBrokenPDFContent plants one finding of each kind `dump structure`
+// reports, all of them shapes pdfcpu's relaxed open accepts: a /K array
+// naming its parent, a /Pg on a non-page, an element with no /S, MCID 0
+// marked twice and MCID 2 with no ParentTree slot on page 1, a ParentTree
+// slot 1 no element claims, an EMC with nothing open and a BDC never closed,
+// a missing named property list, /StructParents naming a missing key, and a
+// ParentTree key outside its leaf's /Limits.
+func structureBrokenPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 6 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [7 0 R 8 0 R] /StructParents 0 /Resources << /Properties << /MC0 << /MCID 3 >> >> >> >>\nendobj\n",
+		"4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /StructParents 5 /Resources << >> >>\nendobj\n",
+		"5 0 obj\n<< /Note (not a page) >>\nendobj\n",
+		"6 0 obj\n<< /Type /StructTreeRoot /K 12 0 R /ParentTree 10 0 R /ParentTreeNextKey 2 >>\nendobj\n",
+		complStreamObj(7, "", "EMC /P <</MCID 0>> BDC 0 0 m EMC /P <</MCID 0>> BDC 0 0 m EMC"),
+		complStreamObj(8, "", "/P <</MCID 2>> BDC 0 0 m EMC /Span /MC9 BDC 0 0 m EMC /Artifact <</Type /Pagination>> BDC 0 0 m"),
+		complStreamObj(9, "", "/P <</MCID 0>> BDC 0 0 m EMC"),
+		"10 0 obj\n<< /Kids [11 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Limits [0 0] /Nums [0 [13 0 R 15 0 R] 1 16 0 R] >>\nendobj\n",
+		"12 0 obj\n<< /Type /StructElem /S /Document /P 6 0 R /K [13 0 R 14 0 R 15 0 R 16 0 R] >>\nendobj\n",
+		"13 0 obj\n<< /Type /StructElem /S /P /P 12 0 R /Pg 3 0 R /K 0 >>\nendobj\n",
+		"14 0 obj\n<< /Type /StructElem /S /Sect /P 12 0 R /Pg 3 0 R /K [12 0 R] >>\nendobj\n",
+		"15 0 obj\n<< /Type /StructElem /S /Figure /P 12 0 R /Pg 5 0 R /Alt (Chart) >>\nendobj\n",
+		"16 0 obj\n<< /Type /StructElem /P 12 0 R /Pg 4 0 R /K 0 >>\nendobj\n",
+	}, "")
+}
+
 // pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
 // passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
 // document /ID, no fonts, no device color, and a blank page. Provenance:
@@ -920,6 +975,8 @@ func TestGenerateFixtures(t *testing.T) {
 		{"untagged.pdf", untaggedPDFContent},
 		{"tagged.pdf", taggedPDFContent},
 		{"pdfa-1b-clean.pdf", pdfaCleanContent},
+		{"structure.pdf", structurePDFContent},
+		{"structure-broken.pdf", structureBrokenPDFContent},
 	}
 	for _, fx := range complFixtures {
 		t.Run(fx.name, func(t *testing.T) {

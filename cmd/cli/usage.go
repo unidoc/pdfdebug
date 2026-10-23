@@ -35,6 +35,8 @@ var commandSpecs = []commandSpec{
 		"Dump the object index (plural: every object)"},
 	{"dump pages", `[--json] [--pretty] <file>`,
 		"Dump the page index (plural: every page leaf, with MediaBox, inheritance and errors)"},
+	{"dump structure", `[--json] [--pretty] <file>`,
+		"Dump the structure tree (S, page, MCID/MCR/OBJR, Alt, ActualText, Lang) and per-page ParentTree vs content MCIDs"},
 	{"dump images", `[--json] [--pretty] <file>`,
 		"Dump the image index (plural: every image XObject referenced from page resources, deduplicated; inline BI/ID/EI images are not listed)"},
 	{"dump bytes", `[--json] [--pretty] <file>`,

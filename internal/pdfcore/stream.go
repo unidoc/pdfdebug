@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // pageContentStreamNodeIDs resolves a 1-based page number to the ordered node
 // IDs of its content stream(s) in a SINGLE page-dict resolution: empty slice
 // (no error) when the page has no /Contents, one ID for a single indirect ref,
-// and, for an array, every indirect-ref element in order. A null element is
+// and, for an array (direct, or behind an indirect ref), every indirect-ref
+// element in order. A null element is
 // skipped - it is not a stream and carries no content (ISO 32000-1 7.8.2) - but
 // any other non-ref element is an ERROR naming its index and type, never a
 // silent skip, since dropping it could omit part of the page. An array whose
@@ -33,21 +35,49 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 	if leaf == nil {
 		return nil, fmt.Errorf("page %d not found", pageNum)
 	}
-	pageDict := leaf.dict
+	return contentStreamIDs(doc.PDFContext, leaf.dict)
+}
 
+// contentStreamIDs returns the node IDs of pageDict's /Contents stream(s) in
+// concatenation order, with the contract pageContentStreamNodeIDs documents.
+// Callers hold pdfMu.
+func contentStreamIDs(ctx *pdfcpu_model.Context, pageDict pdfcpu_types.Dict) ([]string, error) {
+	refs, err := contentStreamRefs(ctx, pageDict)
+	if err != nil || refs == nil {
+		return nil, err
+	}
+	ids := make([]string, len(refs))
+	for i, ref := range refs {
+		ids[i] = nodeIDForRef(ref)
+	}
+	return ids, nil
+}
+
+// contentStreamRefs returns the indirect references of pageDict's /Contents
+// stream(s) in concatenation order: nil when there is none, one for a single
+// reference, and every reference element of an array with null elements
+// skipped. A reference to an array is followed and read as that array (ISO
+// 32000-1 7.8.2); a reference to anything else is returned as is. Any other
+// array element or /Contents value is an error. Callers hold pdfMu.
+func contentStreamRefs(ctx *pdfcpu_model.Context, pageDict pdfcpu_types.Dict) ([]pdfcpu_types.IndirectRef, error) {
 	contents, found := pageDict.Find("Contents")
 	if !found || contents == nil {
 		return nil, nil
 	}
+	if ref, ok := contents.(pdfcpu_types.IndirectRef); ok {
+		if arr, isArr := derefIn(ctx, ref).(pdfcpu_types.Array); isArr {
+			contents = arr
+		}
+	}
 
 	switch v := contents.(type) {
 	case pdfcpu_types.IndirectRef:
-		return []string{fmt.Sprintf("obj:%d:%d", v.GenerationNumber.Value(), v.ObjectNumber.Value())}, nil
+		return []pdfcpu_types.IndirectRef{v}, nil
 	case pdfcpu_types.Array:
 		if len(v) == 0 {
 			return nil, nil
 		}
-		ids := make([]string, 0, len(v))
+		refs := make([]pdfcpu_types.IndirectRef, 0, len(v))
 		for i, e := range v {
 			// A null element carries no content, so skipping it drops nothing
 			// (pdfcpu decodes PDF null to a Go nil element) - at ANY index,
@@ -63,9 +93,9 @@ func (ins *Inspector) pageContentStreamNodeIDs(tabID string, pageNum int) ([]str
 			if !ok {
 				return nil, fmt.Errorf("contents array element %d is not an indirect reference: %T", i, e)
 			}
-			ids = append(ids, fmt.Sprintf("obj:%d:%d", ref.GenerationNumber.Value(), ref.ObjectNumber.Value()))
+			refs = append(refs, ref)
 		}
-		return ids, nil
+		return refs, nil
 	default:
 		return nil, fmt.Errorf("unexpected Contents type: %T", contents)
 	}
@@ -219,52 +249,17 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 		return cached, nil
 	}
 
-	var obj pdfcpu_types.Object
-	err = safeCall(func() error {
-		var e error
-		obj, e = resolveNodeObject(doc, nodeID)
-		return e
-	})
+	raw, decodeErr, err := doc.decodeContentStreamLocked(nodeID)
 	if err != nil {
-		return nil, wrapPDFError(err)
+		return nil, err
 	}
-
-	// Extract the StreamDict from the resolved object.
-	var sd pdfcpu_types.StreamDict
-	switch v := obj.(type) {
-	case pdfcpu_types.StreamDict:
-		sd = v
-	case pdfcpu_types.ObjectStreamDict:
-		sd = v.StreamDict
-	case pdfcpu_types.XRefStreamDict:
-		sd = v.StreamDict
-	default:
+	if decodeErr != "" {
 		result := &ContentStreamData{
 			NodeID: nodeID,
-			Error:  "node is not a stream object",
+			Error:  decodeErr,
 		}
 		doc.streamCache[nodeID] = result
 		return result, nil
-	}
-
-	// Decode the stream inside safeCall (pdfcpu can panic).
-	err = safeCall(func() error {
-		return sd.Decode()
-	})
-	if err != nil {
-		result := &ContentStreamData{
-			NodeID: nodeID,
-			Error:  fmt.Sprintf("failed to decode stream: %v", err),
-		}
-		doc.streamCache[nodeID] = result
-		return result, nil
-	}
-
-	var raw string
-	if sd.Content != nil {
-		raw = string(sd.Content)
-	} else {
-		raw = string(sd.Raw)
 	}
 
 	result := &ContentStreamData{
@@ -277,6 +272,47 @@ func (ins *Inspector) GetContentStream(tabID, nodeID string) (*ContentStreamData
 	}
 	doc.streamCache[nodeID] = result
 	return result, nil
+}
+
+// decodeContentStreamLocked resolves nodeID and returns its decoded stream
+// content. decodeErr carries a failure that belongs in the result (the node is
+// not a stream, or decoding failed); err a failure to resolve the node. It
+// neither reads nor writes streamCache and does not take streamMu. Callers
+// hold pdfMu.
+func (d *DocumentState) decodeContentStreamLocked(nodeID string) (raw string, decodeErr string, err error) {
+	var obj pdfcpu_types.Object
+	err = safeCall(func() error {
+		var e error
+		obj, e = resolveNodeObject(d, nodeID)
+		return e
+	})
+	if err != nil {
+		return "", "", wrapPDFError(err)
+	}
+
+	var sd pdfcpu_types.StreamDict
+	switch v := obj.(type) {
+	case pdfcpu_types.StreamDict:
+		sd = v
+	case pdfcpu_types.ObjectStreamDict:
+		sd = v.StreamDict
+	case pdfcpu_types.XRefStreamDict:
+		sd = v.StreamDict
+	default:
+		return "", "node is not a stream object", nil
+	}
+
+	// Decode the stream inside safeCall (pdfcpu can panic).
+	if err := safeCall(func() error {
+		return sd.Decode()
+	}); err != nil {
+		return "", fmt.Sprintf("failed to decode stream: %v", err), nil
+	}
+
+	if sd.Content != nil {
+		return string(sd.Content), "", nil
+	}
+	return string(sd.Raw), "", nil
 }
 
 // tokenizeContentStream performs lexical tokenization of a PDF content stream,
