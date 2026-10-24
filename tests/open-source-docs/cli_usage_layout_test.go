@@ -168,7 +168,7 @@ func TestCLIUsageGuideCIExampleFailsOnFindingsAndOperationalErrors(t *testing.T)
 		t.Fatalf("%s CI example does not use the file.pdf placeholder:\n%s", where, snippet)
 	}
 	if !strings.Contains(snippet, "pdfua-1-structural") {
-		t.Fatalf("%s CI example does not run the pdfua-1-structural profile, whose findings are warnings with exit 0:\n%s",
+		t.Fatalf("%s CI example does not run the pdfua-1-structural profile, whose catalog and /S rules report warnings that exit 0:\n%s",
 			where, snippet)
 	}
 

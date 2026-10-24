@@ -31,6 +31,27 @@ const formXObjectNote = "array value no page's /StructParents names; may belong 
 // directElement stands for a direct-dictionary element where a ref is shown.
 const directElement = "(direct)"
 
+// pageTreeWhere is the Where of the problem recorded when the page-tree walk
+// stopped before every page was listed.
+const pageTreeWhere = "page tree"
+
+// rootWhere is the Where of problems recorded on the structure tree root,
+// followed by " N G R" when the root is an indirect object.
+const rootWhere = "StructTreeRoot"
+
+// parentTreeWhere starts the Where of problems recorded on the ParentTree,
+// followed by " N G R" when it is an indirect object and ", node ..." for a
+// number-tree node.
+const parentTreeWhere = "ParentTree"
+
+// rootNotDictPrefix starts the problem message for a /StructTreeRoot that is
+// not a dictionary.
+const rootNotDictPrefix = "/StructTreeRoot is "
+
+// rootUnreadablePrefix starts the problem message for a structure tree root
+// whose read failed part way.
+const rootUnreadablePrefix = "the structure tree root could not be read: "
+
 // errStructureCanceled is returned when the document is closed during
 // GetStructure. It satisfies errors.Is(err, context.Canceled).
 var errStructureCanceled = fmt.Errorf("structure walk canceled: %w", context.Canceled)
@@ -153,7 +174,7 @@ func (d *DocumentState) structurePhase1(w *structureWalker) ([]*pageLeaf, error)
 		w.readTree(leaves)
 		w.countStreamUses(leaves)
 		if ptErr != nil {
-			w.problem("page tree", fmt.Sprintf("page-tree walk stopped after %d pages: %v; later pages not listed", len(leaves), ptErr))
+			w.problem(pageTreeWhere, fmt.Sprintf("page-tree walk stopped after %d pages: %v; later pages not listed", len(leaves), ptErr))
 		}
 		return nil
 	})
@@ -279,18 +300,18 @@ func (w *structureWalker) readCatalog(catalog pdfcpu_types.Dict) {
 		return
 	}
 	r.HasStructTree = true
-	where := "StructTreeRoot"
+	where := rootWhere
 	if ref, ok := rootObj.(pdfcpu_types.IndirectRef); ok {
 		r.RootRef = refString(ref)
 		where += " " + r.RootRef
 	}
 	root, ok := w.deref(rootObj).(pdfcpu_types.Dict)
 	if !ok {
-		w.problem(where, fmt.Sprintf("/StructTreeRoot is %s, not a dictionary", objKind(w.deref(rootObj))))
+		w.problem(where, rootNotDictPrefix+objKind(w.deref(rootObj))+", not a dictionary")
 		return
 	}
 	guard(func() { w.readRoot(root, where) }, func(msg string) {
-		w.problem(where, "the structure tree root could not be read: "+msg)
+		w.problem(where, rootUnreadablePrefix+msg)
 	})
 }
 
@@ -329,7 +350,7 @@ func (w *structureWalker) readRoot(root pdfcpu_types.Dict, where string) {
 	}
 	if o, found := root.Find("ParentTree"); found && o != nil {
 		r.HasParentTree = true
-		ptWhere := "ParentTree"
+		ptWhere := parentTreeWhere
 		if ref, ok := o.(pdfcpu_types.IndirectRef); ok {
 			r.ParentTreeRef = refString(ref)
 			ptWhere += " " + r.ParentTreeRef

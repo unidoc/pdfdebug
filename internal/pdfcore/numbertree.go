@@ -12,6 +12,14 @@ import (
 // hold. A deeper node is reported and not walked.
 const maxNumberTreeDepth = 64
 
+// ntTooDeepPrefix starts the problem message for a number-tree node past
+// maxNumberTreeDepth; its entries are not read.
+const ntTooDeepPrefix = "number tree deeper than "
+
+// ntUnreadablePrefix starts the problem message for a number-tree node whose
+// read failed part way; some of its entries may be missing.
+const ntUnreadablePrefix = "node could not be read: "
+
 // numberTreeWalker carries the state of one number-tree walk.
 type numberTreeWalker struct {
 	ctx      *pdfcpu_model.Context
@@ -60,7 +68,7 @@ func (w *numberTreeWalker) problem(label, msg string) {
 func (w *numberTreeWalker) visit(node pdfcpu_types.Object, isRoot bool, depth int) {
 	label := ntNodeLabel(node)
 	if depth > maxNumberTreeDepth {
-		w.problem(label, fmt.Sprintf("number tree deeper than %d levels; node not walked", maxNumberTreeDepth))
+		w.problem(label, fmt.Sprintf(ntTooDeepPrefix+"%d levels; node not walked", maxNumberTreeDepth))
 		return
 	}
 	if ref, ok := node.(pdfcpu_types.IndirectRef); ok {
@@ -72,7 +80,7 @@ func (w *numberTreeWalker) visit(node pdfcpu_types.Object, isRoot bool, depth in
 		w.visited[n] = true
 	}
 	guard(func() { w.read(node, label, isRoot, depth) }, func(msg string) {
-		w.problem(label, "node could not be read: "+msg)
+		w.problem(label, ntUnreadablePrefix+msg)
 	})
 }
 
