@@ -12,11 +12,11 @@ func TestValidateUA_ExitCodesOnFixtures(t *testing.T) {
 	}{
 		{"ua-structural-clean.pdf", 0},
 		{"untagged.pdf", 0},
-		{"ua-structural-empty-s.pdf", 0},
-		{"ua-structural-unbalanced.pdf", 1},
-		{"ua-structural-duplicate-mcid.pdf", 1},
+		{"ua-structural-empty-s.pdf", 1},
+		{"ua-structural-unbalanced.pdf", 0},
+		{"ua-structural-duplicate-mcid.pdf", 0},
 		{"ua-structural-orphan-mcid.pdf", 1},
-		{"ua-structural-nested-mcid.pdf", 1},
+		{"ua-structural-nested-mcid.pdf", 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
@@ -34,7 +34,7 @@ func TestValidateUA_ExitCodesOnFixtures(t *testing.T) {
 func TestValidateUA_BrokenStructureFixtureExitsOne(t *testing.T) {
 	r, code := validateJSON(t, fixture(t, "structure-broken.pdf"))
 	if code != 1 {
-		t.Errorf("exit = %d, want 1 for a file with an unmatched EMC, a duplicate MCID and an MCID with no ParentTree slot", code)
+		t.Errorf("exit = %d, want 1 for a file with an MCID that has no ParentTree slot", code)
 	}
 	for _, id := range []string{"marked-content-balance", "mcid-unique", "mcid-in-parent-tree"} {
 		if ri := ruleByID(t, r, id); !ri.Evaluated || ri.Findings == 0 {

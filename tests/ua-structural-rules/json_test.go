@@ -82,7 +82,7 @@ func pageRef(t *testing.T, rep structureReport) string {
 
 var faultCases = []faultCase{
 	{
-		file: "ua-structural-unbalanced.pdf", rule: "marked-content-balance", exit: 1, severity: "error",
+		file: "ua-structural-unbalanced.pdf", rule: "marked-content-balance", exit: 0, severity: "warning",
 		message: func(t *testing.T, rep structureReport) []string {
 			p := firstPage(t, rep)
 			if len(p.Streams) == 0 {
@@ -93,7 +93,7 @@ var faultCases = []faultCase{
 		objRef: pageRef,
 	},
 	{
-		file: "ua-structural-duplicate-mcid.pdf", rule: "mcid-unique", exit: 1, severity: "error",
+		file: "ua-structural-duplicate-mcid.pdf", rule: "mcid-unique", exit: 0, severity: "warning",
 		message: func(t *testing.T, rep structureReport) []string {
 			p := firstPage(t, rep)
 			occ := occurrences(t, p, 0)
@@ -119,7 +119,7 @@ var faultCases = []faultCase{
 		objRef: pageRef,
 	},
 	{
-		file: "ua-structural-nested-mcid.pdf", rule: "mcid-not-nested", exit: 1, severity: "error",
+		file: "ua-structural-nested-mcid.pdf", rule: "mcid-not-nested", exit: 0, severity: "warning",
 		message: func(t *testing.T, rep structureReport) []string {
 			occ := occurrences(t, firstPage(t, rep), 1)
 			if len(occ) != 1 {
@@ -130,7 +130,7 @@ var faultCases = []faultCase{
 		objRef: pageRef,
 	},
 	{
-		file: "ua-structural-empty-s.pdf", rule: "struct-elem-type", exit: 0, severity: "warning",
+		file: "ua-structural-empty-s.pdf", rule: "struct-elem-type", exit: 1, severity: "error",
 		message: func(t *testing.T, rep structureReport) []string {
 			return []string{"structure element " + emptySElement(t, rep) + " has no usable /S ("}
 		},
@@ -210,8 +210,8 @@ func TestValidateUA_ThousandsOfFindingsAreAllReported(t *testing.T) {
 	path := writeTemp(t, "many-mcids.pdf", manyFindingsPDF(n))
 
 	r, code := validateJSON(t, path)
-	if code != 1 {
-		t.Errorf("exit = %d, want 1", code)
+	if code != 0 {
+		t.Errorf("exit = %d, want 0 for warning findings only", code)
 	}
 	requireRuleList(t, r)
 	for _, ri := range r.Rules {
@@ -223,8 +223,8 @@ func TestValidateUA_ThousandsOfFindingsAreAllReported(t *testing.T) {
 			t.Errorf("rule %s = %+v, want evaluated with %d findings", ri.RuleID, ri, want)
 		}
 	}
-	if len(r.Problems) != 2*n || r.Summary != (summary{Errors: 2 * n}) {
-		t.Fatalf("got %d problems, summary %+v; want %d error problems and nothing else", len(r.Problems), r.Summary, 2*n)
+	if len(r.Problems) != 2*n || r.Summary != (summary{Warnings: 2 * n}) {
+		t.Fatalf("got %d problems, summary %+v; want %d warning problems and nothing else", len(r.Problems), r.Summary, 2*n)
 	}
 
 	rep := dumpStructure(t, path)
@@ -252,15 +252,15 @@ func TestValidateUA_ThousandsOfFindingsAreAllReported(t *testing.T) {
 	}
 
 	stdout, _, code := runCLI(t, "validate", "--profile", uaProfile, path)
-	if code != 1 {
-		t.Errorf("plain exit = %d, want 1", code)
+	if code != 0 {
+		t.Errorf("plain exit = %d, want 0", code)
 	}
 	for _, p := range r.Problems {
 		if !strings.Contains(stdout, "["+p.RuleID+"] "+p.Message+"\n") {
 			t.Fatalf("plain text does not print the finding %q in full", p.Message)
 		}
 	}
-	if !strings.Contains(stdout, fmt.Sprintf("Summary: %d errors, 0 warnings\n", 2*n)) {
-		t.Errorf("plain text summary does not count all %d errors", 2*n)
+	if !strings.Contains(stdout, fmt.Sprintf("Summary: 0 errors, %d warnings\n", 2*n)) {
+		t.Errorf("plain text summary does not count all %d warnings", 2*n)
 	}
 }

@@ -25,17 +25,18 @@ The three command families use different contracts.
 - 0 - it ran and found no errors. This is not a conformance verdict.
 - 1 - it found at least one error, or a rule whose severity is error could
   not be evaluated. Every `pdfa-1b` rule is an error rule. Under
-  `pdfua-1-structural` the error rules are the marked-content ones: a
-  marked-content imbalance or a page content stream that cannot be decoded, a
-  duplicate MCID, an MCID that does not reach the ParentTree or cannot be read,
-  and an MCID nested inside another. An encrypted file under `pdfa-1b` is
+  `pdfua-1-structural` the error rules are `mcid-in-parent-tree` (an MCID
+  that does not reach the ParentTree or cannot be read) and `struct-elem-type`
+  (a structure element without a usable `/S`). An encrypted file under `pdfa-1b` is
   reported as one `no-encryption` error and also exits 1.
 - 2 - operational or usage error: a missing file, an unknown profile, an
   unknown flag, the wrong number of files, a flag after the file, or an
   encrypted file under `pdfua-1-structural`.
 
-The `pdfua-1-structural` catalog rules (`marked`, `struct-tree-root`, `lang`)
-and `struct-elem-type` report warnings, which exit 0. One of them that could
+The other `pdfua-1-structural` rules report warnings, which exit 0: the
+catalog rules (`marked`, `struct-tree-root`, `lang`) and the marked-content
+rules `marked-content-balance` (which also reports a page content stream that
+cannot be decoded), `mcid-unique` and `mcid-not-nested`. One of them that could
 not be evaluated reports an info problem and also exits 0. A job that should
 fail on those has to read `summary.warnings` and `summary.info` from `--json`.
 

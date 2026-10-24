@@ -19,8 +19,9 @@ run says "none of the N rules checked found a problem". `pdfua-1-structural`
 checks catalog entries, the `/S` of each structure element, and the marked
 content of each page's `/Contents`: BMC/BDC and EMC balance, MCID uniqueness,
 MCID nesting and whether each MCID reaches a structure element through the
-ParentTree. The marked-content rules are errors and exit 1; the catalog and
-`/S` rules are warnings. It does not check that all real content is tagged or
+ParentTree. An MCID that does not reach the ParentTree and a structure element
+without a usable `/S` are errors and exit 1; the other marked-content rules and
+the catalog rules are warnings. It does not check that all real content is tagged or
 marked as an artifact, and it does not read form XObject or annotation content,
 alternate text, fonts, role mapping or the rest of the structure tree, so it is
 not a PDF/UA-1 conformance check. The rule list changes as rules are added;

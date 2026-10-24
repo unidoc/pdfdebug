@@ -38,11 +38,11 @@ var structureRuleIDs = append(append([]string{}, contentRuleIDs...), "struct-ele
 
 // structureRuleSpec is the severity and spec reference of each structure rule.
 var structureRuleSpec = map[string]struct{ severity, specRef string }{
-	"marked-content-balance": {"error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1"},
-	"mcid-unique":            {"error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2"},
+	"marked-content-balance": {"warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1"},
+	"mcid-unique":            {"warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2"},
 	"mcid-in-parent-tree":    {"error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4"},
-	"mcid-not-nested":        {"error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1"},
-	"struct-elem-type":       {"warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2"},
+	"mcid-not-nested":        {"warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1"},
+	"struct-elem-type":       {"error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2"},
 }
 
 // projectRoot walks up from the test directory to the main module's go.mod.

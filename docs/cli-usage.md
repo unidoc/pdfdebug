@@ -72,10 +72,10 @@ or `--ref` for any stream object. An attachment comes out with
 pdfdebug validate --json --profile pdfua-1-structural file.pdf > report.json
 ```
 
-Branch on the exit code first and read `summary` from the JSON second. The
-marked-content rules of `pdfua-1-structural` report errors and exit 1, but its
-catalog and `/S` rules report warnings, and one of those that could not run
-reports info; both exit 0. A marked-content rule that could not run also
+Branch on the exit code first and read `summary` from the JSON second. Under
+`pdfua-1-structural`, `mcid-in-parent-tree` and `struct-elem-type` report
+errors and exit 1; the other rules report warnings, and one of those that could
+not run reports info; both exit 0. An error rule that could not run also
 reports info but exits 1. The full script is under
 [Exit codes](cli/scripting.md#exit-codes).
 

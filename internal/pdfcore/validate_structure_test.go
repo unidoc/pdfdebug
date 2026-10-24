@@ -191,11 +191,11 @@ func TestProfileRules_PDFUAStructureRulesInOrder(t *testing.T) {
 		{"marked", "warning", "ISO 14289-1:2014, 7.1"},
 		{"struct-tree-root", "warning", "ISO 14289-1:2014, 7.1"},
 		{"lang", "warning", "ISO 14289-1:2014, 7.2"},
-		{"marked-content-balance", "error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1"},
-		{"mcid-unique", "error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2"},
+		{"marked-content-balance", "warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1"},
+		{"mcid-unique", "warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2"},
 		{"mcid-in-parent-tree", "error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4"},
-		{"mcid-not-nested", "error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1"},
-		{"struct-elem-type", "warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2"},
+		{"mcid-not-nested", "warning", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1"},
+		{"struct-elem-type", "error", "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2"},
 	}
 	got := ProfileRules(ProfilePDFUA1Structural)
 	if len(got) != len(want) {
@@ -327,11 +327,11 @@ func TestValidateUA_EachFaultFixtureTripsOneRule(t *testing.T) {
 		name, rule string
 		severity   Severity
 	}{
-		{"ua-structural-unbalanced.pdf", "marked-content-balance", "error"},
-		{"ua-structural-duplicate-mcid.pdf", "mcid-unique", "error"},
+		{"ua-structural-unbalanced.pdf", "marked-content-balance", "warning"},
+		{"ua-structural-duplicate-mcid.pdf", "mcid-unique", "warning"},
 		{"ua-structural-orphan-mcid.pdf", "mcid-in-parent-tree", "error"},
-		{"ua-structural-nested-mcid.pdf", "mcid-not-nested", "error"},
-		{"ua-structural-empty-s.pdf", "struct-elem-type", "warning"},
+		{"ua-structural-nested-mcid.pdf", "mcid-not-nested", "warning"},
+		{"ua-structural-empty-s.pdf", "struct-elem-type", "error"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -380,8 +380,8 @@ func TestValidateUA_BalanceUnmatchedEMCNamesStream(t *testing.T) {
 	if want := "page 1: EMC with no open marked-content sequence (in content stream 20 0 R)"; p.Message != want {
 		t.Errorf("message = %q, want %q", p.Message, want)
 	}
-	if p.Severity != "error" {
-		t.Errorf("severity = %q, want error", p.Severity)
+	if p.Severity != "warning" {
+		t.Errorf("severity = %q, want warning", p.Severity)
 	}
 }
 
@@ -748,7 +748,7 @@ func uaElement(t *testing.T, rep *StructureReport, ref string) *StructElem {
 	return found
 }
 
-func TestValidateUA_ElementWithoutUsableSIsAWarningOnTheElement(t *testing.T) {
+func TestValidateUA_ElementWithoutUsableSIsAnErrorOnTheElement(t *testing.T) {
 	res, rep := uaRun(t, uaTreePDF("<< /Type /StructTreeRoot /K [10 0 R] >>",
 		rawObj{10, "<< /Type /StructElem /S /Document /K [11 0 R 12 0 R 13 0 R 14 0 R] >>"},
 		rawObj{11, "<< /Type /StructElem /T (no S) >>"},
@@ -767,15 +767,15 @@ func TestValidateUA_ElementWithoutUsableSIsAWarningOnTheElement(t *testing.T) {
 			t.Fatalf("precondition: element %s S %q Err %q", ref, e.S, e.Err)
 		}
 		p := ps[i]
-		if p.Severity != "warning" || p.ObjRef != ref || p.ObjNodeID != uaNodeID(t, ref) {
-			t.Errorf("finding %d = %+v, want a warning on %s", i, p, ref)
+		if p.Severity != "error" || p.ObjRef != ref || p.ObjNodeID != uaNodeID(t, ref) {
+			t.Errorf("finding %d = %+v, want an error on %s", i, p, ref)
 		}
 		if want := "structure element " + ref + " has no usable /S (" + e.Err + ")"; p.Message != want {
 			t.Errorf("finding %d = %q, want %q", i, p.Message, want)
 		}
 	}
-	if res.Summary.Errors != 0 {
-		t.Errorf("summary = %+v, want no errors for struct-elem-type findings", res.Summary)
+	if res.Summary.Errors != 3 || res.Summary.Warnings != 0 {
+		t.Errorf("summary = %+v, want 3 errors and no warnings for the struct-elem-type findings", res.Summary)
 	}
 }
 

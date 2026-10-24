@@ -483,13 +483,13 @@ const uaContentErrorResult = {
   summary: { errors: 1, warnings: 1, info: 0 },
   problems: [
     {
-      ruleId: 'mcid-unique',
+      ruleId: 'mcid-in-parent-tree',
       profile: 'pdfua-1-structural',
       severity: 'error',
-      message: 'page 1: MCID 0 marks 2 BDC sequences: stream 7 0 R line 1 col 1, stream 8 0 R line 1 col 1',
+      message: 'page 1: MCID 0 (stream 7 0 R line 1 col 1) has no structure element in ParentTree key 0',
       objRef: '3 0 R',
       objNodeId: 'obj:0:3',
-      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4',
     },
     {
       ruleId: 'lang',
@@ -506,10 +506,10 @@ const uaContentErrorResult = {
   rules: [
     ...uaRules.map((r) => (r.ruleId === 'lang' ? { ...r, findings: 1 } : r)),
     {
-      ruleId: 'mcid-unique',
-      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2',
+      ruleId: 'mcid-in-parent-tree',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4',
       severity: 'error',
-      checks: "no MCID marks more than one BDC in a page's content stream",
+      checks: "every MCID in a page's content stream reaches a structure element through the page's /StructParents and its ParentTree array",
       evaluated: true,
       findings: 1,
     },
@@ -525,7 +525,7 @@ describe('ValidateView PDF/UA content-rule errors', () => {
     render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
     fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfua-1-structural' } });
     fireEvent.click(screen.getByTestId('validate-run'));
-    await waitFor(() => screen.getByText(/MCID 0 marks 2 BDC/));
+    await waitFor(() => screen.getByText(/MCID 0 .* has no structure element/));
     return onNavigate;
   }
 
@@ -535,10 +535,10 @@ describe('ValidateView PDF/UA content-rule errors', () => {
     expect(mockValidate).toHaveBeenCalledWith('tab-1', 'pdfua-1-structural');
     const errors = screen.getByTestId('validate-group-error');
     const warnings = screen.getByTestId('validate-group-warning');
-    expect(within(errors).getByText(/MCID 0 marks 2 BDC/)).toBeInTheDocument();
+    expect(within(errors).getByText(/MCID 0 .* has no structure element/)).toBeInTheDocument();
     expect(within(errors).queryByText(/\/Lang is missing/)).toBeNull();
     expect(within(warnings).getByText(/\/Lang is missing/)).toBeInTheDocument();
-    expect(within(warnings).queryByText(/MCID 0 marks 2 BDC/)).toBeNull();
+    expect(within(warnings).queryByText(/MCID 0 .* has no structure element/)).toBeNull();
   });
 
   test('the summary line counts the PDF/UA error and warning', async () => {
@@ -550,7 +550,7 @@ describe('ValidateView PDF/UA content-rule errors', () => {
   test('clicking the PDF/UA error row navigates to its page node', async () => {
     const onNavigate = await runUA();
 
-    const row = screen.getByText(/MCID 0 marks 2 BDC/).closest('[data-testid="validate-problem"]');
+    const row = screen.getByText(/MCID 0 .* has no structure element/).closest('[data-testid="validate-problem"]');
     expect(row).not.toBeNull();
     fireEvent.click(row as Element);
     expect(onNavigate).toHaveBeenCalledWith('obj:0:3');
@@ -559,7 +559,7 @@ describe('ValidateView PDF/UA content-rule errors', () => {
   test('pressing Enter on the PDF/UA error row navigates to its page node', async () => {
     const onNavigate = await runUA();
 
-    const row = screen.getByText(/MCID 0 marks 2 BDC/).closest('[data-testid="validate-problem"]');
+    const row = screen.getByText(/MCID 0 .* has no structure element/).closest('[data-testid="validate-problem"]');
     expect(row).not.toBeNull();
     fireEvent.keyDown(row as Element, { key: 'Enter' });
     expect(onNavigate).toHaveBeenCalledTimes(1);

@@ -28,8 +28,9 @@ const (
 	// ProfilePDFA1B is the default profile: the PDF/A-1b structural rule set
 	// (all error severity).
 	ProfilePDFA1B = "pdfa-1b"
-	// ProfilePDFUA1Structural is the PDF/UA-1 structural subset: catalog and
-	// /S rules (warning) and page-content marked-content rules (error).
+	// ProfilePDFUA1Structural is the PDF/UA-1 structural subset: catalog,
+	// balance, uniqueness and nesting rules (warning), ParentTree reachability
+	// and /S rules (error).
 	ProfilePDFUA1Structural = "pdfua-1-structural"
 )
 
@@ -152,8 +153,9 @@ type rule struct {
 
 // ruleRegistry is the single source of truth for the bounded structural rule
 // set. PDF/A-1b rules are all "error" (they gate the CLI exit code). PDF/UA-1
-// catalog rules and struct-elem-type are "warning" (they do not gate); the
-// four page-content rules are "error" and gate.
+// mcid-in-parent-tree and struct-elem-type are "error" and gate, matching the
+// faults veraPDF fails a file on; the catalog rules and the balance,
+// uniqueness and nesting rules are "warning" (they do not gate).
 //
 // RULE DELTA (veraPDF checks we deliberately do NOT implement - the structural
 // firewall, cross-referenced from tests/compliance-validation/
@@ -203,7 +205,7 @@ var ruleRegistry = []rule{
 		checks:  "trailer has an /ID entry",
 		check:   checkDocumentID,
 	},
-	// --- PDF/UA-1 structural subset (catalog and /S warning, content error) --
+	// --- PDF/UA-1 structural subset (ParentTree and /S error, rest warning) --
 	{
 		id: "marked", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef: "ISO 14289-1:2014, 7.1",
@@ -223,13 +225,13 @@ var ruleRegistry = []rule{
 		check:   checkLang,
 	},
 	{
-		id: "marked-content-balance", profile: ProfilePDFUA1Structural, severity: "error",
+		id: "marked-content-balance", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1",
 		checks:         "every page's content stream (its /Contents, an array read as one stream) closes every BMC/BDC it opens and has no EMC without an open sequence; a content stream that cannot be decoded or a page whose /Contents cannot be read is reported here; form XObjects, annotation appearances and Type3 glyphs not scanned",
 		checkStructure: checkMarkedContentBalance,
 	},
 	{
-		id: "mcid-unique", profile: ProfilePDFUA1Structural, severity: "error",
+		id: "mcid-unique", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2",
 		checks:         "no MCID marks more than one BDC in a page's content stream (its /Contents read as one stream); unreadable content is reported under marked-content-balance; form XObjects not scanned",
 		checkStructure: checkMCIDUnique,
@@ -241,13 +243,13 @@ var ruleRegistry = []rule{
 		checkStructure: checkMCIDInParentTree,
 	},
 	{
-		id: "mcid-not-nested", profile: ProfilePDFUA1Structural, severity: "error",
+		id: "mcid-not-nested", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1",
 		checks:         "no BDC carrying an MCID opens inside another open sequence that carries an MCID in a page's content stream (BMC and MCID-less BDC may wrap one); unreadable content is reported under marked-content-balance; form XObjects not scanned",
 		checkStructure: checkMCIDNotNested,
 	},
 	{
-		id: "struct-elem-type", profile: ProfilePDFUA1Structural, severity: "warning",
+		id: "struct-elem-type", profile: ProfilePDFUA1Structural, severity: "error",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2",
 		checks:         "every structure element reached from /StructTreeRoot /K has a non-empty /S name (absent, empty or not a name is reported); role mapping to standard types is not checked",
 		checkStructure: checkStructElemType,
