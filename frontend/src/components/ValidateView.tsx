@@ -1,10 +1,11 @@
 /**
  * @file Validate view -- document-level panel for a named subset of structural
  * checks. A "Run checks" action with a profile selector runs the bounded
- * PDF/A-1b or PDF/UA-1-structural rule set. Each result shows the profile's
- * scope sentence and the rules checked (id, spec ref, outcome, what each rule
- * checks) above either a clean sentence naming the rule count or the problems
- * grouped by severity. Clicking an object-scoped problem jumps TreePanel to the offending
+ * PDF/A-1b or PDF/UA-1-structural rule set. Each result shows either a clean
+ * sentence naming the rule count or the problems grouped by severity, then a
+ * collapsible section with the profile's scope sentence and the rules checked
+ * (id, spec ref, outcome, what each rule checks). Each document tab keeps its
+ * own profile, result and section state. Clicking an object-scoped problem jumps TreePanel to the offending
  * object via the existing NAVIGATE_TO_REF wiring; a problem with no object node
  * id is shown but not clickable, while a non-empty-but-unresolvable id degrades
  * gracefully through the reducer's navigation-error path (never a broken jump).
@@ -53,11 +54,23 @@ export interface ValidateResult {
 export interface ValidateViewProps {
   /** Active document tab ID. */
   tabId: string;
-  /** True when the Validate tab is active (unused: results persist per mount). */
+  /** True when the Validate tab is active (unused: results persist per document tab). */
   active: boolean;
   /** Dispatches NAVIGATE_TO_REF to jump TreePanel to an object-scoped problem. */
   onNavigate: (nodeId: string) => void;
 }
+
+/** One document's Validate panel state, kept while another document is shown. */
+interface SavedValidation {
+  profile: string;
+  result: ValidateResult | null;
+  error: string | null;
+  running: boolean;
+  rulesExpanded: boolean;
+}
+
+/** The profile a document starts on before its selector is changed. */
+const DEFAULT_PROFILE = 'pdfa-1b';
 
 /** The two bounded, explicit profiles. */
 const PROFILES: { value: string; label: string }[] = [
@@ -140,30 +153,56 @@ function ruleOutcome(rule: ValidateRuleInfo): string {
   return rule.evaluated ? `${rule.findings} found` : 'not evaluated';
 }
 
-/** The scope sentence and the rules that ran, shown above every result. */
-function RulesChecked({ result }: { result: ValidateResult }) {
+/**
+ * The scope sentence and the rules that ran, in a section below the findings
+ * that starts collapsed. Its toggle names the rule count and how many rules
+ * could not be evaluated, so a collapsed section never hides a degraded rule.
+ */
+function RulesChecked({
+  result,
+  expanded,
+  onToggle,
+}: {
+  result: ValidateResult;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const notEvaluated = result.rules.filter((r) => !r.evaluated).length;
   return (
-    <div className="mb-3">
-      <div className="text-xs text-text-muted mb-2" data-testid="validate-scope">
-        {result.scope}
-      </div>
-      <div className="border-b border-border pb-2" data-testid="validate-rules">
-        <h3 className="text-xs font-medium text-text-secondary mb-1">
-          Rules checked ({result.rules.length})
-        </h3>
-        {/* One grid for all rows so the columns line up; a long description
+    <div className="mt-3 border-t border-border pt-2">
+      <button
+        type="button"
+        data-testid="validate-rules-toggle"
+        aria-expanded={expanded}
+        aria-controls="validate-rules-body"
+        onClick={onToggle}
+        className="text-xs font-medium text-text-secondary hover:text-text"
+      >
+        <span className="inline-block w-4 text-text-muted">{expanded ? 'v' : '>'}</span>
+        Rules checked ({result.rules.length}
+        {notEvaluated > 0 ? `, ${notEvaluated} not evaluated` : ''})
+      </button>
+      {expanded && (
+        <div id="validate-rules-body" className="mt-2">
+          <div className="text-xs text-text-muted mb-2" data-testid="validate-scope">
+            {result.scope}
+          </div>
+          <div data-testid="validate-rules">
+            {/* One grid for all rows so the columns line up; a long description
             wraps inside its own column, next to the rule it belongs to. */}
-        <div className="grid grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs font-mono">
-          {result.rules.map((rule) => (
-            <div key={rule.ruleId} className="contents" data-testid="validate-rule">
-              <span className="text-text">{rule.ruleId}</span>
-              <span className="text-text-muted">{rule.specRef}</span>
-              <span className="text-text">{ruleOutcome(rule)}</span>
-              <span className="text-text-muted break-words">{rule.checks}</span>
+            <div className="grid grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs font-mono">
+              {result.rules.map((rule) => (
+                <div key={rule.ruleId} className="contents" data-testid="validate-rule">
+                  <span className="text-text">{rule.ruleId}</span>
+                  <span className="text-text-muted">{rule.specRef}</span>
+                  <span className="text-text">{ruleOutcome(rule)}</span>
+                  <span className="text-text-muted break-words">{rule.checks}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -173,49 +212,74 @@ function RulesChecked({ result }: { result: ValidateResult }) {
  * chosen profile against `tabId` on demand and renders the grouped result.
  */
 export function ValidateView({ tabId, active: _active, onNavigate }: ValidateViewProps) {
-  const [profile, setProfile] = useState<string>('pdfa-1b');
+  const [profile, setProfile] = useState<string>(DEFAULT_PROFILE);
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  // The scope sentence and rule list sit in a section that starts collapsed;
+  // the choice is kept per document and across runs.
+  const [rulesExpanded, setRulesExpanded] = useState(false);
 
-  // The panel is a single instance reused across document tabs (not remounted
-  // per tab), so switching documents must clear the previous document's result
-  // and error - otherwise stale findings from tab A are shown under tab B.
-  useEffect(() => {
-    setResult(null);
-    setError(null);
-    setRunning(false);
-  }, [tabId]);
+  // The panel is a single instance reused across document tabs, so each
+  // document's profile, result, error, in-flight state and rules-section state
+  // is kept here by tabId and restored when that document becomes active
+  // again. A reload mints a new tabId, so a reloaded document starts with no
+  // result.
+  const savedRef = useRef(new Map<string, SavedValidation>());
+  const save = (id: string, patch: Partial<SavedValidation>) => {
+    const prev = savedRef.current.get(id) ?? {
+      profile: profileRef.current,
+      result: null,
+      error: null,
+      running: false,
+      rulesExpanded: false,
+    };
+    savedRef.current.set(id, { ...prev, ...patch });
+  };
 
   // Tracks the currently-active tab and selected profile so an in-flight run
-  // is discarded if either changes before it resolves. Profile is guarded in
-  // addition to tab because a tab switch resets `running`, which re-enables the
-  // profile selector and would otherwise let a stale run overwrite the result
-  // under a different profile.
+  // only updates the screen when its document and profile are still shown.
   const tabIdRef = useRef(tabId);
   tabIdRef.current = tabId;
   const profileRef = useRef(profile);
   profileRef.current = profile;
 
+  useEffect(() => {
+    const saved = savedRef.current.get(tabId);
+    setProfile(saved?.profile ?? DEFAULT_PROFILE);
+    setResult(saved?.result ?? null);
+    setError(saved?.error ?? null);
+    setRunning(saved?.running ?? false);
+    setRulesExpanded(saved?.rulesExpanded ?? false);
+  }, [tabId]);
+
   const runChecks = () => {
     if (!tabId) return;
     const runTabId = tabId;
     const runProfile = profile;
-    const stale = () => tabIdRef.current !== runTabId || profileRef.current !== runProfile;
+    // A run is applied to its document's saved entry unless that document's
+    // profile changed since; the screen follows only while it is still shown.
+    const current = () => savedRef.current.get(runTabId)?.profile === runProfile;
+    const shown = () => tabIdRef.current === runTabId && profileRef.current === runProfile;
+    save(runTabId, { profile: runProfile, error: null, running: true });
     setRunning(true);
     setError(null);
-    Validate(tabId, profile)
+    Validate(runTabId, runProfile)
       .then((res: unknown) => {
-        if (stale()) return; // tab or profile changed mid-run
-        setResult(res as ValidateResult);
+        if (!current()) return;
+        save(runTabId, { result: res as ValidateResult });
+        if (shown()) setResult(res as ValidateResult);
       })
       .catch((err: unknown) => {
-        if (stale()) return;
-        setError(extractErrorMessage(err));
+        if (!current()) return;
+        const msg = extractErrorMessage(err);
+        save(runTabId, { error: msg });
+        if (shown()) setError(msg);
       })
       .finally(() => {
-        if (stale()) return;
-        setRunning(false);
+        if (!current()) return;
+        save(runTabId, { running: false });
+        if (shown()) setRunning(false);
       });
   };
 
@@ -241,6 +305,12 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
             setProfile(e.target.value);
             setResult(null);
             setError(null);
+            if (tabId)
+              save(tabId, {
+                profile: e.target.value,
+                result: null,
+                error: null,
+              });
           }}
         >
           {PROFILES.map((p) => (
@@ -274,23 +344,23 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
           </div>
         )}
 
-        {!error && result && <RulesChecked result={result} />}
-
         {!error && result && result.problems.length === 0 && (
           <div className="text-text-muted text-sm" data-testid="validate-empty">
-            None of the {result.rules.length} rule{result.rules.length === 1 ? '' : 's'} checked
-            found a problem (structural subset only)
+            None of the {result.rules.length} rule
+            {result.rules.length === 1 ? '' : 's'} checked found a problem (structural subset only)
           </div>
         )}
 
         {!error && result && result.problems.length > 0 && (
           <>
             <div className="text-xs text-text-muted mb-2" data-testid="validate-summary">
-              {result.summary.errors} error{result.summary.errors === 1 ? '' : 's'},{' '}
-              {result.summary.warnings} warning{result.summary.warnings === 1 ? '' : 's'}
+              {result.summary.errors} error
+              {result.summary.errors === 1 ? '' : 's'}, {result.summary.warnings} warning
+              {result.summary.warnings === 1 ? '' : 's'}
               {result.summary.info ? (
                 <>
-                  , {result.summary.info} info problem{result.summary.info === 1 ? '' : 's'}
+                  , {result.summary.info} info problem
+                  {result.summary.info === 1 ? '' : 's'}
                 </>
               ) : null}{' '}
               (structural checks only)
@@ -310,6 +380,17 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
               );
             })}
           </>
+        )}
+
+        {!error && result && (
+          <RulesChecked
+            result={result}
+            expanded={rulesExpanded}
+            onToggle={() => {
+              setRulesExpanded(!rulesExpanded);
+              if (tabId) save(tabId, { rulesExpanded: !rulesExpanded });
+            }}
+          />
         )}
       </div>
     </div>
