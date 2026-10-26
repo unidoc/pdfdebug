@@ -222,7 +222,7 @@ function Row({
   return (
     <>
       <dt className="text-text-muted">{label}</dt>
-      <dd className={`${tone === 'warning' ? 'text-warning' : 'text-text'} break-all`} data-testid={testid}>
+      <dd className={`${tone === 'warning' ? 'text-warning' : 'text-text'} min-w-0 break-words`} data-testid={testid}>
         {value}
       </dd>
     </>

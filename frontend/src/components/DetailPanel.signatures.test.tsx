@@ -160,6 +160,34 @@ describe('DetailPanel Signatures tab', () => {
     expect(mockGetSignatures).toHaveBeenCalledTimes(1);
   });
 
+  // An expanded certificate chain stays expanded after switching to another
+  // detail tab and back.
+  test('certificate chain stays expanded across tab switches', async () => {
+    const cert = {
+      subject: 'CN=Signer',
+      issuer: 'CN=Root',
+      serial: '1',
+      notBefore: '2025-01-01T00:00:00Z',
+      notAfter: '2027-01-01T00:00:00Z',
+      keyUsage: null,
+      extKeyUsage: null,
+      crlDistributionPoints: null,
+      ocspServers: null,
+      caIssuers: null,
+    };
+    mockGetSignatures.mockResolvedValue([{ ...oneSignature[0], signer: cert, certificates: [cert] }]);
+    renderPanel([openAction]);
+
+    fireEvent.click(await screen.findByRole('tab', { name: /signatures/i }));
+    fireEvent.click(screen.getByTestId('signature-cert-chain'));
+    expect(screen.getByTestId('signature-cert-chain-list')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /object/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /signatures/i }));
+    expect(screen.getByTestId('signature-cert-chain')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('signature-cert-chain-list')).toBeInTheDocument();
+  });
+
   // A clean signature list puts no marker on the tab.
   test('no issue marker when signatures are clean', async () => {
     mockGetSignatures.mockResolvedValue(oneSignature);
