@@ -19,7 +19,7 @@ const numberTreeWhere = "NT"
 func walkRawNumberTree(t *testing.T, objs ...rawObj) (map[int]pdfcpu_types.Object, []StructureProblem) {
 	t.Helper()
 	_, doc := openUnvalidated(t, numberTreePDF(objs...))
-	entries, problems := walkNumberTree(doc.PDFContext, *pdfcpu_types.NewIndirectRef(10, 0), numberTreeWhere)
+	entries, problems, _ := walkNumberTree(doc.PDFContext, *pdfcpu_types.NewIndirectRef(10, 0), numberTreeWhere)
 	for _, p := range problems {
 		if !strings.Contains(p.Where, numberTreeWhere) {
 			t.Errorf("problem location %q does not carry the caller's prefix %q", p.Where, numberTreeWhere)
@@ -234,4 +234,30 @@ func TestWalkNumberTree_RepeatedKeyInOneLeafIsReportedOnceAsDuplicate(t *testing
 		t.Errorf("problems = %q, want one duplicate-key problem", problemsText(problems))
 	}
 	checkIntEntries(t, entries, map[int]int{1: 101, 3: 103})
+}
+
+func TestWalkNumberTree_IncompleteNamesTheFirstNodeWithUnreadEntries(t *testing.T) {
+	cases := []struct {
+		name string
+		objs []rawObj
+		want string
+	}{
+		{"well formed", []rawObj{{10, "<< /Kids [11 0 R] >>"}, {11, "<< /Limits [0 0] /Nums [0 100] >>"}}, ""},
+		{"/Kids not an array", []rawObj{{10, "<< /Kids 5 >>"}}, "/Kids is an integer, not an array"},
+		{"/Nums not an array", []rawObj{{10, "<< /Nums 5 >>"}}, "/Nums is an integer, not an array"},
+		{"kid does not resolve", []rawObj{{10, "<< /Kids [99 0 R] >>"}}, "node does not resolve to an object"},
+		{"kid not a dictionary", []rawObj{{10, "<< /Kids [11 0 R] >>"}, {11, "[1 2]"}}, "node is an array, not a dictionary"},
+		{"non-integer key", []rawObj{{10, "<< /Nums [(x) 101] >>"}}, "/Nums entry 0: key is a string, not an integer"},
+		{"null kid", []rawObj{{10, "<< /Kids [null 11 0 R] >>"}, {11, "<< /Limits [0 0] /Nums [0 100] >>"}}, ""},
+		{"node reached twice", []rawObj{{10, "<< /Kids [11 0 R 11 0 R] >>"}, {11, "<< /Limits [0 0] /Nums [0 100] >>"}}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, doc := openUnvalidated(t, numberTreePDF(tc.objs...))
+			_, problems, incomplete := walkNumberTree(doc.PDFContext, *pdfcpu_types.NewIndirectRef(10, 0), numberTreeWhere)
+			if incomplete != tc.want {
+				t.Errorf("incomplete = %q, want %q; problems:\n%s", incomplete, tc.want, problemsText(problems))
+			}
+		})
+	}
 }

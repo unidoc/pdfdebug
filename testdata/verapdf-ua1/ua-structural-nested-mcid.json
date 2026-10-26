@@ -1,0 +1,13 @@
+{
+  "veraPDFVersion": "1.30.2",
+  "flavour": "ua1",
+  "compliant": true,
+  "failedRules": [],
+  "logs": [
+    {
+      "level": "WARNING",
+      "message": "Content stream (object 3 0 obj): Nested MCID - 1",
+      "occurrences": 1
+    }
+  ]
+}

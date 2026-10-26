@@ -254,22 +254,30 @@ func TestValidatePlain_CleanRunNamesRuleCount(t *testing.T) {
 	}
 }
 
-func TestValidatePlain_UntaggedUnderUAShowsOneFoundPerRule(t *testing.T) {
+// On an untagged file each catalog rule finds its missing entry and the
+// structure rules find nothing, since there is no marked content and no
+// structure tree.
+func TestValidatePlain_UntaggedUnderUAShowsCatalogFindings(t *testing.T) {
 	path := fixture(t, "untagged.pdf")
 	res := runJSON(t, profilePDFUA, path, 0)
 	out := runPlain(t, profilePDFUA, path, 0)
 	if len(res.Rules) == 0 {
 		t.Fatalf("rules must list every pdfua-1-structural rule, got none")
 	}
+	catalogRules := map[string]bool{"marked": true, "struct-tree-root": true, "lang": true}
 	for _, rule := range res.Rules {
-		if rule.Findings != 1 || !rule.Evaluated {
-			t.Errorf("untagged file: rule %q = %+v, want evaluated with 1 finding", rule.RuleID, rule)
+		want := 0
+		if catalogRules[rule.RuleID] {
+			want = 1
 		}
-		if line := ruleLine(out, rule.RuleID); !strings.Contains(line, "1 found") {
-			t.Errorf("rule %q line must show 1 found, got %q", rule.RuleID, line)
+		if rule.Findings != want || !rule.Evaluated {
+			t.Errorf("untagged file: rule %q = %+v, want evaluated with %d finding(s)", rule.RuleID, rule, want)
+		}
+		if line := ruleLine(out, rule.RuleID); !strings.Contains(line, fmt.Sprintf("%d found", want)) {
+			t.Errorf("rule %q line must show %d found, got %q", rule.RuleID, want, line)
 		}
 	}
-	if want := fmt.Sprintf("Summary: 0 errors, %d warnings", len(res.Rules)); !strings.Contains(out, want) {
+	if want := fmt.Sprintf("Summary: 0 errors, %d warnings", len(catalogRules)); !strings.Contains(out, want) {
 		t.Errorf("summary must read %q:\n%s", want, out)
 	}
 	if strings.Contains(strings.ToLower(out), "none of the") {

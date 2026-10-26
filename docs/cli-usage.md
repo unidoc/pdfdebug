@@ -28,9 +28,12 @@ pdfdebug validate --profile pdfua-1-structural file.pdf
 
 After the profile name and its scope sentence, the output lists the rules it
 checked with `0 found` or `N found` beside each, then the problems and a
-summary line. The profile checks catalog-level entries only, such as whether
-the document is marked as tagged. A file that passes every one of them can
-still fail PDF/UA, so a clean run is not a verdict; use veraPDF for that.
+summary line. The profile checks catalog entries such as whether the document
+is marked as tagged, that every structure element has a usable `/S`, and the
+marked content of each page: balanced BMC/BDC and EMC, MCIDs that are unique,
+not nested and reachable through the ParentTree. A file with no finding from
+any of them can still fail PDF/UA, so a clean run is not a verdict; use
+veraPDF for that.
 `pdfdebug --help` lists the current rules of each profile.
 
 ### Compare two versions of a file
@@ -69,9 +72,11 @@ or `--ref` for any stream object. An attachment comes out with
 pdfdebug validate --json --profile pdfua-1-structural file.pdf > report.json
 ```
 
-Branch on the exit code first and read `summary` from the JSON second, because
-`pdfua-1-structural` findings are warnings and a rule that could not run is
-info, and both exit 0. The full script is under
+Branch on the exit code first and read `summary` from the JSON second. Under
+`pdfua-1-structural`, `mcid-in-parent-tree` and `struct-elem-type` report
+errors and exit 1; the other rules report warnings, and one of those that could
+not run reports info; both exit 0. An error rule that could not run also
+reports info but exits 1. The full script is under
 [Exit codes](cli/scripting.md#exit-codes).
 
 ## Commands

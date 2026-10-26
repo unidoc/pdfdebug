@@ -16,10 +16,12 @@
  *    called (the no-jump fallback).
  *  - Problems without an object ref (document-level, e.g. missing /Lang) are
  *    surfaced under a "Document" group.
- *  - Every result shows the profile's scope sentence
- *    (data-testid="validate-scope") and the rules checked
+ *  - Every result ends with a "Rules checked" toggle
+ *    (data-testid="validate-rules-toggle"), collapsed by default, naming the
+ *    rule count and any rules not evaluated. Expanded, it shows the profile's
+ *    scope sentence (data-testid="validate-scope") and the rules checked
  *    (data-testid="validate-rules", one data-testid="validate-rule" each)
- *    above the result.
+ *    below the findings. The expanded state is kept per document tab.
  *  - Empty/clean result shows data-testid="validate-empty" naming the rule
  *    count: "None of the N rules checked found a problem".
  *  - The not-authoritative disclaimer (data-testid="validate-disclaimer",
@@ -28,7 +30,7 @@
  *
  * Run: cd frontend && npx vitest run src/components/ValidateView.test.tsx
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { ValidateView } from './ValidateView';
 
@@ -337,6 +339,13 @@ const scopedProblemResult = {
   ],
 };
 
+/** Expands the collapsed "Rules checked" section once a result is shown. */
+async function expandRules() {
+  const toggle = await waitFor(() => screen.getByTestId('validate-rules-toggle'));
+  fireEvent.click(toggle);
+  await waitFor(() => expect(screen.getByTestId('validate-rules')).toBeInTheDocument());
+}
+
 /** True when node a precedes node b in document order. */
 function precedes(a: Element, b: Element) {
   return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -348,11 +357,18 @@ describe('ValidateView scope and rules checked', () => {
     const { container } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId('validate-run'));
-    await waitFor(() => expect(screen.getByTestId('validate-scope')).toBeInTheDocument());
+    const toggle = await waitFor(() => screen.getByTestId('validate-rules-toggle'));
+    expect(toggle.textContent).toMatch(/rules checked \(3\)/i);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.hasAttribute('aria-controls')).toBe(false);
+    expect(screen.queryByTestId('validate-scope')).toBeNull();
+    expect(screen.queryByTestId('validate-rules')).toBeNull();
 
+    await expandRules();
+    const expanded = screen.getByTestId('validate-rules-toggle');
+    expect(expanded.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector(`#${expanded.getAttribute('aria-controls')}`)).not.toBeNull();
     expect(screen.getByTestId('validate-scope').textContent).toContain(uaScope);
-    const list = screen.getByTestId('validate-rules');
-    expect(list.textContent).toMatch(/rules checked \(3\)/i);
     const rows = screen.getAllByTestId('validate-rule');
     expect(rows).toHaveLength(uaRules.length);
     uaRules.forEach((rule, i) => {
@@ -376,7 +392,9 @@ describe('ValidateView scope and rules checked', () => {
     expect(clean.toLowerCase()).toContain('none');
     expect(clean).toMatch(/\b3 rules\b/);
     expect((container.textContent ?? '').toLowerCase()).not.toContain('no structural problems found');
-    expect(precedes(screen.getByTestId('validate-rules'), screen.getByTestId('validate-empty'))).toBe(true);
+    expect(precedes(screen.getByTestId('validate-empty'), screen.getByTestId('validate-rules-toggle'))).toBe(
+      true,
+    );
   });
 
   test('clean sentence follows the rule count of the result', async () => {
@@ -387,15 +405,19 @@ describe('ValidateView scope and rules checked', () => {
     await waitFor(() => expect(screen.getByTestId('validate-empty')).toBeInTheDocument());
 
     expect(screen.getByTestId('validate-empty').textContent).toMatch(/\b2 rules\b/);
+    await expandRules();
     expect(screen.getAllByTestId('validate-rule')).toHaveLength(2);
   });
 
-  test('result with problems shows scope and rules above the summary', async () => {
+  test('result with problems shows the findings above the collapsed scope and rules', async () => {
     mockValidate.mockResolvedValue(scopedProblemResult);
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId('validate-run'));
-    await waitFor(() => expect(screen.getByTestId('validate-rules')).toBeInTheDocument());
+    const toggle = await waitFor(() => screen.getByTestId('validate-rules-toggle'));
+    expect(toggle.textContent).toMatch(/rules checked \(3, 1 not evaluated\)/i);
+    expect(precedes(screen.getByTestId('validate-summary'), toggle)).toBe(true);
+    await expandRules();
 
     expect(screen.getByTestId('validate-scope').textContent).toContain(scopedProblemResult.scope);
     const rows = screen.getAllByTestId('validate-rule');
@@ -407,7 +429,7 @@ describe('ValidateView scope and rules checked', () => {
     expect(rows[2].textContent).toContain('not evaluated');
     expect(rows[2].textContent).not.toContain('0 found');
 
-    expect(precedes(screen.getByTestId('validate-rules'), screen.getByTestId('validate-summary'))).toBe(true);
+    expect(precedes(screen.getByTestId('validate-summary'), screen.getByTestId('validate-scope'))).toBe(true);
     expect(precedes(screen.getByTestId('validate-scope'), screen.getByTestId('validate-rules'))).toBe(true);
     expect(screen.queryByTestId('validate-empty')).toBeNull();
   });
@@ -449,12 +471,13 @@ describe('ValidateView scope and rules checked', () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId('validate-run'));
-    await waitFor(() => expect(screen.getByTestId('validate-rules')).toBeInTheDocument());
+    await expandRules();
 
     mockValidate.mockRejectedValueOnce(new Error('validate failed'));
     fireEvent.click(screen.getByTestId('validate-run'));
     await waitFor(() => expect(screen.getByTestId('validate-error')).toBeInTheDocument());
 
+    expect(screen.queryByTestId('validate-rules-toggle')).toBeNull();
     expect(screen.queryByTestId('validate-scope')).toBeNull();
     expect(screen.queryByTestId('validate-rules')).toBeNull();
   });
@@ -474,5 +497,209 @@ describe('ValidateView scope and rules checked', () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     expect(screen.getByTestId('validate-disclaimer').textContent).toBe(DISCLAIMER_TEXT);
+  });
+});
+
+/** A pdfua-1-structural result with one page-scoped content error and one catalog warning. */
+const uaContentErrorResult = {
+  profile: 'pdfua-1-structural',
+  summary: { errors: 1, warnings: 1, info: 0 },
+  problems: [
+    {
+      ruleId: 'mcid-in-parent-tree',
+      profile: 'pdfua-1-structural',
+      severity: 'error',
+      message: 'page 1: MCID 0 (stream 7 0 R line 1 col 1) has no structure element in ParentTree key 0',
+      objRef: '3 0 R',
+      objNodeId: 'obj:0:3',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4',
+    },
+    {
+      ruleId: 'lang',
+      profile: 'pdfua-1-structural',
+      severity: 'warning',
+      message: 'document /Lang is missing',
+      objRef: '',
+      objNodeId: '',
+      specRef: 'ISO 14289-1:2014, 7.2',
+    },
+  ],
+  disclaimer: DISCLAIMER_TEXT,
+  scope: uaScope,
+  rules: [
+    ...uaRules.map((r) => (r.ruleId === 'lang' ? { ...r, findings: 1 } : r)),
+    {
+      ruleId: 'mcid-in-parent-tree',
+      specRef: 'ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4',
+      severity: 'error',
+      checks: "every MCID in a page's content stream reaches a structure element through the page's /StructParents and its ParentTree array",
+      evaluated: true,
+      findings: 1,
+    },
+  ],
+};
+
+describe('ValidateView PDF/UA content-rule errors', () => {
+  beforeEach(() => {
+    mockValidate.mockResolvedValue(uaContentErrorResult);
+  });
+
+  async function runUA(onNavigate = vi.fn()) {
+    render(<ValidateView tabId="tab-1" active onNavigate={onNavigate} />);
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfua-1-structural' } });
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/MCID 0 .* has no structure element/));
+    return onNavigate;
+  }
+
+  test('a PDF/UA error finding renders under Errors and the catalog warning under Warnings', async () => {
+    await runUA();
+
+    expect(mockValidate).toHaveBeenCalledWith('tab-1', 'pdfua-1-structural');
+    const errors = screen.getByTestId('validate-group-error');
+    const warnings = screen.getByTestId('validate-group-warning');
+    expect(within(errors).getByText(/MCID 0 .* has no structure element/)).toBeInTheDocument();
+    expect(within(errors).queryByText(/\/Lang is missing/)).toBeNull();
+    expect(within(warnings).getByText(/\/Lang is missing/)).toBeInTheDocument();
+    expect(within(warnings).queryByText(/MCID 0 .* has no structure element/)).toBeNull();
+  });
+
+  test('the summary line counts the PDF/UA error and warning', async () => {
+    await runUA();
+
+    expect(screen.getByTestId('validate-summary').textContent?.startsWith('1 error, 1 warning')).toBe(true);
+  });
+
+  test('clicking the PDF/UA error row navigates to its page node', async () => {
+    const onNavigate = await runUA();
+
+    const row = screen.getByText(/MCID 0 .* has no structure element/).closest('[data-testid="validate-problem"]');
+    expect(row).not.toBeNull();
+    fireEvent.click(row as Element);
+    expect(onNavigate).toHaveBeenCalledWith('obj:0:3');
+  });
+
+  test('pressing Enter on the PDF/UA error row navigates to its page node', async () => {
+    const onNavigate = await runUA();
+
+    const row = screen.getByText(/MCID 0 .* has no structure element/).closest('[data-testid="validate-problem"]');
+    expect(row).not.toBeNull();
+    fireEvent.keyDown(row as Element, { key: 'Enter' });
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('obj:0:3');
+  });
+});
+
+describe('ValidateView across document tabs', () => {
+  test('switching back to a document restores its result; another document starts empty', async () => {
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/not embedded/i));
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText(/not embedded/i)).toBeNull());
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    await waitFor(() => screen.getByText(/not embedded/i));
+    expect(mockValidate).toHaveBeenCalledTimes(1);
+  });
+
+  test('each document keeps its own profile', async () => {
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfua-1-structural' } });
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfa-1b' } });
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    await waitFor(() =>
+      expect((screen.getByTestId('validate-profile') as HTMLSelectElement).value).toBe('pdfua-1-structural'),
+    );
+  });
+
+  test('a document not yet validated starts on the default profile', async () => {
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfua-1-structural' } });
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} />);
+    await waitFor(() =>
+      expect((screen.getByTestId('validate-profile') as HTMLSelectElement).value).toBe('pdfa-1b'),
+    );
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledWith('tab-2', 'pdfa-1b'));
+  });
+
+  test('a run that finishes while another document is shown is kept for its own document', async () => {
+    let resolve: (v: unknown) => void = () => {};
+    mockValidate.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Running...'));
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Run checks'));
+    resolve(mixedResult);
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/not embedded/i)).toBeNull();
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    await waitFor(() => screen.getByText(/not embedded/i));
+    expect(screen.getByTestId('validate-run').textContent).toBe('Run checks');
+  });
+
+  test('the rules section stays expanded across a rerun and is kept per document', async () => {
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await expandRules();
+
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Run checks'));
+    expect(screen.getByTestId('validate-rules')).toBeInTheDocument();
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    const toggle = await waitFor(() => screen.getByTestId('validate-rules-toggle'));
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('validate-rules')).toBeInTheDocument());
+  });
+
+  test('a closed document\'s result is dropped', async () => {
+    const { rerender } = render(
+      <ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />,
+    );
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/not embedded/i));
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} openTabIds={['tab-2']} />);
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />);
+    await waitFor(() => expect(screen.queryByText(/not embedded/i)).toBeNull());
+  });
+
+  test('a run on a document closed before it finishes is not kept', async () => {
+    let resolve: (v: unknown) => void = () => {};
+    mockValidate.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    const { rerender } = render(
+      <ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />,
+    );
+    fireEvent.click(screen.getByTestId('validate-run'));
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} openTabIds={['tab-2']} />);
+    resolve(mixedResult);
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(1));
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />);
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Run checks'));
+    expect(screen.queryByText(/not embedded/i)).toBeNull();
+  });
+
+  test('a document reloaded under a new tab id starts with no result', async () => {
+    const { rerender } = render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/not embedded/i));
+
+    rerender(<ValidateView tabId="tab-1-reloaded" active onNavigate={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText(/not embedded/i)).toBeNull());
   });
 });

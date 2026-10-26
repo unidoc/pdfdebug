@@ -20,18 +20,21 @@ type numberTreeWalker struct {
 	keyNode  map[int]string // key -> label of the node that first held it
 	visited  map[int]bool   // object numbers of nodes already walked
 	problems []StructureProblem
+	// incomplete is the first problem after which some entries were not read.
+	incomplete string
 }
 
 // walkNumberTree reads the number tree (ISO 32000-1 7.9.7) rooted at root and
 // returns every key with its value as stored (possibly an indirect reference;
-// callers dereference) and every malformed node it met. A malformed node is reported and the walk goes on: a node that is
+// callers dereference), every malformed node it met, and incomplete: the first
+// problem that left entries unread, or "" when every entry was read. A malformed node is reported and the walk goes on: a node that is
 // not a dictionary, has neither /Kids nor /Nums, an odd-length /Nums, a
 // non-integer key, a bad /Limits or a key outside it, keys out of order
 // within one leaf, a
 // duplicate key (the first value is kept), a node reached twice, and a node
 // deeper than maxNumberTreeDepth. where prefixes every problem location.
 // Callers hold pdfMu.
-func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where string) (entries map[int]pdfcpu_types.Object, problems []StructureProblem) {
+func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where string) (entries map[int]pdfcpu_types.Object, problems []StructureProblem, incomplete string) {
 	w := &numberTreeWalker{
 		ctx:     ctx,
 		where:   where,
@@ -40,7 +43,7 @@ func walkNumberTree(ctx *pdfcpu_model.Context, root pdfcpu_types.Object, where s
 		visited: map[int]bool{},
 	}
 	w.visit(root, true, 1)
-	return w.entries, w.problems
+	return w.entries, w.problems, w.incomplete
 }
 
 // ntNodeLabel names a node for problem locations: its reference, or "(direct)".
@@ -56,11 +59,20 @@ func (w *numberTreeWalker) problem(label, msg string) {
 	w.problems = append(w.problems, StructureProblem{Where: w.where + ", node " + label, Message: msg})
 }
 
+// lost records msg like problem and marks the walk incomplete: entries under
+// the node were not read.
+func (w *numberTreeWalker) lost(label, msg string) {
+	w.problem(label, msg)
+	if w.incomplete == "" {
+		w.incomplete = msg
+	}
+}
+
 // visit reads one node and its descendants.
 func (w *numberTreeWalker) visit(node pdfcpu_types.Object, isRoot bool, depth int) {
 	label := ntNodeLabel(node)
 	if depth > maxNumberTreeDepth {
-		w.problem(label, fmt.Sprintf("number tree deeper than %d levels; node not walked", maxNumberTreeDepth))
+		w.lost(label, fmt.Sprintf("number tree deeper than %d levels; node not walked", maxNumberTreeDepth))
 		return
 	}
 	if ref, ok := node.(pdfcpu_types.IndirectRef); ok {
@@ -72,7 +84,7 @@ func (w *numberTreeWalker) visit(node pdfcpu_types.Object, isRoot bool, depth in
 		w.visited[n] = true
 	}
 	guard(func() { w.read(node, label, isRoot, depth) }, func(msg string) {
-		w.problem(label, "node could not be read: "+msg)
+		w.lost(label, "node could not be read: "+msg)
 	})
 }
 
@@ -81,7 +93,7 @@ func (w *numberTreeWalker) read(node pdfcpu_types.Object, label string, isRoot b
 	obj := derefIn(w.ctx, node)
 	if obj == nil {
 		if _, ok := node.(pdfcpu_types.IndirectRef); ok {
-			w.problem(label, "node does not resolve to an object")
+			w.lost(label, "node does not resolve to an object")
 		} else {
 			w.problem(label, "node is null")
 		}
@@ -89,7 +101,7 @@ func (w *numberTreeWalker) read(node pdfcpu_types.Object, label string, isRoot b
 	}
 	d, ok := obj.(pdfcpu_types.Dict)
 	if !ok {
-		w.problem(label, fmt.Sprintf("node is %s, not a dictionary", objKind(obj)))
+		w.lost(label, fmt.Sprintf("node is %s, not a dictionary", objKind(obj)))
 		return
 	}
 
@@ -98,13 +110,13 @@ func (w *numberTreeWalker) read(node pdfcpu_types.Object, label string, isRoot b
 	kidsObj, hasKids := d.Find("Kids")
 	numsObj, hasNums := d.Find("Nums")
 	if !hasKids && !hasNums {
-		w.problem(label, "node has neither /Kids nor /Nums")
+		w.lost(label, "node has neither /Kids nor /Nums")
 		return
 	}
 	if hasKids {
 		kids, ok := derefIn(w.ctx, kidsObj).(pdfcpu_types.Array)
 		if !ok {
-			w.problem(label, fmt.Sprintf("/Kids is %s, not an array", objKind(derefIn(w.ctx, kidsObj))))
+			w.lost(label, fmt.Sprintf("/Kids is %s, not an array", objKind(derefIn(w.ctx, kidsObj))))
 		} else {
 			for _, kid := range kids {
 				w.visit(kid, false, depth+1)
@@ -114,7 +126,7 @@ func (w *numberTreeWalker) read(node pdfcpu_types.Object, label string, isRoot b
 	if hasNums {
 		nums, ok := derefIn(w.ctx, numsObj).(pdfcpu_types.Array)
 		if !ok {
-			w.problem(label, fmt.Sprintf("/Nums is %s, not an array", objKind(derefIn(w.ctx, numsObj))))
+			w.lost(label, fmt.Sprintf("/Nums is %s, not an array", objKind(derefIn(w.ctx, numsObj))))
 			return
 		}
 		w.readNums(nums, label, lo, hi, hasLimits)
@@ -154,14 +166,14 @@ func (w *numberTreeWalker) limits(d pdfcpu_types.Dict, label string, isRoot bool
 // readNums records the key/value pairs of one leaf.
 func (w *numberTreeWalker) readNums(nums pdfcpu_types.Array, label string, lo, hi int, hasLimits bool) {
 	if len(nums)%2 != 0 {
-		w.problem(label, fmt.Sprintf("/Nums has odd length %d; the last entry has no value", len(nums)))
+		w.lost(label, fmt.Sprintf("/Nums has odd length %d; the last entry has no value", len(nums)))
 	}
 	prev, havePrev := 0, false
 	for i := 0; i+1 < len(nums); i += 2 {
 		keyObj := derefIn(w.ctx, nums[i])
 		k, ok := keyObj.(pdfcpu_types.Integer)
 		if !ok {
-			w.problem(label, fmt.Sprintf("/Nums entry %d: key is %s, not an integer", i, objKind(keyObj)))
+			w.lost(label, fmt.Sprintf("/Nums entry %d: key is %s, not an integer", i, objKind(keyObj)))
 			continue
 		}
 		key := int(k)

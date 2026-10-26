@@ -152,8 +152,15 @@ func (d *DocumentState) structurePhase1(w *structureWalker) ([]*pageLeaf, error)
 		leaves = pt.leaves
 		w.readTree(leaves)
 		w.countStreamUses(leaves)
-		if ptErr != nil {
-			w.problem("page tree", fmt.Sprintf("page-tree walk stopped after %d pages: %v; later pages not listed", len(leaves), ptErr))
+		switch {
+		case ptErr != nil:
+			msg := fmt.Sprintf("page-tree walk stopped after %d pages: %v; later pages not listed", len(leaves), ptErr)
+			w.problem("page tree", msg)
+			w.report.pagesIncomplete = msg
+		case pt.skipped != "":
+			msg := "page-tree subtree not walked: " + pt.skipped + "; its pages not listed"
+			w.problem("page tree", msg)
+			w.report.pagesIncomplete = msg
 		}
 		return nil
 	})
@@ -227,6 +234,7 @@ func (w *structureWalker) readTree(leaves []*pageLeaf) {
 		}
 		if leaf.ref != nil {
 			sp.Ref = refString(*leaf.ref)
+			sp.nodeID = nodeIDForRef(*leaf.ref)
 		}
 		w.report.Pages = append(w.report.Pages, sp)
 		if leaf.err != nil {
@@ -278,6 +286,12 @@ func (w *structureWalker) readCatalog(catalog pdfcpu_types.Dict) {
 	if !found || rootObj == nil {
 		return
 	}
+	// A reference to a missing object is null (ISO 32000-1 7.3.10), so the
+	// root is absent.
+	if ref, ok := rootObj.(pdfcpu_types.IndirectRef); ok && w.deref(rootObj) == nil {
+		w.problem("catalog", fmt.Sprintf("/StructTreeRoot %s does not resolve to an object; treated as absent", refString(ref)))
+		return
+	}
 	r.HasStructTree = true
 	where := "StructTreeRoot"
 	if ref, ok := rootObj.(pdfcpu_types.IndirectRef); ok {
@@ -286,11 +300,15 @@ func (w *structureWalker) readCatalog(catalog pdfcpu_types.Dict) {
 	}
 	root, ok := w.deref(rootObj).(pdfcpu_types.Dict)
 	if !ok {
-		w.problem(where, fmt.Sprintf("/StructTreeRoot is %s, not a dictionary", objKind(w.deref(rootObj))))
+		msg := "/StructTreeRoot is " + objKind(w.deref(rootObj)) + ", not a dictionary"
+		w.problem(where, msg)
+		r.rootNotDict = msg
 		return
 	}
 	guard(func() { w.readRoot(root, where) }, func(msg string) {
-		w.problem(where, "the structure tree root could not be read: "+msg)
+		msg = "the structure tree root could not be read: " + msg
+		w.problem(where, msg)
+		r.rootReadFailed = msg
 	})
 }
 
@@ -334,9 +352,10 @@ func (w *structureWalker) readRoot(root pdfcpu_types.Dict, where string) {
 			r.ParentTreeRef = refString(ref)
 			ptWhere += " " + r.ParentTreeRef
 		}
-		entries, problems := walkNumberTree(w.ctx, o, ptWhere)
+		entries, problems, incomplete := walkNumberTree(w.ctx, o, ptWhere)
 		w.parentTree = entries
 		r.Problems = append(r.Problems, problems...)
+		r.parentTreeIncomplete = incomplete
 	}
 	r.Elements = w.walkK(root["K"], "", 0, 0)
 }
@@ -364,11 +383,13 @@ func (w *structureWalker) walkK(k pdfcpu_types.Object, owner string, page, depth
 			items = arr
 		}
 	}
-	for _, item := range items {
+	for i, item := range items {
 		if item == nil {
 			continue
 		}
-		kids = append(kids, w.kid(item, owner, page, depth))
+		kid := w.kid(item, owner, page, depth)
+		kid.index = i
+		kids = append(kids, kid)
 	}
 	return kids
 }
@@ -552,6 +573,7 @@ func (w *structureWalker) elementKid(d pdfcpu_types.Dict, ref *pdfcpu_types.Indi
 	}
 	w.report.Counts.Elements++
 	guard(func() { w.readElement(d, e, id, parentPage, depth) }, func(msg string) {
+		e.readErr = msg
 		e.Err = joinErr(e.Err, "element could not be read: "+msg)
 	})
 	return &StructKid{Kind: "element", Element: e, Page: e.Page, PageInherited: e.PageInherited}
@@ -564,14 +586,15 @@ func (w *structureWalker) readElement(d pdfcpu_types.Dict, e *StructElem, id str
 	sv := w.deref(sObj)
 	switch s, isName := sv.(pdfcpu_types.Name); {
 	case !hasS || sv == nil:
-		errs = append(errs, "no /S")
+		e.sErr = "no /S"
 	case !isName:
-		errs = append(errs, fmt.Sprintf("/S is %s, not a name", objKind(sv)))
+		e.sErr = fmt.Sprintf("/S is %s, not a name", objKind(sv))
 	case s.Value() == "":
-		errs = append(errs, "/S is an empty name")
+		e.sErr = "/S is an empty name"
 	default:
 		e.S = s.Value()
 	}
+	errs = appendErr(errs, e.sErr)
 	if typ := nameOf(w.deref(d["Type"])); typ != "" && typ != "StructElem" {
 		errs = append(errs, fmt.Sprintf("/Type /%s is not StructElem", typ))
 	}
@@ -762,7 +785,7 @@ func (w *structureWalker) scanPage(d *DocumentState, leaf *pageLeaf, sp *StructP
 	props := w.propertyLookup(leaf)
 	st := &mcState{}
 	for i, ref := range refs {
-		ms := MarkedStream{Ref: refString(ref)}
+		ms := MarkedStream{Ref: refString(ref), nodeID: nodeIDForRef(ref)}
 		ds := w.decodeStream(d, nodeIDForRef(ref))
 		ms.Err = ds.err
 		if ms.Err != "" {
