@@ -14,8 +14,11 @@ import (
 )
 
 // CertInfo is the decomposed identity of one X.509 certificate: distinguished
-// names, serial, and the validity window as RFC 3339 strings. It carries
-// structural facts only - no trust evaluation of any kind.
+// names, serial, the validity window as RFC 3339 strings, and the key usage,
+// extended key usage, CRL distribution point and AIA facts. It carries
+// structural facts only - no trust evaluation and no network fetch of any
+// kind. Each extension slice is nil when the extension is absent and non-nil
+// (possibly empty) when it is present.
 type CertInfo struct {
 	// Subject is the certificate subject DN (e.g. "CN=...,O=...").
 	Subject string `json:"subject"`
@@ -27,6 +30,20 @@ type CertInfo struct {
 	NotBefore string `json:"notBefore"`
 	// NotAfter is the validity window end (RFC 3339, UTC).
 	NotAfter string `json:"notAfter"`
+	// KeyUsage lists the key usage bits set, by RFC 5280 name in bit order;
+	// nil when the certificate has no key usage extension.
+	KeyUsage []string `json:"keyUsage"`
+	// ExtKeyUsage lists the extended key usage OIDs in certificate order;
+	// nil when the extension is absent.
+	ExtKeyUsage []ExtKeyUsage `json:"extKeyUsage"`
+	// CRLDistributionPoints lists the URI distribution points; nil when the
+	// extension is absent, empty when it has no URI entries.
+	CRLDistributionPoints []string `json:"crlDistributionPoints"`
+	// OCSPServers lists the AIA OCSP URIs; nil when the AIA extension is absent.
+	OCSPServers []string `json:"ocspServers"`
+	// CAIssuers lists the AIA CA Issuers URIs; nil when the AIA extension is
+	// absent.
+	CAIssuers []string `json:"caIssuers"`
 }
 
 // SignatureField is one signature field decomposed into structural facts:
@@ -157,7 +174,7 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 
 	list := &SignatureList{Signatures: []SignatureField{}}
 	err = safeCall(func() error {
-		list.Signatures = collectSignatures(doc)
+		list.Signatures = collectSignatures(doc, nil)
 		return nil
 	})
 	if err != nil {
@@ -166,15 +183,57 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	return list, nil
 }
 
+// SignatureBytes holds the raw bytes of one signature field for export,
+// index-aligned with SignatureList.Signatures. It is all zero for an unsigned
+// field and for a SubFilter that is neither CMS nor adbe.x509.rsa_sha1.
+type SignatureBytes struct {
+	// CMS is the decoded /Contents from offset 0 through the end of the
+	// top-level element, in the encoding found (BER is not normalized). When
+	// no element can be delimited it is every decoded byte and CMSUndelimited
+	// is set. Nil for a non-CMS SubFilter or an unreadable /Contents.
+	CMS []byte
+	// CMSUndelimited is the reader error when /Contents holds no complete
+	// element; empty otherwise.
+	CMSUndelimited string
+	// Certificates is the DER of each entry of SignatureField.Certificates, in
+	// the same order: x509.Certificate.Raw for CMS, the /Cert element as read
+	// for adbe.x509.rsa_sha1.
+	Certificates [][]byte
+}
+
+// GetSignatureBytes returns what GetSignatures returns for the same document
+// plus, index-aligned with its Signatures, the bytes each field can export.
+// It walks the document once, under doc.pdfMu and inside safeCall.
+func (ins *Inspector) GetSignatureBytes(tabID string) (*SignatureList, []SignatureBytes, error) {
+	doc, err := ins.GetDocument(tabID)
+	if err != nil {
+		return nil, nil, err
+	}
+	doc.pdfMu.Lock()
+	defer doc.pdfMu.Unlock()
+
+	list := &SignatureList{Signatures: []SignatureField{}}
+	sink := []SignatureBytes{}
+	err = safeCall(func() error {
+		list.Signatures = collectSignatures(doc, &sink)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, wrapPDFError(err)
+	}
+	return list, sink, nil
+}
+
 // holeRead carries the first refused hole read of one GetSignatures walk, so
 // later signatures skip the read and carry the same note.
 type holeRead struct {
 	refused error
 }
 
-// collectSignatures walks /AcroForm /Fields in document order. Caller MUST
-// hold doc.pdfMu and run inside safeCall.
-func collectSignatures(doc *DocumentState) []SignatureField {
+// collectSignatures walks /AcroForm /Fields in document order. When sink is
+// non-nil it receives one SignatureBytes per listed field, in the same order.
+// Caller MUST hold doc.pdfMu and run inside safeCall.
+func collectSignatures(doc *DocumentState, sink *[]SignatureBytes) []SignatureField {
 	sigs := []SignatureField{}
 	cat, err := doc.PDFContext.Catalog()
 	if err != nil {
@@ -186,7 +245,7 @@ func collectSignatures(doc *DocumentState) []SignatureField {
 	}
 	hr := &holeRead{}
 	for _, elem := range dereferenceArray(doc, acro["Fields"]) {
-		walkSignatureField(doc, hr, elem, "", "", 0, &sigs)
+		walkSignatureField(doc, hr, elem, "", "", 0, &sigs, sink)
 	}
 	return sigs
 }
@@ -194,8 +253,9 @@ func collectSignatures(doc *DocumentState) []SignatureField {
 // walkSignatureField recurses one field-tree node. /FT is inheritable via the
 // kid walk (inheritedFT); a kid carrying its own /T is a child FIELD to
 // recurse into, while /T-less kids are widget annotations of THIS field.
-// Terminal fields whose effective /FT is Sig are appended to out.
-func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField) {
+// Terminal fields whose effective /FT is Sig are appended to out, and, when
+// sink is non-nil, their export bytes to sink at the same index.
+func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField, sink *[]SignatureBytes) {
 	if depth > maxNodeIDDepth {
 		return
 	}
@@ -228,20 +288,28 @@ func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Objec
 			continue
 		}
 		if _, hasT := kd["T"]; hasT {
-			walkSignatureField(doc, hr, kid, name, ft, depth+1, out)
+			walkSignatureField(doc, hr, kid, name, ft, depth+1, out, sink)
 			recursed = true
 		}
 	}
 	if recursed || ft != "Sig" {
 		return
 	}
-	*out = append(*out, buildSignatureField(doc, hr, d, name, fieldNodeID))
+	var sb *SignatureBytes
+	if sink != nil {
+		sb = &SignatureBytes{}
+	}
+	*out = append(*out, buildSignatureField(doc, hr, d, name, fieldNodeID, sb))
+	if sink != nil {
+		*sink = append(*sink, *sb)
+	}
 }
 
 // buildSignatureField distills one terminal signature field into its
 // structural facts: /V resolution, dictionary entries, coverage measurement,
-// and per-SubFilter decomposition routing.
-func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Dict, name, fieldNodeID string) SignatureField {
+// and per-SubFilter decomposition routing. sb, when non-nil, receives the
+// field's export bytes.
+func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Dict, name, fieldNodeID string, sb *SignatureBytes) SignatureField {
 	f := SignatureField{
 		FieldName:    name,
 		FieldNodeID:  fieldNodeID,
@@ -293,25 +361,25 @@ func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Di
 	computeByteRangeCoverage(doc, hr, sig, &f)
 
 	switch {
-	case isCMSSubFilter(f.SubFilter):
+	case IsCMSSubFilter(f.SubFilter):
 		if f.SubFilter == "ETSI.RFC3161" {
 			// The token's own time lives in TSTInfo (out of scope); /M is
 			// normally absent. Certs/algorithms still decompose as CMS.
 			f.Type = "document-timestamp"
 		}
-		decomposeCMS(doc, sig, &f)
+		decomposeCMS(doc, sig, &f, sb)
 	case f.SubFilter == "adbe.x509.rsa_sha1":
 		// /Contents is PKCS#1, NOT CMS: the chain lives in the /Cert entry.
-		decomposeCertEntry(doc, sig, &f)
+		decomposeCertEntry(doc, sig, &f, sb)
 	default:
 		f.Notes = append(f.Notes, "subFilter not decomposed")
 	}
 	return f
 }
 
-// isCMSSubFilter reports whether sub names a CMS-based signature whose
+// IsCMSSubFilter reports whether sub names a CMS-based signature whose
 // /Contents parses as a ContentInfo(SignedData).
-func isCMSSubFilter(sub string) bool {
+func IsCMSSubFilter(sub string) bool {
 	return strings.HasPrefix(sub, "adbe.pkcs7.") ||
 		strings.HasPrefix(sub, "ETSI.CAdES") ||
 		sub == "ETSI.RFC3161"
@@ -396,12 +464,26 @@ func algorithmName(oid asn1.ObjectIdentifier) string {
 // the identified signer, and the SignerInfo algorithms. Failures set the
 // per-signature DecomposeError and leave the structural facts intact. Non-zero
 // bytes after the CMS set CMSTrailingBytes; bytes after the SignedData inside
-// the ContentInfo become a note. Decomposition goes on in both cases.
-func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
+// the ContentInfo become a note. Decomposition goes on in both cases. sb, when
+// non-nil, receives the CMS bytes as found and each certificate's DER.
+func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, sb *SignatureBytes) {
 	raw, err := pdfStringBytes(doc, sig["Contents"])
 	if err != nil {
 		f.DecomposeError = "/Contents unreadable: " + err.Error()
 		return
+	}
+	if sb != nil {
+		// Captured before the CMS parse so a delimited payload that is not a
+		// SignedData is still exported.
+		if end, err := berElementEnd(raw); err != nil {
+			sb.CMS = bytes.Clone(raw)
+			if sb.CMS == nil {
+				sb.CMS = []byte{}
+			}
+			sb.CMSUndelimited = err.Error()
+		} else {
+			sb.CMS = bytes.Clone(raw[:end])
+		}
 	}
 	res, err := parseCMSSignedData(raw)
 	f.CMSEncoding = res.encoding
@@ -424,6 +506,9 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 	}
 	for _, c := range certs {
 		f.Certificates = append(f.Certificates, certInfoFrom(c))
+		if sb != nil {
+			sb.Certificates = append(sb.Certificates, bytes.Clone(c.Raw))
+		}
 	}
 
 	if len(sd.SignerInfos) == 0 {
@@ -527,8 +612,9 @@ func matchSignerCert(si cmsSignerInfo, certs []*x509.Certificate) *x509.Certific
 // decomposeCertEntry reads the certificate chain from the signature dict's
 // /Cert entry (a hex/literal string or an array of them) for the non-CMS
 // adbe.x509.rsa_sha1 SubFilter. Per ISO 32000 the first element is the signing
-// certificate; the labeled note records the provenance.
-func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
+// certificate; the labeled note records the provenance. sb, when non-nil,
+// receives each readable certificate's bytes.
+func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, sb *SignatureBytes) {
 	f.Notes = append(f.Notes, "subFilter not CMS - certs read from /Cert")
 
 	certObj := dereference(doc, sig["Cert"])
@@ -556,6 +642,9 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 			continue
 		}
 		f.Certificates = append(f.Certificates, certInfoFrom(c))
+		if sb != nil {
+			sb.Certificates = append(sb.Certificates, bytes.Clone(raw.FullBytes))
+		}
 	}
 	if len(f.Certificates) == 0 {
 		f.DecomposeError = "no certificate readable from the /Cert entry"
@@ -567,20 +656,9 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 	f.SignerIdentified = true
 }
 
-// certInfoFrom distills the display facts from a parsed certificate.
-func certInfoFrom(c *x509.Certificate) CertInfo {
-	return CertInfo{
-		Subject:   c.Subject.String(),
-		Issuer:    c.Issuer.String(),
-		Serial:    c.SerialNumber.String(),
-		NotBefore: c.NotBefore.UTC().Format(time.RFC3339),
-		NotAfter:  c.NotAfter.UTC().Format(time.RFC3339),
-	}
-}
-
 // pdfStringBytes renders a PDF string object as raw bytes: hex strings are
 // whitespace-stripped and hex-decoded (odd length padded per the PDF spec),
-// literal strings are taken verbatim.
+// literal strings have their backslash escapes resolved.
 func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error) {
 	switch v := dereference(doc, obj).(type) {
 	case pdfcpu_types.HexLiteral:
@@ -588,7 +666,8 @@ func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error)
 		// its Bytes() is the canonical decode.
 		return v.Bytes()
 	case pdfcpu_types.StringLiteral:
-		return []byte(v), nil
+		// pdfcpu keeps a literal string as written, escapes included.
+		return pdfcpu_types.Unescape(string(v))
 	case nil:
 		return nil, errors.New("entry missing")
 	default:

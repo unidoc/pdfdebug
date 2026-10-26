@@ -332,6 +332,13 @@ var (
 // validity window (2025-01-01 .. 2027-01-01 UTC).
 func sigFixturePKI(t *testing.T) (caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey) {
 	t.Helper()
+	return sigFixturePKIWith(t, nil)
+}
+
+// sigFixturePKIWith is sigFixturePKI with editLeaf, when non-nil, applied to
+// the leaf template before the leaf is signed.
+func sigFixturePKIWith(t *testing.T, editLeaf func(leaf *x509.Certificate)) (caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey) {
+	t.Helper()
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("fixture CA key: %v", err)
@@ -365,6 +372,9 @@ func sigFixturePKI(t *testing.T) (caDER, leafDER []byte, leafCert *x509.Certific
 		NotBefore:    nb,
 		NotAfter:     na,
 		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	if editLeaf != nil {
+		editLeaf(leafTmpl)
 	}
 	leafDER, err = x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
 	if err != nil {
@@ -510,6 +520,25 @@ func signedPDFContent(t *testing.T, o sigFixtureOpt) []byte {
 func sigFixtureDetachedDER(t *testing.T, signed []byte) []byte {
 	t.Helper()
 	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
+	digest := sha256.Sum256(signed)
+	return sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, digest[:])
+}
+
+// sigFixtureDetachedCertExtensions is sigFixtureDetachedDER with a leaf that
+// carries key usage digitalSignature and nonRepudiation, an EKU list
+// (emailProtection, the Adobe authentic documents OID, 1.2.3.4.5), a CRL
+// distribution point, and AIA OCSP and CA Issuers URLs under the reserved
+// .test TLD.
+func sigFixtureDetachedCertExtensions(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	caDER, leafDER, leafCert, leafKey := sigFixturePKIWith(t, func(leaf *x509.Certificate) {
+		leaf.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageContentCommitment
+		leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection}
+		leaf.UnknownExtKeyUsage = []asn1.ObjectIdentifier{{1, 2, 840, 113583, 1, 1, 5}, {1, 2, 3, 4, 5}}
+		leaf.CRLDistributionPoints = []string{"http://crl.example.test/fixture-ca.crl"}
+		leaf.OCSPServer = []string{"http://ocsp.example.test"}
+		leaf.IssuingCertificateURL = []string{"http://ca.example.test/fixture-ca.cer"}
+	})
 	digest := sha256.Sum256(signed)
 	return sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, digest[:])
 }
@@ -981,7 +1010,9 @@ func TestGenerateFixtures(t *testing.T) {
 	// adbe.pkcs7.detached PDF plus its byte-surgery variants, the unsigned
 	// placeholder, and the BER variants (openssl streamed, the Go-built
 	// indefinite-length detached shape, that shape with a malformed final
-	// end-of-contents, and that shape with non-zero bytes after the CMS).
+	// end-of-contents, and that shape with non-zero bytes after the CMS), and
+	// a DER detached signature whose leaf carries key usage, EKU, CRL DP and
+	// AIA extensions.
 	// Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
 		name    string
@@ -1002,6 +1033,9 @@ func TestGenerateFixtures(t *testing.T) {
 		}},
 		{"signed-ber-trailing.pdf", func(t *testing.T) []byte {
 			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBERTrailing})
+		}},
+		{"signed-cert-extensions.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedCertExtensions})
 		}},
 	}
 	for _, fx := range sigFixtures {

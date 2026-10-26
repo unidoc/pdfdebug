@@ -87,6 +87,9 @@ func fixtureCert(cn, serial string) CertInfo {
 func TestGetSignatures_DERFixtureReportsDERAndIsOtherwiseUnchanged(t *testing.T) {
 	got := openSigFixture(t, "signed.pdf")
 	signer := fixtureCert("Fixture Signer", "2026")
+	signer.KeyUsage = []string{"digitalSignature"}
+	root := fixtureCert("Fixture Root CA", "77001")
+	root.KeyUsage = []string{"keyCertSign"}
 	want := SignatureField{
 		FieldName:           "Sig1",
 		Signed:              true,
@@ -104,7 +107,7 @@ func TestGetSignatures_DERFixtureReportsDERAndIsOtherwiseUnchanged(t *testing.T)
 		SignatureAlgorithm:  "RSA",
 		Signer:              &signer,
 		SignerIdentified:    true,
-		Certificates:        []CertInfo{fixtureCert("Fixture Root CA", "77001"), fixtureCert("Fixture Signer", "2026")},
+		Certificates:        []CertInfo{root, signer},
 		Notes:               []string{trustNote},
 		ByteRange:           []int64{0, 501, 6647, 287},
 		CoversWholeFile:     true,

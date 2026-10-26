@@ -74,6 +74,19 @@ func normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error) {
 	return n.out, true, tail, nil
 }
 
+// berElementEnd returns the offset of the first byte after the top-level BER
+// element of in. It runs only the check-only pass of normalizeBER, so it fails
+// exactly where normalizeBER fails, with the same error. in is never written
+// to.
+func berElementEnd(in []byte) (int, error) {
+	n := &berNormalizer{in: in}
+	end, _, err := n.element(0, len(in), 1)
+	if err != nil {
+		return 0, err
+	}
+	return end, nil
+}
+
 // berPass selects what a walk of the input does besides validating it.
 type berPass int
 

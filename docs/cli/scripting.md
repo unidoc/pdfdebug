@@ -15,10 +15,16 @@ The three command families use different contracts.
 - 1 - usage error: wrong number of files, an unknown flag, a flag after the
   file, an unknown resource, `--help`, a flag value it rejects such as
   `--page 0`, `--depth x` or a malformed `--ref`, or flags that exclude each
-  other such as `--raw --json` or `dump embedded --ref` with `--name`.
+  other such as `--raw --json` or `dump embedded --ref` with `--name`,
+  `dump signatures --field` without `--export-cms` or `--export-certs`, or an
+  empty `--export-cms` / `--export-certs` path or `--field` name.
 - 2 - operational error: the file is missing or unreadable, the page or object
-  asked for is not in it, or `dump embedded --name` matches no attachment, more
-  than one, or one with no `/EmbeddedFile` stream.
+  asked for is not in it, `dump embedded --name` matches no attachment, more
+  than one, or one with no `/EmbeddedFile` stream, or a `dump signatures`
+  export has no signature to pick, more than one, a `--field` that matches no
+  signed field, a `--export-cms` field whose SubFilter is not CMS or whose
+  `/Contents` cannot be read, nothing to write, an export path that is the
+  input PDF or that both exports would write, or a file it cannot write.
 
 `validate`:
 

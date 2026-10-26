@@ -14,13 +14,23 @@ import { FILE_BUSY_MESSAGE, FILE_CHANGED_MESSAGE, isFileBusyMessage, isFileChang
 import { SMALL_BUTTON } from './buttonStyles';
 import { ProblemCallout, type ProblemTone } from './ProblemCallout';
 
-/** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
+/**
+ * One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. Each
+ * extension list is null when the extension is absent and an array (possibly
+ * empty) when it is present; optional because the IPC payload is not
+ * validated.
+ */
 export interface SignatureCertInfo {
   subject: string;
   issuer: string;
   serial: string;
   notBefore: string;
   notAfter: string;
+  keyUsage?: string[] | null;
+  extKeyUsage?: { oid: string; name: string }[] | null;
+  crlDistributionPoints?: string[] | null;
+  ocspServers?: string[] | null;
+  caIssuers?: string[] | null;
 }
 
 /** One decomposed signature field, mirroring `pdfcore.SignatureField`. */
@@ -174,6 +184,27 @@ function formatDN(dn: string): string {
 /** Returns the date part (YYYY-MM-DD) of an RFC 3339 timestamp. */
 function datePart(ts: string): string {
   return ts.slice(0, 10);
+}
+
+/** Renders an extension list: "absent" for null or missing, `empty` for []. */
+function extensionText(values: string[] | null | undefined, empty: string): string {
+  if (values == null) return 'absent';
+  if (values.length === 0) return empty;
+  return values.join(', ');
+}
+
+/** The five extension rows of one chain certificate, with the CLI's texts. URLs are plain text. */
+function CertExtensionRows({ cert }: { cert: SignatureCertInfo }) {
+  const eku = cert.extKeyUsage?.map((e) => (e.name ? `${e.name} (${e.oid})` : e.oid));
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mt-0.5">
+      <Row label="Key usage" value={extensionText(cert.keyUsage, 'present, no bits set')} testid="signature-cert-key-usage" />
+      <Row label="Ext key usage" value={extensionText(eku, 'present, no OID')} testid="signature-cert-ext-key-usage" />
+      <Row label="CRL DP" value={extensionText(cert.crlDistributionPoints, 'present, no URI')} testid="signature-cert-crl-dp" />
+      <Row label="OCSP" value={extensionText(cert.ocspServers, 'present, no URI')} testid="signature-cert-ocsp" />
+      <Row label="CA Issuers" value={extensionText(cert.caIssuers, 'present, no URI')} testid="signature-cert-ca-issuers" />
+    </dl>
+  );
 }
 
 /** A small key/value row in a signature card; tone="warning" colors the value as a warning. */
@@ -362,6 +393,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
                   <div className="text-text-muted">
                     serial {c.serial}, {datePart(c.notBefore)} to {datePart(c.notAfter)}
                   </div>
+                  <CertExtensionRows cert={c} />
                 </li>
               ))}
             </ul>

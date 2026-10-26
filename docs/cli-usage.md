@@ -101,7 +101,7 @@ Each description links to the command's section on its reference page.
 | `dump font` | [A font view (encoding, CMap, glyph mapping, health)](cli/images-and-fonts.md#dump-font) | `--ref`, `--glyphs` |
 | `dump embedded` | [Embedded/associated files; extracts one's bytes to stdout](cli/document-data.md#dump-embedded) | `--ref`/`--name` |
 | `dump metadata` | [The `/Info` dictionary fields and the XMP packet](cli/document-data.md#dump-metadata) | - |
-| `dump signatures` | [Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict)](cli/document-data.md#dump-signatures) | - |
+| `dump signatures` | [Digital-signature decomposition (signer, chain with key usage and CRL/OCSP URLs, ByteRange coverage; no trust verdict)](cli/document-data.md#dump-signatures) | `--export-cms`, `--export-certs`, `--field` |
 | `validate` | [A named subset of structural checks per profile, listed on every run](cli/validate-and-diff.md#validate) | `--profile` |
 | `diff` | [Path-aligned structural diff of two PDFs](cli/validate-and-diff.md#diff) | `--full` |
 
@@ -141,6 +141,8 @@ synopsis on its reference page shows which of them it takes.
 - `--metadata` - for `dump image`, report metadata and omit the base64 payload in JSON.
 - `--glyphs` - for `dump font`, print the full per-code mapping table.
 - `--name NAME` - for `dump embedded`, extract the named file's bytes to stdout.
+- `--export-cms FILE` / `--export-certs DIR` - for `dump signatures`, write the CMS or the chain certificates to files.
+- `--field NAME` - for `dump signatures`, pick the signature field to export.
 - `--profile` - for `validate`, select the profile.
 - `--full` - for `diff`, include unchanged nodes in the output.
 - `--help` / `-h` - show usage. Every command also accepts `--help`.
