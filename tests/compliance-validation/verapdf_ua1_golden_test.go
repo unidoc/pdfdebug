@@ -4,7 +4,8 @@ package compliance_validation_test
 //
 // Opt-in: the test re-runs veraPDF --flavour ua1 --addlogs on each fixture and
 // compares the reduced report with the committed golden in
-// testdata/verapdf-ua1/. With PDFDEBUG_WRITE_VERAPDF_GOLDENS=1 it rewrites
+// testdata/verapdf-ua1/: in full when the installed veraPDF is the golden's
+// version, else only the verdict and the failed rules. With PDFDEBUG_WRITE_VERAPDF_GOLDENS=1 it rewrites
 // the goldens instead. It skips when veraPDF is absent, so CI never needs it;
 // the tests/ua-structural-rules suite reads the goldens without veraPDF.
 
@@ -15,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -151,7 +153,8 @@ func TestVeraPDFUA1Goldens_MatchVeraPDF(t *testing.T) {
 	goldenDir := filepath.Join(testdataDir(t), "verapdf-ua1")
 	for _, name := range uaStructuralFixtures {
 		t.Run(name, func(t *testing.T) {
-			got := asciiJSON(t, veraUAReport(t, veraBin, filepath.Join(testdataDir(t), name)))
+			report := veraUAReport(t, veraBin, filepath.Join(testdataDir(t), name))
+			got := asciiJSON(t, report)
 			goldenPath := filepath.Join(goldenDir, strings.TrimSuffix(name, ".pdf")+".json")
 			if write {
 				if err := os.MkdirAll(goldenDir, 0o755); err != nil {
@@ -165,6 +168,19 @@ func TestVeraPDFUA1Goldens_MatchVeraPDF(t *testing.T) {
 			want, err := os.ReadFile(goldenPath)
 			if err != nil {
 				t.Fatalf("golden %s missing (run with PDFDEBUG_WRITE_VERAPDF_GOLDENS=1 to capture it): %v", goldenPath, err)
+			}
+			var g veraUAGolden
+			if err := json.Unmarshal(want, &g); err != nil {
+				t.Fatalf("golden %s: %v", goldenPath, err)
+			}
+			if g.VeraPDFVersion != report.VeraPDFVersion {
+				// Log text differs between releases; the verdict and the failed
+				// rules are what the rule mapping depends on.
+				if report.Compliant != g.Compliant || !reflect.DeepEqual(report.FailedRules, g.FailedRules) {
+					t.Errorf("veraPDF %s ua1 verdict on %s differs from the %s golden\ngot:  compliant=%v %+v\nwant: compliant=%v %+v",
+						report.VeraPDFVersion, name, g.VeraPDFVersion, report.Compliant, report.FailedRules, g.Compliant, g.FailedRules)
+				}
+				return
 			}
 			if !bytes.Equal(got, want) {
 				t.Errorf("veraPDF ua1 report on %s differs from its golden\ngot:\n%s\nwant:\n%s", name, got, want)
