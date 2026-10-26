@@ -87,6 +87,10 @@ export interface SignaturesViewProps {
    * of the cards, as it does for its own failed fetch.
    */
   fetchError?: string | null;
+  /** Keys of the cards whose certificate chain is expanded, kept by the parent per document. */
+  openChains?: Set<string>;
+  /** Called when a card's certificate chain is expanded or collapsed. */
+  onChainToggle?: (key: string, open: boolean) => void;
 }
 
 /** Tab-level problem summary for a signature list: tone plus hover text. */
@@ -261,8 +265,18 @@ function ExpiryCue({ signer }: { signer: SignatureCertInfo }) {
 }
 
 /** One signature card: decomposed facts + chain expander + reveal-in-tree. */
-function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNavigate: (nodeId: string) => void }) {
-  const [chainOpen, setChainOpen] = useState(false);
+function SignatureCard({
+  entry,
+  onNavigate,
+  initialChainOpen,
+  onChainToggle,
+}: {
+  entry: SignatureEntryData;
+  onNavigate: (nodeId: string) => void;
+  initialChainOpen: boolean;
+  onChainToggle: (open: boolean) => void;
+}) {
+  const [chainOpen, setChainOpen] = useState(initialChainOpen);
   // Reveal target: the /V dict node for an indirect ref, the field node for a
   // direct /V; the button is omitted when neither resolves.
   const revealTarget = entry.signatureNodeId || entry.fieldNodeId;
@@ -380,7 +394,10 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
             className={`px-2 py-1 ${SMALL_BUTTON}`}
             data-testid="signature-cert-chain"
             aria-expanded={chainOpen}
-            onClick={() => setChainOpen((v) => !v)}
+            onClick={() => {
+              setChainOpen(!chainOpen);
+              onChainToggle(!chainOpen);
+            }}
           >
             Certificate chain ({certificates.length}) {chainOpen ? '-' : '+'}
           </button>
@@ -427,7 +444,15 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
  * the parent's `fetchError` when that fetch failed; self-fetches on tabId
  * change otherwise.
  */
-export function SignaturesView({ tabId, active: _active, onNavigate, data, fetchError }: SignaturesViewProps) {
+export function SignaturesView({
+  tabId,
+  active: _active,
+  onNavigate,
+  data,
+  fetchError,
+  openChains,
+  onChainToggle,
+}: SignaturesViewProps) {
   const [entries, setEntries] = useState<SignatureEntryData[] | null>(data ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -488,9 +513,18 @@ export function SignaturesView({ tabId, active: _active, onNavigate, data, fetch
 
   return (
     <div className="h-full overflow-auto p-3" data-testid="signatures-view">
-      {entries.map((entry, i) => (
-        <SignatureCard key={entry.fieldNodeId || i} entry={entry} onNavigate={onNavigate} />
-      ))}
+      {entries.map((entry, i) => {
+        const key = entry.fieldNodeId || String(i);
+        return (
+          <SignatureCard
+            key={key}
+            entry={entry}
+            onNavigate={onNavigate}
+            initialChainOpen={openChains?.has(key) ?? false}
+            onChainToggle={(open) => onChainToggle?.(key, open)}
+          />
+        );
+      })}
     </div>
   );
 }
