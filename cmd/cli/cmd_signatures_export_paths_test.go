@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -255,7 +256,8 @@ func TestRunSignatureExports_CertDirThatIsAFileKeepsTheWrittenCMS(t *testing.T) 
 	if code != 2 {
 		t.Fatalf("exit code %d, want 2", code)
 	}
-	if !strings.Contains(stderr, "failed to write "+certs) {
+	var obj map[string]string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &obj); err != nil || !strings.HasPrefix(obj["error"], "failed to write "+certs+":") {
 		t.Fatalf("stderr %q, want a write error naming %s", stderr, certs)
 	}
 	got, err := os.ReadFile(cms)
@@ -283,7 +285,8 @@ func TestRunSignatureExports_CertFileWriteFailureKeepsEarlierCertFiles(t *testin
 	if code != 2 {
 		t.Fatalf("exit code %d, want 2", code)
 	}
-	if !strings.Contains(stderr, "failed to write "+blocked) {
+	var obj map[string]string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &obj); err != nil || !strings.HasPrefix(obj["error"], "failed to write "+blocked+":") {
 		t.Fatalf("stderr %q, want a write error naming %s", stderr, blocked)
 	}
 	got, err := os.ReadFile(filepath.Join(certs, "sig1-cert1.der"))
