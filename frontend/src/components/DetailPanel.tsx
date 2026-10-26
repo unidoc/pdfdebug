@@ -1405,6 +1405,7 @@ function DetailPanelInner() {
             tabId={activeTabId ?? ''}
             active={shownView === 'validate'}
             onNavigate={handleValidateNavigate}
+            openTabIds={tabs.map((t) => t.tabId)}
           />
         </Tabs.Content>
 

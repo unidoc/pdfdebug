@@ -360,11 +360,14 @@ describe('ValidateView scope and rules checked', () => {
     const toggle = await waitFor(() => screen.getByTestId('validate-rules-toggle'));
     expect(toggle.textContent).toMatch(/rules checked \(3\)/i);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.hasAttribute('aria-controls')).toBe(false);
     expect(screen.queryByTestId('validate-scope')).toBeNull();
     expect(screen.queryByTestId('validate-rules')).toBeNull();
 
     await expandRules();
-    expect(screen.getByTestId('validate-rules-toggle').getAttribute('aria-expanded')).toBe('true');
+    const expanded = screen.getByTestId('validate-rules-toggle');
+    expect(expanded.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector(`#${expanded.getAttribute('aria-controls')}`)).not.toBeNull();
     expect(screen.getByTestId('validate-scope').textContent).toContain(uaScope);
     const rows = screen.getAllByTestId('validate-rule');
     expect(rows).toHaveLength(uaRules.length);
@@ -661,6 +664,34 @@ describe('ValidateView across document tabs', () => {
 
     rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
     await waitFor(() => expect(screen.getByTestId('validate-rules')).toBeInTheDocument());
+  });
+
+  test('a closed document\'s result is dropped', async () => {
+    const { rerender } = render(
+      <ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />,
+    );
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => screen.getByText(/not embedded/i));
+
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} openTabIds={['tab-2']} />);
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />);
+    await waitFor(() => expect(screen.queryByText(/not embedded/i)).toBeNull());
+  });
+
+  test('a run on a document closed before it finishes is not kept', async () => {
+    let resolve: (v: unknown) => void = () => {};
+    mockValidate.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    const { rerender } = render(
+      <ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />,
+    );
+    fireEvent.click(screen.getByTestId('validate-run'));
+    rerender(<ValidateView tabId="tab-2" active onNavigate={vi.fn()} openTabIds={['tab-2']} />);
+    resolve(mixedResult);
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(1));
+
+    rerender(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} openTabIds={['tab-1', 'tab-2']} />);
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Run checks'));
+    expect(screen.queryByText(/not embedded/i)).toBeNull();
   });
 
   test('a document reloaded under a new tab id starts with no result', async () => {

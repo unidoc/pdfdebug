@@ -58,6 +58,8 @@ export interface ValidateViewProps {
   active: boolean;
   /** Dispatches NAVIGATE_TO_REF to jump TreePanel to an object-scoped problem. */
   onNavigate: (nodeId: string) => void;
+  /** Open document tab IDs; saved panel state of any other tab is dropped. */
+  openTabIds?: string[];
 }
 
 /** One document's Validate panel state, kept while another document is shown. */
@@ -174,7 +176,7 @@ function RulesChecked({
         type="button"
         data-testid="validate-rules-toggle"
         aria-expanded={expanded}
-        aria-controls="validate-rules-body"
+        aria-controls={expanded ? 'validate-rules-body' : undefined}
         onClick={onToggle}
         className="text-xs font-medium text-text-secondary hover:text-text"
       >
@@ -211,7 +213,12 @@ function RulesChecked({
  * Document-level structural-validation panel. Self-contained: it runs the
  * chosen profile against `tabId` on demand and renders the grouped result.
  */
-export function ValidateView({ tabId, active: _active, onNavigate }: ValidateViewProps) {
+export function ValidateView({
+  tabId,
+  active: _active,
+  onNavigate,
+  openTabIds,
+}: ValidateViewProps) {
   const [profile, setProfile] = useState<string>(DEFAULT_PROFILE);
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +243,15 @@ export function ValidateView({ tabId, active: _active, onNavigate }: ValidateVie
     };
     savedRef.current.set(id, { ...prev, ...patch });
   };
+
+  const openKey = openTabIds?.join('\n');
+  useEffect(() => {
+    if (openKey === undefined) return;
+    const open = new Set(openKey.split('\n'));
+    for (const id of savedRef.current.keys()) {
+      if (!open.has(id)) savedRef.current.delete(id);
+    }
+  }, [openKey]);
 
   // Tracks the currently-active tab and selected profile so an in-flight run
   // only updates the screen when its document and profile are still shown.
