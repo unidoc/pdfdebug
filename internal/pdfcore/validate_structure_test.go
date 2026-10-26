@@ -235,10 +235,13 @@ func TestProfileRules_PDFUAChecksPhrasesNameTheirCoverageBound(t *testing.T) {
 	if c := phrases["marked-content-balance"]; !strings.Contains(c, "decoded") {
 		t.Errorf("marked-content-balance checks %q must say an undecodable content stream is reported there", c)
 	}
-	for _, id := range []string{"mcid-unique", "mcid-in-parent-tree", "mcid-not-nested"} {
+	for _, id := range []string{"mcid-unique", "mcid-not-nested"} {
 		if c := phrases[id]; !strings.Contains(c, "reported under marked-content-balance") {
 			t.Errorf("%s checks %q must say unreadable content is reported under marked-content-balance", id, c)
 		}
+	}
+	if c := phrases["mcid-in-parent-tree"]; !strings.Contains(c, "cannot be decoded") || !strings.Contains(c, "not checked") {
+		t.Errorf("mcid-in-parent-tree checks %q must say undecodable content is reported there as not checked", c)
 	}
 	if c := phrases["struct-elem-type"]; !strings.Contains(c, "/s") || !strings.Contains(c, "role mapping") {
 		t.Errorf("struct-elem-type checks %q must name /S and that role mapping is not checked", c)
@@ -419,7 +422,7 @@ func TestValidateUA_BalanceUndecodableStreamIsReportedAndLaterStreamsStillRead(t
 	if mustPage(t, rep, 1).Streams[0].Err == "" {
 		t.Fatal("precondition: stream 20 0 R decodes")
 	}
-	uaExpect(t, res, map[string]int{"marked-content-balance": 2, "mcid-unique": 1})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 2, "mcid-unique": 1, "mcid-in-parent-tree": 2})
 	ps := uaFindings(res, "marked-content-balance")
 	for i, ref := range []string{"20 0 R", "22 0 R"} {
 		if i >= len(ps) {
@@ -443,7 +446,7 @@ func TestValidateUA_BalanceMalformedContentsIsAPageFinding(t *testing.T) {
 	if sp.Err == "" {
 		t.Fatal("precondition: a /Contents of 42 leaves no page error in the report")
 	}
-	uaExpect(t, res, map[string]int{"marked-content-balance": 1})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 1, "mcid-in-parent-tree": 1})
 	p := uaOnlyMessage(t, res, "marked-content-balance")
 	uaOnPage(t, p)
 	if want := "page 1 content could not be read (" + sp.Err + "); marked content not checked"; p.Message != want {
@@ -453,7 +456,7 @@ func TestValidateUA_BalanceMalformedContentsIsAPageFinding(t *testing.T) {
 
 func TestValidateUA_BalanceStackAfterUndecodableStreamIsNotJudged(t *testing.T) {
 	res, _ := uaRun(t, uaContentPDF("/P <</MCID 0>> BDC", undecodableStream, "EMC"))
-	uaExpect(t, res, map[string]int{"marked-content-balance": 1})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 1, "mcid-in-parent-tree": 1})
 	p := uaOnlyMessage(t, res, "marked-content-balance")
 	if p.ObjRef != "21 0 R" || !strings.Contains(p.Message, "could not be decoded") {
 		t.Errorf("finding = %+v, want only the decode finding on 21 0 R", p)
@@ -462,7 +465,7 @@ func TestValidateUA_BalanceStackAfterUndecodableStreamIsNotJudged(t *testing.T) 
 
 func TestValidateUA_BalanceEMCAfterUndecodableStreamIsNotJudged(t *testing.T) {
 	res, _ := uaRun(t, uaContentPDF(undecodableStream, "EMC"))
-	uaExpect(t, res, map[string]int{"marked-content-balance": 1})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 1, "mcid-in-parent-tree": 1})
 	p := uaOnlyMessage(t, res, "marked-content-balance")
 	if p.ObjRef != "20 0 R" || !strings.Contains(p.Message, "could not be decoded") {
 		t.Errorf("finding = %+v, want only the decode finding on 20 0 R", p)
@@ -471,7 +474,7 @@ func TestValidateUA_BalanceEMCAfterUndecodableStreamIsNotJudged(t *testing.T) {
 
 func TestValidateUA_BalanceOpenAtEndAfterUndecodableStreamIsNotJudged(t *testing.T) {
 	res, _ := uaRun(t, uaContentPDF("/P <</MCID 0>> BDC", undecodableStream))
-	uaExpect(t, res, map[string]int{"marked-content-balance": 1})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 1, "mcid-in-parent-tree": 1})
 	p := uaOnlyMessage(t, res, "marked-content-balance")
 	if p.ObjRef != "21 0 R" || !strings.Contains(p.Message, "could not be decoded") {
 		t.Errorf("finding = %+v, want only the decode finding on 21 0 R", p)
@@ -480,7 +483,7 @@ func TestValidateUA_BalanceOpenAtEndAfterUndecodableStreamIsNotJudged(t *testing
 
 func TestValidateUA_BalanceUnmatchedEMCBeforeUndecodableStreamIsReported(t *testing.T) {
 	res, _ := uaRun(t, uaContentPDF("EMC", undecodableStream))
-	uaExpect(t, res, map[string]int{"marked-content-balance": 2})
+	uaExpect(t, res, map[string]int{"marked-content-balance": 2, "mcid-in-parent-tree": 1})
 	msgs := uaMessages(res, "marked-content-balance")
 	if !slices.Contains(msgs, "page 1: EMC with no open marked-content sequence (in content stream 20 0 R)") {
 		t.Errorf("messages = %q, want the unmatched EMC in stream 20 0 R", msgs)
@@ -811,9 +814,9 @@ func TestValidateUA_RoleMappedSIsUsable(t *testing.T) {
 	uaExpect(t, res, nil)
 }
 
-func TestValidateUA_ElementWithoutSAndBadPgCarriesTheWholeError(t *testing.T) {
+func TestValidateUA_ElementWithoutSAndBadPgNamesOnlyTheSProblem(t *testing.T) {
 	res, rep := uaRun(t, uaTreePDF("<< /Type /StructTreeRoot /K [10 0 R] >>",
-		rawObj{10, "<< /Type /StructElem /Pg (not a page) >>"},
+		rawObj{10, "<< /Type /StructElem /S / /Pg (not a page) >>"},
 	))
 	e := uaElement(t, rep, "10 0 R")
 	if !strings.Contains(e.Err, "; ") || !strings.Contains(e.Err, "/Pg") {
@@ -821,8 +824,107 @@ func TestValidateUA_ElementWithoutSAndBadPgCarriesTheWholeError(t *testing.T) {
 	}
 	uaExpect(t, res, map[string]int{"struct-elem-type": 1})
 	p := uaOnlyMessage(t, res, "struct-elem-type")
-	if want := "structure element 10 0 R has no usable /S (" + e.Err + ")"; p.Message != want {
+	if want := "structure element 10 0 R has no usable /S (/S is an empty name)"; p.Message != want {
 		t.Errorf("message = %q, want %q", p.Message, want)
+	}
+	if p.ObjRef != "10 0 R" || p.ObjNodeID != "obj:0:10" {
+		t.Errorf("objRef %q objNodeId %q, want the element 10 0 R", p.ObjRef, p.ObjNodeID)
+	}
+}
+
+func TestValidateUA_DirectElementIndexCountsNullKEntries(t *testing.T) {
+	res, _ := uaRun(t, uaTreePDF("<< /Type /StructTreeRoot /K [10 0 R] >>",
+		rawObj{10, "<< /Type /StructElem /S /Document /K [null << /Type /StructElem /S / >>] >>"},
+	))
+	uaExpect(t, res, map[string]int{"struct-elem-type": 1})
+	p := uaOnlyMessage(t, res, "struct-elem-type")
+	if want := "direct structure element at /K index 1 of 10 0 R has no usable /S (/S is an empty name)"; p.Message != want {
+		t.Errorf("message = %q, want %q", p.Message, want)
+	}
+}
+
+func TestCheckStructElemType_ElementReadFailedBeforeSIsNotCheckedFinding(t *testing.T) {
+	rep := &StructureReport{Elements: []*StructKid{
+		{Kind: "element", Element: &StructElem{Ref: "6 0 R", NodeID: "obj:0:6", readErr: "pdf parsing panic: boom"}},
+		{Kind: "element", Element: &StructElem{Ref: "7 0 R", NodeID: "obj:0:7", S: "P", readErr: "pdf parsing panic: later"}},
+	}}
+	hits, err := checkStructElemType(nil, rep)
+	if err != nil || len(hits) != 1 {
+		t.Fatalf("hits %+v err %v, want one finding for the element whose /S was not read", hits, err)
+	}
+	h := hits[0]
+	if want := "structure element 6 0 R could not be read (pdf parsing panic: boom); its /S was not checked"; h.message != want || h.objNodeID != "obj:0:6" {
+		t.Errorf("hit %+v, want %q on obj:0:6", h, want)
+	}
+}
+
+func TestValidateUA_DanglingStructTreeRootIsAbsent(t *testing.T) {
+	res, rep := uaRun(t, rawPDF(
+		rawObj{1, "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 99 0 R >>"},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"},
+	))
+	if rep.HasStructTree {
+		t.Error("report has a structure tree for a /StructTreeRoot that does not resolve")
+	}
+	uaExpect(t, res, nil)
+	if r := uaRuleOf(t, res, "struct-tree-root"); !r.Evaluated || r.Findings != 1 {
+		t.Errorf("struct-tree-root = %+v, want evaluated with 1 finding", r)
+	}
+	if res.Summary.Errors != 0 {
+		t.Errorf("summary %+v, want no errors", res.Summary)
+	}
+}
+
+func TestValidateUA_UndecodableStreamMCIDsAreNotCheckedErrors(t *testing.T) {
+	res, _ := uaRun(t, uaStreamsPDF(uaSlots(1), "/StructParents 0", "/P <</MCID 0>> BDC EMC /P <</MCID 5>> BDC EMC", undecodableStream))
+	uaExpect(t, res, map[string]int{"marked-content-balance": 1, "mcid-in-parent-tree": 2})
+	ps := uaFindings(res, "mcid-in-parent-tree")
+	if len(ps) != 2 {
+		t.Fatalf("findings %q, want 2", uaMessages(res, "mcid-in-parent-tree"))
+	}
+	if !strings.HasPrefix(ps[0].Message, "content stream 21 0 R of page 1 could not be decoded (") ||
+		!strings.HasSuffix(ps[0].Message, "); its MCIDs were not checked against the ParentTree") {
+		t.Errorf("first finding = %q, want the undecodable stream first", ps[0].Message)
+	}
+	if ps[0].ObjRef != "21 0 R" || ps[0].ObjNodeID != "obj:0:21" || ps[0].Severity != "error" {
+		t.Errorf("first finding %+v, want an error on stream 21 0 R", ps[0])
+	}
+	if !strings.HasPrefix(ps[1].Message, "page 1: MCID 5 ") {
+		t.Errorf("second finding = %q, want MCID 5 of the decoded stream still checked", ps[1].Message)
+	}
+}
+
+func TestValidateUA_UnreadableContentsMCIDsAreNotCheckedError(t *testing.T) {
+	page := "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 42 /StructParents 0 >>"
+	res, rep := uaRun(t, uaTaggedPDF(page, uaSlots(1)))
+	sp := mustPage(t, rep, 1)
+	p := uaOnlyMessage(t, res, "mcid-in-parent-tree")
+	uaOnPage(t, p)
+	if want := "page 1 content could not be read (" + sp.Err + "); its MCIDs were not checked against the ParentTree"; p.Message != want {
+		t.Errorf("message = %q, want %q", p.Message, want)
+	}
+	if p.Severity != "error" {
+		t.Errorf("severity = %q, want error", p.Severity)
+	}
+}
+
+func TestValidateUA_ParentTreeKidsNotAnArrayLeavesParentTreeRuleNotEvaluated(t *testing.T) {
+	res, _ := uaRun(t, rawPDF(
+		rawObj{1, "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 5 0 R >>"},
+		rawObj{2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"},
+		rawObj{3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 20 0 R /StructParents 0 >>"},
+		rawObj{5, "<< /Type /StructTreeRoot /K [11 0 R] /ParentTree 6 0 R >>"},
+		rawObj{6, "<< /Kids 7 >>"},
+		rawObj{11, "<< /Type /StructElem /S /P /P 5 0 R /Pg 3 0 R /K 0 >>"},
+		rawObj{20, rawStream("/P <</MCID 0>> BDC EMC")},
+	))
+	r := uaRuleOf(t, res, "mcid-in-parent-tree")
+	if r.Evaluated {
+		t.Fatalf("mcid-in-parent-tree = %+v, want not evaluated", r)
+	}
+	if msgs := uaMessages(res, "mcid-in-parent-tree"); len(msgs) != 1 || !strings.Contains(msgs[0], "/Kids is an integer, not an array") {
+		t.Errorf("messages %q, want the /Kids problem named", msgs)
 	}
 }
 
@@ -879,9 +981,10 @@ func TestValidateUA_NoStructTreeRootEvaluatesSRuleWithNoFinding(t *testing.T) {
 
 func TestCheckMCIDInParentTree_RootReadFailedPartWayIsNotEvaluated(t *testing.T) {
 	key := 0
-	rep := func(rootMsg string) *StructureReport {
+	rep := func(readFailed, notDict string) *StructureReport {
 		return &StructureReport{
-			Problems: []StructureProblem{{Where: "StructTreeRoot 5 0 R", Message: rootMsg}},
+			rootReadFailed: readFailed,
+			rootNotDict:    notDict,
 			Pages: []*StructPage{{
 				PageNum:       1,
 				Ref:           "3 0 R",
@@ -892,11 +995,11 @@ func TestCheckMCIDInParentTree_RootReadFailedPartWayIsNotEvaluated(t *testing.T)
 			}},
 		}
 	}
-	hits, err := checkMCIDInParentTree(nil, rep(rootUnreadablePrefix+"pdf parsing panic: boom"))
+	hits, err := checkMCIDInParentTree(nil, rep("the structure tree root could not be read: pdf parsing panic: boom", ""))
 	if err == nil || len(hits) != 0 || !strings.Contains(err.Error(), "boom") || !strings.Contains(err.Error(), "ParentTree") {
 		t.Errorf("hits %+v err %v, want not evaluated naming the root failure", hits, err)
 	}
-	hits, err = checkMCIDInParentTree(nil, rep(rootNotDictPrefix+"an array, not a dictionary"))
+	hits, err = checkMCIDInParentTree(nil, rep("", "/StructTreeRoot is an array, not a dictionary"))
 	if err != nil || len(hits) != 1 {
 		t.Errorf("hits %+v err %v, want one finding when the root is not a dictionary", hits, err)
 	}
@@ -904,9 +1007,9 @@ func TestCheckMCIDInParentTree_RootReadFailedPartWayIsNotEvaluated(t *testing.T)
 
 func TestCheckMCIDInParentTree_ParentTreeNotReadInFullIsNotEvaluated(t *testing.T) {
 	key := 0
-	rep := func(where, msg string) *StructureReport {
+	rep := func(incomplete string) *StructureReport {
 		return &StructureReport{
-			Problems: []StructureProblem{{Where: where, Message: msg}},
+			parentTreeIncomplete: incomplete,
 			Pages: []*StructPage{{
 				PageNum:       1,
 				Ref:           "3 0 R",
@@ -917,16 +1020,11 @@ func TestCheckMCIDInParentTree_ParentTreeNotReadInFullIsNotEvaluated(t *testing.
 			}},
 		}
 	}
-	for _, tc := range []struct{ where, msg string }{
-		{"ParentTree 9 0 R, node 10 0 R", ntUnreadablePrefix + "pdf parsing panic: boom"},
-		{"ParentTree, node (direct)", ntTooDeepPrefix + "64 levels; node not walked"},
-	} {
-		hits, err := checkMCIDInParentTree(nil, rep(tc.where, tc.msg))
-		if err == nil || len(hits) != 0 || !strings.Contains(err.Error(), "ParentTree could not be read in full") {
-			t.Errorf("%s %q: hits %+v err %v, want not evaluated", tc.where, tc.msg, hits, err)
-		}
+	hits, err := checkMCIDInParentTree(nil, rep("node could not be read: pdf parsing panic: boom"))
+	if err == nil || len(hits) != 0 || !strings.Contains(err.Error(), "ParentTree could not be read in full") || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("hits %+v err %v, want not evaluated naming the cause", hits, err)
 	}
-	hits, err := checkMCIDInParentTree(nil, rep("ParentTree 9 0 R, node 11 0 R", "node is null"))
+	hits, err = checkMCIDInParentTree(nil, rep(""))
 	if err != nil || len(hits) != 1 {
 		t.Errorf("hits %+v err %v, want one finding when every node that exists was read", hits, err)
 	}
@@ -934,8 +1032,8 @@ func TestCheckMCIDInParentTree_ParentTreeNotReadInFullIsNotEvaluated(t *testing.
 
 func TestCheckStructElemType_RootReadFailedPartWayIsNotEvaluated(t *testing.T) {
 	rep := &StructureReport{
-		Problems: []StructureProblem{{Where: "StructTreeRoot 5 0 R", Message: rootUnreadablePrefix + "pdf parsing panic: boom"}},
-		Elements: []*StructKid{{Kind: "element", Element: &StructElem{Ref: "6 0 R", S: "P"}}},
+		rootReadFailed: "the structure tree root could not be read: pdf parsing panic: boom",
+		Elements:       []*StructKid{{Kind: "element", Element: &StructElem{Ref: "6 0 R", S: "P"}}},
 	}
 	hits, err := checkStructElemType(nil, rep)
 	if err == nil || len(hits) != 0 || !strings.Contains(err.Error(), "boom") {
@@ -1033,5 +1131,28 @@ func TestValidateUA_ConcurrentWithOtherReads(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Error(err)
+	}
+}
+
+func TestValidateUA_PageSubtreeNotWalkedLeavesContentRulesNotEvaluated(t *testing.T) {
+	chainLen := maxPageTreeDepth + 5
+	last := 3 + chainLen
+	objs := []rawObj{
+		{1, "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) >>"},
+		{2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 " + box + " >>"},
+		{3, "<< /Type /Page /Parent 2 0 R >>"},
+	}
+	for n := 4; n < last; n++ {
+		objs = append(objs, rawObj{n, fmt.Sprintf("<< /Type /Pages /Kids [%d 0 R] /Count 1 >>", n+1)})
+	}
+	objs = append(objs, rawObj{last, "<< /Type /Page >>"})
+	res, _ := uaRun(t, rawPDF(objs...))
+	for _, id := range []string{"marked-content-balance", "mcid-unique", "mcid-in-parent-tree", "mcid-not-nested"} {
+		if r := uaRuleOf(t, res, id); r.Evaluated {
+			t.Errorf("rule %s = %+v, want not evaluated", id, r)
+		}
+		if msgs := uaMessages(res, id); len(msgs) != 1 || !strings.Contains(msgs[0], "subtree not walked") {
+			t.Errorf("rule %s messages %q, want the skipped subtree named", id, msgs)
+		}
 	}
 }

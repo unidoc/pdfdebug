@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -47,57 +48,23 @@ func asciiText(s string) string {
 	return s
 }
 
-// objHit is a finding on the object with reference ref ("N G R"), or a
-// document-level finding when ref is empty.
-func objHit(ref, msg string) ruleHit {
-	h := ruleHit{message: msg}
-	var num, gen int
-	if _, err := fmt.Sscanf(ref, "%d %d R", &num, &gen); err == nil {
-		h.objRef = ref
-		h.objNodeID = fmt.Sprintf("obj:%d:%d", gen, num)
+// objHit is a finding on the object with reference ref ("N G R") and tree
+// node nodeID, or a document-level finding when nodeID is empty.
+func objHit(ref, nodeID, msg string) ruleHit {
+	if nodeID == "" {
+		return ruleHit{message: msg}
 	}
-	return h
+	return ruleHit{message: msg, objRef: ref, objNodeID: nodeID}
 }
 
-// pagesComplete returns an error when the page-tree walk stopped early, so a
-// content rule is not evaluated instead of passing on the pages it saw.
+// pagesComplete returns an error when the page-tree walk did not list every
+// page, so a content rule is not evaluated instead of passing on the pages it
+// saw.
 func pagesComplete(rep *StructureReport) error {
-	for _, p := range rep.Problems {
-		if p.Where == pageTreeWhere {
-			return fmt.Errorf("could not read every page: %s", asciiText(p.Message))
-		}
+	if rep.pagesIncomplete != "" {
+		return fmt.Errorf("could not read every page: %s", asciiText(rep.pagesIncomplete))
 	}
 	return nil
-}
-
-// rootProblem returns the message of the first problem recorded on the
-// structure tree root that starts with one of prefixes, or "".
-func rootProblem(rep *StructureReport, prefixes ...string) string {
-	for _, p := range rep.Problems {
-		if p.Where != rootWhere && !strings.HasPrefix(p.Where, rootWhere+" ") {
-			continue
-		}
-		for _, pre := range prefixes {
-			if strings.HasPrefix(p.Message, pre) {
-				return p.Message
-			}
-		}
-	}
-	return ""
-}
-
-// parentTreeTruncated returns the message of the first ParentTree problem
-// after which some ParentTree entries were not read, or "".
-func parentTreeTruncated(rep *StructureReport) string {
-	for _, p := range rep.Problems {
-		if !strings.HasPrefix(p.Where, parentTreeWhere+" ") && !strings.HasPrefix(p.Where, parentTreeWhere+",") {
-			continue
-		}
-		if strings.HasPrefix(p.Message, ntTooDeepPrefix) || strings.HasPrefix(p.Message, ntUnreadablePrefix) {
-			return p.Message
-		}
-	}
-	return ""
 }
 
 // firstUndecodedStream returns the index of the page's first content stream
@@ -152,20 +119,20 @@ func checkMarkedContentBalance(_ *DocumentState, rep *StructureReport) ([]ruleHi
 	var hits []ruleHit
 	for _, sp := range rep.Pages {
 		if sp.Err != "" {
-			hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d content could not be read (%s); marked content not checked", sp.PageNum, asciiText(sp.Err))))
+			hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d content could not be read (%s); marked content not checked", sp.PageNum, asciiText(sp.Err))))
 		}
 		bad := firstUndecodedStream(sp)
 		for i, ms := range sp.Streams {
 			switch {
 			case ms.Err != "":
-				hits = append(hits, objHit(ms.Ref, fmt.Sprintf("content stream %s of page %d could not be decoded (%s); its marked content was not checked", ms.Ref, sp.PageNum, asciiText(ms.Err))))
+				hits = append(hits, objHit(ms.Ref, ms.nodeID, fmt.Sprintf("content stream %s of page %d could not be decoded (%s); its marked content was not checked", ms.Ref, sp.PageNum, asciiText(ms.Err))))
 			case i < bad && ms.MinDepth < 0:
-				hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: EMC with no open marked-content sequence (in content stream %s)", sp.PageNum, ms.Ref)))
+				hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: EMC with no open marked-content sequence (in content stream %s)", sp.PageNum, ms.Ref)))
 			}
 		}
 		if sp.Err == "" && bad == len(sp.Streams) && len(sp.Streams) > 0 {
 			if open := sp.Streams[len(sp.Streams)-1].DepthAtEnd; open > 0 {
-				hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: %d marked-content sequence(s) still open at the end of the page's content", sp.PageNum, open)))
+				hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: %d marked-content sequence(s) still open at the end of the page's content", sp.PageNum, open)))
 			}
 		}
 	}
@@ -183,7 +150,7 @@ func checkMCIDUnique(_ *DocumentState, rep *StructureReport) ([]ruleHit, error) 
 		mcids, locs := mcidOccurrences(sp)
 		for _, m := range mcids {
 			if l := locs[m]; len(l) > 1 {
-				hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: MCID %d marks %d BDC sequences: %s", sp.PageNum, m, len(l), strings.Join(l, ", "))))
+				hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: MCID %d marks %d BDC sequences: %s", sp.PageNum, m, len(l), strings.Join(l, ", "))))
 			}
 		}
 	}
@@ -192,24 +159,34 @@ func checkMCIDUnique(_ *DocumentState, rep *StructureReport) ([]ruleHit, error) 
 
 // checkMCIDInParentTree flags, per page, content MCIDs that do not reach a
 // structure element through the page's /StructParents and its ParentTree
-// array (ISO 32000-1 14.7.4.4), and every BDC whose MCID could not be read,
-// in content order with each MCID at its first occurrence. A page-wide cause
-// (no /StructParents, a ParentTree entry that is missing or unreadable) is one
-// finding naming every MCID of the page in ascending order. A structure tree
-// root whose read failed part way, or a ParentTree node that was not read,
-// leaves the rule not evaluated, since ParentTree entries may be missing.
+// array (ISO 32000-1 14.7.4.4), and content whose MCIDs could not be checked:
+// page content that could not be read, a content stream that failed to
+// decode, and every BDC whose MCID could not be read. Per page, the content
+// that could not be read comes first, then the MCIDs in content order, each
+// at its first occurrence. A page-wide cause (no /StructParents, a ParentTree
+// entry that is missing or unreadable) is one finding naming every MCID of the
+// page in ascending order. A structure tree root whose read failed part way,
+// or ParentTree entries that were not read, leave the rule not evaluated.
 func checkMCIDInParentTree(_ *DocumentState, rep *StructureReport) ([]ruleHit, error) {
 	if err := pagesComplete(rep); err != nil {
 		return nil, err
 	}
-	if msg := rootProblem(rep, rootUnreadablePrefix); msg != "" {
-		return nil, fmt.Errorf("structure tree root could not be read, so the ParentTree is unknown: %s", asciiText(msg))
+	if rep.rootReadFailed != "" {
+		return nil, fmt.Errorf("structure tree root could not be read, so the ParentTree is unknown: %s", asciiText(rep.rootReadFailed))
 	}
-	if msg := parentTreeTruncated(rep); msg != "" {
-		return nil, fmt.Errorf("the ParentTree could not be read in full, so its entries are unknown: %s", asciiText(msg))
+	if rep.parentTreeIncomplete != "" {
+		return nil, fmt.Errorf("the ParentTree could not be read in full, so its entries are unknown: %s", asciiText(rep.parentTreeIncomplete))
 	}
 	var hits []ruleHit
 	for _, sp := range rep.Pages {
+		if sp.Err != "" {
+			hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d content could not be read (%s); its MCIDs were not checked against the ParentTree", sp.PageNum, asciiText(sp.Err))))
+		}
+		for _, ms := range sp.Streams {
+			if ms.Err != "" {
+				hits = append(hits, objHit(ms.Ref, ms.nodeID, fmt.Sprintf("content stream %s of page %d could not be decoded (%s); its MCIDs were not checked against the ParentTree", ms.Ref, sp.PageNum, asciiText(ms.Err))))
+			}
+		}
 		mcids, locs := mcidOccurrences(sp)
 		cause := ""
 		switch {
@@ -224,12 +201,12 @@ func checkMCIDInParentTree(_ *DocumentState, rep *StructureReport) ([]ruleHit, e
 			for i, m := range sorted {
 				list[i] = strconv.Itoa(m)
 			}
-			hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: MCIDs %s not reachable: %s", sp.PageNum, strings.Join(list, ", "), cause)))
+			hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: MCIDs %s not reachable: %s", sp.PageNum, strings.Join(list, ", "), cause)))
 		}
 		reported := map[int]bool{}
 		for _, c := range sp.ContentMCIDs {
 			if c.MCID < 0 {
-				hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: BDC at %s has no readable MCID (%s); not checked against the ParentTree", sp.PageNum, mcidLoc(sp, c), asciiText(c.Err))))
+				hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: BDC at %s has no readable MCID (%s); not checked against the ParentTree", sp.PageNum, mcidLoc(sp, c), asciiText(c.Err))))
 				continue
 			}
 			m := c.MCID
@@ -248,7 +225,7 @@ func checkMCIDInParentTree(_ *DocumentState, rep *StructureReport) ([]ruleHit, e
 			if slot.Err != "" {
 				msg += ": " + asciiText(slot.Err)
 			}
-			hits = append(hits, objHit(sp.Ref, msg))
+			hits = append(hits, objHit(sp.Ref, sp.nodeID, msg))
 		}
 	}
 	return hits, nil
@@ -270,7 +247,7 @@ func checkMCIDNotNested(_ *DocumentState, rep *StructureReport) ([]ruleHit, erro
 			if c.MCID < 0 || c.ParentMCID == nil || c.Stream >= bad {
 				continue
 			}
-			hits = append(hits, objHit(sp.Ref, fmt.Sprintf("page %d: MCID %d (%s) is nested inside MCID %d", sp.PageNum, c.MCID, mcidLoc(sp, c), *c.ParentMCID)))
+			hits = append(hits, objHit(sp.Ref, sp.nodeID, fmt.Sprintf("page %d: MCID %d (%s) is nested inside MCID %d", sp.PageNum, c.MCID, mcidLoc(sp, c), *c.ParentMCID)))
 		}
 	}
 	return hits, nil
@@ -278,27 +255,32 @@ func checkMCIDNotNested(_ *DocumentState, rep *StructureReport) ([]ruleHit, erro
 
 // checkStructElemType flags every structure element reached from
 // /StructTreeRoot /K whose /S is absent, empty or not a name (ISO 32000-1
-// 14.7.2). A structure tree root that could not be read leaves the rule not
-// evaluated; an absent root is struct-tree-root's finding, not this rule's.
+// 14.7.2), and every element whose read failed before its /S was read, as not
+// checked. A structure tree root that is not a dictionary or could not be read
+// leaves the rule not evaluated; an absent root, a dangling reference
+// included, is struct-tree-root's finding, not this rule's.
 func checkStructElemType(_ *DocumentState, rep *StructureReport) ([]ruleHit, error) {
-	if msg := rootProblem(rep, rootNotDictPrefix, rootUnreadablePrefix); msg != "" {
+	if msg := cmp.Or(rep.rootNotDict, rep.rootReadFailed); msg != "" {
 		return nil, fmt.Errorf("structure tree root could not be read: %s", asciiText(msg))
 	}
 	var hits []ruleHit
 	var walk func(kids []*StructKid, owner string)
 	walk = func(kids []*StructKid, owner string) {
-		for i, k := range kids {
+		for _, k := range kids {
 			if k.Kind != "element" || k.Element == nil {
 				continue
 			}
 			e := k.Element
-			at := fmt.Sprintf("/K index %d of %s", i, owner)
-			if e.S == "" {
-				if e.Ref != "" {
-					hits = append(hits, objHit(e.Ref, fmt.Sprintf("structure element %s has no usable /S (%s)", e.Ref, asciiText(e.Err))))
-				} else {
-					hits = append(hits, ruleHit{message: fmt.Sprintf("direct structure element at %s has no usable /S (%s)", at, asciiText(e.Err))})
-				}
+			at := fmt.Sprintf("/K index %d of %s", k.index, owner)
+			name := "direct structure element at " + at
+			if e.Ref != "" {
+				name = "structure element " + e.Ref
+			}
+			switch {
+			case e.sErr != "":
+				hits = append(hits, objHit(e.Ref, e.NodeID, fmt.Sprintf("%s has no usable /S (%s)", name, e.sErr)))
+			case e.S == "" && e.readErr != "":
+				hits = append(hits, objHit(e.Ref, e.NodeID, fmt.Sprintf("%s could not be read (%s); its /S was not checked", name, asciiText(e.readErr))))
 			}
 			next := e.Ref
 			if next == "" {

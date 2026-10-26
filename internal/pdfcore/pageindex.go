@@ -39,10 +39,13 @@ func (ins *Inspector) GetPageIndex(tabID string) ([]*PageIndexEntry, error) {
 // numbered page in document order, so leaves[n-1] is page n. err is set only
 // when the walk failed outside any page-tree node (each node is read under its
 // own guard); leaves then holds the pages reached before the failure.
+// skipped is the first node error after which a subtree was not walked (too
+// deep, or its read failed), so pages under it may be missing; "" when none.
 type pageTree struct {
 	entries []*PageIndexEntry
 	leaves  []*pageLeaf
 	err     error
+	skipped string
 }
 
 // pageTree returns the cached walk of d's page tree, building it on first
@@ -60,7 +63,7 @@ func (d *DocumentState) pageTree() (*pageTree, error) {
 		}); err != nil {
 			t.err = wrapPDFError(err)
 		}
-		t.entries, t.leaves = w.entries, w.leaves
+		t.entries, t.leaves, t.skipped = w.entries, w.leaves, w.skipped
 		return t, nil
 	})
 	return t, t.err
@@ -156,6 +159,8 @@ type pageWalker struct {
 	depth int
 	// leaves holds every numbered page in document order.
 	leaves []*pageLeaf
+	// skipped is the first error row of a subtree that was not walked.
+	skipped string
 }
 
 // pageLeaf is one numbered page from the page-tree walk: its dictionary, its
@@ -204,8 +209,17 @@ func (w *pageWalker) walk() {
 		return
 	}
 	guard(func() { w.visitNode(root, ref, pageAttrs{}) }, func(msg string) {
-		w.entries = append(w.entries, errorRow(ref, "the page tree could not be read: "+msg))
+		w.skip(ref, "the page tree could not be read: "+msg)
 	})
+}
+
+// skip adds the error row of a subtree that was not walked and records the
+// first one in w.skipped.
+func (w *pageWalker) skip(ref *pdfcpu_types.IndirectRef, msg string) {
+	w.entries = append(w.entries, errorRow(ref, msg))
+	if w.skipped == "" {
+		w.skipped = msg
+	}
 }
 
 // guard runs fn and, when pdfcpu panics inside it, reports the panic through
@@ -256,7 +270,7 @@ func (w *pageWalker) visitNode(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRe
 // /Kids entry in order.
 func (w *pageWalker) visitIntermediate(d pdfcpu_types.Dict, ref *pdfcpu_types.IndirectRef, kidsObj pdfcpu_types.Object, inherited pageAttrs) {
 	if w.depth >= maxPageTreeDepth {
-		w.entries = append(w.entries, errorRow(ref, fmt.Sprintf("page tree deeper than %d levels; subtree not walked", maxPageTreeDepth)))
+		w.skip(ref, fmt.Sprintf("page tree deeper than %d levels; subtree not walked", maxPageTreeDepth))
 		return
 	}
 	w.depth++
@@ -286,7 +300,7 @@ func (w *pageWalker) visitIntermediate(d pdfcpu_types.Dict, ref *pdfcpu_types.In
 			if r, ok := kid.(pdfcpu_types.IndirectRef); ok {
 				kidRef = &r
 			}
-			w.entries = append(w.entries, errorRow(kidRef, fmt.Sprintf("/Kids entry %d could not be read: %s", i, msg)))
+			w.skip(kidRef, fmt.Sprintf("/Kids entry %d could not be read: %s", i, msg))
 		})
 	}
 }

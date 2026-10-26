@@ -215,7 +215,7 @@ var ruleRegistry = []rule{
 	{
 		id: "struct-tree-root", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef: "ISO 14289-1:2014, 7.1",
-		checks:  "catalog has a /StructTreeRoot key (presence only, contents not read)",
+		checks:  "catalog has a /StructTreeRoot that is not null or a reference to a missing object (presence only, contents not read)",
 		check:   checkStructTreeRoot,
 	},
 	{
@@ -239,7 +239,7 @@ var ruleRegistry = []rule{
 	{
 		id: "mcid-in-parent-tree", profile: ProfilePDFUA1Structural, severity: "error",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4",
-		checks:         "every MCID in a page's content stream reaches a structure element through the page's /StructParents and its ParentTree array, and a BDC whose MCID cannot be read is reported here; whether that element's /K claims the MCID is not checked; unreadable content is reported under marked-content-balance; form XObjects not scanned",
+		checks:         "every MCID in a page's content stream reaches a structure element through the page's /StructParents and its ParentTree array; a BDC whose MCID cannot be read, and page content or a content stream that cannot be decoded, is reported here as not checked; whether that element's /K claims the MCID is not checked; form XObjects not scanned",
 		checkStructure: checkMCIDInParentTree,
 	},
 	{
@@ -251,7 +251,7 @@ var ruleRegistry = []rule{
 	{
 		id: "struct-elem-type", profile: ProfilePDFUA1Structural, severity: "error",
 		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2",
-		checks:         "every structure element reached from /StructTreeRoot /K has a non-empty /S name (absent, empty or not a name is reported); role mapping to standard types is not checked",
+		checks:         "every structure element reached from /StructTreeRoot /K has a non-empty /S name (absent, empty or not a name is reported, and an element that cannot be read is reported as not checked); role mapping to standard types is not checked",
 		checkStructure: checkStructElemType,
 	},
 }
@@ -792,17 +792,18 @@ func checkMarked(doc *DocumentState) ([]ruleHit, error) {
 }
 
 // checkStructTreeRoot flags a document whose catalog lacks a /StructTreeRoot
-// (PDF/UA-1 requires a structure tree). Document-level. An unreadable catalog
-// leaves the rule not evaluated.
+// (PDF/UA-1 requires a structure tree). A /StructTreeRoot that is null or a
+// reference to a missing object is absent (ISO 32000-1 7.3.10).
+// Document-level. An unreadable catalog leaves the rule not evaluated.
 func checkStructTreeRoot(doc *DocumentState) ([]ruleHit, error) {
 	cat, err := readCatalog(doc)
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := cat["StructTreeRoot"]; ok {
+	if dereference(doc, cat["StructTreeRoot"]) != nil {
 		return nil, nil
 	}
-	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent)"}}, nil
+	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent, null or a reference to a missing object)"}}, nil
 }
 
 // checkLang flags a document whose catalog lacks a natural-language /Lang entry

@@ -26,8 +26,9 @@ The three command families use different contracts.
 - 1 - it found at least one error, or a rule whose severity is error could
   not be evaluated. Every `pdfa-1b` rule is an error rule. Under
   `pdfua-1-structural` the error rules are `mcid-in-parent-tree` (an MCID
-  that does not reach the ParentTree or cannot be read) and `struct-elem-type`
-  (a structure element without a usable `/S`). An encrypted file under `pdfa-1b` is
+  that does not reach the ParentTree or cannot be read, or page content that
+  cannot be read or decoded, so its MCIDs were not checked) and
+  `struct-elem-type` (a structure element without a usable `/S`). An encrypted file under `pdfa-1b` is
   reported as one `no-encryption` error and also exits 1.
 - 2 - operational or usage error: a missing file, an unknown profile, an
   unknown flag, the wrong number of files, a flag after the file, or an

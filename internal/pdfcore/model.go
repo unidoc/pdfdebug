@@ -783,6 +783,12 @@ type StructureReport struct {
 	OtherParentTree   []ParentTreeEntry  `json:"otherParentTree"`   // ParentTree keys no page's /StructParents names
 	Problems          []StructureProblem `json:"problems"`          // findings with no row of their own
 	Counts            StructureCounts    `json:"counts"`
+
+	// Each holds the problem that left part of the document unread, or "".
+	pagesIncomplete      string // pages the page-tree walk did not list
+	rootNotDict          string // /StructTreeRoot is not a dictionary
+	rootReadFailed       string // the root's read failed part way
+	parentTreeIncomplete string // ParentTree entries that were not read
 }
 
 // RoleMapEntry is one /RoleMap mapping from a structure type to another.
@@ -803,6 +809,7 @@ type StructKid struct {
 	ObjRef        string      `json:"objRef,omitempty"`  // kind "objr": /Obj
 	ObjType       string      `json:"objType,omitempty"` // kind "objr": "Annot/Link", "XObject/Form", ...
 	Err           string      `json:"error,omitempty"`
+	index         int         // position in the /K array, counting null entries
 }
 
 // StructElem is one structure element. Text fields are decoded text strings;
@@ -822,6 +829,8 @@ type StructElem struct {
 	E             *string      `json:"e,omitempty"`
 	Kids          []*StructKid `json:"kids"`
 	Err           string       `json:"error,omitempty"`
+	sErr          string       // why /S is unusable; "" when S is set or /S was not read
+	readErr       string       // the guarded read of the element failed
 }
 
 // StructPage is one numbered page of a StructureReport: its ParentTree array
@@ -837,6 +846,7 @@ type StructPage struct {
 	ContentMCIDs  []ContentMCID    `json:"contentMcids"`              // every BDC carrying an MCID, in content order
 	Alignment     []MCIDAlignment  `json:"alignment"`                 // ascending MCID
 	Err           string           `json:"error,omitempty"`           // page unreadable, /Contents malformed
+	nodeID        string           // "" for a direct page dictionary
 }
 
 // ParentTreeSlot is one entry of a page's ParentTree array: the element that
@@ -859,6 +869,7 @@ type MarkedStream struct {
 	DepthAtEnd int    `json:"depthAtEnd"`      // depth after this stream
 	MinDepth   int    `json:"minDepth"`        // lowest depth reached; negative when an EMC had nothing to close
 	Err        string `json:"error,omitempty"` // decode failure: the stream is not scanned
+	nodeID     string
 }
 
 // ContentMCID is one BDC in a page's content whose property list carries an
