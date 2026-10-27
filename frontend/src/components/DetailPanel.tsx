@@ -180,6 +180,9 @@ function DetailPanelInner() {
   // 'object'.
   const [detailView, setDetailView] = useState<DetailView>('object');
   const viewByTabRef = useRef(new Map<string, DetailView>());
+  // Expanded certificate chains in the Signatures tab, per document tab, so
+  // switching documents and back keeps them expanded.
+  const openChainsByTabRef = useRef(new Map<string, Set<string>>());
   // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
@@ -256,6 +259,9 @@ function DetailPanelInner() {
     const open = new Set(tabsRef.current.map((t) => t.tabId));
     for (const id of viewByTabRef.current.keys()) {
       if (!open.has(id)) viewByTabRef.current.delete(id);
+    }
+    for (const id of openChainsByTabRef.current.keys()) {
+      if (!open.has(id)) openChainsByTabRef.current.delete(id);
     }
     // Diff is not restored: the comparison is cleared below on every switch,
     // so a remembered Diff would only show the empty picker.
@@ -658,6 +664,18 @@ function DetailPanelInner() {
     changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch, changeDetailView]);
+
+  /** Records a certificate chain expanded or collapsed in the active document. */
+  const handleChainToggle = useCallback((key: string, open: boolean) => {
+    if (!activeTabId) return;
+    let keys = openChainsByTabRef.current.get(activeTabId);
+    if (!keys) {
+      keys = new Set();
+      openChainsByTabRef.current.set(activeTabId, keys);
+    }
+    if (open) keys.add(key);
+    else keys.delete(key);
+  }, [activeTabId]);
 
   /**
    * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
@@ -1455,6 +1473,7 @@ function DetailPanelInner() {
         {showSignaturesTab && (
           <Tabs.Content
             value="signatures"
+            forceMount
             className="flex-1 min-h-0 data-[state=inactive]:hidden"
             data-testid="detail-pane-signatures"
           >
@@ -1464,6 +1483,8 @@ function DetailPanelInner() {
               onNavigate={handleSignaturesNavigate}
               data={signatures}
               fetchError={signaturesError}
+              openChains={activeTabId ? openChainsByTabRef.current.get(activeTabId) : undefined}
+              onChainToggle={handleChainToggle}
             />
           </Tabs.Content>
         )}

@@ -46,6 +46,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // --- fixture builders --------------------------------------------------------
@@ -652,5 +654,34 @@ func TestGetSignatures_X509UnreadableCertDegrades(t *testing.T) {
 	}
 	if f.DecomposeError == "" {
 		t.Errorf("DecomposeError empty, want the unreadable-/Cert fact")
+	}
+}
+
+func TestPDFStringBytes_LiteralEndOfLineReadsAsLF(t *testing.T) {
+	cases := []struct {
+		name string
+		lit  string
+		want []byte
+	}{
+		{"raw CR", "a\rb", []byte("a\nb")},
+		{"raw CRLF", "a\r\nb", []byte("a\nb")},
+		{"raw LF", "a\nb", []byte("a\nb")},
+		{"raw CR CR", "a\r\rb", []byte("a\n\nb")},
+		{"backslash CRLF continuation", "a\\\r\nb", []byte("ab")},
+		{"backslash CR continuation", "a\\\rb", []byte("ab")},
+		{"escaped CR stays CR", "a\\rb", []byte("a\rb")},
+		{"octal CR stays CR", "a\\015b", []byte("a\rb")},
+		{"escaped backslash then raw CR", "a\\\\\rb", []byte("a\\\nb")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := pdfStringBytes(nil, pdfcpu_types.StringLiteral(tc.lit))
+			if err != nil {
+				t.Fatalf("pdfStringBytes error: %v", err)
+			}
+			if !bytes.Equal(got, tc.want) {
+				t.Errorf("pdfStringBytes(%q) = % X, want % X", tc.lit, got, tc.want)
+			}
+		})
 	}
 }

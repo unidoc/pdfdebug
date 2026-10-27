@@ -51,7 +51,9 @@
 //	  trailingGap          number  bytes past the signed range when not covered
 //	  holeMatchesContents  bool    excluded span == /Contents extent
 //	  coverageError        string  malformed-/ByteRange degradation
-//	CertInfo: { subject, issuer, serial, notBefore, notAfter } all strings.
+//	CertInfo: { subject, issuer, serial, notBefore, notAfter } strings, plus
+//	  keyUsage, crlDistributionPoints, ocspServers, caIssuers (string arrays)
+//	  and extKeyUsage ([{oid, name}]), each null when the extension is absent.
 //
 // Run: cd tests/signature-decomposition && go test -v -count=1 ./...
 package signature_decomposition_test

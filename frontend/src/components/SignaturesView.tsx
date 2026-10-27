@@ -14,13 +14,23 @@ import { FILE_BUSY_MESSAGE, FILE_CHANGED_MESSAGE, isFileBusyMessage, isFileChang
 import { SMALL_BUTTON } from './buttonStyles';
 import { ProblemCallout, type ProblemTone } from './ProblemCallout';
 
-/** One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. */
+/**
+ * One decomposed X.509 certificate, mirroring `pdfcore.CertInfo`. Each
+ * extension list is null when the extension is absent and an array (possibly
+ * empty) when it is present; optional because the IPC payload is not
+ * validated.
+ */
 export interface SignatureCertInfo {
   subject: string;
   issuer: string;
   serial: string;
   notBefore: string;
   notAfter: string;
+  keyUsage?: string[] | null;
+  extKeyUsage?: { oid: string; name: string }[] | null;
+  crlDistributionPoints?: string[] | null;
+  ocspServers?: string[] | null;
+  caIssuers?: string[] | null;
 }
 
 /** One decomposed signature field, mirroring `pdfcore.SignatureField`. */
@@ -77,6 +87,10 @@ export interface SignaturesViewProps {
    * of the cards, as it does for its own failed fetch.
    */
   fetchError?: string | null;
+  /** Keys of the cards whose certificate chain is expanded, kept by the parent per document. */
+  openChains?: Set<string>;
+  /** Called when a card's certificate chain is expanded or collapsed. */
+  onChainToggle?: (key: string, open: boolean) => void;
 }
 
 /** Tab-level problem summary for a signature list: tone plus hover text. */
@@ -176,6 +190,27 @@ function datePart(ts: string): string {
   return ts.slice(0, 10);
 }
 
+/** Renders an extension list: "absent" for null or missing, `empty` for []. */
+function extensionText(values: string[] | null | undefined, empty: string): string {
+  if (values == null) return 'absent';
+  if (values.length === 0) return empty;
+  return values.join(', ');
+}
+
+/** The five extension rows of one chain certificate, with the CLI's texts. URLs are plain text. */
+function CertExtensionRows({ cert }: { cert: SignatureCertInfo }) {
+  const eku = cert.extKeyUsage?.map((e) => (e.name ? `${e.name} (${e.oid})` : e.oid));
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mt-0.5">
+      <Row label="Key usage" value={extensionText(cert.keyUsage, 'present, no bits set')} testid="signature-cert-key-usage" />
+      <Row label="Ext key usage" value={extensionText(eku, 'present, no OID')} testid="signature-cert-ext-key-usage" />
+      <Row label="CRL DP" value={extensionText(cert.crlDistributionPoints, 'present, no URI')} testid="signature-cert-crl-dp" />
+      <Row label="OCSP" value={extensionText(cert.ocspServers, 'present, no URI')} testid="signature-cert-ocsp" />
+      <Row label="CA Issuers" value={extensionText(cert.caIssuers, 'present, no URI')} testid="signature-cert-ca-issuers" />
+    </dl>
+  );
+}
+
 /** A small key/value row in a signature card; tone="warning" colors the value as a warning. */
 function Row({
   label,
@@ -191,7 +226,7 @@ function Row({
   return (
     <>
       <dt className="text-text-muted">{label}</dt>
-      <dd className={`${tone === 'warning' ? 'text-warning' : 'text-text'} break-all`} data-testid={testid}>
+      <dd className={`${tone === 'warning' ? 'text-warning' : 'text-text'} min-w-0 break-words`} data-testid={testid}>
         {value}
       </dd>
     </>
@@ -230,8 +265,18 @@ function ExpiryCue({ signer }: { signer: SignatureCertInfo }) {
 }
 
 /** One signature card: decomposed facts + chain expander + reveal-in-tree. */
-function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNavigate: (nodeId: string) => void }) {
-  const [chainOpen, setChainOpen] = useState(false);
+function SignatureCard({
+  entry,
+  onNavigate,
+  initialChainOpen,
+  onChainToggle,
+}: {
+  entry: SignatureEntryData;
+  onNavigate: (nodeId: string) => void;
+  initialChainOpen: boolean;
+  onChainToggle: (open: boolean) => void;
+}) {
+  const [chainOpen, setChainOpen] = useState(initialChainOpen);
   // Reveal target: the /V dict node for an indirect ref, the field node for a
   // direct /V; the button is omitted when neither resolves.
   const revealTarget = entry.signatureNodeId || entry.fieldNodeId;
@@ -349,7 +394,10 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
             className={`px-2 py-1 ${SMALL_BUTTON}`}
             data-testid="signature-cert-chain"
             aria-expanded={chainOpen}
-            onClick={() => setChainOpen((v) => !v)}
+            onClick={() => {
+              setChainOpen(!chainOpen);
+              onChainToggle(!chainOpen);
+            }}
           >
             Certificate chain ({certificates.length}) {chainOpen ? '-' : '+'}
           </button>
@@ -362,6 +410,7 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
                   <div className="text-text-muted">
                     serial {c.serial}, {datePart(c.notBefore)} to {datePart(c.notAfter)}
                   </div>
+                  <CertExtensionRows cert={c} />
                 </li>
               ))}
             </ul>
@@ -395,7 +444,15 @@ function SignatureCard({ entry, onNavigate }: { entry: SignatureEntryData; onNav
  * the parent's `fetchError` when that fetch failed; self-fetches on tabId
  * change otherwise.
  */
-export function SignaturesView({ tabId, active: _active, onNavigate, data, fetchError }: SignaturesViewProps) {
+export function SignaturesView({
+  tabId,
+  active: _active,
+  onNavigate,
+  data,
+  fetchError,
+  openChains,
+  onChainToggle,
+}: SignaturesViewProps) {
   const [entries, setEntries] = useState<SignatureEntryData[] | null>(data ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -456,9 +513,18 @@ export function SignaturesView({ tabId, active: _active, onNavigate, data, fetch
 
   return (
     <div className="h-full overflow-auto p-3" data-testid="signatures-view">
-      {entries.map((entry, i) => (
-        <SignatureCard key={entry.fieldNodeId || i} entry={entry} onNavigate={onNavigate} />
-      ))}
+      {entries.map((entry, i) => {
+        const key = entry.fieldNodeId || String(i);
+        return (
+          <SignatureCard
+            key={key}
+            entry={entry}
+            onNavigate={onNavigate}
+            initialChainOpen={openChains?.has(key) ?? false}
+            onChainToggle={(open) => onChainToggle?.(key, open)}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -16,8 +16,9 @@ N-N JSON
 
 # Text that only resembles a citation: a licence version, a font bit range, a
 # tool version, a count in prose, a coordinate, line:column positions in
-# assertions, and a standard's clause followed by the next standard in a rule's
-# spec reference ("ISO 14289-1:2014, 7.1; ISO 32000-1:2008, ...").
+# assertions, a standard's clause followed by the next standard in a rule's
+# spec reference ("ISO 14289-1:2014, 7.1; ISO 32000-1:2008, ..."), and hex
+# bytes followed by the encoding they open ("30 80 (BER kept").
 N.N LICENSE
 N-N MUST
 N.N (ESL
@@ -27,3 +28,4 @@ N:N NOT
 N:N (NOT
 N:N, NOT
 N.N; ISO
+N N (BER

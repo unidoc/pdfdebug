@@ -236,6 +236,36 @@ describe('DetailPanel keeps the active tab per document', () => {
     await waitFor(() => expectActive('signatures'));
   });
 
+  test('an expanded certificate chain stays expanded per document', async () => {
+    const t = ids();
+    const cert = {
+      subject: 'CN=Signer',
+      issuer: 'CN=Root',
+      serial: '1',
+      notBefore: '2025-01-01T00:00:00Z',
+      notAfter: '2027-01-01T00:00:00Z',
+      keyUsage: null,
+      extKeyUsage: null,
+      crlDistributionPoints: null,
+      ocspServers: null,
+      caIssuers: null,
+    };
+    b.GetSignatures.mockResolvedValue([{ ...signature, signer: cert, certificates: [cert] }]);
+    mount();
+    open(t.a, t.pathA);
+    fireEvent.click(await screen.findByTestId('detail-tab-signatures'));
+    fireEvent.click(screen.getByTestId('signature-cert-chain'));
+    expect(screen.getByTestId('signature-cert-chain')).toHaveAttribute('aria-expanded', 'true');
+
+    open(t.b, t.pathB);
+    fireEvent.click(await screen.findByTestId('detail-tab-signatures'));
+    expect(await screen.findByTestId('signature-cert-chain')).toHaveAttribute('aria-expanded', 'false');
+
+    activate(t.a);
+    await waitFor(() => expectActive('signatures'));
+    expect(await screen.findByTestId('signature-cert-chain')).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('a document left on Diff comes back on Object', async () => {
     const t = ids();
     mount();
