@@ -163,6 +163,12 @@ const maxHoleProbeBytes = 4 * 1024 * 1024
 // signatures carry the same note without reading. Runs under doc.pdfMu and
 // inside safeCall.
 func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
+	return ins.getSignatures(tabID, nil)
+}
+
+// getSignatures walks the document's signature fields under doc.pdfMu and
+// inside safeCall, passing sink to collectSignatures.
+func (ins *Inspector) getSignatures(tabID string, sink *[]SignatureBytes) (*SignatureList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
@@ -174,7 +180,7 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 
 	list := &SignatureList{Signatures: []SignatureField{}}
 	err = safeCall(func() error {
-		list.Signatures = collectSignatures(doc, nil)
+		list.Signatures = collectSignatures(doc, sink)
 		return nil
 	})
 	if err != nil {
@@ -205,21 +211,10 @@ type SignatureBytes struct {
 // plus, index-aligned with its Signatures, the bytes each field can export.
 // It walks the document once, under doc.pdfMu and inside safeCall.
 func (ins *Inspector) GetSignatureBytes(tabID string) (*SignatureList, []SignatureBytes, error) {
-	doc, err := ins.GetDocument(tabID)
+	sink := []SignatureBytes{}
+	list, err := ins.getSignatures(tabID, &sink)
 	if err != nil {
 		return nil, nil, err
-	}
-	doc.pdfMu.Lock()
-	defer doc.pdfMu.Unlock()
-
-	list := &SignatureList{Signatures: []SignatureField{}}
-	sink := []SignatureBytes{}
-	err = safeCall(func() error {
-		list.Signatures = collectSignatures(doc, &sink)
-		return nil
-	})
-	if err != nil {
-		return nil, nil, wrapPDFError(err)
 	}
 	return list, sink, nil
 }
