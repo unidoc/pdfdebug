@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,10 +102,10 @@ func TestRunSignatureExports_RefusesCMSFileThatIsACertFile(t *testing.T) {
 	}
 }
 
-func TestRunSignatureExports_CMSFileInMissingCertDirIsAWriteError(t *testing.T) {
+func TestRunSignatureExports_RefusesCMSFileThatIsACertFileInAMissingCertDir(t *testing.T) {
 	dir, input, sigs, sb := exportPathsFixture(t)
-	out := filepath.Join(dir, "out")
-	for _, name := range []string{"sig1-cert1.der", "SIG1-CERT1.DER"} {
+	for i, name := range []string{"sig1-cert1.der", "SIG1-CERT1.DER"} {
+		out := filepath.Join(dir, fmt.Sprintf("out%d", i))
 		cms := filepath.Join(out, name)
 		var code int
 		stderr := captureStderr(t, func() {
@@ -113,11 +114,58 @@ func TestRunSignatureExports_CMSFileInMissingCertDirIsAWriteError(t *testing.T) 
 		if code != 2 {
 			t.Fatalf("%s: exit code %d, want 2", name, code)
 		}
-		if !strings.Contains(stderr, "failed to write") {
-			t.Fatalf("%s: stderr %q, want a write error", name, stderr)
+		if !strings.Contains(stderr, "also a certificate file") {
+			t.Fatalf("%s: stderr %q does not name the collision", name, stderr)
 		}
-		if _, err := os.Stat(out); !os.IsNotExist(err) {
-			t.Fatalf("%s: export directory was created (stat err %v), want nothing written", name, err)
+		entries, err := os.ReadDir(out)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(entries) != 0 {
+			t.Fatalf("%s: export directory holds %d entries, want nothing written", name, len(entries))
+		}
+	}
+}
+
+func TestRunSignatureExports_WritesCMSFileInsideANewCertDir(t *testing.T) {
+	dir, input, sigs, sb := exportPathsFixture(t)
+	out := filepath.Join(dir, "out")
+	cms := filepath.Join(out, "sig.p7s")
+	if code := runSignatureExports(input, sigs, sb, signatureExportFlags{cmsPath: cms, certsDir: out}); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
+	}
+	if got, err := os.ReadFile(cms); err != nil || !bytes.Equal(got, sb[0].CMS) {
+		t.Errorf("CMS file = % X (err %v), want % X", got, err, sb[0].CMS)
+	}
+	if got, err := os.ReadFile(filepath.Join(out, "sig1-cert1.der")); err != nil || !bytes.Equal(got, sb[0].Certificates[0]) {
+		t.Errorf("sig1-cert1.der = % X (err %v), want % X", got, err, sb[0].Certificates[0])
+	}
+}
+
+func TestRunSignatureExports_RefusesCMSFileThatIsTheCertDir(t *testing.T) {
+	dir, input, sigs, sb := exportPathsFixture(t)
+	out := filepath.Join(dir, "out")
+	for _, cms := range []string{out, filepath.Join(dir, "sub", "..", "out")} {
+		if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		var code int
+		stderr := captureStderr(t, func() {
+			code = runSignatureExports(input, sigs, sb, signatureExportFlags{cmsPath: cms, certsDir: out})
+		})
+		if code != 2 {
+			t.Fatalf("%s: exit code %d, want 2", cms, code)
+		}
+		if !strings.Contains(stderr, "is the --export-certs directory") {
+			t.Fatalf("%s: stderr %q does not name the collision", cms, stderr)
+		}
+		fi, err := os.Stat(out)
+		if err != nil || !fi.IsDir() {
+			t.Fatalf("%s: %s is not a directory (err %v)", cms, out, err)
+		}
+		entries, err := os.ReadDir(out)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("%s: export directory holds %d entries (err %v), want nothing written", cms, len(entries), err)
 		}
 	}
 }
@@ -242,7 +290,7 @@ func TestRunSignatureExports_UnreadableContentsWritesNothing(t *testing.T) {
 	}
 }
 
-func TestRunSignatureExports_CertDirThatIsAFileKeepsTheWrittenCMS(t *testing.T) {
+func TestRunSignatureExports_CertDirThatIsAFileWritesNothing(t *testing.T) {
 	dir, input, sigs, sb := exportPathsFixture(t)
 	cms := filepath.Join(dir, "sig.p7s")
 	certs := filepath.Join(dir, "certs")
@@ -260,12 +308,8 @@ func TestRunSignatureExports_CertDirThatIsAFileKeepsTheWrittenCMS(t *testing.T) 
 	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &obj); err != nil || !strings.HasPrefix(obj["error"], "failed to write "+certs+":") {
 		t.Fatalf("stderr %q, want a write error naming %s", stderr, certs)
 	}
-	got, err := os.ReadFile(cms)
-	if err != nil {
-		t.Fatalf("CMS file written before the failure is gone: %v", err)
-	}
-	if !bytes.Equal(got, sb[0].CMS) {
-		t.Errorf("CMS file = % X, want % X", got, sb[0].CMS)
+	if _, err := os.Stat(cms); !os.IsNotExist(err) {
+		t.Fatalf("%s exists (stat err %v), want nothing written", cms, err)
 	}
 	assertInputIntact(t, input)
 }

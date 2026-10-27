@@ -135,10 +135,12 @@ func samePath(a, b string) bool {
 
 // runSignatureExports runs --export-cms and --export-certs for the PDF at
 // inputPath. Every selection and path check runs before the first file is
-// written: no export may overwrite the input PDF, and the CMS file may not be
-// one of the certificate files. Then the CMS file is written, then the
-// certificate files. Errors go to stderr and return exit code 2; files
-// written before a failure stay.
+// written: no export may overwrite the input PDF, and the CMS file may be
+// neither the --export-certs directory nor one of the certificate files. The
+// --export-certs directory is created before the path checks, so they compare
+// existing directories and a CMS file can go inside it. Then the CMS file is
+// written, then the certificate files. Errors go to stderr and return exit
+// code 2; files written before a failure stay.
 func runSignatureExports(inputPath string, sigs []pdfcore.SignatureField, sb []pdfcore.SignatureBytes, ex signatureExportFlags) int {
 	fail := func(err error) int {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
@@ -175,8 +177,18 @@ func runSignatureExports(inputPath string, sigs []pdfcore.SignatureField, sb []p
 		}
 	}
 
+	if len(certFiles) > 0 {
+		if err := os.MkdirAll(ex.certsDir, 0o755); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write %s: %v", ex.certsDir, err))
+			return 2
+		}
+	}
+
 	if cmsIdx >= 0 && samePath(ex.cmsPath, inputPath) {
 		return fail(fmt.Errorf("--export-cms %s is the input PDF", asciiSafe(ex.cmsPath)))
+	}
+	if cmsIdx >= 0 && len(certFiles) > 0 && samePath(ex.cmsPath, ex.certsDir) {
+		return fail(fmt.Errorf("--export-cms %s is the --export-certs directory", asciiSafe(ex.cmsPath)))
 	}
 	for _, f := range certFiles {
 		if samePath(f.path, inputPath) {
@@ -200,16 +212,10 @@ func runSignatureExports(inputPath string, sigs []pdfcore.SignatureField, sb []p
 		}
 	}
 
-	if len(certFiles) > 0 {
-		if err := os.MkdirAll(ex.certsDir, 0o755); err != nil {
-			writeJSONError(os.Stderr, fmt.Sprintf("failed to write %s: %v", ex.certsDir, err))
+	for _, f := range certFiles {
+		if err := os.WriteFile(f.path, f.data, 0o644); err != nil {
+			writeJSONError(os.Stderr, fmt.Sprintf("failed to write %s: %v", f.path, err))
 			return 2
-		}
-		for _, f := range certFiles {
-			if err := os.WriteFile(f.path, f.data, 0o644); err != nil {
-				writeJSONError(os.Stderr, fmt.Sprintf("failed to write %s: %v", f.path, err))
-				return 2
-			}
 		}
 	}
 	return 0

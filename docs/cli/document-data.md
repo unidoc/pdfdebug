@@ -87,10 +87,11 @@ several fields and an unsigned field are errors, and a field with an empty
 name cannot be picked. `--field` without an export flag, or with an empty
 name, is a usage error.
 
-Both export flags can be given together. Every selection is checked before
-any file is written, and so is every path: an export that would overwrite the
-input PDF, or a `--export-cms` FILE that is also one of the `--export-certs`
-files, is an error. A directory reached through a link counts as the
+Both export flags can be given together, and FILE can sit inside DIR. Every
+selection is checked before any file is written. Then DIR is created, and
+every path is checked: an export that would overwrite the input PDF, or a
+`--export-cms` FILE that is DIR itself or one of the `--export-certs` files,
+is an error. A directory reached through a link counts as the
 directory it points to, and when neither file exists yet, names in the same
 directory that differ only in case count as the same file. Then the CMS is
 written, then the certificates. stdout is exactly what the command prints
