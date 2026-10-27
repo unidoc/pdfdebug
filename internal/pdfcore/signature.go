@@ -472,20 +472,19 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, 
 		f.DecomposeError = "/Contents unreadable: " + err.Error()
 		return
 	}
+	res, err := parseCMSSignedData(raw)
 	if sb != nil {
-		// Captured before the CMS parse so a delimited payload that is not a
-		// SignedData is still exported.
-		if end, err := berElementEnd(raw); err != nil {
+		// A delimited payload is exported even when it is not a SignedData.
+		if res.encoding == "" {
 			sb.CMS = bytes.Clone(raw)
 			if sb.CMS == nil {
 				sb.CMS = []byte{}
 			}
 			sb.CMSUndelimited = err.Error()
 		} else {
-			sb.CMS = bytes.Clone(raw[:end])
+			sb.CMS = bytes.Clone(raw[:res.end])
 		}
 	}
-	res, err := parseCMSSignedData(raw)
 	f.CMSEncoding = res.encoding
 	if res.tail.count > 0 {
 		f.CMSTrailingBytes = &CMSTrailingBytes{Offset: res.tail.offset, Count: res.tail.count}
@@ -534,12 +533,13 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, 
 type cmsParse struct {
 	sd        *cmsSignedData
 	encoding  string  // "DER", "BER", or "" when the payload did not decode
+	end       int     // offset of the first byte after the CMS element
 	tail      berTail // non-zero bytes after the CMS element
 	innerRest int     // bytes after the SignedData inside the [0] wrapper
 }
 
 // parseCMSSignedData normalizes a BER or DER ContentInfo(SignedData) blob to
-// DER and unmarshals it. The encoding and tail are filled in as soon as the
+// DER and unmarshals it. The encoding, end and tail are filled in as soon as the
 // normalizer succeeds, even when the CMS parse then fails. The /Contents value
 // is zero-padded to its reserved size; bytes after the ContentInfo are never
 // an error, and non-zero ones are reported in tail. The padding is never
@@ -549,11 +549,11 @@ func parseCMSSignedData(raw []byte) (cmsParse, error) {
 	if len(raw) == 0 {
 		return cmsParse{}, errors.New("empty payload")
 	}
-	der, isBER, tail, err := normalizeBER(raw)
+	der, isBER, end, tail, err := normalizeBER(raw)
 	if err != nil {
 		return cmsParse{}, err
 	}
-	res := cmsParse{encoding: "DER", tail: tail}
+	res := cmsParse{encoding: "DER", end: end, tail: tail}
 	if isBER {
 		res.encoding = "BER"
 	}

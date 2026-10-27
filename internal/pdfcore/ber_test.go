@@ -2,7 +2,7 @@
 //
 // Surface under test:
 //
-//	normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error)
+//	normalizeBER(in []byte) (der []byte, isBER bool, end int, tail berTail, err error)
 //	const maxBERDepth = 64
 //
 // Inputs are hand-built byte slices. Expected DER is built either by hand or
@@ -437,7 +437,7 @@ func TestNormalizeBER_Normalizes(t *testing.T) {
 	for _, tc := range berOKCases(t) {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			out, isBER, tail, err := normalizeBER(tc.in)
+			out, isBER, _, tail, err := normalizeBER(tc.in)
 			if err != nil {
 				t.Fatalf("normalizeBER error: %v", err)
 			}
@@ -461,7 +461,7 @@ func TestNormalizeBER_ReportsNonZeroBytesAfterTheElement(t *testing.T) {
 	for _, tc := range berTailCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			out, isBER, tail, err := normalizeBER(tc.in)
+			out, isBER, _, tail, err := normalizeBER(tc.in)
 			if err != nil {
 				t.Fatalf("normalizeBER error: %v", err)
 			}
@@ -485,7 +485,7 @@ func TestNormalizeBER_RejectsMalformedInput(t *testing.T) {
 	for _, tc := range berErrCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			_, _, _, err := normalizeBER(tc.in)
+			_, _, _, _, err := normalizeBER(tc.in)
 			if err == nil {
 				t.Fatalf("normalizeBER accepted % X, want an error containing %q", tc.in, tc.want)
 			}
@@ -504,7 +504,7 @@ func TestNormalizeBER_RejectsMalformedInput(t *testing.T) {
 func TestNormalizeBER_ReturnsANewBuffer(t *testing.T) {
 	in := mustMarshal(t, berOuter{Inner: berInner{A: 5}})
 	orig := bytes.Clone(in)
-	out, _, _, err := normalizeBER(in)
+	out, _, _, _, err := normalizeBER(in)
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
@@ -520,7 +520,7 @@ func TestNormalizeBER_ReturnsANewBuffer(t *testing.T) {
 func TestNormalizeBER_DERInputTakesTheCopyPath(t *testing.T) {
 	elem := mustMarshal(t, berOuter{Inner: berInner{A: 5}})
 	in := append(bytes.Clone(elem), 0x00, 0x00, 0x00)
-	out, isBER, tail, err := normalizeBER(in)
+	out, isBER, _, tail, err := normalizeBER(in)
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
@@ -541,7 +541,7 @@ func TestNormalizeBER_DERInputTakesTheCopyPath(t *testing.T) {
 func TestNormalizeBER_LargeZeroPaddingIsAccepted(t *testing.T) {
 	elem := []byte{0x02, 0x01, 0x05}
 	in := append(bytes.Clone(elem), make([]byte, 9<<20)...)
-	out, isBER, tail, err := normalizeBER(in)
+	out, isBER, _, tail, err := normalizeBER(in)
 	if err != nil {
 		t.Fatalf("normalizeBER error on a small element in a large zero-padded buffer: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestNormalizeBER_FullyIndefiniteCMSNormalizesToOriginalDER(t *testing.T) {
 	ci := rv.FullBytes
 	ber := berAllIndef(t, ci)
 
-	out, isBER, _, err := normalizeBER(ber)
+	out, isBER, _, _, err := normalizeBER(ber)
 	if err != nil {
 		t.Fatalf("normalizeBER error: %v", err)
 	}
@@ -576,7 +576,7 @@ func TestNormalizeBER_FullyIndefiniteCMSNormalizesToOriginalDER(t *testing.T) {
 		t.Errorf("normalized output differs from the original DER ContentInfo (len %d vs %d)", len(out), len(ci))
 	}
 
-	out2, isBER2, _, err := normalizeBER(der)
+	out2, isBER2, _, _, err := normalizeBER(der)
 	if err != nil {
 		t.Fatalf("normalizeBER error on the zero-padded DER payload: %v", err)
 	}
@@ -596,7 +596,7 @@ func TestNormalizeBER_AllocationStaysProportionalToInput(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&before)
-	out, isBER, _, err := normalizeBER(in)
+	out, isBER, _, _, err := normalizeBER(in)
 	runtime.ReadMemStats(&after)
 
 	if err != nil {
@@ -620,7 +620,7 @@ func TestNormalizeBER_AllocationStaysProportionalToInput(t *testing.T) {
 func TestNormalizeBER_DERAllocatesOnlyTheCopy(t *testing.T) {
 	der := fixtureCMSPayload(t, "signed.pdf")
 	allocs := testing.AllocsPerRun(10, func() {
-		if _, isBER, _, err := normalizeBER(der); err != nil || isBER {
+		if _, isBER, _, _, err := normalizeBER(der); err != nil || isBER {
 			t.Fatalf("normalizeBER: isBER=%v err=%v, want DER", isBER, err)
 		}
 	})
@@ -674,7 +674,7 @@ func FuzzNormalizeBER(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, in []byte) {
 		orig := bytes.Clone(in)
-		out, _, tail, err := normalizeBER(in)
+		out, _, _, tail, err := normalizeBER(in)
 		if !bytes.Equal(in, orig) {
 			t.Fatalf("input was modified")
 		}
@@ -698,7 +698,7 @@ func FuzzNormalizeBER(f *testing.F) {
 		if limit := len(in) + 4*derElementCount(t, out); len(out) > limit {
 			t.Fatalf("output length %d exceeds %d (input %d + 4 per output element)", len(out), limit, len(in))
 		}
-		again, isBER, againTail, err := normalizeBER(out)
+		again, isBER, _, againTail, err := normalizeBER(out)
 		if err != nil {
 			t.Fatalf("normalizing the output failed: %v\nout % X", err, out)
 		}

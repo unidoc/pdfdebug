@@ -18,7 +18,8 @@ type berTail struct {
 }
 
 // normalizeBER reads exactly one top-level BER element from in and returns a
-// new buffer holding its DER-form re-encoding. Bytes after the element do not
+// new buffer holding its DER-form re-encoding, and end, the offset of the
+// first byte after the element in in. Bytes after the element do not
 // fail the call: zero bytes (the /Contents padding) are ignored, and when any
 // is non-zero tail reports where they start and how far they reach. in is
 // never written to.
@@ -44,11 +45,11 @@ type berTail struct {
 // For BER input peak allocation is the output buffer plus the records, which
 // are proportional to the input: an 8-byte length per constructed element
 // (each takes at least 2 input bytes) and 1 byte per flattened BIT STRING.
-func normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error) {
+func normalizeBER(in []byte) (der []byte, isBER bool, end int, tail berTail, err error) {
 	n := &berNormalizer{in: in}
-	end, _, err := n.element(0, len(in), 1)
+	end, _, err = n.element(0, len(in), 1)
 	if err != nil {
-		return nil, false, berTail{}, err
+		return nil, false, 0, berTail{}, err
 	}
 	for i := len(in) - 1; i >= end; i-- {
 		if in[i] != 0 {
@@ -57,34 +58,21 @@ func normalizeBER(in []byte) (der []byte, isBER bool, tail berTail, err error) {
 		}
 	}
 	if !n.ber {
-		return bytes.Clone(in[:end]), false, tail, nil
+		return bytes.Clone(in[:end]), false, end, tail, nil
 	}
 	n.pass = berRecord
 	_, total, err := n.element(0, len(in), 1)
 	if err != nil {
-		return nil, false, berTail{}, err
+		return nil, false, 0, berTail{}, err
 	}
 	// The emitting pass writes into a buffer of the final size, using the
 	// records from the recording pass.
 	n.out = make([]byte, 0, total)
 	n.pass = berEmit
 	if _, _, err := n.element(0, len(in), 1); err != nil {
-		return nil, false, berTail{}, err
+		return nil, false, 0, berTail{}, err
 	}
-	return n.out, true, tail, nil
-}
-
-// berElementEnd returns the offset of the first byte after the top-level BER
-// element of in. It runs only the check-only pass of normalizeBER, so it fails
-// exactly where normalizeBER fails, with the same error. in is never written
-// to.
-func berElementEnd(in []byte) (int, error) {
-	n := &berNormalizer{in: in}
-	end, _, err := n.element(0, len(in), 1)
-	if err != nil {
-		return 0, err
-	}
-	return end, nil
+	return n.out, true, end, tail, nil
 }
 
 // berPass selects what a walk of the input does besides validating it.

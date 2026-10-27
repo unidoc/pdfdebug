@@ -152,9 +152,9 @@ func TestGetSignatureBytes_CMSCertificatesOnCertExtensionsFixture(t *testing.T) 
 		t.Fatalf("%d certificate blobs, want 2", len(sb[0].Certificates))
 	}
 	assertCertBytesMatch(t, list.Signatures[0], sb[0])
-	end, err := berElementEnd(fixtureCMSPayload(t, "signed-cert-extensions.pdf"))
+	end, err := elementEnd(fixtureCMSPayload(t, "signed-cert-extensions.pdf"))
 	if err != nil {
-		t.Fatalf("berElementEnd: %v", err)
+		t.Fatalf("normalizeBER: %v", err)
 	}
 	if len(sb[0].CMS) != end || sb[0].CMSUndelimited != "" {
 		t.Errorf("CMS is %d bytes (undelimited %q), want the %d-byte element", len(sb[0].CMS), sb[0].CMSUndelimited, end)

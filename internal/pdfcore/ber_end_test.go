@@ -1,10 +1,9 @@
-// Unit tests for berElementEnd, the check-only reader that finds where the
-// top-level BER element of a /Contents payload ends.
+// Unit tests for the end offset normalizeBER returns: where the top-level BER
+// element of a /Contents payload ends.
 //
-//	berElementEnd(in []byte) (end int, err error)
+//	normalizeBER(in []byte) (der []byte, isBER bool, end int, tail berTail, err error)
 //
-// end is the offset of the first byte after the element. It fails exactly
-// where normalizeBER fails, with the same error text.
+// end is the offset of the first byte after the element.
 package pdfcore
 
 import (
@@ -12,7 +11,13 @@ import (
 	"testing"
 )
 
-func TestBerElementEnd_FindsTheElementEnd(t *testing.T) {
+// elementEnd returns only the end and error of normalizeBER.
+func elementEnd(in []byte) (int, error) {
+	_, _, end, _, err := normalizeBER(in)
+	return end, err
+}
+
+func TestNormalizeBEREnd_FindsTheElementEnd(t *testing.T) {
 	cases := []struct {
 		name string
 		in   []byte
@@ -29,9 +34,9 @@ func TestBerElementEnd_FindsTheElementEnd(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := bytes.Clone(tc.in)
-			got, err := berElementEnd(tc.in)
+			got, err := elementEnd(tc.in)
 			if err != nil {
-				t.Fatalf("berElementEnd error: %v", err)
+				t.Fatalf("normalizeBER error: %v", err)
 			}
 			if got != tc.want {
 				t.Errorf("end = %d, want %d", got, tc.want)
@@ -43,7 +48,7 @@ func TestBerElementEnd_FindsTheElementEnd(t *testing.T) {
 	}
 }
 
-func TestBerElementEnd_RejectsInputWithoutACompleteElement(t *testing.T) {
+func TestNormalizeBEREnd_RejectsInputWithoutACompleteElement(t *testing.T) {
 	cases := []struct {
 		name string
 		in   []byte
@@ -55,14 +60,14 @@ func TestBerElementEnd_RejectsInputWithoutACompleteElement(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if end, err := berElementEnd(tc.in); err == nil {
-				t.Errorf("berElementEnd(% X) = %d, nil; want an error", tc.in, end)
+			if end, err := elementEnd(tc.in); err == nil {
+				t.Errorf("normalizeBER(% X) end = %d, nil; want an error", tc.in, end)
 			}
 		})
 	}
 }
 
-func TestBerElementEnd_FixturePayloadEnds(t *testing.T) {
+func TestNormalizeBEREnd_FixturePayloadEnds(t *testing.T) {
 	cases := []struct {
 		name string
 		want int
@@ -74,9 +79,9 @@ func TestBerElementEnd_FixturePayloadEnds(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := berElementEnd(fixtureCMSPayload(t, tc.name))
+			got, err := elementEnd(fixtureCMSPayload(t, tc.name))
 			if err != nil {
-				t.Fatalf("berElementEnd error: %v", err)
+				t.Fatalf("normalizeBER error: %v", err)
 			}
 			if got != tc.want {
 				t.Errorf("end = %d, want %d", got, tc.want)
@@ -85,45 +90,35 @@ func TestBerElementEnd_FixturePayloadEnds(t *testing.T) {
 	}
 }
 
-func TestBerElementEnd_UndelimitedFixturePayloadsFail(t *testing.T) {
+func TestNormalizeBEREnd_UndelimitedFixturePayloadsFail(t *testing.T) {
 	for _, name := range []string{"signed-ber-badeoc.pdf", "signed-badcontents.pdf"} {
 		t.Run(name, func(t *testing.T) {
-			if end, err := berElementEnd(fixtureCMSPayload(t, name)); err == nil {
+			if end, err := elementEnd(fixtureCMSPayload(t, name)); err == nil {
 				t.Errorf("end = %d, nil; want an error", end)
 			}
 		})
 	}
 }
 
-// berElementEnd agrees with normalizeBER on every normalizeBER seed input:
-// same failure and error text, and an end consistent with what normalizeBER
-// returns (normalizeBER does not return the end itself).
-func TestBerElementEnd_AgreesWithNormalizeBER(t *testing.T) {
+// On every normalizeBER seed input that decodes, end agrees with the tail
+// offset and the DER copy, and normalizing in[:end] gives the same result
+// with no tail.
+func TestNormalizeBEREnd_ConsistentWithNormalizedOutput(t *testing.T) {
 	var seeds [][]byte
 	for _, tc := range berOKCases(t) {
-		seeds = append(seeds, tc.in)
-	}
-	for _, tc := range berErrCases() {
 		seeds = append(seeds, tc.in)
 	}
 	for _, tc := range berTailCases() {
 		seeds = append(seeds, tc.in)
 	}
-	for _, name := range []string{"signed.pdf", "signed-ber.pdf", "signed-ber-detached.pdf", "signed-ber-trailing.pdf", "signed-ber-badeoc.pdf", "signed-badcontents.pdf"} {
+	for _, name := range []string{"signed.pdf", "signed-ber.pdf", "signed-ber-detached.pdf", "signed-ber-trailing.pdf"} {
 		seeds = append(seeds, fixtureCMSPayload(t, name))
 	}
 
 	for i, in := range seeds {
-		end, endErr := berElementEnd(in)
-		der, isBER, tail, normErr := normalizeBER(in)
-		if (endErr == nil) != (normErr == nil) {
-			t.Errorf("seed %d: berElementEnd err = %v, normalizeBER err = %v; want both nil or both set", i, endErr, normErr)
-			continue
-		}
-		if endErr != nil {
-			if endErr.Error() != normErr.Error() {
-				t.Errorf("seed %d: berElementEnd error %q, normalizeBER error %q; want the same text", i, endErr, normErr)
-			}
+		der, isBER, end, tail, err := normalizeBER(in)
+		if err != nil {
+			t.Errorf("seed %d: normalizeBER error: %v", i, err)
 			continue
 		}
 		if end <= 0 || end > len(in) {
@@ -131,18 +126,18 @@ func TestBerElementEnd_AgreesWithNormalizeBER(t *testing.T) {
 			continue
 		}
 		if tail.count > 0 && tail.offset != end {
-			t.Errorf("seed %d: end = %d, normalizeBER tail offset = %d", i, end, tail.offset)
+			t.Errorf("seed %d: end = %d, tail offset = %d", i, end, tail.offset)
 		}
 		if !isBER && len(der) != end {
 			t.Errorf("seed %d: end = %d, DER copy length = %d", i, end, len(der))
 		}
-		again, againBER, againTail, err := normalizeBER(in[:end])
+		again, againBER, againEnd, againTail, err := normalizeBER(in[:end])
 		if err != nil {
 			t.Errorf("seed %d: normalizeBER(in[:%d]) error: %v", i, end, err)
 			continue
 		}
-		if !bytes.Equal(again, der) || againBER != isBER || againTail != (berTail{}) {
-			t.Errorf("seed %d: normalizeBER(in[:%d]) = (% X, %v, %+v), want (% X, %v, no tail)", i, end, again, againBER, againTail, der, isBER)
+		if !bytes.Equal(again, der) || againBER != isBER || againEnd != end || againTail != (berTail{}) {
+			t.Errorf("seed %d: normalizeBER(in[:%d]) = (% X, %v, %d, %+v), want (% X, %v, %d, no tail)", i, end, again, againBER, againEnd, againTail, der, isBER, end)
 		}
 	}
 }
