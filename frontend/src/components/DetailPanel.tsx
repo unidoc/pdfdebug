@@ -665,11 +665,7 @@ function DetailPanelInner() {
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
   }, [dispatch, changeDetailView]);
 
-  /**
-   * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
-   * dispatching navigation so the user lands on the /V signature dict (or the
-   * field node fallback) in one render.
-   */
+  /** Records a certificate chain expanded or collapsed in the active document. */
   const handleChainToggle = useCallback((key: string, open: boolean) => {
     if (!activeTabId) return;
     let keys = openChainsByTabRef.current.get(activeTabId);
@@ -681,6 +677,11 @@ function DetailPanelInner() {
     else keys.delete(key);
   }, [activeTabId]);
 
+  /**
+   * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
+   * dispatching navigation so the user lands on the /V signature dict (or the
+   * field node fallback) in one render.
+   */
   const handleSignaturesNavigate = useCallback((nodeId: string) => {
     changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
