@@ -658,7 +658,8 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 
 // pdfStringBytes renders a PDF string object as raw bytes: hex strings are
 // whitespace-stripped and hex-decoded (odd length padded per the PDF spec),
-// literal strings have their backslash escapes resolved.
+// literal strings have each unescaped end-of-line (CR, LF or CRLF) read as
+// LF and their backslash escapes resolved (ISO 32000-1 7.3.4.2).
 func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error) {
 	switch v := dereference(doc, obj).(type) {
 	case pdfcpu_types.HexLiteral:
@@ -666,8 +667,12 @@ func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error)
 		// its Bytes() is the canonical decode.
 		return v.Bytes()
 	case pdfcpu_types.StringLiteral:
-		// pdfcpu keeps a literal string as written, escapes included.
-		return pdfcpu_types.Unescape(string(v))
+		// pdfcpu keeps a literal string as written, escapes and raw CRs
+		// included. A backslash before a normalized EOL is still a line
+		// continuation, so normalizing first keeps escapes intact.
+		lit := strings.ReplaceAll(string(v), "\r\n", "\n")
+		lit = strings.ReplaceAll(lit, "\r", "\n")
+		return pdfcpu_types.Unescape(lit)
 	case nil:
 		return nil, errors.New("entry missing")
 	default:
