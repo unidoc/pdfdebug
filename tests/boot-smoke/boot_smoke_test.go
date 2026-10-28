@@ -212,8 +212,9 @@ func processAlive(p *os.Process) bool {
 	return err == nil
 }
 
-// shutdownGracefully attempts a clean termination and waits up to 3s for
-// the existing reaper goroutine (signalled via exitCh) to observe the exit.
+// shutdownGracefully attempts a clean termination and waits up to
+// shutdownWait() for the existing reaper goroutine (signalled via exitCh) to
+// observe the exit.
 // On Windows, GUI processes do not honour SIGTERM, so we use taskkill /T.
 // The waitErr pointer is read after exitCh closes; callers must not touch
 // it concurrently.
@@ -245,12 +246,22 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	select {
 	case <-exitCh:
 		return *waitErr
-	case <-time.After(3 * time.Second):
+	case <-time.After(shutdownWait()):
 		diag := hangDiagnostics(cmd.Process, exitCh)
 		_ = cmd.Process.Kill()
 		<-exitCh
-		return fmt.Errorf("[boot-smoke] process did not exit within 3s of SIGTERM/taskkill; SIGKILL'd%s", diag)
+		return fmt.Errorf("[boot-smoke] process did not exit within %s of SIGTERM/taskkill; SIGKILL'd%s", shutdownWait(), diag)
 	}
+}
+
+// shutdownWait is how long the app gets to exit after SIGTERM. Linux gets
+// longer: under Xvfb GTK4 renders with llvmpipe, and a quit queued behind the
+// first layout pass on a cold runner can take more than 3s to run.
+func shutdownWait() time.Duration {
+	if runtime.GOOS == "linux" {
+		return 10 * time.Second
+	}
+	return 3 * time.Second
 }
 
 // hangDiagnostics reports on Linux whether the app process itself is still
