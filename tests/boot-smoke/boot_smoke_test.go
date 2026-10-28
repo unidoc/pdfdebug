@@ -245,10 +245,37 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	case <-exitCh:
 		return *waitErr
 	case <-time.After(3 * time.Second):
+		diag := hangDiagnostics(cmd.Process, exitCh)
 		_ = cmd.Process.Kill()
 		<-exitCh
-		return fmt.Errorf("[boot-smoke] process did not exit within 3s of SIGTERM/taskkill; SIGKILL'd")
+		return fmt.Errorf("[boot-smoke] process did not exit within 3s of SIGTERM/taskkill; SIGKILL'd%s", diag)
 	}
+}
+
+// hangDiagnostics reports on Linux whether the app process itself is still
+// running or has exited while descendants keep its output pipe open. A
+// running app gets SIGQUIT so the Go runtime writes its goroutine stacks to
+// the captured output.
+func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	state := "unknown"
+	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", p.Pid)); err == nil {
+		// The state field follows the parenthesised command name.
+		if i := bytes.LastIndexByte(stat, ')'); i >= 0 && i+2 < len(stat) {
+			state = string(stat[i+2])
+		}
+	}
+	ps, _ := exec.Command("ps", "-eo", "pid,ppid,stat,args").CombinedOutput()
+	if state != "Z" {
+		_ = p.Signal(syscall.SIGQUIT)
+		select {
+		case <-exitCh:
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s", state, ps)
 }
 
 // scanForFatalOutput inspects the captured stdout+stderr for known
