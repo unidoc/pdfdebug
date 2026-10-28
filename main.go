@@ -683,17 +683,20 @@ func main() {
 		})
 	recentMenu := fileMenu.AddSubmenu("Open Recent")
 	fileMenu.AddSectionHeader("Current Document")
-	fileMenu.Add("Close Document").
+	closeDocItem := fileMenu.Add("Close Document").
 		SetAccelerator("CmdOrCtrl+w").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventDocumentCloseActive, nil)
 		})
-	fileMenu.Add("Reload from Disk").
+	reloadDocItem := fileMenu.Add("Reload from Disk").
 		SetAccelerator("CmdOrCtrl+r").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventDocumentReloadActive, nil)
 		})
-	fileMenu.Add("Compare with File on Disk").
+	compareDocItem := fileMenu.Add("Compare with File on Disk").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventDocumentCompareActive, nil)
 		})
@@ -725,25 +728,29 @@ func main() {
 		})
 
 	navMenu.AddSeparator()
-	navMenu.Add("Go to Page...").
+	goToPageItem := navMenu.Add("Go to Page...").
 		SetAccelerator("CmdOrCtrl+G").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventNavigateGoToPage, nil)
 		})
-	navMenu.Add("Find Object...").
+	findObjectItem := navMenu.Add("Find Object...").
 		SetAccelerator("CmdOrCtrl+K").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventPaletteOpen, nil)
 		})
 
 	navMenu.AddSeparator()
-	navMenu.Add("Next Tab").
+	nextDocItem := navMenu.Add("Next Document").
 		SetAccelerator("CmdOrCtrl+Right").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventTabNext, nil)
 		})
-	navMenu.Add("Previous Tab").
+	prevDocItem := navMenu.Add("Previous Document").
 		SetAccelerator("CmdOrCtrl+Left").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventTabPrev, nil)
 		})
@@ -758,7 +765,8 @@ func main() {
 			app.Event.Emit(eventUpdateCheckRequested, nil)
 		})
 
-	// Frontend sends navigation state changes to sync menu enabled state
+	// Frontend sends navigation state and the open document count to sync
+	// menu enabled state: document items need one document, cycling needs two.
 	app.Event.On(eventNavigateStateChanged, func(event *application.CustomEvent) {
 		data, ok := event.Data.(map[string]any)
 		if !ok {
@@ -769,6 +777,14 @@ func main() {
 		}
 		if canFwd, ok := data["canGoForward"].(bool); ok {
 			navForwardItem.SetEnabled(canFwd)
+		}
+		// JSON numbers arrive as float64.
+		if count, ok := data["documentCount"].(float64); ok {
+			for _, item := range []*application.MenuItem{closeDocItem, reloadDocItem, compareDocItem, goToPageItem, findObjectItem} {
+				item.SetEnabled(count > 0)
+			}
+			nextDocItem.SetEnabled(count > 1)
+			prevDocItem.SetEnabled(count > 1)
 		}
 	})
 

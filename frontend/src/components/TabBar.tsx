@@ -85,7 +85,7 @@ export function TabBar() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [cycleTab, closeActiveTab]);
 
-  // Native menu: Navigate > Next Tab / Previous Tab, File > Close Document
+  // Native menu: Navigate > Next Document / Previous Document, File > Close Document
   useEffect(() => {
     const offNext = Events.On(TabNext, () => cycleTab(1));
     const offPrev = Events.On(TabPrev, () => cycleTab(-1));

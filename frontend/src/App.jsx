@@ -140,14 +140,16 @@ function AppContent() {
     })
   }, [])
 
-  // Sync navigation menu enabled state with backend
-  const prevNavState = useRef({ canGoBack: false, canGoForward: false })
+  // Sync navigation and document menu enabled state with backend
+  const documentCount = tabs.length
+  const prevNavState = useRef({ canGoBack: false, canGoForward: false, documentCount: 0 })
   useEffect(() => {
-    if (prevNavState.current.canGoBack !== canGoBack || prevNavState.current.canGoForward !== canGoForward) {
-      prevNavState.current = { canGoBack, canGoForward }
-      Events.Emit(NavigateStateChanged, { canGoBack, canGoForward })
+    const prev = prevNavState.current
+    if (prev.canGoBack !== canGoBack || prev.canGoForward !== canGoForward || prev.documentCount !== documentCount) {
+      prevNavState.current = { canGoBack, canGoForward, documentCount }
+      Events.Emit(NavigateStateChanged, { canGoBack, canGoForward, documentCount })
     }
-  }, [canGoBack, canGoForward])
+  }, [canGoBack, canGoForward, documentCount])
 
   // Subscribe to Wails runtime events for backend-initiated document opens
   // and errors. Returns cleanup functions to unsubscribe on unmount.
