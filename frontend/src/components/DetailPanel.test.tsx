@@ -53,7 +53,7 @@ vi.mock(
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
-    SaveBytesToFile: vi.fn().mockResolvedValue(''),
+    SaveEmbeddedFileToFile: vi.fn().mockResolvedValue(''),
     // The Diff tab imports DiffDocuments; stub so the factory never
     // throws on the new export.
     DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),

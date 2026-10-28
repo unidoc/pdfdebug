@@ -487,7 +487,7 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Linux-guarded step installs apt native deps.
-// Covers libgtk-3-dev, libwebkit2gtk-4.1-dev, build-essential on Linux.
+// Covers libgtk-4-dev, libwebkitgtk-6.0-dev, build-essential on Linux.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
@@ -515,7 +515,7 @@ func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
 	}
 
 	run := linuxStep["run"].(string)
-	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev", "build-essential"} {
+	for _, pkg := range []string{"libgtk-4-dev", "libwebkitgtk-6.0-dev", "build-essential"} {
 		if !strings.Contains(run, pkg) {
 			t.Errorf("ci.yml: Linux apt-get step missing package %q", pkg)
 		}

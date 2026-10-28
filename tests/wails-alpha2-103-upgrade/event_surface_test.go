@@ -3,26 +3,25 @@
 //
 // alpha2.103 reorganized the event system (the documented breaking change is the
 // native:* -> common:* deprecation, mobile-only). Our events are all custom
-// namespaces; this suite pins that the Go-emit / JS-consume event names survive
-// the bump and that no native:* prefix is introduced.
+// namespaces, registered in events.go and consumed in the frontend through the
+// generated constants; this suite pins that the Go-emit / JS-consume event
+// names survive a bump and that no native:* prefix is introduced.
 //
-// These read main.go the same way the project's established event-surface
-// assertions do. They are NOT new content-grep tests of a guarded file in the
-// source-grep-guard sense: the guard forbids NEW greps of
-// main.go/MainLayout.tsx/EmptyState.tsx; these main.go event greps are
-// grandfathered and this suite reuses that established pattern for the same
-// upgrade-audit purpose.
+// main.go is read through readSource, which the source-grep guard does not
+// flag; the guard forbids NEW readFile greps of
+// main.go/MainLayout.tsx/EmptyState.tsx.
 package wails_alpha2_103_upgrade_test
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-// goEmittedEvents are the events main.go emits to the frontend via
-// app.Event.Emit. A bump that forces a call-site edit (e.g. an events.Common.*
-// constant rename in the alpha2 reorg) and drops one of these fails loud here.
+// goEmittedEvents are the custom events the Go side emits to the frontend. Each
+// is declared as a constant and registered with application.RegisterEvent in
+// events.go, which is what makes the binding generator emit a typed constant.
 var goEmittedEvents = []string{
 	"document:opened",
 	"document:error",
@@ -42,73 +41,79 @@ var goEmittedEvents = []string{
 	"document:disk-status",
 }
 
-// TestGoEventEmitNamesPreserved asserts every Go-emitted event name still appears
-// in main.go after the bump.
-func TestGoEventEmitNamesPreserved(t *testing.T) {
-	src := readSource(t, "main.go")
+// TestGoEventNamesRegistered asserts every Go-emitted event name is declared in
+// events.go, the single place the app registers its events.
+func TestGoEventNamesRegistered(t *testing.T) {
+	src := readSource(t, "events.go")
 	for _, name := range goEmittedEvents {
-		if !strings.Contains(src, `"`+name+`"`) {
-			t.Errorf("main.go must still emit event %q -- the alpha2 event reorg must not drop a custom-namespace emit", name)
+		if !strings.Contains(src, `= "`+name+`"`) {
+			t.Errorf("events.go must declare and register event %q", name)
 		}
 	}
 }
 
-// jsConsumedEvents are the events the frontend subscribes to via Events.On.
-// The common:Window* names are emitted by the Wails runtime itself; an alpha2
-// runtime-side rename would silently break window geometry persistence.
-var jsConsumedEvents = []string{
-	"document:opened",
-	"document:error",
-	"document:warning",
-	"document:batch-start",
-	"document:batch-complete",
-	"navigate:back",
-	"navigate:forward",
-	"navigate:goToPage",
-	"palette:open",
-	"tab:next",
-	"tab:prev",
-	"splash:dismissed",
-	"common:WindowDidMove",
-	"common:WindowDidResize",
-	"document:reload-active",
-	"document:compare-active",
-	"document:disk-status",
+// jsConsumedEvents maps each app event the frontend subscribes to onto the
+// constant the binding generator emits for it in frontend/bindings/events.
+var jsConsumedEvents = map[string]string{
+	"document:opened":         "DocumentOpened",
+	"document:error":          "DocumentError",
+	"document:batch-start":    "DocumentBatchStart",
+	"document:batch-complete": "DocumentBatchComplete",
+	"navigate:back":           "NavigateBack",
+	"navigate:forward":        "NavigateForward",
+	"navigate:goToPage":       "NavigateGoToPage",
+	"palette:open":            "PaletteOpen",
+	"tab:next":                "TabNext",
+	"tab:prev":                "TabPrev",
+	"splash:dismissed":        "SplashDismissed",
+	"document:reload-active":  "DocumentReloadActive",
+	"document:compare-active": "DocumentCompareActive",
+	"document:disk-status":    "DocumentDiskStatus",
 }
 
-// TestJsEventOnNamesPreserved asserts every event the frontend listens for still
-// appears as an Events.On('<name>', ...) subscription call under frontend/src
-// (non-test files only). Matching the call form rather than a bare quoted literal
-// -- the same pattern TestJsToGoEventContract uses -- avoids the brittle
-// whole-tree-grep failure mode, where a bare literal false-passes on a match in a
-// comment or an unrelated string. Every consumed event is verified subscribed via
-// this call form (App.jsx, main.jsx, TabBar.tsx, DetailPanel.tsx).
+// wailsWindowEvents are emitted by the Wails runtime itself and keep their
+// string names; a runtime-side rename would silently break window geometry
+// persistence.
+var wailsWindowEvents = []string{
+	"common:WindowDidMove",
+	"common:WindowDidResize",
+}
+
+// TestJsEventOnNamesPreserved asserts every event the frontend listens for is
+// still subscribed through an Events.On(...) call under frontend/src (non-test
+// files only): app events through their generated constant, Wails window
+// events by name. Matching the call form rather than a bare identifier avoids
+// a false pass on a comment or an unrelated string.
 func TestJsEventOnNamesPreserved(t *testing.T) {
 	src := loadFrontendSrcConcat(t)
-	for _, name := range jsConsumedEvents {
+	for name, ident := range jsConsumedEvents {
+		if !strings.Contains(src, fmt.Sprintf(`Events.On(%s,`, ident)) {
+			t.Errorf("frontend/src must still Events.On(%s, ...) for event %q", ident, name)
+		}
+	}
+	for _, name := range wailsWindowEvents {
 		needle1 := fmt.Sprintf(`Events.On('%s'`, name)
 		needle2 := fmt.Sprintf(`Events.On("%s"`, name)
 		if !strings.Contains(src, needle1) && !strings.Contains(src, needle2) {
-			t.Errorf("frontend/src must still Events.On(%q,...) -- an alpha2 runtime rename of this event silently breaks the consumer", name)
+			t.Errorf("frontend/src must still Events.On(%q,...) -- a runtime rename of this event silently breaks the consumer", name)
 		}
 	}
 }
 
 // TestJsToGoEventContract asserts the inbound document:batch-cancel contract holds
-// on both sides: a frontend Events.Emit and a main.go app.Event.On listener.
+// on both sides: a frontend Events.Emit and a main.go app.Event.On listener, both
+// through the registered event's constant.
 func TestJsToGoEventContract(t *testing.T) {
-	const name = "document:batch-cancel"
-	mainSrc := readSource(t, "main.go")
-	frontSrc := loadFrontendSrcConcat(t)
-
-	jsNeedle1 := fmt.Sprintf(`Events.Emit('%s'`, name)
-	jsNeedle2 := fmt.Sprintf(`Events.Emit("%s"`, name)
-	if !strings.Contains(frontSrc, jsNeedle1) && !strings.Contains(frontSrc, jsNeedle2) {
-		t.Errorf("frontend must still Events.Emit(%q,...)", name)
+	eventsSrc := readSource(t, "events.go")
+	// gofmt aligns the const block, so the spacing before "=" varies.
+	if !regexp.MustCompile(`eventDocumentBatchCancel\s*=\s*"document:batch-cancel"`).MatchString(eventsSrc) {
+		t.Error(`events.go must declare eventDocumentBatchCancel = "document:batch-cancel"`)
 	}
-	goNeedle := fmt.Sprintf(`app.Event.On("%s"`, name)
-	if !strings.Contains(mainSrc, goNeedle) {
-		t.Errorf("main.go must still app.Event.On(%q,...) (JS->Go contract)", name)
+	if !strings.Contains(loadFrontendSrcConcat(t), "Events.Emit(DocumentBatchCancel") {
+		t.Error("frontend must still Events.Emit(DocumentBatchCancel)")
+	}
+	if !strings.Contains(readSource(t, "main.go"), "app.Event.On(eventDocumentBatchCancel") {
+		t.Error("main.go must still app.Event.On(eventDocumentBatchCancel, ...) (JS->Go contract)")
 	}
 }
 

@@ -1,6 +1,7 @@
 /**
  * The shared row menu on its own: placement, focus on open, which pointer and
- * key events close it, and what activating its item dispatches.
+ * key events close it, what activating its default item dispatches, and
+ * arrow-key focus and activation with caller-supplied items.
  *
  * Run: cd frontend && npx vitest run src/components/RowContextMenu.test.tsx
  */
@@ -9,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, test, expect, vi } from 'vitest';
 import type { Dispatch } from 'react';
 import { AppProvider, selectActiveLeftView, useAppDispatch, useAppState, type AppAction, type AppState } from '../hooks/useDocumentState';
-import { RowContextMenu, type RowMenuTarget } from './RowContextMenu';
+import { RowContextMenu, type RowMenuItem, type RowMenuTarget } from './RowContextMenu';
 
 let state: AppState;
 let dispatch: Dispatch<AppAction>;
@@ -107,6 +108,72 @@ describe('RowContextMenu', () => {
     expect(onClose).toHaveBeenCalled();
     expect(selectActiveLeftView(state)).toBe('structure');
     expect(state.tabs.find((t) => t.tabId === 'tab-1')?.pendingNavTarget).toBe('obj:0:12');
+    row.remove();
+  });
+
+  test('arrow keys move focus between caller-supplied items, wrapping at the ends', () => {
+    const row = document.createElement('button');
+    document.body.appendChild(row);
+    const items: RowMenuItem[] = [
+      { label: 'First', onSelect: vi.fn() },
+      { label: 'Second', onSelect: vi.fn() },
+    ];
+    render(
+      <AppProvider>
+        <RowContextMenu target={{ x: 0, y: 0, nodeId: 'obj:0:1', returnFocus: row }} label="Items" onClose={vi.fn()} items={items} />
+      </AppProvider>,
+    );
+    const first = screen.getByRole('menuitem', { name: 'First' });
+    const second = screen.getByRole('menuitem', { name: 'Second' });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(second);
+    row.remove();
+  });
+
+  test('an arrow key with focus outside the menu brings focus back to its first item without scrolling', () => {
+    const row = document.createElement('button');
+    document.body.appendChild(row);
+    const items: RowMenuItem[] = [
+      { label: 'First', onSelect: vi.fn() },
+      { label: 'Second', onSelect: vi.fn() },
+    ];
+    render(
+      <AppProvider>
+        <RowContextMenu target={{ x: 0, y: 0, nodeId: 'obj:0:1', returnFocus: row }} label="Items" onClose={vi.fn()} items={items} />
+      </AppProvider>,
+    );
+    row.focus();
+    const ev = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+    act(() => {
+      document.dispatchEvent(ev);
+    });
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'First' }));
+    row.remove();
+  });
+
+  test('activating a caller-supplied item closes the menu, returns focus to the row and runs it', () => {
+    const row = document.createElement('button');
+    document.body.appendChild(row);
+    const onClose = vi.fn();
+    const onSelect = vi.fn(() => {
+      expect(document.activeElement).toBe(row);
+    });
+    render(
+      <AppProvider>
+        <RowContextMenu target={{ x: 0, y: 0, nodeId: 'obj:0:1', returnFocus: row }} label="Items" onClose={onClose} items={[{ label: 'Copy path', onSelect }]} />
+      </AppProvider>,
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy path' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(row);
+    expect(screen.queryByRole('menuitem', { name: 'Show node in tree' })).not.toBeInTheDocument();
     row.remove();
   });
 });

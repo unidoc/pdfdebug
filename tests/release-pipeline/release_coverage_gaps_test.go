@@ -695,8 +695,8 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Linux native runtime deps are installed in the build job: the Linux artifact
-// must be runnable, which depends on `libgtk-3` and `libwebkit2gtk-4.1` being
-// present on the runner. The install step at release.yml lines 62-63 is also
+// must be runnable, which depends on GTK4 and WebKitGTK 6.0 being
+// present on the runner. The Linux deps install step is also
 // the README's source of truth for the runtime-deps note end users follow.
 // ---------------------------------------------------------------------------
 
@@ -710,7 +710,7 @@ func TestLinuxRuntimeDepsInstalled(t *testing.T) {
 	}
 	run, _ := step["run"].(string)
 
-	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev"} {
+	for _, pkg := range []string{"libgtk-4-dev", "libwebkitgtk-6.0-dev"} {
 		if !strings.Contains(run, pkg) {
 			t.Errorf("release.yml Linux deps step: missing apt package %q (runtime deps documented in README)", pkg)
 		}

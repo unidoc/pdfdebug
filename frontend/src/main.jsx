@@ -4,6 +4,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Events } from '@wailsio/runtime'
+import { SplashDismissed } from '../bindings/events/index.js'
 import './style.css'
 import App from './App'
 import { AboutDialog } from './components/AboutDialog'
@@ -43,7 +44,7 @@ if (aboutParams.get('view') === 'about') {
     }
   };
   try {
-    const off = Events.On('splash:dismissed', () => {
+    const off = Events.On(SplashDismissed, () => {
       revealRoot();
       if (typeof off === 'function') off();
     });

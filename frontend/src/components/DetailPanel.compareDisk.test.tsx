@@ -79,7 +79,7 @@ vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', 
   GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
   GetEmbeddedFileBytes: vi.fn(),
   GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '' }),
-  SaveBytesToFile: vi.fn(),
+  SaveEmbeddedFileToFile: vi.fn(),
   Validate: vi.fn().mockResolvedValue({ problems: [], rules: [], scope: '' }),
 }));
 

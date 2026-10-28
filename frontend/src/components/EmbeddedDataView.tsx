@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   GetEmbeddedFiles,
   GetEmbeddedFileBytes,
-  SaveBytesToFile,
+  SaveEmbeddedFileToFile,
 } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import { formatBytes } from '../lib/formatBytes';
@@ -149,11 +149,9 @@ export function EmbeddedDataView({ tabId, active: _active, onNavigate, onLoaded 
     if (!selected?.embeddedFileNodeId) return;
     setSaveError(null);
     try {
-      // GetEmbeddedFileBytes returns the []byte as a base64 string (Wails
-      // marshalling); SaveBytesToFile's data param is the same base64 string, so
-      // the payload round-trips verbatim.
-      const b64 = await GetEmbeddedFileBytes(tabId, selected.embeddedFileNodeId);
-      await SaveBytesToFile(selected.name, b64);
+      // The backend reads the bytes, shows the dialog and writes the file, so
+      // the payload never crosses the bridge. An empty result is a cancel.
+      await SaveEmbeddedFileToFile(tabId, selected.embeddedFileNodeId, selected.name);
     } catch (err) {
       setSaveError(extractErrorMessage(err));
     }

@@ -6,6 +6,7 @@
 import { useEffect, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Events } from '@wailsio/runtime';
+import { DocumentCloseActive, TabNext, TabPrev } from '../../bindings/events/index.js';
 import { useAppState, useAppDispatch, type TabState } from '../hooks/useDocumentState';
 import { closeDocumentTab } from '../lib/openedDocuments';
 import { useDiskStatus, type DiskStatusEntry } from '../lib/diskStatusStore';
@@ -86,9 +87,9 @@ export function TabBar() {
 
   // Native menu: Navigate > Next Tab / Previous Tab, File > Close Document
   useEffect(() => {
-    const offNext = Events.On('tab:next', () => cycleTab(1));
-    const offPrev = Events.On('tab:prev', () => cycleTab(-1));
-    const offClose = Events.On('document:close-active', () => closeActiveTab());
+    const offNext = Events.On(TabNext, () => cycleTab(1));
+    const offPrev = Events.On(TabPrev, () => cycleTab(-1));
+    const offClose = Events.On(DocumentCloseActive, () => closeActiveTab());
     return () => { offNext(); offPrev(); offClose(); };
   }, [cycleTab, closeActiveTab]);
 

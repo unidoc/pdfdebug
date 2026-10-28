@@ -24,6 +24,13 @@ import (
 // can render a phase label and progress bar.
 const updateProgressEvent = "update:download-progress"
 
+// init registers the download progress event with the payload type its emitter
+// sends, so Wails checks every emit and the binding generator emits a typed
+// constant for it.
+func init() {
+	application.RegisterEvent[map[string]any](updateProgressEvent)
+}
+
 // pauseGate blocks a download while paused and wakes on resume or context cancel.
 type pauseGate struct {
 	mu     sync.Mutex

@@ -2,7 +2,7 @@
  * @file PDF service layer. Wraps Wails-generated bindings with
  * user-friendly error mapping and a structured open-file workflow.
  */
-import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog, RecordRecentFile } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
 
 /** Failure category of a raw backend open error. */
@@ -60,6 +60,15 @@ export interface OpenPDFResult {
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
   warning: string | null;
+}
+
+/**
+ * Adds a file the user opened as a tab to File > Open Recent. Called after a
+ * successful user open only; reload and compare never record. A recording
+ * failure does not affect the open.
+ */
+export function recordRecentFile(path: string): void {
+  Promise.resolve(RecordRecentFile(path)).catch(() => {});
 }
 
 /**

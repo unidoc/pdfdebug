@@ -80,3 +80,9 @@ if (
   };
   Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
 }
+
+// The generated bindings/events module imports eventcreate.js, which registers
+// event payload factories through @wailsio/runtime's Create namespace at import
+// time. Tests mock @wailsio/runtime without Create, so the registration is
+// replaced with an empty module; the event name constants load unchanged.
+vi.mock('../bindings/github.com/wailsapp/wails/v3/internal/eventcreate.js', () => ({}));

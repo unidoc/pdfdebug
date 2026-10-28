@@ -60,11 +60,15 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   ./unidoc-pdf-debugger
   ```
 
-  Requires `libwebkit2gtk-4.1`:
+  Requires GTK4 and WebKitGTK 6.0, plus `xdg-desktop-portal` with a backend (`xdg-desktop-portal-gtk`, `-gnome` or `-kde`) for the Open and Save dialogs:
 
   ```bash
-  sudo apt-get install -y libwebkit2gtk-4.1-0
+  sudo apt-get install -y libgtk-4-1 libwebkitgtk-6.0-4 xdg-desktop-portal xdg-desktop-portal-gtk
   ```
+
+  Fedora: `sudo dnf install gtk4 webkitgtk6.0`. Arch: `sudo pacman -S gtk4 webkitgtk-6.0`.
+
+  Distributions that do not ship WebKitGTK 6.0 cannot run the Linux build: Ubuntu 22.04, Debian 12, Fedora 39 and older, and RHEL 9.x.
 
   CLI archive: `pdfdebug-cli-<version>-linux-amd64.tar.gz`.
 
@@ -100,16 +104,16 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.27.x
+- Go 1.27.x (1.27.3 or later)
 - Node.js 20 LTS (CI pin; matches release artifacts)
-- Wails v3 CLI `v3.0.0-beta.18`
+- Wails v3 CLI `v3.0.0`
 
 > Node version note: `.nvmrc` sets Node 24 for local dev convenience, but CI runs Node 20 LTS -- either works locally, but CI is the authoritative pin.
 
 Per-platform prerequisites:
 
 - **macOS**: `xcode-select --install` (Xcode Command Line Tools)
-- **Linux**: `sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential`
+- **Linux**: `sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential`
 - **Windows**: WebView2 runtime (preinstalled on Windows 11) plus MinGW or MSVC for the Go cgo toolchain
 
 ### Steps
@@ -119,7 +123,7 @@ Per-platform prerequisites:
 git clone https://github.com/unidoc/pdfdebug && cd pdfdebug
 
 # 2. Install the pinned Wails v3 CLI (version suffix MUST match go.mod)
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.18
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
 
 # 3. Install frontend deps
 npm ci --prefix frontend
@@ -170,7 +174,7 @@ pdfdebug diff old.pdf new.pdf
 
 ## Architecture
 
-- Go 1.27 application core with Wails v3 (beta) binding to a native WebView
+- Go 1.27 application core with Wails v3 binding to a native WebView
 - React 18 with TypeScript on the frontend; Vite build pipeline
 - PDF parsing via [pdfcpu](https://github.com/pdfcpu/pdfcpu)
 - Tailwind CSS utility styling with a shadcn-style component library (Radix UI primitives under the hood)

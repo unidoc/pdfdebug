@@ -35,7 +35,7 @@ const splashMinDisplayMs = 400
 // splash transitions to its error pane via the `splash:timeout` Wails
 // event. The ceiling bounds the perceived hang on installs where the main
 // window's WebView never reaches WindowShow (e.g. WebView2 missing on
-// Windows, WebKit2GTK missing on Linux).
+// Windows, WebKitGTK missing on Linux).
 const splashTimeoutMs = 30000
 
 // Clock abstracts the wall clock + deferred-callback scheduler used by
@@ -420,7 +420,7 @@ const splashHTMLTemplate = `<!DOCTYPE html>
     splashCloseBtn.addEventListener('click', function () {
       // window.close() is honoured by WebView2 on Windows and propagates
       // to WM_CLOSE which Wails maps to WindowClosing. On WKWebView /
-      // WebKit2GTK it is generally a no-op for top-level windows; Go's
+      // WebKitGTK it is generally a no-op for top-level windows; Go's
       // 60s force-quit timer armed alongside splash:timeout is the
       // safety net there.
       try { window.close(); } catch (_) { /* swallow */ }

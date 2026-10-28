@@ -4,9 +4,10 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
+import { DocumentBatchComplete, DocumentBatchStart, DocumentDiskStatus, DocumentError, DocumentLoadStart, DocumentOpened, DocumentReloadActive, NavigateBack, NavigateForward, NavigateGoToPage, NavigateStateChanged, PaletteOpen } from '../bindings/events/index.js'
 import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
-import { mapErrorMessage, openPDFFile } from './hooks/usePDFService'
+import { mapErrorMessage, openPDFFile, recordRecentFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { isInTextField } from './hooks/useFindBar'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
@@ -105,7 +106,7 @@ function AppContent() {
       }
       if (!swallowed) reloadActive()
     }
-    const offReload = Events.On('document:reload-active', () => {
+    const offReload = Events.On(DocumentReloadActive, () => {
       if (notePress('menu')) reloadActive()
     })
     window.addEventListener('keydown', onKeyDown)
@@ -120,7 +121,7 @@ function AppContent() {
   // Events for tab ids not in the tab list yet (a reload still fetching its
   // tree) are ignored; reloadTab checks the new id once its tab exists.
   useEffect(() => {
-    return Events.On('document:disk-status', (event) => {
+    return Events.On(DocumentDiskStatus, (event) => {
       const data = event?.data
       if (!data || typeof data.tabId !== 'string') return
       const tab = tabsRef.current.find((t) => t.tabId === data.tabId)
@@ -144,14 +145,14 @@ function AppContent() {
   useEffect(() => {
     if (prevNavState.current.canGoBack !== canGoBack || prevNavState.current.canGoForward !== canGoForward) {
       prevNavState.current = { canGoBack, canGoForward }
-      Events.Emit('navigate:state-changed', { canGoBack, canGoForward })
+      Events.Emit(NavigateStateChanged, { canGoBack, canGoForward })
     }
   }, [canGoBack, canGoForward])
 
   // Subscribe to Wails runtime events for backend-initiated document opens
   // and errors. Returns cleanup functions to unsubscribe on unmount.
   useEffect(() => {
-    const offOpened = Events.On('document:opened', (event) => {
+    const offOpened = Events.On(DocumentOpened, (event) => {
       const data = event?.data
       if (!data || !data.tabId || !data.fileName) return
 
@@ -168,37 +169,31 @@ function AppContent() {
       }
     })
 
-    const offError = Events.On('document:error', (event) => {
+    const offError = Events.On(DocumentError, (event) => {
       const data = event?.data
       const msg = (data && data.message) || 'An unknown error occurred.'
       dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } })
     })
 
-    const offWarning = Events.On('document:warning', (event) => {
-      const data = event?.data
-      const msg = (data && data.message) || ''
-      if (msg) dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: msg } })
-    })
-
-    const offNavBack = Events.On('navigate:back', () => {
+    const offNavBack = Events.On(NavigateBack, () => {
       dispatch({ type: 'NAVIGATE_BACK' })
     })
 
-    const offNavForward = Events.On('navigate:forward', () => {
+    const offNavForward = Events.On(NavigateForward, () => {
       dispatch({ type: 'NAVIGATE_FORWARD' })
     })
 
     // The Navigate > Go to Page menu item opens the Pages navigator's jump
     // field. The reducer ignores it when no document is open.
-    const offGoToPage = Events.On('navigate:goToPage', () => {
+    const offGoToPage = Events.On(NavigateGoToPage, () => {
       dispatch({ type: 'FOCUS_PAGES_JUMP' })
     })
 
-    const offPaletteOpen = Events.On('palette:open', () => {
+    const offPaletteOpen = Events.On(PaletteOpen, () => {
       openPalette()
     })
 
-    const offLoadStart = Events.On('document:load-start', (event) => {
+    const offLoadStart = Events.On(DocumentLoadStart, (event) => {
       const data = event?.data
       const fileName = (data && data.fileName) || ''
       if (fileName) {
@@ -206,12 +201,12 @@ function AppContent() {
       }
     })
 
-    const offBatchStart = Events.On('document:batch-start', (event) => {
+    const offBatchStart = Events.On(DocumentBatchStart, (event) => {
       const total = Number(event?.data?.total) || 0
       if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
     })
 
-    const offBatchComplete = Events.On('document:batch-complete', () => {
+    const offBatchComplete = Events.On(DocumentBatchComplete, () => {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
 
@@ -219,7 +214,7 @@ function AppContent() {
     // above is registered, drain any file-association paths the backend
     // buffered before the frontend was ready (cold start). Ordering is
     // load-bearing: a path delivered between drain and subscribe would be lost,
-    // so this MUST run after Events.On('document:opened', ...). Drain-on-read
+    // so this MUST run after Events.On(DocumentOpened, ...). Drain-on-read
     // (the backend queue stays empty after the first drain) makes StrictMode
     // double-effects and dev reloads safe -- a second drain returns [].
     async function drainPendingOpens() {
@@ -254,6 +249,7 @@ function AppContent() {
             rootNode: result.rootNode,
             rootChildren: result.rootChildren,
           })
+          recordRecentFile(path)
         } catch (err) {
           // Keep iterating so one bad file does not block the rest; defer the
           // error dispatch until after the loop (see lastError above).
@@ -270,7 +266,6 @@ function AppContent() {
     return () => {
       offOpened()
       offError()
-      offWarning()
       offNavBack()
       offNavForward()
       offGoToPage()

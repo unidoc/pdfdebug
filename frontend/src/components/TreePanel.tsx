@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
+import { Clipboard } from '@wailsio/runtime';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import {
@@ -18,6 +19,8 @@ import {
   useLazyChildren,
   type TreeNodeData,
 } from './treeRows';
+import { useRowContextMenu } from './navigatorHooks';
+import { RowContextMenu, type RowMenuItem } from './RowContextMenu';
 
 /** Per-tab tree state cache entry. */
 interface TabTreeCache {
@@ -30,6 +33,37 @@ function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): 
   const root = toTreeNodeData(rootNode);
   root.children = rootChildren ? rootChildren.map((c) => toTreeNodeData(c, root.id)) : [];
   return [root];
+}
+
+/** Joins a GetAncestorPath result into the breadcrumb the command palette shows. */
+export function formatNodePath(ancestorPath: string[]): string {
+  return ancestorPath.join(' > ');
+}
+
+/** Copies text through the Wails clipboard; a failure leaves the clipboard as it was. */
+function copyText(text: string) {
+  Promise.resolve(Clipboard.SetText(text)).catch(() => {});
+}
+
+/**
+ * Context-menu items for a structure-tree row: "Copy object reference" for an
+ * indirect object (objectRef is not empty) and "Copy path", which copies the
+ * node's ancestor path from the backend.
+ */
+export function treeRowMenuItems(tabId: string, nodeId: string, objectRef: string): RowMenuItem[] {
+  const items: RowMenuItem[] = [];
+  if (objectRef !== '') {
+    items.push({ label: 'Copy object reference', onSelect: () => copyText(objectRef) });
+  }
+  items.push({
+    label: 'Copy path',
+    onSelect: () => {
+      Promise.resolve(GetAncestorPath(tabId, nodeId))
+        .then((path) => copyText(formatNodePath(path ?? [])))
+        .catch(() => {});
+    },
+  });
+  return items;
 }
 
 /**
@@ -323,12 +357,41 @@ export function TreePanel() {
   );
   const rowState = useMemo(() => ({ loadingNodeId, flashNodeId }), [loadingNodeId, flashNodeId]);
 
+  // Row context menu (right-click, Shift+F10, ContextMenu key). Rows carry the
+  // arborist display id; the menu acts on the node's backend id. An error row
+  // has no object reference and no ancestor path, so it gets no menu.
+  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+    treeRef,
+    '[data-testid="tree-node"]',
+    'data-node-id',
+    (rowId) => {
+      const backendId = findNode(treeDataRef.current, (n) => n.id === rowId)?.backendId;
+      return backendId && !backendId.startsWith('error:') ? backendId : null;
+    },
+  );
+
+  // The menu acts on a row of the tab it was opened in, so a tab switch closes it.
+  useEffect(() => {
+    closeMenu();
+  }, [activeTabId, closeMenu]);
+
+  const menuItems = useMemo(() => {
+    if (!menu || !activeTabId) return [];
+    const node = findNode(treeDataRef.current, (n) => n.backendId === menu.nodeId);
+    return treeRowMenuItems(activeTabId, menu.nodeId, node?.objectRef ?? '');
+  }, [menu, activeTabId, treeDataRef]);
+
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
       <div className="px-3 py-1.5 text-sm font-medium text-text-secondary border-b border-border flex-shrink-0">
         Document Structure
       </div>
-      <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
+      <div
+        ref={containerRef}
+        className="h-full w-full relative flex-1 min-h-0"
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
+      >
         {treeMounted && (
           <RowStateContext.Provider value={rowState}>
           <Tree<TreeNodeData>
@@ -363,6 +426,7 @@ export function TreePanel() {
           </div>
         )}
       </div>
+      {menu && <RowContextMenu target={menu} label="Tree row actions" onClose={closeMenu} items={menuItems} />}
     </div>
   );
 }
