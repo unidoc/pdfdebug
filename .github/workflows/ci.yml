@@ -193,6 +193,10 @@ jobs:
         timeout-minutes: 5
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
+            # The runner's user session starts xdg-desktop-portal with no
+            # backend; GTK4's synchronous portal query at startup then blocks
+            # the main loop for the 25s D-Bus timeout, before the app activates.
+            export GDK_DEBUG=no-portals
             cd tests/boot-smoke && xvfb-run -a go test -count=1 -timeout 3m ./...
           else
             cd tests/boot-smoke && go test -count=1 -timeout 3m ./...
