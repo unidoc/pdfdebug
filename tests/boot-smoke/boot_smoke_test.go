@@ -43,6 +43,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -253,9 +254,10 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 }
 
 // hangDiagnostics reports on Linux whether the app process itself is still
-// running or has exited while descendants keep its output pipe open. A
-// running app gets SIGQUIT so the Go runtime writes its goroutine stacks to
-// the captured output.
+// running or has exited while descendants keep its output pipe open. For a
+// running app it adds native thread backtraces when gdb is available, then
+// sends SIGQUIT so the Go runtime writes its goroutine stacks to the captured
+// output.
 func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 	if runtime.GOOS != "linux" {
 		return ""
@@ -268,14 +270,18 @@ func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 		}
 	}
 	ps, _ := exec.Command("ps", "-eo", "pid,ppid,stat,args").CombinedOutput()
+	var bt []byte
 	if state != "Z" {
+		// sudo -n fails fast where attaching needs a password or gdb is absent.
+		bt, _ = exec.Command("sudo", "-n", "gdb", "-p", strconv.Itoa(p.Pid), "-batch",
+			"-ex", "thread apply all bt 30").CombinedOutput()
 		_ = p.Signal(syscall.SIGQUIT)
 		select {
 		case <-exitCh:
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s", state, ps)
+	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s\n--- native backtraces ---\n%s", state, ps, bt)
 }
 
 // scanForFatalOutput inspects the captured stdout+stderr for known
