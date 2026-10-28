@@ -195,9 +195,12 @@ jobs:
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             # gdb lets the boot-smoke hang report print native thread stacks.
             sudo apt-get install -y gdb
-            # A private session bus: on the runner's systemd user bus,
-            # xdg-desktop-portal starts without a backend and GTK4's startup
-            # D-Bus proxies wait the full 25s timeout before the app activates.
+            # A private session bus: on the runner's systemd user bus the
+            # desktop portal does not answer, and GTK4's startup D-Bus proxies
+            # wait the full 25s timeout before the app activates.
+            # WebKit's bwrap sandbox needs unprivileged user namespaces, which
+            # the runner's AppArmor policy blocks.
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
             cd tests/boot-smoke && xvfb-run -a dbus-run-session -- go test -count=1 -timeout 3m ./...
           else
             cd tests/boot-smoke && go test -count=1 -timeout 3m ./...
