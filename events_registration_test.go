@@ -65,6 +65,7 @@ var payloadEvents = map[string]string{
 	"document:batch-start":     reflect.TypeFor[map[string]any]().String(),
 	"update:download-progress": reflect.TypeFor[map[string]any]().String(),
 	"navigate:state-changed":   reflect.TypeFor[map[string]any]().String(),
+	"row-menu:action":          reflect.TypeFor[RowMenuAction]().String(),
 }
 
 func TestPayloadlessEventsAreRegisteredAsVoid(t *testing.T) {

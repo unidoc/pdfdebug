@@ -19,8 +19,7 @@ import {
   useLazyChildren,
   type TreeNodeData,
 } from './treeRows';
-import { useRowContextMenu } from './navigatorHooks';
-import { RowContextMenu, type RowMenuItem } from './RowContextMenu';
+import { ROW_MENU_TREE, ROW_MENU_TREE_WITH_REF, useRowContextMenu, type RowMenuActionName } from './navigatorHooks';
 
 /** Per-tab tree state cache entry. */
 interface TabTreeCache {
@@ -46,24 +45,19 @@ function copyText(text: string) {
 }
 
 /**
- * Context-menu items for a structure-tree row: "Copy object reference" for an
- * indirect object (objectRef is not empty) and "Copy path", which copies the
- * node's ancestor path from the backend.
+ * Runs a structure-tree row menu action: "copy-ref" copies the node's object
+ * reference, "copy-path" copies its ancestor path from the backend.
  */
-export function treeRowMenuItems(tabId: string, nodeId: string, objectRef: string): RowMenuItem[] {
-  const items: RowMenuItem[] = [];
-  if (objectRef !== '') {
-    items.push({ label: 'Copy object reference', onSelect: () => copyText(objectRef) });
+export function runTreeRowAction(action: RowMenuActionName, tabId: string, nodeId: string, objectRef: string) {
+  if (action === 'copy-ref') {
+    if (objectRef !== '') copyText(objectRef);
+    return;
   }
-  items.push({
-    label: 'Copy path',
-    onSelect: () => {
-      Promise.resolve(GetAncestorPath(tabId, nodeId))
-        .then((path) => copyText(formatNodePath(path ?? [])))
-        .catch(() => {});
-    },
-  });
-  return items;
+  if (action === 'copy-path') {
+    Promise.resolve(GetAncestorPath(tabId, nodeId))
+      .then((path) => copyText(formatNodePath(path ?? [])))
+      .catch(() => {});
+  }
 }
 
 /**
@@ -358,28 +352,29 @@ export function TreePanel() {
   const rowState = useMemo(() => ({ loadingNodeId, flashNodeId }), [loadingNodeId, flashNodeId]);
 
   // Row context menu (right-click, Shift+F10, ContextMenu key). Rows carry the
-  // arborist display id; the menu acts on the node's backend id. An error row
-  // has no object reference and no ancestor path, so it gets no menu.
-  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  // arborist display id; the menu acts on the node's backend id. Indirect
+  // objects get the menu with "Copy object reference". An error row has no
+  // object reference and no ancestor path, so it gets no menu.
+  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
     treeRef,
     '[data-testid="tree-node"]',
     'data-node-id',
     (rowId) => {
-      const backendId = findNode(treeDataRef.current, (n) => n.id === rowId)?.backendId;
-      return backendId && !backendId.startsWith('error:') ? backendId : null;
+      const node = findNode(treeDataRef.current, (n) => n.id === rowId);
+      if (!node?.backendId || node.backendId.startsWith('error:')) return null;
+      return { menu: node.objectRef ? ROW_MENU_TREE_WITH_REF : ROW_MENU_TREE, nodeId: node.backendId };
+    },
+    (action, nodeId) => {
+      if (!activeTabId) return;
+      const node = findNode(treeDataRef.current, (n) => n.backendId === nodeId);
+      runTreeRowAction(action, activeTabId, nodeId, node?.objectRef ?? '');
     },
   );
 
-  // The menu acts on a row of the tab it was opened in, so a tab switch closes it.
+  // The menu acts on a row of the tab it was opened in, so a tab switch forgets it.
   useEffect(() => {
     closeMenu();
   }, [activeTabId, closeMenu]);
-
-  const menuItems = useMemo(() => {
-    if (!menu || !activeTabId) return [];
-    const node = findNode(treeDataRef.current, (n) => n.backendId === menu.nodeId);
-    return treeRowMenuItems(activeTabId, menu.nodeId, node?.objectRef ?? '');
-  }, [menu, activeTabId, treeDataRef]);
 
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
@@ -426,7 +421,6 @@ export function TreePanel() {
           </div>
         )}
       </div>
-      {menu && <RowContextMenu target={menu} label="Tree row actions" onClose={closeMenu} items={menuItems} />}
     </div>
   );
 }

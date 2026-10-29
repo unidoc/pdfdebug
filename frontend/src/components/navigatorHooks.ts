@@ -1,13 +1,14 @@
 /**
  * @file Hooks shared by the left-rail navigator panels: the per-tab fetch
- * cache, the pane size their Tree is drawn at, and the triggers that open the
- * row context menu.
+ * cache, the pane size their Tree is drawn at, and the native row context
+ * menu.
  */
 import { useCallback, useEffect, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
 import type { TreeApi } from 'react-arborist';
 import { useLatest } from '../hooks/useLatest';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
-import type { RowMenuTarget } from './RowContextMenu';
+import { Events } from '@wailsio/runtime';
+import { RowMenuAction } from '../../bindings/events/index.js';
 
 /**
  * Per-tab fetch cache for a navigator panel. The first time the panel is
@@ -87,51 +88,88 @@ export function useContainerSize(ref: RefObject<HTMLElement | null>, remountKey:
   return size;
 }
 
+/** Native row menus registered by the Go side (rowmenus.go). */
+export const ROW_MENU_REVEAL = 'row-reveal';
+export const ROW_MENU_TREE = 'tree-row';
+export const ROW_MENU_TREE_WITH_REF = 'tree-row-ref';
+
+/** Actions the native row menu items send back. */
+export type RowMenuActionName = 'reveal' | 'copy-ref' | 'copy-path';
+
+/** The menu a row opens and the node its actions apply to. */
+export interface RowMenuHit {
+  menu: string;
+  nodeId: string;
+}
+
+// Shared by every panel, so a menu action names exactly one opened row.
+let nextRowMenuToken = 0;
+
 /**
- * Opens a RowContextMenu for a navigator row from a right-click or from
+ * Opens the native row menu for a navigator row from a right-click or from
  * Shift+F10 / the ContextMenu key on the focused row. Rows are found by
  * `rowSelector` and identified by their `rowIdAttribute`, which holds the
- * arborist row id. `resolveNodeId` maps that id to the node the menu reveals,
- * or null when the row has nothing to reveal; the menu then stays closed.
+ * arborist row id. `resolve` maps that id to the menu and the node it acts on,
+ * or null when the row has no menu.
+ *
+ * The Wails runtime opens a menu on the DOM contextmenu event from the
+ * --custom-contextmenu CSS property of the event target, so the handler sets
+ * that property on the container, with a fresh token as the menu data. The
+ * keyboard triggers dispatch a contextmenu event at the row. A clicked item
+ * comes back as a row-menu:action event and calls `onAction` when its token
+ * is the one this panel opened last. `closeMenu` forgets that row.
  */
 export function useRowContextMenu<T>(
   treeRef: RefObject<TreeApi<T> | undefined>,
   rowSelector: string,
   rowIdAttribute: string,
-  resolveNodeId: (rowId: string) => string | null,
+  resolve: (rowId: string) => RowMenuHit | null,
+  onAction: (action: RowMenuActionName, nodeId: string) => void,
 ) {
-  const [menu, setMenu] = useState<RowMenuTarget | null>(null);
-  const resolveRef = useLatest(resolveNodeId);
+  const pending = useRef<{ token: string; nodeId: string } | null>(null);
+  const resolveRef = useLatest(resolve);
+  const onActionRef = useLatest(onAction);
 
-  const openMenu = useCallback((rowId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const nodeId = resolveRef.current(rowId);
-    if (!nodeId) return;
-    treeRef.current?.select(rowId);
-    setMenu({ x, y, nodeId, returnFocus });
-  }, [resolveRef, treeRef]);
+  useEffect(() => Events.On(RowMenuAction, (ev) => {
+    const { action, token } = ev.data;
+    const p = pending.current;
+    if (!p || p.token !== token.trim()) return;
+    pending.current = null;
+    onActionRef.current(action as RowMenuActionName, p.nodeId);
+  }), [onActionRef]);
 
   const onContextMenu = useCallback((e: MouseEvent<HTMLElement>) => {
-    const row = (e.target as HTMLElement).closest(rowSelector);
-    if (!row) return;
-    e.preventDefault();
-    const id = row.getAttribute(rowIdAttribute);
-    if (!id) return;
-    const item = row.closest<HTMLElement>('[role="treeitem"]') ?? (row as HTMLElement);
-    openMenu(id, e.clientX, e.clientY, item);
-  }, [openMenu, rowSelector, rowIdAttribute]);
+    const container = e.currentTarget;
+    container.style.removeProperty('--custom-contextmenu');
+    container.style.removeProperty('--custom-contextmenu-data');
+    const id = (e.target as HTMLElement).closest(rowSelector)?.getAttribute(rowIdAttribute);
+    const hit = id ? resolveRef.current(id) : null;
+    if (!id || !hit) return;
+    treeRef.current?.select(id);
+    const token = String(++nextRowMenuToken);
+    pending.current = { token, nodeId: hit.nodeId };
+    container.style.setProperty('--custom-contextmenu', hit.menu);
+    container.style.setProperty('--custom-contextmenu-data', token);
+  }, [resolveRef, treeRef, rowSelector, rowIdAttribute]);
 
   const onKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
     if (!((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu')) return;
     const item = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-    const row = item?.querySelector(rowSelector);
-    const id = row?.getAttribute(rowIdAttribute) ?? treeRef.current?.focusedNode?.id;
-    if (!id) return;
+    const row = item?.querySelector<HTMLElement>(rowSelector);
+    if (!item || !row) return;
     e.preventDefault();
-    const rect = (item ?? row)?.getBoundingClientRect();
-    openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
-  }, [openMenu, rowSelector, rowIdAttribute, treeRef]);
+    const rect = item.getBoundingClientRect();
+    row.dispatchEvent(new window.MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + 16,
+      clientY: rect.bottom,
+    }));
+  }, [rowSelector]);
 
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const closeMenu = useCallback(() => {
+    pending.current = null;
+  }, []);
 
-  return { menu, closeMenu, onContextMenu, onKeyDown };
+  return { closeMenu, onContextMenu, onKeyDown };
 }

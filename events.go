@@ -25,6 +25,7 @@ const (
 	eventNavigateGoToPage      = "navigate:goToPage"
 	eventNavigateStateChanged  = "navigate:state-changed"
 	eventPaletteOpen           = "palette:open"
+	eventRowMenuAction         = "row-menu:action"
 	eventTabNext               = "tab:next"
 	eventTabPrev               = "tab:prev"
 	eventUpdateCheckRequested  = "update:check-requested"
@@ -52,6 +53,7 @@ func init() {
 	application.RegisterEvent[application.Void](eventNavigateGoToPage)
 	application.RegisterEvent[map[string]any](eventNavigateStateChanged)
 	application.RegisterEvent[application.Void](eventPaletteOpen)
+	application.RegisterEvent[RowMenuAction](eventRowMenuAction)
 	application.RegisterEvent[application.Void](eventTabNext)
 	application.RegisterEvent[application.Void](eventTabPrev)
 	application.RegisterEvent[application.Void](eventUpdateCheckRequested)

@@ -17,8 +17,7 @@ import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
-import { RowContextMenu } from './RowContextMenu';
+import { ROW_MENU_REVEAL, useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
 import { findById, RowStateContext, useLazyLoad } from './treeRows';
 
@@ -452,19 +451,22 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     bump();
   }
 
-  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
     treeRef,
     '[data-row-id]',
     'data-row-id',
     (rowId) => {
       const row = dataRef.current ? findById(dataRef.current, rowId) : null;
       // Error rows and pages without a node id have nothing to reveal.
-      return row && row.nodeId !== '' ? row.nodeId : null;
+      return row && row.nodeId !== '' ? { menu: ROW_MENU_REVEAL, nodeId: row.nodeId } : null;
+    },
+    (action, nodeId) => {
+      if (action === 'reveal') dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
     },
   );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
-  // switch, a rail switch or a view change closes it.
+  // switch, a rail switch or a view change forgets it.
   useEffect(() => {
     closeMenu();
   }, [active, activeTabId, view, closeMenu]);
@@ -555,7 +557,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
           </RowStateContext.Provider>
         )}
       </div>
-      {menu && <RowContextMenu target={menu} label="Image row actions" onClose={closeMenu} />}
     </div>
   );
 }

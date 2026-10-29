@@ -13,6 +13,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Dispatch, ReactNode } from 'react';
 import { AppProvider, useAppDispatch, useAppState, type AppAction, type AppState } from '../hooks/useDocumentState';
 import { MainLayout } from './MainLayout';
+import { armedRowMenu, clickRowMenuItem, rightClickRow } from './rowMenuTestUtils';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 const RAIL_KEY = 'unidoc-pdf-debugger:left-rail';
@@ -809,8 +810,7 @@ describe('pages without a node id', () => {
     await waitFor(() => expect(hasPageRow(panel, 2)).toBe(true));
     await user.click(pageRow(panel, 2));
     expect(activeTab().selectedNodeId).toBe('obj:0:19');
-    fireEvent.contextMenu(pageRow(panel, 2));
-    expect(screen.queryByRole('menu')).toBeNull();
+    expect(rightClickRow(pageRow(panel, 2))).toBeNull();
     await user.click(pageRow(panel, 3));
     expect(activeTab().selectedNodeId).toBe('obj:0:103');
   });
@@ -964,18 +964,12 @@ describe('selection', () => {
 });
 
 describe('Show node in tree', () => {
-  test('right-click on an image row opens one labelled menu item and suppresses the WebView menu', async () => {
+  test('right-click on an image row arms the native reveal menu', async () => {
     const user = userEvent.setup();
     renderLayout();
     openTab();
     const panel = await showImages(user);
-    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
-    act(() => {
-      imageRow(panel, '12 0 R').dispatchEvent(ev);
-    });
-    expect(ev.defaultPrevented).toBe(true);
-    const menu = screen.getByRole('menu', { name: 'Image row actions' });
-    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Show node in tree']);
+    expect(rightClickRow(imageRow(panel, '12 0 R'))?.menu).toBe('row-reveal');
   });
 
   test('activating it switches the rail to Structure and reveals the image', async () => {
@@ -983,14 +977,13 @@ describe('Show node in tree', () => {
     renderLayout();
     openTab();
     const panel = await showImages(user);
-    fireEvent.contextMenu(imageRow(panel, '12 0 R'));
-    await user.click(screen.getByRole('menuitem', { name: 'Show node in tree' }));
+    const armed = rightClickRow(imageRow(panel, '12 0 R'));
+    clickRowMenuItem('reveal', armed!.token);
     expect(tab('Structure')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.queryByRole('menu')).toBeNull();
     await waitFor(() => expect(mockGetAncestorPath).toHaveBeenCalledWith('tab-1', 'obj:0:12'));
   });
 
-  test('a page child row offers the menu for its /Page node', async () => {
+  test('a page child row reveals its /Page node', async () => {
     mockGetAncestorPath.mockReset().mockResolvedValue(['root', 'obj:0:2', 'obj:0:102']);
     const user = userEvent.setup();
     renderLayout();
@@ -998,12 +991,12 @@ describe('Show node in tree', () => {
     const panel = await showImages(user);
     await expand(user, imageRow(panel, '19 0 R'));
     await waitFor(() => expect(hasPageRow(panel, 2)).toBe(true));
-    fireEvent.contextMenu(pageRow(panel, 2));
-    await user.click(screen.getByRole('menuitem', { name: 'Show node in tree' }));
+    const armed = rightClickRow(pageRow(panel, 2));
+    clickRowMenuItem('reveal', armed!.token);
     await waitFor(() => expect(mockGetAncestorPath).toHaveBeenCalledWith('tab-1', 'obj:0:102'));
   });
 
-  test('Shift+F10 on a focused row opens the menu, and Escape closes it returning focus', async () => {
+  test('Shift+F10 on a focused row arms the menu', async () => {
     const user = userEvent.setup();
     renderLayout();
     openTab();
@@ -1011,10 +1004,7 @@ describe('Show node in tree', () => {
     const row = imageRow(panel, '12 0 R');
     await user.click(row);
     await user.keyboard('{Shift>}{F10}{/Shift}');
-    expect(screen.getByRole('menu')).toBeInTheDocument();
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(row.contains(document.activeElement) || row.closest('[role="treeitem"]')?.contains(document.activeElement)).toBe(true);
+    expect(armedRowMenu(row)?.menu).toBe('row-reveal');
   });
 
   test('an error row opens no menu', async () => {
@@ -1022,11 +1012,10 @@ describe('Show node in tree', () => {
     renderLayout();
     openTab();
     const panel = await showImages(user);
-    fireEvent.contextMenu(imageRow(panel, WALK_STOPPED));
-    expect(screen.queryByRole('menu')).toBeNull();
+    expect(rightClickRow(imageRow(panel, WALK_STOPPED))).toBeNull();
   });
 
-  test('the Pages navigator keeps its own menu label', async () => {
+  test('a click is handled by the panel whose row opened the menu', async () => {
     mockGetPageIndex.mockReset().mockResolvedValue(pages.slice(0, 3));
     const user = userEvent.setup();
     renderLayout();
@@ -1034,14 +1023,15 @@ describe('Show node in tree', () => {
     await user.click(tab('Pages'));
     const pagesPanel = panelFor('Pages');
     await waitFor(() => expect(within(pagesPanel).getAllByTestId('tree-node').length).toBeGreaterThan(0));
-    fireEvent.contextMenu(within(pagesPanel).getAllByTestId('tree-node')[0]);
-    expect(screen.getByRole('menu', { name: 'Page row actions' })).toBeInTheDocument();
-    await user.keyboard('{Escape}');
+    const pageArmed = rightClickRow(within(pagesPanel).getAllByTestId('tree-node')[0]);
     await user.click(tab('Images'));
     const panel = panelFor('Images');
     await waitFor(() => expect(imageRows(panel).length).toBeGreaterThan(0));
-    fireEvent.contextMenu(imageRow(panel, '12 0 R'));
-    expect(screen.getByRole('menu', { name: 'Image row actions' })).toBeInTheDocument();
+    const imageArmed = rightClickRow(imageRow(panel, '12 0 R'));
+    expect(imageArmed!.token).not.toBe(pageArmed!.token);
+    clickRowMenuItem('reveal', imageArmed!.token);
+    await waitFor(() => expect(mockGetAncestorPath).toHaveBeenCalledWith('tab-1', 'obj:0:12'));
+    expect(mockGetAncestorPath).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1429,13 +1419,14 @@ describe('null-tolerant responses', () => {
 });
 
 describe('ContextMenu key', () => {
-  test('the ContextMenu key on a focused row opens the menu', async () => {
+  test('the ContextMenu key on a focused row arms the menu', async () => {
     const user = userEvent.setup();
     renderLayout();
     openTab();
     const panel = await showImages(user);
-    await user.click(imageRow(panel, '19 0 R'));
+    const row = imageRow(panel, '19 0 R');
+    await user.click(row);
     await user.keyboard('{ContextMenu}');
-    expect(screen.getByRole('menu', { name: 'Image row actions' })).toBeInTheDocument();
+    expect(armedRowMenu(row)?.menu).toBe('row-reveal');
   });
 });

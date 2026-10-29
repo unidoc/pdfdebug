@@ -1,17 +1,20 @@
 /**
- * Structure-tree row context menu: opened by right-click or Shift+F10 on a
- * row, it offers "Copy object reference" for indirect objects and "Copy path"
- * for every node, both copying through the Wails clipboard.
+ * Structure-tree row context menu: right-click or Shift+F10 on a row arms the
+ * native menu with "Copy object reference" for indirect objects and the one
+ * with only "Copy path" for every other node; both copy through the Wails
+ * clipboard.
  *
  * Run: cd frontend && npx vitest run src/components/TreePanel.contextMenu.test.tsx
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { AppProvider, useAppDispatch, type AppAction } from '../hooks/useDocumentState';
-import { TreePanel, formatNodePath, treeRowMenuItems } from './TreePanel';
+import { TreePanel, formatNodePath, runTreeRowAction } from './TreePanel';
+import { armedRowMenu, clickRowMenuItem, rightClickRow } from './rowMenuTestUtils';
 
 const mockSetText = vi.fn();
-vi.mock('@wailsio/runtime', () => ({
+vi.mock('@wailsio/runtime', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@wailsio/runtime')>()),
   Clipboard: { SetText: (...a: unknown[]) => mockSetText(...a) },
 }));
 
@@ -102,102 +105,88 @@ beforeEach(() => {
 });
 
 describe('structure tree row context menu', () => {
-  test('right-click on an indirect object offers both copy items', async () => {
+  test('right-click on an indirect object arms the menu with both copy items', async () => {
     renderTree();
-    fireEvent.contextMenu(await rowFor('Pages'));
-
-    const menu = await screen.findByRole('menu', { name: 'Tree row actions' });
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]')).map((el) => el.textContent);
-    expect(items).toEqual(['Copy object reference', 'Copy path']);
+    expect(rightClickRow(await rowFor('Pages'))?.menu).toBe('tree-row-ref');
   });
 
-  test('a direct node offers only Copy path', async () => {
+  test('a direct node arms the menu with only Copy path', async () => {
     renderTree();
-    fireEvent.contextMenu(await rowFor('Lang'));
-
-    const menu = await screen.findByRole('menu', { name: 'Tree row actions' });
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]')).map((el) => el.textContent);
-    expect(items).toEqual(['Copy path']);
+    expect(rightClickRow(await rowFor('Lang'))?.menu).toBe('tree-row');
   });
 
-  test('Copy object reference copies the objectRef and closes the menu', async () => {
+  test('Copy object reference copies the objectRef', async () => {
     renderTree();
-    fireEvent.contextMenu(await rowFor('Pages'));
-
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy object reference' }));
-
+    const armed = rightClickRow(await rowFor('Pages'));
+    clickRowMenuItem('copy-ref', armed!.token);
     expect(mockSetText).toHaveBeenCalledWith('2 0 R');
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   test('Copy path copies the ancestor path of the node', async () => {
     mockGetAncestorPath.mockResolvedValue(['root', 'obj:0:2']);
     renderTree();
-    fireEvent.contextMenu(await rowFor('Pages'));
-
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy path' }));
-
+    const armed = rightClickRow(await rowFor('Pages'));
+    clickRowMenuItem('copy-path', armed!.token);
     expect(mockGetAncestorPath).toHaveBeenCalledWith('tab-1', 'obj:0:2');
     await waitFor(() => expect(mockSetText).toHaveBeenCalledWith('root > obj:0:2'));
   });
 
-  test('Shift+F10 on a focused row opens the menu', async () => {
+  test('Shift+F10 on a focused row arms the menu', async () => {
     renderTree();
     const row = await rowFor('Pages');
     const item = row.closest<HTMLElement>('[role="treeitem"]') ?? row;
-
     fireEvent.keyDown(item, { key: 'F10', shiftKey: true });
-
-    expect(await screen.findByRole('menu', { name: 'Tree row actions' })).toBeInTheDocument();
+    expect(armedRowMenu(row)?.menu).toBe('tree-row-ref');
   });
 
-  test('an error row opens no menu', async () => {
+  test('an error row arms no menu', async () => {
     renderTree();
-    fireEvent.contextMenu(await rowFor('Broken'));
+    expect(rightClickRow(await rowFor('Broken'))).toBeNull();
+  });
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  test('right-clicking an error row after a real row disarms the earlier menu', async () => {
+    renderTree();
+    rightClickRow(await rowFor('Pages'));
+    expect(rightClickRow(await rowFor('Broken'))).toBeNull();
   });
 
   test('a failed ancestor lookup copies nothing', async () => {
     mockGetAncestorPath.mockRejectedValue(new Error('document not found'));
     renderTree();
-    fireEvent.contextMenu(await rowFor('Pages'));
-
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy path' }));
-
+    const armed = rightClickRow(await rowFor('Pages'));
+    clickRowMenuItem('copy-path', armed!.token);
     await waitFor(() => expect(mockGetAncestorPath).toHaveBeenCalled());
     expect(mockSetText).not.toHaveBeenCalled();
   });
 });
 
 describe('structure tree row menu across tabs', () => {
-  test('switching to another tab closes an open menu', async () => {
+  test('a click after switching tabs does nothing', async () => {
     renderTree();
-    fireEvent.contextMenu(await rowFor('Pages'));
-    expect(await screen.findByRole('menu', { name: 'Tree row actions' })).toBeInTheDocument();
-
+    const armed = rightClickRow(await rowFor('Pages'));
     fireEvent.click(screen.getByTestId('open-second'));
-
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Pages').length).toBeGreaterThan(0));
+    clickRowMenuItem('copy-ref', armed!.token);
+    expect(mockSetText).not.toHaveBeenCalled();
   });
 });
 
-describe('treeRowMenuItems', () => {
+describe('runTreeRowAction', () => {
   test('a rejected clipboard write is swallowed', async () => {
     mockSetText.mockRejectedValue(new Error('clipboard unavailable'));
-    const [copyRef] = treeRowMenuItems('tab-1', 'obj:0:2', '2 0 R');
-
-    expect(() => copyRef.onSelect()).not.toThrow();
+    expect(() => runTreeRowAction('copy-ref', 'tab-1', 'obj:0:2', '2 0 R')).not.toThrow();
     await waitFor(() => expect(mockSetText).toHaveBeenCalledWith('2 0 R'));
   });
 
   test('Copy path copies an empty path when the backend returns none', async () => {
     mockGetAncestorPath.mockResolvedValue(null);
-    const items = treeRowMenuItems('tab-1', 'dict:root:Lang', '');
-
-    expect(items.map((i) => i.label)).toEqual(['Copy path']);
-    items[0].onSelect();
+    runTreeRowAction('copy-path', 'tab-1', 'dict:root:Lang', '');
     await waitFor(() => expect(mockSetText).toHaveBeenCalledWith(''));
+  });
+
+  test('Copy object reference on a node without one copies nothing', () => {
+    runTreeRowAction('copy-ref', 'tab-1', 'dict:root:Lang', '');
+    expect(mockSetText).not.toHaveBeenCalled();
   });
 });
 

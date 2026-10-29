@@ -853,6 +853,7 @@ func main() {
 	// UseApplicationMenu is set; Windows.Menu would also work but is more
 	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
+	registerRowMenus(app)
 
 	// Startup splash window. Created BEFORE the main WebviewWindow so the
 	// user sees branding during WebView2 cold init (especially on Windows
