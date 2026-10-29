@@ -26,6 +26,10 @@
 // in its skip-list (`case ... continue ;;`) because boot-smoke needs the
 // xvfb-run wrapper that the per-module loop does not provide on Linux.
 //
+// BOOT_SMOKE_BINARY: when set, the test starts that binary instead of building
+// one. CI sets it to the binary the Linux .deb installs, so the run also shows
+// the packaged AppArmor profile lets WebKit's sandbox start.
+//
 // Extending: keep TestAppBootsWithoutPanic as the single high-value smoke. Do
 // NOT add per-feature behavioural assertions here -- those belong in the
 // feature's own suite.
@@ -335,7 +339,10 @@ func scanForFatalOutput(s string) string {
 // verifies that the boot path -- including pdfservice.NewPDFService
 // registration -- runs to the event loop without panicking.
 func TestAppBootsWithoutPanic(t *testing.T) {
-	bin := buildSmokeBinary(t)
+	bin := os.Getenv("BOOT_SMOKE_BINARY")
+	if bin == "" {
+		bin = buildSmokeBinary(t)
+	}
 
 	deadline := platformLaunchDeadline()
 	ctx, cancel := context.WithTimeout(t.Context(), deadline)

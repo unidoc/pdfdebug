@@ -188,6 +188,32 @@ jobs:
             wails3 build
           fi
 
+      - name: CLI build sanity check
+        shell: bash
+        run: go build -o bin/pdfdebug ./cmd/cli/
+
+      - name: Linux packages
+        # Builds the .deb and .rpm from the GUI binary above, checks the .deb
+        # carries the binaries and the AppArmor profile, and installs it so the
+        # boot smoke runs the packaged binary.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export VERSION=0.0.0-ci GOARCH=amd64
+          wails3 task linux:generate:deb
+          wails3 task linux:generate:rpm
+          contents=$(dpkg-deb -c bin/unidoc-pdf-debugger.deb)
+          echo "$contents"
+          for f in ./usr/bin/unidoc-pdf-debugger ./usr/bin/pdfdebug ./etc/apparmor.d/unidoc-pdf-debugger ./usr/share/applications/unidoc-pdf-debugger.desktop; do
+            grep -q " $f\$" <<<"$contents" || { echo "missing from .deb: $f"; exit 1; }
+          done
+          # Recommends would add the portal backend, which the boot smoke's
+          # private D-Bus session is not set up for.
+          sudo apt-get install -y --no-install-recommends ./bin/unidoc-pdf-debugger.deb
+          profiles=$(sudo aa-status)
+          grep -q unidoc-pdf-debugger <<<"$profiles" || { echo "AppArmor profile not loaded"; exit 1; }
+
       - name: Boot-smoke
         shell: bash
         timeout-minutes: 5
@@ -195,17 +221,16 @@ jobs:
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             # gdb lets the boot-smoke hang report print native thread stacks.
             sudo apt-get install -y gdb
+            # The runner, like Ubuntu 24.04, blocks unprivileged user
+            # namespaces; the installed binary starts only because the
+            # package's AppArmor profile allows them for WebKit's sandbox.
+            [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = 1 ] \
+              || { echo "user namespace restriction is off; the boot smoke would not test the profile"; exit 1; }
             # A private session bus: on the runner's systemd user bus the
             # desktop portal does not answer, and GTK4's startup D-Bus proxies
             # wait the full 25s timeout before the app activates.
-            # WebKit's bwrap sandbox needs unprivileged user namespaces, which
-            # the runner's AppArmor policy blocks.
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-            cd tests/boot-smoke && xvfb-run -a dbus-run-session -- go test -count=1 -timeout 3m ./...
+            cd tests/boot-smoke && BOOT_SMOKE_BINARY=/usr/bin/unidoc-pdf-debugger \
+              xvfb-run -a dbus-run-session -- go test -count=1 -timeout 3m ./...
           else
             cd tests/boot-smoke && go test -count=1 -timeout 3m ./...
           fi
-
-      - name: CLI build sanity check
-        shell: bash
-        run: go build -o bin/pdfdebug ./cmd/cli/
