@@ -44,7 +44,8 @@ dist
 
 # Wails build scaffolding -- ignore everything except config files we customize.
 # Tracked config files: config.yml, Taskfile.yml (common tasks included by per-platform
-# Taskfiles), darwin/Info.plist, linux/*.desktop, windows/info.json, plus the
+# Taskfiles), darwin/Info.plist, linux/*.desktop, the Linux nfpm package config
+# and its scripts, the Linux AppArmor profile, windows/info.json, plus the
 # per-platform Taskfile.yml (customised with the -X main.version ldflag).
 # These are force-added with git add -f.
 build/*
@@ -59,6 +60,14 @@ build/darwin/*
 build/linux/*
 !build/linux/unidoc-pdf-debugger.desktop
 !build/linux/Taskfile.yml
+!build/linux/apparmor
+!build/linux/nfpm
+build/linux/nfpm/*
+!build/linux/nfpm/nfpm.yaml
+!build/linux/nfpm/scripts
+build/linux/nfpm/scripts/*
+!build/linux/nfpm/scripts/postinstall.sh
+!build/linux/nfpm/scripts/postremove.sh
 !build/windows
 build/windows/*
 !build/windows/info.json

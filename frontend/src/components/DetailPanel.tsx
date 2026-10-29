@@ -8,6 +8,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef, memo } fro
 import * as Tabs from '@radix-ui/react-tabs';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Events } from '@wailsio/runtime';
+import { DocumentCompareActive } from '../../bindings/events/index.js';
 import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument, GetTreeRoot, GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { ContentStreamData, DocumentInfo, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
@@ -808,7 +809,7 @@ function DetailPanelInner() {
   // subscribes here; with no document open the handler does nothing.
   const handleCompareRef = useRef(handleCompare);
   handleCompareRef.current = handleCompare;
-  useEffect(() => Events.On('document:compare-active', () => handleCompareRef.current()), []);
+  useEffect(() => Events.On(DocumentCompareActive, () => handleCompareRef.current()), []);
 
   /**
    * Diff header Reload for a disk copy: promotes the compared document to the

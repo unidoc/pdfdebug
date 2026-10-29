@@ -26,6 +26,10 @@
 // in its skip-list (`case ... continue ;;`) because boot-smoke needs the
 // xvfb-run wrapper that the per-module loop does not provide on Linux.
 //
+// BOOT_SMOKE_BINARY: when set, the test starts that binary instead of building
+// one. CI sets it to the binary the Linux .deb installs, so the run also shows
+// the packaged AppArmor profile lets WebKit's sandbox start.
+//
 // Extending: keep TestAppBootsWithoutPanic as the single high-value smoke. Do
 // NOT add per-feature behavioural assertions here -- those belong in the
 // feature's own suite.
@@ -43,6 +47,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -118,16 +123,7 @@ func buildSmokeBinary(t *testing.T) string {
 		if info, err := os.Stat(src); err == nil {
 			preMtime = info.ModTime()
 		}
-		// Wails alpha.93 made GTK4 + WebKitGTK 6.0 the Linux default; CI installs
-		// only the GTK3 stack, so opt back into the legacy GTK3 build path here.
-		// `wails3 build -tags gtk3` routes the flag through the Taskfile's
-		// EXTRA_TAGS slot (becomes `-tags production,gtk3`). macOS + Windows
-		// ignore the flag.
-		args := []string{"build"}
-		if runtime.GOOS == "linux" {
-			args = append(args, "-tags", "gtk3")
-		}
-		cmd := exec.Command("wails3", args...)
+		cmd := exec.Command("wails3", "build")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
 		out, err := cmd.CombinedOutput()
@@ -152,12 +148,8 @@ func buildSmokeBinary(t *testing.T) string {
 		return dst
 	}
 
-	// Fallback path mirrors the wails3-build tag choice: production everywhere,
-	// plus gtk3 on Linux where Wails alpha.93+ otherwise tries to link GTK4.
+	// Fallback path mirrors the wails3-build tag choice.
 	tags := "production"
-	if runtime.GOOS == "linux" {
-		tags = "production,gtk3"
-	}
 	t.Logf("[boot-smoke] wails3 not on PATH; falling back to `go build -tags %s`", tags)
 	cmd := exec.Command("go", "build", "-tags", tags, "-o", dst, ".")
 	cmd.Dir = root
@@ -224,8 +216,9 @@ func processAlive(p *os.Process) bool {
 	return err == nil
 }
 
-// shutdownGracefully attempts a clean termination and waits up to 3s for
-// the existing reaper goroutine (signalled via exitCh) to observe the exit.
+// shutdownGracefully attempts a clean termination and waits up to
+// shutdownWait() for the existing reaper goroutine (signalled via exitCh) to
+// observe the exit.
 // On Windows, GUI processes do not honour SIGTERM, so we use taskkill /T.
 // The waitErr pointer is read after exitCh closes; callers must not touch
 // it concurrently.
@@ -257,11 +250,53 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	select {
 	case <-exitCh:
 		return *waitErr
-	case <-time.After(3 * time.Second):
+	case <-time.After(shutdownWait()):
+		diag := hangDiagnostics(cmd.Process, exitCh)
 		_ = cmd.Process.Kill()
 		<-exitCh
-		return fmt.Errorf("[boot-smoke] process did not exit within 3s of SIGTERM/taskkill; SIGKILL'd")
+		return fmt.Errorf("[boot-smoke] process did not exit within %s of SIGTERM/taskkill; SIGKILL'd%s", shutdownWait(), diag)
 	}
+}
+
+// shutdownWait is how long the app gets to exit after SIGTERM. Linux gets
+// longer: under Xvfb GTK4 renders with llvmpipe, and a quit queued behind the
+// first layout pass on a cold runner can take more than 3s to run.
+func shutdownWait() time.Duration {
+	if runtime.GOOS == "linux" {
+		return 10 * time.Second
+	}
+	return 3 * time.Second
+}
+
+// hangDiagnostics reports on Linux whether the app process itself is still
+// running or has exited while descendants keep its output pipe open. For a
+// running app it adds native thread backtraces when gdb is available, then
+// sends SIGQUIT so the Go runtime writes its goroutine stacks to the captured
+// output.
+func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	state := "unknown"
+	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", p.Pid)); err == nil {
+		// The state field follows the parenthesised command name.
+		if i := bytes.LastIndexByte(stat, ')'); i >= 0 && i+2 < len(stat) {
+			state = string(stat[i+2])
+		}
+	}
+	ps, _ := exec.Command("ps", "-eo", "pid,ppid,stat,args").CombinedOutput()
+	var bt []byte
+	if state != "Z" {
+		// sudo -n fails fast where attaching needs a password or gdb is absent.
+		bt, _ = exec.Command("sudo", "-n", "gdb", "-p", strconv.Itoa(p.Pid), "-batch",
+			"-ex", "thread apply all bt 30").CombinedOutput()
+		_ = p.Signal(syscall.SIGQUIT)
+		select {
+		case <-exitCh:
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s\n--- native backtraces ---\n%s", state, ps, bt)
 }
 
 // scanForFatalOutput inspects the captured stdout+stderr for known
@@ -304,7 +339,10 @@ func scanForFatalOutput(s string) string {
 // verifies that the boot path -- including pdfservice.NewPDFService
 // registration -- runs to the event loop without panicking.
 func TestAppBootsWithoutPanic(t *testing.T) {
-	bin := buildSmokeBinary(t)
+	bin := os.Getenv("BOOT_SMOKE_BINARY")
+	if bin == "" {
+		bin = buildSmokeBinary(t)
+	}
 
 	deadline := platformLaunchDeadline()
 	ctx, cancel := context.WithTimeout(t.Context(), deadline)

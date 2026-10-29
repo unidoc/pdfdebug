@@ -576,9 +576,9 @@ func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 	// declaration. Anchor on the `document:batch-complete` emit which is
 	// the last line of the closure (line 244 baseline).
 	tail := src[idx:]
-	endIdx := strings.Index(tail, `app.Event.Emit("document:batch-complete"`)
+	endIdx := strings.Index(tail, `app.Event.Emit(eventDocumentBatchComplete`)
 	if endIdx == -1 {
-		t.Fatalf("could not locate `document:batch-complete` emit inside openFilesBatch")
+		t.Fatalf("could not locate the document:batch-complete emit (eventDocumentBatchComplete) inside openFilesBatch")
 	}
 	body := tail[:endIdx]
 	// Contract markers:
@@ -594,15 +594,15 @@ func TestOpenFilesBatchUsesWaitGroup(t *testing.T) {
 }
 
 // TestOpenFilesBatchHasFinalWait asserts the
-// `app.Event.Emit("document:batch-complete", nil)` line is preceded by a final
+// `app.Event.Emit(eventDocumentBatchComplete, nil)` line is preceded by a final
 // `wg.Wait()`. The per-iteration Wait already drains the group, so the explicit
 // final Wait is there to survive future refactors.
 func TestOpenFilesBatchHasFinalWait(t *testing.T) {
 	src := readSource(t, "main.go")
-	emitNeedle := `app.Event.Emit("document:batch-complete"`
+	emitNeedle := `app.Event.Emit(eventDocumentBatchComplete`
 	emitIdx := strings.Index(src, emitNeedle)
 	if emitIdx == -1 {
-		t.Fatalf("could not locate `document:batch-complete` emit in main.go")
+		t.Fatalf("could not locate the document:batch-complete emit (eventDocumentBatchComplete) in main.go")
 	}
 	// Look back ~10 lines for wg.Wait()
 	start := max(emitIdx-400, 0)

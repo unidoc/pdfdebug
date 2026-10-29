@@ -61,7 +61,7 @@ vi.mock(
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
-    SaveBytesToFile: vi.fn().mockResolvedValue(''),
+    SaveEmbeddedFileToFile: vi.fn().mockResolvedValue(''),
   })
 );
 

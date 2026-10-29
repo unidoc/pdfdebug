@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLatest } from '../hooks/useLatest';
 import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
+import { Clipboard } from '@wailsio/runtime';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import {
@@ -18,6 +19,7 @@ import {
   useLazyChildren,
   type TreeNodeData,
 } from './treeRows';
+import { ROW_MENU_TREE, ROW_MENU_TREE_WITH_REF, useRowContextMenu, type RowMenuActionName } from './navigatorHooks';
 
 /** Per-tab tree state cache entry. */
 interface TabTreeCache {
@@ -30,6 +32,32 @@ function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): 
   const root = toTreeNodeData(rootNode);
   root.children = rootChildren ? rootChildren.map((c) => toTreeNodeData(c, root.id)) : [];
   return [root];
+}
+
+/** Joins a GetAncestorPath result into the breadcrumb the command palette shows. */
+export function formatNodePath(ancestorPath: string[]): string {
+  return ancestorPath.join(' > ');
+}
+
+/** Copies text through the Wails clipboard; a failure leaves the clipboard as it was. */
+function copyText(text: string) {
+  Promise.resolve(Clipboard.SetText(text)).catch(() => {});
+}
+
+/**
+ * Runs a structure-tree row menu action: "copy-ref" copies the node's object
+ * reference, "copy-path" copies its ancestor path from the backend.
+ */
+export function runTreeRowAction(action: RowMenuActionName, tabId: string, nodeId: string, objectRef: string) {
+  if (action === 'copy-ref') {
+    if (objectRef !== '') copyText(objectRef);
+    return;
+  }
+  if (action === 'copy-path') {
+    Promise.resolve(GetAncestorPath(tabId, nodeId))
+      .then((path) => copyText(formatNodePath(path ?? [])))
+      .catch(() => {});
+  }
 }
 
 /**
@@ -323,12 +351,42 @@ export function TreePanel() {
   );
   const rowState = useMemo(() => ({ loadingNodeId, flashNodeId }), [loadingNodeId, flashNodeId]);
 
+  // Row context menu (right-click, Shift+F10, ContextMenu key). Rows carry the
+  // arborist display id; the menu acts on the node's backend id. Indirect
+  // objects get the menu with "Copy object reference". An error row has no
+  // object reference and no ancestor path, so it gets no menu.
+  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+    treeRef,
+    '[data-testid="tree-node"]',
+    'data-node-id',
+    (rowId) => {
+      const node = findNode(treeDataRef.current, (n) => n.id === rowId);
+      if (!node?.backendId || node.backendId.startsWith('error:')) return null;
+      return { menu: node.objectRef ? ROW_MENU_TREE_WITH_REF : ROW_MENU_TREE, nodeId: node.backendId };
+    },
+    (action, nodeId) => {
+      if (!activeTabId) return;
+      const node = findNode(treeDataRef.current, (n) => n.backendId === nodeId);
+      runTreeRowAction(action, activeTabId, nodeId, node?.objectRef ?? '');
+    },
+  );
+
+  // The menu acts on a row of the tab it was opened in, so a tab switch forgets it.
+  useEffect(() => {
+    closeMenu();
+  }, [activeTabId, closeMenu]);
+
   return (
     <div className="h-full flex flex-col" data-testid="tree-panel">
       <div className="px-3 py-1.5 text-sm font-medium text-text-secondary border-b border-border flex-shrink-0">
         Document Structure
       </div>
-      <div ref={containerRef} className="h-full w-full relative flex-1 min-h-0">
+      <div
+        ref={containerRef}
+        className="h-full w-full relative flex-1 min-h-0"
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
+      >
         {treeMounted && (
           <RowStateContext.Provider value={rowState}>
           <Tree<TreeNodeData>

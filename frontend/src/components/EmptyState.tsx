@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
-import { openPDFFile, openFileDialog, mapErrorMessage } from '../hooks/usePDFService';
+import { openPDFFile, openFileDialog, mapErrorMessage, recordRecentFile } from '../hooks/usePDFService';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 /** Props for {@link EmptyState}. */
@@ -111,6 +111,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
               rootNode: result.rootNode,
               rootChildren: result.rootChildren,
             });
+            recordRecentFile(paths[i]);
             if (result.warning) lastWarning = result.warning;
           } catch (err: unknown) {
             // Surface and keep iterating so one bad file does not block the rest.

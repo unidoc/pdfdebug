@@ -52,7 +52,23 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
 
 - **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-cli-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
-- **Linux (amd64)**: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and mark executable:
+- **Linux (amd64)**: the app needs GTK4 and WebKitGTK 6.0, so it does not run on Ubuntu 22.04, Debian 12, Fedora 39 and older, or RHEL 9.x.
+
+  Ubuntu 24.04 and later, Debian 13, Linux Mint 22, Pop!_OS and other Ubuntu-based systems: install the `.deb`. apt pulls in the GTK4 and WebKitGTK packages, and the package adds `pdfdebug` to your PATH:
+
+  ```bash
+  sudo apt install ./unidoc-pdf-debugger-<version>-linux-amd64.deb
+  ```
+
+  The `.deb` also installs an AppArmor profile, `/etc/apparmor.d/unidoc-pdf-debugger`. Ubuntu 23.10 and later block the user namespaces that WebKit's sandbox needs unless a program's profile allows them, and without it the app exits on start with `bwrap: setting up uid map: Permission denied`. The profile allows that and confines nothing else.
+
+  Fedora: install the `.rpm`:
+
+  ```bash
+  sudo dnf install ./unidoc-pdf-debugger-<version>-linux-amd64.rpm
+  ```
+
+  Arch and other distributions: download `unidoc-pdf-debugger-<version>-linux-amd64.tar.gz`, extract, and run it:
 
   ```bash
   tar -xzf unidoc-pdf-debugger-<version>-linux-amd64.tar.gz
@@ -60,10 +76,18 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
   ./unidoc-pdf-debugger
   ```
 
-  Requires `libwebkit2gtk-4.1`:
+  The tarball needs GTK4 and WebKitGTK 6.0 (`libgtk-4-1 libwebkitgtk-6.0-4` on Debian and Ubuntu, `gtk4 webkitgtk-6.0` on Arch), plus `xdg-desktop-portal` with a backend (`xdg-desktop-portal-gtk`, `-gnome` or `-kde`) for the Open and Save dialogs. Arch: `sudo pacman -S gtk4 webkitgtk-6.0 xdg-desktop-portal-gtk`. On Ubuntu 23.10 or later, use the `.deb`; to run the tarball there anyway, allow its sandbox once from the extracted folder, and again if you move the binary:
 
   ```bash
-  sudo apt-get install -y libwebkit2gtk-4.1-0
+  sudo tee /etc/apparmor.d/unidoc-pdf-debugger >/dev/null <<EOF
+  abi <abi/4.0>,
+  include <tunables/global>
+
+  profile unidoc-pdf-debugger "$(pwd)/unidoc-pdf-debugger" flags=(unconfined) {
+    userns,
+  }
+  EOF
+  sudo apparmor_parser -r /etc/apparmor.d/unidoc-pdf-debugger
   ```
 
   CLI archive: `pdfdebug-cli-<version>-linux-amd64.tar.gz`.
@@ -100,16 +124,16 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.27.x
+- Go 1.27.x (1.27.3 or later)
 - Node.js 20 LTS (CI pin; matches release artifacts)
-- Wails v3 CLI `v3.0.0-beta.18`
+- Wails v3 CLI `v3.0.0`
 
 > Node version note: `.nvmrc` sets Node 24 for local dev convenience, but CI runs Node 20 LTS -- either works locally, but CI is the authoritative pin.
 
 Per-platform prerequisites:
 
 - **macOS**: `xcode-select --install` (Xcode Command Line Tools)
-- **Linux**: `sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential`
+- **Linux**: `sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential`. On Ubuntu 23.10 or later, a binary you build needs the AppArmor profile from the Linux install notes above, written for its own path (for example `bin/unidoc-pdf-debugger`), or it exits on start with `bwrap: setting up uid map: Permission denied`
 - **Windows**: WebView2 runtime (preinstalled on Windows 11) plus MinGW or MSVC for the Go cgo toolchain
 
 ### Steps
@@ -119,7 +143,7 @@ Per-platform prerequisites:
 git clone https://github.com/unidoc/pdfdebug && cd pdfdebug
 
 # 2. Install the pinned Wails v3 CLI (version suffix MUST match go.mod)
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.18
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
 
 # 3. Install frontend deps
 npm ci --prefix frontend
@@ -170,7 +194,7 @@ pdfdebug diff old.pdf new.pdf
 
 ## Architecture
 
-- Go 1.27 application core with Wails v3 (beta) binding to a native WebView
+- Go 1.27 application core with Wails v3 binding to a native WebView
 - React 18 with TypeScript on the frontend; Vite build pipeline
 - PDF parsing via [pdfcpu](https://github.com/pdfcpu/pdfcpu)
 - Tailwind CSS utility styling with a shadcn-style component library (Radix UI primitives under the hood)

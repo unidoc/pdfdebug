@@ -83,6 +83,9 @@ type PDFService struct {
 	// watched holds the tab ids the frontend shows in its tab strip; the
 	// disk watcher polls only these.
 	watched *watchedTabs
+	// recordRecent adds a user-opened file to Open Recent. Injected from
+	// main.go via SetRecentFileRecorder; nil means recording is a no-op.
+	recordRecent func(path string)
 }
 
 // watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
@@ -478,6 +481,24 @@ func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 	s.pendingOpens = q
 }
 
+// SetRecentFileRecorder injects the Open Recent recorder from main.go, which
+// owns the File menu the list is shown in. Not exposed to the frontend.
+//
+//wails:ignore
+func (s *PDFService) SetRecentFileRecorder(record func(path string)) {
+	s.recordRecent = record
+}
+
+// RecordRecentFile adds a file the user opened as a tab to Open Recent. The
+// frontend calls it after a successful open from its own open paths; reload,
+// compare and the diff picker do not. A no-op when no recorder is injected.
+func (s *PDFService) RecordRecentFile(path string) {
+	if s.recordRecent == nil {
+		return
+	}
+	s.recordRecent(path)
+}
+
 // ConsumePendingOpenFiles drains and returns any file-association paths that
 // were buffered before the frontend was ready (cold start). A thin
 // delegation to Queue.Drain -- the frontend calls this immediately after
@@ -625,31 +646,63 @@ func WatchDiskStatus(s *PDFService, emit filewatch.Emitter, clk filewatch.Clock)
 	return w
 }
 
-// SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
-// writes data to the chosen path, returning the saved path. An empty path (user
-// cancelled) returns ("", nil) so the frontend can treat cancel as a no-op.
-// The GUI "Save..." action for an extracted embedded file. This is
-// the first save-dialog path in the app (no prior SaveFile usage); it is NOT
-// part of inspectorAPI because it is an app-level dialog, not a PDF-backend
-// call.
-func (s *PDFService) SaveBytesToFile(suggestedName string, data []byte) (string, error) {
+// SaveEmbeddedFileToFile reads one embedded file, addressed by the obj:G:N
+// nodeID of its /EmbeddedFile stream, shows a native Save-file dialog seeded
+// with suggestedName and writes the bytes to the chosen path, returning it. An
+// empty path (user cancelled) returns ("", nil). The bytes never round-trip
+// through the frontend, so a file near the extraction ceiling stays under the
+// runtime's request size limit. A read error, including the ceiling, is
+// returned before any dialog opens.
+func (s *PDFService) SaveEmbeddedFileToFile(tabID, nodeID, suggestedName string) (string, error) {
 	if s.app == nil {
 		return "", fmt.Errorf("app not initialized")
 	}
-	path, err := s.app.Dialog.SaveFile().
-		SetFilename(suggestedName).
-		PromptForSingleSelection()
+	return saveEmbeddedFile(s.inspector, tabID, nodeID, suggestedName, func(name string) (string, error) {
+		return s.app.Dialog.SaveFile().
+			SetFilename(name).
+			PromptForSingleSelection()
+	})
+}
+
+// saveEmbeddedFile reads the embedded file bytes first, then asks choosePath
+// for a destination and writes the bytes there. choosePath returning "" means
+// the user cancelled.
+func saveEmbeddedFile(ins inspectorAPI, tabID, nodeID, suggestedName string, choosePath func(name string) (string, error)) (string, error) {
+	var data []byte
+	var err error
+	func() {
+		defer recoverRuntimePanic("SaveEmbeddedFileToFile", &err)
+		data, err = ins.GetEmbeddedFileBytes(tabID, nodeID)
+	}()
+	if err != nil {
+		return "", err
+	}
+	path, err := choosePath(embeddedSaveName(suggestedName))
 	if err != nil {
 		return "", err
 	}
 	if path == "" {
-		// User cancelled the dialog.
 		return "", nil
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+// embeddedSaveName reduces an embedded file name, which comes from the PDF, to
+// its last path element so the save dialog never starts from a name that
+// points into another directory. A name with nothing usable left becomes
+// "embedded-file".
+func embeddedSaveName(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." {
+		return "embedded-file"
+	}
+	return name
 }
 
 // SaveImageToFile renders the FULL-resolution image for the given node
