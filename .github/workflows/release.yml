@@ -325,7 +325,7 @@ jobs:
               build_dmg || build_dmg --skip-jenkins
               # A failed first attempt leaves its own rw.<pid>.*.dmg scratch that
               # the retry (a new pid) does not remove; clear any scratch so only
-              # the final .dmg reaches the artifact upload (EXPECTED_FILES=6).
+              # the final .dmg reaches the artifact upload (EXPECTED_FILES=8).
               rm -f dist/rw.*.dmg
               # Confirm the output is a valid disk image before it feeds the
               # SHA256SUMS job.
@@ -376,6 +376,12 @@ jobs:
               cp LICENSE NOTICE "$CLI_STAGE/"
               tar -czf "dist/pdfdebug-cli-${VERSION}-${PLATFORM}.tar.gz" \
                   -C "$CLI_STAGE" .
+              # .deb (installs the AppArmor profile Ubuntu 23.10+ needs for
+              # WebKit's sandbox) and .rpm, both with the GUI and the CLI.
+              GOARCH=amd64 wails3 task linux:generate:deb
+              GOARCH=amd64 wails3 task linux:generate:rpm
+              cp bin/unidoc-pdf-debugger.deb "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.deb"
+              cp bin/unidoc-pdf-debugger.rpm "dist/unidoc-pdf-debugger-${VERSION}-${PLATFORM}.rpm"
               ;;
           esac
           ls -la dist/
@@ -445,19 +451,21 @@ jobs:
           cat SHA256SUMS.txt
           # Manifest integrity guard: refuse to publish if the manifest is empty, the
           # line count drifts from the number of files staged for release, or the file
-          # count drifts from the 6 release artifacts = 3 platforms x 2 archives each
-          # (a GUI archive, which now also embeds the CLI, plus a standalone CLI
-          # archive). The bundled-in CLI is not a separate file and is not counted.
-          # The 6 expected filenames are:
+          # count drifts from the 8 release artifacts: per platform a GUI archive, which
+          # also embeds the CLI, plus a standalone CLI archive, and on Linux a .deb and
+          # an .rpm. The bundled-in CLI is not a separate file and is not counted.
+          # The 8 expected filenames are:
           #   unidoc-pdf-debugger-<ver>-darwin-arm64.dmg
           #   pdfdebug-cli-<ver>-darwin-arm64.tar.gz
           #   unidoc-pdf-debugger-<ver>-windows-amd64.zip
           #   pdfdebug-cli-<ver>-windows-amd64.zip
           #   unidoc-pdf-debugger-<ver>-linux-amd64.tar.gz
           #   pdfdebug-cli-<ver>-linux-amd64.tar.gz
+          #   unidoc-pdf-debugger-<ver>-linux-amd64.deb
+          #   unidoc-pdf-debugger-<ver>-linux-amd64.rpm
           # Catches any future staging regression that drops or duplicates an
           # artifact before it reaches the Release page.
-          EXPECTED_FILES=6
+          EXPECTED_FILES=8
           FILES=$(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | wc -l | tr -d ' ')
           LINES=$(wc -l < SHA256SUMS.txt | tr -d ' ')
           if [ "$FILES" -eq 0 ]; then
@@ -469,7 +477,7 @@ jobs:
             exit 1
           fi
           if [ "$FILES" != "$EXPECTED_FILES" ]; then
-            echo "Expected $EXPECTED_FILES release artifacts (3 platforms x 2 artifacts), got $FILES." >&2
+            echo "Expected $EXPECTED_FILES release artifacts (a GUI and a CLI archive per platform, plus the Linux .deb and .rpm), got $FILES." >&2
             find . -maxdepth 1 -type f ! -name SHA256SUMS.txt | LC_ALL=C sort >&2
             exit 1
           fi

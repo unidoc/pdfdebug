@@ -1,0 +1,11 @@
+# Lets the app create user namespaces, which WebKitGTK's bubblewrap sandbox
+# needs. Ubuntu 23.10 and later block them for programs without a profile.
+# The profile confines nothing else.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile unidoc-pdf-debugger /usr/bin/unidoc-pdf-debugger flags=(unconfined) {
+  userns,
+
+  include if exists <local/unidoc-pdf-debugger>
+}

@@ -1,10 +1,6 @@
 package wails_v3_stable_upgrade_test
 
 import (
-	"errors"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -53,13 +49,7 @@ func TestNoGtk3BuildTagRemains(t *testing.T) {
 	}
 }
 
-// build/linux/nfpm/nfpm.yaml is local Wails scaffolding that .gitignore keeps
-// out of the repo, so a fresh checkout skips this check.
 func TestNfpmPackageDependsOnGTK4(t *testing.T) {
-	nfpm := filepath.Join(projectRoot(t), "build", "linux", "nfpm", "nfpm.yaml")
-	if _, err := os.Stat(nfpm); errors.Is(err, fs.ErrNotExist) {
-		t.Skip("build/linux/nfpm/nfpm.yaml is not present in this checkout")
-	}
 	src := readRepoFile(t, "build/linux/nfpm/nfpm.yaml")
 	var active []string
 	for _, line := range strings.Split(src, "\n") {

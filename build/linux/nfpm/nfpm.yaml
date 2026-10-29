@@ -1,0 +1,55 @@
+# Linux .deb and .rpm packages, built by `wails3 tool package` (nfpm).
+# VERSION (without the leading v) and GOARCH come from the environment.
+name: "unidoc-pdf-debugger"
+arch: "${GOARCH}"
+platform: "linux"
+version: "${VERSION}"
+section: "devel"
+priority: "optional"
+maintainer: "UniDoc <support@unidoc.io>"
+description: "Desktop inspector for PDF internal structure"
+vendor: "UniDoc"
+homepage: "https://github.com/unidoc/pdfdebug"
+license: "Apache-2.0"
+
+contents:
+  - src: "./bin/unidoc-pdf-debugger"
+    dst: "/usr/bin/unidoc-pdf-debugger"
+    file_info:
+      mode: 0755
+  - src: "./bin/pdfdebug"
+    dst: "/usr/bin/pdfdebug"
+    file_info:
+      mode: 0755
+  - src: "./build/appicon.png"
+    dst: "/usr/share/pixmaps/unidoc-pdf-debugger.png"
+  - src: "./build/linux/unidoc-pdf-debugger.desktop"
+    dst: "/usr/share/applications/unidoc-pdf-debugger.desktop"
+  - src: "./LICENSE"
+    dst: "/usr/share/doc/unidoc-pdf-debugger/LICENSE"
+  - src: "./NOTICE"
+    dst: "/usr/share/doc/unidoc-pdf-debugger/NOTICE"
+  # Ubuntu 23.10+ blocks the user namespaces WebKit's sandbox needs unless a
+  # profile allows them. Only the .deb ships it; Fedora does not use AppArmor.
+  - src: "./build/linux/apparmor/unidoc-pdf-debugger"
+    dst: "/etc/apparmor.d/unidoc-pdf-debugger"
+    type: config
+    packager: deb
+
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+recommends:
+  - xdg-desktop-portal-gtk
+
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+    recommends:
+      - xdg-desktop-portal-gtk
+
+scripts:
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
+  postremove: "./build/linux/nfpm/scripts/postremove.sh"
