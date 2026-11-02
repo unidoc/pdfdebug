@@ -776,6 +776,14 @@ func main() {
 		OnClick(func(ctx *application.Context) {
 			app.Event.Emit(eventUpdateCheckRequested, nil)
 		})
+	// About lives in the app menu on macOS and at the end of Help elsewhere.
+	if runtime.GOOS != "darwin" {
+		helpMenu.AddSeparator()
+		helpMenu.Add("About " + appName).
+			OnClick(func(_ *application.Context) {
+				openAboutWindow(app)
+			})
+	}
 
 	// Frontend sends navigation state and the open document count to sync
 	// menu enabled state: document items need one document, cycling needs two.
