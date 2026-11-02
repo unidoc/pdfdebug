@@ -34,6 +34,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 ### Fixed
 
 - Windows and Linux: Help > About UniDoc PDF Debugger opens the About dialog, which until now could only be reached from the macOS app menu
+- Linux: the startup splash shows its icon and version instead of blinking up as an empty window. It now appears once its page has loaded, and the main window waits for it, for 2 seconds at most
 - Linux: the app shows its own name and icon in the dock and in notifications instead of a gear icon and `org.wails.unidoc_pdf_debugger`, because its application id (`com.unidoc.unidoc-pdf-debugger`) now matches the desktop entry
 - Saving an embedded file close to the 50 MB extraction limit no longer fails with a transport error. The app reads, asks where to save and writes the file on the backend, so the bytes no longer travel to the window and back
 - Windows file properties show the version details: `info.json` now keys them under en-US (`0409`) instead of language neutral

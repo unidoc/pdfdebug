@@ -156,6 +156,20 @@ func (s *Scheduler) MainWindowReady() {
 	s.clock.AfterFunc(remaining, s.runDismiss)
 }
 
+// Shown restarts the min-display floor from now, for a splash that becomes
+// visible after the scheduler was created. It returns false, changing
+// nothing, once the main window is ready, so the caller can leave the splash
+// hidden instead of flashing it just before dismissal.
+func (s *Scheduler) Shown() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.mainReadyFired || s.dismissFired {
+		return false
+	}
+	s.shownAt = s.clock.Now()
+	return true
+}
+
 // runDismiss invokes onDismiss exactly once. Subsequent calls are no-ops.
 // The min-display-floor branch in MainWindowReady can call runDismiss
 // from two goroutines (the synchronous fast path and the AfterFunc

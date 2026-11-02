@@ -120,6 +120,43 @@ func TestSplashSchedulerMinDisplayFloorDefersDismissal(t *testing.T) {
 	}
 }
 
+// A splash shown late restarts the floor, so it stays up the full floor
+// after it became visible rather than after the scheduler was created.
+func TestSplashSchedulerShownRestartsFloor(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed atomic.Int32
+	min, to := shortTimings()
+	s := newSchedulerWithTimings(clk, func() { dismissed.Add(1) }, func() {}, min, to)
+
+	clk.Advance(300 * time.Microsecond)
+	if !s.Shown() {
+		t.Fatal("Shown must report true while the main window is not ready")
+	}
+	clk.Advance(200 * time.Microsecond)
+	s.MainWindowReady()
+	if got := dismissed.Load(); got != 0 {
+		t.Fatalf("dismissal must wait for the floor counted from Shown; got dismissed=%d 200us after Shown", got)
+	}
+	clk.Advance(200 * time.Microsecond)
+	if got := dismissed.Load(); got != 1 {
+		t.Fatalf("dismissal must fire once the floor from Shown has passed; got dismissed=%d", got)
+	}
+}
+
+// Once the main window is ready, Shown declines so the caller keeps the
+// splash hidden.
+func TestSplashSchedulerShownAfterMainReadyDeclines(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	min, to := shortTimings()
+	s := newSchedulerWithTimings(clk, func() {}, func() {}, min, to)
+
+	clk.Advance(100 * time.Microsecond)
+	s.MainWindowReady()
+	if s.Shown() {
+		t.Fatal("Shown must report false after the main window is ready")
+	}
+}
+
 // When MainWindowReady fires AFTER min-display, dismissal runs
 // immediately (no deferred AfterFunc).
 func TestSplashSchedulerMinDisplayFloorPassthrough(t *testing.T) {

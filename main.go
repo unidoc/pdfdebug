@@ -882,6 +882,9 @@ func main() {
 		DefaultContextMenuDisabled: true,
 		BackgroundColour:           application.NewRGB(248, 250, 252),
 		HTML:                       splash.Render(version),
+		// WebKitGTK paints a new view late, so on Linux the splash shows only
+		// once its page has loaded (see the WindowLoadFinished handler below).
+		Hidden: runtime.GOOS == "linux",
 		Windows: application.WindowsWindow{
 			// Keep the splash off the Windows taskbar so the user does
 			// not see a phantom entry between splash dismissal and main
@@ -959,6 +962,33 @@ func main() {
 		})
 	}
 
+	// On Linux the splash shows once its page has loaded, and the main window
+	// waits for that so the splash is never a blank window. If the splash has
+	// not loaded 2s after the main window is ready, the main window comes up
+	// without it. Each handler records its own event before checking the
+	// other's, so whichever runs second releases the main window.
+	mainWindowReady := splashScheduler.MainWindowReady
+	if splashWindow != nil && runtime.GOOS == "linux" {
+		var splashLoaded, mainReady atomic.Bool
+		splashWindow.OnWindowEvent(events.Linux.WindowLoadFinished, func(_ *application.WindowEvent) {
+			if splashScheduler.Shown() {
+				splashWindow.Show()
+			}
+			splashLoaded.Store(true)
+			if mainReady.Load() {
+				splashScheduler.MainWindowReady()
+			}
+		})
+		mainWindowReady = func() {
+			mainReady.Store(true)
+			if splashLoaded.Load() {
+				splashScheduler.MainWindowReady()
+				return
+			}
+			time.AfterFunc(2*time.Second, splashScheduler.MainWindowReady)
+		}
+	}
+
 	// Create main window. Hidden: true keeps the WebView off-screen
 	// until splash dismissal so the crossfade is not defeated by an
 	// opaque first paint. The frontend additionally starts at
@@ -991,9 +1021,7 @@ func main() {
 	// and fires on hidden windows too.
 	var mainReadyOnce sync.Once
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
-		mainReadyOnce.Do(func() {
-			splashScheduler.MainWindowReady()
-		})
+		mainReadyOnce.Do(mainWindowReady)
 	})
 
 	// Poll faster while the main window has focus. Wails handles each window
