@@ -2,7 +2,7 @@
 // Pipeline.
 //
 // These tests verify that .github/workflows/ci.yml is structured per the
-// acceptance criteria: matrix build on ubuntu-latest/macos-latest/windows-latest,
+// acceptance criteria: matrix build on ubuntu-24.04/macos-latest/windows-latest,
 // pinned Go 1.27.x and Node 20, Linux native deps install, Wails CLI pin
 // matching go.mod, per-suite test loop for tests/*/go.mod modules, dependency
 // caching, distinct check runs per platform, and 30-minute job timeout.
@@ -210,7 +210,7 @@ func TestCIWorkflowTriggers(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // matrix strategy includes all 3 OS runners.
-// Covers "matrix strategy with macos-latest, windows-latest, ubuntu-latest".
+// Covers "matrix strategy with macos-latest, windows-latest, ubuntu-24.04".
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowMatrixOS(t *testing.T) {
@@ -245,7 +245,7 @@ func TestCIWorkflowMatrixOS(t *testing.T) {
 			found[s] = true
 		}
 	}
-	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest"} {
+	for _, required := range []string{"ubuntu-24.04", "macos-latest", "windows-latest"} {
 		if !found[required] {
 			t.Errorf("ci.yml: matrix.os missing %q", required)
 		}

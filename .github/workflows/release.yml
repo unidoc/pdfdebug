@@ -30,7 +30,8 @@ jobs:
           # found macos-13 runner queue times unreliable. Re-add if user demand surfaces.
           - { os: macos-latest,   arch: arm64, goos: darwin,  platform: darwin-arm64 }
           - { os: windows-latest, arch: amd64, goos: windows, platform: windows-amd64 }
-          - { os: ubuntu-latest,  arch: amd64, goos: linux,   platform: linux-amd64 }
+          # Oldest supported Ubuntu: the binary needs this glibc or newer.
+          - { os: ubuntu-24.04,   arch: amd64, goos: linux,   platform: linux-amd64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -257,7 +258,7 @@ jobs:
           test -f "bin/unidoc-pdf-debugger.exe"
 
       - name: Build Linux GUI
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         shell: bash
         env:
           ARCH: ${{ matrix.arch }}
@@ -403,7 +404,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       # Exposed for the downstream `homebrew` job: the homebrew job gates its
       # execution on `needs.release.outputs.prerelease == 'false'` and reuses

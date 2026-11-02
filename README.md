@@ -52,7 +52,7 @@ Download from [github.com/unidoc/pdfdebug/releases/latest](https://github.com/un
 
 - **Windows (amd64)**: download `unidoc-pdf-debugger-<version>-windows-amd64.zip`, extract, and double-click `UniDoc PDF Debugger.exe`. Windows SmartScreen will warn on first launch because the binary is not code-signed (Windows signing is out of V1 scope). Click "More info" -> "Run anyway". CLI archive: `pdfdebug-cli-<version>-windows-amd64.zip` (extract for `pdfdebug.exe`).
 
-- **Linux (amd64)**: the app needs GTK4 and WebKitGTK 6.0, so it does not run on Ubuntu 22.04, Debian 12, Fedora 39 and older, or RHEL 9.x.
+- **Linux (amd64)**: supported on Ubuntu 24.04 and 26.04, Debian 13, and Fedora 40 and later. Releases are built on Ubuntu 24.04, the oldest supported system, so the same packages run on the newer ones. The app needs GTK4 and WebKitGTK 6.0, so it does not run on Ubuntu 22.04, Debian 12, Fedora 39 and older, or RHEL 9.x.
 
   Ubuntu 24.04 and later, Debian 13, Linux Mint 22, Pop!_OS and other Ubuntu-based systems: install the `.deb`. apt pulls in the GTK4 and WebKitGTK packages, and the package adds `pdfdebug` to your PATH:
 
