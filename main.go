@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -209,46 +208,6 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 			r.RecordRecentFile(p)
 		}
 	}(path, extraWarning, svc, emitter, wg)
-}
-
-// aboutWindow holds the single custom About window while it is open, so a
-// second About click focuses the existing window instead of spawning another.
-var aboutWindow *application.WebviewWindow
-
-// openAboutWindow shows the custom About window: a small centered WebviewWindow
-// that loads the frontend About view carrying the running version in the URL
-// query. Sourcing the version this way shows the honest, unstripped semver
-// (main.version) without adding a bound method, and the unidoc.io link inside
-// opens in the external browser rather than navigating the app WebView (see
-// AboutDialog.tsx). The native macOS About panel can do neither.
-func openAboutWindow(app *application.App) {
-	if aboutWindow != nil {
-		// Restore un-minimises a window the user has minimised; Focus alone
-		// leaves it minimised and the menu item appears to do nothing.
-		aboutWindow.Restore()
-		aboutWindow.Focus()
-		return
-	}
-	aboutWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "About " + appName,
-		Width:            360,
-		Height:           220,
-		DisableResize:    true,
-		InitialPosition:  application.WindowCentered,
-		BackgroundColour: application.NewRGB(248, 250, 252),
-		URL:              "/?view=about&version=" + url.QueryEscape(version),
-		// Linux gives every window the application menu unless it has its own;
-		// an empty one leaves the About window without a menu bar.
-		Linux: application.LinuxWindow{
-			Menu: application.NewMenu(),
-		},
-	})
-	if aboutWindow == nil {
-		return
-	}
-	aboutWindow.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		aboutWindow = nil
-	})
 }
 
 // onSplashDismiss is the success-path dismissal handler for the startup
@@ -642,10 +601,10 @@ func main() {
 	// FindByLabel(appName).GetSubmenu().
 	// Two changes here:
 	//   - Append the "Install 'pdfdebug' Command in PATH..." item.
-	//   - Replace the native About item with the custom About window. The
+	//   - Replace the native About item with the in-app About dialog. The
 	//     role-based About item carries the native orderFrontStandardAboutPanel
 	//     selector, so clearing its role (NoRole) routes clicks through the Go
-	//     callback instead, which opens the honest, clickable About window.
+	//     callback instead, which asks the frontend to show the dialog.
 	if runtime.GOOS == "darwin" {
 		if appItem := menu.FindByLabel(appName); appItem != nil {
 			if appSub := appItem.GetSubmenu(); appSub != nil {
@@ -655,7 +614,7 @@ func main() {
 					aboutItem.SetRole(application.NoRole).
 						SetLabel("About " + appName).
 						OnClick(func(_ *application.Context) {
-							openAboutWindow(app)
+							app.Event.Emit(eventAboutOpen, version)
 						})
 				}
 			}
@@ -782,7 +741,7 @@ func main() {
 		helpMenu.AddSeparator()
 		helpMenu.Add("About " + appName).
 			OnClick(func(_ *application.Context) {
-				openAboutWindow(app)
+				app.Event.Emit(eventAboutOpen, version)
 			})
 	}
 

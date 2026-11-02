@@ -32,6 +32,7 @@ const (
 	eventSplashDismiss         = "splash:dismiss"
 	eventSplashDismissed       = "splash:dismissed"
 	eventSplashTimeout         = "splash:timeout"
+	eventAboutOpen             = "about:open"
 )
 
 // init registers every app event with the data type its emitters send: Void for
@@ -60,4 +61,5 @@ func init() {
 	application.RegisterEvent[application.Void](eventSplashDismiss)
 	application.RegisterEvent[application.Void](eventSplashDismissed)
 	application.RegisterEvent[application.Void](eventSplashTimeout)
+	application.RegisterEvent[string](eventAboutOpen)
 }

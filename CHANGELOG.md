@@ -29,10 +29,11 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - The Validate tab shows the findings first. The profile's scope sentence and the list of rules checked moved below them into a "Rules checked (N)" section that starts collapsed and stays open once expanded for that document; its label also counts rules that could not be evaluated, as in "Rules checked (8, 1 not evaluated)"
 - Non-zero bytes after the CMS in a signature's /Contents, or after the SignedData inside the ContentInfo's `[0]` wrapper, are now reported, and the signature still decomposes in full. Bytes after the CMS show once, as `Trailing bytes: 4 bytes after the CMS at offset 2028 contain non-zero data` in plain text, as `cmsTrailingBytes` (`offset`, `count`) in `--json`, and as a "Trailing bytes" row in the Signatures panel. Bytes after the SignedData get a note with the byte count. Such bytes used to be ignored without a word. Zero padding is not reported
 - A CMS nested more than 64 levels deep is now a decompose error for DER signatures too. DER signatures used to decompose with no nesting limit
+- About opens as a dialog over the main window instead of in a separate window, so it no longer shows up as a second window in the taskbar, dock or window switcher, and on Linux it no longer carries a copy of the menu bar
 
 ### Fixed
 
-- Windows and Linux: Help > About UniDoc PDF Debugger opens the About window, which until now could only be reached from the macOS app menu
+- Windows and Linux: Help > About UniDoc PDF Debugger opens the About dialog, which until now could only be reached from the macOS app menu
 - Linux: the app shows its own name and icon in the dock and in notifications instead of a gear icon and `org.wails.unidoc_pdf_debugger`, because its application id (`com.unidoc.unidoc-pdf-debugger`) now matches the desktop entry
 - Saving an embedded file close to the 50 MB extraction limit no longer fails with a transport error. The app reads, asks where to save and writes the file on the backend, so the bytes no longer travel to the window and back
 - Windows file properties show the version details: `info.json` now keys them under en-US (`0409`) instead of language neutral

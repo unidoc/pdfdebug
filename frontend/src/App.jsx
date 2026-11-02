@@ -18,6 +18,7 @@ import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
 import { TabBar } from './components/TabBar'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
+import { AboutDialog } from './components/AboutDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
@@ -434,6 +435,7 @@ function AppContent() {
         {hasDocument ? <MainLayout /> : <EmptyState />}
       </div>
       <BatchOpenDialog />
+      <AboutDialog />
       <CommandPalette />
       <UpdateNotifier />
       <ReloadToast />
