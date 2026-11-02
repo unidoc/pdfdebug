@@ -484,15 +484,11 @@ func main() {
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: appID,
-			// A second instance passes on the token it was launched with, so
-			// the running instance can raise its window past focus-stealing
-			// prevention.
-			AdditionalData: map[string]string{activationTokenKey: launchActivationToken()},
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// Route every path through the queue first. A path
 				// that arrives before the frontend has drained is buffered
 				// (Add returns false) instead of dropped; only ready/warm paths
-				// open immediately. The window is raised only when at least one
+				// open immediately. window.Focus() fires only when at least one
 				// path opened on the ready (warm) path.
 				focus := false
 				for _, p := range extractPDFPaths(data.Args) {
@@ -501,7 +497,7 @@ func main() {
 					}
 				}
 				if focus {
-					raiseWindow(window, data.AdditionalData[activationTokenKey])
+					window.Focus()
 				}
 			},
 		},
