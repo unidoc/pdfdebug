@@ -28,6 +28,7 @@ static int activate_with_token(void *window, const char *token) {
 import "C"
 
 import (
+	"bytes"
 	"os"
 	"unsafe"
 
@@ -35,12 +36,30 @@ import (
 )
 
 // launchActivationToken returns the token the desktop launched this process
-// with: XDG_ACTIVATION_TOKEN on Wayland, DESKTOP_STARTUP_ID on X11.
+// with: XDG_ACTIVATION_TOKEN on Wayland, DESKTOP_STARTUP_ID on X11. GTK unsets
+// both while the library loads, before main runs, so they are read from the
+// process's initial environment in /proc/self/environ.
 func launchActivationToken() string {
-	if token := os.Getenv("XDG_ACTIVATION_TOKEN"); token != "" {
-		return token
+	environ, err := os.ReadFile("/proc/self/environ")
+	if err != nil {
+		return ""
 	}
-	return os.Getenv("DESKTOP_STARTUP_ID")
+	return activationTokenFromEnviron(environ)
+}
+
+// activationTokenFromEnviron picks the launch token out of a NUL-separated
+// environment block, preferring XDG_ACTIVATION_TOKEN.
+func activationTokenFromEnviron(environ []byte) string {
+	var startupID string
+	for _, entry := range bytes.Split(environ, []byte{0}) {
+		if value, ok := bytes.CutPrefix(entry, []byte("XDG_ACTIVATION_TOKEN=")); ok && len(value) > 0 {
+			return string(value)
+		}
+		if value, ok := bytes.CutPrefix(entry, []byte("DESKTOP_STARTUP_ID=")); ok {
+			startupID = string(value)
+		}
+	}
+	return startupID
 }
 
 // raiseWindow brings window to the front. GNOME only lets an already running
