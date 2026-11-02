@@ -888,6 +888,11 @@ func main() {
 			// window show.
 			HiddenOnTaskbar: true,
 		},
+		// Linux gives every window the application menu unless it has its own;
+		// an empty one keeps the menu bar off the splash.
+		Linux: application.LinuxWindow{
+			Menu: application.NewMenu(),
+		},
 	})
 	// Guard: NewWithOptions can return nil on platforms where window
 	// creation fails (e.g. WebView2 missing on Windows pre-bootstrap).
