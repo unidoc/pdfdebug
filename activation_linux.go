@@ -6,9 +6,23 @@ package main
 #cgo pkg-config: gtk4
 #include <stdlib.h>
 #include <gtk/gtk.h>
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/wayland/gdkwayland.h>
+#endif
 
-static void set_startup_id(void *window, const char *token) {
-	gtk_window_set_startup_id(GTK_WINDOW(window), token);
+// On Wayland, setting the startup id of a mapped window activates it with
+// the token. Presenting it afterwards would make GTK request a new token
+// from the window's last input, which GNOME rejects with an "is ready"
+// notification. Returns 1 when the token raised the window.
+static int activate_with_token(void *window, const char *token) {
+	GtkWindow *w = GTK_WINDOW(window);
+	gtk_window_set_startup_id(w, token);
+#ifdef GDK_WINDOWING_WAYLAND
+	if (GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(GTK_WIDGET(w))) && gtk_widget_get_mapped(GTK_WIDGET(w))) {
+		return 1;
+	}
+#endif
+	return 0;
 }
 */
 import "C"
@@ -31,8 +45,11 @@ func launchActivationToken() string {
 
 // raiseWindow brings window to the front. GNOME only lets an already running
 // window take focus when it presents a launch token, so the token is handed
-// to GTK first; without one GNOME shows an "is ready" notification instead.
+// to GTK; without one GNOME shows an "is ready" notification instead. On X11,
+// or when the window is not mapped, the token only sets the user time and the
+// window is presented as usual.
 func raiseWindow(window *application.WebviewWindow, token string) {
+	activated := false
 	if token != "" {
 		application.InvokeSync(func() {
 			native := window.NativeWindow()
@@ -41,8 +58,10 @@ func raiseWindow(window *application.WebviewWindow, token string) {
 			}
 			cToken := C.CString(token)
 			defer C.free(unsafe.Pointer(cToken))
-			C.set_startup_id(native, cToken)
+			activated = C.activate_with_token(native, cToken) == 1
 		})
 	}
-	window.Focus()
+	if !activated {
+		window.Focus()
+	}
 }
