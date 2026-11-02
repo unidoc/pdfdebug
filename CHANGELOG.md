@@ -32,6 +32,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ### Fixed
 
+- Linux: opening a PDF from the file manager while the app is running now brings its window to the front, where GNOME used to leave it behind and show an "is ready" notification. The app also shows its own name and icon in the dock and in notifications instead of a gear icon and `org.wails.unidoc_pdf_debugger`, because its application id (`com.unidoc.unidoc-pdf-debugger`) now matches the desktop entry
 - Saving an embedded file close to the 50 MB extraction limit no longer fails with a transport error. The app reads, asks where to save and writes the file on the backend, so the bytes no longer travel to the window and back
 - Windows file properties show the version details: `info.json` now keys them under en-US (`0409`) instead of language neutral
 - The detail panel keeps each document's tab. Switching to another document and back returns to the tab you left (XREF, Metadata, Signatures and so on) instead of Object. Diff is the exception: its comparison is not kept across a switch, so it comes back on Object. A newly opened or reloaded document still starts on Object

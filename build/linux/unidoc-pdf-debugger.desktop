@@ -8,4 +8,5 @@ Terminal=false
 Keywords=pdf;debugger;inspector;
 MimeType=application/pdf;
 Version=1.0
-StartupNotify=false
+StartupNotify=true
+StartupWMClass=com.unidoc.unidoc-pdf-debugger

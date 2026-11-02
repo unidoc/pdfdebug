@@ -41,6 +41,11 @@ var version = "dev"
 // truth here prevents the menu item from silently vanishing on a rename.
 const appName = "UniDoc PDF Debugger"
 
+// appID identifies the app to the OS: the single-instance lock, and on Linux
+// the GTK application id, which must match StartupWMClass in the .desktop file
+// for the desktop to show the app's name and icon.
+const appID = "com.unidoc.unidoc-pdf-debugger"
+
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
 // made available to the frontend.
@@ -474,13 +479,20 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 		FileAssociations: []string{".pdf"},
+		Linux: application.LinuxOptions{
+			ApplicationID: appID,
+		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.unidoc.unidoc-pdf-debugger",
+			UniqueID: appID,
+			// A second instance passes on the token it was launched with, so
+			// the running instance can raise its window past focus-stealing
+			// prevention.
+			AdditionalData: map[string]string{activationTokenKey: launchActivationToken()},
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// Route every path through the queue first. A path
 				// that arrives before the frontend has drained is buffered
 				// (Add returns false) instead of dropped; only ready/warm paths
-				// open immediately. window.Focus() fires only when at least one
+				// open immediately. The window is raised only when at least one
 				// path opened on the ready (warm) path.
 				focus := false
 				for _, p := range extractPDFPaths(data.Args) {
@@ -489,7 +501,7 @@ func main() {
 					}
 				}
 				if focus {
-					window.Focus()
+					raiseWindow(window, data.AdditionalData[activationTokenKey])
 				}
 			},
 		},
