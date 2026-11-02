@@ -237,6 +237,11 @@ func openAboutWindow(app *application.App) {
 		InitialPosition:  application.WindowCentered,
 		BackgroundColour: application.NewRGB(248, 250, 252),
 		URL:              "/?view=about&version=" + url.QueryEscape(version),
+		// Linux gives every window the application menu unless it has its own;
+		// an empty one leaves the About window without a menu bar.
+		Linux: application.LinuxWindow{
+			Menu: application.NewMenu(),
+		},
 	})
 	if aboutWindow == nil {
 		return
