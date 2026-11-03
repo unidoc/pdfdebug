@@ -590,6 +590,22 @@ func main() {
 		}
 	})
 
+	// showAbout brings the main window forward when it is minimised or on
+	// screen, then asks its frontend to show the About dialog. A main window
+	// still hidden behind the splash stays hidden; the dialog is open when it
+	// appears.
+	showAbout := func() {
+		if window != nil {
+			if window.IsMinimised() {
+				window.UnMinimise()
+				window.Focus()
+			} else if window.IsVisible() {
+				window.Focus()
+			}
+		}
+		app.Event.Emit(eventAboutOpen, version)
+	}
+
 	// Build native menu bar
 	menu := application.NewMenu()
 
@@ -614,7 +630,7 @@ func main() {
 					aboutItem.SetRole(application.NoRole).
 						SetLabel("About " + appName).
 						OnClick(func(_ *application.Context) {
-							app.Event.Emit(eventAboutOpen, version)
+							showAbout()
 						})
 				}
 			}
@@ -741,7 +757,7 @@ func main() {
 		helpMenu.AddSeparator()
 		helpMenu.Add("About " + appName).
 			OnClick(func(_ *application.Context) {
-				app.Event.Emit(eventAboutOpen, version)
+				showAbout()
 			})
 	}
 
