@@ -141,12 +141,14 @@ function AppContent() {
     })
   }, [])
 
-  // Sync navigation and document menu enabled state with backend
+  // Sync navigation and document menu enabled state with backend. The first
+  // run always reports, so a reloaded page resets a menu left enabled for
+  // documents the page no longer has.
   const documentCount = tabs.length
-  const prevNavState = useRef({ canGoBack: false, canGoForward: false, documentCount: 0 })
+  const prevNavState = useRef(/** @type {{ canGoBack: boolean, canGoForward: boolean, documentCount: number } | null} */ (null))
   useEffect(() => {
     const prev = prevNavState.current
-    if (prev.canGoBack !== canGoBack || prev.canGoForward !== canGoForward || prev.documentCount !== documentCount) {
+    if (!prev || prev.canGoBack !== canGoBack || prev.canGoForward !== canGoForward || prev.documentCount !== documentCount) {
       prevNavState.current = { canGoBack, canGoForward, documentCount }
       Events.Emit(NavigateStateChanged, { canGoBack, canGoForward, documentCount })
     }

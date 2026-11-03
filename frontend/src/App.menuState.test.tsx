@@ -85,12 +85,12 @@ beforeEach(() => {
 });
 
 describe('menu state reports the open document count', () => {
-  test('nothing is reported while no document is open', async () => {
+  test('a fresh page reports zero documents once, so a reload resets the menu', async () => {
     mockConsume.mockResolvedValue([]);
     const { default: App } = await import('./App');
     const { findByTestId } = render(<App />);
     await findByTestId('empty-state');
-    expect(reportedCounts()).toEqual([]);
+    expect(reportedCounts()).toEqual([0]);
   });
 
   test('one open document is reported as one', async () => {
