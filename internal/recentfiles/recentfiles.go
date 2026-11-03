@@ -72,9 +72,10 @@ func normalize(path string) string {
 }
 
 // sameFile reports whether two normalized paths name one file. The default
-// file systems on macOS and Windows ignore letter case, so there paths that
-// differ only in case are one file unless both exist and are different files,
-// as on a case-sensitive volume.
+// file systems on macOS and Windows ignore letter case, so there two paths that
+// differ only in case are one file when both exist and os.SameFile says so. A
+// path that cannot be stat'ed only matches itself, so dropping a missing file
+// never drops a different file on a case-sensitive volume.
 func sameFile(a, b string) bool {
 	if a == b {
 		return true
@@ -84,17 +85,26 @@ func sameFile(a, b string) bool {
 	}
 	ia, errA := os.Stat(a)
 	ib, errB := os.Stat(b)
-	if errA != nil || errB != nil {
-		return true
-	}
-	return os.SameFile(ia, ib)
+	return errA == nil && errB == nil && os.SameFile(ia, ib)
 }
 
-// without returns paths minus every entry for the same file as p.
-func without(paths []string, p string) []string {
+// sameAs returns the entries for the same file as p, p included. It stats
+// without holding mu, so a slow volume does not hold up Paths.
+func (l *List) sameAs(p string) map[string]bool {
+	same := map[string]bool{p: true}
+	for _, q := range l.Paths() {
+		if sameFile(q, p) {
+			same[q] = true
+		}
+	}
+	return same
+}
+
+// without returns paths minus the entries in drop.
+func without(paths []string, drop map[string]bool) []string {
 	out := paths[:0]
 	for _, q := range paths {
-		if !sameFile(q, p) {
+		if !drop[q] {
 			out = append(out, q)
 		}
 	}
@@ -105,9 +115,10 @@ func without(paths []string, p string) []string {
 // file and dropping the oldest entry past MaxEntries.
 func (l *List) Add(path string) {
 	p := normalize(path)
+	same := l.sameAs(p)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.paths = append([]string{p}, without(l.paths, p)...)
+	l.paths = append([]string{p}, without(l.paths, same)...)
 	if len(l.paths) > MaxEntries {
 		l.paths = l.paths[:MaxEntries]
 	}
@@ -115,10 +126,10 @@ func (l *List) Add(path string) {
 
 // Remove drops path from the list. An unknown path is a no-op.
 func (l *List) Remove(path string) {
-	p := normalize(path)
+	same := l.sameAs(normalize(path))
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.paths = without(l.paths, p)
+	l.paths = without(l.paths, same)
 }
 
 // Clear empties the list.

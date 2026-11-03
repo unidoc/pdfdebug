@@ -447,14 +447,32 @@ func TestLabelsOfAnEmptyListIsEmpty(t *testing.T) {
 	}
 }
 
-func TestAddMergesCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
+func ignoresCase() bool {
+	return runtime.GOOS == "darwin" || runtime.GOOS == "windows"
+}
+
+func writeFile(t *testing.T, path string) string {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("%PDF"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestAddMergesCaseVariantsOfOneFileOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
 	l, _ := newList(t)
 	dir := t.TempDir()
-	lower := pdfPath(filepath.Join(dir, "docs"), "a.pdf")
+	lower := writeFile(t, filepath.Join(dir, "docs", "a.pdf"))
 	upper := pdfPath(filepath.Join(dir, "Docs"), "A.pdf")
+	if _, err := os.Stat(upper); err != nil && ignoresCase() {
+		t.Skip("temp directory is case-sensitive")
+	}
 	l.Add(lower)
 	l.Add(upper)
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if ignoresCase() {
 		assertPaths(t, l.Paths(), []string{upper})
 		l.Remove(lower)
 		assertPaths(t, l.Paths(), nil)
@@ -463,11 +481,26 @@ func TestAddMergesCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
 	assertPaths(t, l.Paths(), []string{upper, lower})
 }
 
-func TestLoadDropsCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
+func TestCaseVariantsOfMissingFilesStaySeparate(t *testing.T) {
+	l, _ := newList(t)
+	dir := t.TempDir()
+	lower := pdfPath(dir, "a.pdf")
+	upper := pdfPath(dir, "A.pdf")
+	l.Add(upper)
+	l.Add(lower)
+	assertPaths(t, l.Paths(), []string{lower, upper})
+	l.Remove(lower)
+	assertPaths(t, l.Paths(), []string{upper})
+}
+
+func TestLoadDropsCaseVariantsOfOneFileOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "recent.json")
 	dir := t.TempDir()
 	first := pdfPath(dir, "A.pdf")
-	second := pdfPath(dir, "a.pdf")
+	second := writeFile(t, pdfPath(dir, "a.pdf"))
+	if _, err := os.Stat(first); err != nil && ignoresCase() {
+		t.Skip("temp directory is case-sensitive")
+	}
 	data, err := json.Marshal([]string{first, second})
 	if err != nil {
 		t.Fatal(err)
@@ -476,7 +509,7 @@ func TestLoadDropsCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{first, second}
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+	if ignoresCase() {
 		want = []string{first}
 	}
 	assertPaths(t, recentfiles.Load(path).Paths(), want)
