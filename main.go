@@ -516,12 +516,26 @@ func main() {
 		batchCancelled.Store(true)
 	})
 
+	// recentBatches counts the multi-file batches in flight. While one runs,
+	// opens are added to Open Recent but the list is saved and the menu rebuilt
+	// once, when the last batch ends (flushRecent, assigned with the menu).
+	var recentBatches atomic.Int32
+	var flushRecent func()
+
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
 	// Used by both the file-drop handler and the menu Open... item.
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
+		}
+		if len(pdfPaths) > 1 {
+			recentBatches.Add(1)
+			defer func() {
+				if recentBatches.Add(-1) == 0 {
+					flushRecent()
+				}
+			}()
 		}
 		batchCancelled.Store(false)
 		// Piggyback the unsupported-files advisory onto the last
@@ -837,10 +851,19 @@ func main() {
 		}
 	}
 	rebuildRecentMenu()
+	var recentDirty atomic.Bool
+	flushRecent = func() {
+		if recentDirty.Swap(false) {
+			saveRecent()
+			rebuildRecentMenu()
+		}
+	}
 	pdfService.SetRecentFileRecorder(func(path string) {
 		recent.Add(path)
-		saveRecent()
-		rebuildRecentMenu()
+		recentDirty.Store(true)
+		if recentBatches.Load() == 0 {
+			flushRecent()
+		}
 	})
 
 	// macOS uses the screen-top system menu bar via SetApplicationMenu.
