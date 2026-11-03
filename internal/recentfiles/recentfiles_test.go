@@ -514,3 +514,27 @@ func TestLoadDropsCaseVariantsOfOneFileOnlyWhereFileSystemsIgnoreCase(t *testing
 	}
 	assertPaths(t, recentfiles.Load(path).Paths(), want)
 }
+
+func TestConcurrentAddsOfCaseVariantsLeaveOneEntryWhereFileSystemsIgnoreCase(t *testing.T) {
+	dir := t.TempDir()
+	lower := writeFile(t, filepath.Join(dir, "a.pdf"))
+	upper := pdfPath(dir, "A.pdf")
+	if _, err := os.Stat(upper); err != nil || !ignoresCase() {
+		t.Skip("needs a case-insensitive temp directory")
+	}
+	for range 200 {
+		l, _ := newList(t)
+		var wg sync.WaitGroup
+		for _, p := range []string{lower, upper} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				l.Add(p)
+			}()
+		}
+		wg.Wait()
+		if got := l.Paths(); len(got) != 1 {
+			t.Fatalf("paths = %q, want one entry", got)
+		}
+	}
+}

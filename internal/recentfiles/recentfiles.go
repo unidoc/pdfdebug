@@ -88,16 +88,32 @@ func sameFile(a, b string) bool {
 	return errA == nil && errB == nil && os.SameFile(ia, ib)
 }
 
-// sameAs returns the entries for the same file as p, p included. It stats
-// without holding mu, so a slow volume does not hold up Paths.
-func (l *List) sameAs(p string) map[string]bool {
+// lockSameAs locks mu and returns the entries for the same file as p, p
+// included. Case variants of p are stat'ed with mu released, so a slow volume
+// does not hold up Paths, and a variant added meanwhile is checked on the next
+// pass. mu is held on return.
+func (l *List) lockSameAs(p string) map[string]bool {
 	same := map[string]bool{p: true}
-	for _, q := range l.Paths() {
-		if sameFile(q, p) {
-			same[q] = true
+	checked := map[string]bool{p: true}
+	for {
+		l.mu.Lock()
+		var fresh []string
+		for _, q := range l.paths {
+			if !checked[q] && strings.EqualFold(q, p) {
+				fresh = append(fresh, q)
+			}
+		}
+		if len(fresh) == 0 {
+			return same
+		}
+		l.mu.Unlock()
+		for _, q := range fresh {
+			checked[q] = true
+			if sameFile(q, p) {
+				same[q] = true
+			}
 		}
 	}
-	return same
 }
 
 // without returns paths minus the entries in drop.
@@ -115,8 +131,7 @@ func without(paths []string, drop map[string]bool) []string {
 // file and dropping the oldest entry past MaxEntries.
 func (l *List) Add(path string) {
 	p := normalize(path)
-	same := l.sameAs(p)
-	l.mu.Lock()
+	same := l.lockSameAs(p)
 	defer l.mu.Unlock()
 	l.paths = append([]string{p}, without(l.paths, same)...)
 	if len(l.paths) > MaxEntries {
@@ -126,8 +141,7 @@ func (l *List) Add(path string) {
 
 // Remove drops path from the list. An unknown path is a no-op.
 func (l *List) Remove(path string) {
-	same := l.sameAs(normalize(path))
-	l.mu.Lock()
+	same := l.lockSameAs(normalize(path))
 	defer l.mu.Unlock()
 	l.paths = without(l.paths, same)
 }
