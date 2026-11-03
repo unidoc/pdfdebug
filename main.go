@@ -595,9 +595,12 @@ func main() {
 	})
 
 	// showAbout brings the main window forward when it is minimised or on
-	// screen, then asks its frontend to show the About dialog. A main window
-	// still hidden behind the splash stays hidden; the dialog is open when it
-	// appears.
+	// screen, then asks its frontend to show the About dialog. Until the
+	// frontend has mounted (aboutReady), the request is held in aboutPending
+	// and sent when it has. A main window still hidden behind the splash stays
+	// hidden; the dialog is open when it appears.
+	var aboutMu sync.Mutex
+	var aboutReady, aboutPending bool
 	showAbout := func() {
 		if window != nil {
 			if window.IsMinimised() {
@@ -606,6 +609,12 @@ func main() {
 			} else if window.IsVisible() {
 				window.Focus()
 			}
+		}
+		aboutMu.Lock()
+		defer aboutMu.Unlock()
+		if !aboutReady {
+			aboutPending = true
+			return
 		}
 		app.Event.Emit(eventAboutOpen, version)
 	}
@@ -767,7 +776,16 @@ func main() {
 
 	// Frontend sends navigation state and the open document count to sync
 	// menu enabled state: document items need one document, cycling needs two.
+	// The first report comes after the frontend's first render, when the About
+	// dialog listens, so it also sends an About request held until then.
 	app.Event.On(eventNavigateStateChanged, func(event *application.CustomEvent) {
+		aboutMu.Lock()
+		aboutReady = true
+		if aboutPending {
+			aboutPending = false
+			app.Event.Emit(eventAboutOpen, version)
+		}
+		aboutMu.Unlock()
 		data, ok := event.Data.(map[string]any)
 		if !ok {
 			return
