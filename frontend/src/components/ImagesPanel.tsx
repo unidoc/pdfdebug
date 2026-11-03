@@ -16,6 +16,7 @@ import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { formatBreadcrumb } from '../lib/formatBreadcrumb';
 import type { LeftRailPanelProps } from './leftRailDestinations';
 import { ROW_MENU_REVEAL, useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
@@ -245,7 +246,7 @@ function ImageRow({ node, style, dragHandle }: NodeRendererProps<ImageRowData>) 
 
   const filters = e.filters && e.filters.length > 0 ? clamp(e.filters.join(',')) : '-';
   const usage = row.path !== null
-    ? clamp(row.path.join(' > '))
+    ? clamp(formatBreadcrumb(row.path))
     : `used on ${e.pageCount} ${e.pageCount === 1 ? 'page' : 'pages'}`;
   const title = [e.sampleInterpretation, e.warning].filter((s) => s !== '').map(clamp).join('\n');
   return (

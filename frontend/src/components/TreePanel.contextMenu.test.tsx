@@ -9,7 +9,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { AppProvider, useAppDispatch, type AppAction } from '../hooks/useDocumentState';
-import { TreePanel, formatNodePath, runTreeRowAction } from './TreePanel';
+import { TreePanel, runTreeRowAction } from './TreePanel';
 import { armedRowMenu, clickRowMenuItem, rightClickRow } from './rowMenuTestUtils';
 
 const mockSetText = vi.fn();
@@ -190,9 +190,3 @@ describe('runTreeRowAction', () => {
   });
 });
 
-describe('formatNodePath', () => {
-  test('joins node ids the way the command palette breadcrumb does', () => {
-    expect(formatNodePath(['root', 'obj:0:2', 'obj:0:4'])).toBe('root > obj:0:2 > obj:0:4');
-    expect(formatNodePath([])).toBe('');
-  });
-});

@@ -8,6 +8,7 @@ import { Tree, type TreeApi, type NodeRendererProps } from 'react-arborist';
 import { Clipboard } from '@wailsio/runtime';
 import { GetChildren, GetAncestorPath } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
+import { formatBreadcrumb } from '../lib/formatBreadcrumb';
 import {
   RowStateContext,
   NodeRenderer,
@@ -34,11 +35,6 @@ function buildInitialData(rootNode: TreeNode, rootChildren: TreeNode[] | null): 
   return [root];
 }
 
-/** Joins a GetAncestorPath result into the breadcrumb the command palette shows. */
-export function formatNodePath(ancestorPath: string[]): string {
-  return ancestorPath.join(' > ');
-}
-
 /** Copies text through the Wails clipboard; a failure leaves the clipboard as it was. */
 function copyText(text: string) {
   Promise.resolve(Clipboard.SetText(text)).catch(() => {});
@@ -55,7 +51,7 @@ export function runTreeRowAction(action: RowMenuActionName, tabId: string, nodeI
   }
   if (action === 'copy-path') {
     Promise.resolve(GetAncestorPath(tabId, nodeId))
-      .then((path) => copyText(formatNodePath(path ?? [])))
+      .then((path) => copyText(formatBreadcrumb(path ?? [])))
       .catch(() => {});
   }
 }
