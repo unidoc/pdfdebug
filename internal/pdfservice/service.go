@@ -691,18 +691,54 @@ func saveEmbeddedFile(ins inspectorAPI, tabID, nodeID, suggestedName string, cho
 }
 
 // embeddedSaveName reduces an embedded file name, which comes from the PDF, to
-// its last path element so the save dialog never starts from a name that
-// points into another directory. A name with nothing usable left becomes
+// a plain file name in the folder the save dialog shows. It keeps the last
+// path element and turns every character Windows does not allow in a file name
+// (control characters and <>:"|?*) into an underscore, so neither a drive
+// prefix ("C:evil.bat") nor an NTFS stream ("a.pdf:data") survives. A Windows
+// device name (CON, NUL, COM1.xml and the like) gets a leading underscore so
+// the save writes a file. A name with nothing usable left becomes
 // "embedded-file".
 func embeddedSaveName(name string) string {
 	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
 		name = name[i+1:]
 	}
+	name = strings.Map(func(r rune) rune {
+		if r < 0x20 || strings.ContainsRune(`<>:"|?*`, r) {
+			return '_'
+		}
+		return r
+	}, name)
 	name = strings.TrimSpace(name)
 	if name == "" || name == "." || name == ".." {
 		return "embedded-file"
 	}
+	if windowsDeviceName(name) {
+		return "_" + name
+	}
 	return name
+}
+
+// windowsDeviceName reports whether Windows reads name as a device rather than
+// a file: CON, PRN, AUX, NUL, COM0-9 or LPT0-9 (superscript 1-3 included),
+// alone or followed by an extension, in any case, with trailing dots and
+// spaces ignored.
+func windowsDeviceName(name string) bool {
+	base := strings.TrimRight(name, ". ")
+	if i := strings.IndexByte(base, '.'); i >= 0 {
+		base = base[:i]
+	}
+	base = strings.ToUpper(strings.TrimRight(base, " "))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	}
+	if len(base) > 3 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) {
+		switch base[3:] {
+		case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "\u00b9", "\u00b2", "\u00b3":
+			return true
+		}
+	}
+	return false
 }
 
 // SaveImageToFile renders the FULL-resolution image for the given node

@@ -220,6 +220,22 @@ func TestSaveEmbeddedFileSeedsTheDialogWithTheLastPathElement(t *testing.T) {
 		"dir/":                "embedded-file",
 		"  ":                  "embedded-file",
 		"factur-x.xml":        "factur-x.xml",
+		"C:evil.bat":          "C_evil.bat",
+		`C:\Windows\evil.bat`: "evil.bat",
+		"D:":                  "D_",
+		"invoice.pdf:payload": "invoice.pdf_payload",
+		"Notes 10:30.txt":     "Notes 10_30.txt",
+		`a<b>"c"|d?e*.txt`:    "a_b__c__d_e_.txt",
+		"tab\there.txt":       "tab_here.txt",
+		"NUL.txt":             "_NUL.txt",
+		"con":                 "_con",
+		"COM1.xml":            "_COM1.xml",
+		"lpt9":                "_lpt9",
+		"COM\u00b9.txt":       "_COM\u00b9.txt",
+		"nul.":                "_nul.",
+		"CONSOLE.txt":         "CONSOLE.txt",
+		"COM10.txt":           "COM10.txt",
+		"auxiliary.pdf":       "auxiliary.pdf",
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
