@@ -343,3 +343,71 @@ func TestSplashRuntimeReadyGiveUpEmitsDiagnostic(t *testing.T) {
 		t.Errorf("Render() output missing clearInterval(iv) in the runtime-ready ping")
 	}
 }
+
+func TestSplashSchedulerReadyWithinWaitsTheFullTimeWhenTheTimeoutIsFar(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	clk.Advance(1900 * time.Millisecond)
+	if dismissed.Load() != 0 {
+		t.Fatal("dismissed before the wait elapsed")
+	}
+	clk.Advance(100 * time.Millisecond)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d after the wait, want 1 and 0", dismissed.Load(), timedOut.Load())
+	}
+}
+
+func TestSplashSchedulerReadyWithinNeverWaitsPastTheTimeout(t *testing.T) {
+	for _, readyAt := range []time.Duration{28500 * time.Millisecond, 29950 * time.Millisecond, 29999 * time.Millisecond} {
+		clk := newFakeClock(time.Unix(0, 0))
+		var dismissed, timedOut atomic.Int32
+		s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+		clk.Advance(readyAt)
+		s.MainWindowReadyWithin(2 * time.Second)
+		for range 100 {
+			clk.Advance(50 * time.Millisecond)
+		}
+		if dismissed.Load() != 1 || timedOut.Load() != 0 {
+			t.Errorf("ready at %v: dismissed=%d timedOut=%d, want 1 and 0", readyAt, dismissed.Load(), timedOut.Load())
+		}
+	}
+}
+
+func TestSplashSchedulerReadyWithinStopsTheTimeoutAtOnce(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(29 * time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	clk.Advance(999 * time.Millisecond)
+	if timedOut.Load() != 0 || dismissed.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d before the capped wait ended, want 0 and 0", dismissed.Load(), timedOut.Load())
+	}
+	clk.Advance(time.Millisecond)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d at the timeout, want 1 and 0", dismissed.Load(), timedOut.Load())
+	}
+}
+
+func TestSplashSchedulerReadyWithinThenMainWindowReadyDismissesAtOnce(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() {})
+
+	clk.Advance(time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	s.MainWindowReady()
+	if dismissed.Load() != 1 {
+		t.Fatalf("dismissed=%d after the splash loaded, want 1", dismissed.Load())
+	}
+	clk.Advance(3 * time.Second)
+	if dismissed.Load() != 1 {
+		t.Fatalf("dismissed=%d after the capped wait, want still 1", dismissed.Load())
+	}
+}

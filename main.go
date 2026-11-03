@@ -964,9 +964,10 @@ func main() {
 
 	// On Linux the splash shows once its page has loaded, and the main window
 	// waits for that so the splash is never a blank window. If the splash has
-	// not loaded 2s after the main window is ready, the main window comes up
-	// without it. Each handler records its own event before checking the
-	// other's, so whichever runs second releases the main window.
+	// not loaded 2s after the main window is ready, or the splash timeout is
+	// nearer than that, the main window comes up without it. Each handler
+	// records its own event before checking the other's, so whichever runs
+	// second releases the main window.
 	mainWindowReady := splashScheduler.MainWindowReady
 	if splashWindow != nil && runtime.GOOS == "linux" {
 		var splashLoaded, mainReady atomic.Bool
@@ -985,7 +986,7 @@ func main() {
 				splashScheduler.MainWindowReady()
 				return
 			}
-			time.AfterFunc(2*time.Second, splashScheduler.MainWindowReady)
+			splashScheduler.MainWindowReadyWithin(2 * time.Second)
 		}
 	}
 

@@ -79,6 +79,7 @@ func (r *realTimer) Stop() bool { return r.t.Stop() }
 type Scheduler struct {
 	clock      Clock
 	shownAt    time.Time
+	deadline   time.Time
 	minDisplay time.Duration
 	timeout    time.Duration
 
@@ -122,6 +123,7 @@ func newSchedulerWithTimings(clock Clock, onDismiss, onTimeout func(), minDispla
 		onTimeout:  onTimeout,
 	}
 	s.shownAt = clock.Now()
+	s.deadline = s.shownAt.Add(timeout)
 	s.timeoutTimer = clock.AfterFunc(timeout, s.fireTimeout)
 	return s
 }
@@ -154,6 +156,30 @@ func (s *Scheduler) MainWindowReady() {
 	// Schedule via Clock so tests can drive virtual time.
 	remaining := s.minDisplay - elapsed
 	s.clock.AfterFunc(remaining, s.runDismiss)
+}
+
+// MainWindowReadyWithin reports a ready main window whose dismissal may wait:
+// it stops the timeout at once, since the main window is ready, and calls
+// MainWindowReady after wait, or at the time the timeout was due if that is
+// sooner. An earlier MainWindowReady call still dismisses right away.
+func (s *Scheduler) MainWindowReadyWithin(wait time.Duration) {
+	s.mu.Lock()
+	if s.mainReadyFired || s.timeoutFired || s.dismissFired {
+		s.mu.Unlock()
+		return
+	}
+	timer := s.timeoutTimer
+	s.timeoutTimer = nil
+	s.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
+	wait = min(wait, s.deadline.Sub(s.clock.Now()))
+	if wait <= 0 {
+		s.MainWindowReady()
+		return
+	}
+	s.clock.AfterFunc(wait, s.MainWindowReady)
 }
 
 // Shown restarts the min-display floor from now, for a splash that becomes
