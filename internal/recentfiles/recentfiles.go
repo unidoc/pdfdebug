@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/adrg/xdg"
@@ -47,14 +50,12 @@ func Load(path string) *List {
 	if json.Unmarshal(data, &paths) != nil {
 		return l
 	}
-	seen := map[string]bool{}
 	for _, p := range paths {
 		if p == "" || len(l.paths) == MaxEntries {
 			continue
 		}
 		p = normalize(p)
-		if !seen[p] {
-			seen[p] = true
+		if !slices.ContainsFunc(l.paths, func(q string) bool { return sameFile(q, p) }) {
 			l.paths = append(l.paths, p)
 		}
 	}
@@ -70,11 +71,30 @@ func normalize(path string) string {
 	return filepath.Clean(path)
 }
 
-// without returns paths minus every entry equal to p.
+// sameFile reports whether two normalized paths name one file. The default
+// file systems on macOS and Windows ignore letter case, so there paths that
+// differ only in case are one file unless both exist and are different files,
+// as on a case-sensitive volume.
+func sameFile(a, b string) bool {
+	if a == b {
+		return true
+	}
+	if (runtime.GOOS != "darwin" && runtime.GOOS != "windows") || !strings.EqualFold(a, b) {
+		return false
+	}
+	ia, errA := os.Stat(a)
+	ib, errB := os.Stat(b)
+	if errA != nil || errB != nil {
+		return true
+	}
+	return os.SameFile(ia, ib)
+}
+
+// without returns paths minus every entry for the same file as p.
 func without(paths []string, p string) []string {
 	out := paths[:0]
 	for _, q := range paths {
-		if q != p {
+		if !sameFile(q, p) {
 			out = append(out, q)
 		}
 	}

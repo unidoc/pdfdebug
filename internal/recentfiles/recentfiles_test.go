@@ -1,9 +1,11 @@
 package recentfiles_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -443,4 +445,39 @@ func TestLabelsOfAnEmptyListIsEmpty(t *testing.T) {
 	if got := recentfiles.Labels(nil); len(got) != 0 {
 		t.Fatalf("labels = %q, want none", got)
 	}
+}
+
+func TestAddMergesCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
+	l, _ := newList(t)
+	dir := t.TempDir()
+	lower := pdfPath(filepath.Join(dir, "docs"), "a.pdf")
+	upper := pdfPath(filepath.Join(dir, "Docs"), "A.pdf")
+	l.Add(lower)
+	l.Add(upper)
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		assertPaths(t, l.Paths(), []string{upper})
+		l.Remove(lower)
+		assertPaths(t, l.Paths(), nil)
+		return
+	}
+	assertPaths(t, l.Paths(), []string{upper, lower})
+}
+
+func TestLoadDropsCaseVariantsOnlyWhereFileSystemsIgnoreCase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "recent.json")
+	dir := t.TempDir()
+	first := pdfPath(dir, "A.pdf")
+	second := pdfPath(dir, "a.pdf")
+	data, err := json.Marshal([]string{first, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{first, second}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		want = []string{first}
+	}
+	assertPaths(t, recentfiles.Load(path).Paths(), want)
 }
