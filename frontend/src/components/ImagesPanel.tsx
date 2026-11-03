@@ -452,7 +452,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     bump();
   }
 
-  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
     treeRef,
     '[data-row-id]',
     'data-row-id',
@@ -461,7 +461,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
       // Error rows and pages without a node id have nothing to reveal.
       return row && row.nodeId !== '' ? { menu: ROW_MENU_REVEAL, nodeId: row.nodeId } : null;
     },
-    (action, nodeId) => {
+    (action, { nodeId }) => {
       if (action === 'reveal') dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
     },
   );
@@ -517,6 +517,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
+        onMouseDownCapture={onMouseDownCapture}
         onKeyDown={onKeyDown}
       >
         {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading images...</div>}

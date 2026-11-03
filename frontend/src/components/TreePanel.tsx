@@ -351,19 +351,22 @@ export function TreePanel() {
   // arborist display id; the menu acts on the node's backend id. Indirect
   // objects get the menu with "Copy object reference". An error row has no
   // object reference and no ancestor path, so it gets no menu.
-  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
     treeRef,
     '[data-testid="tree-node"]',
     'data-node-id',
     (rowId) => {
       const node = findNode(treeDataRef.current, (n) => n.id === rowId);
       if (!node?.backendId || node.backendId.startsWith('error:')) return null;
-      return { menu: node.objectRef ? ROW_MENU_TREE_WITH_REF : ROW_MENU_TREE, nodeId: node.backendId };
+      return {
+        menu: node.objectRef ? ROW_MENU_TREE_WITH_REF : ROW_MENU_TREE,
+        nodeId: node.backendId,
+        objectRef: node.objectRef,
+      };
     },
-    (action, nodeId) => {
+    (action, hit) => {
       if (!activeTabId) return;
-      const node = findNode(treeDataRef.current, (n) => n.backendId === nodeId);
-      runTreeRowAction(action, activeTabId, nodeId, node?.objectRef ?? '');
+      runTreeRowAction(action, activeTabId, hit.nodeId, hit.objectRef ?? '');
     },
   );
 
@@ -381,6 +384,7 @@ export function TreePanel() {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
+        onMouseDownCapture={onMouseDownCapture}
         onKeyDown={onKeyDown}
       >
         {treeMounted && (

@@ -235,7 +235,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     flash(row.id);
   }
 
-  const { closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
     treeRef,
     '[data-testid="tree-node"]',
     'data-node-id',
@@ -245,7 +245,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
       if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return null;
       return { menu: ROW_MENU_REVEAL, nodeId: node.backendId };
     },
-    (action, nodeId) => {
+    (action, { nodeId }) => {
       if (action === 'reveal') dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
     },
   );
@@ -316,6 +316,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
+        onMouseDownCapture={onMouseDownCapture}
         onKeyDown={onKeyDown}
       >
         {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
