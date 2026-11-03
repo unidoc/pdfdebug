@@ -58,6 +58,19 @@ describe('row menu opened from the keyboard', () => {
     expect(second).not.toBe(first);
   });
 
+  test('a contextmenu with no pointerdown after Shift+F10 still opens a menu', () => {
+    render(<Panel acted={[]} />);
+    const row = screen.getByText('row 7');
+
+    fireEvent.keyDown(screen.getByTestId('item'), { key: 'F10', shiftKey: true });
+    const first = armedRowMenu(row)?.token;
+    fireEvent.contextMenu(row);
+
+    const second = armedRowMenu(row)?.token;
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
+  });
+
   test('a second key press opens a menu again', () => {
     render(<Panel acted={[]} />);
     const row = screen.getByText('row 7');
@@ -76,7 +89,7 @@ describe('row menu opened with a pointer', () => {
     render(<Panel acted={[]} />);
     const row = screen.getByText('row 7');
 
-    fireEvent.keyDown(screen.getByTestId('item'), { key: 'F10', shiftKey: true });
+    fireEvent.keyDown(screen.getByTestId('item'), { key: 'ContextMenu' });
     const first = armedRowMenu(row)?.token;
     fireEvent.pointerDown(row, { pointerType: 'touch' });
     fireEvent.contextMenu(row);

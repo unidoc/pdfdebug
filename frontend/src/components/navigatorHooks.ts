@@ -113,7 +113,7 @@ let nextRowMenuToken = 0;
 // ContextMenu key.
 const keyMenuEvents = new WeakSet<Event>();
 
-// WebKit on macOS sends no contextmenu of its own for those keys.
+// WebKit on macOS sends no contextmenu of its own for the ContextMenu key.
 const webViewEchoesKeyMenu = typeof navigator === 'undefined' || !/Mac/.test(navigator.platform);
 
 /**
@@ -127,9 +127,9 @@ const webViewEchoesKeyMenu = typeof navigator === 'undefined' || !/Mac/.test(nav
  * --custom-contextmenu CSS property of the event target, so the handler sets
  * that property on the container, with a fresh token as the menu data. The
  * keyboard triggers dispatch a contextmenu event at the row. WebView2 (on
- * keyup) and WebKitGTK also send their own contextmenu for those keys, so after
- * a key press there the next contextmenu the hook did not dispatch is
- * cancelled; a pointerdown, which a right-click, long-press or pen press starts
+ * keyup) and WebKitGTK also send their own contextmenu for the ContextMenu key
+ * (the keydown's preventDefault stops theirs for Shift+F10), so after that key
+ * the next contextmenu the hook did not dispatch is cancelled; a pointerdown, which a right-click, long-press or pen press starts
  * with, ends that, so one press opens one menu and a later pointer menu still
  * opens one. Wire `onPointerDownCapture` on the same container. A clicked item comes back as a
  * row-menu:action event and calls `onAction` with the row's hit when its token
@@ -192,7 +192,7 @@ export function useRowContextMenu<T>(
     });
     keyMenuEvents.add(menuEvent);
     row.dispatchEvent(menuEvent);
-    keyMenuOpen.current = webViewEchoesKeyMenu;
+    keyMenuOpen.current = e.key === 'ContextMenu' && webViewEchoesKeyMenu;
   }, [rowSelector]);
 
   const onPointerDownCapture = useCallback(() => {
