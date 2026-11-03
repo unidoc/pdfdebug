@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/adrg/xdg"
+
+	"unidoc-pdf-debugger/internal/atomicfile"
 )
 
 // MaxEntries is the most paths the list keeps.
@@ -126,28 +128,7 @@ func (l *List) Save() error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(l.path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, ".recent-*.json")
-	if err != nil {
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmp.Name())
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmp.Name())
-		return err
-	}
-	if err := os.Rename(tmp.Name(), l.path); err != nil {
-		_ = os.Remove(tmp.Name())
-		return err
-	}
-	return nil
+	return atomicfile.Write(l.path, data, ".recent-*.json", 0o755)
 }
 
 // Labels returns a menu label per path: the file name when it is unique in the

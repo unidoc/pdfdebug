@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
+
+	"unidoc-pdf-debugger/internal/atomicfile"
 )
 
 func tempCache(t *testing.T) (*Cache, string) {
@@ -289,16 +291,6 @@ func TestStoreGivesUpAfterTheLastRenameAttempt(t *testing.T) {
 	assertNoTempFiles(t, filepath.Dir(path))
 }
 
-func TestRenameIsRetriedOnlyOnWindows(t *testing.T) {
-	want := 1
-	if runtime.GOOS == "windows" {
-		want = 5
-	}
-	if renameAttempts != want {
-		t.Errorf("renameAttempts = %d on %s, want %d", renameAttempts, runtime.GOOS, want)
-	}
-}
-
 func TestEachSurfaceWritesOnlyItsOwnRecordAndReadsThePeer(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pdfdebug")
 	app, err := Open(dir, SurfaceApp)
@@ -383,7 +375,7 @@ func TestStoreRemovesStaleTempFilesOfItsOwnSurfaceOnly(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	old := time.Now().Add(-2 * staleTempAge)
+	old := time.Now().Add(-2 * atomicfile.StaleTempAge)
 	files := map[string]time.Time{
 		"updatecheck-cli-111.tmp": old,
 		"updatecheck-cli-222.tmp": time.Now(),

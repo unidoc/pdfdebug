@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/adrg/xdg"
 	"golang.org/x/mod/semver"
+
+	"unidoc-pdf-debugger/internal/atomicfile"
 )
 
 // CacheTTL is how long a stored check result stays fresh. The GUI and the CLI
@@ -50,23 +51,7 @@ const (
 	cacheSchema = 1
 	// cacheDirName is the per-user directory under xdg.CacheHome.
 	cacheDirName = "pdfdebug"
-	// renameRetryDelay is the pause between rename attempts.
-	renameRetryDelay = 20 * time.Millisecond
-	// staleTempAge is how old a leftover temp file must be before a write
-	// removes it. A write in flight in another process is milliseconds old.
-	staleTempAge = time.Hour
 )
-
-// renameAttempts is how many times write tries the final rename. On Windows a
-// reader in another process holding the record open fails the rename until it
-// closes the file, which for a record this small is milliseconds; elsewhere a
-// rename failure is not transient.
-var renameAttempts = func() int {
-	if runtime.GOOS == "windows" {
-		return 5
-	}
-	return 1
-}()
 
 // Snapshot is one surface's check record: what the release server said and
 // when it was last asked. It holds no installed version and no derived "update
@@ -130,7 +115,8 @@ type Cache struct {
 	// concurrent rename onto the file fail; readers in other processes are
 	// what write's rename retry is for.
 	mu sync.Mutex
-	// rename and attempts are os.Rename and renameAttempts, replaced in tests.
+	// rename and attempts are os.Rename and atomicfile.DefaultAttempts,
+	// replaced in tests.
 	rename   func(oldpath, newpath string) error
 	attempts int
 }
@@ -159,7 +145,7 @@ func Open(dir string, own Surface) (*Cache, error) {
 		path:     filepath.Join(dir, own.fileName()),
 		peerPath: filepath.Join(dir, own.peer().fileName()),
 		rename:   os.Rename,
-		attempts: renameAttempts,
+		attempts: atomicfile.DefaultAttempts,
 	}, nil
 }
 
@@ -243,64 +229,14 @@ func (c *Cache) store(s Snapshot) error {
 }
 
 // write marshals s and replaces the record through a temp file in the same
-// directory. The temp file is removed on every failure path, and temp files
-// from this surface older than staleTempAge, left by a process that died
-// mid-write, are removed first. The caller holds c.mu.
+// directory. The caller holds c.mu.
 func (c *Cache) write(s Snapshot) error {
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(c.path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
 	pattern := strings.TrimSuffix(filepath.Base(c.path), ".json") + "-*.tmp"
-	removeStaleTemps(dir, pattern, time.Now())
-	tmp, err := os.CreateTemp(dir, pattern)
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-	renamed := false
-	defer func() {
-		if !renamed {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-		}
-	}()
-	if _, err := tmp.Write(data); err != nil {
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	for i := 1; ; i++ {
-		err = c.rename(tmpPath, c.path)
-		if err == nil || i >= c.attempts {
-			break
-		}
-		time.Sleep(renameRetryDelay)
-	}
-	if err != nil {
-		return err
-	}
-	renamed = true
-	return nil
-}
-
-// removeStaleTemps deletes files in dir matching pattern whose modification
-// time is at least staleTempAge before now. Errors are ignored.
-func removeStaleTemps(dir, pattern string, now time.Time) {
-	entries, _ := os.ReadDir(dir)
-	for _, e := range entries {
-		if ok, _ := filepath.Match(pattern, e.Name()); !ok || e.IsDir() {
-			continue
-		}
-		if info, err := e.Info(); err == nil && now.Sub(info.ModTime()) >= staleTempAge {
-			_ = os.Remove(filepath.Join(dir, e.Name()))
-		}
-	}
+	return atomicfile.Writer{Rename: c.rename, Attempts: c.attempts}.Write(c.path, data, pattern, 0o700)
 }
 
 // Newer returns whichever of a and b names the higher latest version, and a
