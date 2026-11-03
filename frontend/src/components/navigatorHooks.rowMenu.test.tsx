@@ -1,17 +1,18 @@
 /**
  * useRowContextMenu: one Shift+F10 / ContextMenu key press opens one native
  * menu even when the WebView sends its own contextmenu for the same press,
- * and a clicked item hands back the hit the row resolved to.
+ * a later pointer menu still opens, and a clicked item hands back the hit the
+ * row resolved to.
  */
 import { useRef } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { useRowContextMenu, type RowMenuHit } from './navigatorHooks';
 import { armedRowMenu, clickRowMenuItem } from './rowMenuTestUtils';
 
-function Panel({ acted }: { acted: { action: string; hit: RowMenuHit }[] }) {
+function Panel({ acted, hook = useRowContextMenu }: { acted: { action: string; hit: RowMenuHit }[]; hook?: typeof useRowContextMenu }) {
   const treeRef = useRef(undefined);
-  const { onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
+  const { onContextMenu, onKeyDown, onPointerDownCapture } = hook(
     treeRef,
     '[data-row-id]',
     'data-row-id',
@@ -19,7 +20,7 @@ function Panel({ acted }: { acted: { action: string; hit: RowMenuHit }[] }) {
     (action, hit) => acted.push({ action, hit }),
   );
   return (
-    <div onContextMenu={onContextMenu} onKeyDown={onKeyDown} onMouseDownCapture={onMouseDownCapture}>
+    <div onContextMenu={onContextMenu} onKeyDown={onKeyDown} onPointerDownCapture={onPointerDownCapture}>
       <div role="treeitem" tabIndex={0} data-testid="item">
         <span data-row-id="7">row 7</span>
       </div>
@@ -49,7 +50,7 @@ describe('row menu opened from the keyboard', () => {
 
     fireEvent.keyDown(screen.getByTestId('item'), { key: 'F10', shiftKey: true });
     const first = armedRowMenu(row)?.token;
-    fireEvent.mouseDown(row, { button: 2 });
+    fireEvent.pointerDown(row, { button: 2, pointerType: 'mouse' });
     fireEvent.contextMenu(row);
 
     const second = armedRowMenu(row)?.token;
@@ -70,18 +71,55 @@ describe('row menu opened from the keyboard', () => {
   });
 });
 
-describe('row menu opened with the mouse', () => {
+describe('row menu opened with a pointer', () => {
+  test('a touch long-press after a key press opens a menu', () => {
+    render(<Panel acted={[]} />);
+    const row = screen.getByText('row 7');
+
+    fireEvent.keyDown(screen.getByTestId('item'), { key: 'F10', shiftKey: true });
+    const first = armedRowMenu(row)?.token;
+    fireEvent.pointerDown(row, { pointerType: 'touch' });
+    fireEvent.contextMenu(row);
+
+    const second = armedRowMenu(row)?.token;
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
+  });
+
   test('consecutive right-clicks each open a menu', () => {
     render(<Panel acted={[]} />);
     const row = screen.getByText('row 7');
 
-    fireEvent.mouseDown(row, { button: 2 });
+    fireEvent.pointerDown(row, { button: 2, pointerType: 'mouse' });
     fireEvent.contextMenu(row);
     const first = armedRowMenu(row)?.token;
-    fireEvent.mouseDown(row, { button: 2 });
+    fireEvent.pointerDown(row, { button: 2, pointerType: 'mouse' });
     fireEvent.contextMenu(row);
 
     expect(first).toBeTruthy();
     expect(armedRowMenu(row)?.token).not.toBe(first);
+  });
+});
+
+describe('row menu opened from the keyboard on macOS', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  test('a contextmenu with no pointerdown after a key press still opens a menu', async () => {
+    vi.stubGlobal('navigator', { ...navigator, platform: 'MacIntel' });
+    vi.resetModules();
+    const { useRowContextMenu: macHook } = await import('./navigatorHooks');
+    render(<Panel acted={[]} hook={macHook} />);
+    const row = screen.getByText('row 7');
+
+    fireEvent.keyDown(screen.getByTestId('item'), { key: 'ContextMenu' });
+    const first = armedRowMenu(row)?.token;
+    fireEvent.contextMenu(row);
+
+    const second = armedRowMenu(row)?.token;
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
   });
 });

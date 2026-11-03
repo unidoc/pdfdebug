@@ -351,7 +351,7 @@ export function TreePanel() {
   // arborist display id; the menu acts on the node's backend id. Indirect
   // objects get the menu with "Copy object reference". An error row has no
   // object reference and no ancestor path, so it gets no menu.
-  const { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture } = useRowContextMenu(
     treeRef,
     '[data-testid="tree-node"]',
     'data-node-id',
@@ -384,7 +384,7 @@ export function TreePanel() {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
-        onMouseDownCapture={onMouseDownCapture}
+        onPointerDownCapture={onPointerDownCapture}
         onKeyDown={onKeyDown}
       >
         {treeMounted && (

@@ -113,6 +113,9 @@ let nextRowMenuToken = 0;
 // ContextMenu key.
 const keyMenuEvents = new WeakSet<Event>();
 
+// WebKit on macOS sends no contextmenu of its own for those keys.
+const webViewEchoesKeyMenu = typeof navigator === 'undefined' || !/Mac/.test(navigator.platform);
+
 /**
  * Opens the native row menu for a navigator row from a right-click or from
  * Shift+F10 / the ContextMenu key on the focused row. Rows are found by
@@ -125,10 +128,10 @@ const keyMenuEvents = new WeakSet<Event>();
  * that property on the container, with a fresh token as the menu data. The
  * keyboard triggers dispatch a contextmenu event at the row. WebView2 (on
  * keyup) and WebKitGTK also send their own contextmenu for those keys, so after
- * a key press the next contextmenu the hook did not dispatch is cancelled; a
- * mousedown, which every real right-click starts with, ends that, so one press
- * opens one menu and a later right-click still opens one. Wire
- * `onMouseDownCapture` on the same container. A clicked item comes back as a
+ * a key press there the next contextmenu the hook did not dispatch is
+ * cancelled; a pointerdown, which a right-click, long-press or pen press starts
+ * with, ends that, so one press opens one menu and a later pointer menu still
+ * opens one. Wire `onPointerDownCapture` on the same container. A clicked item comes back as a
  * row-menu:action event and calls `onAction` with the row's hit when its token
  * is the one this panel opened last. `closeMenu` forgets that row.
  */
@@ -189,10 +192,10 @@ export function useRowContextMenu<T>(
     });
     keyMenuEvents.add(menuEvent);
     row.dispatchEvent(menuEvent);
-    keyMenuOpen.current = true;
+    keyMenuOpen.current = webViewEchoesKeyMenu;
   }, [rowSelector]);
 
-  const onMouseDownCapture = useCallback(() => {
+  const onPointerDownCapture = useCallback(() => {
     keyMenuOpen.current = false;
   }, []);
 
@@ -200,5 +203,5 @@ export function useRowContextMenu<T>(
     pending.current = null;
   }, []);
 
-  return { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture };
+  return { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture };
 }

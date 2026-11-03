@@ -452,7 +452,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     bump();
   }
 
-  const { closeMenu, onContextMenu, onKeyDown, onMouseDownCapture } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture } = useRowContextMenu(
     treeRef,
     '[data-row-id]',
     'data-row-id',
@@ -517,7 +517,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
-        onMouseDownCapture={onMouseDownCapture}
+        onPointerDownCapture={onPointerDownCapture}
         onKeyDown={onKeyDown}
       >
         {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading images...</div>}
