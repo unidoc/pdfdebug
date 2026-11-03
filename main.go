@@ -45,6 +45,10 @@ const appName = "UniDoc PDF Debugger"
 // for the desktop to show the app's name and icon.
 const appID = "com.unidoc.unidoc-pdf-debugger"
 
+// recentFlushDelay is how long Open Recent waits after the last open before it
+// saves the list and rebuilds its menu.
+const recentFlushDelay = 500 * time.Millisecond
+
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
 // made available to the frontend.
@@ -516,26 +520,12 @@ func main() {
 		batchCancelled.Store(true)
 	})
 
-	// recentBatches counts the multi-file batches in flight. While one runs,
-	// opens are added to Open Recent but the list is saved and the menu rebuilt
-	// once, when the last batch ends (flushRecent, assigned with the menu).
-	var recentBatches atomic.Int32
-	var flushRecent func()
-
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
 	// Used by both the file-drop handler and the menu Open... item.
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
-		}
-		if len(pdfPaths) > 1 {
-			recentBatches.Add(1)
-			defer func() {
-				if recentBatches.Add(-1) == 0 {
-					flushRecent()
-				}
-			}()
 		}
 		batchCancelled.Store(false)
 		// Piggyback the unsupported-files advisory onto the last
@@ -851,8 +841,14 @@ func main() {
 		}
 	}
 	rebuildRecentMenu()
+	// Opens are added to the list at once, but the list is saved and the menu
+	// rebuilt recentFlushDelay after the last open, so a run of opens (a batch
+	// from any open path, or files handed over one by one) costs one save. A
+	// change still waiting is saved on shutdown.
 	var recentDirty atomic.Bool
-	flushRecent = func() {
+	var recentTimerMu sync.Mutex
+	var recentTimer *time.Timer
+	flushRecent := func() {
 		if recentDirty.Swap(false) {
 			saveRecent()
 			rebuildRecentMenu()
@@ -861,8 +857,17 @@ func main() {
 	pdfService.SetRecentFileRecorder(func(path string) {
 		recent.Add(path)
 		recentDirty.Store(true)
-		if recentBatches.Load() == 0 {
-			flushRecent()
+		recentTimerMu.Lock()
+		defer recentTimerMu.Unlock()
+		if recentTimer == nil {
+			recentTimer = time.AfterFunc(recentFlushDelay, flushRecent)
+		} else {
+			recentTimer.Reset(recentFlushDelay)
+		}
+	})
+	app.OnShutdown(func() {
+		if recentDirty.Swap(false) {
+			saveRecent()
 		}
 	})
 
