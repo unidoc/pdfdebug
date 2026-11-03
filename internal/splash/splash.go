@@ -89,8 +89,11 @@ type Scheduler struct {
 	mu             sync.Mutex
 	timeoutTimer   Timer
 	mainReadyFired bool
-	timeoutFired   bool
-	dismissFired   bool
+	// readyPending is set once MainWindowReadyWithin has seen a ready main
+	// window, so a timeout already waiting on mu stands down.
+	readyPending bool
+	timeoutFired bool
+	dismissFired bool
 }
 
 // NewScheduler returns a Scheduler primed with the production timings
@@ -168,6 +171,7 @@ func (s *Scheduler) MainWindowReadyWithin(wait time.Duration) {
 		s.mu.Unlock()
 		return
 	}
+	s.readyPending = true
 	timer := s.timeoutTimer
 	s.timeoutTimer = nil
 	s.mu.Unlock()
@@ -216,10 +220,10 @@ func (s *Scheduler) runDismiss() {
 }
 
 // fireTimeout is the timer-armed callback. It invokes onTimeout once
-// unless MainWindowReady beat it.
+// unless MainWindowReady or MainWindowReadyWithin beat it.
 func (s *Scheduler) fireTimeout() {
 	s.mu.Lock()
-	if s.mainReadyFired || s.timeoutFired || s.dismissFired {
+	if s.mainReadyFired || s.readyPending || s.timeoutFired || s.dismissFired {
 		s.mu.Unlock()
 		return
 	}

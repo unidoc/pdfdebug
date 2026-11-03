@@ -411,3 +411,18 @@ func TestSplashSchedulerReadyWithinThenMainWindowReadyDismissesAtOnce(t *testing
 		t.Fatalf("dismissed=%d after the capped wait, want still 1", dismissed.Load())
 	}
 }
+
+func TestSplashSchedulerTimeoutAlreadyRunningStandsDownForReadyWithin(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(29 * time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	// The timer goroutine got past Stop and now takes the lock.
+	s.fireTimeout()
+	clk.Advance(time.Second)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d, want 1 and 0", dismissed.Load(), timedOut.Load())
+	}
+}
