@@ -96,6 +96,8 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
       }
 
       let lastWarning: string | null = null;
+      // Recorded together after the loop, so Open Recent saves once.
+      const opened: string[] = [];
       try {
         for (let i = 0; i < paths.length; i++) {
           if (isBatch && cancelledRef.current) break;
@@ -111,7 +113,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
               rootNode: result.rootNode,
               rootChildren: result.rootChildren,
             });
-            recordRecentFile(paths[i]);
+            opened.push(paths[i]);
             if (result.warning) lastWarning = result.warning;
           } catch (err: unknown) {
             // Surface and keep iterating so one bad file does not block the rest.
@@ -120,6 +122,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
           }
         }
       } finally {
+        opened.forEach((p) => recordRecentFile(p));
         if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });
         // SET_DOCUMENT_WARNING is a no-op when batchOpenCancelled is true,
         // so the cancellation toast survives this dispatch.

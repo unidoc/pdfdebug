@@ -241,6 +241,8 @@ function AppContent() {
       // successful open in the same drain. Surfacing the last error after all
       // opens keeps a failed path visible without blocking the others.
       let lastError = null
+      // Recorded together after the loop, so Open Recent saves once.
+      const opened = []
       for (const path of paths) {
         try {
           const result = await openPDFFile(path)
@@ -254,7 +256,7 @@ function AppContent() {
             rootNode: result.rootNode,
             rootChildren: result.rootChildren,
           })
-          recordRecentFile(path)
+          opened.push(path)
         } catch (err) {
           // Keep iterating so one bad file does not block the rest; defer the
           // error dispatch until after the loop (see lastError above).
@@ -262,6 +264,7 @@ function AppContent() {
           lastError = mapErrorMessage(msg)
         }
       }
+      opened.forEach((p) => recordRecentFile(p))
       if (lastError !== null) {
         dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: lastError } })
       }

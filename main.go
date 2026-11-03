@@ -45,8 +45,8 @@ const appName = "UniDoc PDF Debugger"
 // for the desktop to show the app's name and icon.
 const appID = "com.unidoc.unidoc-pdf-debugger"
 
-// recentFlushDelay is how long Open Recent waits after the last open before it
-// saves the list and rebuilds its menu.
+// recentFlushDelay is how long Open Recent waits after the last open outside a
+// batch before it saves the list and rebuilds its menu.
 const recentFlushDelay = 500 * time.Millisecond
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -523,9 +523,17 @@ func main() {
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
 	// Used by both the file-drop handler and the menu Open... item.
+	// recentFlush saves Open Recent and rebuilds its menu (save and rebuild
+	// are assigned with the menu below).
+	recentFlush := newRecentFlusher(recentFlushDelay)
+
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
+		}
+		if len(pdfPaths) > 1 {
+			recentFlush.Hold()
+			defer recentFlush.Release()
 		}
 		batchCancelled.Store(false)
 		// Piggyback the unsupported-files advisory onto the last
@@ -859,35 +867,15 @@ func main() {
 		}
 	}
 	rebuildRecentMenu()
-	// Opens are added to the list at once, but the list is saved and the menu
-	// rebuilt recentFlushDelay after the last open, so a run of opens (a batch
-	// from any open path, or files handed over one by one) costs one save. A
-	// change still waiting is saved on shutdown.
-	var recentDirty atomic.Bool
-	var recentTimerMu sync.Mutex
-	var recentTimer *time.Timer
-	flushRecent := func() {
-		if recentDirty.Swap(false) {
-			saveRecent()
-			rebuildRecentMenu()
-		}
-	}
+	// Opens are added to the list at once; recentFlush decides when the list
+	// is saved and the menu rebuilt.
+	recentFlush.save = saveRecent
+	recentFlush.rebuild = rebuildRecentMenu
 	pdfService.SetRecentFileRecorder(func(path string) {
 		recent.Add(path)
-		recentDirty.Store(true)
-		recentTimerMu.Lock()
-		defer recentTimerMu.Unlock()
-		if recentTimer == nil {
-			recentTimer = time.AfterFunc(recentFlushDelay, flushRecent)
-		} else {
-			recentTimer.Reset(recentFlushDelay)
-		}
+		recentFlush.Record()
 	})
-	app.OnShutdown(func() {
-		if recentDirty.Swap(false) {
-			saveRecent()
-		}
-	})
+	app.OnShutdown(recentFlush.Close)
 
 	// macOS uses the screen-top system menu bar via SetApplicationMenu.
 	// Windows requires UseApplicationMenu: true on each window to opt in

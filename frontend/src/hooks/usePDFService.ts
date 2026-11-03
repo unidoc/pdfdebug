@@ -68,7 +68,7 @@ export interface OpenPDFResult {
  * failure does not affect the open.
  */
 export function recordRecentFile(path: string): void {
-  Promise.resolve(RecordRecentFile(path)).catch(() => {});
+  Promise.resolve().then(() => RecordRecentFile(path)).catch(() => {});
 }
 
 /**
