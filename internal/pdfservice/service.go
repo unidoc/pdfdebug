@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -694,7 +695,9 @@ func saveEmbeddedFile(ins inspectorAPI, tabID, nodeID, suggestedName string, cho
 // a plain file name in the folder the save dialog shows. It keeps the last
 // path element and turns every character Windows does not allow in a file name
 // (control characters and <>:"|?*) into an underscore, so neither a drive
-// prefix ("C:evil.bat") nor an NTFS stream ("a.pdf:data") survives. A Windows
+// prefix ("C:evil.bat") nor an NTFS stream ("a.pdf:data") survives. Unicode
+// format characters, such as the right-to-left override that makes
+// "invoice\u202etxt.exe" display as "invoiceexe.txt", become underscores too. A Windows
 // device name (CON, NUL, COM1.xml and the like) gets a leading underscore so
 // the save writes a file. A name with nothing usable left becomes
 // "embedded-file".
@@ -703,7 +706,7 @@ func embeddedSaveName(name string) string {
 		name = name[i+1:]
 	}
 	name = strings.Map(func(r rune) rune {
-		if r < 0x20 || strings.ContainsRune(`<>:"|?*`, r) {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || strings.ContainsRune(`<>:"|?*`, r) {
 			return '_'
 		}
 		return r
