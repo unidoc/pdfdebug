@@ -72,6 +72,13 @@ func TestNfpmPackageDependsOnGTK4(t *testing.T) {
 			t.Errorf("nfpm.yaml default depends lacks %s", want)
 		}
 	}
+	// Versioned floors make apt and dnf refuse a system the binary cannot run
+	// on, instead of installing a package that fails at the first file dialog.
+	for _, want := range []string{"libc6 (>= 2.39)", "libgtk-4-1 (>= 4.14)", "glibc >= 2.39", "gtk4 >= 4.14"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("nfpm.yaml depends lacks the floor %q", want)
+		}
+	}
 }
 
 func TestReadmeLinuxSectionNamesTheGTK4Stack(t *testing.T) {

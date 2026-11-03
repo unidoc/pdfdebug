@@ -36,8 +36,12 @@ contents:
     type: config
     packager: deb
 
+# The floors are the release build host (Ubuntu 24.04): its glibc, and GTK 4.14
+# (the Wails GTK4 backend needs GtkFileDialog, added in 4.10). Without them apt
+# installs the package on Debian 12 or Ubuntu 22.04, where the app cannot run.
 depends:
-  - libgtk-4-1
+  - libc6 (>= 2.39)
+  - libgtk-4-1 (>= 4.14)
   - libwebkitgtk-6.0-4
 recommends:
   - xdg-desktop-portal-gtk
@@ -45,7 +49,8 @@ recommends:
 overrides:
   rpm:
     depends:
-      - gtk4
+      - glibc >= 2.39
+      - gtk4 >= 4.14
       - webkitgtk6.0
     recommends:
       - xdg-desktop-portal-gtk
