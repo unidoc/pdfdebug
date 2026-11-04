@@ -309,7 +309,10 @@ func TestSaveEmbeddedFileToFileWithoutAnAppFailsBeforeReading(t *testing.T) {
 func TestOpenFileCallsTheInjectedTrackerAroundTheOpen(t *testing.T) {
 	svc := NewPDFService(nil)
 	var calls []string
-	svc.SetOpenTracker(func() { calls = append(calls, "started") }, func() { calls = append(calls, "ended") })
+	svc.SetOpenTracker(func() func() {
+		calls = append(calls, "started")
+		return func() { calls = append(calls, "ended") }
+	})
 	if _, err := svc.OpenFile(filepath.Join(t.TempDir(), "missing.pdf")); err == nil {
 		t.Fatal("OpenFile of a missing file succeeded")
 	}

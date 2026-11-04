@@ -87,10 +87,10 @@ type PDFService struct {
 	// recordRecent adds a user-opened file to Open Recent. Injected from
 	// main.go via SetRecentFileRecorder; nil means recording is a no-op.
 	recordRecent func(path string)
-	// openStarted and openEnded bracket every OpenFile, so Open Recent waits
-	// for opens in flight before it saves. Injected via SetOpenTracker; nil
-	// is a no-op.
-	openStarted, openEnded func()
+	// openStarted is called as every OpenFile starts and returns the call
+	// made when it ends, so Open Recent waits for opens in flight before it
+	// saves. Injected via SetOpenTracker; nil is a no-op.
+	openStarted func() (ended func())
 }
 
 // watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
@@ -193,8 +193,7 @@ func (s *PDFService) OpenFileDialog() ([]string, error) {
 // OpenFile parses a PDF at path and assigns it a new tab ID.
 func (s *PDFService) OpenFile(path string) (*pdfcore.DocumentInfo, error) {
 	if s.openStarted != nil {
-		s.openStarted()
-		defer s.openEnded()
+		defer s.openStarted()()
 	}
 	var result *pdfcore.DocumentInfo
 	var err error
@@ -498,12 +497,12 @@ func (s *PDFService) SetRecentFileRecorder(record func(path string)) {
 	s.recordRecent = record
 }
 
-// SetOpenTracker injects the calls made when an OpenFile starts and ends.
-// Not exposed to the frontend.
+// SetOpenTracker injects the call made as an OpenFile starts, which returns
+// the call made when it ends. Not exposed to the frontend.
 //
 //wails:ignore
-func (s *PDFService) SetOpenTracker(started, ended func()) {
-	s.openStarted, s.openEnded = started, ended
+func (s *PDFService) SetOpenTracker(started func() (ended func())) {
+	s.openStarted = started
 }
 
 // RecordRecentFile adds a file the user opened as a tab to Open Recent. The

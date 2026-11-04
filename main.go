@@ -49,7 +49,8 @@ const appID = "com.unidoc.unidoc-pdf-debugger"
 // the last open before it saves the list and rebuilds its menu.
 const recentFlushDelay = 500 * time.Millisecond
 
-// recentMaxHold is the longest opens in flight hold an Open Recent save.
+// recentMaxHold is how long an open in flight can hold an Open Recent save;
+// an open running longer stops holding it.
 const recentMaxHold = 10 * time.Second
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -537,7 +538,7 @@ func main() {
 	}
 	var rebuildRecentMenu func()
 	recentFlush := newRecentFlusher(recentFlushDelay, recentMaxHold, saveRecent, func() { rebuildRecentMenu() }, application.InvokeSync)
-	pdfService.SetOpenTracker(recentFlush.OpenStarted, recentFlush.OpenEnded)
+	pdfService.SetOpenTracker(recentFlush.OpenStarted)
 
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.

@@ -7,10 +7,10 @@ import (
 
 // recentFlusher decides when Open Recent is saved and its menu rebuilt. A
 // recorded open marks the list dirty, and the save runs delay after the last
-// record with no open in flight, so a run of opens, from one batch or from
-// files handed over one at a time, costs one save however long each takes. A
-// save held that way still runs maxHold after the list first went dirty, so an
-// open that never returns does not hold it for the rest of the session.
+// record with no open in flight, so a batch, or opens in quick succession,
+// costs one save however long each open takes. An open stops holding the save
+// once it has run for maxHold, so one that never returns delays the save by
+// maxHold once and not for the rest of the session.
 // SaveNow saves at once, for Clear Menu and a removed entry. Close stops
 // further rebuilds and saves a change still waiting, after any save in
 // progress.
@@ -25,12 +25,13 @@ type recentFlusher struct {
 
 	mu sync.Mutex
 	// saved is signalled when a save in progress ends.
-	saved      *sync.Cond
-	timer      *time.Timer
-	inFlight   int
-	dirty      bool
-	dirtySince time.Time
-	saving     bool
+	saved *sync.Cond
+	timer *time.Timer
+	// opens holds the start time of each open in flight, by id.
+	opens    map[int]time.Time
+	nextOpen int
+	dirty    bool
+	saving   bool
 	// started and finished count saves, so SaveNow can wait for one that
 	// began after its change.
 	started, finished int
@@ -38,7 +39,7 @@ type recentFlusher struct {
 }
 
 func newRecentFlusher(delay, maxHold time.Duration, save, rebuild func(), onMain func(func())) *recentFlusher {
-	f := &recentFlusher{delay: delay, maxHold: maxHold, save: save, rebuild: rebuild, onMain: onMain}
+	f := &recentFlusher{delay: delay, maxHold: maxHold, save: save, rebuild: rebuild, onMain: onMain, opens: map[int]time.Time{}}
 	f.saved = sync.NewCond(&f.mu)
 	return f
 }
@@ -47,45 +48,50 @@ func newRecentFlusher(delay, maxHold time.Duration, save, rebuild func(), onMain
 func (f *recentFlusher) Record() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.markDirty()
+	f.dirty = true
 	f.arm()
 }
 
-// markDirty sets dirty, noting when the list went dirty. f.mu is held.
-func (f *recentFlusher) markDirty() {
-	if !f.dirty {
-		f.dirty = true
-		f.dirtySince = time.Now()
-	}
-}
-
-// OpenStarted counts an open in flight; the save waits for it.
-func (f *recentFlusher) OpenStarted() {
+// OpenStarted counts an open in flight, which holds the save for up to
+// maxHold, and returns the call that ends it.
+func (f *recentFlusher) OpenStarted() (ended func()) {
 	f.mu.Lock()
-	f.inFlight++
+	id := f.nextOpen
+	f.nextOpen++
+	f.opens[id] = time.Now()
 	f.mu.Unlock()
-}
-
-// OpenEnded ends an open in flight. With none left, a dirty list is saved
-// delay later.
-func (f *recentFlusher) OpenEnded() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.inFlight--
-	if f.dirty {
-		f.arm()
+	return func() {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		delete(f.opens, id)
+		if f.dirty {
+			f.arm()
+		}
 	}
 }
 
-// arm restarts the timer: delay from now with no open in flight, otherwise at
-// maxHold after the list went dirty. f.mu is held.
+// heldUntil reports whether an open in flight still holds the save, and until
+// when: maxHold after the newest open started. f.mu is held.
+func (f *recentFlusher) heldUntil() (time.Time, bool) {
+	var newest time.Time
+	for _, start := range f.opens {
+		if start.After(newest) {
+			newest = start
+		}
+	}
+	until := newest.Add(f.maxHold)
+	return until, len(f.opens) > 0 && time.Now().Before(until)
+}
+
+// arm restarts the timer: delay from now, or when the hold ends if an open in
+// flight still holds the save. f.mu is held.
 func (f *recentFlusher) arm() {
 	if f.closed {
 		return
 	}
 	d := f.delay
-	if f.inFlight > 0 {
-		d = max(time.Until(f.dirtySince.Add(f.maxHold)), 0)
+	if until, held := f.heldUntil(); held {
+		d = time.Until(until)
 	}
 	if f.timer == nil {
 		f.timer = time.AfterFunc(d, func() { f.flush(false) })
@@ -98,7 +104,7 @@ func (f *recentFlusher) arm() {
 // began after the call has finished; the menu rebuild follows that save.
 func (f *recentFlusher) SaveNow() {
 	f.mu.Lock()
-	f.markDirty()
+	f.dirty = true
 	want := f.started + 1
 	f.mu.Unlock()
 	for {
@@ -141,10 +147,10 @@ func (f *recentFlusher) isClosed() bool {
 }
 
 // flush saves a dirty list and rebuilds the menu. Outside force it waits while
-// an open is in flight, up to maxHold after the list went dirty.
+// an open in flight holds the save.
 func (f *recentFlusher) flush(force bool) {
 	f.mu.Lock()
-	held := f.inFlight > 0 && time.Since(f.dirtySince) < f.maxHold
+	_, held := f.heldUntil()
 	if f.closed || !f.dirty || f.saving || (!force && held) {
 		// A save held by an open in flight still runs at maxHold.
 		if held && f.dirty && !f.saving && !f.closed {

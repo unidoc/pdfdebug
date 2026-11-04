@@ -55,48 +55,66 @@ func TestRecentFlushMergesQuickOpensIntoOneSave(t *testing.T) {
 // Each open takes longer than the delay; the record lands after the open ends
 // and before the next one starts, as on every open path.
 func TestRecentFlushSavesSlowOpensInARowOnce(t *testing.T) {
-	f, c := newCountingFlusher(10*time.Millisecond, time.Hour, 0)
+	f, c := newCountingFlusher(100*time.Millisecond, time.Hour, 0)
 	for range 3 {
-		f.OpenStarted()
-		time.Sleep(30 * time.Millisecond)
-		f.OpenEnded()
+		ended := f.OpenStarted()
+		time.Sleep(150 * time.Millisecond)
+		ended()
 		f.Record()
 	}
 	if c.saves.Load() != 0 {
 		t.Fatalf("saved %d times during the run, want 0", c.saves.Load())
 	}
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 	if c.saves.Load() != 1 {
 		t.Fatalf("saves=%d, want 1", c.saves.Load())
 	}
 }
 
+func TestRecentFlushARunLongerThanMaxHoldStillSavesOnce(t *testing.T) {
+	f, c := newCountingFlusher(20*time.Millisecond, 50*time.Millisecond, 0)
+	for range 6 {
+		ended := f.OpenStarted()
+		time.Sleep(30 * time.Millisecond)
+		ended()
+		f.Record()
+	}
+	if c.saves.Load() != 0 {
+		t.Fatalf("saved %d times during a 180ms run of 30ms opens, want 0", c.saves.Load())
+	}
+	waitFor(t, func() bool { return c.saves.Load() == 1 })
+}
+
 func TestRecentFlushWaitsForEveryOpenInFlight(t *testing.T) {
 	f, c := newCountingFlusher(time.Millisecond, time.Hour, 0)
-	f.OpenStarted()
-	f.OpenStarted()
+	endA := f.OpenStarted()
+	endB := f.OpenStarted()
 	f.Record()
-	f.OpenEnded()
+	endA()
 	time.Sleep(20 * time.Millisecond)
 	if c.saves.Load() != 0 {
 		t.Fatal("saved with an open still in flight")
 	}
-	f.OpenEnded()
+	endB()
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
 }
 
-func TestRecentFlushAnOpenThatNeverEndsHoldsTheSaveOnlyUntilMaxHold(t *testing.T) {
+func TestRecentFlushAnOpenThatNeverEndsHoldsTheSaveOnceForMaxHold(t *testing.T) {
 	f, c := newCountingFlusher(time.Millisecond, 40*time.Millisecond, 0)
-	f.Record()
 	f.OpenStarted()
+	f.Record()
 	time.Sleep(10 * time.Millisecond)
 	if c.saves.Load() != 0 {
 		t.Fatal("saved with an open in flight before maxHold")
 	}
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
+	// The stuck open no longer holds later saves.
 	f.Record()
-	waitFor(t, func() bool { return c.saves.Load() == 2 })
+	time.Sleep(20 * time.Millisecond)
+	if c.saves.Load() != 2 {
+		t.Fatalf("saves=%d 20ms after a record with only a stuck open in flight, want 2", c.saves.Load())
+	}
 }
 
 func TestRecentFlushCloseWaitsForASaveInProgress(t *testing.T) {
