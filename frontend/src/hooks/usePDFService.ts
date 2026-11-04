@@ -72,7 +72,6 @@ export function recordRecentFile(path: string): Promise<void> {
   return Promise.resolve().then(() => RecordRecentFile(path)).catch(() => {});
 }
 
-
 /**
  * Open a PDF file at the given path, fetch its tree root and first-level
  * children, and return a structured result. Cleans up the backend document
