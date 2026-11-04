@@ -12,13 +12,12 @@ type flushCounts struct {
 
 func newCountingFlusher(delay time.Duration, saveTakes time.Duration) (*recentFlusher, *flushCounts) {
 	c := &flushCounts{}
-	f := newRecentFlusher(delay)
-	f.save = func() {
+	save := func() {
 		time.Sleep(saveTakes)
 		c.saves.Add(1)
 	}
-	f.rebuild = func() { c.rebuilds.Add(1) }
-	return f, c
+	rebuild := func() { c.rebuilds.Add(1) }
+	return newRecentFlusher(delay, save, rebuild, func(fn func()) { fn() }), c
 }
 
 func waitFor(t *testing.T, cond func() bool) {
@@ -121,4 +120,69 @@ func TestRecentFlushSavesAnOpenRecordedDuringASave(t *testing.T) {
 	})
 	f.Record()
 	waitFor(t, func() bool { return c.saves.Load() == 2 })
+}
+
+func TestRecentFlushSavesAFrontendBatchOnceAtItsEnd(t *testing.T) {
+	f, c := newCountingFlusher(10*time.Millisecond, 0)
+	f.HoldFrontend()
+	for range 3 {
+		f.Record()
+		time.Sleep(30 * time.Millisecond)
+	}
+	if c.saves.Load() != 0 {
+		t.Fatalf("saved %d times during the batch, want 0", c.saves.Load())
+	}
+	f.ReleaseFrontend()
+	if c.saves.Load() != 1 {
+		t.Fatalf("saves=%d after the batch, want 1", c.saves.Load())
+	}
+}
+
+func TestRecentFlushResetFrontendSavesWhatAReloadedPageHeld(t *testing.T) {
+	f, c := newCountingFlusher(time.Millisecond, 0)
+	f.HoldFrontend()
+	f.Record()
+	time.Sleep(20 * time.Millisecond)
+	f.ResetFrontend()
+	if c.saves.Load() != 1 {
+		t.Fatalf("saves=%d after the reset, want 1", c.saves.Load())
+	}
+	f.ReleaseFrontend()
+	f.Record()
+	waitFor(t, func() bool { return c.saves.Load() == 2 })
+}
+
+func TestRecentFlushSaveNowIgnoresAnOpenBatch(t *testing.T) {
+	f, c := newCountingFlusher(time.Hour, 0)
+	f.Hold()
+	f.SaveNow()
+	if c.saves.Load() != 1 || c.rebuilds.Load() != 1 {
+		t.Fatalf("saves=%d rebuilds=%d, want 1 and 1", c.saves.Load(), c.rebuilds.Load())
+	}
+}
+
+func TestRecentFlushSaveNowWaitsForASaveInProgressThenSavesAgain(t *testing.T) {
+	f, c := newCountingFlusher(time.Millisecond, 30*time.Millisecond)
+	f.Record()
+	waitFor(t, func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return f.saving
+	})
+	f.SaveNow()
+	if c.saves.Load() != 2 {
+		t.Fatalf("saves=%d after SaveNow, want 2", c.saves.Load())
+	}
+}
+
+func TestRecentFlushRebuildReachingTheUIThreadAfterCloseDoesNothing(t *testing.T) {
+	c := &flushCounts{}
+	var queued func()
+	f := newRecentFlusher(time.Hour, func() { c.saves.Add(1) }, func() { c.rebuilds.Add(1) }, func(fn func()) { queued = fn })
+	f.SaveNow()
+	f.Close()
+	queued()
+	if c.rebuilds.Load() != 0 {
+		t.Fatalf("rebuilds=%d after Close, want 0", c.rebuilds.Load())
+	}
 }

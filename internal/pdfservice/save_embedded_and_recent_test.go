@@ -305,3 +305,16 @@ func TestSaveEmbeddedFileToFileWithoutAnAppFailsBeforeReading(t *testing.T) {
 		t.Fatalf("read %q before checking for an app", ins.nodeID)
 	}
 }
+
+func TestRecentFileBatchCallsTheInjectedHoldAndRelease(t *testing.T) {
+	svc := &PDFService{}
+	svc.BeginRecentFileBatch()
+	svc.EndRecentFileBatch()
+	var calls []string
+	svc.SetRecentFileBatch(func() { calls = append(calls, "hold") }, func() { calls = append(calls, "release") })
+	svc.BeginRecentFileBatch()
+	svc.EndRecentFileBatch()
+	if len(calls) != 2 || calls[0] != "hold" || calls[1] != "release" {
+		t.Fatalf("calls = %v, want [hold release]", calls)
+	}
+}

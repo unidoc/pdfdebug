@@ -427,6 +427,7 @@ func main() {
 	// but before app.Run(), so they are safe to use in the async callback.
 	var openFileAndEmit func(string)
 	var window *application.WebviewWindow
+	var recentFlush *recentFlusher
 
 	// The cold-start file-association queue. Constructed BEFORE
 	// application.New() so both file-open callbacks can capture it by value
@@ -459,7 +460,12 @@ func main() {
 				// open immediately. window.Focus() fires only when at least one
 				// path opened on the ready (warm) path.
 				focus := false
-				for _, p := range extractPDFPaths(data.Args) {
+				paths := extractPDFPaths(data.Args)
+				if len(paths) > 1 {
+					recentFlush.Hold()
+					defer recentFlush.Release()
+				}
+				for _, p := range paths {
 					if routeOpenPath(openQueue, p, openFileAndEmit) {
 						focus = true
 					}
@@ -520,13 +526,24 @@ func main() {
 		batchCancelled.Store(true)
 	})
 
+	// File > Open Recent. The list is shared by the Go open paths (through
+	// RecordRecentFile on the opener) and the frontend's own opens (through
+	// the bound PDFService.RecordRecentFile), so it is guarded by its mutex and
+	// the submenu rebuild by recentMu. recentFlush decides when the list is
+	// saved and the menu rebuilt (rebuildRecentMenu is assigned with the menu
+	// below).
+	recent := recentfiles.Load(recentfiles.DefaultPath())
+	saveRecent := func() {
+		if err := recent.Save(); err != nil {
+			log.Printf("warning: could not save the recent files list: %v", err)
+		}
+	}
+	var rebuildRecentMenu func()
+	recentFlush = newRecentFlusher(recentFlushDelay, saveRecent, func() { rebuildRecentMenu() }, application.InvokeSync)
+
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
 	// Used by both the file-drop handler and the menu Open... item.
-	// recentFlush saves Open Recent and rebuilds its menu (save and rebuild
-	// are assigned with the menu below).
-	recentFlush := newRecentFlusher(recentFlushDelay)
-
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
@@ -814,25 +831,13 @@ func main() {
 		}
 	})
 
-	// File > Open Recent. The list is shared by the Go open paths (through
-	// RecordRecentFile on the opener) and the frontend's own opens (through
-	// the bound PDFService.RecordRecentFile), so it is guarded by its mutex and
-	// the submenu rebuild by recentMu.
-	recent := recentfiles.Load(recentfiles.DefaultPath())
-	saveRecent := func() {
-		if err := recent.Save(); err != nil {
-			log.Printf("warning: could not save the recent files list: %v", err)
-		}
-	}
 	var recentMu sync.Mutex
-	var rebuildRecentMenu func()
 	// openRecent drops an entry whose file is gone, then opens through the
 	// normal path so the user still sees the usual open error.
 	openRecent := func(path string) {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			recent.Remove(path)
-			saveRecent()
-			rebuildRecentMenu()
+			recentFlush.SaveNow()
 		}
 		openFilesBatch([]string{path}, 0)
 	}
@@ -854,8 +859,7 @@ func main() {
 			SetEnabled(len(paths) > 0).
 			OnClick(func(_ *application.Context) {
 				recent.Clear()
-				saveRecent()
-				rebuildRecentMenu()
+				recentFlush.SaveNow()
 			})
 		// A rebuilt submenu reaches the screen through the top-level menu on
 		// macOS and through the window's own menu on Windows and Linux. Both
@@ -869,12 +873,11 @@ func main() {
 	rebuildRecentMenu()
 	// Opens are added to the list at once; recentFlush decides when the list
 	// is saved and the menu rebuilt.
-	recentFlush.save = saveRecent
-	recentFlush.rebuild = rebuildRecentMenu
 	pdfService.SetRecentFileRecorder(func(path string) {
 		recent.Add(path)
 		recentFlush.Record()
 	})
+	pdfService.SetRecentFileBatch(recentFlush.HoldFrontend, recentFlush.ReleaseFrontend)
 	app.OnShutdown(recentFlush.Close)
 
 	// macOS uses the screen-top system menu bar via SetApplicationMenu.
@@ -1072,6 +1075,8 @@ func main() {
 	// and fires on hidden windows too.
 	var mainReadyOnce sync.Once
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+		// A loaded page has no batch open; drop any a reloaded page left.
+		recentFlush.ResetFrontend()
 		mainReadyOnce.Do(mainWindowReady)
 	})
 

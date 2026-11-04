@@ -87,6 +87,9 @@ type PDFService struct {
 	// recordRecent adds a user-opened file to Open Recent. Injected from
 	// main.go via SetRecentFileRecorder; nil means recording is a no-op.
 	recordRecent func(path string)
+	// holdRecent and releaseRecent bracket a frontend batch so Open Recent
+	// saves once at its end. Injected via SetRecentFileBatch; nil is a no-op.
+	holdRecent, releaseRecent func()
 }
 
 // watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
@@ -488,6 +491,30 @@ func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 //wails:ignore
 func (s *PDFService) SetRecentFileRecorder(record func(path string)) {
 	s.recordRecent = record
+}
+
+// SetRecentFileBatch injects the calls that start and end a frontend batch of
+// Open Recent records. Not exposed to the frontend.
+//
+//wails:ignore
+func (s *PDFService) SetRecentFileBatch(hold, release func()) {
+	s.holdRecent, s.releaseRecent = hold, release
+}
+
+// BeginRecentFileBatch starts a batch of opens: the files it records are
+// saved to Open Recent once, at EndRecentFileBatch. A no-op when nothing is
+// injected.
+func (s *PDFService) BeginRecentFileBatch() {
+	if s.holdRecent != nil {
+		s.holdRecent()
+	}
+}
+
+// EndRecentFileBatch ends a batch started by BeginRecentFileBatch.
+func (s *PDFService) EndRecentFileBatch() {
+	if s.releaseRecent != nil {
+		s.releaseRecent()
+	}
 }
 
 // RecordRecentFile adds a file the user opened as a tab to Open Recent. The
