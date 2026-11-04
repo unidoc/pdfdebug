@@ -1,6 +1,7 @@
 /**
  * EmptyState Open button records each successfully opened file in Open
- * Recent through RecordRecentFile. A file that fails to open is not recorded.
+ * Recent through RecordRecentFile, as it opens and in order; a multi-file open
+ * runs inside one Open Recent batch. A file that fails to open is not recorded.
  *
  * Run: cd frontend && npx vitest run src/components/EmptyState.recordRecent.test.tsx
  */
@@ -12,6 +13,7 @@ import { EmptyState } from './EmptyState';
 const mockOpenFileDialog = vi.fn();
 const mockOpenFile = vi.fn();
 const mockRecordRecentFile = vi.fn();
+const calls: string[] = [];
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -20,7 +22,18 @@ vi.mock(
     GetChildren: vi.fn().mockResolvedValue([]),
     CloseDocument: vi.fn().mockResolvedValue(undefined),
     OpenFileDialog: (...a: unknown[]) => mockOpenFileDialog(...a),
-    RecordRecentFile: (...a: unknown[]) => mockRecordRecentFile(...a),
+    RecordRecentFile: (...a: unknown[]) => {
+      calls.push(`record ${a[0]}`);
+      return mockRecordRecentFile(...a);
+    },
+    BeginRecentFileBatch: () => {
+      calls.push('begin');
+      return Promise.resolve();
+    },
+    EndRecentFileBatch: () => {
+      calls.push('end');
+      return Promise.resolve();
+    },
   })
 );
 
@@ -46,6 +59,7 @@ function renderEmptyState() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRecordRecentFile.mockResolvedValue(undefined);
+  calls.length = 0;
 });
 
 describe('EmptyState records opened files in Open Recent', () => {
@@ -75,6 +89,30 @@ describe('EmptyState records opened files in Open Recent', () => {
     expect(mockRecordRecentFile).toHaveBeenCalledWith('/docs/a.pdf');
     expect(mockRecordRecentFile).toHaveBeenCalledWith('/docs/c.pdf');
     expect(mockRecordRecentFile).not.toHaveBeenCalledWith('/docs/bad.pdf');
+  });
+
+  test('a multi-file open records each file as it opens, in order, inside one batch', async () => {
+    mockOpenFileDialog.mockResolvedValue(['/docs/a.pdf', '/docs/b.pdf']);
+    mockOpenFile.mockImplementation((path: string) => {
+      calls.push(`open ${path}`);
+      return Promise.resolve(docInfo(`tab-${path}`, path));
+    });
+    renderEmptyState();
+
+    fireEvent.click(screen.getByTestId('open-file-button'));
+
+    await waitFor(() => expect(calls).toContain('end'));
+    expect(calls).toEqual(['begin', 'open /docs/a.pdf', 'record /docs/a.pdf', 'open /docs/b.pdf', 'record /docs/b.pdf', 'end']);
+  });
+
+  test('a single-file open is recorded without a batch', async () => {
+    mockOpenFileDialog.mockResolvedValue(['/docs/a.pdf']);
+    mockOpenFile.mockResolvedValue(docInfo('tab-a', '/docs/a.pdf'));
+    renderEmptyState();
+
+    fireEvent.click(screen.getByTestId('open-file-button'));
+
+    await waitFor(() => expect(calls).toEqual(['record /docs/a.pdf']));
   });
 
   test('a cancelled dialog records nothing', async () => {

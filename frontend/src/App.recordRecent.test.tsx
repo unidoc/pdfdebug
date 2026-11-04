@@ -25,6 +25,7 @@ vi.mock('@wailsio/runtime', () => ({
 const mockConsume = vi.fn();
 const mockOpenFile = vi.fn();
 const mockRecordRecentFile = vi.fn();
+const calls: string[] = [];
 
 vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
   OpenFile: (...a: unknown[]) => mockOpenFile(...a),
@@ -38,7 +39,18 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   GetImagePages: vi.fn(),
   GetImagePageGroups: vi.fn(),
   ConsumePendingOpenFiles: (...a: unknown[]) => mockConsume(...a),
-  RecordRecentFile: (...a: unknown[]) => mockRecordRecentFile(...a),
+  RecordRecentFile: (...a: unknown[]) => {
+    calls.push(`record ${a[0]}`);
+    return mockRecordRecentFile(...a);
+  },
+  BeginRecentFileBatch: () => {
+    calls.push('begin');
+    return Promise.resolve();
+  },
+  EndRecentFileBatch: () => {
+    calls.push('end');
+    return Promise.resolve();
+  },
 }));
 
 vi.mock('./components/EmptyState', () => ({
@@ -75,6 +87,7 @@ beforeEach(() => {
   mockOpenFile.mockReset();
   mockRecordRecentFile.mockReset();
   mockRecordRecentFile.mockResolvedValue(undefined);
+  calls.length = 0;
 });
 
 describe('cold-start opens record Open Recent', () => {
@@ -92,6 +105,34 @@ describe('cold-start opens record Open Recent', () => {
     expect(mockRecordRecentFile).toHaveBeenCalledWith('/docs/a.pdf');
     expect(mockRecordRecentFile).toHaveBeenCalledWith('/docs/c.pdf');
     expect(mockRecordRecentFile).not.toHaveBeenCalledWith('/docs/bad.pdf');
+  });
+
+  test('several pending paths are recorded as each opens, in order, inside one batch', async () => {
+    mockConsume.mockResolvedValue(['/docs/a.pdf', '/docs/b.pdf', '/docs/c.pdf']);
+    mockOpenFile.mockImplementation((path: string) => {
+      calls.push(`open ${path}`);
+      return Promise.resolve(docInfo(`tab-${path}`, path));
+    });
+    const { default: App } = await import('./App');
+    render(<App />);
+
+    await waitFor(() => expect(calls).toContain('end'));
+    expect(calls).toEqual([
+      'begin',
+      'open /docs/a.pdf', 'record /docs/a.pdf',
+      'open /docs/b.pdf', 'record /docs/b.pdf',
+      'open /docs/c.pdf', 'record /docs/c.pdf',
+      'end',
+    ]);
+  });
+
+  test('a single pending path is recorded without a batch', async () => {
+    mockConsume.mockResolvedValue(['/docs/a.pdf']);
+    mockOpenFile.mockImplementation((path: string) => Promise.resolve(docInfo(`tab-${path}`, path)));
+    const { default: App } = await import('./App');
+    render(<App />);
+
+    await waitFor(() => expect(calls).toEqual(['record /docs/a.pdf']));
   });
 
   test('no pending paths records nothing', async () => {

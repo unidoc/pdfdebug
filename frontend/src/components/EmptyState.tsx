@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
-import { openPDFFile, openFileDialog, mapErrorMessage, recordRecentFile } from '../hooks/usePDFService';
+import { openPDFFile, openFileDialog, mapErrorMessage, recordRecentFile, withRecentFileBatch } from '../hooks/usePDFService';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 /** Props for {@link EmptyState}. */
@@ -96,9 +96,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
       }
 
       let lastWarning: string | null = null;
-      // Recorded together after the loop, so Open Recent saves once.
-      const opened: string[] = [];
-      try {
+      const openAll = async () => {
         for (let i = 0; i < paths.length; i++) {
           if (isBatch && cancelledRef.current) break;
           try {
@@ -113,7 +111,8 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
               rootNode: result.rootNode,
               rootChildren: result.rootChildren,
             });
-            opened.push(paths[i]);
+            // Awaited so Open Recent keeps the order the files opened in.
+            await recordRecentFile(paths[i]);
             if (result.warning) lastWarning = result.warning;
           } catch (err: unknown) {
             // Surface and keep iterating so one bad file does not block the rest.
@@ -121,8 +120,10 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
             dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } });
           }
         }
+      };
+      try {
+        await (isBatch ? withRecentFileBatch(openAll) : openAll());
       } finally {
-        opened.forEach((p) => recordRecentFile(p));
         if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });
         // SET_DOCUMENT_WARNING is a no-op when batchOpenCancelled is true,
         // so the cancellation toast survives this dispatch.

@@ -7,7 +7,7 @@ import { Events, Screens, Window } from '@wailsio/runtime'
 import { DocumentBatchComplete, DocumentBatchStart, DocumentDiskStatus, DocumentError, DocumentLoadStart, DocumentOpened, DocumentReloadActive, NavigateBack, NavigateForward, NavigateGoToPage, NavigateStateChanged, PaletteOpen } from '../bindings/events/index.js'
 import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
-import { mapErrorMessage, openPDFFile, recordRecentFile } from './hooks/usePDFService'
+import { mapErrorMessage, openPDFFile, recordRecentFile, withRecentFileBatch } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { isInTextField } from './hooks/useFindBar'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
@@ -241,30 +241,31 @@ function AppContent() {
       // successful open in the same drain. Surfacing the last error after all
       // opens keeps a failed path visible without blocking the others.
       let lastError = null
-      // Recorded together after the loop, so Open Recent saves once.
-      const opened = []
-      for (const path of paths) {
-        try {
-          const result = await openPDFFile(path)
-          // A path already open, here or in a still-live previous session
-          // after a dev-mode reload, keeps the new parse and frees the old one.
-          dispatchOpenedDocument(dispatch, tabsRef.current, {
-            tabId: result.tabId,
-            fileName: result.fileName,
-            filePath: result.filePath,
-            pageCount: result.pageCount,
-            rootNode: result.rootNode,
-            rootChildren: result.rootChildren,
-          })
-          opened.push(path)
-        } catch (err) {
-          // Keep iterating so one bad file does not block the rest; defer the
-          // error dispatch until after the loop (see lastError above).
-          const msg = err instanceof Error ? err.message : String(err)
-          lastError = mapErrorMessage(msg)
+      const openAll = async () => {
+        for (const path of paths) {
+          try {
+            const result = await openPDFFile(path)
+            // A path already open, here or in a still-live previous session
+            // after a dev-mode reload, keeps the new parse and frees the old one.
+            dispatchOpenedDocument(dispatch, tabsRef.current, {
+              tabId: result.tabId,
+              fileName: result.fileName,
+              filePath: result.filePath,
+              pageCount: result.pageCount,
+              rootNode: result.rootNode,
+              rootChildren: result.rootChildren,
+            })
+            // Awaited so Open Recent keeps the order the files opened in.
+            await recordRecentFile(path)
+          } catch (err) {
+            // Keep iterating so one bad file does not block the rest; defer the
+            // error dispatch until after the loop (see lastError above).
+            const msg = err instanceof Error ? err.message : String(err)
+            lastError = mapErrorMessage(msg)
+          }
         }
       }
-      opened.forEach((p) => recordRecentFile(p))
+      await (paths.length > 1 ? withRecentFileBatch(openAll) : openAll())
       if (lastError !== null) {
         dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: lastError } })
       }
