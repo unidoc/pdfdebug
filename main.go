@@ -45,9 +45,12 @@ const appName = "UniDoc PDF Debugger"
 // for the desktop to show the app's name and icon.
 const appID = "com.unidoc.unidoc-pdf-debugger"
 
-// recentFlushDelay is how long Open Recent waits after the last open outside a
-// batch before it saves the list and rebuilds its menu.
+// recentFlushDelay is how long Open Recent waits, with no open in flight, after
+// the last open before it saves the list and rebuilds its menu.
 const recentFlushDelay = 500 * time.Millisecond
+
+// recentMaxHold is the longest opens in flight hold an Open Recent save.
+const recentMaxHold = 10 * time.Second
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
@@ -427,7 +430,6 @@ func main() {
 	// but before app.Run(), so they are safe to use in the async callback.
 	var openFileAndEmit func(string)
 	var window *application.WebviewWindow
-	var recentFlush *recentFlusher
 
 	// The cold-start file-association queue. Constructed BEFORE
 	// application.New() so both file-open callbacks can capture it by value
@@ -460,12 +462,7 @@ func main() {
 				// open immediately. window.Focus() fires only when at least one
 				// path opened on the ready (warm) path.
 				focus := false
-				paths := extractPDFPaths(data.Args)
-				if len(paths) > 1 {
-					recentFlush.Hold()
-					defer recentFlush.Release()
-				}
-				for _, p := range paths {
+				for _, p := range extractPDFPaths(data.Args) {
 					if routeOpenPath(openQueue, p, openFileAndEmit) {
 						focus = true
 					}
@@ -539,7 +536,8 @@ func main() {
 		}
 	}
 	var rebuildRecentMenu func()
-	recentFlush = newRecentFlusher(recentFlushDelay, saveRecent, func() { rebuildRecentMenu() }, application.InvokeSync)
+	recentFlush := newRecentFlusher(recentFlushDelay, recentMaxHold, saveRecent, func() { rebuildRecentMenu() }, application.InvokeSync)
+	pdfService.SetOpenTracker(recentFlush.OpenStarted, recentFlush.OpenEnded)
 
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
@@ -547,10 +545,6 @@ func main() {
 	openFilesBatch := func(pdfPaths []string, unsupportedCount int) {
 		if len(pdfPaths) == 0 {
 			return
-		}
-		if len(pdfPaths) > 1 {
-			recentFlush.Hold()
-			defer recentFlush.Release()
 		}
 		batchCancelled.Store(false)
 		// Piggyback the unsupported-files advisory onto the last
@@ -877,7 +871,6 @@ func main() {
 		recent.Add(path)
 		recentFlush.Record()
 	})
-	pdfService.SetRecentFileBatch(recentFlush.HoldFrontend, recentFlush.ReleaseFrontend)
 	app.OnShutdown(recentFlush.Close)
 
 	// macOS uses the screen-top system menu bar via SetApplicationMenu.
@@ -1075,8 +1068,6 @@ func main() {
 	// and fires on hidden windows too.
 	var mainReadyOnce sync.Once
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
-		// A loaded page has no batch open; drop any a reloaded page left.
-		recentFlush.ResetFrontend()
 		mainReadyOnce.Do(mainWindowReady)
 	})
 

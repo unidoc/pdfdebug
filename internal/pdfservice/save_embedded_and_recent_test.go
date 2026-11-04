@@ -306,15 +306,14 @@ func TestSaveEmbeddedFileToFileWithoutAnAppFailsBeforeReading(t *testing.T) {
 	}
 }
 
-func TestRecentFileBatchCallsTheInjectedHoldAndRelease(t *testing.T) {
-	svc := &PDFService{}
-	svc.BeginRecentFileBatch()
-	svc.EndRecentFileBatch()
+func TestOpenFileCallsTheInjectedTrackerAroundTheOpen(t *testing.T) {
+	svc := NewPDFService(nil)
 	var calls []string
-	svc.SetRecentFileBatch(func() { calls = append(calls, "hold") }, func() { calls = append(calls, "release") })
-	svc.BeginRecentFileBatch()
-	svc.EndRecentFileBatch()
-	if len(calls) != 2 || calls[0] != "hold" || calls[1] != "release" {
-		t.Fatalf("calls = %v, want [hold release]", calls)
+	svc.SetOpenTracker(func() { calls = append(calls, "started") }, func() { calls = append(calls, "ended") })
+	if _, err := svc.OpenFile(filepath.Join(t.TempDir(), "missing.pdf")); err == nil {
+		t.Fatal("OpenFile of a missing file succeeded")
+	}
+	if len(calls) != 2 || calls[0] != "started" || calls[1] != "ended" {
+		t.Fatalf("calls = %v, want [started ended]", calls)
 	}
 }

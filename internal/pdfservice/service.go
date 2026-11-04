@@ -87,9 +87,10 @@ type PDFService struct {
 	// recordRecent adds a user-opened file to Open Recent. Injected from
 	// main.go via SetRecentFileRecorder; nil means recording is a no-op.
 	recordRecent func(path string)
-	// holdRecent and releaseRecent bracket a frontend batch so Open Recent
-	// saves once at its end. Injected via SetRecentFileBatch; nil is a no-op.
-	holdRecent, releaseRecent func()
+	// openStarted and openEnded bracket every OpenFile, so Open Recent waits
+	// for opens in flight before it saves. Injected via SetOpenTracker; nil
+	// is a no-op.
+	openStarted, openEnded func()
 }
 
 // watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
@@ -191,6 +192,10 @@ func (s *PDFService) OpenFileDialog() ([]string, error) {
 
 // OpenFile parses a PDF at path and assigns it a new tab ID.
 func (s *PDFService) OpenFile(path string) (*pdfcore.DocumentInfo, error) {
+	if s.openStarted != nil {
+		s.openStarted()
+		defer s.openEnded()
+	}
 	var result *pdfcore.DocumentInfo
 	var err error
 	func() {
@@ -493,28 +498,12 @@ func (s *PDFService) SetRecentFileRecorder(record func(path string)) {
 	s.recordRecent = record
 }
 
-// SetRecentFileBatch injects the calls that start and end a frontend batch of
-// Open Recent records. Not exposed to the frontend.
+// SetOpenTracker injects the calls made when an OpenFile starts and ends.
+// Not exposed to the frontend.
 //
 //wails:ignore
-func (s *PDFService) SetRecentFileBatch(hold, release func()) {
-	s.holdRecent, s.releaseRecent = hold, release
-}
-
-// BeginRecentFileBatch starts a batch of opens: the files it records are
-// saved to Open Recent once, at EndRecentFileBatch. A no-op when nothing is
-// injected.
-func (s *PDFService) BeginRecentFileBatch() {
-	if s.holdRecent != nil {
-		s.holdRecent()
-	}
-}
-
-// EndRecentFileBatch ends a batch started by BeginRecentFileBatch.
-func (s *PDFService) EndRecentFileBatch() {
-	if s.releaseRecent != nil {
-		s.releaseRecent()
-	}
+func (s *PDFService) SetOpenTracker(started, ended func()) {
+	s.openStarted, s.openEnded = started, ended
 }
 
 // RecordRecentFile adds a file the user opened as a tab to Open Recent. The
