@@ -7,7 +7,7 @@ import { Events, Screens, Window } from '@wailsio/runtime'
 import { DocumentBatchComplete, DocumentBatchStart, DocumentDiskStatus, DocumentError, DocumentLoadStart, DocumentOpened, DocumentReloadActive, NavigateBack, NavigateForward, NavigateGoToPage, NavigateStateChanged, PaletteOpen } from '../bindings/events/index.js'
 import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
-import { mapErrorMessage, openPDFFile, recordRecentFile, withRecentFileBatch } from './hooks/usePDFService'
+import { mapErrorMessage, openPDFFile, recordRecentFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
 import { isInTextField } from './hooks/useFindBar'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
@@ -265,7 +265,7 @@ function AppContent() {
           }
         }
       }
-      await (paths.length > 1 ? withRecentFileBatch(openAll) : openAll())
+      await openAll()
       if (lastError !== null) {
         dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: lastError } })
       }

@@ -2,7 +2,7 @@
  * @file PDF service layer. Wraps Wails-generated bindings with
  * user-friendly error mapping and a structured open-file workflow.
  */
-import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog, RecordRecentFile, BeginRecentFileBatch, EndRecentFileBatch } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog, RecordRecentFile } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
 
 /** Failure category of a raw backend open error. */
@@ -72,19 +72,6 @@ export function recordRecentFile(path: string): Promise<void> {
   return Promise.resolve().then(() => RecordRecentFile(path)).catch(() => {});
 }
 
-/**
- * Runs a batch of opens with Open Recent saved once, when the batch ends, so a
- * file is recorded as it opens without a save per file. The batch ends even
- * when `run` throws; a failure to start or end it does not affect the opens.
- */
-export async function withRecentFileBatch<T>(run: () => Promise<T>): Promise<T> {
-  await Promise.resolve().then(() => BeginRecentFileBatch()).catch(() => {});
-  try {
-    return await run();
-  } finally {
-    await Promise.resolve().then(() => EndRecentFileBatch()).catch(() => {});
-  }
-}
 
 /**
  * Open a PDF file at the given path, fetch its tree root and first-level

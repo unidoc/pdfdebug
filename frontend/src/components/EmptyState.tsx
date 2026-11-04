@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getShortcutHint } from '../lib/platform';
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
-import { openPDFFile, openFileDialog, mapErrorMessage, recordRecentFile, withRecentFileBatch } from '../hooks/usePDFService';
+import { openPDFFile, openFileDialog, mapErrorMessage, recordRecentFile } from '../hooks/usePDFService';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 
 /** Props for {@link EmptyState}. */
@@ -122,7 +122,7 @@ export function EmptyState({ hasDocument, onOpenFile }: EmptyStateProps) {
         }
       };
       try {
-        await (isBatch ? withRecentFileBatch(openAll) : openAll());
+        await openAll();
       } finally {
         if (isBatch) dispatch({ type: 'BATCH_OPEN_COMPLETE' });
         // SET_DOCUMENT_WARNING is a no-op when batchOpenCancelled is true,
