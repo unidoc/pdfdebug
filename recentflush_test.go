@@ -31,13 +31,44 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 }
 
-func waitSaving(t *testing.T, f *recentFlusher) {
+// newBlockingFlusher returns a flusher whose first save signals started and
+// then waits for release, so a test acts while that save is in progress.
+func newBlockingFlusher(delay time.Duration) (f *recentFlusher, c *flushCounts, started, release chan struct{}) {
+	c = &flushCounts{}
+	started, release = make(chan struct{}), make(chan struct{})
+	save := func() {
+		if c.saves.Load() == 0 {
+			close(started)
+			<-release
+		}
+		c.saves.Add(1)
+	}
+	rebuild := func() { c.rebuilds.Add(1) }
+	return newRecentFlusher(delay, time.Hour, save, rebuild, func(fn func()) { fn() }), c, started, release
+}
+
+// returnsWhileBlocked reports whether fn returns within 50ms.
+func returnsWhileBlocked(fn func()) (done chan struct{}, returned bool) {
+	done = make(chan struct{})
+	go func() {
+		fn()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return done, true
+	case <-time.After(50 * time.Millisecond):
+		return done, false
+	}
+}
+
+func waitDone(t *testing.T, done chan struct{}) {
 	t.Helper()
-	waitFor(t, func() bool {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		return f.saving
-	})
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not return within 2s")
+	}
 }
 
 func TestRecentFlushMergesQuickOpensIntoOneSave(t *testing.T) {
@@ -73,15 +104,15 @@ func TestRecentFlushSavesSlowOpensInARowOnce(t *testing.T) {
 }
 
 func TestRecentFlushARunLongerThanMaxHoldStillSavesOnce(t *testing.T) {
-	f, c := newCountingFlusher(20*time.Millisecond, 50*time.Millisecond, 0)
+	f, c := newCountingFlusher(100*time.Millisecond, 300*time.Millisecond, 0)
 	for range 6 {
 		ended := f.OpenStarted()
-		time.Sleep(30 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 		ended()
 		f.Record()
 	}
 	if c.saves.Load() != 0 {
-		t.Fatalf("saved %d times during a 180ms run of 30ms opens, want 0", c.saves.Load())
+		t.Fatalf("saved %d times during a 900ms run of 150ms opens, want 0", c.saves.Load())
 	}
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
 }
@@ -100,34 +131,57 @@ func TestRecentFlushWaitsForEveryOpenInFlight(t *testing.T) {
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
 }
 
-func TestRecentFlushAnOpenThatNeverEndsHoldsTheSaveOnceForMaxHold(t *testing.T) {
-	f, c := newCountingFlusher(time.Millisecond, 40*time.Millisecond, 0)
+// startStuckOpen starts an open whose start lies past maxHold, as for an open
+// that never returned.
+func startStuckOpen(f *recentFlusher) (ended func()) {
+	ended = f.OpenStarted()
+	f.mu.Lock()
+	f.opens[f.nextOpen-1] = time.Now().Add(-2 * f.maxHold)
+	f.mu.Unlock()
+	return ended
+}
+
+func TestRecentFlushAnOpenInFlightHoldsTheSaveUntilMaxHold(t *testing.T) {
+	f, c := newCountingFlusher(time.Millisecond, 300*time.Millisecond, 0)
 	f.OpenStarted()
 	f.Record()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	if c.saves.Load() != 0 {
 		t.Fatal("saved with an open in flight before maxHold")
 	}
 	waitFor(t, func() bool { return c.saves.Load() == 1 })
-	// The stuck open no longer holds later saves.
-	f.Record()
-	time.Sleep(20 * time.Millisecond)
-	if c.saves.Load() != 2 {
-		t.Fatalf("saves=%d 20ms after a record with only a stuck open in flight, want 2", c.saves.Load())
-	}
 }
 
-func TestRecentFlushCloseWaitsForASaveInProgress(t *testing.T) {
-	f, c := newCountingFlusher(time.Millisecond, time.Hour, 50*time.Millisecond)
+func TestRecentFlushAStuckOpenNoLongerHoldsTheSave(t *testing.T) {
+	f, c := newCountingFlusher(time.Millisecond, time.Hour, 0)
+	startStuckOpen(f)
 	f.Record()
-	waitSaving(t, f)
-	f.Close()
-	if c.saves.Load() != 1 {
-		t.Fatalf("Close returned with saves=%d, want the save in progress finished", c.saves.Load())
+	waitFor(t, func() bool { return c.saves.Load() == 1 })
+}
+
+func TestRecentFlushAStuckOpenDoesNotReleaseTheHoldOfAFreshOne(t *testing.T) {
+	f, c := newCountingFlusher(time.Millisecond, time.Hour, 0)
+	startStuckOpen(f)
+	ended := f.OpenStarted()
+	f.Record()
+	time.Sleep(50 * time.Millisecond)
+	if c.saves.Load() != 0 {
+		t.Fatal("saved while a fresh open was in flight")
 	}
-	time.Sleep(10 * time.Millisecond)
-	if c.rebuilds.Load() != 0 {
-		t.Fatalf("menu rebuilt %d times after Close, want 0", c.rebuilds.Load())
+	ended()
+	waitFor(t, func() bool { return c.saves.Load() == 1 })
+}
+
+func TestRecentFlushAnEndThatHeldNothingDoesNotDelayThePendingSave(t *testing.T) {
+	f, c := newCountingFlusher(300*time.Millisecond, time.Hour, 0)
+	endStuck := startStuckOpen(f)
+	f.Record()
+	time.Sleep(150 * time.Millisecond)
+	endStuck()
+	// Saved at 300ms; restarting the delay at this end would save at 450ms.
+	time.Sleep(250 * time.Millisecond)
+	if c.saves.Load() != 1 {
+		t.Fatalf("saves=%d 400ms after the record, want 1", c.saves.Load())
 	}
 }
 
@@ -144,32 +198,12 @@ func TestRecentFlushCloseSavesAWaitingChangeAndStopsTheTimer(t *testing.T) {
 	}
 }
 
-func TestRecentFlushSavesAnOpenRecordedDuringASave(t *testing.T) {
-	f, c := newCountingFlusher(time.Millisecond, time.Hour, 30*time.Millisecond)
-	f.Record()
-	waitSaving(t, f)
-	f.Record()
-	waitFor(t, func() bool { return c.saves.Load() == 2 })
-}
-
 func TestRecentFlushSaveNowIgnoresAnOpenInFlight(t *testing.T) {
 	f, c := newCountingFlusher(time.Hour, time.Hour, 0)
 	f.OpenStarted()
 	f.SaveNow()
 	if c.saves.Load() != 1 || c.rebuilds.Load() != 1 {
 		t.Fatalf("saves=%d rebuilds=%d, want 1 and 1", c.saves.Load(), c.rebuilds.Load())
-	}
-}
-
-func TestRecentFlushSaveNowReturnsOnlyAfterASaveThatStartedAfterIt(t *testing.T) {
-	for range 20 {
-		f, c := newCountingFlusher(time.Millisecond, time.Hour, 20*time.Millisecond)
-		f.Record()
-		waitSaving(t, f)
-		f.SaveNow()
-		if c.saves.Load() != 2 {
-			t.Fatalf("saves=%d when SaveNow returned, want 2", c.saves.Load())
-		}
 	}
 }
 
@@ -182,5 +216,48 @@ func TestRecentFlushRebuildReachingTheUIThreadAfterCloseDoesNothing(t *testing.T
 	queued()
 	if c.rebuilds.Load() != 0 {
 		t.Fatalf("rebuilds=%d after Close, want 0", c.rebuilds.Load())
+	}
+}
+
+func TestRecentFlushCloseWaitsForASaveInProgress(t *testing.T) {
+	f, c, started, release := newBlockingFlusher(time.Millisecond)
+	f.Record()
+	<-started
+	done, returned := returnsWhileBlocked(f.Close)
+	if returned {
+		t.Fatal("Close returned with a save in progress")
+	}
+	close(release)
+	waitDone(t, done)
+	if c.saves.Load() != 1 {
+		t.Fatalf("saves=%d after Close, want 1", c.saves.Load())
+	}
+	time.Sleep(10 * time.Millisecond)
+	if c.rebuilds.Load() != 0 {
+		t.Fatalf("menu rebuilt %d times after Close, want 0", c.rebuilds.Load())
+	}
+}
+
+func TestRecentFlushSavesAnOpenRecordedDuringASave(t *testing.T) {
+	f, c, started, release := newBlockingFlusher(time.Millisecond)
+	f.Record()
+	<-started
+	f.Record()
+	close(release)
+	waitFor(t, func() bool { return c.saves.Load() == 2 })
+}
+
+func TestRecentFlushSaveNowReturnsOnlyAfterASaveThatStartedAfterIt(t *testing.T) {
+	f, c, started, release := newBlockingFlusher(time.Millisecond)
+	f.Record()
+	<-started
+	done, returned := returnsWhileBlocked(f.SaveNow)
+	if returned {
+		t.Fatal("SaveNow returned while the save that began before it was in progress")
+	}
+	close(release)
+	waitDone(t, done)
+	if c.saves.Load() != 2 {
+		t.Fatalf("saves=%d when SaveNow returned, want 2", c.saves.Load())
 	}
 }

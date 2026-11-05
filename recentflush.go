@@ -8,9 +8,9 @@ import (
 // recentFlusher decides when Open Recent is saved and its menu rebuilt. A
 // recorded open marks the list dirty, and the save runs delay after the last
 // record with no open in flight, so a batch, or opens in quick succession,
-// costs one save however long each open takes. An open stops holding the save
-// once it has run for maxHold, so one that never returns delays the save by
-// maxHold once and not for the rest of the session.
+// costs one save however long each open takes, up to maxHold. An open stops
+// holding the save once it has run for maxHold, so one that never returns
+// delays the save by maxHold once and not for the rest of the session.
 // SaveNow saves at once, for Clear Menu and a removed entry. Close stops
 // further rebuilds and saves a change still waiting, after any save in
 // progress.
@@ -63,8 +63,10 @@ func (f *recentFlusher) OpenStarted() (ended func()) {
 	return func() {
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		_, wasHeld := f.heldUntil()
 		delete(f.opens, id)
-		if f.dirty {
+		// Only an end that changes the hold moves the pending save.
+		if f.dirty && wasHeld {
 			f.arm()
 		}
 	}
