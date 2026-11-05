@@ -7,7 +7,7 @@
  *  - Selecting a row shows its /Filespec details + "Reveal in tree" + "Save...".
  *  - "Reveal in tree" reuses NAVIGATE_TO_REF wiring (onNavigate prop) to jump
  *    TreePanel to the /EmbeddedFile stream object.
- *  - "Save..." calls GetEmbeddedFileBytes then the new SaveBytesToFile binding.
+ *  - "Save..." calls SaveEmbeddedFileToFile with the tab, node and display name.
  *  - XML/text payloads get an inline read-only preview; binary payloads show
  *    size + save-only (no preview).
  *
@@ -19,13 +19,13 @@ import { EmbeddedDataView } from './EmbeddedDataView';
 
 const mockGetEmbeddedFiles = vi.fn();
 const mockGetEmbeddedFileBytes = vi.fn();
-const mockSaveBytesToFile = vi.fn();
+const mockSaveEmbeddedFileToFile = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
     GetEmbeddedFiles: (...a: unknown[]) => mockGetEmbeddedFiles(...a),
     GetEmbeddedFileBytes: (...a: unknown[]) => mockGetEmbeddedFileBytes(...a),
-    SaveBytesToFile: (...a: unknown[]) => mockSaveBytesToFile(...a),
+    SaveEmbeddedFileToFile: (...a: unknown[]) => mockSaveEmbeddedFileToFile(...a),
   })
 );
 
@@ -91,21 +91,17 @@ describe('EmbeddedDataView', () => {
     expect(onNavigate).toHaveBeenCalledWith('obj:0:4');
   });
 
-  // "Save..." fetches the bytes via GetEmbeddedFileBytes then hands them to the
-  // new SaveBytesToFile binding with the display name.
-  test('Save fetches bytes and calls SaveBytesToFile', async () => {
-    mockGetEmbeddedFileBytes.mockResolvedValue('PGZvbz4='); // base64-ish payload
-    mockSaveBytesToFile.mockResolvedValue('/Users/me/factur-x.xml');
+  // "Save..." hands the tab, node and display name to the backend save.
+  test('Save calls SaveEmbeddedFileToFile with the display name', async () => {
+    mockGetEmbeddedFileBytes.mockResolvedValue('PGZvbz4=');
+    mockSaveEmbeddedFileToFile.mockResolvedValue('/Users/me/factur-x.xml');
     render(<EmbeddedDataView tabId="t1" active onNavigate={vi.fn()} />);
     await waitFor(() => screen.getByText('factur-x.xml'));
     fireEvent.click(screen.getByTestId('embedded-row-4 0 R'));
 
     fireEvent.click(await screen.findByTestId('embedded-save'));
 
-    await waitFor(() => expect(mockGetEmbeddedFileBytes).toHaveBeenCalledWith('t1', 'obj:0:4'));
-    await waitFor(() => expect(mockSaveBytesToFile).toHaveBeenCalled());
-    // The suggested file name passed to the save dialog is the display name.
-    expect(mockSaveBytesToFile.mock.calls[0][0]).toBe('factur-x.xml');
+    await waitFor(() => expect(mockSaveEmbeddedFileToFile).toHaveBeenCalledWith('t1', 'obj:0:4', 'factur-x.xml'));
   });
 
   // XML/text payloads get an inline read-only preview;

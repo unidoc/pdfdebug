@@ -35,7 +35,7 @@ const splashMinDisplayMs = 400
 // splash transitions to its error pane via the `splash:timeout` Wails
 // event. The ceiling bounds the perceived hang on installs where the main
 // window's WebView never reaches WindowShow (e.g. WebView2 missing on
-// Windows, WebKit2GTK missing on Linux).
+// Windows, WebKitGTK missing on Linux).
 const splashTimeoutMs = 30000
 
 // Clock abstracts the wall clock + deferred-callback scheduler used by
@@ -79,6 +79,7 @@ func (r *realTimer) Stop() bool { return r.t.Stop() }
 type Scheduler struct {
 	clock      Clock
 	shownAt    time.Time
+	deadline   time.Time
 	minDisplay time.Duration
 	timeout    time.Duration
 
@@ -88,8 +89,11 @@ type Scheduler struct {
 	mu             sync.Mutex
 	timeoutTimer   Timer
 	mainReadyFired bool
-	timeoutFired   bool
-	dismissFired   bool
+	// readyPending is set once MainWindowReadyWithin has seen a ready main
+	// window, so a timeout already waiting on mu stands down.
+	readyPending bool
+	timeoutFired bool
+	dismissFired bool
 }
 
 // NewScheduler returns a Scheduler primed with the production timings
@@ -122,6 +126,7 @@ func newSchedulerWithTimings(clock Clock, onDismiss, onTimeout func(), minDispla
 		onTimeout:  onTimeout,
 	}
 	s.shownAt = clock.Now()
+	s.deadline = s.shownAt.Add(timeout)
 	s.timeoutTimer = clock.AfterFunc(timeout, s.fireTimeout)
 	return s
 }
@@ -156,6 +161,45 @@ func (s *Scheduler) MainWindowReady() {
 	s.clock.AfterFunc(remaining, s.runDismiss)
 }
 
+// MainWindowReadyWithin reports a ready main window whose dismissal may wait:
+// it stops the timeout at once, since the main window is ready, and calls
+// MainWindowReady after wait, or at the time the timeout was due if that is
+// sooner. An earlier MainWindowReady call still dismisses right away.
+func (s *Scheduler) MainWindowReadyWithin(wait time.Duration) {
+	s.mu.Lock()
+	if s.mainReadyFired || s.timeoutFired || s.dismissFired {
+		s.mu.Unlock()
+		return
+	}
+	s.readyPending = true
+	timer := s.timeoutTimer
+	s.timeoutTimer = nil
+	s.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
+	wait = min(wait, s.deadline.Sub(s.clock.Now()))
+	if wait <= 0 {
+		s.MainWindowReady()
+		return
+	}
+	s.clock.AfterFunc(wait, s.MainWindowReady)
+}
+
+// Shown restarts the min-display floor from now, for a splash that becomes
+// visible after the scheduler was created. It returns false, changing
+// nothing, once the main window is ready, so the caller can leave the splash
+// hidden instead of flashing it just before dismissal.
+func (s *Scheduler) Shown() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.mainReadyFired || s.dismissFired {
+		return false
+	}
+	s.shownAt = s.clock.Now()
+	return true
+}
+
 // runDismiss invokes onDismiss exactly once. Subsequent calls are no-ops.
 // The min-display-floor branch in MainWindowReady can call runDismiss
 // from two goroutines (the synchronous fast path and the AfterFunc
@@ -176,10 +220,10 @@ func (s *Scheduler) runDismiss() {
 }
 
 // fireTimeout is the timer-armed callback. It invokes onTimeout once
-// unless MainWindowReady beat it.
+// unless MainWindowReady or MainWindowReadyWithin beat it.
 func (s *Scheduler) fireTimeout() {
 	s.mu.Lock()
-	if s.mainReadyFired || s.timeoutFired || s.dismissFired {
+	if s.mainReadyFired || s.readyPending || s.timeoutFired || s.dismissFired {
 		s.mu.Unlock()
 		return
 	}
@@ -420,7 +464,7 @@ const splashHTMLTemplate = `<!DOCTYPE html>
     splashCloseBtn.addEventListener('click', function () {
       // window.close() is honoured by WebView2 on Windows and propagates
       // to WM_CLOSE which Wails maps to WindowClosing. On WKWebView /
-      // WebKit2GTK it is generally a no-op for top-level windows; Go's
+      // WebKitGTK it is generally a no-op for top-level windows; Go's
       // 60s force-quit timer armed alongside splash:timeout is the
       // safety net there.
       try { window.close(); } catch (_) { /* swallow */ }

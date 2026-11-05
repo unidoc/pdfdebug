@@ -10,9 +10,9 @@ See [README.md#build-from-source](./README.md#build-from-source) for the canonic
 
 | Tool | Version | Source of truth |
 |---|---|---|
-| Go | 1.27.x | `go.mod` |
+| Go | 1.27.x | `go.mod` (1.27.3 or later) |
 | Node.js | 20.x LTS | `.github/workflows/ci.yml` |
-| Wails v3 CLI | `v3.0.0-beta.18` | `go.mod` require block |
+| Wails v3 CLI | `v3.0.0` | `go.mod` require block |
 | golangci-lint | v2.14.0 | `.github/workflows/ci.yml` |
 | create-dmg | Homebrew (macos-latest) | macOS release DMG packaging only; installed by `release.yml` via `brew install create-dmg` |
 

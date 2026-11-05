@@ -120,6 +120,43 @@ func TestSplashSchedulerMinDisplayFloorDefersDismissal(t *testing.T) {
 	}
 }
 
+// A splash shown late restarts the floor, so it stays up the full floor
+// after it became visible rather than after the scheduler was created.
+func TestSplashSchedulerShownRestartsFloor(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed atomic.Int32
+	min, to := shortTimings()
+	s := newSchedulerWithTimings(clk, func() { dismissed.Add(1) }, func() {}, min, to)
+
+	clk.Advance(300 * time.Microsecond)
+	if !s.Shown() {
+		t.Fatal("Shown must report true while the main window is not ready")
+	}
+	clk.Advance(200 * time.Microsecond)
+	s.MainWindowReady()
+	if got := dismissed.Load(); got != 0 {
+		t.Fatalf("dismissal must wait for the floor counted from Shown; got dismissed=%d 200us after Shown", got)
+	}
+	clk.Advance(200 * time.Microsecond)
+	if got := dismissed.Load(); got != 1 {
+		t.Fatalf("dismissal must fire once the floor from Shown has passed; got dismissed=%d", got)
+	}
+}
+
+// Once the main window is ready, Shown declines so the caller keeps the
+// splash hidden.
+func TestSplashSchedulerShownAfterMainReadyDeclines(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	min, to := shortTimings()
+	s := newSchedulerWithTimings(clk, func() {}, func() {}, min, to)
+
+	clk.Advance(100 * time.Microsecond)
+	s.MainWindowReady()
+	if s.Shown() {
+		t.Fatal("Shown must report false after the main window is ready")
+	}
+}
+
 // When MainWindowReady fires AFTER min-display, dismissal runs
 // immediately (no deferred AfterFunc).
 func TestSplashSchedulerMinDisplayFloorPassthrough(t *testing.T) {
@@ -304,5 +341,88 @@ func TestSplashRuntimeReadyGiveUpEmitsDiagnostic(t *testing.T) {
 	// The give-up branch must still clear the interval so the warn is one-shot.
 	if !strings.Contains(html, "clearInterval(iv)") {
 		t.Errorf("Render() output missing clearInterval(iv) in the runtime-ready ping")
+	}
+}
+
+func TestSplashSchedulerReadyWithinWaitsTheFullTimeWhenTheTimeoutIsFar(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	clk.Advance(1900 * time.Millisecond)
+	if dismissed.Load() != 0 {
+		t.Fatal("dismissed before the wait elapsed")
+	}
+	clk.Advance(100 * time.Millisecond)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d after the wait, want 1 and 0", dismissed.Load(), timedOut.Load())
+	}
+}
+
+func TestSplashSchedulerReadyWithinNeverWaitsPastTheTimeout(t *testing.T) {
+	for _, readyAt := range []time.Duration{28500 * time.Millisecond, 29950 * time.Millisecond, 29999 * time.Millisecond} {
+		clk := newFakeClock(time.Unix(0, 0))
+		var dismissed, timedOut atomic.Int32
+		s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+		clk.Advance(readyAt)
+		s.MainWindowReadyWithin(2 * time.Second)
+		for range 100 {
+			clk.Advance(50 * time.Millisecond)
+		}
+		if dismissed.Load() != 1 || timedOut.Load() != 0 {
+			t.Errorf("ready at %v: dismissed=%d timedOut=%d, want 1 and 0", readyAt, dismissed.Load(), timedOut.Load())
+		}
+	}
+}
+
+func TestSplashSchedulerReadyWithinStopsTheTimeoutAtOnce(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(29 * time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	clk.Advance(999 * time.Millisecond)
+	if timedOut.Load() != 0 || dismissed.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d before the capped wait ended, want 0 and 0", dismissed.Load(), timedOut.Load())
+	}
+	clk.Advance(time.Millisecond)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d at the timeout, want 1 and 0", dismissed.Load(), timedOut.Load())
+	}
+}
+
+func TestSplashSchedulerReadyWithinThenMainWindowReadyDismissesAtOnce(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() {})
+
+	clk.Advance(time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	s.MainWindowReady()
+	if dismissed.Load() != 1 {
+		t.Fatalf("dismissed=%d after the splash loaded, want 1", dismissed.Load())
+	}
+	clk.Advance(3 * time.Second)
+	if dismissed.Load() != 1 {
+		t.Fatalf("dismissed=%d after the capped wait, want still 1", dismissed.Load())
+	}
+}
+
+func TestSplashSchedulerTimeoutAlreadyRunningStandsDownForReadyWithin(t *testing.T) {
+	clk := newFakeClock(time.Unix(0, 0))
+	var dismissed, timedOut atomic.Int32
+	s := NewScheduler(clk, func() { dismissed.Add(1) }, func() { timedOut.Add(1) })
+
+	clk.Advance(29 * time.Second)
+	s.MainWindowReadyWithin(2 * time.Second)
+	// The timer goroutine got past Stop and now takes the lock.
+	s.fireTimeout()
+	clk.Advance(time.Second)
+	if dismissed.Load() != 1 || timedOut.Load() != 0 {
+		t.Fatalf("dismissed=%d timedOut=%d, want 1 and 0", dismissed.Load(), timedOut.Load())
 	}
 }

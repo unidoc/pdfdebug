@@ -16,9 +16,9 @@ import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import { clampDisplayValue, TREE_VALUE_RENDER_CAP } from '../lib/escapeDisplayValue';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { formatBreadcrumb } from '../lib/formatBreadcrumb';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
-import { RowContextMenu } from './RowContextMenu';
+import { ROW_MENU_REVEAL, useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import { ROW_IDLE, ROW_SELECTED } from './rowState';
 import { findById, RowStateContext, useLazyLoad } from './treeRows';
 
@@ -246,7 +246,7 @@ function ImageRow({ node, style, dragHandle }: NodeRendererProps<ImageRowData>) 
 
   const filters = e.filters && e.filters.length > 0 ? clamp(e.filters.join(',')) : '-';
   const usage = row.path !== null
-    ? clamp(row.path.join(' > '))
+    ? clamp(formatBreadcrumb(row.path))
     : `used on ${e.pageCount} ${e.pageCount === 1 ? 'page' : 'pages'}`;
   const title = [e.sampleInterpretation, e.warning].filter((s) => s !== '').map(clamp).join('\n');
   return (
@@ -452,19 +452,22 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
     bump();
   }
 
-  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture } = useRowContextMenu(
     treeRef,
     '[data-row-id]',
     'data-row-id',
     (rowId) => {
       const row = dataRef.current ? findById(dataRef.current, rowId) : null;
       // Error rows and pages without a node id have nothing to reveal.
-      return row && row.nodeId !== '' ? row.nodeId : null;
+      return row && row.nodeId !== '' ? { menu: ROW_MENU_REVEAL, nodeId: row.nodeId } : null;
+    },
+    (action, { nodeId }) => {
+      if (action === 'reveal') dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
     },
   );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
-  // switch, a rail switch or a view change closes it.
+  // switch, a rail switch or a view change forgets it.
   useEffect(() => {
     closeMenu();
   }, [active, activeTabId, view, closeMenu]);
@@ -514,6 +517,7 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
+        onPointerDownCapture={onPointerDownCapture}
         onKeyDown={onKeyDown}
       >
         {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading images...</div>}
@@ -555,7 +559,6 @@ export function ImagesPanel({ active }: LeftRailPanelProps) {
           </RowStateContext.Provider>
         )}
       </div>
-      {menu && <RowContextMenu target={menu} label="Image row actions" onClose={closeMenu} />}
     </div>
   );
 }

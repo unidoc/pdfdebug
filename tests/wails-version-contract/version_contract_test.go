@@ -19,12 +19,12 @@ import (
 
 // goWailsTarget is the exact Wails Go module / wails3 CLI version the tree pins.
 // go.mod and both workflow install lines must equal it verbatim.
-const goWailsTarget = "v3.0.0-beta.18"
+const goWailsTarget = "v3.0.0"
 
 // runtimeTarget is the exact @wailsio/runtime version the frontend pins. The
 // package.json spec (with no range specifier) and the lockfile resolution must
 // both equal it verbatim.
-const runtimeTarget = "3.0.0-beta.18"
+const runtimeTarget = "3.0.0"
 
 // projectRoot walks up from the working directory to the project go.mod (module
 // unidoc-pdf-debugger) and returns its absolute path.

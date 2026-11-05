@@ -36,7 +36,7 @@ const mockGetContentStream = vi.fn();
 const mockGetImageData = vi.fn();
 const mockDescribeImage = vi.fn();
 const mockSaveImageToFile = vi.fn();
-const mockSaveBytesToFile = vi.fn();
+const mockSaveEmbeddedFileToFile = vi.fn();
 const mockGetReverseRefs = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
@@ -58,7 +58,7 @@ vi.mock(
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
-    SaveBytesToFile: (...a: unknown[]) => mockSaveBytesToFile(...a),
+    SaveEmbeddedFileToFile: (...a: unknown[]) => mockSaveEmbeddedFileToFile(...a),
   })
 );
 
@@ -168,8 +168,7 @@ describe('warn before an expensive decode, then load on proceed', () => {
 
 // ---------------------------------------------------------------------------
 // Every image offers "Save image...", and the save routes to the backend-direct
-// method (tabID, nodeID) rather than round-tripping the full-resolution bytes
-// through SaveBytesToFile.
+// method (tabID, nodeID), never the embedded-file save.
 // ---------------------------------------------------------------------------
 
 describe('unconditional backend-direct save', () => {
@@ -197,7 +196,7 @@ describe('unconditional backend-direct save', () => {
     mockSaveImageToFile.mockResolvedValue('/tmp/out.png');
   });
 
-  test('Save invokes SaveImageToFile and never SaveBytesToFile', async () => {
+  test('Save invokes SaveImageToFile and never SaveEmbeddedFileToFile', async () => {
     renderImageNode();
 
     const save = await screen.findByTestId('image-preview-save');
@@ -208,7 +207,7 @@ describe('unconditional backend-direct save', () => {
     });
     expect(mockSaveImageToFile.mock.calls[0][0]).toBe('tab-1');
     expect(mockSaveImageToFile.mock.calls[0][1]).toBe('obj:0:7');
-    expect(mockSaveBytesToFile).not.toHaveBeenCalled();
+    expect(mockSaveEmbeddedFileToFile).not.toHaveBeenCalled();
   });
 });
 

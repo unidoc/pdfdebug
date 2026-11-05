@@ -15,6 +15,7 @@ import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { Browser, Events } from '@wailsio/runtime';
+import { UpdateCheckRequested, UpdateDownloadProgress } from '../../bindings/events/index.js';
 import { ArrowDownToLine, ArrowUpCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { CheckForUpdate, CheckForUpdateAtStartup, DownloadUpdate, SetDownloadPaused } from '../../bindings/unidoc-pdf-debugger/internal/updateservice/service';
 import type { Result } from '../../bindings/unidoc-pdf-debugger/internal/updatecheck/models';
@@ -147,7 +148,7 @@ export function UpdateNotifier(): JSX.Element | null {
 
   // Manual check from the Help menu.
   useEffect(() => {
-    const off = Events.On('update:check-requested', () => {
+    const off = Events.On(UpdateCheckRequested, () => {
       void runCheck(true);
     });
     return () => off();
@@ -156,8 +157,8 @@ export function UpdateNotifier(): JSX.Element | null {
   // Live download progress from the backend. Only updates while a download is in
   // flight so a late event cannot revive a finished (success/failed) state.
   useEffect(() => {
-    const off = Events.On('update:download-progress', (event: { data?: DownloadProgress }) => {
-      const p = event?.data;
+    const off = Events.On(UpdateDownloadProgress, (event) => {
+      const p = event?.data as DownloadProgress | undefined;
       if (!p) return;
       setDownload((prev) =>
         prev.kind === 'downloading'

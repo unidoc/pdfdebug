@@ -60,7 +60,7 @@ vi.mock(
     GetEmbeddedFiles: vi.fn().mockResolvedValue({ files: [] }),
     GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
     GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
-    SaveBytesToFile: vi.fn().mockResolvedValue(''),
+    SaveEmbeddedFileToFile: vi.fn().mockResolvedValue(''),
     // The Diff tab imports DiffDocuments; stubbed so the factory
     // never throws on the new export (the picker only calls it after a second
     // file is chosen).

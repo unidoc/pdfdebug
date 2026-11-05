@@ -344,8 +344,8 @@ func TestAppHasFileDropTarget(t *testing.T) {
 func TestAppListensForDocumentOpened(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
-	if !strings.Contains(content, "document:opened") {
-		t.Error("App.jsx must listen for 'document:opened' event from backend")
+	if !strings.Contains(content, "Events.On(DocumentOpened,") {
+		t.Error("App.jsx must listen for the document:opened event (generated constant DocumentOpened) from backend")
 	}
 }
 
@@ -357,8 +357,8 @@ func TestAppListensForDocumentOpened(t *testing.T) {
 func TestAppListensForDocumentError(t *testing.T) {
 	content := readFile(t, "frontend/src/App.jsx")
 
-	if !strings.Contains(content, "document:error") {
-		t.Error("App.jsx must listen for 'document:error' event from backend")
+	if !strings.Contains(content, "Events.On(DocumentError,") {
+		t.Error("App.jsx must listen for the document:error event (generated constant DocumentError) from backend")
 	}
 }
 

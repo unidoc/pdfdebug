@@ -101,7 +101,7 @@ describe('BatchOpenDialog', () => {
     await userEvent.click(cancelBtn);
 
     expect(screen.getByTestId('cancelled-flag').textContent).toBe('true');
-    expect(mockEmit).toHaveBeenCalledWith('document:batch-cancel', null);
+    expect(mockEmit).toHaveBeenCalledWith('document:batch-cancel');
 
     expect(cancelBtn).toHaveTextContent('Cancelling...');
     expect(cancelBtn).toBeDisabled();

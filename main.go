@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,6 +22,7 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 	"unidoc-pdf-debugger/internal/pdfservice"
 	"unidoc-pdf-debugger/internal/pendingopen"
+	"unidoc-pdf-debugger/internal/recentfiles"
 	"unidoc-pdf-debugger/internal/splash"
 	"unidoc-pdf-debugger/internal/updateservice"
 )
@@ -38,6 +39,19 @@ var version = "dev"
 // (menu.FindByLabel(appName)) MUST use the same literal -- a single source of
 // truth here prevents the menu item from silently vanishing on a rename.
 const appName = "UniDoc PDF Debugger"
+
+// appID identifies the app to the OS: the single-instance lock, and on Linux
+// the GTK application id, which must match StartupWMClass in the .desktop file
+// for the desktop to show the app's name and icon.
+const appID = "com.unidoc.unidoc-pdf-debugger"
+
+// recentFlushDelay is how long Open Recent waits, with no open in flight, after
+// the last open before it saves the list and rebuilds its menu.
+const recentFlushDelay = 500 * time.Millisecond
+
+// recentMaxHold is how long an open in flight can hold an Open Recent save;
+// an open running longer stops holding it.
+const recentMaxHold = 10 * time.Second
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
 // Any files in the frontend/dist folder will be embedded into the binary and
@@ -91,6 +105,26 @@ type pdfOpener interface {
 	CloseDocument(tabID string) error
 }
 
+// literalMenuLabel returns label escaped so the native menu on goos shows it
+// as written. Windows reads "&" and GTK reads "_" as a mnemonic marker, and a
+// doubled marker shows one literal character; macOS has no markers.
+func literalMenuLabel(label, goos string) string {
+	switch goos {
+	case "windows":
+		return strings.ReplaceAll(label, "&", "&&")
+	case "linux":
+		return strings.ReplaceAll(label, "_", "__")
+	}
+	return label
+}
+
+// recentRecorder is implemented by openers that record a successful open in
+// File > Open Recent. *pdfservice.PDFService implements it; the latency test's
+// stubs do not, so for them recording is skipped.
+type recentRecorder interface {
+	RecordRecentFile(path string)
+}
+
 // eventEmitter is the narrow surface openFileAndEmitWithWarning needs from
 // application.EventManager. *application.EventManager satisfies this
 // implicitly; the latency test passes a recording stub.
@@ -101,7 +135,8 @@ type eventEmitter interface {
 // openFileAndEmitWithWarning opens a PDF, fetches the tree root + children,
 // and emits document:opened with the result. If extraWarning is non-empty,
 // it is appended to (or replaces) the per-document warning field in the
-// payload. This lets callers piggyback advisory messages (e.g. "2
+// payload. A successful open is recorded in Open Recent when svc implements
+// recentRecorder. This lets callers piggyback advisory messages (e.g. "2
 // unsupported files could not be opened") onto a document's open event so
 // the frontend handler dispatches SET_DOCUMENT_WARNING in the same tick as
 // the OPEN_DOCUMENT that would otherwise clear it -- guaranteeing the
@@ -130,18 +165,17 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 	// Emit load-start synchronously so the frontend can render an immediate
 	// "Opening ..." indicator instead of leaving the EmptyState drop area
 	// silent for the duration of a large-file parse.
-	emitter.Emit("document:load-start", map[string]any{
+	emitter.Emit(eventDocumentLoadStart, map[string]any{
 		"filePath": path,
 		"fileName": filepath.Base(path),
 	})
-	// Dispatch the pdfcpu read to a goroutine. Pass the long-lived values as
-	// explicit parameters for lifetime documentation (Go 1.22+ already fixes
-	// the historical loop-variable trap; go.mod declares go 1.27.0).
+	// Dispatch the pdfcpu read to a goroutine. The long-lived values are
+	// passed as explicit parameters to document their lifetime.
 	go func(p, ew string, s pdfOpener, a eventEmitter, w *sync.WaitGroup) {
 		defer w.Done()
 		docInfo, err := s.OpenFile(p)
 		if err != nil {
-			a.Emit("document:error", map[string]any{
+			a.Emit(eventDocumentError, map[string]any{
 				"message": err.Error(),
 			})
 			return
@@ -149,7 +183,7 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 		root, err := s.GetTreeRoot(docInfo.TabID)
 		if err != nil {
 			_ = s.CloseDocument(docInfo.TabID)
-			a.Emit("document:error", map[string]any{
+			a.Emit(eventDocumentError, map[string]any{
 				"message": err.Error(),
 			})
 			return
@@ -177,43 +211,11 @@ func openFileAndEmitWithWarning(svc pdfOpener, emitter eventEmitter, path string
 		if len(warnings) > 0 {
 			payload["warning"] = strings.Join(warnings, " ")
 		}
-		a.Emit("document:opened", payload)
+		a.Emit(eventDocumentOpened, payload)
+		if r, ok := s.(recentRecorder); ok {
+			r.RecordRecentFile(p)
+		}
 	}(path, extraWarning, svc, emitter, wg)
-}
-
-// aboutWindow holds the single custom About window while it is open, so a
-// second About click focuses the existing window instead of spawning another.
-var aboutWindow *application.WebviewWindow
-
-// openAboutWindow shows the custom About window: a small centered WebviewWindow
-// that loads the frontend About view carrying the running version in the URL
-// query. Sourcing the version this way shows the honest, unstripped semver
-// (main.version) without adding a bound method, and the unidoc.io link inside
-// opens in the external browser rather than navigating the app WebView (see
-// AboutDialog.tsx). The native macOS About panel can do neither.
-func openAboutWindow(app *application.App) {
-	if aboutWindow != nil {
-		// Restore un-minimises a window the user has minimised; Focus alone
-		// leaves it minimised and the menu item appears to do nothing.
-		aboutWindow.Restore()
-		aboutWindow.Focus()
-		return
-	}
-	aboutWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "About " + appName,
-		Width:            360,
-		Height:           220,
-		DisableResize:    true,
-		InitialPosition:  application.WindowCentered,
-		BackgroundColour: application.NewRGB(248, 250, 252),
-		URL:              "/?view=about&version=" + url.QueryEscape(version),
-	})
-	if aboutWindow == nil {
-		return
-	}
-	aboutWindow.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		aboutWindow = nil
-	})
 }
 
 // onSplashDismiss is the success-path dismissal handler for the startup
@@ -223,23 +225,23 @@ func openAboutWindow(app *application.App) {
 // and splash:dismissed (the main frontend fades its #root opacity to 1),
 // unhides the main window, then closes + destroys the splash after the
 // 200ms crossfade. The callback can be invoked from a non-main goroutine
-// (clock-driven); Wails beta.18 SetAlwaysOnTop / Show / Close all
-// InvokeSync to the impl thread internally and app.Event.Emit is
-// goroutine-safe, so direct calls from a worker goroutine are safe.
+// (clock-driven); Wails SetAlwaysOnTop / Show / Close all InvokeSync to the
+// impl thread internally and app.Event.Emit is goroutine-safe, so direct
+// calls from a worker goroutine are safe.
 func onSplashDismiss(app *application.App, splashWindow, mainWindow *application.WebviewWindow) {
 	if splashWindow != nil {
 		splashWindow.SetAlwaysOnTop(false)
 	}
 	// Tell the splash WebView to fade its body to opacity 0.
-	app.Event.Emit("splash:dismiss", nil)
+	app.Event.Emit(eventSplashDismiss, nil)
 	// Reveal the main window and let the frontend transition opacity up.
 	if mainWindow != nil {
 		mainWindow.Show()
 	}
-	app.Event.Emit("splash:dismissed", nil)
-	// Close the splash after the 200ms crossfade window. Wails beta.18
-	// WebviewWindow.Close() dispatches to the impl thread internally; we
-	// can call it from a time.AfterFunc goroutine.
+	app.Event.Emit(eventSplashDismissed, nil)
+	// Close the splash after the 200ms crossfade window.
+	// WebviewWindow.Close() dispatches to the impl thread internally, so it
+	// can be called from a time.AfterFunc goroutine.
 	time.AfterFunc(220*time.Millisecond, func() {
 		if splashWindow != nil {
 			splashWindow.Close()
@@ -412,7 +414,7 @@ type diskStatusEmitter struct {
 
 // Emit sends ev as a document:disk-status event.
 func (e diskStatusEmitter) Emit(ev filewatch.Event) {
-	e.app.Event.Emit("document:disk-status", ev)
+	e.app.Event.Emit(eventDocumentDiskStatus, ev)
 }
 
 func main() {
@@ -449,8 +451,11 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 		FileAssociations: []string{".pdf"},
+		Linux: application.LinuxOptions{
+			ApplicationID: appID,
+		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.unidoc.unidoc-pdf-debugger",
+			UniqueID: appID,
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// Route every path through the queue first. A path
 				// that arrives before the frontend has drained is buffered
@@ -515,9 +520,25 @@ func main() {
 	// at the start of each batch.
 	var batchCancelled atomic.Bool
 
-	app.Event.On("document:batch-cancel", func(_ *application.CustomEvent) {
+	app.Event.On(eventDocumentBatchCancel, func(_ *application.CustomEvent) {
 		batchCancelled.Store(true)
 	})
+
+	// File > Open Recent. The list is shared by the Go open paths (through
+	// RecordRecentFile on the opener) and the frontend's own opens (through
+	// the bound PDFService.RecordRecentFile), so it is guarded by its mutex and
+	// the submenu rebuild by recentMu. recentFlush decides when the list is
+	// saved and the menu rebuilt (rebuildRecentMenu is assigned with the menu
+	// below).
+	recent := recentfiles.Load(recentfiles.DefaultPath())
+	saveRecent := func() {
+		if err := recent.Save(); err != nil {
+			log.Printf("warning: could not save the recent files list: %v", err)
+		}
+	}
+	var rebuildRecentMenu func()
+	recentFlush := newRecentFlusher(recentFlushDelay, recentMaxHold, saveRecent, func() { rebuildRecentMenu() }, application.InvokeSync)
+	pdfService.SetOpenTracker(recentFlush.OpenStarted)
 
 	// openFilesBatch opens a slice of PDF paths sequentially and emits
 	// document:batch-* progress events when more than one file is in flight.
@@ -539,7 +560,7 @@ func main() {
 			unsupportedMsg = fmt.Sprintf("%d unsupported %s could not be opened.", unsupportedCount, noun)
 		}
 		if len(pdfPaths) > 1 {
-			app.Event.Emit("document:batch-start", map[string]any{
+			app.Event.Emit(eventDocumentBatchStart, map[string]any{
 				"total": len(pdfPaths),
 			})
 		}
@@ -571,7 +592,7 @@ func main() {
 			// contract obvious and survives future refactors that move the
 			// Wait out of the loop.
 			wg.Wait()
-			app.Event.Emit("document:batch-complete", nil)
+			app.Event.Emit(eventDocumentBatchComplete, nil)
 		}
 	}
 
@@ -593,6 +614,31 @@ func main() {
 		}
 	})
 
+	// showAbout brings the main window forward when it is minimised or on
+	// screen, then asks its frontend to show the About dialog. Until the
+	// frontend has mounted (aboutReady), the request is held in aboutPending
+	// and sent when it has. A main window still hidden behind the splash stays
+	// hidden; the dialog is open when it appears.
+	var aboutMu sync.Mutex
+	var aboutReady, aboutPending bool
+	showAbout := func() {
+		if window != nil {
+			if window.IsMinimised() {
+				window.UnMinimise()
+				window.Focus()
+			} else if window.IsVisible() {
+				window.Focus()
+			}
+		}
+		aboutMu.Lock()
+		defer aboutMu.Unlock()
+		if !aboutReady {
+			aboutPending = true
+			return
+		}
+		app.Event.Emit(eventAboutOpen, version)
+	}
+
 	// Build native menu bar
 	menu := application.NewMenu()
 
@@ -601,30 +647,33 @@ func main() {
 
 	// macOS-only app-submenu wiring. AddRole(AppMenu) returns the PARENT
 	// *Menu, not the app submenu, so items are reached via
-	// FindByLabel(appName).GetSubmenu() (verified against Wails v3 beta.18).
+	// FindByLabel(appName).GetSubmenu().
 	// Two changes here:
 	//   - Append the "Install 'pdfdebug' Command in PATH..." item.
-	//   - Replace the native About item with the custom About window. The
+	//   - Replace the native About item with the in-app About dialog. The
 	//     role-based About item carries the native orderFrontStandardAboutPanel
 	//     selector, so clearing its role (NoRole) routes clicks through the Go
-	//     callback instead, which opens the honest, clickable About window.
+	//     callback instead, which asks the frontend to show the dialog.
 	if runtime.GOOS == "darwin" {
 		if appItem := menu.FindByLabel(appName); appItem != nil {
 			if appSub := appItem.GetSubmenu(); appSub != nil {
+				appSub.AddSectionHeader("Command Line")
 				wireInstallCLIMenuItem(app, appSub)
 				if aboutItem := appSub.FindByRole(application.About); aboutItem != nil {
 					aboutItem.SetRole(application.NoRole).
 						SetLabel("About " + appName).
 						OnClick(func(_ *application.Context) {
-							openAboutWindow(app)
+							showAbout()
 						})
 				}
 			}
 		}
 	}
 
-	// File menu
+	// File menu. Section headers group the items on macOS 14+ and are no-ops
+	// elsewhere.
 	fileMenu := menu.AddSubmenu("File")
+	fileMenu.AddSectionHeader("Open")
 	fileMenu.Add("Open...").
 		SetAccelerator("CmdOrCtrl+o").
 		OnClick(func(ctx *application.Context) {
@@ -646,26 +695,31 @@ func main() {
 			}
 			unsupported := len(paths) - len(pdfPaths)
 			if len(pdfPaths) == 0 {
-				app.Event.Emit("document:error", map[string]any{
+				app.Event.Emit(eventDocumentError, map[string]any{
 					"message": "Only PDF files can be opened.",
 				})
 				return
 			}
 			openFilesBatch(pdfPaths, unsupported)
 		})
-	fileMenu.Add("Close Document").
+	recentMenu := fileMenu.AddSubmenu("Open Recent")
+	fileMenu.AddSectionHeader("Current Document")
+	closeDocItem := fileMenu.Add("Close Document").
 		SetAccelerator("CmdOrCtrl+w").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("document:close-active", nil)
+			app.Event.Emit(eventDocumentCloseActive, nil)
 		})
-	fileMenu.Add("Reload from Disk").
+	reloadDocItem := fileMenu.Add("Reload from Disk").
 		SetAccelerator("CmdOrCtrl+r").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("document:reload-active", nil)
+			app.Event.Emit(eventDocumentReloadActive, nil)
 		})
-	fileMenu.Add("Compare with File on Disk").
+	compareDocItem := fileMenu.Add("Compare with File on Disk").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("document:compare-active", nil)
+			app.Event.Emit(eventDocumentCompareActive, nil)
 		})
 	if runtime.GOOS != "darwin" {
 		fileMenu.AddSeparator()
@@ -685,37 +739,41 @@ func main() {
 		SetAccelerator("CmdOrCtrl+[").
 		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("navigate:back", nil)
+			app.Event.Emit(eventNavigateBack, nil)
 		})
 	navForwardItem := navMenu.Add("Forward").
 		SetAccelerator("CmdOrCtrl+]").
 		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("navigate:forward", nil)
+			app.Event.Emit(eventNavigateForward, nil)
 		})
 
 	navMenu.AddSeparator()
-	navMenu.Add("Go to Page...").
+	goToPageItem := navMenu.Add("Go to Page...").
 		SetAccelerator("CmdOrCtrl+G").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("navigate:goToPage", nil)
+			app.Event.Emit(eventNavigateGoToPage, nil)
 		})
-	navMenu.Add("Find Object...").
+	findObjectItem := navMenu.Add("Find Object...").
 		SetAccelerator("CmdOrCtrl+K").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("palette:open", nil)
+			app.Event.Emit(eventPaletteOpen, nil)
 		})
 
 	navMenu.AddSeparator()
-	navMenu.Add("Next Tab").
+	nextDocItem := navMenu.Add("Next Document").
 		SetAccelerator("CmdOrCtrl+Right").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("tab:next", nil)
+			app.Event.Emit(eventTabNext, nil)
 		})
-	navMenu.Add("Previous Tab").
+	prevDocItem := navMenu.Add("Previous Document").
 		SetAccelerator("CmdOrCtrl+Left").
+		SetEnabled(false).
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("tab:prev", nil)
+			app.Event.Emit(eventTabPrev, nil)
 		})
 
 	// Help menu: on-demand update check. The frontend runs the live bound check
@@ -725,11 +783,29 @@ func main() {
 	helpMenu := menu.AddSubmenu("Help")
 	helpMenu.Add("Check for Updates...").
 		OnClick(func(ctx *application.Context) {
-			app.Event.Emit("update:check-requested", nil)
+			app.Event.Emit(eventUpdateCheckRequested, nil)
 		})
+	// About lives in the app menu on macOS and at the end of Help elsewhere.
+	if runtime.GOOS != "darwin" {
+		helpMenu.AddSeparator()
+		helpMenu.Add("About " + appName).
+			OnClick(func(_ *application.Context) {
+				showAbout()
+			})
+	}
 
-	// Frontend sends navigation state changes to sync menu enabled state
-	app.Event.On("navigate:state-changed", func(event *application.CustomEvent) {
+	// Frontend sends navigation state and the open document count to sync
+	// menu enabled state: document items need one document, cycling needs two.
+	// The first report comes after the frontend's first render, when the About
+	// dialog listens, so it also sends an About request held until then.
+	app.Event.On(eventNavigateStateChanged, func(event *application.CustomEvent) {
+		aboutMu.Lock()
+		aboutReady = true
+		if aboutPending {
+			aboutPending = false
+			app.Event.Emit(eventAboutOpen, version)
+		}
+		aboutMu.Unlock()
 		data, ok := event.Data.(map[string]any)
 		if !ok {
 			return
@@ -740,7 +816,63 @@ func main() {
 		if canFwd, ok := data["canGoForward"].(bool); ok {
 			navForwardItem.SetEnabled(canFwd)
 		}
+		// JSON numbers arrive as float64.
+		if count, ok := data["documentCount"].(float64); ok {
+			for _, item := range []*application.MenuItem{closeDocItem, reloadDocItem, compareDocItem, goToPageItem, findObjectItem} {
+				item.SetEnabled(count > 0)
+			}
+			nextDocItem.SetEnabled(count > 1)
+			prevDocItem.SetEnabled(count > 1)
+		}
 	})
+
+	var recentMu sync.Mutex
+	// openRecent drops an entry whose file is gone, then opens through the
+	// normal path so the user still sees the usual open error.
+	openRecent := func(path string) {
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			recent.Remove(path)
+			recentFlush.SaveNow()
+		}
+		openFilesBatch([]string{path}, 0)
+	}
+	rebuildRecentMenu = func() {
+		recentMu.Lock()
+		defer recentMu.Unlock()
+		recentMenu.Clear()
+		paths := recent.Paths()
+		for i, label := range recentfiles.Labels(paths) {
+			p := paths[i]
+			recentMenu.Add(literalMenuLabel(label, runtime.GOOS)).
+				SetTooltip(p).
+				OnClick(func(_ *application.Context) {
+					openRecent(p)
+				})
+		}
+		recentMenu.AddSeparator()
+		recentMenu.Add("Clear Menu").
+			SetEnabled(len(paths) > 0).
+			OnClick(func(_ *application.Context) {
+				recent.Clear()
+				recentFlush.SaveNow()
+			})
+		// A rebuilt submenu reaches the screen through the top-level menu on
+		// macOS and through the window's own menu on Windows and Linux. Both
+		// are no-ops before the app runs, when SetApplicationMenu shows it.
+		if runtime.GOOS == "darwin" {
+			menu.Update()
+		} else if window != nil {
+			window.SetMenu(menu)
+		}
+	}
+	rebuildRecentMenu()
+	// Opens are added to the list at once; recentFlush decides when the list
+	// is saved and the menu rebuilt.
+	pdfService.SetRecentFileRecorder(func(path string) {
+		recent.Add(path)
+		recentFlush.Record()
+	})
+	app.OnShutdown(recentFlush.Close)
 
 	// macOS uses the screen-top system menu bar via SetApplicationMenu.
 	// Windows requires UseApplicationMenu: true on each window to opt in
@@ -748,6 +880,7 @@ func main() {
 	// UseApplicationMenu is set; Windows.Menu would also work but is more
 	// verbose). Linux falls back to the app menu unconditionally.
 	app.Menu.SetApplicationMenu(menu)
+	registerRowMenus(app)
 
 	// Startup splash window. Created BEFORE the main WebviewWindow so the
 	// user sees branding during WebView2 cold init (especially on Windows
@@ -758,15 +891,14 @@ func main() {
 	// splash is on EVERY launch by design (consistency is the brand
 	// signal); no first-launch persistence gate.
 	//
-	// Option B (separate WebviewWindow) was chosen over Option A
-	// (native pre-WebView window) because Wails v3 beta.18 does not
-	// expose a pre-WebView native primitive on Windows. The Windows
-	// perception trade-off is documented in deferred-work.md.
+	// The splash is a separate WebviewWindow because Wails does not
+	// expose a pre-WebView native window primitive on Windows. The
+	// Windows perception trade-off is documented in deferred-work.md.
 	//
-	// Wails beta.18 WebviewWindowOptions does not have separate
-	// Resizable / Minimisable / Closable boolean fields -- the splash
-	// disables resize via DisableResize (the beta.18 idiom) and
-	// suppresses close/minimise affordances by being Frameless.
+	// WebviewWindowOptions has no separate Resizable / Minimisable /
+	// Closable boolean fields -- the splash disables resize via
+	// DisableResize and suppresses close/minimise affordances by being
+	// Frameless.
 	//
 	// The splash integration tests grep this file for each option as
 	// `Name: value`, so the three options with no field to carry them are
@@ -780,7 +912,7 @@ func main() {
 	//   Height: 320 -- logical height
 	//   Frameless: true -- no title bar / chrome
 	//   AlwaysOnTop: true -- cleared in the dismissal handler
-	//   Resizable: false -- DisableResize: true is the beta.18 spelling
+	//   Resizable: false -- carried by DisableResize: true
 	//   Minimisable: false -- frameless suppresses the affordance
 	//   Closable: false -- frameless suppresses the affordance
 	splashWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -797,11 +929,19 @@ func main() {
 		DefaultContextMenuDisabled: true,
 		BackgroundColour:           application.NewRGB(248, 250, 252),
 		HTML:                       splash.Render(version),
+		// WebKitGTK paints a new view late, so on Linux the splash shows only
+		// once its page has loaded (see the WindowLoadFinished handler below).
+		Hidden: runtime.GOOS == "linux",
 		Windows: application.WindowsWindow{
 			// Keep the splash off the Windows taskbar so the user does
 			// not see a phantom entry between splash dismissal and main
 			// window show.
 			HiddenOnTaskbar: true,
+		},
+		// Linux gives every window the application menu unless it has its own;
+		// an empty one keeps the menu bar off the splash.
+		Linux: application.LinuxWindow{
+			Menu: application.NewMenu(),
 		},
 	})
 	// Guard: NewWithOptions can return nil on platforms where window
@@ -830,9 +970,9 @@ func main() {
 		// onDismiss: clear AlwaysOnTop, trigger crossfade, then close
 		// + destroy the splash so it does not linger in the OS
 		// window list. The callback fires on a clock goroutine;
-		// Wails beta.18 SetAlwaysOnTop / Show / Close / Event.Emit all
-		// InvokeSync internally so direct calls from a worker goroutine
-		// are safe.
+		// SetAlwaysOnTop / Show / Close InvokeSync internally and
+		// Event.Emit is goroutine-safe, so direct calls from a worker
+		// goroutine are safe.
 		func() {
 			onSplashDismiss(app, splashWindow, window)
 		},
@@ -840,11 +980,11 @@ func main() {
 		// splash inline JS reveals the pre-bundled error pane, and arm a
 		// 60s force-quit safety net for platforms where the Close
 		// button's window.close() does not propagate to WindowClosing
-		// (WKWebView / WebKit2GTK on top-level windows). Event.Emit is
+		// (WKWebView / WebKitGTK on top-level windows). Event.Emit is
 		// goroutine-safe.
 		func() {
 			splashFailed.Store(true)
-			app.Event.Emit("splash:timeout", nil)
+			app.Event.Emit(eventSplashTimeout, nil)
 			time.AfterFunc(60*time.Second, func() {
 				if splashFailed.Load() {
 					app.Quit()
@@ -867,6 +1007,34 @@ func main() {
 				app.Quit()
 			}
 		})
+	}
+
+	// On Linux the splash shows once its page has loaded, and the main window
+	// waits for that so the splash is never a blank window. If the splash has
+	// not loaded 2s after the main window is ready, or the splash timeout is
+	// nearer than that, the main window comes up without it. Each handler
+	// records its own event before checking the other's, so whichever runs
+	// second releases the main window.
+	mainWindowReady := splashScheduler.MainWindowReady
+	if splashWindow != nil && runtime.GOOS == "linux" {
+		var splashLoaded, mainReady atomic.Bool
+		splashWindow.OnWindowEvent(events.Linux.WindowLoadFinished, func(_ *application.WindowEvent) {
+			if splashScheduler.Shown() {
+				splashWindow.Show()
+			}
+			splashLoaded.Store(true)
+			if mainReady.Load() {
+				splashScheduler.MainWindowReady()
+			}
+		})
+		mainWindowReady = func() {
+			mainReady.Store(true)
+			if splashLoaded.Load() {
+				splashScheduler.MainWindowReady()
+				return
+			}
+			splashScheduler.MainWindowReadyWithin(2 * time.Second)
+		}
 	}
 
 	// Create main window. Hidden: true keeps the WebView off-screen
@@ -901,9 +1069,7 @@ func main() {
 	// and fires on hidden windows too.
 	var mainReadyOnce sync.Once
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
-		mainReadyOnce.Do(func() {
-			splashScheduler.MainWindowReady()
-		})
+		mainReadyOnce.Do(mainWindowReady)
 	})
 
 	// Poll faster while the main window has focus. Wails handles each window
@@ -926,7 +1092,7 @@ func main() {
 		}
 		unsupported := len(files) - len(pdfPaths)
 		if len(pdfPaths) == 0 {
-			app.Event.Emit("document:error", map[string]any{
+			app.Event.Emit(eventDocumentError, map[string]any{
 				"message": "Only PDF files can be opened.",
 			})
 			return

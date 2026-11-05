@@ -11,8 +11,7 @@ import { GetPageIndex } from '../../bindings/unidoc-pdf-debugger/internal/pdfser
 import { useAppDispatch, useAppState } from '../hooks/useDocumentState';
 import { useLatest } from '../hooks/useLatest';
 import type { LeftRailPanelProps } from './leftRailDestinations';
-import { useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
-import { RowContextMenu } from './RowContextMenu';
+import { ROW_MENU_REVEAL, useContainerSize, useRowContextMenu, useTabCache } from './navigatorHooks';
 import {
   NodeRenderer,
   RowStateContext,
@@ -236,7 +235,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
     flash(row.id);
   }
 
-  const { menu, closeMenu, onContextMenu, onKeyDown } = useRowContextMenu(
+  const { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture } = useRowContextMenu(
     treeRef,
     '[data-testid="tree-node"]',
     'data-node-id',
@@ -244,12 +243,15 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
       const node = dataRef.current ? findById(dataRef.current, displayId) : null;
       // Unnumbered rows and error children have nothing the Structure tree can reveal.
       if (!node || node.backendId === '' || node.backendId.startsWith('error:')) return null;
-      return node.backendId;
+      return { menu: ROW_MENU_REVEAL, nodeId: node.backendId };
+    },
+    (action, { nodeId }) => {
+      if (action === 'reveal') dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
     },
   );
 
   // The menu acts on a row of the tab and view it was opened in, so a tab
-  // switch (Cmd+Left/Right, Cmd+W) or a view change closes it.
+  // switch (Cmd+Left/Right, Cmd+W) or a view change forgets it.
   useEffect(() => {
     closeMenu();
   }, [active, activeTabId, closeMenu]);
@@ -314,6 +316,7 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
         ref={containerRef}
         className="h-full w-full relative flex-1 min-h-0"
         onContextMenu={onContextMenu}
+        onPointerDownCapture={onPointerDownCapture}
         onKeyDown={onKeyDown}
       >
         {!entry && fetchError === undefined && <div className="px-3 py-2 text-sm text-text-muted">Loading pages...</div>}
@@ -349,7 +352,6 @@ export function PagesPanel({ active }: LeftRailPanelProps) {
           <div className="px-3 py-2 text-sm text-text-muted">This document has no pages.</div>
         )}
       </div>
-      {menu && <RowContextMenu target={menu} label="Page row actions" onClose={closeMenu} />}
     </div>
   );
 }

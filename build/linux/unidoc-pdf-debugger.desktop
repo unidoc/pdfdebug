@@ -9,3 +9,4 @@ Keywords=pdf;debugger;inspector;
 MimeType=application/pdf;
 Version=1.0
 StartupNotify=false
+StartupWMClass=com.unidoc.unidoc-pdf-debugger

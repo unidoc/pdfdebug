@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -83,6 +84,13 @@ type PDFService struct {
 	// watched holds the tab ids the frontend shows in its tab strip; the
 	// disk watcher polls only these.
 	watched *watchedTabs
+	// recordRecent adds a user-opened file to Open Recent. Injected from
+	// main.go via SetRecentFileRecorder; nil means recording is a no-op.
+	recordRecent func(path string)
+	// openStarted is called as every OpenFile starts and returns the call
+	// made when it ends, so Open Recent waits for opens in flight before it
+	// saves. Injected via SetOpenTracker; nil is a no-op.
+	openStarted func() (ended func())
 }
 
 // watchedTabs is the set of tab ids shown in the frontend tab strip. Backend-only
@@ -184,6 +192,9 @@ func (s *PDFService) OpenFileDialog() ([]string, error) {
 
 // OpenFile parses a PDF at path and assigns it a new tab ID.
 func (s *PDFService) OpenFile(path string) (*pdfcore.DocumentInfo, error) {
+	if s.openStarted != nil {
+		defer s.openStarted()()
+	}
 	var result *pdfcore.DocumentInfo
 	var err error
 	func() {
@@ -478,6 +489,32 @@ func (s *PDFService) SetPendingOpens(q *pendingopen.Queue) {
 	s.pendingOpens = q
 }
 
+// SetRecentFileRecorder injects the Open Recent recorder from main.go, which
+// owns the File menu the list is shown in. Not exposed to the frontend.
+//
+//wails:ignore
+func (s *PDFService) SetRecentFileRecorder(record func(path string)) {
+	s.recordRecent = record
+}
+
+// SetOpenTracker injects the call made as an OpenFile starts, which returns
+// the call made when it ends. Not exposed to the frontend.
+//
+//wails:ignore
+func (s *PDFService) SetOpenTracker(started func() (ended func())) {
+	s.openStarted = started
+}
+
+// RecordRecentFile adds a file the user opened as a tab to Open Recent. The
+// frontend calls it after a successful open from its own open paths; reload,
+// compare and the diff picker do not. A no-op when no recorder is injected.
+func (s *PDFService) RecordRecentFile(path string) {
+	if s.recordRecent == nil {
+		return
+	}
+	s.recordRecent(path)
+}
+
 // ConsumePendingOpenFiles drains and returns any file-association paths that
 // were buffered before the frontend was ready (cold start). A thin
 // delegation to Queue.Drain -- the frontend calls this immediately after
@@ -625,31 +662,103 @@ func WatchDiskStatus(s *PDFService, emit filewatch.Emitter, clk filewatch.Clock)
 	return w
 }
 
-// SaveBytesToFile shows a native Save-file dialog seeded with suggestedName and
-// writes data to the chosen path, returning the saved path. An empty path (user
-// cancelled) returns ("", nil) so the frontend can treat cancel as a no-op.
-// The GUI "Save..." action for an extracted embedded file. This is
-// the first save-dialog path in the app (no prior SaveFile usage); it is NOT
-// part of inspectorAPI because it is an app-level dialog, not a PDF-backend
-// call.
-func (s *PDFService) SaveBytesToFile(suggestedName string, data []byte) (string, error) {
+// SaveEmbeddedFileToFile reads one embedded file, addressed by the obj:G:N
+// nodeID of its /EmbeddedFile stream, shows a native Save-file dialog seeded
+// with suggestedName and writes the bytes to the chosen path, returning it. An
+// empty path (user cancelled) returns ("", nil). The bytes never round-trip
+// through the frontend, so a file near the extraction ceiling stays under the
+// runtime's request size limit. A read error, including the ceiling, is
+// returned before any dialog opens.
+func (s *PDFService) SaveEmbeddedFileToFile(tabID, nodeID, suggestedName string) (string, error) {
 	if s.app == nil {
 		return "", fmt.Errorf("app not initialized")
 	}
-	path, err := s.app.Dialog.SaveFile().
-		SetFilename(suggestedName).
-		PromptForSingleSelection()
+	return saveEmbeddedFile(s.inspector, tabID, nodeID, suggestedName, func(name string) (string, error) {
+		return s.app.Dialog.SaveFile().
+			SetFilename(name).
+			PromptForSingleSelection()
+	})
+}
+
+// saveEmbeddedFile reads the embedded file bytes first, then asks choosePath
+// for a destination and writes the bytes there. choosePath returning "" means
+// the user cancelled.
+func saveEmbeddedFile(ins inspectorAPI, tabID, nodeID, suggestedName string, choosePath func(name string) (string, error)) (string, error) {
+	var data []byte
+	var err error
+	func() {
+		defer recoverRuntimePanic("SaveEmbeddedFileToFile", &err)
+		data, err = ins.GetEmbeddedFileBytes(tabID, nodeID)
+	}()
+	if err != nil {
+		return "", err
+	}
+	path, err := choosePath(embeddedSaveName(suggestedName))
 	if err != nil {
 		return "", err
 	}
 	if path == "" {
-		// User cancelled the dialog.
 		return "", nil
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+// embeddedSaveName reduces an embedded file name, which comes from the PDF, to
+// a plain file name in the folder the save dialog shows. It keeps the last
+// path element and turns every character Windows does not allow in a file name
+// (control characters and <>:"|?*) into an underscore, so neither a drive
+// prefix ("C:evil.bat") nor an NTFS stream ("a.pdf:data") survives. Bidi
+// controls, such as the right-to-left override that makes
+// "invoice\u202etxt.exe" display as "invoiceexe.txt", and the line and
+// paragraph separators become underscores too; joiners that real names use
+// (ZWJ, ZWNJ) stay. A Windows
+// device name (CON, NUL, COM1.xml and the like) gets a leading underscore so
+// the save writes a file. A name with nothing usable left becomes
+// "embedded-file".
+func embeddedSaveName(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	name = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Bidi_Control, unicode.Zl, unicode.Zp) || strings.ContainsRune(`<>:"|?*`, r) {
+			return '_'
+		}
+		return r
+	}, name)
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." {
+		return "embedded-file"
+	}
+	if windowsDeviceName(name) {
+		return "_" + name
+	}
+	return name
+}
+
+// windowsDeviceName reports whether Windows reads name as a device rather than
+// a file: CON, PRN, AUX, NUL, COM0-9 or LPT0-9 (superscript 1-3 included),
+// alone or followed by an extension, in any case, with trailing dots and
+// spaces ignored.
+func windowsDeviceName(name string) bool {
+	base := strings.TrimRight(name, ". ")
+	if i := strings.IndexByte(base, '.'); i >= 0 {
+		base = base[:i]
+	}
+	base = strings.ToUpper(strings.TrimRight(base, " "))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	}
+	if len(base) > 3 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) {
+		switch base[3:] {
+		case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "\u00b9", "\u00b2", "\u00b3":
+			return true
+		}
+	}
+	return false
 }
 
 // SaveImageToFile renders the FULL-resolution image for the given node
