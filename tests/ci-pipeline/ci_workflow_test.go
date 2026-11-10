@@ -601,7 +601,8 @@ func TestCIWorkflowGoTestRootStep(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // per-suite tests/*/go.mod loop step exists and is correct.
-// Covers iterating the tests/*/go.mod modules, skipping e2e and support.
+// Covers iterating the tests/*/go.mod modules, skipping boot-smoke, which has
+// its own step.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
@@ -635,9 +636,9 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 
 	run := loopStep["run"].(string)
 
-	// Must skip e2e and support
-	if !strings.Contains(run, "e2e") || !strings.Contains(run, "support") {
-		t.Errorf("ci.yml: per-suite loop must skip tests/e2e and tests/support")
+	// Must skip boot-smoke, which runs in its own step against the packaged binary
+	if !regexp.MustCompile(`(?m)^\s*boot-smoke\)\s*continue\s*;;`).MatchString(run) {
+		t.Errorf("ci.yml: per-suite loop must skip tests/boot-smoke")
 	}
 
 	// Must fail when no modules found (count guard)
@@ -675,8 +676,8 @@ func TestPerSuiteGoModuleCount(t *testing.T) {
 		if !e.IsDir() {
 			continue
 		}
-		// e2e and support are excluded by the loop, but the count here is the raw
-		// total of tests/<name>/go.mod files so the story's "20" number can be asserted.
+		// The count is the raw total of tests/<name>/go.mod files, including
+		// boot-smoke, which the loop skips.
 		if _, err := os.Stat(filepath.Join(testsDir, e.Name(), "go.mod")); err == nil {
 			count++
 		}

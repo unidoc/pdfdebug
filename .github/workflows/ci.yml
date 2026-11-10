@@ -92,6 +92,16 @@ jobs:
         shell: bash
         run: go test ./... -timeout 10m
 
+      - name: Go vet (mcp and guimcp tags)
+        # The agent build, guictl and the GUI suite sit behind build tags that
+        # the plain vet and lint never see.
+        shell: bash
+        run: go vet -tags mcp,guimcp ./...
+
+      - name: Go test (mcp tag)
+        shell: bash
+        run: go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/
+
       - name: Test acceptance suites (per-module)
         shell: bash
         timeout-minutes: 20
@@ -153,7 +163,7 @@ jobs:
             dir="$(dirname "$mod")"
             name="$(basename "$dir")"
             case "$name" in
-              e2e|support|boot-smoke) continue ;;
+              boot-smoke) continue ;;
             esac
             if [[ "$RUNNER_OS" == "Windows" ]] && ! in_subset "$name"; then
               echo "skip (non-boundary logic suite, covered on Linux/macOS): $name"
@@ -235,3 +245,26 @@ jobs:
           else
             cd tests/boot-smoke && go test -count=1 -timeout 3m ./...
           fi
+
+      - name: GUI suite (MCP)
+        # Drives a pdfdebug-mcp build through the Wails MCP server. The runner
+        # blocks unprivileged user namespaces and bin/pdfdebug-mcp is not
+        # packaged, so this step loads an AppArmor entry of its own for the
+        # workspace binary, under a name that leaves the packaged one alone.
+        if: runner.os == 'Linux'
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          wails3 task build:mcp
+          bin="$PWD/bin/pdfdebug-mcp"
+          sudo tee /etc/apparmor.d/pdfdebug-mcp-ci >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          profile pdfdebug-mcp-ci ${bin} flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/pdfdebug-mcp-ci
+          xvfb-run -a dbus-run-session -- go test -tags guimcp -count=1 -timeout 5m ./tests/gui-mcp/

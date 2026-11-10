@@ -13,8 +13,11 @@ tasks:
     sources:
       - package.json
       - package-lock.json
+    # npm writes node_modules/.package-lock.json on every install. Task's
+    # generates check matches files, not directories, so the marker file is
+    # what lets an unchanged tree skip npm install.
     generates:
-      - node_modules
+      - node_modules/.package-lock.json
     preconditions:
       - sh: npm version
         msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"

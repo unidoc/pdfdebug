@@ -17,8 +17,7 @@
 //     EmptyState vs MainLayout
 //
 // Test Levels: Integration (Go) -- source file content parsing.
-// Layout rendering requiring real browser interaction is covered
-// by Playwright E2E tests in tests/e2e/app-shell.spec.ts.
+// Layout rendering in the running app is covered by tests/gui-mcp.
 //
 // Run: cd tests/app-shell && go test -v -count=1 ./...
 package app_shell_test

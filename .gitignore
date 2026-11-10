@@ -8,6 +8,9 @@ bin/
 build/bin/
 build/linux/appimage/build
 
+# guictl state, app log and the agent instance's XDG directories
+.guictl/
+
 # Go binaries
 *.exe
 *.exe~

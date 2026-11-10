@@ -8,9 +8,8 @@
 // tests/wails-alpha2-103-upgrade/. The decisive coverage -- the live bindings
 // round-trip inside the platform WebView and the multi-WebView desktop smoke --
 // is the native runtime layer: it needs real macOS + Windows hardware and a
-// human observer, so it is a manual hardware smoke that Playwright cannot drive
-// (see deferred_gates_test.go for the documented skips), and no E2E is authored
-// here.
+// human observer, so it is a manual hardware smoke (see deferred_gates_test.go
+// for the documented skips), and no E2E is authored here.
 //
 // This module is an independent go.mod (the project convention: no `replace`
 // link into the main module, which would drag the whole Wails tree into a test

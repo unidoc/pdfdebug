@@ -27,6 +27,18 @@ tasks:
     cmds:
       - task: "{{OS}}:build"
 
+  build:mcp:
+    summary: Builds bin/pdfdebug-mcp, a DEV build with the Wails MCP server compiled in (macOS and Linux only, never shipped)
+    preconditions:
+      - sh: '{{if eq OS "windows"}}false{{else}}true{{end}}'
+        msg: "build:mcp supports macOS and Linux only; GUI automation is not available on Windows"
+    cmds:
+      - task: "{{OS}}:build"
+        vars:
+          DEV: "true"
+          EXTRA_TAGS: mcp
+          OUTPUT: "{{.BIN_DIR}}/pdfdebug-mcp"
+
   package:
     summary: Packages a production build of the application
     cmds:

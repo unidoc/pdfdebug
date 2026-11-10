@@ -17,7 +17,7 @@
 //     frontend/src/components/FontPreview.test.tsx and
 //     DetailPanel.fontPreview.test.tsx.
 //
-// No Playwright/E2E layer: every requirement is fully observable at the API level
+// No GUI-level layer: every requirement is fully observable at the API level
 // (FontDetail struct, ErrNotAFont sentinel) or the component level (rendered
 // DOM, dispatched NAVIGATE_TO_REF actions, debounced loading flag). Adding a
 // browser layer would repeat what the component tests already cover and

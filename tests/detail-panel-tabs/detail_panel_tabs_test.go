@@ -23,7 +23,7 @@
 //     files / exports / data-testids exist; full behavior contracts are
 //     asserted in the component test files.
 //
-// No Playwright/E2E layer: every acceptance criterion in this story is fully
+// No GUI-level layer: every acceptance criterion in this story is fully
 // observable at the API level (XRefTable struct, PlainTextDocument struct)
 // or the component level (RTL state + dispatched actions + Radix data-state
 // attributes). The keyboard, scroll-preservation, and tab-switching flows

@@ -18,6 +18,8 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - Open files are watched for changes on disk, background tabs included. When a file is rewritten, replaced or deleted, its tab gets a small amber dot (2 to 4 seconds after the write while the window has focus, 10 to 20 seconds otherwise, also for a file a generator keeps rewriting) and a tooltip with the time it changed. The detail panel shows "Document updated" with Reload and Compare buttons, or "File not found". Nothing reloads by itself, and the marker never moves focus or shifts the layout. Detection compares size, modification time and file identity, so an in-place rewrite that keeps all three is not seen
 - File > "Compare with File on Disk" diffs the open version against the file as it is now on disk, in the Diff panel, labelled "On disk (14:05)". Files over 500 MB ask first. Reload in the Diff header then makes the compared copy the tab's document without parsing it again
 - Plain Text and the CLI's `dump bytes` (raw and `--json`) refuse to read a file that changed since it was parsed ("file changed on disk") instead of mixing the old structure with the new bytes. Signatures and `dump signatures` keep every signature's details and show the /Contents hole check as "not checked" for such a file; they used to report a hole mismatch. On Windows a file another app has locked shows "File is in use by another app" in Plain Text and in the hole check instead
+- `task build:mcp` (or `wails3 task build:mcp`) builds `bin/pdfdebug-mcp`, a development build with Wails' MCP server compiled in, on macOS and Linux. It runs as a separate instance titled `UniDoc PDF Debugger [agent]` with its own single-instance id. `go run ./tools/guictl` starts it, opens files, queues paths for the next file dialog, calls MCP tools and stops it, with its config, cache and data under `.guictl/` so the owner's Open Recent and update cache stay untouched. A production build with the `mcp` tag fails to compile, and the release workflow fails on any shipped binary built with it
+- `tests/gui-mcp` drives `bin/pdfdebug-mcp` through the MCP server: second-launch open, tree expand, the Signatures certificate chain, detail and document tabs, and Compare through a queued file dialog. It runs in `scripts/test-all.sh` (skip with `--no-gui`) and on the Linux CI leg under Xvfb.
 
 ### Changed
 
@@ -30,6 +32,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - Non-zero bytes after the CMS in a signature's /Contents, or after the SignedData inside the ContentInfo's `[0]` wrapper, are now reported, and the signature still decomposes in full. Bytes after the CMS show once, as `Trailing bytes: 4 bytes after the CMS at offset 2028 contain non-zero data` in plain text, as `cmsTrailingBytes` (`offset`, `count`) in `--json`, and as a "Trailing bytes" row in the Signatures panel. Bytes after the SignedData get a note with the byte count. Such bytes used to be ignored without a word. Zero padding is not reported
 - A CMS nested more than 64 levels deep is now a decompose error for DER signatures too. DER signatures used to decompose with no nesting limit
 - About opens as a dialog over the main window instead of in a separate window, so it no longer shows up as a second window in the taskbar, dock or window switcher, and on Linux it no longer carries a copy of the menu bar. Choosing About brings a minimised or covered main window to the front first. About chosen while the app is still starting opens once the main window has loaded
+- `wails3 task build` and `build:mcp` skip `npm install` when `frontend/package.json` and `package-lock.json` have not changed
 
 ### Fixed
 
@@ -43,6 +46,10 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 - Signature field names, Name, Reason, Location, ContactInfo and signing time written as hex strings (`/T <454E56...>`) are decoded in `dump signatures` and the Signatures panel instead of shown as hex digits. UTF-16 hex strings decode too
 - The Signatures panel no longer cuts a signer or issuer name at an escaped comma: `CN=DocuSign\, Inc.` shows as `DocuSign, Inc.`, not `DocuSign\`. The expanded certificate chain shows names without backslash escapes, separated by `, `, with a value that contains a comma in quotes (`O="Entrust, Inc."`)
 - A signature that cannot be decomposed, or whose ByteRange coverage cannot be checked, now shows a red notice at the top of its card (`Could not decompose this signature: ...`) instead of a gray row at the bottom, and the Signatures tab gets a red dot. Non-zero bytes after the CMS with no error give the tab an amber dot. When the signatures fail to load, the Signatures tab is shown with a red dot and the error instead of being hidden
+
+### Removed
+
+- The unused browser-driven E2E suite under `tests/e2e/`, its fixtures under `tests/support/` and its config; `tests/gui-mcp` covers the desktop flows it was meant for
 
 ## [0.5.0] - 2026-10-14
 

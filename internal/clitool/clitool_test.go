@@ -7,8 +7,8 @@
 // requirement except the native-menu wiring and the unsigned-build quarantine
 // smoke is
 // covered here at UNIT level. There is NO E2E (the macOS-native menu item
-// cannot be reached by Playwright; main.go is source-grep-guarded and verified
-// manually); only the LABEL string is unit-asserted here via the exported
+// cannot be reached from the WebView; main.go is source-grep-guarded and
+// verified manually); only the LABEL string is unit-asserted here via the exported
 // MenuItemLabel constant that main.go consumes.
 //
 // Run: cd internal/clitool && go test -count=1 ./...
