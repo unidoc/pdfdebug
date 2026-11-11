@@ -45,6 +45,15 @@ const appName = "UniDoc PDF Debugger"
 // for the desktop to show the app's name and icon.
 const appID = "com.unidoc.unidoc-pdf-debugger"
 
+// instanceID is the single-instance lock id and the Linux GTK application id.
+// It equals appID except in a build with the mcp tag, which uses its own id
+// so the agent build runs beside the production app.
+var instanceID = appID
+
+// windowTitle is the main window title. It equals appName except in a build
+// with the mcp tag.
+var windowTitle = appName
+
 // recentFlushDelay is how long Open Recent waits, with no open in flight, after
 // the last open before it saves the list and rebuilds its menu.
 const recentFlushDelay = 500 * time.Millisecond
@@ -452,10 +461,10 @@ func main() {
 		},
 		FileAssociations: []string{".pdf"},
 		Linux: application.LinuxOptions{
-			ApplicationID: appID,
+			ApplicationID: instanceID,
 		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: appID,
+			UniqueID: instanceID,
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				// Route every path through the queue first. A path
 				// that arrives before the frontend has drained is buffered
@@ -1042,7 +1051,8 @@ func main() {
 	// opaque first paint. The frontend additionally starts at
 	// opacity 0 and fades to 1 on the splash:dismissed event.
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "UniDoc PDF Debugger",
+		Name:      "main",
+		Title:     windowTitle,
 		Width:     1024,
 		Height:    768,
 		MinWidth:  800,

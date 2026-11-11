@@ -2,7 +2,7 @@
 // Plain Text View.
 //
 // Test pyramid for this story (per the user's "favour API/integration over
-// E2E" directive, and no Playwright in v1):
+// E2E" directive):
 //
 //   - Frontend pure-function logic (findMatches.ts): unit tested in
 //     findMatches.test.ts -- match algorithm, non-Latin-1 codepoint

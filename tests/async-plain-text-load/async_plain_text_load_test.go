@@ -22,7 +22,7 @@
 //     exports / data-testids exist; full behavior contracts are asserted in
 //     PlainTextView.async.test.tsx.
 //
-// No Playwright/E2E layer: every acceptance criterion in this story is fully
+// No GUI-level layer: every acceptance criterion in this story is fully
 // observable at the API level (PlainTextDocument struct, context.Canceled
 // identity) or at the component level (RTL state + fake timers + dispatched
 // mocks). Adding a browser layer would repeat what the component tests already

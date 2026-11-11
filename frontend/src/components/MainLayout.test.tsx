@@ -206,7 +206,7 @@ describe('MainLayout tree content', () => {
  * As a result this test ONLY confirms that the MainLayout JSX includes the
  * `main-layout`, `left-panel`, and `right-panel` testids. It does NOT
  * exercise Allotment-driven layout, resize, or persisted-size behaviour.
- * Real layout/resize coverage lives in Playwright E2E. This is a strictly
+ * Layout and resize are checked by hand in the running app. This is a strictly
  * weaker assertion than the deleted
  * source-grep was attempting; the trade-off is that this test is immune to
  * whether `preferredSize` is literal, conditional, or removed entirely.

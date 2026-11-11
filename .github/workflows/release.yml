@@ -267,6 +267,29 @@ jobs:
           wails3 task linux:build ARCH="$ARCH"
           test -f "bin/unidoc-pdf-debugger"
 
+      - name: Check shipped binaries for the mcp tag
+        # The mcp tag compiles the Wails MCP automation server in; no shipped
+        # binary may carry it.
+        shell: bash
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS_NAME" in
+            macOS)
+              scripts/check-no-mcp-tag.sh \
+                "bin/UniDoc PDF Debugger.app/Contents/MacOS/unidoc-pdf-debugger" \
+                "bin/UniDoc PDF Debugger.app/Contents/Resources/pdfdebug" \
+                bin/pdfdebug
+              ;;
+            Windows)
+              scripts/check-no-mcp-tag.sh bin/unidoc-pdf-debugger.exe bin/pdfdebug.exe
+              ;;
+            Linux)
+              scripts/check-no-mcp-tag.sh bin/unidoc-pdf-debugger bin/pdfdebug
+              ;;
+          esac
+
       - name: Install create-dmg
         if: startsWith(matrix.os, 'macos')
         shell: bash

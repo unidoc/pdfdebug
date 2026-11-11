@@ -169,8 +169,13 @@ func recoverRuntimePanic(methodName string, errOut *error) {
 // OpenFileDialog shows a native file picker filtered to PDF files and returns
 // every selected path. An empty slice means the user cancelled. Multi-select
 // is enabled so users can open several PDFs into multiple tabs in one gesture
-// (parity with the drag-and-drop multi-file flow).
+// (parity with the drag-and-drop multi-file flow). In a build with the mcp
+// tag, paths queued through QueueDialogPaths are returned instead of showing
+// the picker.
 func (s *PDFService) OpenFileDialog() ([]string, error) {
+	if queued := takeQueuedDialogPaths(); len(queued) > 0 {
+		return queued, nil
+	}
 	if s.app == nil {
 		return nil, fmt.Errorf("app not initialized")
 	}

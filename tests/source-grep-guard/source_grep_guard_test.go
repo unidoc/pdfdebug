@@ -59,9 +59,9 @@ var readFunctionNames = map[string]bool{
 //  1. Structural guarantees about main.go's window-creation ORDER (e.g.
 //     the splash must precede the main window). This is a property of
 //     the production-source layout, not of runtime behavior, and is not
-//     reproducible via Vitest, Playwright, or boot-smoke because the
-//     splash WebView is a frameless OS-native window outside Playwright's
-//     reach. TestSplashWindowCreatedBeforeMainWindow below is the entry.
+//     reproducible via Vitest, tests/boot-smoke or tests/gui-mcp because
+//     the splash is a short-lived native window that closes before any
+//     GUI check can look at it. TestSplashWindowCreatedBeforeMainWindow below is the entry.
 //
 //  2. Structural regression guards on reentrant callbacks (e.g. the
 //     splash MUST NOT be created inside OnSecondInstanceLaunch). Same
@@ -237,8 +237,8 @@ func TestExistenceOnly(t *testing.T) {
 // Two failure modes:
 //
 //  1. NEW SOURCE-GREP: a function not in the allowlist matches the detection.
-//     The contributor must convert it to a behavioural test (Vitest, Playwright,
-//     or boot-smoke) per CONTRIBUTING.md "Tests Must Not Grep Production Source".
+//     The contributor must convert it to a behavioural test (Vitest,
+//     tests/boot-smoke or tests/gui-mcp) per CONTRIBUTING.md "Tests Must Not Grep Production Source".
 //  2. STALE ALLOWLIST ENTRY: an allowlist entry no longer matches (test was
 //     deleted or refactored). Remove it from `grandfatheredAllowlist`.
 func TestNoNewSourceGrepTests(t *testing.T) {
@@ -270,7 +270,7 @@ func TestNoNewSourceGrepTests(t *testing.T) {
 	if len(newGreps) > 0 {
 		t.Errorf("%d NEW source-grep test(s) detected.\n"+
 			"These tests read main.go / MainLayout.tsx / EmptyState.tsx with a content-reading helper.\n"+
-			"Convert each to a behavioural test (Vitest, Playwright, or boot-smoke). See CONTRIBUTING.md.\n\n%s",
+			"Convert each to a behavioural test (Vitest, tests/boot-smoke or tests/gui-mcp). See CONTRIBUTING.md.\n\n%s",
 			len(newGreps), strings.Join(newGreps, "\n"))
 	}
 	if len(staleEntries) > 0 {
