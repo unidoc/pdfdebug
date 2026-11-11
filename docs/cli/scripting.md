@@ -93,9 +93,9 @@ number of files or a flag after the file prints the plain usage line, an
 unknown `validate` profile is a plain sentence, `dump embedded` prints
 `error: ...` when given both `--ref` and `--name` or when `--name` does not
 pick out one attachment, `dump stream --ops` on a page with no content
-stream prints `page has no content stream`, the `dump plaintext` deprecation
-notice is plain text, and so is the update notice. A script should branch on
-the exit code and treat stderr as text to show, not to parse.
+stream prints `page has no content stream`, and the update notice is plain
+text too. A script should branch on the exit code and treat stderr as text to
+show, not to parse.
 
 Three outputs are separate machine formats rather than JSON: `dump stream
 --raw` (the decoded stream bytes), `dump stream --ops` (one JSON object per

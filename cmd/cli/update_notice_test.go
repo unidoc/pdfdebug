@@ -388,7 +388,6 @@ func TestMachineFormatDetection(t *testing.T) {
 		"dump stream --raw --page 1 f.pdf": true,
 		"dump source --raw=false f.pdf":    false,
 		"dump bytes f.pdf":                 true,
-		"dump plaintext f.pdf":             true,
 		"dump embedded f.pdf":              false,
 		"dump embedded --ref 4_0_R f.pdf":  true,
 		"dump embedded --name=x.xml f.pdf": true,

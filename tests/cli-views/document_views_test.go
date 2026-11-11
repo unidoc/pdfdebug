@@ -181,11 +181,9 @@ func TestBytesDump_JSON_WrapsWithoutTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Under their canonical spelling, document-level presenters surface genuine Go
-// errors as a single JSON object on stderr with exit 2 (nonexistent file) and
-// empty stdout. Usage errors (exit 1) are a bare plain-text usage line instead,
-// and the deprecated `dump plaintext` alias prefixes a notice line to whichever
-// shape applies -- both are covered in dump_bytes_test.go.
+// Document-level presenters surface genuine Go errors as a single JSON object
+// on stderr with exit 2 (nonexistent file) and empty stdout. Usage errors
+// (exit 1) are a bare plain-text usage line instead.
 // ---------------------------------------------------------------------------
 
 func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
@@ -266,8 +264,8 @@ func TestObjectsDump_PlainTextDefault(t *testing.T) {
 // The document-level dumps share one flag parser, so each of them rejects a
 // second positional argument. A flag written after <file> arrives as that
 // second positional: `dump xref file.pdf --json` would otherwise print the
-// plain-text table with exit 0 to a caller waiting for JSON. `dump bytes` and
-// its alias are covered in dump_bytes_test.go.
+// plain-text table with exit 0 to a caller waiting for JSON. `dump bytes` is
+// covered in dump_bytes_test.go.
 // ---------------------------------------------------------------------------
 
 func TestDocumentViews_FlagAfterFile_UsageError(t *testing.T) {

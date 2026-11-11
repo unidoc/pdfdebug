@@ -82,6 +82,36 @@ func TestCLIUsageGuideCommandsAreDispatched(t *testing.T) {
 	}
 }
 
+var dumpMentionRe = regexp.MustCompile(`\bdump ([a-z]+)\b`)
+
+// TestCLIUsageGuideDumpMentionsNameHelpCommands asserts every `dump <resource>`
+// written as code on any guide page, in a code span or a fenced block, names a
+// command listed in `pdfdebug --help`.
+func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
+	cmds := helpCommands(t)
+
+	var bad []string
+	for _, d := range guideDocs(t) {
+		for i, l := range d.lines {
+			code := []string{l.text}
+			if !l.inFence {
+				code = codeSpanRe.FindAllString(l.text, -1)
+			}
+			for _, c := range code {
+				for _, m := range dumpMentionRe.FindAllStringSubmatch(c, -1) {
+					if !slices.Contains(cmds, m[0]) {
+						bad = append(bad, fmt.Sprintf("%s line %d: %s", d.path, i+1, m[0]))
+					}
+				}
+			}
+		}
+	}
+	if len(bad) > 0 {
+		t.Errorf("CLI guide names dump resources pdfdebug --help does not list %v:\n  %s",
+			cmds, strings.Join(bad, "\n  "))
+	}
+}
+
 // TestCLIUsageGuideSynopsesMatchUsageLines asserts the first line under each
 // command's `###` reference heading is that command's usage line, as the
 // binary prints it with no arguments, in a code span.
@@ -120,20 +150,10 @@ func TestCLIUsageGuideSynopsesMatchUsageLines(t *testing.T) {
 
 // TestCLIUsageGuideQuickReferenceListsEachCommandOnce asserts one table on the
 // entry page lists every help command exactly once and nothing else in its
-// first column, and that no guide page carries a table row for the deprecated
-// `dump plaintext` alias.
+// first column.
 func TestCLIUsageGuideQuickReferenceListsEachCommandOnce(t *testing.T) {
 	cmds := helpCommands(t)
 	rows := mdTableRows(mdLines(readFileAtRoot(t, cliGuidePath)))
-
-	for _, d := range guideDocs(t) {
-		for _, r := range mdTableRows(d.lines) {
-			if r.firstCell == "`dump plaintext`" {
-				t.Errorf("%s line %d: table row for the deprecated `dump plaintext` alias; it belongs in the `dump bytes` reference prose",
-					d.path, r.index+1)
-			}
-		}
-	}
 
 	if _, ok := quickReferenceTable(rows, cmds); !ok {
 		t.Errorf("%s has no table whose first column lists exactly the %d help commands, each once: %v",

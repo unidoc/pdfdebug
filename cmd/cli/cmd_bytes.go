@@ -11,9 +11,7 @@ import (
 
 // runBytesDump parses flags and dispatches the document-level byte dump.
 // Default writes the document bytes raw to stdout; --json wraps the decoded
-// text. The deprecated `dump plaintext` alias routes here too, which is why the
-// resource label is always "bytes": a usage error under either spelling names
-// the live one.
+// text.
 func runBytesDump(args []string) int {
 	filePath, f, ok := parseDocViewFlags("bytes", args)
 	if !ok {
