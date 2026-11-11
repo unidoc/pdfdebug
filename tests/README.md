@@ -20,7 +20,7 @@ cd tests/boot-smoke && BOOT_SMOKE_BINARY=/usr/bin/unidoc-pdf-debugger go test -c
 
 ## gui-mcp
 
-`tests/gui-mcp` drives a `pdfdebug-mcp` build of the app through the Wails MCP server: it launches the binary, opens committed fixtures from `testdata/`, clicks through the main window and reads the DOM. It has no `go.mod`. It lives in the root module because it imports `internal/mcpclient`, which Go's internal-package rule hides from other modules. Its files carry `//go:build guimcp && !windows`, so the root `go test ./...` and `go vet ./...` skip it.
+`tests/gui-mcp` drives a `pdfdebug-mcp` build of the app through the Wails MCP server: it launches the binary, opens committed fixtures from `testdata/`, clicks through the main window and reads the DOM. It has no `go.mod`. It lives in the root module because it imports `internal/mcpclient` and `internal/guilaunch` (the launch, environment, readiness and shutdown code it shares with `tools/guictl`), which Go's internal-package rule hides from other modules. Its files carry `//go:build guimcp && !windows`, so the root `go test ./...` and `go vet ./...` skip it.
 
 ```bash
 wails3 task build:mcp

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"unidoc-pdf-debugger/internal/guilaunch"
+	"unidoc-pdf-debugger/internal/mcpclient"
 )
 
 // instanceState is what .guictl/state.json records about the running
@@ -16,6 +18,9 @@ type instanceState struct {
 	PID       int    `json:"pid"`
 	StartTime string `json:"startTime"`
 	URL       string `json:"url"`
+	// WindowTools names the MCP tools whose input takes a window, so call can
+	// target the main window without listing the tools first.
+	WindowTools []string `json:"windowTools,omitempty"`
 }
 
 // processProbe reports whether pid is alive and, if so, its start time.
@@ -81,14 +86,15 @@ func readState(path string) (instanceState, error) {
 }
 
 // ensureNoLiveInstance fails when the state file points at a live instance and
-// removes a stale one.
+// removes a stale or unreadable one.
 func ensureNoLiveInstance(statePath string, probe processProbe) error {
 	st, err := readState(statePath)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		return err
+		// An unreadable state file names no process, so it cannot block a start.
+		return os.Remove(statePath)
 	}
 	if checkInstance(st, probe) == instanceLive {
 		return fmt.Errorf("an instance is already running (pid %d, %s); run guictl stop first", st.PID, st.URL)
@@ -96,94 +102,28 @@ func ensureNoLiveInstance(statePath string, probe processProbe) error {
 	return os.Remove(statePath)
 }
 
-// stopInstance terminates the recorded instance and waits up to timeout for it
-// to exit, then kills it and waits killWait more. A state file whose process is
+// stopInstance stops the recorded instance's process group and removes the
+// state file, and returns the status it found. A state file whose process is
 // dead or whose PID now belongs to another process is removed without
 // signalling anything.
-func stopInstance(statePath string, probe processProbe, terminate, kill func(pid int) error, timeout time.Duration) error {
+func stopInstance(statePath string, probe processProbe, group guilaunch.Group, timeout time.Duration) (instanceStatus, error) {
 	st, err := readState(statePath)
 	if err != nil {
-		return err
+		return instanceDead, err
 	}
-	if checkInstance(st, probe) != instanceLive {
-		return os.Remove(statePath)
+	s := checkInstance(st, probe)
+	if s != instanceLive {
+		return s, os.Remove(statePath)
 	}
-	if err := terminate(st.PID); err != nil {
-		return fmt.Errorf("terminate pid %d: %w", st.PID, err)
+	if _, err := group.Stop(st.PID, timeout, killWait); err != nil {
+		return s, err
 	}
-	if waitForExit(st, probe, timeout) {
-		return os.Remove(statePath)
-	}
-	if err := kill(st.PID); err != nil {
-		return fmt.Errorf("kill pid %d: %w", st.PID, err)
-	}
-	if !waitForExit(st, probe, killWait) {
-		return fmt.Errorf("pid %d still running after SIGTERM and SIGKILL", st.PID)
-	}
-	return os.Remove(statePath)
+	return s, os.Remove(statePath)
 }
 
-// killWait is how long stopInstance waits for the process to exit after SIGKILL.
+// killWait is how long a stop waits for the process group to exit after
+// SIGKILL.
 const killWait = 2 * time.Second
-
-// waitForExit polls until the recorded instance is no longer live or timeout
-// passes, and reports whether it exited.
-func waitForExit(st instanceState, probe processProbe, timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	for checkInstance(st, probe) == instanceLive {
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	return true
-}
-
-// parseMCPURL returns the url attribute of the Wails "MCP server started" log
-// line.
-func parseMCPURL(line string) (string, bool) {
-	if !strings.Contains(line, "MCP server started") {
-		return "", false
-	}
-	_, rest, ok := strings.Cut(line, "url=")
-	if !ok {
-		return "", false
-	}
-	if i := strings.IndexAny(rest, " \t"); i >= 0 {
-		rest = rest[:i]
-	}
-	return rest, rest != ""
-}
-
-// childEnv is base with the XDG directories pointed at absolute paths under
-// <repoRoot>/.guictl, a free MCP port, and the cursor overlay hidden only when
-// asked. An inherited WAILS_MCP_HOST or WAILS_MCP_TOKEN is dropped so the
-// server binds to loopback.
-func childEnv(repoRoot string, base []string, hideCursor bool) []string {
-	dir := filepath.Join(repoRoot, ".guictl")
-	override := []string{
-		"XDG_CONFIG_HOME=" + filepath.Join(dir, "config"),
-		"XDG_CACHE_HOME=" + filepath.Join(dir, "cache"),
-		"XDG_DATA_HOME=" + filepath.Join(dir, "data"),
-		"WAILS_MCP_PORT=0",
-	}
-	if hideCursor {
-		override = append(override, "WAILS_MCP_HIDE_CURSOR=1")
-	}
-	drop := map[string]bool{
-		"XDG_CONFIG_HOME": true, "XDG_CACHE_HOME": true, "XDG_DATA_HOME": true,
-		"WAILS_MCP_PORT": true, "WAILS_MCP_HIDE_CURSOR": true,
-		"WAILS_MCP_HOST": true, "WAILS_MCP_TOKEN": true,
-	}
-	env := make([]string, 0, len(base)+len(override))
-	for _, kv := range base {
-		k, _, _ := strings.Cut(kv, "=")
-		if !drop[k] {
-			env = append(env, kv)
-		}
-	}
-	return append(env, override...)
-}
 
 // resolvePDFPaths makes each path absolute against cwd and checks it is an
 // existing regular file. The running instance ignores the caller's working
@@ -208,24 +148,34 @@ func resolvePDFPaths(cwd string, paths []string) ([]string, error) {
 	return out, nil
 }
 
+// windowTools returns the names of the tools whose input schema has a window
+// property.
+func windowTools(tools []mcpclient.Tool) []string {
+	var names []string
+	for _, t := range tools {
+		var schema struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		if json.Unmarshal(t.InputSchema, &schema) != nil {
+			continue
+		}
+		if _, ok := schema.Properties["window"]; ok {
+			names = append(names, t.Name)
+		}
+	}
+	return names
+}
+
 // withDefaultWindow returns a copy of args with window "main" added when the
-// tool's input schema has a window property and the caller gave none. The
-// splash window would otherwise be picked while it is up.
-func withDefaultWindow(args map[string]any, inputSchema json.RawMessage) map[string]any {
+// tool takes a window and the caller gave none. The splash window would
+// otherwise be picked while it is up.
+func withDefaultWindow(args map[string]any, takesWindow bool) map[string]any {
 	out := make(map[string]any, len(args)+1)
 	for k, v := range args {
 		out[k] = v
 	}
-	var schema struct {
-		Properties map[string]json.RawMessage `json:"properties"`
-	}
-	if json.Unmarshal(inputSchema, &schema) != nil {
-		return out
-	}
-	if _, takesWindow := schema.Properties["window"]; takesWindow {
-		if _, given := out["window"]; !given {
-			out["window"] = mainWindow
-		}
+	if _, given := out["window"]; takesWindow && !given {
+		out["window"] = guilaunch.MainWindow
 	}
 	return out
 }

@@ -85,6 +85,21 @@ func TestDialogQueueKeepsItsOwnCopyOfThePaths(t *testing.T) {
 	}
 }
 
+func TestDialogQueueReplacesPathsNoDialogUsed(t *testing.T) {
+	drainDialogQueue(t)
+	s := &PDFService{}
+	s.QueueDialogPaths([]string{"/fixtures/a.pdf"})
+	s.QueueDialogPaths([]string{"/fixtures/b.pdf"})
+
+	got, err := s.OpenFileDialog()
+	if err != nil {
+		t.Fatalf("OpenFileDialog: %v", err)
+	}
+	if want := []string{"/fixtures/b.pdf"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("OpenFileDialog = %v, want only the latest queued %v", got, want)
+	}
+}
+
 func TestDialogQueueWorksThroughAValueCopyOfTheService(t *testing.T) {
 	drainDialogQueue(t)
 	svc := NewPDFService(nil)

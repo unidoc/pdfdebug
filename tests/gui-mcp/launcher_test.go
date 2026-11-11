@@ -25,25 +25,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
+	"unidoc-pdf-debugger/internal/guilaunch"
 	"unidoc-pdf-debugger/internal/mcpclient"
 )
 
 const (
-	mainWindow     = "main"
 	launchDeadline = 90 * time.Second
 	waitDeadline   = 30 * time.Second
 	stopDeadline   = 15 * time.Second
+	killDeadline   = 5 * time.Second
 	pollInterval   = 200 * time.Millisecond
 )
-
-var mcpURLPattern = regexp.MustCompile(`MCP server started.*\burl=(http://\S+/mcp)`)
 
 // repoRoot walks up from the test directory to the root go.mod.
 func repoRoot(t *testing.T) string {
@@ -52,16 +49,11 @@ func repoRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	for {
-		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && strings.Contains(string(data), "module unidoc-pdf-debugger") {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not find the repo root (go.mod with module unidoc-pdf-debugger)")
-		}
-		dir = parent
+	root, err := guilaunch.FindRepoRoot(dir)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return root
 }
 
 // fixture returns the absolute path of a committed testdata file.
@@ -90,30 +82,11 @@ func binaryPath(t *testing.T) string {
 	return abs
 }
 
-// appEnv is the parent environment with per-test XDG directories and the MCP
-// settings the suite needs. Every value is absolute.
+// appEnv is the parent environment with per-test XDG directories, a free MCP
+// port and the cursor overlay hidden.
 func appEnv(t *testing.T) []string {
 	t.Helper()
-	base := t.TempDir()
-	override := map[string]string{
-		"XDG_CONFIG_HOME":       filepath.Join(base, "config"),
-		"XDG_CACHE_HOME":        filepath.Join(base, "cache"),
-		"XDG_DATA_HOME":         filepath.Join(base, "data"),
-		"WAILS_MCP_PORT":        "0",
-		"WAILS_MCP_HIDE_CURSOR": "1",
-	}
-	var env []string
-	for _, kv := range os.Environ() {
-		k, _, _ := strings.Cut(kv, "=")
-		if _, replaced := override[k]; replaced || k == "WAILS_MCP_HOST" || k == "WAILS_MCP_TOKEN" {
-			continue
-		}
-		env = append(env, kv)
-	}
-	for k, v := range override {
-		env = append(env, k+"="+v)
-	}
-	return env
+	return guilaunch.Env(os.Environ(), t.TempDir(), true)
 }
 
 // lockedBuffer collects the child's output for failure messages.
@@ -159,7 +132,7 @@ func launch(t *testing.T, files ...string) *app {
 	a.cmd = exec.Command(a.bin, files...)
 	a.cmd.Env = a.env
 	a.cmd.Dir = repoRoot(t)
-	a.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	guilaunch.SetProcessGroup(a.cmd)
 	a.cmd.Stdout = a.log
 	stderr, err := a.cmd.StderrPipe()
 	if err != nil {
@@ -179,8 +152,8 @@ func launch(t *testing.T, files ...string) *app {
 		for sc.Scan() {
 			line := sc.Text()
 			_, _ = fmt.Fprintln(a.log, line)
-			if m := mcpURLPattern.FindStringSubmatch(line); m != nil && !sent {
-				urls <- m[1]
+			if url, ok := guilaunch.ParseMCPURL(line); ok && !sent {
+				urls <- url
 				sent = true
 			}
 		}
@@ -209,32 +182,27 @@ func launch(t *testing.T, files ...string) *app {
 		return a.client.Initialize(ctx) == nil
 	})
 	a.poll("the main window to render the app shell", launchDeadline, func() bool {
-		n, err := a.tryCount(`[data-testid="empty-state"], [data-testid="tab-bar"]`)
-		return err == nil && n > 0
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return guilaunch.MainWindowRendered(ctx, a.client)
 	})
 	return a
 }
 
-// stop sends SIGTERM to the process group and waits for the process to exit,
-// so the next test can take the single-instance lock.
+// stop stops the app's whole process group, WebKit and D-Bus helpers
+// included, so the next test can take the single-instance lock and nothing is
+// left writing into the test's temporary XDG directories.
 func (a *app) stop() {
-	select {
-	case <-a.done:
-		return
-	default:
-	}
-	_ = syscall.Kill(-a.cmd.Process.Pid, syscall.SIGTERM)
-	select {
-	case <-a.done:
-		return
-	case <-time.After(stopDeadline):
-	}
-	_ = syscall.Kill(-a.cmd.Process.Pid, syscall.SIGKILL)
-	select {
-	case <-a.done:
+	killed, err := guilaunch.ProcessGroup.Stop(a.cmd.Process.Pid, stopDeadline, killDeadline)
+	if err != nil {
+		a.t.Errorf("pdfdebug-mcp: %v", err)
+	} else if killed {
 		a.t.Errorf("pdfdebug-mcp did not exit within %v of SIGTERM and was killed", stopDeadline)
-	case <-time.After(stopDeadline):
-		a.t.Errorf("pdfdebug-mcp (pid %d) did not exit after SIGKILL", a.cmd.Process.Pid)
+	}
+	select {
+	case <-a.done:
+	case <-time.After(killDeadline):
+		a.t.Errorf("pdfdebug-mcp (pid %d) was not reaped after its group exited", a.cmd.Process.Pid)
 	}
 }
 
@@ -243,7 +211,7 @@ func (a *app) call(name string, args map[string]any) (mcpclient.Result, error) {
 	if args == nil {
 		args = map[string]any{}
 	}
-	args["window"] = mainWindow
+	args["window"] = guilaunch.MainWindow
 	ctx, cancel := context.WithTimeout(context.Background(), waitDeadline)
 	defer cancel()
 	res, err := a.client.CallTool(ctx, name, args)
@@ -420,18 +388,12 @@ func (a *app) openInRunningInstance(files ...string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), waitDeadline)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, a.bin, files...)
-	cmd.Env = a.env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	// Bounds the wait for output pipes that a surviving grandchild holds open
-	// after the timeout kills the launch process.
-	cmd.WaitDelay = 5 * time.Second
-	out, err := cmd.CombinedOutput()
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	out, err := guilaunch.LaunchSecond(ctx, a.bin, repoRoot(a.t), a.env, files)
+	if errors.Is(err, guilaunch.ErrLaunchTimeout) {
 		a.t.Fatalf("second launch did not exit within %v.\noutput:\n%s", waitDeadline, out)
 	}
 	if err != nil {
-		a.t.Fatalf("second launch: %v\noutput:\n%s", err, out)
+		a.t.Fatalf("%v\noutput:\n%s", err, out)
 	}
 }
 

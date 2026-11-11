@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"unidoc-pdf-debugger/internal/guilaunch"
 	"unidoc-pdf-debugger/internal/mcpclient"
 )
 
@@ -106,25 +107,76 @@ func TestRunRejectsMissingOrExtraArguments(t *testing.T) {
 	}
 }
 
-func TestFindURLReadsTheMCPLineFromTheAppLog(t *testing.T) {
+func appendLog(t *testing.T, w workspace, text string) {
+	t.Helper()
+	f, err := os.OpenFile(w.logPath(), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := f.WriteString(text); err != nil {
+		t.Fatal(err)
+	}
+}
+
+const mcpLine = "10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:54321/mcp"
+
+func TestLogFollowerReadsTheMCPLineAsTheLogGrows(t *testing.T) {
 	w := testWorkspace(t)
-	if url, ok, err := w.findURL(); err != nil || ok || url != "" {
-		t.Errorf("findURL with no log = %q, %v, %v; want not found and no error", url, ok, err)
+	log := &logFollower{path: w.logPath()}
+	defer log.close()
+	if url, ok, err := log.next(); err != nil || ok || url != "" {
+		t.Errorf("next with no log = %q, %v, %v; want not found and no error", url, ok, err)
 	}
 
 	writeLog(t, w, "10:42AM INF Build Info: Wails=v3.0.0", "10:42AM INF AssetServer Info: middleware=true")
-	if _, ok, err := w.findURL(); err != nil || ok {
-		t.Errorf("findURL before the MCP line = %v, %v; want not found and no error", ok, err)
+	if _, ok, err := log.next(); err != nil || ok {
+		t.Errorf("next before the MCP line = %v, %v; want not found and no error", ok, err)
 	}
 
-	writeLog(t, w,
-		"10:42AM INF Build Info: Wails=v3.0.0",
-		"10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:54321/mcp",
-		"10:42AM INF [AssetFileServerFS] Handling request url=/ file=.",
-	)
-	url, ok, err := w.findURL()
+	// A line split across two writes is only parsed once it is complete.
+	appendLog(t, w, mcpLine[:40])
+	if _, ok, err := log.next(); err != nil || ok {
+		t.Errorf("next on half a line = %v, %v; want not found and no error", ok, err)
+	}
+	appendLog(t, w, mcpLine[40:]+"\n10:42AM INF [AssetFileServerFS] Handling request url=/ file=.\n")
+	url, ok, err := log.next()
 	if err != nil || !ok || url != "http://127.0.0.1:54321/mcp" {
-		t.Errorf("findURL = %q, %v, %v; want the MCP server URL", url, ok, err)
+		t.Errorf("next = %q, %v, %v; want the MCP server URL", url, ok, err)
+	}
+}
+
+func TestLogFollowerReadsOnlyWhatWasAppended(t *testing.T) {
+	w := testWorkspace(t)
+	writeLog(t, w, "10:42AM INF Build Info: Wails=v3.0.0")
+	log := &logFollower{path: w.logPath()}
+	defer log.close()
+	if _, ok, err := log.next(); err != nil || ok {
+		t.Fatalf("next = %v, %v", ok, err)
+	}
+	// Overwriting the start of the file in place is not seen: the follower
+	// continues from its offset.
+	f, err := os.OpenFile(w.logPath(), os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte(mcpLine[:30]), 0); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	if _, ok, err := log.next(); err != nil || ok {
+		t.Errorf("next after rewriting already-read bytes = %v, %v; want nothing new", ok, err)
+	}
+}
+
+func TestLogFollowerRejectsAnOverlongLine(t *testing.T) {
+	w := testWorkspace(t)
+	writeLog(t, w)
+	appendLog(t, w, strings.Repeat("x", maxLogLine+1))
+	log := &logFollower{path: w.logPath()}
+	defer log.close()
+	if _, _, err := log.next(); err == nil || !strings.Contains(err.Error(), "longer than") {
+		t.Errorf("next on an overlong line = %v, want an error", err)
 	}
 }
 
@@ -157,23 +209,13 @@ func TestWaitForURLReportsAChildThatExitsBeforeTheServerStarts(t *testing.T) {
 func TestWaitForURLReturnsOnceTheLogHasTheURL(t *testing.T) {
 	w := testWorkspace(t)
 	writeLog(t, w, "10:42AM INF Build Info: Wails=v3.0.0")
-	full := w.logPath() + ".full"
-	if err := os.WriteFile(full, []byte("10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:9099/mcp\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// The rename swaps the whole log in at once, so findURL never reads a
-	// partly written line.
-	renamed := make(chan error, 1)
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		renamed <- os.Rename(full, w.logPath())
+		appendLog(t, w, "10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:9099/mcp\n")
 	}()
 	url, err := w.waitForURL(make(chan error))
 	if err != nil || url != "http://127.0.0.1:9099/mcp" {
 		t.Errorf("waitForURL = %q, %v; want the URL written after the call started", url, err)
-	}
-	if err := <-renamed; err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -212,8 +254,8 @@ func TestWaitForMainWindowReturnsOnceTheEmptyStateRenders(t *testing.T) {
 	srv.mu.Lock()
 	args := srv.calls[0]
 	srv.mu.Unlock()
-	if args["window"] != "main" || args["selector"] != `[data-testid="empty-state"]` {
-		t.Errorf("dom_query arguments = %v, want the empty-state selector on the main window", args)
+	if args["window"] != "main" || args["selector"] != guilaunch.ReadySelector {
+		t.Errorf("dom_query arguments = %v, want the app-shell selector on the main window", args)
 	}
 }
 
@@ -270,6 +312,12 @@ func TestLiveStateNamesWhyNoInstanceIsUsable(t *testing.T) {
 	if _, err := w.liveState(); err == nil || !strings.Contains(err.Error(), "guictl stop") {
 		t.Errorf("liveState with a dead PID = %v, want an error pointing at guictl stop", err)
 	}
+	if err := os.WriteFile(w.statePath(), []byte(`{"pid": 12`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.liveState(); err == nil || !strings.Contains(err.Error(), "guictl stop") {
+		t.Errorf("liveState with a truncated state file = %v, want an error pointing at guictl stop", err)
+	}
 	for _, cmd := range []func() error{
 		func() error { return w.open([]string{"x.pdf"}) },
 		func() error { return w.pick([]string{"x.pdf"}) },
@@ -305,5 +353,81 @@ func TestStopAndStatusWithNoStateFileSucceed(t *testing.T) {
 	}
 	if err := w.status(); err != nil {
 		t.Errorf("status with no state file: %v", err)
+	}
+}
+
+func TestStartTreatsAnUnreadableStateFileAsStale(t *testing.T) {
+	w := testWorkspace(t)
+	if err := os.MkdirAll(w.dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(w.statePath(), []byte(`{"pid": 12`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureNoLiveInstance(w.statePath(), probeProcess); err != nil {
+		t.Errorf("ensureNoLiveInstance with a truncated state file = %v, want it cleared", err)
+	}
+	if fileExists(w.statePath()) {
+		t.Error("truncated state file was not removed")
+	}
+}
+
+// liveTestState records this test process as the instance, so liveState
+// accepts it.
+func liveTestState(t *testing.T, w workspace, url string, windowTools []string) {
+	t.Helper()
+	startTime, alive := probeProcess(os.Getpid())
+	if !alive {
+		t.Fatal("probeProcess does not see the test process")
+	}
+	st := instanceState{PID: os.Getpid(), StartTime: startTime, URL: url, WindowTools: windowTools}
+	if err := writeState(w.statePath(), st); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCallUsesTheRecordedWindowToolsWithoutListingTools(t *testing.T) {
+	srv, url := newToolServer(t, func(int, string, map[string]any) (string, bool) {
+		return `{"count":1}`, false
+	})
+	w := testWorkspace(t)
+	liveTestState(t, w, url, []string{"dom_query"})
+	if err := w.call("dom_query", `{"selector":"#x"}`); err != nil {
+		t.Fatalf("call dom_query: %v", err)
+	}
+	if err := w.call("app_info", `{}`); err != nil {
+		t.Fatalf("call app_info: %v", err)
+	}
+	// The fake server answers tools/call only, so a tools/list request would
+	// have failed the call.
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if len(srv.calls) != 2 {
+		t.Fatalf("tool calls = %d, want 2", len(srv.calls))
+	}
+	if srv.calls[0]["window"] != "main" {
+		t.Errorf("dom_query arguments = %v, want window main added", srv.calls[0])
+	}
+	if _, ok := srv.calls[1]["window"]; ok {
+		t.Errorf("app_info arguments = %v, want no window for a tool that takes none", srv.calls[1])
+	}
+}
+
+func TestStopUnrecordedStopsTheChildAndReturnsTheStartFailure(t *testing.T) {
+	cmd := exec.Command("sleep", "30")
+	guilaunch.SetProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	reaped := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(reaped) }()
+	cause := errors.New("no MCP server URL")
+	if err := stopUnrecorded(cmd.Process.Pid, cause); !errors.Is(err, cause) {
+		t.Errorf("stopUnrecorded = %v, want the start failure returned", err)
+	}
+	select {
+	case <-reaped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("child still running after stopUnrecorded")
 	}
 }

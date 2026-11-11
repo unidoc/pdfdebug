@@ -2,10 +2,7 @@
 
 package main
 
-import (
-	"errors"
-	"os/exec"
-)
+import "errors"
 
 // psTimeLayout is unused on Windows; guictl does not run there.
 const psTimeLayout = "Mon Jan _2 15:04:05 2006"
@@ -15,9 +12,3 @@ const psTimeLayout = "Mon Jan _2 15:04:05 2006"
 func platformSupported() error { return errors.New("not supported on Windows") }
 
 func probeProcess(int) (string, bool) { return "", false }
-
-func terminateGroup(int) error { return errors.New("not supported on Windows") }
-
-func killGroup(int) error { return errors.New("not supported on Windows") }
-
-func setProcessGroup(*exec.Cmd) {}

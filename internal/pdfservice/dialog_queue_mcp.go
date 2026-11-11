@@ -12,16 +12,17 @@ var dialogQueue struct {
 	paths []string
 }
 
-// QueueDialogPaths stores paths for the next OpenFileDialog call, which
-// returns them and clears the queue. An empty list queues nothing. Exists
-// only in builds with the mcp tag, for GUI automation.
+// QueueDialogPaths sets the paths the next OpenFileDialog call returns before
+// clearing the queue. It replaces paths an earlier call queued and no dialog
+// used, since File > Open does not consume them. An empty list changes
+// nothing. Exists only in builds with the mcp tag, for GUI automation.
 func (s *PDFService) QueueDialogPaths(paths []string) {
 	if len(paths) == 0 {
 		return
 	}
 	dialogQueue.mu.Lock()
 	defer dialogQueue.mu.Unlock()
-	dialogQueue.paths = append(dialogQueue.paths, paths...)
+	dialogQueue.paths = append([]string(nil), paths...)
 }
 
 // takeQueuedDialogPaths returns the queued paths and empties the queue.

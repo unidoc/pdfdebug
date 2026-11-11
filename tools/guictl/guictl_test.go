@@ -5,56 +5,15 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-)
 
-func TestParseMCPURLReadsTheUncolouredURLAttribute(t *testing.T) {
-	cases := []struct {
-		name string
-		line string
-		want string
-		ok   bool
-	}{
-		{
-			name: "tint line written to a pipe",
-			line: `10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:54321/mcp`,
-			want: "http://127.0.0.1:54321/mcp",
-			ok:   true,
-		},
-		{
-			name: "url attribute followed by another attribute",
-			line: `10:42AM INF MCP server started. Connect MCP clients using the streamable HTTP transport. url=http://127.0.0.1:9099/mcp extra=1`,
-			want: "http://127.0.0.1:9099/mcp",
-			ok:   true,
-		},
-		{
-			name: "unrelated log line",
-			line: `10:42AM INF Build Info: Wails=v3.0.0`,
-			ok:   false,
-		},
-		{
-			name: "url attribute on a line that is not the MCP start line",
-			line: `10:42AM INF Asset request url=http://wails.localhost/index.html`,
-			ok:   false,
-		},
-		{
-			name: "empty line",
-			line: ``,
-			ok:   false,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got, ok := parseMCPURL(c.line)
-			if ok != c.ok || got != c.want {
-				t.Errorf("parseMCPURL(%q) = %q, %v; want %q, %v", c.line, got, ok, c.want, c.ok)
-			}
-		})
-	}
-}
+	"unidoc-pdf-debugger/internal/guilaunch"
+	"unidoc-pdf-debugger/internal/mcpclient"
+)
 
 // fakeProcess reports a process table with one entry.
 func fakeProcess(pid int, startTime string, alive *atomic.Bool) processProbe {
@@ -63,6 +22,34 @@ func fakeProcess(pid int, startTime string, alive *atomic.Bool) processProbe {
 			return "", false
 		}
 		return startTime, true
+	}
+}
+
+// fakeGroup is a process group that is alive while alive holds; terminate and
+// kill record their PID and run the matching hook.
+type fakeGroup struct {
+	alive               *atomic.Bool
+	terminated, killed  []int
+	onTerminate, onKill func()
+}
+
+func (f *fakeGroup) group() guilaunch.Group {
+	return guilaunch.Group{
+		Terminate: func(pid int) error {
+			f.terminated = append(f.terminated, pid)
+			if f.onTerminate != nil {
+				f.onTerminate()
+			}
+			return nil
+		},
+		Kill: func(pid int) error {
+			f.killed = append(f.killed, pid)
+			if f.onKill != nil {
+				f.onKill()
+			}
+			return nil
+		},
+		Alive: func(int) bool { return f.alive.Load() },
 	}
 }
 
@@ -93,7 +80,7 @@ func TestCheckInstanceClassifiesTheStateFile(t *testing.T) {
 
 func TestStateFileRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".guictl", "state.json")
-	want := instanceState{PID: 4242, StartTime: "Mon Nov 10 10:00:00 2026", URL: "http://127.0.0.1:54321/mcp"}
+	want := instanceState{PID: 4242, StartTime: "Mon Nov 10 10:00:00 2026", URL: "http://127.0.0.1:54321/mcp", WindowTools: []string{"dom_query", "js_eval"}}
 	if err := writeState(path, want); err != nil {
 		t.Fatalf("writeState: %v", err)
 	}
@@ -101,7 +88,7 @@ func TestStateFileRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readState: %v", err)
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("readState = %+v, want %+v", got, want)
 	}
 }
@@ -187,15 +174,15 @@ func TestStopNeverSignalsAStaleInstance(t *testing.T) {
 			var alive atomic.Bool
 			alive.Store(c.alive)
 			path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
-			signalled := false
-			terminate := func(pid int) error {
-				signalled = true
-				return nil
-			}
-			if err := stopInstance(path, fakeProcess(4242, c.startTime, &alive), terminate, terminate, time.Second); err != nil {
+			g := &fakeGroup{alive: &alive}
+			s, err := stopInstance(path, fakeProcess(4242, c.startTime, &alive), g.group(), time.Second)
+			if err != nil {
 				t.Fatalf("stopInstance: %v", err)
 			}
-			if signalled {
+			if s == instanceLive {
+				t.Errorf("stopInstance status = %v, want the stale status it acted on", s)
+			}
+			if len(g.terminated)+len(g.killed) > 0 {
 				t.Error("stopInstance signalled a PID it could not match to the recorded start time")
 			}
 			if fileExists(path) {
@@ -209,20 +196,21 @@ func TestStopTerminatesALiveInstanceAndWaitsForItToExit(t *testing.T) {
 	var alive atomic.Bool
 	alive.Store(true)
 	path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
-	var signalled []int
-	terminate := func(pid int) error {
-		signalled = append(signalled, pid)
+	g := &fakeGroup{alive: &alive, onTerminate: func() {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
 			alive.Store(false)
 		}()
-		return nil
-	}
-	if err := stopInstance(path, fakeProcess(4242, "t0", &alive), terminate, noSignal, 5*time.Second); err != nil {
+	}}
+	s, err := stopInstance(path, fakeProcess(4242, "t0", &alive), g.group(), 5*time.Second)
+	if err != nil {
 		t.Fatalf("stopInstance: %v", err)
 	}
-	if len(signalled) != 1 || signalled[0] != 4242 {
-		t.Errorf("terminate calls = %v, want one call for 4242", signalled)
+	if s != instanceLive {
+		t.Errorf("stopInstance status = %v, want live", s)
+	}
+	if len(g.terminated) != 1 || g.terminated[0] != 4242 || len(g.killed) != 0 {
+		t.Errorf("terminate calls = %v, kill calls = %v; want one SIGTERM for 4242 and no SIGKILL", g.terminated, g.killed)
 	}
 	if alive.Load() {
 		t.Error("stopInstance returned before the process exited")
@@ -232,23 +220,16 @@ func TestStopTerminatesALiveInstanceAndWaitsForItToExit(t *testing.T) {
 	}
 }
 
-func noSignal(int) error { return nil }
-
 func TestStopKillsAnInstanceThatIgnoresSIGTERM(t *testing.T) {
 	var alive atomic.Bool
 	alive.Store(true)
 	path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
-	var killed []int
-	kill := func(pid int) error {
-		killed = append(killed, pid)
-		alive.Store(false)
-		return nil
-	}
-	if err := stopInstance(path, fakeProcess(4242, "t0", &alive), noSignal, kill, 300*time.Millisecond); err != nil {
+	g := &fakeGroup{alive: &alive, onKill: func() { alive.Store(false) }}
+	if _, err := stopInstance(path, fakeProcess(4242, "t0", &alive), g.group(), 300*time.Millisecond); err != nil {
 		t.Fatalf("stopInstance: %v", err)
 	}
-	if len(killed) != 1 || killed[0] != 4242 {
-		t.Errorf("kill calls = %v, want one call for 4242", killed)
+	if len(g.killed) != 1 || g.killed[0] != 4242 {
+		t.Errorf("kill calls = %v, want one call for 4242", g.killed)
 	}
 	if fileExists(path) {
 		t.Error("state file still exists after the instance was killed")
@@ -260,7 +241,8 @@ func TestStopReportsAnInstanceThatSurvivesSIGKILL(t *testing.T) {
 	alive.Store(true)
 	path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
 	start := time.Now()
-	err := stopInstance(path, fakeProcess(4242, "t0", &alive), noSignal, noSignal, 300*time.Millisecond)
+	g := &fakeGroup{alive: &alive}
+	_, err := stopInstance(path, fakeProcess(4242, "t0", &alive), g.group(), 300*time.Millisecond)
 	if err == nil {
 		t.Fatal("stopInstance: want an error when the process outlives SIGTERM and SIGKILL")
 	}
@@ -272,60 +254,6 @@ func TestStopReportsAnInstanceThatSurvivesSIGKILL(t *testing.T) {
 	}
 	if !fileExists(path) {
 		t.Error("state file removed while the instance is still running")
-	}
-}
-
-func envValue(env []string, key string) (string, int) {
-	val, n := "", 0
-	for _, kv := range env {
-		if k, v, ok := strings.Cut(kv, "="); ok && k == key {
-			val = v
-			n++
-		}
-	}
-	return val, n
-}
-
-func TestChildEnvPointsXDGDirsAtAbsolutePathsUnderGuictl(t *testing.T) {
-	root := t.TempDir()
-	base := []string{
-		"PATH=/usr/bin",
-		"XDG_CONFIG_HOME=/home/owner/.config",
-		"XDG_CACHE_HOME=relative/cache",
-		"WAILS_MCP_HIDE_CURSOR=1",
-	}
-	env := childEnv(root, base, false)
-	for key, sub := range map[string]string{
-		"XDG_CONFIG_HOME": "config",
-		"XDG_CACHE_HOME":  "cache",
-		"XDG_DATA_HOME":   "data",
-	} {
-		val, n := envValue(env, key)
-		if n != 1 {
-			t.Errorf("%s appears %d times in the child env, want once", key, n)
-		}
-		if !filepath.IsAbs(val) {
-			t.Errorf("%s = %q is not absolute; adrg/xdg ignores relative values and falls back to the owner's real directory", key, val)
-		}
-		if want := filepath.Join(root, ".guictl", sub); val != want {
-			t.Errorf("%s = %q, want %q", key, val, want)
-		}
-	}
-	if v, _ := envValue(env, "PATH"); v != "/usr/bin" {
-		t.Errorf("PATH = %q, want the parent's value kept", v)
-	}
-	if v, _ := envValue(env, "WAILS_MCP_PORT"); v != "0" {
-		t.Errorf("WAILS_MCP_PORT = %q, want 0 (free port)", v)
-	}
-	if _, n := envValue(env, "WAILS_MCP_HIDE_CURSOR"); n != 0 {
-		t.Error("WAILS_MCP_HIDE_CURSOR is set without --hide-cursor; the cursor overlay is visible by default")
-	}
-}
-
-func TestChildEnvHideCursorSetsTheWailsVariable(t *testing.T) {
-	env := childEnv(t.TempDir(), []string{"PATH=/usr/bin"}, true)
-	if v, n := envValue(env, "WAILS_MCP_HIDE_CURSOR"); v != "1" || n != 1 {
-		t.Errorf("WAILS_MCP_HIDE_CURSOR = %q (%d entries), want exactly one entry with 1", v, n)
 	}
 }
 
@@ -373,9 +301,19 @@ func TestResolvePDFPathsRejectsADirectory(t *testing.T) {
 	}
 }
 
+func TestWindowToolsNamesTheToolsThatTakeAWindow(t *testing.T) {
+	tools := []mcpclient.Tool{
+		{Name: "dom_query", InputSchema: json.RawMessage(`{"type":"object","properties":{"selector":{"type":"string"},"window":{"type":"string"}}}`)},
+		{Name: "app_info", InputSchema: json.RawMessage(`{"type":"object","properties":{}}`)},
+		{Name: "broken", InputSchema: json.RawMessage(`not json`)},
+	}
+	if got := windowTools(tools); len(got) != 1 || got[0] != "dom_query" {
+		t.Errorf("windowTools = %v, want [dom_query]", got)
+	}
+}
+
 func TestWithDefaultWindowTargetsTheMainWindow(t *testing.T) {
-	withWindow := json.RawMessage(`{"type":"object","properties":{"selector":{"type":"string"},"window":{"type":"string"}}}`)
-	withoutWindow := json.RawMessage(`{"type":"object","properties":{}}`)
+	const withWindow, withoutWindow = true, false
 
 	got := withDefaultWindow(map[string]any{"selector": "#x"}, withWindow)
 	if got["window"] != "main" {

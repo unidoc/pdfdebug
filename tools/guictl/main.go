@@ -11,33 +11,36 @@
 //	tools                                list the MCP tools
 //	call <tool> ['<json args>']          call one MCP tool
 //	status                               PID, URL, uptime and the log tail
-//	stop                                 SIGTERM the instance's process group and wait
+//	stop                                 stop the instance's process group (SIGTERM, then SIGKILL)
 //
 // macOS and Linux only.
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
+	"unidoc-pdf-debugger/internal/guilaunch"
 	"unidoc-pdf-debugger/internal/mcpclient"
 )
 
 const (
-	mainWindow    = "main"
 	launchTimeout = 90 * time.Second
 	callTimeout   = 60 * time.Second
 	stopTimeout   = 15 * time.Second
 	logTailLines  = 20
+	maxLogLine    = 1024 * 1024
 
 	queueDialogMethod = "unidoc-pdf-debugger/internal/pdfservice.PDFService.QueueDialogPaths"
 )
@@ -60,9 +63,13 @@ func run(args []string) error {
 	if len(args) == 0 {
 		return usage()
 	}
-	root, err := findRepoRoot()
+	cwd, err := os.Getwd()
 	if err != nil {
 		return err
+	}
+	root, err := guilaunch.FindRepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("run guictl inside the repo: %w", err)
 	}
 	w := workspace{root: root, dir: filepath.Join(root, ".guictl")}
 	cmd, rest := args[0], args[1:]
@@ -101,28 +108,6 @@ func run(args []string) error {
 		return w.stop()
 	}
 	return usage()
-}
-
-// findRepoRoot walks up from the working directory to the root go.mod.
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil {
-			for _, line := range strings.Split(string(data), "\n") {
-				if strings.TrimSpace(line) == "module unidoc-pdf-debugger" {
-					return dir, nil
-				}
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", errors.New("run guictl inside the unidoc-pdf-debugger repo")
-		}
-		dir = parent
-	}
 }
 
 // workspace holds the repo root and its .guictl directory.
@@ -167,41 +152,45 @@ func (w workspace) start(hideCursor bool, files []string) error {
 
 	child := exec.Command(w.binary())
 	child.Dir = w.root
-	child.Env = childEnv(w.root, os.Environ(), hideCursor)
+	child.Env = guilaunch.Env(os.Environ(), w.dir, hideCursor)
 	child.Stdout = logFile
 	child.Stderr = logFile
-	setProcessGroup(child)
+	guilaunch.SetProcessGroup(child)
 	if err := child.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", w.binary(), err)
 	}
+	pid := child.Process.Pid
 	exited := make(chan error, 1)
 	go func() { exited <- child.Wait() }()
 
 	// Until the state file is written, stop cannot reach the child, so every
-	// failure before that terminates its process group.
+	// failure before that stops its process group here.
 	url, err := w.waitForURL(exited)
 	if err != nil {
-		_ = terminateGroup(child.Process.Pid)
-		return err
+		return stopUnrecorded(pid, err)
 	}
-	startTime, alive := probeProcess(child.Process.Pid)
+	startTime, alive := probeProcess(pid)
 	if !alive {
-		_ = terminateGroup(child.Process.Pid)
-		return fmt.Errorf("pdfdebug-mcp (pid %d) exited after the MCP server started\n%s", child.Process.Pid, w.logTail())
+		return stopUnrecorded(pid, fmt.Errorf("pdfdebug-mcp (pid %d) exited after the MCP server started\n%s", pid, w.logTail()))
 	}
-	st := instanceState{PID: child.Process.Pid, StartTime: startTime, URL: url}
+	st := instanceState{PID: pid, StartTime: startTime, URL: url}
 	if err := writeState(w.statePath(), st); err != nil {
-		_ = terminateGroup(child.Process.Pid)
-		return err
+		return stopUnrecorded(pid, err)
 	}
 	if err := waitForMainWindow(url, exited); err != nil {
 		// An instance whose window never rendered is not usable by open, pick
 		// or call, so it is stopped and its state removed.
 		tail := w.logTail()
-		if stopErr := stopInstance(w.statePath(), probeProcess, terminateGroup, killGroup, stopTimeout); stopErr != nil {
+		if _, stopErr := stopInstance(w.statePath(), probeProcess, guilaunch.ProcessGroup, stopTimeout); stopErr != nil {
 			return fmt.Errorf("%w; stopping it failed: %v\n%s", err, stopErr, tail)
 		}
 		return fmt.Errorf("%w; the instance was stopped\n%s", err, tail)
+	}
+	if st.WindowTools, err = listWindowTools(url); err == nil {
+		err = writeState(w.statePath(), st)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "guictl: tool list not recorded, call will list the tools each time: %v\n", err)
 	}
 	fmt.Printf("started pid %d %s\n", st.PID, st.URL)
 	if len(paths) > 0 {
@@ -210,12 +199,34 @@ func (w workspace) start(hideCursor bool, files []string) error {
 	return nil
 }
 
-// waitForURL polls the app log for the MCP server line until the child exits
-// or the launch timeout passes.
+// stopUnrecorded stops the process group of a child that has no state file
+// yet and returns err, the failure that ended start.
+func stopUnrecorded(pid int, err error) error {
+	if _, stopErr := guilaunch.ProcessGroup.Stop(pid, stopTimeout, killWait); stopErr != nil {
+		return fmt.Errorf("%w; stopping pdfdebug-mcp failed: %v", err, stopErr)
+	}
+	return err
+}
+
+// listWindowTools returns the tools of the instance at url that take a window.
+func listWindowTools(url string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	defer cancel()
+	tools, err := mcpclient.New(url).ListTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return windowTools(tools), nil
+}
+
+// waitForURL follows the app log for the MCP server line until the child
+// exits or the launch timeout passes.
 func (w workspace) waitForURL(exited <-chan error) (string, error) {
+	log := &logFollower{path: w.logPath()}
+	defer log.close()
 	deadline := time.Now().Add(launchTimeout)
 	for {
-		url, ok, err := w.findURL()
+		url, ok, err := log.next()
 		if err != nil {
 			return "", err
 		}
@@ -241,28 +252,60 @@ func (w workspace) waitForURL(exited <-chan error) (string, error) {
 	}
 }
 
-// findURL scans the app log for the MCP server URL. A log that does not
-// exist yet is not an error.
-func (w workspace) findURL() (string, bool, error) {
-	f, err := os.Open(w.logPath())
-	if errors.Is(err, os.ErrNotExist) {
-		return "", false, nil
+// logFollower reads the app log as it grows, continuing from where the last
+// read stopped.
+type logFollower struct {
+	path    string
+	f       *os.File
+	pending []byte
+}
+
+// next reads what was appended since the last call and returns the MCP server
+// URL once a complete line carries it. A log that does not exist yet is not an
+// error.
+func (l *logFollower) next() (string, bool, error) {
+	if l.f == nil {
+		f, err := os.Open(l.path)
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		if err != nil {
+			return "", false, err
+		}
+		l.f = f
 	}
-	if err != nil {
-		return "", false, err
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := l.f.Read(buf)
+		l.pending = append(l.pending, buf[:n]...)
+		if errors.Is(err, io.EOF) || n == 0 {
+			break
+		}
+		if err != nil {
+			return "", false, fmt.Errorf("read %s: %w", l.path, err)
+		}
 	}
-	defer func() { _ = f.Close() }()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), 1024*1024)
-	for sc.Scan() {
-		if url, ok := parseMCPURL(sc.Text()); ok {
+	for {
+		i := bytes.IndexByte(l.pending, '\n')
+		if i < 0 {
+			break
+		}
+		line := string(l.pending[:i])
+		l.pending = l.pending[i+1:]
+		if url, ok := guilaunch.ParseMCPURL(line); ok {
 			return url, true, nil
 		}
 	}
-	if err := sc.Err(); err != nil {
-		return "", false, fmt.Errorf("read %s: %w", w.logPath(), err)
+	if len(l.pending) > maxLogLine {
+		return "", false, fmt.Errorf("read %s: a log line is longer than %d bytes", l.path, maxLogLine)
 	}
 	return "", false, nil
+}
+
+func (l *logFollower) close() {
+	if l.f != nil {
+		_ = l.f.Close()
+	}
 }
 
 func (w workspace) logTail() string {
@@ -277,22 +320,17 @@ func (w workspace) logTail() string {
 	return "last lines of " + w.logPath() + ":\n" + strings.Join(lines, "\n")
 }
 
-// waitForMainWindow polls dom_query on the main window until the empty state
-// renders. The MCP server answers before any window has loaded.
+// waitForMainWindow polls the main window until the app shell renders. The
+// MCP server answers before any window has loaded.
 func waitForMainWindow(url string, exited <-chan error) error {
 	client := mcpclient.New(url)
 	deadline := time.Now().Add(launchTimeout)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		res, err := client.CallTool(ctx, "dom_query", map[string]any{"selector": `[data-testid="empty-state"]`, "window": mainWindow})
+		rendered := guilaunch.MainWindowRendered(ctx, client)
 		cancel()
-		if err == nil && !res.IsError {
-			var q struct {
-				Count int `json:"count"`
-			}
-			if json.Unmarshal([]byte(res.Text), &q) == nil && q.Count > 0 {
-				return nil
-			}
+		if rendered {
+			return nil
 		}
 		select {
 		case err := <-exited:
@@ -300,7 +338,7 @@ func waitForMainWindow(url string, exited <-chan error) error {
 		default:
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("main window did not render the empty state within %v", launchTimeout)
+			return fmt.Errorf("main window did not render the app shell within %v", launchTimeout)
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -314,7 +352,7 @@ func (w workspace) liveState() (instanceState, error) {
 		return st, errors.New("no instance running; run guictl start")
 	}
 	if err != nil {
-		return st, err
+		return st, fmt.Errorf("%w; run guictl stop to clear it, then guictl start", err)
 	}
 	if s := checkInstance(st, probeProcess); s != instanceLive {
 		return st, fmt.Errorf("recorded instance pid %d is %v; run guictl stop to clear it, then guictl start", st.PID, s)
@@ -337,26 +375,17 @@ func (w workspace) open(files []string) error {
 	return w.launchSecond(paths)
 }
 
-// launchSecond runs pdfdebug-mcp again with absolute paths, so they reach the
-// running instance through the single-instance handoff, and waits for the
-// handoff process to exit. The handoff exits 0, so any other exit code is a
-// failed launch.
+// launchSecond sends absolute paths to the running instance through a second
+// launch and waits for the handoff process to exit.
 func (w workspace) launchSecond(paths []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, w.binary(), paths...)
-	cmd.Dir = w.root
-	cmd.Env = childEnv(w.root, os.Environ(), false)
-	setProcessGroup(cmd)
-	// Bounds the wait for output pipes that a surviving grandchild holds open
-	// after the timeout kills the launch process.
-	cmd.WaitDelay = 5 * time.Second
-	out, err := cmd.CombinedOutput()
-	if ctx.Err() != nil {
+	out, err := guilaunch.LaunchSecond(ctx, w.binary(), w.root, guilaunch.Env(os.Environ(), w.dir, false), paths)
+	if errors.Is(err, guilaunch.ErrLaunchTimeout) {
 		return fmt.Errorf("second launch did not exit within %v\n%s", callTimeout, out)
 	}
 	if err != nil {
-		return fmt.Errorf("second launch: %w\n%s", err, out)
+		return fmt.Errorf("%w\n%s", err, out)
 	}
 	fmt.Printf("sent %d file(s) to the running instance\n", len(paths))
 	return nil
@@ -382,7 +411,7 @@ func (w workspace) pick(files []string) error {
 	return callAndPrint(mcpclient.New(st.URL), "call_bound_method", map[string]any{
 		"name":   queueDialogMethod,
 		"args":   []any{anyPaths},
-		"window": mainWindow,
+		"window": guilaunch.MainWindow,
 	})
 }
 
@@ -415,19 +444,14 @@ func (w workspace) call(tool, argsJSON string) error {
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Errorf("arguments must be a JSON object: %w", err)
 	}
-	client := mcpclient.New(st.URL)
-	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
-	defer cancel()
-	tools, err := client.ListTools(ctx)
-	if err != nil {
-		return err
-	}
-	for _, t := range tools {
-		if t.Name == tool {
-			args = withDefaultWindow(args, t.InputSchema)
+	takers := st.WindowTools
+	if len(takers) == 0 {
+		if takers, err = listWindowTools(st.URL); err != nil {
+			return err
 		}
 	}
-	return callAndPrint(client, tool, args)
+	args = withDefaultWindow(args, slices.Contains(takers, tool))
+	return callAndPrint(mcpclient.New(st.URL), tool, args)
 }
 
 // callAndPrint prints "tool args ok|error duration", then the result text. A
@@ -490,8 +514,8 @@ func (w workspace) stop() error {
 		fmt.Printf("removed unreadable state file (%v); nothing signalled\n", err)
 		return nil
 	}
-	s := checkInstance(st, probeProcess)
-	if err := stopInstance(w.statePath(), probeProcess, terminateGroup, killGroup, stopTimeout); err != nil {
+	s, err := stopInstance(w.statePath(), probeProcess, guilaunch.ProcessGroup, stopTimeout)
+	if err != nil {
 		return err
 	}
 	if s == instanceLive {

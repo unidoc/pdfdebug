@@ -29,27 +29,3 @@ func probeProcess(pid int) (string, bool) {
 	start := strings.Join(strings.Fields(string(out)), " ")
 	return start, start != ""
 }
-
-// terminateGroup sends SIGTERM to the process group led by pid. A group that
-// has already exited is not an error.
-func terminateGroup(pid int) error {
-	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
-		return err
-	}
-	return nil
-}
-
-// killGroup sends SIGKILL to the process group led by pid. A group that has
-// already exited is not an error.
-func killGroup(pid int) error {
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
-		return err
-	}
-	return nil
-}
-
-// setProcessGroup starts cmd in its own process group, so stop reaches every
-// process it spawns and a terminal interrupt does not.
-func setProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-}
