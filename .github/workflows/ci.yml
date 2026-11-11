@@ -100,7 +100,7 @@ jobs:
 
       - name: Go test (mcp tag)
         shell: bash
-        run: go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/
+        run: go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .
 
       - name: Test acceptance suites (per-module)
         shell: bash

@@ -31,4 +31,4 @@ A window opens while it runs. `PDFDEBUG_MCP_BINARY` overrides the binary path (d
 
 ## Unit tests
 
-Go unit tests live next to the code in the root module (`go test ./...`). The `mcp`-tagged code has its own run: `go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/`. Frontend unit tests are Vitest: `npm run test --prefix frontend`.
+Go unit tests live next to the code in the root module (`go test ./...`). The `mcp`-tagged code has its own run: `go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .`. Frontend unit tests are Vitest: `npm run test --prefix frontend`.

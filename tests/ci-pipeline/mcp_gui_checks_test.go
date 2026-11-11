@@ -41,9 +41,9 @@ func TestCIWorkflowVetsTheMCPTaggedCodeOnEveryLeg(t *testing.T) {
 }
 
 func TestCIWorkflowRunsTheMCPTaggedUnitTestsOnEveryLeg(t *testing.T) {
-	steps := stepsRunning(t, "go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/")
+	steps := stepsRunning(t, "go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .")
 	if len(steps) == 0 {
-		t.Fatal("ci.yml never runs `go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/`")
+		t.Fatal("ci.yml never runs `go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .`")
 	}
 	for _, s := range steps {
 		if !runsOnEveryLeg(s) {

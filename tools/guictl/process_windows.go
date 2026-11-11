@@ -18,4 +18,6 @@ func probeProcess(int) (string, bool) { return "", false }
 
 func terminateGroup(int) error { return errors.New("not supported on Windows") }
 
+func killGroup(int) error { return errors.New("not supported on Windows") }
+
 func setProcessGroup(*exec.Cmd) {}

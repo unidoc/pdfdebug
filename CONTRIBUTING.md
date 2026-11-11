@@ -100,7 +100,7 @@ sudo apparmor_parser -r /etc/apparmor.d/pdfdebug-mcp-local
 - `guictl tools` lists the MCP tools and their input schemas.
 - `guictl call <tool> '<json>'` calls one tool. It prints `tool args ok|error duration`, then the result, and exits non-zero on a tool error. Tools that take a `window` argument get `"window": "main"` unless you pass one.
 - `guictl status` prints PID, URL, uptime and the last 20 lines of `.guictl/app.log`.
-- `guictl stop` sends SIGTERM to the instance's process group and waits for it to exit. A state file whose PID is gone, or now belongs to another process, is deleted and nothing is signalled.
+- `guictl stop` sends SIGTERM to the instance's process group and waits for it to exit, then sends SIGKILL if it is still running after 15 seconds. A state file whose PID is gone, or now belongs to another process, is deleted and nothing is signalled.
 
 Stop your instance before handing a build to someone else to test. Only one `mcp` build can run at a time, since they all share the single-instance lock.
 

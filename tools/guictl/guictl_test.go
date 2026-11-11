@@ -192,7 +192,7 @@ func TestStopNeverSignalsAStaleInstance(t *testing.T) {
 				signalled = true
 				return nil
 			}
-			if err := stopInstance(path, fakeProcess(4242, c.startTime, &alive), terminate, time.Second); err != nil {
+			if err := stopInstance(path, fakeProcess(4242, c.startTime, &alive), terminate, terminate, time.Second); err != nil {
 				t.Fatalf("stopInstance: %v", err)
 			}
 			if signalled {
@@ -218,7 +218,7 @@ func TestStopTerminatesALiveInstanceAndWaitsForItToExit(t *testing.T) {
 		}()
 		return nil
 	}
-	if err := stopInstance(path, fakeProcess(4242, "t0", &alive), terminate, 5*time.Second); err != nil {
+	if err := stopInstance(path, fakeProcess(4242, "t0", &alive), terminate, noSignal, 5*time.Second); err != nil {
 		t.Fatalf("stopInstance: %v", err)
 	}
 	if len(signalled) != 1 || signalled[0] != 4242 {
@@ -232,21 +232,46 @@ func TestStopTerminatesALiveInstanceAndWaitsForItToExit(t *testing.T) {
 	}
 }
 
-func TestStopReportsAnInstanceThatDoesNotExitInTime(t *testing.T) {
+func noSignal(int) error { return nil }
+
+func TestStopKillsAnInstanceThatIgnoresSIGTERM(t *testing.T) {
 	var alive atomic.Bool
 	alive.Store(true)
 	path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
-	terminate := func(int) error { return nil }
+	var killed []int
+	kill := func(pid int) error {
+		killed = append(killed, pid)
+		alive.Store(false)
+		return nil
+	}
+	if err := stopInstance(path, fakeProcess(4242, "t0", &alive), noSignal, kill, 300*time.Millisecond); err != nil {
+		t.Fatalf("stopInstance: %v", err)
+	}
+	if len(killed) != 1 || killed[0] != 4242 {
+		t.Errorf("kill calls = %v, want one call for 4242", killed)
+	}
+	if fileExists(path) {
+		t.Error("state file still exists after the instance was killed")
+	}
+}
+
+func TestStopReportsAnInstanceThatSurvivesSIGKILL(t *testing.T) {
+	var alive atomic.Bool
+	alive.Store(true)
+	path := writeTestState(t, instanceState{PID: 4242, StartTime: "t0"})
 	start := time.Now()
-	err := stopInstance(path, fakeProcess(4242, "t0", &alive), terminate, 300*time.Millisecond)
+	err := stopInstance(path, fakeProcess(4242, "t0", &alive), noSignal, noSignal, 300*time.Millisecond)
 	if err == nil {
-		t.Fatal("stopInstance: want an error when the process outlives the timeout")
+		t.Fatal("stopInstance: want an error when the process outlives SIGTERM and SIGKILL")
 	}
 	if !strings.Contains(err.Error(), "4242") {
 		t.Errorf("error %q does not name the PID", err)
 	}
-	if elapsed := time.Since(start); elapsed > 3*time.Second {
+	if elapsed := time.Since(start); elapsed > 300*time.Millisecond+killWait+time.Second {
 		t.Errorf("stopInstance waited %v with a 300ms timeout", elapsed)
+	}
+	if !fileExists(path) {
+		t.Error("state file removed while the instance is still running")
 	}
 }
 

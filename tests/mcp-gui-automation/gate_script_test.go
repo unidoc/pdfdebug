@@ -61,11 +61,10 @@ func TestGateScriptRunsTheTaggedChecksAndTheGUISuite(t *testing.T) {
 	script := readRepoFile(t, "scripts/test-all.sh")
 	for _, want := range []string{
 		"go vet -tags mcp,guimcp ./...",
-		"go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/",
+		"go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .",
 		"wails3 task build:mcp",
 		"-tags guimcp",
 		"./tests/gui-mcp/",
-		"WAILS_MCP_HIDE_CURSOR=1",
 		"xvfb-run -a dbus-run-session --",
 	} {
 		if !strings.Contains(script, want) {

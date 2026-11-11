@@ -97,9 +97,10 @@ func ensureNoLiveInstance(statePath string, probe processProbe) error {
 }
 
 // stopInstance terminates the recorded instance and waits up to timeout for it
-// to exit. A state file whose process is dead or whose PID now belongs to
-// another process is removed without signalling anything.
-func stopInstance(statePath string, probe processProbe, terminate func(pid int) error, timeout time.Duration) error {
+// to exit, then kills it and waits killWait more. A state file whose process is
+// dead or whose PID now belongs to another process is removed without
+// signalling anything.
+func stopInstance(statePath string, probe processProbe, terminate, kill func(pid int) error, timeout time.Duration) error {
 	st, err := readState(statePath)
 	if err != nil {
 		return err
@@ -110,14 +111,32 @@ func stopInstance(statePath string, probe processProbe, terminate func(pid int) 
 	if err := terminate(st.PID); err != nil {
 		return fmt.Errorf("terminate pid %d: %w", st.PID, err)
 	}
+	if waitForExit(st, probe, timeout) {
+		return os.Remove(statePath)
+	}
+	if err := kill(st.PID); err != nil {
+		return fmt.Errorf("kill pid %d: %w", st.PID, err)
+	}
+	if !waitForExit(st, probe, killWait) {
+		return fmt.Errorf("pid %d still running after SIGTERM and SIGKILL", st.PID)
+	}
+	return os.Remove(statePath)
+}
+
+// killWait is how long stopInstance waits for the process to exit after SIGKILL.
+const killWait = 2 * time.Second
+
+// waitForExit polls until the recorded instance is no longer live or timeout
+// passes, and reports whether it exited.
+func waitForExit(st instanceState, probe processProbe, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for checkInstance(st, probe) == instanceLive {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("pid %d still running %v after SIGTERM", st.PID, timeout)
+			return false
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return os.Remove(statePath)
+	return true
 }
 
 // parseMCPURL returns the url attribute of the Wails "MCP server started" log

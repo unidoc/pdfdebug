@@ -186,6 +186,7 @@ func (w workspace) start(hideCursor bool, files []string) error {
 	}
 	startTime, alive := probeProcess(child.Process.Pid)
 	if !alive {
+		_ = terminateGroup(child.Process.Pid)
 		return fmt.Errorf("pdfdebug-mcp (pid %d) exited after the MCP server started\n%s", child.Process.Pid, w.logTail())
 	}
 	st := instanceState{PID: child.Process.Pid, StartTime: startTime, URL: url}
@@ -197,7 +198,7 @@ func (w workspace) start(hideCursor bool, files []string) error {
 		// An instance whose window never rendered is not usable by open, pick
 		// or call, so it is stopped and its state removed.
 		tail := w.logTail()
-		if stopErr := stopInstance(w.statePath(), probeProcess, terminateGroup, stopTimeout); stopErr != nil {
+		if stopErr := stopInstance(w.statePath(), probeProcess, terminateGroup, killGroup, stopTimeout); stopErr != nil {
 			return fmt.Errorf("%w; stopping it failed: %v\n%s", err, stopErr, tail)
 		}
 		return fmt.Errorf("%w; the instance was stopped\n%s", err, tail)
@@ -490,7 +491,7 @@ func (w workspace) stop() error {
 		return nil
 	}
 	s := checkInstance(st, probeProcess)
-	if err := stopInstance(w.statePath(), probeProcess, terminateGroup, stopTimeout); err != nil {
+	if err := stopInstance(w.statePath(), probeProcess, terminateGroup, killGroup, stopTimeout); err != nil {
 		return err
 	}
 	if s == instanceLive {

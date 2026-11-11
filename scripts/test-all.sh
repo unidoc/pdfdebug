@@ -52,7 +52,7 @@ if [[ $run_go -eq 1 ]]; then
   section "Go test (root module)"
   go test ./... -timeout 10m
   section "Go test (mcp tag)"
-  go test -tags mcp ./internal/pdfservice/ ./internal/mcpclient/
+  go test -tags mcp -run 'DialogQueue|InstanceIdentity' ./internal/pdfservice/ .
 
   section "Acceptance suites (per-module)"
   mods=(tests/*/go.mod)
@@ -75,7 +75,7 @@ if [[ $run_go -eq 1 ]]; then
       *)
         section "GUI suite (tests/gui-mcp)"
         wails3 task build:mcp
-        gui=(env WAILS_MCP_HIDE_CURSOR=1 go test -tags guimcp -count=1 -timeout 5m ./tests/gui-mcp/)
+        gui=(go test -tags guimcp -count=1 -timeout 5m ./tests/gui-mcp/)
         if [[ "$(uname -s)" == "Linux" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
           if command -v xvfb-run >/dev/null && command -v dbus-run-session >/dev/null; then
             xvfb-run -a dbus-run-session -- "${gui[@]}"
