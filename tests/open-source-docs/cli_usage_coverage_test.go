@@ -82,32 +82,44 @@ func TestCLIUsageGuideCommandsAreDispatched(t *testing.T) {
 	}
 }
 
-var dumpMentionRe = regexp.MustCompile(`\bdump ([a-z]+)\b`)
+var dumpMentionRe = regexp.MustCompile(`\bdump\s+([a-z]+)\b`)
 
 // TestCLIUsageGuideDumpMentionsNameHelpCommands asserts every `dump <resource>`
-// written as code on any guide page, in a code span or a fenced block, names a
-// command listed in `pdfdebug --help`.
+// written as code in the CLI guide pages or README.md names a command listed in
+// `pdfdebug --help`. Code spans are matched per paragraph with whitespace
+// collapsed, so a span that wraps across lines is read whole. In fenced and
+// indented code blocks only command lines starting with `pdfdebug` are read, so
+// shell comments and sample output are left alone.
 func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 	cmds := helpCommands(t)
+	docs := append(guideDocs(t), guideDoc{path: "README.md", lines: mdLines(readFileAtRoot(t, "README.md"))})
 
 	var bad []string
-	for _, d := range guideDocs(t) {
-		for i, l := range d.lines {
-			code := []string{l.text}
-			if !l.inFence {
-				code = codeSpanRe.FindAllString(l.text, -1)
+	check := func(where, code string) {
+		for _, m := range dumpMentionRe.FindAllStringSubmatch(code, -1) {
+			if c := "dump " + m[1]; !slices.Contains(cmds, c) {
+				bad = append(bad, fmt.Sprintf("%s: %s", where, c))
 			}
-			for _, c := range code {
-				for _, m := range dumpMentionRe.FindAllStringSubmatch(c, -1) {
-					if !slices.Contains(cmds, m[0]) {
-						bad = append(bad, fmt.Sprintf("%s line %d: %s", d.path, i+1, m[0]))
-					}
-				}
+		}
+	}
+	for _, d := range docs {
+		for _, p := range paragraphs(d.lines) {
+			for _, span := range codeSpanRe.FindAllString(strings.Join(strings.Fields(p), " "), -1) {
+				check(d.path+" code span "+span, span)
+			}
+		}
+		for i, l := range d.lines {
+			if !l.inFence && !strings.HasPrefix(l.text, "    ") && !strings.HasPrefix(l.text, "\t") {
+				continue
+			}
+			cmd := strings.TrimPrefix(strings.TrimSpace(l.text), "$ ")
+			if strings.HasPrefix(cmd, "pdfdebug ") {
+				check(fmt.Sprintf("%s line %d", d.path, i+1), cmd)
 			}
 		}
 	}
 	if len(bad) > 0 {
-		t.Errorf("CLI guide names dump resources pdfdebug --help does not list %v:\n  %s",
+		t.Errorf("docs name dump resources pdfdebug --help does not list %v:\n  %s",
 			cmds, strings.Join(bad, "\n  "))
 	}
 }

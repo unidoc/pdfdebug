@@ -2,11 +2,13 @@
 //
 // Test level: Integration (Go) -- CLI binary build + execution. No browser.
 //
-// Covers: --pretty parity on the JSON wrapper; the per-path stderr shapes
-// (runtime error is JSON, usage error is a bare usage line); usage errors for a
-// flag after <file> and for an extra positional; the help text naming
-// `dump bytes` and pdftotext while carrying no occurrence of the lowercase
-// token `plaintext`; and `dump plaintext` failing as an unknown resource.
+// Covers: --pretty parity on the JSON wrapper; the usage error being a bare
+// plain-text usage line; the help text naming `dump bytes` and pdftotext while
+// carrying no occurrence of the lowercase token `plaintext`; and
+// `dump plaintext` failing as an unknown resource. The byte-exact default
+// output, the runtime-error JSON shape and the --json wrapper are in
+// document_views_test.go; argument-shape usage errors are in
+// positional_arity_test.go.
 //
 // Run: cd tests/cli-views && go test -v -count=1 ./...
 package cli_views_test
@@ -20,12 +22,6 @@ import (
 
 // bytesUsageLine is what parseDocViewFlags prints on a usage failure.
 const bytesUsageLine = "Usage: pdfdebug dump bytes [--json] [--pretty] <file>"
-
-// stderrLines splits stderr into lines, dropping the trailing empty element a
-// final newline produces.
-func stderrLines(s string) []string {
-	return strings.Split(strings.TrimRight(s, "\n"), "\n")
-}
 
 // ---------------------------------------------------------------------------
 // `dump bytes --json --pretty` indents the same object the compact form emits.
@@ -63,31 +59,6 @@ func TestBytesDump_PrettyJSONMatchesCompact(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Runtime-error stderr shape (exit 2): one JSON object carrying an `error` key
-// and nothing else.
-// ---------------------------------------------------------------------------
-
-func TestBytesDump_NonexistentFile_StderrShapes(t *testing.T) {
-	bin := buildCLI(t)
-	missing := "/nonexistent/path/fake.pdf"
-
-	stdout, stderr, ec := runCLI(t, bin, "dump", "bytes", missing)
-	if ec != 2 {
-		t.Errorf("expected exit 2, got %d", ec)
-	}
-	if stdout != "" {
-		t.Errorf("stdout should be empty on a runtime error, got: %q", stdout)
-	}
-	var errObj map[string]string
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &errObj); err != nil {
-		t.Fatalf("stderr is not a single JSON object: %v\nraw: %s", err, stderr)
-	}
-	if _, ok := errObj["error"]; !ok {
-		t.Errorf("stderr JSON missing 'error' key: %s", stderr)
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Usage-error stderr shape (exit 1): a bare usage line, plain text, NOT JSON.
 // The non-parse half is the assertion that matters: the package doc states
 // usage errors are plain text, so a change that starts JSON-wrapping them has
@@ -109,53 +80,6 @@ func TestBytesDump_MissingFileArgument_UsageNotJSON(t *testing.T) {
 	}
 	if json.Valid([]byte(strings.TrimSpace(stderr))) {
 		t.Errorf("the usage-error line is plain text, not JSON; stderr parsed as JSON:\n%s", stderr)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// A flag written after <file> is a usage error, not a silently dropped
-// argument. Go's flag package stops parsing at the first non-flag argument, so
-// `dump bytes file.pdf --json` would otherwise leave f.json false and stream
-// the raw document to a caller who asked for the JSON wrapper -- with exit 0,
-// so nothing downstream could tell. Stdout must stay empty: a usage failure
-// never emits a partial document.
-// ---------------------------------------------------------------------------
-
-func TestBytesDump_FlagAfterFile_UsageErrorNotSilentlyDropped(t *testing.T) {
-	bin := buildCLI(t)
-	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
-
-	stdout, stderr, ec := runCLI(t, bin, "dump", "bytes", pdfPath, "--json")
-	if ec != 1 {
-		t.Errorf("a flag after <file> expected exit 1 (usage), got %d", ec)
-	}
-	if stdout != "" {
-		t.Errorf("stdout must stay empty, got %d bytes of document", len(stdout))
-	}
-	if !strings.Contains(stderr, bytesUsageLine) {
-		t.Errorf("stderr should carry the usage line, got: %q", stderr)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// A second file path is a usage error too: the command dumps one document, so
-// an extra positional is a typo, not an instruction to pick the first and
-// ignore the rest.
-// ---------------------------------------------------------------------------
-
-func TestBytesDump_ExtraPositionalArgument_UsageError(t *testing.T) {
-	bin := buildCLI(t)
-	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
-
-	stdout, stderr, ec := runCLI(t, bin, "dump", "bytes", pdfPath, pdfPath)
-	if ec != 1 {
-		t.Errorf("a second positional expected exit 1 (usage), got %d", ec)
-	}
-	if stdout != "" {
-		t.Errorf("stdout must stay empty, got %d bytes of document", len(stdout))
-	}
-	if !strings.Contains(stderr, bytesUsageLine) {
-		t.Errorf("stderr should carry the usage line, got: %q", stderr)
 	}
 }
 
@@ -229,7 +153,7 @@ func TestDump_PlaintextIsUnknownResource(t *testing.T) {
 			if stdout != "" {
 				t.Errorf("stdout should be empty, got: %q", stdout)
 			}
-			if first := stderrLines(stderr)[0]; first != "Unknown resource: plaintext" {
+			if first, _, _ := strings.Cut(stderr, "\n"); first != "Unknown resource: plaintext" {
 				t.Errorf("first stderr line\n got: %q\nwant: %q", first, "Unknown resource: plaintext")
 			}
 			if !strings.Contains(stderr, "dump bytes") {
