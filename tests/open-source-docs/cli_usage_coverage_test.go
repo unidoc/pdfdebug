@@ -82,6 +82,84 @@ func TestCLIUsageGuideCommandsAreDispatched(t *testing.T) {
 	}
 }
 
+var (
+	// dumpSpanRe matches `dump` as a whole word after the span start or
+	// whitespace, so `-dump heap` or `core.dump file` are not read as commands.
+	dumpSpanRe = regexp.MustCompile(`(?:^|\s)dump\s+(\S+)`)
+	// dumpCmdRe matches a pdfdebug dump invocation anywhere on a code line,
+	// including ./pdfdebug, $(pdfdebug ...), env prefixes and pipes.
+	dumpCmdRe  = regexp.MustCompile(`\bpdfdebug\s+dump\s+(\S+)`)
+	resourceRe = regexp.MustCompile(`^[a-z]+`)
+)
+
+// TestCLIUsageGuideDumpMentionsNameHelpCommands asserts every dump command
+// written as code in the CLI guide pages or README.md names a command listed in
+// `pdfdebug --help`, with the resource straight after `dump`. Code spans are
+// matched per paragraph with whitespace collapsed, so a span that wraps across
+// lines is read whole. In fenced code blocks, lines continued with a trailing
+// backslash are joined, within the block, and every `pdfdebug dump` invocation
+// is read; lines without one, such as sample output, are left alone. `--help`
+// and `-h` after `dump` are valid and pass.
+func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
+	cmds := helpCommands(t)
+	docs := append(guideDocs(t), guideDoc{path: "README.md", lines: mdLines(readFileAtRoot(t, "README.md"))})
+
+	var bad []string
+	check := func(where string, re *regexp.Regexp, code string) {
+		for _, m := range re.FindAllStringSubmatch(code, -1) {
+			if m[1] == "--help" || m[1] == "-h" {
+				continue
+			}
+			if strings.HasPrefix(m[1], "-") {
+				bad = append(bad, fmt.Sprintf("%s: flag %s before the dump resource", where, m[1]))
+				continue
+			}
+			r := resourceRe.FindString(m[1])
+			if r == "" {
+				continue // a placeholder such as <resource>
+			}
+			if c := "dump " + r; !slices.Contains(cmds, c) {
+				bad = append(bad, fmt.Sprintf("%s: %s", where, c))
+			}
+		}
+	}
+	for _, d := range docs {
+		for _, p := range paragraphs(d.lines) {
+			for _, span := range codeSpanRe.FindAllString(strings.Join(strings.Fields(p), " "), -1) {
+				check(d.path+" code span "+span, dumpSpanRe, strings.Trim(span, "`"))
+			}
+		}
+		joined, start := "", 0
+		flush := func() {
+			if joined != "" {
+				check(fmt.Sprintf("%s line %d", d.path, start+1), dumpCmdRe, joined)
+				joined = ""
+			}
+		}
+		for i, l := range d.lines {
+			if !l.inFence || l.marker {
+				flush()
+				continue
+			}
+			if joined == "" {
+				start = i
+			}
+			text := strings.TrimSpace(l.text)
+			if cont, ok := strings.CutSuffix(text, "\\"); ok {
+				joined += cont + " "
+				continue
+			}
+			joined += text
+			flush()
+		}
+		flush()
+	}
+	if len(bad) > 0 {
+		t.Errorf("docs write dump commands pdfdebug --help does not list %v:\n  %s",
+			cmds, strings.Join(bad, "\n  "))
+	}
+}
+
 // TestCLIUsageGuideSynopsesMatchUsageLines asserts the first line under each
 // command's `###` reference heading is that command's usage line, as the
 // binary prints it with no arguments, in a code span.
@@ -120,20 +198,10 @@ func TestCLIUsageGuideSynopsesMatchUsageLines(t *testing.T) {
 
 // TestCLIUsageGuideQuickReferenceListsEachCommandOnce asserts one table on the
 // entry page lists every help command exactly once and nothing else in its
-// first column, and that no guide page carries a table row for the deprecated
-// `dump plaintext` alias.
+// first column.
 func TestCLIUsageGuideQuickReferenceListsEachCommandOnce(t *testing.T) {
 	cmds := helpCommands(t)
 	rows := mdTableRows(mdLines(readFileAtRoot(t, cliGuidePath)))
-
-	for _, d := range guideDocs(t) {
-		for _, r := range mdTableRows(d.lines) {
-			if r.firstCell == "`dump plaintext`" {
-				t.Errorf("%s line %d: table row for the deprecated `dump plaintext` alias; it belongs in the `dump bytes` reference prose",
-					d.path, r.index+1)
-			}
-		}
-	}
 
 	if _, ok := quickReferenceTable(rows, cmds); !ok {
 		t.Errorf("%s has no table whose first column lists exactly the %d help commands, each once: %v",

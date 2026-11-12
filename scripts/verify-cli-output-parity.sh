@@ -239,7 +239,7 @@ run_pair_txt() {
 # run_pair_bytes <args...> -- the byte-dump handler through both binaries, each
 # under the spelling that binary answers to: `dump bytes` on the working tree,
 # and on the baseline whichever spelling $BYTES_SPELLING_BASE probed. A baseline
-# that predates the rename knows only `dump plaintext`; one that has it knows
+# that predates the rename knows only `dump plaintext`; a 0.5.x baseline knows
 # both, and driving the deprecated spelling there would put its deprecation
 # notice on one side's stderr, which run_one captures, so every fixture would
 # differ on stderr alone. Both rows are labelled `dump bytes` so the differing

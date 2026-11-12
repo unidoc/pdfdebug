@@ -9,10 +9,6 @@ import (
 	"testing"
 )
 
-// removalVersionPattern extracts the semver a removal statement names, e.g.
-// "will be removed in 0.6.0" or "is removed in 0.6.0".
-var removalVersionPattern = regexp.MustCompile(`removed in (\d+\.\d+\.\d+)`)
-
 // commandNamePattern matches a command table's first cell. Flag rows (`--json`
 // and friends) do not match, so only the command table contributes.
 var commandNamePattern = regexp.MustCompile(`^(dump [a-z]+|validate|diff)$`)
@@ -28,97 +24,6 @@ func readRepoDoc(t *testing.T, relPath string) string {
 		t.Fatalf("%s not found: %v", relPath, err)
 	}
 	return string(content)
-}
-
-// readCLIGuide returns the CLI guide's entry page followed by each page under
-// docs/cli/, separated by blank lines so no chunk spans two pages.
-func readCLIGuide(t *testing.T) string {
-	t.Helper()
-	pages := []string{readRepoDoc(t, "docs/cli-usage.md")}
-	matches, err := filepath.Glob(filepath.Join(repoRoot, "docs", "cli", "*.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	sort.Strings(matches)
-	for _, m := range matches {
-		pages = append(pages, readRepoDoc(t, filepath.ToSlash(filepath.Join("docs", "cli", filepath.Base(m)))))
-	}
-	return strings.Join(pages, "\n\n")
-}
-
-// docChunks splits Markdown into the units a single statement occupies: a list
-// item or table row is one chunk, and a run of prose lines is joined into one
-// so a sentence that wraps across lines stays whole.
-func docChunks(content string) []string {
-	var chunks []string
-	var prose []string
-	flush := func() {
-		if len(prose) > 0 {
-			chunks = append(chunks, strings.Join(prose, " "))
-			prose = nil
-		}
-	}
-	for _, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case trimmed == "":
-			flush()
-		case strings.HasPrefix(trimmed, "- "), strings.HasPrefix(trimmed, "* "), strings.HasPrefix(trimmed, "|"):
-			flush()
-			chunks = append(chunks, trimmed)
-		default:
-			prose = append(prose, trimmed)
-		}
-	}
-	flush()
-	return chunks
-}
-
-// aliasRemovalVersions returns every removal version named by a chunk that also
-// mentions the deprecated spelling, so an unrelated deprecation elsewhere in
-// the file cannot contribute.
-func aliasRemovalVersions(content string) []string {
-	var versions []string
-	for _, chunk := range docChunks(content) {
-		if !strings.Contains(chunk, "dump plaintext") {
-			continue
-		}
-		for _, m := range removalVersionPattern.FindAllStringSubmatch(chunk, -1) {
-			versions = append(versions, m[1])
-		}
-	}
-	return versions
-}
-
-// The removal version lives in three places: the stderr notice, the CLI usage
-// guide and the changelog entry. Only the notice is pinned by an equality
-// assertion, so this ties the other two to it. The docs are matched on the
-// number alone, within the statement that names the deprecated spelling, so
-// rewording either file is free and changing the version in one place is not.
-func TestAliasRemovalVersionAgreesAcrossDocs(t *testing.T) {
-	noticeMatch := removalVersionPattern.FindStringSubmatch(deprecatedPlaintextNotice)
-	if noticeMatch == nil {
-		t.Fatalf("the deprecation notice names no removal version: %s", deprecatedPlaintextNotice)
-	}
-	noticeVersion := noticeMatch[1]
-
-	docs := map[string]string{
-		"the CLI guide (docs/cli-usage.md and docs/cli/*.md)": readCLIGuide(t),
-		"CHANGELOG.md": readRepoDoc(t, "CHANGELOG.md"),
-	}
-	for docPath, content := range docs {
-		versions := aliasRemovalVersions(content)
-		if len(versions) == 0 {
-			t.Errorf("%s names no removal version alongside the deprecated spelling; the notice announces %s and the doc has to say the same",
-				docPath, noticeVersion)
-			continue
-		}
-		for _, v := range versions {
-			if v != noticeVersion {
-				t.Errorf("%s says the alias is removed in %s, the notice says %s", docPath, v, noticeVersion)
-			}
-		}
-	}
 }
 
 // usageCommandNames returns the commands printUsage lists in its Commands

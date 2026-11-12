@@ -95,13 +95,13 @@ func (e *noticeEnv) interactive() bool {
 }
 
 // machineFormat reports whether args select an output a program reads rather
-// than a person: --json, --ops or --raw set true, dump bytes and dump
-// plaintext, and dump embedded extraction by --ref or --name. A false positive
-// only costs a notice, so an unparseable flag value counts as set. Scanning
-// stops at a bare "--".
+// than a person: --json, --ops or --raw set true, dump bytes, and dump
+// embedded extraction by --ref or --name. A false positive only costs a
+// notice, so an unparseable flag value counts as set. Scanning stops at a bare
+// "--".
 func machineFormat(args []string) bool {
 	dump := len(args) >= 2 && args[0] == "dump"
-	if dump && (args[1] == "bytes" || args[1] == "plaintext") {
+	if dump && args[1] == "bytes" {
 		return true
 	}
 	embedded := dump && args[1] == "embedded"
