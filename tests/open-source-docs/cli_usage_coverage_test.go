@@ -96,9 +96,10 @@ var (
 // written as code in the CLI guide pages or README.md names a command listed in
 // `pdfdebug --help`, with the resource straight after `dump`. Code spans are
 // matched per paragraph with whitespace collapsed, so a span that wraps across
-// lines is read whole. In fenced and indented code blocks, lines continued with
-// a trailing backslash are joined and every `pdfdebug dump` invocation is read;
-// lines without one, such as sample output, are left alone.
+// lines is read whole. In fenced code blocks, lines continued with a trailing
+// backslash are joined, within the block, and every `pdfdebug dump` invocation
+// is read; lines without one, such as sample output, are left alone. `--help`
+// and `-h` after `dump` are valid and pass.
 func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 	cmds := helpCommands(t)
 	docs := append(guideDocs(t), guideDoc{path: "README.md", lines: mdLines(readFileAtRoot(t, "README.md"))})
@@ -106,6 +107,9 @@ func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 	var bad []string
 	check := func(where string, re *regexp.Regexp, code string) {
 		for _, m := range re.FindAllStringSubmatch(code, -1) {
+			if m[1] == "--help" || m[1] == "-h" {
+				continue
+			}
 			if strings.HasPrefix(m[1], "-") {
 				bad = append(bad, fmt.Sprintf("%s: flag %s before the dump resource", where, m[1]))
 				continue
@@ -126,9 +130,15 @@ func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 			}
 		}
 		joined, start := "", 0
+		flush := func() {
+			if joined != "" {
+				check(fmt.Sprintf("%s line %d", d.path, start+1), dumpCmdRe, joined)
+				joined = ""
+			}
+		}
 		for i, l := range d.lines {
-			isCode := (l.inFence && !l.marker) || strings.HasPrefix(l.text, "    ") || strings.HasPrefix(l.text, "\t")
-			if !isCode {
+			if !l.inFence || l.marker {
+				flush()
 				continue
 			}
 			if joined == "" {
@@ -139,9 +149,10 @@ func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 				joined += cont + " "
 				continue
 			}
-			check(fmt.Sprintf("%s line %d", d.path, start+1), dumpCmdRe, joined+text)
-			joined = ""
+			joined += text
+			flush()
 		}
+		flush()
 	}
 	if len(bad) > 0 {
 		t.Errorf("docs write dump commands pdfdebug --help does not list %v:\n  %s",
