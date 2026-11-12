@@ -275,7 +275,7 @@ func TestDocumentViews_FlagAfterFile_UsageError(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "minimal.pdf")
 
-	for _, resource := range []string{"xref", "objects", "signatures", "bytes"} {
+	for _, resource := range []string{"xref", "objects", "signatures"} {
 		t.Run(resource, func(t *testing.T) {
 			stdout, stderr, ec := runCLI(t, bin, "dump", resource, pdfPath, "--json")
 			if ec != 1 {

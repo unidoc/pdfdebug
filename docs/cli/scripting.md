@@ -54,7 +54,9 @@ fail on those has to read `summary.warnings` and `summary.info` from `--json`.
 - 2 - operational or usage error.
 
 `pdfdebug` with no arguments or an unknown command prints the help and exits
-1; `dump` with no resource prints its one-line usage and also exits 1.
+1; `dump` with no resource prints its one-line usage and also exits 1; `dump`
+with an unknown resource prints `Unknown resource: <name>` and the help, and
+exits 1.
 `pdfdebug --help` exits 0, but `--help` on a subcommand exits non-zero: 1 for
 `dump`, 2 for `validate` and `diff`.
 

@@ -82,22 +82,39 @@ func TestCLIUsageGuideCommandsAreDispatched(t *testing.T) {
 	}
 }
 
-var dumpMentionRe = regexp.MustCompile(`\bdump\s+([a-z]+)\b`)
+var (
+	// dumpSpanRe matches `dump` as a whole word after the span start or
+	// whitespace, so `-dump heap` or `core.dump file` are not read as commands.
+	dumpSpanRe = regexp.MustCompile(`(?:^|\s)dump\s+(\S+)`)
+	// dumpCmdRe matches a pdfdebug dump invocation anywhere on a code line,
+	// including ./pdfdebug, $(pdfdebug ...), env prefixes and pipes.
+	dumpCmdRe  = regexp.MustCompile(`\bpdfdebug\s+dump\s+(\S+)`)
+	resourceRe = regexp.MustCompile(`^[a-z]+`)
+)
 
-// TestCLIUsageGuideDumpMentionsNameHelpCommands asserts every `dump <resource>`
+// TestCLIUsageGuideDumpMentionsNameHelpCommands asserts every dump command
 // written as code in the CLI guide pages or README.md names a command listed in
-// `pdfdebug --help`. Code spans are matched per paragraph with whitespace
-// collapsed, so a span that wraps across lines is read whole. In fenced and
-// indented code blocks only command lines starting with `pdfdebug` are read, so
-// shell comments and sample output are left alone.
+// `pdfdebug --help`, with the resource straight after `dump`. Code spans are
+// matched per paragraph with whitespace collapsed, so a span that wraps across
+// lines is read whole. In fenced and indented code blocks, lines continued with
+// a trailing backslash are joined and every `pdfdebug dump` invocation is read;
+// lines without one, such as sample output, are left alone.
 func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 	cmds := helpCommands(t)
 	docs := append(guideDocs(t), guideDoc{path: "README.md", lines: mdLines(readFileAtRoot(t, "README.md"))})
 
 	var bad []string
-	check := func(where, code string) {
-		for _, m := range dumpMentionRe.FindAllStringSubmatch(code, -1) {
-			if c := "dump " + m[1]; !slices.Contains(cmds, c) {
+	check := func(where string, re *regexp.Regexp, code string) {
+		for _, m := range re.FindAllStringSubmatch(code, -1) {
+			if strings.HasPrefix(m[1], "-") {
+				bad = append(bad, fmt.Sprintf("%s: flag %s before the dump resource", where, m[1]))
+				continue
+			}
+			r := resourceRe.FindString(m[1])
+			if r == "" {
+				continue // a placeholder such as <resource>
+			}
+			if c := "dump " + r; !slices.Contains(cmds, c) {
 				bad = append(bad, fmt.Sprintf("%s: %s", where, c))
 			}
 		}
@@ -105,21 +122,29 @@ func TestCLIUsageGuideDumpMentionsNameHelpCommands(t *testing.T) {
 	for _, d := range docs {
 		for _, p := range paragraphs(d.lines) {
 			for _, span := range codeSpanRe.FindAllString(strings.Join(strings.Fields(p), " "), -1) {
-				check(d.path+" code span "+span, span)
+				check(d.path+" code span "+span, dumpSpanRe, strings.Trim(span, "`"))
 			}
 		}
+		joined, start := "", 0
 		for i, l := range d.lines {
-			if !l.inFence && !strings.HasPrefix(l.text, "    ") && !strings.HasPrefix(l.text, "\t") {
+			isCode := (l.inFence && !l.marker) || strings.HasPrefix(l.text, "    ") || strings.HasPrefix(l.text, "\t")
+			if !isCode {
 				continue
 			}
-			cmd := strings.TrimPrefix(strings.TrimSpace(l.text), "$ ")
-			if strings.HasPrefix(cmd, "pdfdebug ") {
-				check(fmt.Sprintf("%s line %d", d.path, i+1), cmd)
+			if joined == "" {
+				start = i
 			}
+			text := strings.TrimSpace(l.text)
+			if cont, ok := strings.CutSuffix(text, "\\"); ok {
+				joined += cont + " "
+				continue
+			}
+			check(fmt.Sprintf("%s line %d", d.path, start+1), dumpCmdRe, joined+text)
+			joined = ""
 		}
 	}
 	if len(bad) > 0 {
-		t.Errorf("docs name dump resources pdfdebug --help does not list %v:\n  %s",
+		t.Errorf("docs write dump commands pdfdebug --help does not list %v:\n  %s",
 			cmds, strings.Join(bad, "\n  "))
 	}
 }
