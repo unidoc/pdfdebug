@@ -1,18 +1,26 @@
 package pdfcore
 
 import (
+	"bytes"
 	"cmp"
+	"compress/flate"
+	"compress/zlib"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash/adler32"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -132,6 +140,127 @@ func NewInspector() *Inspector {
 	}
 }
 
+// decodeObjectStreamObjects replaces every object pdfcpu left as a lazy
+// object-stream placeholder with the decoded object, so walkers that read
+// XRefTable entries directly see the object and not the placeholder. An entry
+// that fails to decode keeps its placeholder; dereferencing it later reports
+// the same error. It reports whether any failure was a broken Adler-32
+// checksum.
+func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed bool) {
+	for objNr, entry := range xrt.Table {
+		if entry == nil || entry.Free {
+			continue
+		}
+		if _, lazy := entry.Object.(pdfcpu_types.LazyObjectStreamObject); !lazy {
+			continue
+		}
+		gen := 0
+		if entry.Generation != nil {
+			gen = *entry.Generation
+		}
+		err := safeCall(func() error {
+			_, err := xrt.Dereference(*pdfcpu_types.NewIndirectRef(objNr, gen))
+			return err
+		})
+		if errors.Is(err, zlib.ErrChecksum) {
+			checksumFailed = true
+		}
+	}
+	return checksumFailed
+}
+
+// readPDF parses r with pdfcpu, without its validator, and decodes every
+// object-stream object. It reports whether an object stream failed on a
+// broken Adler-32 checksum, either in the parse or in the decode.
+func readPDF(r io.ReadSeeker) (ctx *pdfcpu_model.Context, checksumFailed bool, err error) {
+	err = safeCall(func() error {
+		var e error
+		ctx, e = pdfcpu_api.ReadContext(context.Background(), r, pdfcpu_model.NewDefaultConfiguration())
+		return e
+	})
+	if err != nil {
+		return nil, errors.Is(err, zlib.ErrChecksum), err
+	}
+	return ctx, decodeObjectStreamObjects(ctx.XRefTable), nil
+}
+
+// objectStreamType matches the /Type entry of an object stream dictionary.
+var objectStreamType = regexp.MustCompile(`/Type\s*/ObjStm\b`)
+
+// fixObjectStreamChecksums returns a copy of data in which every zlib-wrapped
+// object stream whose inflated bytes are intact but whose Adler-32 trailer is
+// wrong carries the correct trailer.
+// Only the four checksum bytes change, so every offset stays valid. ok is
+// false when no trailer was changed. Each stream is inflated at most once, and
+// budget caps the bytes inflated across all of them; the scan stops once it is
+// spent.
+func fixObjectStreamChecksums(data []byte, budget int64) (fixed []byte, ok bool) {
+	fixed = bytes.Clone(data)
+	// Each search starts past the stream keyword or endobj the previous match
+	// resolved to, so every byte is scanned a bounded number of times and a
+	// stream is reached once however many /Type /ObjStm entries precede it.
+	for pos := 0; pos < len(data); {
+		loc := objectStreamType.FindIndex(data[pos:])
+		if loc == nil {
+			break
+		}
+		after := pos + loc[1]
+		rest := data[after:]
+		kw := bytes.Index(rest, []byte("stream"))
+		if kw < 0 {
+			break
+		}
+		if end := bytes.LastIndex(rest[:kw], []byte("endobj")); end >= 0 {
+			pos = after + end + len("endobj")
+			continue
+		}
+		start := after + kw + len("stream")
+		pos = start
+		if start < len(data) && data[start] == '\r' {
+			start++
+		}
+		if start < len(data) && data[start] == '\n' {
+			start++
+		}
+		n, changed := fixZlibChecksum(fixed[start:], budget)
+		ok = ok || changed
+		if budget -= n; budget <= 0 {
+			break
+		}
+	}
+	return fixed, ok
+}
+
+// fixZlibChecksum rewrites the Adler-32 trailer of the zlib stream at the
+// start of b when the deflate data inflates cleanly to at most limit bytes and
+// the trailer does not match. A stream whose deflate data runs straight into
+// the endstream keyword has no trailer and is left alone. It returns the
+// number of bytes inflated and whether it changed b.
+func fixZlibChecksum(b []byte, limit int64) (inflated int64, changed bool) {
+	if len(b) < 2 || b[0]&0x0f != 8 || b[1]&0x20 != 0 || (uint16(b[0])<<8|uint16(b[1]))%31 != 0 {
+		return 0, false
+	}
+	// bytes.Reader is an io.ByteReader, so flate reads no further than the
+	// end of the deflate data and br.Len() locates the trailer.
+	br := bytes.NewReader(b[2:])
+	h := adler32.New()
+	n, err := io.Copy(h, io.LimitReader(flate.NewReader(br), limit+1))
+	if err != nil || n > limit {
+		return n, false
+	}
+	trailer := len(b) - br.Len()
+	if trailer+4 > len(b) || binary.BigEndian.Uint32(b[trailer:]) == h.Sum32() {
+		return n, false
+	}
+	// A stream written without its trailer has the endstream keyword, or the
+	// EOL before it, where the trailer would be; those bytes are left alone.
+	if kw := bytes.Index(b[trailer:min(len(b), trailer+4+len("endstream"))], []byte("endstream")); kw >= 0 && kw < 4 {
+		return n, false
+	}
+	binary.BigEndian.PutUint32(b[trailer:], h.Sum32())
+	return n, true
+}
+
 // Open parses a PDF file and registers it under the given tab ID. Returns
 // document metadata including page count and file size.
 func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
@@ -157,12 +286,32 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	}
 	fingerprint := newFileFingerprint(fi)
 
+	// The file is parsed without pdfcpu's validator: the validator refuses
+	// files that parse and repairs objects in place, and the inspector shows
+	// the file as written. ReadContext reads every object into memory, object
+	// streams included, so the handle is not used after it returns.
 	var ctx *pdfcpu_model.Context
-	err = safeCall(func() error {
-		var e error
-		ctx, e = pdfcpu_api.ReadContextFile(filePath)
-		return e
-	})
+	var checksumFailed bool
+	f, err := os.Open(filePath)
+	if err == nil {
+		ctx, checksumFailed, err = readPDF(f)
+		_ = f.Close()
+	}
+	// pdfcpu refuses an object stream whose Adler-32 trailer is wrong although
+	// its data inflates. Such a file is parsed again from an in-memory copy
+	// with only those trailers corrected, so its objects stay readable.
+	if checksumFailed {
+		if data, e := os.ReadFile(filePath); e == nil {
+			if fixed, ok := fixObjectStreamChecksums(data, filter.DefaultMaxDecodeBytes); ok {
+				if c, _, e := readPDF(bytes.NewReader(fixed)); e == nil {
+					// The context keeps its reader, which is not read after
+					// the parse; an empty one lets the copy be freed.
+					c.Read.RS = bytes.NewReader(nil)
+					ctx, err = c, nil
+				}
+			}
+		}
+	}
 	if err != nil {
 		// The file vanished between the stat and the parse (a delete-then-write
 		// save), or another process holds it without read sharing.
@@ -178,8 +327,16 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 
 	var warning string
 	pageCount := 0
+	// EnsurePageCount reads the root /Count as written; a negative one is as
+	// unusable as a missing one.
 	err = safeCall(func() error {
-		return ctx.XRefTable.EnsurePageCount()
+		if e := ctx.XRefTable.EnsurePageCount(); e != nil {
+			return e
+		}
+		if ctx.PageCount < 0 {
+			return fmt.Errorf("root /Count is %d", ctx.PageCount)
+		}
+		return nil
 	})
 	if err != nil {
 		warning = "This PDF has structural errors. Some objects may display incorrectly."

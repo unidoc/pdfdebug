@@ -45,8 +45,9 @@ func TestNoNumberedSuiteDirectories(t *testing.T) {
 // The test is on the run, not on a position: an earlier version anchored to the
 // _test.go tail, which let 12_3_wire_shape_test.go and wire_12_3_shape_test.go
 // through. A version is what makes the run rather than the position the thing to
-// look at, since pdfcpu_0_12_1_bump_test.go has to stay legal - so a run has to be
-// exactly two numbers long to count, and each of them at most two digits wide.
+// look at, since a file named after a three-part version has to stay legal - so
+// a run has to be exactly two numbers long to count, and each of them at most
+// two digits wide.
 // That keeps a three-part version out by length, a single build number out by
 // length, and a four-digit standard number such as iso_8859_1 out by width.
 func hasEpicStoryNumberPair(name string) bool {

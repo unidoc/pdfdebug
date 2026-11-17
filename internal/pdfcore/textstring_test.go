@@ -15,12 +15,11 @@ import (
 // --- shared expectations ----------------------------------------------------
 
 const (
-	// utf16TitleHex is UTF-16BE-with-BOM for utf16TitleText. No 0x5C byte
-	// (pdfcpu's HexLiteralToString silently swallows one).
+	// utf16TitleHex is UTF-16BE-with-BOM for utf16TitleText.
 	utf16TitleHex  = "FEFF0052006500630068006E0075006E006700200047007200F600DF006500204E2D6587"
 	utf16TitleText = "Rechnung Größe 中文"
 
-	// utf16UFHex is UTF-16BE-with-BOM for utf16UFText, likewise 0x5C-free.
+	// utf16UFHex is UTF-16BE-with-BOM for utf16UFText.
 	utf16UFHex  = "FEFF0067007200F600DF0065002D4E2D6587002E0078006D006C"
 	utf16UFText = "größe-中文.xml"
 
@@ -94,9 +93,8 @@ func textStringFilespecPDF(ufObj string) []byte {
 	}, 1, 0)
 }
 
-// The decoder's per-literal-type semantics as
-// exact bytes. Pins what pdfcpu does so the Latin-1 fallback is not "fixed"
-// into a CP1252 or PDFDocEncoding table.
+// The decoder's UTF-16BE, passthrough and failure cases as exact bytes.
+// TestDecodeTextString_PDFDocEncodingTable covers the PDFDocEncoding cases.
 
 func TestDecodeTextString_SemanticsTable(t *testing.T) {
 	tests := []struct {
@@ -116,20 +114,6 @@ func TestDecodeTextString_SemanticsTable(t *testing.T) {
 			in:   pdfcpu_types.HexLiteral("FEFF00E9"),
 			want: "é",
 			why:  "same UTF-16BE branch, BMP Latin-1 supplement codepoint",
-		},
-		{
-			name: "high byte on StringLiteral takes the LATIN-1 fallback",
-			in:   pdfcpu_types.StringLiteral("\x80"),
-			want: "\u0080", // U+0080, written as an escape so the source stays ASCII
-			why: "pdfcpu's CP1252ToUTF8 (types/string.go:218) is a misnamed " +
-				"byte->codepoint identity map. NOT U+20AC (CP1252), NOT U+2022 (PDFDoc)",
-		},
-		{
-			name: "high byte on HexLiteral gets NO fallback",
-			in:   pdfcpu_types.HexLiteral("80"),
-			want: "\x80",
-			why: "HexLiteralToString (utf16.go:147) returns non-UTF16 bytes verbatim; " +
-				"the result is deliberately invalid UTF-8",
 		},
 		{
 			name: "plain ASCII StringLiteral is unchanged",
@@ -165,20 +149,6 @@ func TestDecodeTextString_SemanticsTable(t *testing.T) {
 					tc.in, tc.in, got, []byte(got), tc.want, []byte(tc.want), tc.why)
 			}
 		})
-	}
-}
-
-// "BOM + odd trailing byte" does NOT error - it
-// skips the UTF-16 branch and returns non-empty bytes. Not a fallback case.
-
-func TestDecodeTextString_BOMWithOddTrailingByteDoesNotError(t *testing.T) {
-	got := decodeTextString(pdfcpu_types.HexLiteral("FEFF005469"))
-	if got != "\xfe\xff\x00Ti" {
-		t.Errorf("got %q (% x), want the raw bytes \"\\xfe\\xff\\x00Ti\"",
-			got, []byte(got))
-	}
-	if got == "" {
-		t.Errorf("this input must NOT produce \"\" -- do not use it as the fallback case")
 	}
 }
 
@@ -327,32 +297,6 @@ func TestStringValue_StaysRaw(t *testing.T) {
 	}
 }
 
-// A decode that succeeds but yields invalid UTF-8
-// falls back to raw, so the bytes never reach json.Marshal to become U+FFFD.
-
-func TestTextStringOrRaw_InvalidUTF8FallsBackToRaw(t *testing.T) {
-	const badHex = "80CAFE" // not UTF-16BE (no BOM), not valid UTF-8
-
-	// Precondition: pdfcpu reports SUCCESS here, returning the bytes verbatim.
-	decoded, ok := decodeTextStringOK(pdfcpu_types.HexLiteral(badHex))
-	if !ok {
-		t.Fatalf("HexLiteral(%q) was expected to decode without error", badHex)
-	}
-	if utf8.ValidString(decoded) {
-		t.Fatalf("HexLiteral(%q) decoded to valid UTF-8 %q; this case no longer exercises the guard",
-			badHex, decoded)
-	}
-
-	got := textStringOrRaw(pdfcpu_types.HexLiteral(badHex))
-	if got != badHex {
-		t.Errorf("textStringOrRaw(HexLiteral(%q)) = %q (% x), want the raw rendering %q -- invalid UTF-8 must not reach the JSON surface",
-			badHex, got, []byte(got), badHex)
-	}
-	if !utf8.ValidString(got) {
-		t.Errorf("result %q is still invalid UTF-8; json.Marshal would replace it with U+FFFD", got)
-	}
-}
-
 // All six /Info text keys decode, not just /Title.
 
 func TestCollectInfoFields_AllSixTextKeysDecode(t *testing.T) {
@@ -397,8 +341,8 @@ func TestScalarRaw_TextBytesStillRenderRaw(t *testing.T) {
 
 // The raw-fallback branch is UTF-8-validated too,
 // and renders as hex digits when it is not.
-// TestTextStringOrRaw_InvalidUTF8FallsBackToRaw uses a HexLiteral, whose raw
-// form is already ASCII, so it does not cover this branch.
+// TestTextStringOrRaw_UndecodableStringWithInvalidRawBytesShowsHex uses a
+// HexLiteral, whose raw form is already ASCII, so it does not cover this branch.
 
 func TestTextStringOrRaw_RawFallbackIsAlwaysValidUTF8(t *testing.T) {
 	// BOM + unpaired low surrogate, carried as a literal rather than as hex.

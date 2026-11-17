@@ -124,7 +124,7 @@ When Apple Developer Program enrollment is set up, this section will be removed 
 
 ### Prerequisites
 
-- Go 1.27.x (1.27.3 or later)
+- Go 1.27.x (1.27.4 or later, for the `net/http` fix in GO-2026-6859)
 - Node.js 20 LTS (CI pin; matches release artifacts)
 - Wails v3 CLI `v3.0.0`
 

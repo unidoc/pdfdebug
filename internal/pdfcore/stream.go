@@ -304,7 +304,7 @@ func (d *DocumentState) decodeContentStreamLocked(nodeID string) (raw string, de
 
 	// Decode the stream inside safeCall (pdfcpu can panic).
 	if err := safeCall(func() error {
-		return sd.Decode()
+		return decodeStream(&sd)
 	}); err != nil {
 		return "", fmt.Sprintf("failed to decode stream: %v", err), nil
 	}

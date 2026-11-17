@@ -272,7 +272,7 @@ func TestCCITTDecodedSizeMatchesRealDecode(t *testing.T) {
 		FilterPipeline: []pdfcpu_types.PDFFilter{{Name: "CCITTFaxDecode", DecodeParms: parms}},
 		Raw:            raw,
 	}
-	if err := sd.Decode(); err != nil {
+	if err := sd.DecodeWithLimit(filter.DefaultMaxDecodeBytes); err != nil {
 		t.Fatalf("pdfcpu could not decode the CCITT fixture: %v", err)
 	}
 	if int64(len(sd.Content)) != modelled {

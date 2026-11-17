@@ -2,6 +2,7 @@ package testdata_test
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -896,7 +897,7 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("failed to create minimal.pdf: %v", err)
 		}
 		// Verify pdfcpu can read it
-		ctx, err := pdfcpu_api.ReadContextFile("minimal.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "minimal.pdf")
 		if err != nil {
 			os.Remove("minimal.pdf")
 			t.Fatalf("minimal.pdf is not valid according to pdfcpu: %v", err)
@@ -911,7 +912,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("multipage.pdf", multipagePDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create multipage.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("multipage.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "multipage.pdf")
 		if err != nil {
 			os.Remove("multipage.pdf")
 			t.Fatalf("multipage.pdf is not valid according to pdfcpu: %v", err)
@@ -926,7 +927,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("content-stream.pdf", contentStreamPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create content-stream.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("content-stream.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "content-stream.pdf")
 		if err != nil {
 			os.Remove("content-stream.pdf")
 			t.Fatalf("content-stream.pdf is not valid according to pdfcpu: %v", err)
@@ -941,7 +942,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("empty-stream.pdf", emptyStreamPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create empty-stream.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("empty-stream.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "empty-stream.pdf")
 		if err != nil {
 			os.Remove("empty-stream.pdf")
 			t.Fatalf("empty-stream.pdf is not valid according to pdfcpu: %v", err)
@@ -970,7 +971,7 @@ func TestGenerateFixtures(t *testing.T) {
 			}
 		}
 		conf := pdfcpu_model.NewAESConfiguration("testpass", "ownerpass", 256)
-		if err := pdfcpu_api.EncryptFile("minimal.pdf", "encrypted.pdf", conf); err != nil {
+		if err := pdfcpu_api.EncryptFile(context.Background(), "minimal.pdf", "encrypted.pdf", conf); err != nil {
 			t.Fatalf("failed to create encrypted.pdf: %v", err)
 		}
 	})
@@ -983,7 +984,7 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("failed to create fonts-mixed.pdf: %v", err)
 		}
 		// Verify pdfcpu can read it.
-		ctx, err := pdfcpu_api.ReadContextFile("fonts-mixed.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "fonts-mixed.pdf")
 		if err != nil {
 			os.Remove("fonts-mixed.pdf")
 			t.Fatalf("fonts-mixed.pdf is not valid according to pdfcpu: %v", err)
@@ -998,7 +999,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("image-xobject.pdf", imageXObjectPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create image-xobject.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("image-xobject.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "image-xobject.pdf")
 		if err != nil {
 			os.Remove("image-xobject.pdf")
 			t.Fatalf("image-xobject.pdf is not valid according to pdfcpu: %v", err)
@@ -1046,7 +1047,7 @@ func TestGenerateFixtures(t *testing.T) {
 			if err := os.WriteFile(fx.name, fx.content(t), 0644); err != nil {
 				t.Fatalf("failed to create %s: %v", fx.name, err)
 			}
-			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			ctx, err := pdfcpu_api.ReadContextFile(context.Background(), fx.name)
 			if err != nil {
 				os.Remove(fx.name)
 				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)
@@ -1084,7 +1085,7 @@ func TestGenerateFixtures(t *testing.T) {
 			if err := os.WriteFile(fx.name, fx.content(), 0644); err != nil {
 				t.Fatalf("failed to create %s: %v", fx.name, err)
 			}
-			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			ctx, err := pdfcpu_api.ReadContextFile(context.Background(), fx.name)
 			if err != nil {
 				os.Remove(fx.name)
 				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)

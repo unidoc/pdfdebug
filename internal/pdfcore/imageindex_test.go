@@ -20,10 +20,10 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// Shapes pdfcpu's validator refuses at Open (a /PS XObject, a direct or
-// non-stream /XObject entry, a non-integer /Width) are read with
-// openUnvalidated and registered under a tab directly; the rest also go
-// through Inspector.Open where a test needs the validated path.
+// Malformed shapes (a /PS XObject, a direct or non-stream /XObject entry, a
+// non-integer /Width) are read in memory with openUnvalidated and registered
+// under a tab directly; the rest also go through Inspector.Open where a test
+// needs a file on disk.
 
 // imgStream renders a stream object body with dict entries and a matching
 // /Length.

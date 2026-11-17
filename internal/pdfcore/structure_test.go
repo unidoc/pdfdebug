@@ -36,8 +36,8 @@ func getStructure(t *testing.T, ins *Inspector, tabID string) *StructureReport {
 	return r
 }
 
-// rawStructure runs GetStructure on an in-memory document read without
-// pdfcpu validation.
+// rawStructure runs GetStructure on an in-memory document read with
+// openUnvalidated.
 func rawStructure(t *testing.T, pdf []byte) *StructureReport {
 	t.Helper()
 	ins, _ := openUnvalidated(t, pdf)
@@ -527,7 +527,7 @@ func TestGetStructure_UnknownTab(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Caps, cycles and shapes pdfcpu rejects at open (in-memory, unvalidated)
+// Caps, cycles and malformed shapes (in-memory, via openUnvalidated)
 // ---------------------------------------------------------------------------
 
 // chainBottom follows the only kid of each element from the top and returns

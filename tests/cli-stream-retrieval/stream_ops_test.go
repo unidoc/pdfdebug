@@ -363,8 +363,7 @@ func TestStreamOps_DoUnknownName_EmitsWithoutResourceType(t *testing.T) {
 // naming "/No0", which IS present in the page's /Resources/XObject but resolves
 // to an XObject carrying NO /Subtype. classifyDo finds the entry but its subtype
 // matches neither Image nor Form, exercising the switch-default branch -- the op
-// must emit WITHOUT resourceType (and not mislabel). (A /PS subtype cannot be
-// used: pdfcpu rejects a PostScript XObject as malformed at open time.)
+// must emit WITHOUT resourceType (and not mislabel).
 func otherSubtypeDoPDF() []byte {
 	pdf := "%PDF-1.4\n"
 	pageStream := "q /No0 Do Q\n"

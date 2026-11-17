@@ -33,6 +33,8 @@
 package pdfcore
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +43,7 @@ import (
 	"time"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -206,10 +209,10 @@ func openTwoForDiff(t *testing.T, leftName string, left []byte, rightName string
 	if err := os.WriteFile(rp, right, 0o644); err != nil {
 		t.Fatalf("write right fixture: %v", err)
 	}
-	if _, err := pdfcpu_api.ReadContextFile(lp); err != nil {
+	if _, err := pdfcpu_api.ReadContext(context.Background(), bytes.NewReader(left), pdfcpu_model.NewDefaultConfiguration()); err != nil {
 		t.Fatalf("left fixture %s rejected by pdfcpu: %v", leftName, err)
 	}
-	if _, err := pdfcpu_api.ReadContextFile(rp); err != nil {
+	if _, err := pdfcpu_api.ReadContext(context.Background(), bytes.NewReader(right), pdfcpu_model.NewDefaultConfiguration()); err != nil {
 		t.Fatalf("right fixture %s rejected by pdfcpu: %v", rightName, err)
 	}
 	ins := NewInspector()
@@ -961,15 +964,6 @@ func TestScalarLeaf_ByteDifferentStringsThatDecodeAlikeShowTheirBytes(t *testing
 			right:     pdfcpu_types.StringLiteral("A"),
 			wantLeft:  "<FEFF0041>",
 			wantRight: "(A)",
-		},
-		{
-			// pdfcpu unescapes already-decoded hex bytes, so the 0x5C is
-			// dropped and both sides decode to "AB".
-			name:      "hex escape quirk collapses two different blobs",
-			left:      pdfcpu_types.HexLiteral("415C42"),
-			right:     pdfcpu_types.HexLiteral("4142"),
-			wantLeft:  "<415C42>",
-			wantRight: "<4142>",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

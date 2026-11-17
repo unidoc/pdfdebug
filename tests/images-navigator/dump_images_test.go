@@ -511,7 +511,7 @@ func TestHelpListsDumpImagesAndSaysInlineImagesAreNotListed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Walk rules whose fixtures pdfcpu refuses or rewrites at open (a /PS XObject,
+// Walk rules whose fixtures are built in memory (a /PS XObject,
 // a direct or non-stream /XObject entry, a non-integer /Width, an Indexed image
 // with an explicit /Decode), the lowered walk budget, a facts read that panics,
 // the cache, a re-Open, concurrency, node-id resolution of every listed image,

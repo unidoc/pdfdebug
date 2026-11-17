@@ -106,7 +106,8 @@ func TestEscaping_ControlCharactersKeepOneNodeOnOneLine(t *testing.T) {
 		"Tab":        `Tab string = a\tb`,
 		"Backslash2": `Backslash2 string = a\\b`,
 		"Nul":        `Nul string = a\x00b`,
-		"Curly":      `Curly string = don\x92t`,
+		"C1":         `C1 string = don\x92t`,
+		"Curly":      "Curly string = don\u2122t",
 	}
 	for key, row := range want {
 		if !hasLine(out, row) {
@@ -157,7 +158,8 @@ func TestEscaping_JSONCarriesTheUnescapedString(t *testing.T) {
 		"/Tab":        "a\tb",
 		"/Backslash2": `a\b`,
 		"/Nul":        "a\x00b",
-		"/Curly":      "don\u0092t",
+		"/C1":         "don\u0092t",
+		"/Curly":      "don\u2122t",
 	}
 	for key, want := range cases {
 		if got := mustValue(t, nodeAt(t, controls, key)); got != want {

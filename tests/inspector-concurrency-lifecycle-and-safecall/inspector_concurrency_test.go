@@ -26,7 +26,7 @@ import (
 )
 
 // projectRoot walks up from cwd until it finds the project go.mod (module
-// unidoc-pdf-debugger). Mirrors the pattern in tests/pdfcpu-0-12-1-bump/.
+// unidoc-pdf-debugger). Mirrors the pattern in tests/pdfcpu-version-pin/.
 func projectRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()

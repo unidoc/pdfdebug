@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"maps"
 	"math"
 	"strconv"
 	"strings"
@@ -174,14 +175,14 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 		lastFilter = sd.FilterPipeline[len(sd.FilterPipeline)-1].Name
 	}
 
-	// Set CSComponents before Decode for DCT streams. The lookup asserts types and
-	// dereferences unchecked, so a colour space it cannot read faults it, and
-	// safeCall re-panics a runtime error by design. Absorbing it here keeps one
-	// unreadable image to a per-image error instead of ending the request. A
-	// well-formed document can reach this: a /DeviceN whose colorant array is an
-	// indirect reference opens cleanly and then fails the Array assertion. The
-	// message is HELD rather than returned here, so the sample-interpretation
-	// block below still runs for an image whose dictionary was read.
+	// Set CSComponents before Decode for DCT streams. The lookup answers a
+	// colour space it cannot read, such as a /DeviceN whose colorant array is a
+	// dangling reference, with an error; the recover guards against a shape that
+	// still faults it, since safeCall re-panics a runtime error by design.
+	// Either way one unreadable image stays a per-image error instead of ending
+	// the request. The message is HELD rather than returned here, so the
+	// sample-interpretation block below still runs for an image whose
+	// dictionary was read.
 	csFailure := ""
 	if lastFilter == "DCTDecode" {
 		err = func() (err error) {
@@ -349,6 +350,7 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	var reader io.Reader
 	var format string
 	err = safeCall(func() error {
+		dropNullSMask(xrt, &sd)
 		var e error
 		reader, format, e = pdfcpu_render.RenderImage(xrt, &sd, false, "", objNr)
 		return e
@@ -425,6 +427,27 @@ func (ins *Inspector) renderImage(ctx context.Context, tabID, nodeID string) (*I
 	}
 
 	return result, imgBytes, format, nil
+}
+
+// dropNullSMask points sd at a copy of its dictionary without /SMask when the
+// /SMask reference resolves to the null object (a missing, free or null
+// entry), which ISO 32000-1 7.3.10 treats as no soft mask. pdfcpu's renderer
+// dereferences such a reference to a nil stream and faults on it. The
+// document's own dictionary is left unchanged.
+func dropNullSMask(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict) {
+	obj, found := sd.Find("SMask")
+	if !found {
+		return
+	}
+	if _, isRef := obj.(pdfcpu_types.IndirectRef); !isRef {
+		return
+	}
+	if resolved, err := xrt.Dereference(obj); err != nil || resolved != nil {
+		return
+	}
+	d := maps.Clone(sd.Dict)
+	delete(d, "SMask")
+	sd.Dict = d
 }
 
 // readSMaskRef reports the image /SMask as presence plus its object reference,
@@ -564,11 +587,13 @@ func declaredComponents(xrt *pdfcpu_model.XRefTable, sd *pdfcpu_types.StreamDict
 	}
 	components = unknownFallback
 	// Absorb panics as well as errors, via the named return so a recovered panic
-	// yields the fallback rather than a zero. pdfcpu's lookup asserts types and
-	// dereferences without checking, so a colour space it cannot read faults it,
-	// and safeCall re-panics a runtime error by design. Absorbing is safe HERE and
-	// nowhere else in this file: the result is only a size hint, every failure
-	// answers with the fallback, and no byte returned to the caller depends on it.
+	// yields the fallback rather than a zero. pdfcpu's lookup answers the
+	// malformed and unresolvable colour spaces known to have faulted it with an
+	// error, which takes the fallback below; the recover guards against a shape
+	// that still faults it, since the input is untrusted and safeCall re-panics a
+	// runtime error by design. Absorbing is safe HERE and nowhere else in this
+	// file: the result is only a size hint, every failure answers with the
+	// fallback, and no byte returned to the caller depends on it.
 	defer func() {
 		if recover() != nil {
 			components = unknownFallback

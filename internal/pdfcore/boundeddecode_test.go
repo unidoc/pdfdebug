@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -632,10 +633,10 @@ func TestDecodeBounded_SoleASCII85FarBelowLimitReturnsDecodedBytes(t *testing.T)
 	}
 }
 
-// pdfcpu tolerates a broken Adler-32 and hands back the bytes it inflated, so a
-// stream whose checksum is corrupt but whose payload fits is in bounds. The
-// count reads the same bytes and stops where pdfcpu's output stops, so the
-// corruption does not turn into a ceiling rejection.
+// decodeStream keeps the bytes a Flate stage inflated when its only fault is a
+// broken Adler-32, so a stream whose checksum is corrupt but whose payload fits
+// is in bounds. The count reads the same bytes and stops where that output
+// stops, so the corruption does not turn into a ceiling rejection.
 func TestDecodeBounded_BrokenChecksumInBoundsStreamIsNotRejected(t *testing.T) {
 	const limit = int64(50 * 1024 * 1024)
 	const size = 40 * 1024 * 1024
@@ -812,7 +813,7 @@ func TestLZWFixtureRoundTripsThroughTheDecoder(t *testing.T) {
 	payload := bytes.Repeat([]byte("round-trip-"), 4096)
 	sd := lzwStream(t, payload)
 
-	if err := safeCall(func() error { return sd.Decode() }); err != nil {
+	if err := safeCall(func() error { return sd.DecodeWithLimit(filter.DefaultMaxDecodeBytes) }); err != nil {
 		t.Fatalf("fixture does not decode: %v", err)
 	}
 	if !bytes.Equal(sd.Content, payload) {
@@ -820,8 +821,8 @@ func TestLZWFixtureRoundTripsThroughTheDecoder(t *testing.T) {
 	}
 }
 
-// LZWDecode is counted through hhrutter/lzw, the same decoder pdfcpu wraps, so
-// its in-bounds path needs its own pin.
+// LZWDecode is counted through internal/lzwdecode, a copy of pdfcpu's own LZW
+// decoder, so its in-bounds path needs its own pin.
 func TestDecodeBounded_SoleLZWInBoundsReturnsDecodedBytes(t *testing.T) {
 	const limit = int64(64 * 1024)
 	payload := bytes.Repeat([]byte("lzw-payload-"), 512)
@@ -1038,7 +1039,7 @@ func TestDecodeBounded_ASCII85ZeroRunInflatesAndIsRejected(t *testing.T) {
 // premise "ASCII85 output is always smaller than its input" is false.
 func TestASCII85ZeroRunExpandsFourfold(t *testing.T) {
 	sd := ascii85ZeroRunStream(100_000)
-	if err := safeCall(func() error { return sd.Decode() }); err != nil {
+	if err := safeCall(func() error { return sd.DecodeWithLimit(filter.DefaultMaxDecodeBytes) }); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if want := 400_000; len(sd.Content) != want {

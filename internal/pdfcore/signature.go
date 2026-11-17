@@ -239,8 +239,9 @@ func collectSignatures(doc *DocumentState, sink *[]SignatureBytes) []SignatureFi
 		return sigs
 	}
 	hr := &holeRead{}
+	seen := map[int]bool{}
 	for _, elem := range dereferenceArray(doc, acro["Fields"]) {
-		walkSignatureField(doc, hr, elem, "", "", 0, &sigs, sink)
+		walkSignatureField(doc, hr, elem, "", "", 0, seen, &sigs, sink)
 	}
 	return sigs
 }
@@ -249,13 +250,20 @@ func collectSignatures(doc *DocumentState, sink *[]SignatureBytes) []SignatureFi
 // kid walk (inheritedFT); a kid carrying its own /T is a child FIELD to
 // recurse into, while /T-less kids are widget annotations of THIS field.
 // Terminal fields whose effective /FT is Sig are appended to out, and, when
-// sink is non-nil, their export bytes to sink at the same index.
-func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField, sink *[]SignatureBytes) {
+// sink is non-nil, their export bytes to sink at the same index. seen holds
+// the object numbers of the fields already walked: a field reached a second
+// time, through a /Kids cycle or a repeated reference, is skipped, so a
+// crafted field tree cannot make the walk loop or grow exponentially.
+func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, seen map[int]bool, out *[]SignatureField, sink *[]SignatureBytes) {
 	if depth > maxNodeIDDepth {
 		return
 	}
 	fieldNodeID := ""
 	if ref, ok := obj.(pdfcpu_types.IndirectRef); ok {
+		if seen[ref.ObjectNumber.Value()] {
+			return
+		}
+		seen[ref.ObjectNumber.Value()] = true
 		fieldNodeID = nodeIDFromRef(ref)
 	}
 	d := asDict(dereference(doc, obj))
@@ -283,7 +291,7 @@ func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Objec
 			continue
 		}
 		if _, hasT := kd["T"]; hasT {
-			walkSignatureField(doc, hr, kid, name, ft, depth+1, out, sink)
+			walkSignatureField(doc, hr, kid, name, ft, depth+1, seen, out, sink)
 			recursed = true
 		}
 	}

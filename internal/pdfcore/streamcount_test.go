@@ -74,8 +74,8 @@ func allocatedBy(fn func()) uint64 {
 	return after.TotalAlloc - before.TotalAlloc
 }
 
-// pdfcpu tolerates a broken Adler-32 and hands back the bytes it inflated. With
-// more than one filter in the pipeline the decoded size is the only thing that
+// decodeStream keeps the bytes a Flate stage inflated when its only fault is a
+// broken Adler-32. With more than one filter in the pipeline the decoded size is the only thing that
 // can decide the ceiling, and the count reads it exactly, so an in-bounds
 // attachment carrying that corruption still extracts.
 func TestCountStages_MultiFilterBrokenChecksumIsNotRejected(t *testing.T) {
