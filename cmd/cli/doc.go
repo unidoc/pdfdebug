@@ -59,19 +59,15 @@
 //	    certificate files), each an `error:` line. A failed export file
 //	    write is a JSON error object
 //
-// The deprecated `dump plaintext` alias prefixes a one-line deprecation notice
-// to stderr on every one of those paths, so under that spelling stderr taken as
-// a whole never parses as JSON.
-//
 // On any exit path, of any command, an interactive session may also end stderr
 // with the update notice: a framed "Update available" box, or the same two
 // lines unframed on a narrow terminal. It is never written under --json,
-// --ops or --raw, a raw `dump bytes` / `dump plaintext` or `dump embedded`
-// extraction, when CI, PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set,
-// or when stdout or stderr is not a terminal, and it never changes the exit
-// code. `--version` / `-v` keeps stdout to the version line; in a terminal it
-// also states the update-check outcome on stderr, and outside one (a pipe, a
-// redirect or CI) it writes nothing else.
+// --ops or --raw, a raw `dump bytes` or `dump embedded` extraction, when CI,
+// PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set, or when stdout or
+// stderr is not a terminal, and it never changes the exit code. `--version` /
+// `-v` keeps stdout to the version line; in a terminal it also states the
+// update-check outcome on stderr, and outside one (a pipe, a redirect or CI)
+// it writes nothing else.
 //
 // Exit codes (dump subcommands):
 //

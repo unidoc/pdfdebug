@@ -113,7 +113,8 @@ func TestObjectsVsObject_DistinctCommands(t *testing.T) {
 // byte-for-byte. A naive UTF-8 string write would corrupt every byte >= 0x80,
 // so byte-exact equality is the gate. The command appends nothing and strips
 // nothing: the fixture ends %%EOF followed by a newline, so correct output
-// ends with one too.
+// ends with one too. A clean run writes nothing to stderr, which is what the
+// package doc tells scripts to expect on exit 0.
 //
 // Fixture choice: image-xobject.pdf embeds DCTDecode (JPEG) stream bytes that
 // include bytes >= 0x80, which is exactly what surfaces the re-encoding trap.
@@ -123,9 +124,12 @@ func TestBytesDump_Default_ByteExactSource(t *testing.T) {
 	bin := buildCLI(t)
 	pdfPath := filepath.Join(testdataDir(t), "image-xobject.pdf")
 
-	stdout, _, exitCode := runCLIRaw(t, bin, "dump", "bytes", pdfPath)
+	stdout, stderr, exitCode := runCLIRaw(t, bin, "dump", "bytes", pdfPath)
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+	if len(stderr) != 0 {
+		t.Errorf("a successful `dump bytes` run should write nothing to stderr, got: %q", stderr)
 	}
 
 	want, err := os.ReadFile(pdfPath)
@@ -181,11 +185,9 @@ func TestBytesDump_JSON_WrapsWithoutTabID(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Under their canonical spelling, document-level presenters surface genuine Go
-// errors as a single JSON object on stderr with exit 2 (nonexistent file) and
-// empty stdout. Usage errors (exit 1) are a bare plain-text usage line instead,
-// and the deprecated `dump plaintext` alias prefixes a notice line to whichever
-// shape applies -- both are covered in dump_bytes_test.go.
+// Document-level presenters surface genuine Go errors as a single JSON object
+// on stderr with exit 2 (nonexistent file) and empty stdout. Usage errors
+// (exit 1) are a bare plain-text usage line instead.
 // ---------------------------------------------------------------------------
 
 func TestDocumentViews_NonexistentFile_JSONErrorExit2(t *testing.T) {
@@ -266,8 +268,7 @@ func TestObjectsDump_PlainTextDefault(t *testing.T) {
 // The document-level dumps share one flag parser, so each of them rejects a
 // second positional argument. A flag written after <file> arrives as that
 // second positional: `dump xref file.pdf --json` would otherwise print the
-// plain-text table with exit 0 to a caller waiting for JSON. `dump bytes` and
-// its alias are covered in dump_bytes_test.go.
+// plain-text table with exit 0 to a caller waiting for JSON.
 // ---------------------------------------------------------------------------
 
 func TestDocumentViews_FlagAfterFile_UsageError(t *testing.T) {

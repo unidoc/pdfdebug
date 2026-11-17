@@ -246,22 +246,6 @@ func TestCLIUsageGuideUpdateNoticeOpensWithOptOuts(t *testing.T) {
 	}
 }
 
-// TestCLIUsageGuideBytesReferenceKeepsAliasStatement asserts the `dump bytes`
-// reference subsection carries the `dump plaintext` alias and its 0.6.0
-// removal in one paragraph.
-func TestCLIUsageGuideBytesReferenceKeepsAliasStatement(t *testing.T) {
-	d, h, ok := guideCommandHeading(guideDocs(t), "dump bytes")
-	if !ok {
-		t.Fatalf("no page of the CLI guide has a ### `dump bytes` reference heading")
-	}
-	for _, p := range paragraphs(sectionLines(d.lines, d.headings, h)) {
-		if strings.Contains(p, "dump plaintext") && strings.Contains(p, "removed in 0.6.0") {
-			return
-		}
-	}
-	t.Errorf("%s ### `dump bytes` has no paragraph naming `dump plaintext` with \"removed in 0.6.0\"", d.path)
-}
-
 // TestCLIUsageGuideImageReferenceNamesSampleInterpretationFields asserts the
 // `dump image` reference subsection names every sample-interpretation field the
 // plain output can print, and that the fields the binary prints for an

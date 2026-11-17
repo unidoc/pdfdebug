@@ -49,6 +49,7 @@ All notable changes to UniDoc PDF Debugger are recorded here. Format follows Kee
 
 ### Removed
 
+- `dump plaintext`, deprecated in 0.5.0, is gone; use `dump bytes`. The old spelling now fails as an unknown resource with exit 1
 - The unused browser-driven E2E suite under `tests/e2e/`, its fixtures under `tests/support/` and its config; `tests/gui-mcp` covers the desktop flows it was meant for
 
 ## [0.5.0] - 2026-10-14

@@ -13,11 +13,6 @@ import (
 // version is overridden via -ldflags "-X main.version=x.y.z" in release builds.
 var version = "dev"
 
-// deprecatedPlaintextNotice is the single stderr line the `dump plaintext`
-// alias writes before running `dump bytes`. Unconditional: no TTY check and no
-// opt-out, because the people who most need it run the command from scripts.
-const deprecatedPlaintextNotice = `pdfdebug: "dump plaintext" is deprecated and will be removed in 0.6.0; use "dump bytes".`
-
 func main() {
 	// Suppress pdfcpu's internal log output so stderr stays clean for JSON errors.
 	log.SetOutput(io.Discard)
@@ -88,12 +83,6 @@ func dispatch(args []string) int {
 		case "structure":
 			return runStructureDump(remaining)
 		case "bytes":
-			return runBytesDump(remaining)
-		case "plaintext":
-			// Deprecated alias. The notice is written here rather than inside the
-			// handler so it fires on a usage error too, and on stderr so piped
-			// stdout (a machine format) stays clean.
-			fmt.Fprintln(os.Stderr, deprecatedPlaintextNotice)
 			return runBytesDump(remaining)
 		case "embedded":
 			return runEmbeddedDump(remaining)
