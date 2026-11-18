@@ -308,6 +308,7 @@ type checksumFileOpts struct {
 	breakObjStm  bool   // flip the last byte of object stream 4's Adler-32 trailer
 	breakXRef    bool   // flip the last byte of cross-reference stream 5's Adler-32 trailer
 	breakFontStm bool   // flip the last byte of object stream 8's Adler-32 trailer
+	streamEOL    string // what follows each stream keyword; "\n" when empty
 }
 
 // checksumFile builds a file whose catalog, page tree and page are kept in
@@ -333,13 +334,17 @@ func checksumFile(o checksumFileOpts) []byte {
 	type row struct{ typ, field2, field3 int }
 	rows := map[int]row{0: {0, 0, 255}}
 	out := []byte("%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+	eol := o.streamEOL
+	if eol == "" {
+		eol = "\n"
+	}
 	stream := func(nr int, dict string, data []byte, broken bool) {
 		rows[nr] = row{1, len(out), 0}
 		if broken {
 			data = bytes.Clone(data)
 			data[len(data)-1] ^= 0xFF
 		}
-		out = fmt.Appendf(out, "%d 0 obj\n<< %s /Filter /FlateDecode /Length %d >>\nstream\n", nr, dict, len(data))
+		out = fmt.Appendf(out, "%d 0 obj\n<< %s /Filter /FlateDecode /Length %d >>\nstream%s", nr, dict, len(data), eol)
 		out = append(out, data...)
 		out = append(out, "\nendstream\nendobj\n"...)
 	}
@@ -429,6 +434,9 @@ func TestOpen_BrokenChecksumUnderEveryTypeSpelling(t *testing.T) {
 		{"comment and NUL before object stream type", checksumFileOpts{objStmType: "/Type%c\r\x00/ObjStm", xrefType: "/Type /XRef", breakObjStm: true}},
 		{"indirect object stream type", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakFontStm: true}},
 		{"indirect object stream type and broken xref", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakFontStm: true, breakXRef: true}},
+		{"space before stream EOL, broken xref", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakXRef: true, streamEOL: " \n"}},
+		{"space before stream EOL, broken object stream", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakObjStm: true, streamEOL: " \n"}},
+		{"spaces before stream CRLF, broken xref", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakXRef: true, streamEOL: "  \r\n"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

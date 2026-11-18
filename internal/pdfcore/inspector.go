@@ -209,9 +209,13 @@ var checksumStreamType = regexp.MustCompile(pdfName("Type") +
 	`(?:[\x00\t\n\f\r ()<>\[\]{}/%]|$)`)
 
 // streamDataStart returns the offset of the stream data that follows the
-// stream keyword at kw, past its end-of-line marker.
+// stream keyword at kw, past any ASCII spaces and its end-of-line marker, as
+// pdfcpu's parser reads it.
 func streamDataStart(data []byte, kw int) int {
 	start := kw + len("stream")
+	for start < len(data) && data[start] == ' ' {
+		start++
+	}
 	if start < len(data) && data[start] == '\r' {
 		start++
 	}
