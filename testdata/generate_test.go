@@ -2,6 +2,7 @@ package testdata_test
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -886,6 +887,54 @@ func pdfaCleanContent() []byte {
 	}, "/ID [<0123456789ABCDEF0123456789ABCDEF> <0123456789ABCDEF0123456789ABCDEF>] ")
 }
 
+// xrefStreamChecksumPDFContent keeps the catalog, page tree and page in a
+// Flate object stream, indexed by a Flate cross-reference stream with no
+// /DecodeParms whose Adler-32 trailer has its last byte flipped. The deflate
+// data of both streams is intact.
+func xrefStreamChecksumPDFContent() []byte {
+	deflate := func(b []byte) []byte {
+		var z bytes.Buffer
+		zw := zlib.NewWriter(&z)
+		_, _ = zw.Write(b)
+		_ = zw.Close()
+		return z.Bytes()
+	}
+	objs := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+	}
+	var head, body string
+	for i, o := range objs {
+		head += fmt.Sprintf("%d %d ", i+1, len(body))
+		body += o + "\n"
+	}
+	objStm := deflate([]byte(head + body))
+
+	out := []byte("%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+	objStmOff := len(out)
+	out = fmt.Appendf(out, "4 0 obj\n<< /Type /ObjStm /N 3 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", len(head), len(objStm))
+	out = append(out, objStm...)
+	out = append(out, "\nendstream\nendobj\n"...)
+	xrefOff := len(out)
+
+	// /W [1 2 1]: free head, three objects in object stream 4, then the two
+	// top-level streams.
+	rows := []byte{0, 0, 0, 255}
+	for i := range objs {
+		rows = append(rows, 2, 0, 4, byte(i))
+	}
+	rows = append(rows, 1, byte(objStmOff>>8), byte(objStmOff), 0)
+	rows = append(rows, 1, byte(xrefOff>>8), byte(xrefOff), 0)
+	xref := deflate(rows)
+	xref[len(xref)-1] ^= 0xFF
+
+	out = fmt.Appendf(out, "5 0 obj\n<< /Type /XRef /Size 6 /Root 1 0 R /W [1 2 1] /Filter /FlateDecode /Length %d >>\nstream\n", len(xref))
+	out = append(out, xref...)
+	out = append(out, "\nendstream\nendobj\n"...)
+	return fmt.Appendf(out, "startxref\n%d\n%%%%EOF\n", xrefOff)
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -948,6 +997,17 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("empty-stream.pdf is not valid according to pdfcpu: %v", err)
 		}
 		t.Logf("empty-stream.pdf created: %d pages", ctx.PageCount)
+	})
+
+	// pdfcpu refuses the broken cross-reference stream trailer, so the file
+	// is not checked against it.
+	t.Run("xref-stream-checksum.pdf", func(t *testing.T) {
+		if _, err := os.Stat("xref-stream-checksum.pdf"); err == nil {
+			t.Skip("xref-stream-checksum.pdf already exists")
+		}
+		if err := os.WriteFile("xref-stream-checksum.pdf", xrefStreamChecksumPDFContent(), 0644); err != nil {
+			t.Fatalf("failed to create xref-stream-checksum.pdf: %v", err)
+		}
 	})
 
 	t.Run("malformed.pdf", func(t *testing.T) {

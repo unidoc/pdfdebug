@@ -259,7 +259,7 @@ func objectStreamFile(t *testing.T) ([]byte, int) {
 		t.Fatalf("WriteContext: %v", err)
 	}
 	b := out.Bytes()
-	m := objectStreamType.FindIndex(b)
+	m := checksumStreamType.FindIndex(b)
 	if m == nil {
 		t.Fatal("fixture: the rewritten file has no object stream")
 	}
@@ -276,7 +276,7 @@ func TestOpen_ObjectStreamWithBrokenChecksumOpens(t *testing.T) {
 	b, start := objectStreamFile(t)
 	b = breakObjectStreamTrailer(b, start)
 
-	if _, checksumFailed, _ := readPDF(bytes.NewReader(b)); !checksumFailed {
+	if _, checksumFailed, err := readPDF(bytes.NewReader(b)); err != nil || len(checksumFailed) == 0 {
 		t.Fatal("fixture: pdfcpu decodes the broken-checksum object stream, so the fallback is not exercised")
 	}
 	ins, info := openParsedFile(t, "objstm-checksum", b)
@@ -301,22 +301,189 @@ func TestOpen_ObjectStreamWithBrokenChecksumOpens(t *testing.T) {
 	}
 }
 
+// checksumFileOpts shapes the file checksumFile builds.
+type checksumFileOpts struct {
+	objStmType   string // the /Type entry of object stream 4
+	xrefType     string // the /Type entry of cross-reference stream 5
+	breakObjStm  bool   // flip the last byte of object stream 4's Adler-32 trailer
+	breakXRef    bool   // flip the last byte of cross-reference stream 5's Adler-32 trailer
+	breakFontStm bool   // flip the last byte of object stream 8's Adler-32 trailer
+}
+
+// checksumFile builds a file whose catalog, page tree and page are kept in
+// Flate object stream 4, indexed by Flate cross-reference stream 5 with no
+// /DecodeParms. A font, object 7, is kept in Flate object stream 8, whose
+// /Type is an indirect reference to object 6, the name /ObjStm.
+func checksumFile(o checksumFileOpts) []byte {
+	deflate := func(b []byte) []byte {
+		var z bytes.Buffer
+		zw := zlib.NewWriter(&z)
+		_, _ = zw.Write(b)
+		_ = zw.Close()
+		return z.Bytes()
+	}
+	objStm := func(first int, objs []string) (head string, data []byte) {
+		var body string
+		for i, obj := range objs {
+			head += fmt.Sprintf("%d %d ", first+i, len(body))
+			body += obj + "\n"
+		}
+		return head, deflate([]byte(head + body))
+	}
+	type row struct{ typ, field2, field3 int }
+	rows := map[int]row{0: {0, 0, 255}}
+	out := []byte("%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+	stream := func(nr int, dict string, data []byte, broken bool) {
+		rows[nr] = row{1, len(out), 0}
+		if broken {
+			data = bytes.Clone(data)
+			data[len(data)-1] ^= 0xFF
+		}
+		out = fmt.Appendf(out, "%d 0 obj\n<< %s /Filter /FlateDecode /Length %d >>\nstream\n", nr, dict, len(data))
+		out = append(out, data...)
+		out = append(out, "\nendstream\nendobj\n"...)
+	}
+
+	head, data := objStm(1, []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+	})
+	for i := range 3 {
+		rows[1+i] = row{2, 4, i}
+	}
+	stream(4, fmt.Sprintf("%s /N 3 /First %d", o.objStmType, len(head)), data, o.breakObjStm)
+	rows[6] = row{1, len(out), 0}
+	out = append(out, "6 0 obj\n/ObjStm\nendobj\n"...)
+	head, data = objStm(7, []string{"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"})
+	rows[7] = row{2, 8, 0}
+	stream(8, fmt.Sprintf("/Type 6 0 R /N 1 /First %d", len(head)), data, o.breakFontStm)
+	const size = 9
+
+	xrefOff := len(out)
+	rows[5] = row{1, xrefOff, 0}
+	var raw []byte
+	for nr := range size {
+		r := rows[nr]
+		raw = append(raw, byte(r.typ), byte(r.field2>>16), byte(r.field2>>8), byte(r.field2), byte(r.field3))
+	}
+	stream(5, fmt.Sprintf("%s /Size %d /Root 1 0 R /W [1 3 1]", o.xrefType, size), deflate(raw), o.breakXRef)
+	return fmt.Appendf(out, "startxref\n%d\n%%%%EOF\n", xrefOff)
+}
+
+// openChecksumFile opens pdf through Inspector.Open and checks that it has one
+// page, no warning, that object 3 is the page and, with font set, that object 7
+// is the font.
+func openChecksumFile(t *testing.T, pdf []byte, font bool) {
+	t.Helper()
+	ins, info := openParsedFile(t, "checksum", pdf)
+	if info.PageCount != 1 || info.Error != "" {
+		t.Errorf("open = page count %d, warning %q; want 1 page and no warning", info.PageCount, info.Error)
+	}
+	doc, err := ins.GetDocument("checksum")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := doc.PDFContext.Dereference(*pdfcpu_types.NewIndirectRef(3, 0))
+	if d, ok := page.(pdfcpu_types.Dict); err != nil || !ok || d.Type() == nil || *d.Type() != "Page" {
+		t.Errorf("object 3 = %v, %v; want the page dictionary", page, err)
+	}
+	if font {
+		f, err := doc.PDFContext.Dereference(*pdfcpu_types.NewIndirectRef(7, 0))
+		if d, ok := f.(pdfcpu_types.Dict); err != nil || !ok || d.NameEntry("BaseFont") == nil || *d.NameEntry("BaseFont") != "Helvetica" {
+			t.Errorf("object 7 = %v, %v; want the Helvetica font dictionary", f, err)
+		}
+	}
+	if r, ok := doc.PDFContext.Read.RS.(*bytes.Reader); !ok || r.Size() != 0 {
+		t.Errorf("context reader = %T; want an empty *bytes.Reader, so the corrected copy of the file is not kept", doc.PDFContext.Read.RS)
+	}
+}
+
+// A cross-reference stream whose Adler-32 trailer is wrong, with intact
+// deflate data, still opens, and the catalog, page tree and page kept in an
+// object stream it indexes resolve.
+func TestOpen_XRefStreamWithBrokenChecksumOpens(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "xref-stream-checksum.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readPDF(bytes.NewReader(b)); err == nil {
+		t.Fatal("fixture: pdfcpu parses the file with the broken cross-reference stream trailer, so the repair is not exercised")
+	}
+	openChecksumFile(t, b, false)
+}
+
+// Streams whose /Type is #-escaped, separated from its key by a comment or
+// NUL, or an indirect reference, have their broken trailers corrected. An
+// object stream with an indirect /Type is found by its offset in the parsed
+// cross-reference table, also when that table was read from a corrected
+// cross-reference stream.
+func TestOpen_BrokenChecksumUnderEveryTypeSpelling(t *testing.T) {
+	cases := []struct {
+		name string
+		opts checksumFileOpts
+	}{
+		{"escaped xref type", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Typ#65 /XR#65f", breakXRef: true}},
+		{"comment and NUL before xref type", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type %c\n\x00/XRef", breakXRef: true}},
+		{"escaped object stream type", checksumFileOpts{objStmType: "/Type /Obj#53tm", xrefType: "/Type /XRef", breakObjStm: true}},
+		{"comment and NUL before object stream type", checksumFileOpts{objStmType: "/Type%c\r\x00/ObjStm", xrefType: "/Type /XRef", breakObjStm: true}},
+		{"indirect object stream type", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakFontStm: true}},
+		{"indirect object stream type and broken xref", checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef", breakFontStm: true, breakXRef: true}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			intact := tc.opts
+			intact.breakObjStm, intact.breakXRef, intact.breakFontStm = false, false, false
+			if _, _, err := readPDF(bytes.NewReader(checksumFile(intact))); err != nil {
+				t.Fatalf("fixture: pdfcpu refuses the file with intact trailers: %v", err)
+			}
+			b := checksumFile(tc.opts)
+			if _, failed, err := readPDF(bytes.NewReader(b)); err == nil && len(failed) == 0 {
+				t.Fatal("fixture: pdfcpu reads the file with the broken trailer, so the repair is not exercised")
+			}
+			openChecksumFile(t, b, true)
+		})
+	}
+}
+
+// The offset repair leaves object streams with a correct trailer unchanged.
+func TestFixChecksumsAt_LeavesIntactStreamsAlone(t *testing.T) {
+	b := checksumFile(checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef"})
+	ctx, _, err := readPDF(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixed := bytes.Clone(b)
+	budget := filter.DefaultMaxDecodeBytes
+	if fixChecksumsAt(fixed, objectStreamDataOffsets(ctx.XRefTable, []int{4, 8}), &budget) || !bytes.Equal(fixed, b) {
+		t.Error("an object stream with a correct trailer was changed")
+	}
+}
+
+// fixTyped runs fixTypedStreamChecksums on a copy of data and returns the
+// copy.
+func fixTyped(data []byte, budget int64) ([]byte, bool) {
+	fixed := bytes.Clone(data)
+	ok := fixTypedStreamChecksums(fixed, &budget)
+	return fixed, ok
+}
+
 // Only a wrong trailer on a zlib stream that inflates is rewritten.
 func TestFixZlibChecksum_LeavesOtherStreamsAlone(t *testing.T) {
 	b, start := objectStreamFile(t)
-	if fixed, ok := fixObjectStreamChecksums(b, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, b) {
+	if fixed, ok := fixTyped(b, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, b) {
 		t.Error("an object stream with a correct trailer was changed")
 	}
 	corrupt := bytes.Clone(b)
 	corrupt[start+4] ^= 0xFF // inside the deflate data
-	if fixed, ok := fixObjectStreamChecksums(corrupt, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, corrupt) {
+	if fixed, ok := fixTyped(corrupt, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, corrupt) {
 		t.Error("an object stream whose deflate data does not inflate cleanly was changed")
 	}
 }
 
 // A zlib object stream that ends without its Adler-32 trailer is left alone:
 // the four bytes after its deflate data belong to the endstream keyword.
-func TestFixObjectStreamChecksums_StreamWithoutTrailerIsLeftAlone(t *testing.T) {
+func TestFixTypedStreamChecksums_StreamWithoutTrailerIsLeftAlone(t *testing.T) {
 	var z bytes.Buffer
 	zw := zlib.NewWriter(&z)
 	_, _ = zw.Write([]byte("1 0 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"))
@@ -326,7 +493,7 @@ func TestFixObjectStreamChecksums_StreamWithoutTrailerIsLeftAlone(t *testing.T) 
 		data := []byte("5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Length " + strconv.Itoa(len(body)) + " >>\nstream\n")
 		data = append(data, body...)
 		data = append(data, eol+"endstream\nendobj\n"...)
-		if fixed, ok := fixObjectStreamChecksums(data, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, data) {
+		if fixed, ok := fixTyped(data, filter.DefaultMaxDecodeBytes); ok || !bytes.Equal(fixed, data) {
 			t.Errorf("EOL %q before endstream: bytes after a trailer-less stream were rewritten", eol)
 		}
 	}
@@ -346,7 +513,7 @@ func breakObjectStreamTrailer(b []byte, start int) []byte {
 
 // Many /Type /ObjStm entries ahead of one stream inflate it once, so they do
 // not spend the budget that a later broken object stream needs.
-func TestFixObjectStreamChecksums_RepeatedTypeEntriesInflateTheirStreamOnce(t *testing.T) {
+func TestFixTypedStreamChecksums_RepeatedTypeEntriesInflateTheirStreamOnce(t *testing.T) {
 	b, start := objectStreamFile(t)
 	const size = 64 << 10
 	var z bytes.Buffer
@@ -359,27 +526,28 @@ func TestFixObjectStreamChecksums_RepeatedTypeEntriesInflateTheirStreamOnce(t *t
 	head = append(head, "\nendstream\nendobj\n"...)
 	data := append(bytes.Clone(head), breakObjectStreamTrailer(b, start)...)
 
-	fixed, ok := fixObjectStreamChecksums(data, 2*size)
+	fixed, ok := fixTyped(data, 2*size)
 	if !ok || !bytes.Equal(fixed, append(head, b...)) {
 		t.Errorf("ok = %v; want the broken trailer after the decoy entries corrected and nothing else changed", ok)
 	}
 }
 
 // Once the inflate budget is spent no further trailer is corrected.
-func TestFixObjectStreamChecksums_StopsWhenTheBudgetIsSpent(t *testing.T) {
+func TestFixTypedStreamChecksums_StopsWhenTheBudgetIsSpent(t *testing.T) {
 	b, start := objectStreamFile(t)
 	broken := breakObjectStreamTrailer(b, start)
-	if fixed, ok := fixObjectStreamChecksums(broken, 1); ok || !bytes.Equal(fixed, broken) {
+	if fixed, ok := fixTyped(broken, 1); ok || !bytes.Equal(fixed, broken) {
 		t.Error("a stream that inflates past the budget had its trailer changed")
 	}
 }
 
 // /Type /ObjStm entries that each end at an endobj before a far stream
 // keyword are scanned in linear time.
-func TestFixObjectStreamChecksums_ScanIsLinear(t *testing.T) {
+func TestFixTypedStreamChecksums_ScanIsLinear(t *testing.T) {
 	data := []byte(strings.Repeat("/Type /ObjStm endobj ", 500_000) + "stream\n")
-	within(t, 5*time.Second, "fixObjectStreamChecksums over 500000 entries", func() {
-		_, _ = fixObjectStreamChecksums(data, filter.DefaultMaxDecodeBytes)
+	within(t, 5*time.Second, "fixTypedStreamChecksums over 500000 entries", func() {
+		budget := filter.DefaultMaxDecodeBytes
+		_ = fixTypedStreamChecksums(data, &budget)
 	})
 }
 

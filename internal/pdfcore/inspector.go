@@ -144,9 +144,10 @@ func NewInspector() *Inspector {
 // object-stream placeholder with the decoded object, so walkers that read
 // XRefTable entries directly see the object and not the placeholder. An entry
 // that fails to decode keeps its placeholder; dereferencing it later reports
-// the same error. It reports whether any failure was a broken Adler-32
-// checksum.
-func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed bool) {
+// the same error.
+// It returns the object numbers of the object streams, in ascending order,
+// whose objects failed on a broken Adler-32 checksum.
+func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed []int) {
 	for objNr, entry := range xrt.Table {
 		if entry == nil || entry.Free {
 			continue
@@ -162,45 +163,74 @@ func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed bool
 			_, err := xrt.Dereference(*pdfcpu_types.NewIndirectRef(objNr, gen))
 			return err
 		})
-		if errors.Is(err, zlib.ErrChecksum) {
-			checksumFailed = true
+		if errors.Is(err, zlib.ErrChecksum) && entry.ObjectStream != nil && !slices.Contains(checksumFailed, *entry.ObjectStream) {
+			checksumFailed = append(checksumFailed, *entry.ObjectStream)
 		}
 	}
+	slices.Sort(checksumFailed)
 	return checksumFailed
 }
 
 // readPDF parses r with pdfcpu, without its validator, and decodes every
-// object-stream object. It reports whether an object stream failed on a
-// broken Adler-32 checksum, either in the parse or in the decode.
-func readPDF(r io.ReadSeeker) (ctx *pdfcpu_model.Context, checksumFailed bool, err error) {
+// object-stream object. On success it also returns the object streams whose
+// objects failed on a broken Adler-32 checksum.
+func readPDF(r io.ReadSeeker) (ctx *pdfcpu_model.Context, checksumFailed []int, err error) {
 	err = safeCall(func() error {
 		var e error
 		ctx, e = pdfcpu_api.ReadContext(context.Background(), r, pdfcpu_model.NewDefaultConfiguration())
 		return e
 	})
 	if err != nil {
-		return nil, errors.Is(err, zlib.ErrChecksum), err
+		return nil, nil, err
 	}
 	return ctx, decodeObjectStreamObjects(ctx.XRefTable), nil
 }
 
-// objectStreamType matches the /Type entry of an object stream dictionary.
-var objectStreamType = regexp.MustCompile(`/Type\s*/ObjStm\b`)
+// pdfName returns a pattern for the PDF name /name in which any character may
+// be written as a #hh escape.
+func pdfName(name string) string {
+	p := "/"
+	for _, c := range []byte(name) {
+		p += fmt.Sprintf("(?:%c|#(?i:%02x))", c, c)
+	}
+	return p
+}
 
-// fixObjectStreamChecksums returns a copy of data in which every zlib-wrapped
-// object stream whose inflated bytes are intact but whose Adler-32 trailer is
-// wrong carries the correct trailer.
+// checksumStreamType matches the /Type entry of an object stream or a
+// cross-reference stream dictionary. Key and value may be #-escaped and may be
+// separated by white space, NUL and comments; the value must end at a
+// delimiter.
+var checksumStreamType = regexp.MustCompile(pdfName("Type") +
+	`(?:[\x00\t\n\f\r ]|%[^\r\n]*)*` +
+	`(?:` + pdfName("ObjStm") + `|` + pdfName("XRef") + `)` +
+	`(?:[\x00\t\n\f\r ()<>\[\]{}/%]|$)`)
+
+// streamDataStart returns the offset of the stream data that follows the
+// stream keyword at kw, past its end-of-line marker.
+func streamDataStart(data []byte, kw int) int {
+	start := kw + len("stream")
+	if start < len(data) && data[start] == '\r' {
+		start++
+	}
+	if start < len(data) && data[start] == '\n' {
+		start++
+	}
+	return start
+}
+
+// fixTypedStreamChecksums corrects in place the Adler-32 trailer of every
+// zlib-wrapped object stream or cross-reference stream in data, found by its
+// /Type entry, whose inflated bytes are intact but whose trailer is wrong.
 // Only the four checksum bytes change, so every offset stays valid. ok is
 // false when no trailer was changed. Each stream is inflated at most once, and
-// budget caps the bytes inflated across all of them; the scan stops once it is
-// spent.
-func fixObjectStreamChecksums(data []byte, budget int64) (fixed []byte, ok bool) {
-	fixed = bytes.Clone(data)
-	// Each search starts past the stream keyword or endobj the previous match
-	// resolved to, so every byte is scanned a bounded number of times and a
-	// stream is reached once however many /Type /ObjStm entries precede it.
-	for pos := 0; pos < len(data); {
-		loc := objectStreamType.FindIndex(data[pos:])
+// the bytes inflated are taken from budget; the scan stops once it is spent.
+func fixTypedStreamChecksums(data []byte, budget *int64) (ok bool) {
+	// Each search starts past the stream keyword, rewritten trailer or endobj
+	// the previous match resolved to, so every byte is scanned a bounded number
+	// of times, a rewritten trailer is never scanned again, and a stream is
+	// reached once however many /Type entries precede it.
+	for pos := 0; pos < len(data) && *budget > 0; {
+		loc := checksumStreamType.FindIndex(data[pos:])
 		if loc == nil {
 			break
 		}
@@ -214,31 +244,64 @@ func fixObjectStreamChecksums(data []byte, budget int64) (fixed []byte, ok bool)
 			pos = after + end + len("endobj")
 			continue
 		}
-		start := after + kw + len("stream")
+		start := streamDataStart(data, after+kw)
 		pos = start
-		if start < len(data) && data[start] == '\r' {
-			start++
-		}
-		if start < len(data) && data[start] == '\n' {
-			start++
-		}
-		n, changed := fixZlibChecksum(fixed[start:], budget)
-		ok = ok || changed
-		if budget -= n; budget <= 0 {
-			break
+		n, end := fixZlibChecksum(data[start:], *budget)
+		*budget -= n
+		if end > 0 {
+			ok = true
+			pos = start + end
 		}
 	}
-	return fixed, ok
+	return ok
+}
+
+// fixChecksumsAt corrects in place the Adler-32 trailer of the zlib stream
+// whose data starts at each offset in starts, as fixTypedStreamChecksums does,
+// taking the bytes inflated from budget.
+func fixChecksumsAt(data []byte, starts []int64, budget *int64) (ok bool) {
+	for _, start := range starts {
+		if *budget <= 0 {
+			break
+		}
+		if start < 0 || start >= int64(len(data)) {
+			continue
+		}
+		n, end := fixZlibChecksum(data[start:], *budget)
+		*budget -= n
+		ok = ok || end > 0
+	}
+	return ok
+}
+
+// objectStreamDataOffsets returns the file offsets of the stream data of the
+// given object streams, as the parsed cross-reference table records them.
+func objectStreamDataOffsets(xrt *pdfcpu_model.XRefTable, objNrs []int) []int64 {
+	var starts []int64
+	for _, objNr := range objNrs {
+		entry := xrt.Table[objNr]
+		if entry == nil {
+			continue
+		}
+		switch sd := entry.Object.(type) {
+		case pdfcpu_types.ObjectStreamDict:
+			starts = append(starts, sd.StreamOffset)
+		case pdfcpu_types.StreamDict:
+			starts = append(starts, sd.StreamOffset)
+		}
+	}
+	return starts
 }
 
 // fixZlibChecksum rewrites the Adler-32 trailer of the zlib stream at the
 // start of b when the deflate data inflates cleanly to at most limit bytes and
 // the trailer does not match. A stream whose deflate data runs straight into
 // the endstream keyword has no trailer and is left alone. It returns the
-// number of bytes inflated and whether it changed b.
-func fixZlibChecksum(b []byte, limit int64) (inflated int64, changed bool) {
+// number of bytes inflated and, when it changed b, the offset just past the
+// rewritten trailer, else 0.
+func fixZlibChecksum(b []byte, limit int64) (inflated int64, end int) {
 	if len(b) < 2 || b[0]&0x0f != 8 || b[1]&0x20 != 0 || (uint16(b[0])<<8|uint16(b[1]))%31 != 0 {
-		return 0, false
+		return 0, 0
 	}
 	// bytes.Reader is an io.ByteReader, so flate reads no further than the
 	// end of the deflate data and br.Len() locates the trailer.
@@ -246,19 +309,30 @@ func fixZlibChecksum(b []byte, limit int64) (inflated int64, changed bool) {
 	h := adler32.New()
 	n, err := io.Copy(h, io.LimitReader(flate.NewReader(br), limit+1))
 	if err != nil || n > limit {
-		return n, false
+		return n, 0
 	}
 	trailer := len(b) - br.Len()
 	if trailer+4 > len(b) || binary.BigEndian.Uint32(b[trailer:]) == h.Sum32() {
-		return n, false
+		return n, 0
 	}
 	// A stream written without its trailer has the endstream keyword, or the
 	// EOL before it, where the trailer would be; those bytes are left alone.
 	if kw := bytes.Index(b[trailer:min(len(b), trailer+4+len("endstream"))], []byte("endstream")); kw >= 0 && kw < 4 {
-		return n, false
+		return n, 0
 	}
 	binary.BigEndian.PutUint32(b[trailer:], h.Sum32())
-	return n, true
+	return n, trailer + 4
+}
+
+// reparse parses data, a corrected in-memory copy of the file. The returned
+// context's reader is emptied, since it is not read after the parse, so the
+// copy can be freed.
+func reparse(data []byte) (*pdfcpu_model.Context, []int, error) {
+	ctx, checksumFailed, err := readPDF(bytes.NewReader(data))
+	if err == nil {
+		ctx.Read.RS = bytes.NewReader(nil)
+	}
+	return ctx, checksumFailed, err
 }
 
 // Open parses a PDF file and registers it under the given tab ID. Returns
@@ -291,23 +365,31 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	// the file as written. ReadContext reads every object into memory, object
 	// streams included, so the handle is not used after it returns.
 	var ctx *pdfcpu_model.Context
-	var checksumFailed bool
+	var checksumFailed []int
 	f, err := os.Open(filePath)
 	if err == nil {
 		ctx, checksumFailed, err = readPDF(f)
 		_ = f.Close()
 	}
-	// pdfcpu refuses an object stream whose Adler-32 trailer is wrong although
-	// its data inflates. Such a file is parsed again from an in-memory copy
-	// with only those trailers corrected, so its objects stay readable.
-	if checksumFailed {
+	// pdfcpu refuses a zlib stream whose Adler-32 trailer is wrong although its
+	// data inflates. A file that fails to parse is parsed again with the
+	// trailers of its object streams and cross-reference streams corrected,
+	// found by their /Type. A file that parses but has object-stream objects
+	// that fail on the checksum is parsed again with the trailers of those
+	// object streams corrected, found by their offsets in the parsed
+	// cross-reference table. Both corrections apply to one in-memory copy of
+	// the file and share one inflate budget.
+	if err != nil || len(checksumFailed) > 0 {
 		if data, e := os.ReadFile(filePath); e == nil {
-			if fixed, ok := fixObjectStreamChecksums(data, filter.DefaultMaxDecodeBytes); ok {
-				if c, _, e := readPDF(bytes.NewReader(fixed)); e == nil {
-					// The context keeps its reader, which is not read after
-					// the parse; an empty one lets the copy be freed.
-					c.Read.RS = bytes.NewReader(nil)
-					ctx, err = c, nil
+			budget := filter.DefaultMaxDecodeBytes
+			if err != nil && fixTypedStreamChecksums(data, &budget) {
+				if c, cf, e := reparse(data); e == nil {
+					ctx, checksumFailed, err = c, cf, nil
+				}
+			}
+			if err == nil && len(checksumFailed) > 0 && fixChecksumsAt(data, objectStreamDataOffsets(ctx.XRefTable, checksumFailed), &budget) {
+				if c, _, e := reparse(data); e == nil {
+					ctx = c
 				}
 			}
 		}
