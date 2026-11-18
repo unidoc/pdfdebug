@@ -12,6 +12,7 @@ import (
 	"hash/adler32"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -142,13 +143,15 @@ func NewInspector() *Inspector {
 
 // decodeObjectStreamObjects replaces every object pdfcpu left as a lazy
 // object-stream placeholder with the decoded object, so walkers that read
-// XRefTable entries directly see the object and not the placeholder. An entry
-// that fails to decode keeps its placeholder; dereferencing it later reports
-// the same error.
+// XRefTable entries directly see the object and not the placeholder. Objects
+// are decoded in object-number order, so pdfcpu's cumulative object-stream
+// decode budget reaches the same objects on every open. An entry that fails to
+// decode keeps its placeholder; dereferencing it later reports the same error.
 // It returns the object numbers of the object streams, in ascending order,
 // whose objects failed on a broken Adler-32 checksum.
 func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed []int) {
-	for objNr, entry := range xrt.Table {
+	for _, objNr := range slices.Sorted(maps.Keys(xrt.Table)) {
+		entry := xrt.Table[objNr]
 		if entry == nil || entry.Free {
 			continue
 		}
