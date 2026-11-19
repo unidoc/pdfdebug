@@ -1012,7 +1012,7 @@ func pageContentStreams(doc *DocumentState, page pdfcpu_types.Dict) []pdfcpu_typ
 // it sets a device color, or the decode error when the stream cannot be
 // decoded.
 func streamUsesDeviceColor(sd pdfcpu_types.StreamDict) (bool, error) {
-	if e := safeCall(func() error { return sd.Decode() }); e != nil {
+	if e := safeCall(func() error { return decodeStream(&sd) }); e != nil {
 		return false, e
 	}
 	for _, t := range tokenizeContentStream(string(sd.Content)) {

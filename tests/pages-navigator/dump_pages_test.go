@@ -187,25 +187,24 @@ func TestPlainTextNamesInheritedAttributes(t *testing.T) {
 // still match what a viewer shows.
 // ---------------------------------------------------------------------------
 
-// pdfcpu's validator drops null /Kids entries while opening the document, so
-// the walk never sees this null; the null-kid error row is covered in package.
-// What stays observable is that page numbering around it is unshifted.
+// A null /Kids entry is an unnumbered row carrying the error, between the two
+// pages it sits between, and the page numbers around it are unshifted.
 func TestNullKidDoesNotShiftPageNumbers(t *testing.T) {
 	path := writeFixture(t, "null-kid.pdf", nullKidPDF())
-	entries, stderr := dumpPagesJSON(t, path)
-	if len(entries) != 2 {
-		t.Fatalf("got %d entries, want 2 (the null is dropped at open): %+v", len(entries), entries)
+	entries, _ := dumpPagesJSON(t, path)
+	if len(entries) != 3 {
+		t.Fatalf("got %d entries, want 3 (page, null-kid error row, page): %+v", len(entries), entries)
 	}
-	if entries[0].PageNum != 1 || entries[0].ObjNum != 3 || entries[1].PageNum != 2 || entries[1].ObjNum != 4 {
+	if entries[0].PageNum != 1 || entries[0].ObjNum != 3 || entries[2].PageNum != 2 || entries[2].ObjNum != 4 {
 		t.Errorf("the null kid must not shift page numbers: got %+v", entries)
 	}
-	for _, e := range entries {
-		if e.Err != "" {
-			t.Errorf("page %d resolved with an error: %q", e.PageNum, e.Err)
-		}
+	if entries[1].PageNum != 0 || entries[1].Err != "/Kids entry 1 is null" {
+		t.Errorf("middle row = %+v, want an unnumbered row with Err %q", entries[1], "/Kids entry 1 is null")
 	}
-	if strings.Contains(stderr, `"error"`) {
-		t.Errorf("stderr carries an error: %s", stderr)
+	for _, i := range []int{0, 2} {
+		if entries[i].Err != "" {
+			t.Errorf("page %d resolved with an error: %q", entries[i].PageNum, entries[i].Err)
+		}
 	}
 }
 
@@ -401,9 +400,8 @@ func TestNoCountWarningWhenCountsAgree(t *testing.T) {
 	}
 }
 
-// pdfcpu refuses to open a document whose root /Count disagrees with its
-// leaves, so the disagreement warning is driven in package, where the
-// document is built in code.
+// The disagreement warning is driven in package, where the document is built
+// in code.
 func TestCountDisagreementWarningUnitCoverageExists(t *testing.T) {
 	runGoTest(t, "^Test.*(PagesDump|DumpPages)", "./cmd/cli/")
 }
@@ -459,8 +457,8 @@ func TestHelpListsDumpPages(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Walk rules whose fixtures pdfcpu refuses to open (a /Kids cycle, a kid that
-// is not a dictionary or dangles, a /Page with no /Type, malformed /MediaBox and
+// Walk rules whose fixtures are built in memory (a /Kids cycle, a kid that is
+// not a dictionary or dangles, a /Page with no /Type, malformed /MediaBox and
 // /Rotate values, /Contents elements that are not references), the lazy cache
 // and the service wrapper are covered in package.
 // ---------------------------------------------------------------------------

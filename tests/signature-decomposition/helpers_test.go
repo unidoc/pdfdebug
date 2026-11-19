@@ -20,7 +20,7 @@
 // hand-rolled PDF whose ByteRange is computed against the true /Contents hole.
 // Malformed / not-covers / hole-mismatch variants derive from the same
 // builder. Every fixture was VALIDATED to parse through
-// the current CLI's open path (pdfcpu default validation, the exact
+// the current CLI's open path (pdfcpu's reader, the exact
 // Inspector.Open route) and the CMS blob round-trips through strict stdlib DER
 // parsing with non-positional signer identification (the CA cert is FIRST in
 // the certificate set on purpose).

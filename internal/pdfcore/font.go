@@ -388,7 +388,7 @@ func populateToUnicode(doc *DocumentState, d pdfcpu_types.Dict, detail *FontDeta
 
 	var content []byte
 	err := safeCall(func() error {
-		if e := sd.Decode(); e != nil {
+		if e := decodeStream(&sd); e != nil {
 			return e
 		}
 		content = sd.Content
@@ -532,7 +532,7 @@ func detectFontFile(doc *DocumentState, fd pdfcpu_types.Dict) (string, int) {
 func streamDecodedSize(sd pdfcpu_types.StreamDict) int {
 	var size int
 	_ = safeCall(func() error {
-		if e := sd.Decode(); e != nil {
+		if e := decodeStream(&sd); e != nil {
 			return e
 		}
 		size = len(sd.Content)
@@ -682,9 +682,9 @@ func arrayToFloats(arr pdfcpu_types.Array) []float64 {
 // --- ToUnicode CMap parsing ---
 
 // parseToUnicodeCMap is a hand-rolled scanner for the bfchar/bfrange subset of
-// Adobe's CMap syntax used by PDF ToUnicode streams. pdfcpu v0.12.0 does not
-// expose a public CMap reader; the internal helper at pkg/pdfcpu/font is
-// unexported and only counts used GIDs (not generic code-to-Unicode mapping).
+// Adobe's CMap syntax used by PDF ToUnicode streams. pdfcpu does not expose a
+// public CMap reader; the helpers in pkg/pdfcpu/font are unexported and only
+// count used GIDs (not generic code-to-Unicode mapping).
 //
 // Returns parsed mappings or an error describing where the scan failed. On
 // error, the caller surfaces it via ToUnicodeError and renders other sections

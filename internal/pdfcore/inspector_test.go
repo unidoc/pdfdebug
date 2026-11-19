@@ -781,14 +781,10 @@ func TestObjectRefFromNodeID(t *testing.T) {
 // --- Partial open / error node tests ---
 
 func TestOpenPartialSuccess(t *testing.T) {
-	// Verify that Open() on a valid PDF returns no warning.
-	// The partial-success path (ReadContextFile OK, EnsurePageCount fails)
-	// is tested structurally: we verify the code sets DocumentInfo.Error
-	// instead of returning a fatal error when EnsurePageCount fails.
-	// A real partial-success PDF would require a file that passes pdfcpu
-	// validation but fails EnsurePageCount, which is hard to craft.
-	// Instead we verify the positive path and rely on the structural
-	// acceptance tests to confirm the code branch exists.
+	// Verify that Open() on a valid PDF returns no warning. The
+	// partial-success path (the parse succeeds, EnsurePageCount fails) is
+	// covered by TestOpen_PagesWithoutCountOpensWithStructuralWarning, which
+	// opens a root /Pages with no /Count.
 	ins := NewInspector()
 	info, err := ins.Open("tab-partial", filepath.Join(testdataDir(t), "minimal.pdf"))
 	if err != nil {
@@ -1145,7 +1141,7 @@ func TestFindPathToObjectDeepNesting(t *testing.T) {
 // sd.StreamLength is nil but sd.Dict["Length"] carries an IndirectRef,
 // extractStreamInfo resolves the integer via doc.PDFContext.Dereference.
 // Exercised against a synthesized StreamDict whose StreamLength is nil
-// (pdfcpu's reader normally populates it during ReadContextFile -- the
+// (pdfcpu's reader normally populates it during ReadContext -- the
 // fallback path covers malformed PDFs and any future pdfcpu read-path change).
 // See testdata/correctness/README.md for the fixture note.
 func TestExtractStreamInfoIndirectLength(t *testing.T) {

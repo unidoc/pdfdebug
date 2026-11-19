@@ -153,11 +153,11 @@ func TestImageExtraction_ImageUnderstatingItsSizeRejected(t *testing.T) {
 	}
 }
 
-// A /DeviceN colour space with an indirect colorant array opens fine and then
-// faults pdfcpu's component lookup, which asserts the entry is an Array without
-// checking. The contract for a fault inside one image is a per-image error at
-// exit 0, with the metadata gathered before it intact - the command reports the
-// image it could not read and keeps going.
+// A /DeviceN colour space whose colorant array is a dangling reference opens,
+// and pdfcpu's component lookup cannot resolve it. The contract for a failure
+// inside one image is a per-image error at exit 0, with the metadata gathered
+// before it intact - the command reports the image it could not read and keeps
+// going.
 func TestImageExtraction_IndirectDeviceNColorantsReportPerImageError(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := writeTempPDF(t, "devicen-image.pdf", deviceNImagePDF())

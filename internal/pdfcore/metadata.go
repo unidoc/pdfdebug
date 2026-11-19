@@ -118,13 +118,13 @@ func collectXMP(doc *DocumentState, md *DocumentMetadata) {
 // decodeXMPStream decompresses an XMP /Metadata stream per its /Filter (when
 // present) and returns the verbatim XML bytes as a string. A decode failure
 // returns ("", warning) - empty XMP plus a non-fatal warning, never an
-// error. Separated from collectXMP so the decode/classify branch is unit
-// testable on a bare StreamDict (pdfcpu strictly decodes /Metadata at file-read
-// time, so the undecodable path is unreachable through Inspector.Open).
+// error. Inspector.Open does not decode /Metadata, so an undecodable stream
+// reaches this path through GetDocumentMetadata. Separated from collectXMP so
+// the decode/classify branch is unit testable on a bare StreamDict.
 func decodeXMPStream(sd pdfcpu_types.StreamDict) (xmp, warning string) {
 	if len(sd.FilterPipeline) > 0 {
 		decErr := safeCall(func() error {
-			return sd.Decode()
+			return decodeStream(&sd)
 		})
 		if decErr != nil {
 			// Undecodable /Metadata degrades to empty XMP + warning.

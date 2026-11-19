@@ -263,14 +263,14 @@ func flateImagePDFSized(raw []byte, width, height int) []byte {
 	}, 1)
 }
 
-// deviceNImagePDF builds a well-formed document whose image XObject carries a
-// /DeviceN colour space with an INDIRECT colorant-name array. It opens cleanly
-// and then faults pdfcpu's component lookup, yielding a per-image error that is
-// neither a thumbnail success nor the ceiling refusal -- the third outcome the
-// discriminator must separate.
+// deviceNImagePDF builds a document whose image XObject carries a /DeviceN
+// colour space whose colorant-name array is an indirect reference to an object
+// the file does not have. It opens, and pdfcpu's component lookup returns an
+// error for it, yielding a per-image error that is neither a thumbnail success
+// nor the ceiling refusal -- the third outcome the discriminator must separate.
 func deviceNImagePDF() []byte {
 	dict := "/Type /XObject /Subtype /Image /Width 8 /Height 8 /BitsPerComponent 8" +
-		" /ColorSpace [/DeviceN 5 0 R /DeviceRGB 6 0 R] /Filter /DCTDecode"
+		" /ColorSpace [/DeviceN 99 0 R /DeviceRGB 6 0 R] /Filter /DCTDecode"
 	return assemblePDF([][]byte{
 		[]byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
 		[]byte("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"),

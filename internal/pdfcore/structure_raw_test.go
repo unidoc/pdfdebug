@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// In-memory documents for the structure walk. Most of them carry shapes
-// pdfcpu's open-time validation rejects (or recurses on), so tests read them
-// with openUnvalidated, never through Inspector.Open or writeTempPDF.
+// In-memory documents for the structure walk. Tests read them with
+// openUnvalidated, which parses them the way Inspector.Open does without
+// writing a file.
 
 // structPagesObjs returns a page tree of n pages. Page k (1-based) is object
 // 2+k and its /Contents is the single stream object 9000+k holding contents[k-1]

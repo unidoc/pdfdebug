@@ -10,7 +10,7 @@ See [README.md#build-from-source](./README.md#build-from-source) for the canonic
 
 | Tool | Version | Source of truth |
 |---|---|---|
-| Go | 1.27.x | `go.mod` (1.27.3 or later) |
+| Go | 1.27.x | `go.mod` (1.27.4 or later, for the `net/http` fix in GO-2026-6859) |
 | Node.js | 20.x LTS | `.github/workflows/ci.yml` |
 | Wails v3 CLI | `v3.0.0` | `go.mod` require block |
 | golangci-lint | v2.14.0 | `.github/workflows/ci.yml` |

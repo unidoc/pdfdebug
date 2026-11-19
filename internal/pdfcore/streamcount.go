@@ -8,8 +8,9 @@ import (
 	"io"
 	"math"
 
-	"github.com/hhrutter/lzw"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
+
+	"unidoc-pdf-debugger/internal/lzwdecode"
 )
 
 // pipelineMeasurement reports whether countStages covered the runnable pipeline
@@ -60,9 +61,10 @@ func countStages(sd *pdfcpu_types.StreamDict, limit int64) (pipelineMeasurement,
 	//
 	// Read errors are ignored. The counts are the verdict, and a stream that
 	// cannot be decoded reaches the same error in the decode that follows.
-	// Ignoring them is also what matches pdfcpu's tolerance for a truncated or
-	// checksum-broken zlib stream without having to enumerate it: the count
-	// stops where pdfcpu's own output stops.
+	// Ignoring them is also what matches the decode's tolerance for a
+	// truncated zlib stream (pdfcpu) or a checksum-broken one (decodeStream)
+	// without having to enumerate either: the count stops where the decoded
+	// output stops.
 	for i := len(counters) - 1; i >= 0; i-- {
 		_, _ = io.Copy(io.Discard, counters[i])
 	}
@@ -211,7 +213,7 @@ func filterReader(r io.Reader, f pdfcpu_types.PDFFilter, last bool, height int) 
 		if predictorValue(f.DecodeParms) > 1 {
 			return bytes.NewReader(nil), true
 		}
-		return lzw.NewReader(r, earlyChange(f.DecodeParms)), true
+		return lzwdecode.NewReader(r, earlyChange(f.DecodeParms)), true
 
 	case "ASCII85Decode":
 		return ascii85.NewDecoder(&ascii85Body{r: r}), true

@@ -156,7 +156,7 @@ type eventEmitter interface {
 // returns immediately, leaving the native event loop free to service
 // window resize / menu clicks during the parse. The wg argument lets
 // callers synchronise on goroutine completion: openFilesBatch awaits per
-// file (sequential at the file boundary because pdfcpu's ReadContextFile
+// file (sequential at the file boundary because pdfcpu's ReadContext
 // is not documented as concurrent-safe across files), and single-file
 // entry points pass a local WaitGroup so they preserve their
 // synchronous-completion contract.
@@ -576,7 +576,7 @@ func main() {
 		// Sequential dispatch at the file boundary.
 		// Local WaitGroup; wg.Add(1) before each call (code shape);
 		// wg.Wait() per iteration enforces "one file at a time" (pdfcpu's
-		// ReadContextFile is not documented as concurrent-safe across
+		// ReadContext is not documented as concurrent-safe across
 		// DIFFERENT files). The per-iteration Wait sits BEFORE the next
 		// iteration's batchCancelled.Load() check, so cancel skips remaining
 		// un-kicked files but does NOT preempt the in-flight read.

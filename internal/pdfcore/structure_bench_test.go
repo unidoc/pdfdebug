@@ -11,7 +11,7 @@ import (
 // Benchmarks for the document-wide walks on a generated tagged document:
 // 2000 pages, one image XObject per 10 pages, and 20 000 structure elements
 // with one MCID each, 10 per page. Each iteration opens a fresh tab so no
-// cache hides the walk; Open (parse and pdfcpu validation) is not timed.
+// cache hides the walk; Open (the parse) is not timed.
 //
 // Run: go test -bench . -run '^$' ./internal/pdfcore/
 

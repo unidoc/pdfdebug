@@ -151,15 +151,12 @@ func TestGetDocumentMetadata_MissingIsEmptyNotError(t *testing.T) {
 // A /Metadata stream whose /Filter decode fails surfaces as an EMPTY-XMP result
 // PLUS a warning, never an error that fails the view.
 //
-// NOTE: pdfcpu STRICTLY decodes every stream's /Filter at file-read time
-// (ReadContextFile rejects a /FlateDecode /Metadata over garbage bytes with
-// "zlib: invalid header"), so an undecodable /Metadata is unreachable through
-// Inspector.Open with a hand-rolled fixture - the file would never open. The
-// contract is therefore asserted directly against decodeXMPStream, the pure
-// decode/classify branch collectXMP delegates to: a /FlateDecode StreamDict
-// over non-zlib bytes whose Decode() fails must yield ("", warning), never an
-// error. The fixture is hand-assembled because a generated one could not parse
-// under pdfcpu.
+// Inspector.Open does not decode /Metadata, so a file whose /Metadata is a
+// /FlateDecode stream over garbage bytes opens and GetDocumentMetadata degrades
+// to empty XMP plus a warning; TestOpen_UndecodableMetadataDegradesToEmptyXMPAndWarning
+// covers that end to end. This test pins decodeXMPStream, the decode/classify
+// branch collectXMP delegates to: a /FlateDecode StreamDict over non-zlib bytes
+// whose decode fails must yield ("", warning), never an error.
 // ---------------------------------------------------------------------------
 
 func TestGetDocumentMetadata_UndecodableMetadataWarnsNotErrors(t *testing.T) {

@@ -1,9 +1,13 @@
 package pdfcore
 
 import (
+	"bytes"
+	"compress/zlib"
 	"errors"
 	"fmt"
+	"io"
 
+	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -118,13 +122,93 @@ func decodeBounded(sd *pdfcpu_types.StreamDict, limit int64, refuseUnmeasured bo
 		return nil, fmt.Errorf("%w: from %s", errPipelineUnmeasured, m.firstUnmeasured)
 	}
 
-	if err := safeCall(func() error { return sd.Decode() }); err != nil {
+	if err := safeCall(func() error { return decodeStream(sd) }); err != nil {
 		return nil, err
 	}
 	if int64(len(sd.Content)) > limit {
 		return nil, decodedCeilingExceeded(limit)
 	}
 	return sd.Content, nil
+}
+
+// decodeStream decodes sd into sd.Content the way pdfcpu does, under pdfcpu's
+// default decoded-byte limit, and keeps the output of a FlateDecode stage whose
+// only fault is a broken Adler-32 checksum. pdfcpu fails the whole decode on
+// that checksum although the inflated bytes are intact.
+//
+// The tolerant retry re-runs the pipeline stage by stage through pdfcpu's
+// filters. A stage that fails with zlib.ErrChecksum and still returned its
+// output keeps that output; any other failure, or a checksum failure with no
+// output (the predictor path), returns pdfcpu's original error. The retry stops
+// where pdfcpu stops (a DCTDecode stage on a stream that is not 4-component, or
+// a final JPXDecode or JBIG2Decode stage) and keeps the bytes decoded so far;
+// a pipeline with a CCITTFaxDecode stage, a 4-component DCTDecode stage, or a
+// JPXDecode or JBIG2Decode stage before the last is not retried.
+//
+// Callers run it inside safeCall.
+func decodeStream(sd *pdfcpu_types.StreamDict) error {
+	err := sd.DecodeWithLimit(filter.DefaultMaxDecodeBytes)
+	if err == nil || !errors.Is(err, zlib.ErrChecksum) {
+		return err
+	}
+	content, ok := decodeToleratingChecksum(sd)
+	if !ok {
+		return err
+	}
+	sd.Content = content
+	return nil
+}
+
+// decodeToleratingChecksum runs sd's non-crypt filters in order and returns the
+// decoded bytes, keeping a stage's output when its only error is
+// zlib.ErrChecksum. ok is false when the pipeline cannot be decoded that way.
+func decodeToleratingChecksum(sd *pdfcpu_types.StreamDict) ([]byte, bool) {
+	fpl := sd.FilterPipeline
+	if len(fpl) > 0 && fpl[0].Name == "Crypt" {
+		fpl = fpl[1:]
+	}
+	var r io.Reader = bytes.NewReader(sd.Raw)
+	for i, f := range fpl {
+		if f.Name == filter.DCT && sd.CSComponents != 4 {
+			break
+		}
+		if (f.Name == filter.JPX || f.Name == filter.JBIG2) && i == len(fpl)-1 {
+			break
+		}
+		switch f.Name {
+		case filter.JPX, filter.JBIG2, filter.DCT, filter.CCITTFax:
+			return nil, false
+		}
+		fi, err := filter.NewFilter(f.Name, filterParms(f.DecodeParms), filter.DefaultMaxDecodeBytes)
+		if err != nil {
+			return nil, false
+		}
+		out, err := fi.Decode(r)
+		if out == nil || (err != nil && !errors.Is(err, zlib.ErrChecksum)) {
+			return nil, false
+		}
+		r = out
+	}
+	if b, isBuf := r.(*bytes.Buffer); isBuf {
+		return b.Bytes(), true
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, false
+	}
+	return b, true
+}
+
+// filterParms flattens decode parameters the way pdfcpu does before building a
+// filter: Integer values as-is, Booleans as 0 or 1, anything else dropped.
+func filterParms(d pdfcpu_types.Dict) map[string]int {
+	m := map[string]int{}
+	for k, v := range d {
+		if n, ok := predictorParmValue(v); ok {
+			m[k] = n
+		}
+	}
+	return m
 }
 
 // isPassthroughStream reports whether pdfcpu hands sd.Raw back unchanged

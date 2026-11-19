@@ -19,9 +19,10 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// Most malformed page trees are refused by pdfcpu's validator inside
-// Inspector.Open, so these tests read the raw bytes with pdfcpu's reader only
-// (no validation) and register the resulting context under a tab directly.
+// These tests read the raw bytes in memory with pdfcpu's reader, the parse
+// Inspector.Open runs, and register the resulting context under a tab
+// directly. TestOpen_KidsCycleOpensAndPageIndexReturns covers a malformed page
+// tree through Inspector.Open itself.
 
 // rawObj is one indirect object: its number and the text between "N 0 obj"
 // and "endobj".
@@ -64,14 +65,15 @@ func rawStream(data string) string {
 	return fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(data), data)
 }
 
-// openUnvalidated reads pdf without pdfcpu validation and registers it under
-// tabID on a fresh Inspector.
+// openUnvalidated parses pdf with pdfcpu's reader, as Inspector.Open does, and
+// registers it on a fresh Inspector without writing a file.
 func openUnvalidated(t *testing.T, pdf []byte) (*Inspector, *DocumentState) {
 	t.Helper()
-	ctx, err := pdfcpu_api.ReadContext(bytes.NewReader(pdf), pdfcpu_model.NewDefaultConfiguration())
+	ctx, err := pdfcpu_api.ReadContext(context.Background(), bytes.NewReader(pdf), pdfcpu_model.NewDefaultConfiguration())
 	if err != nil {
 		t.Fatalf("ReadContext: %v", err)
 	}
+	decodeObjectStreamObjects(ctx.XRefTable)
 	closeCtx, closeCancel := context.WithCancel(context.Background())
 	doc := &DocumentState{
 		PDFContext:  ctx,

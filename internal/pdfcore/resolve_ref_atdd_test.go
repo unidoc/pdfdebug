@@ -9,12 +9,15 @@
 package pdfcore
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
 // writeTempPDF writes raw PDF bytes to a temp file, verifies pdfcpu can read
@@ -28,7 +31,7 @@ func writeTempPDF(t *testing.T, name string, content []byte) (*Inspector, string
 		t.Fatalf("write temp pdf: %v", err)
 	}
 	// Sanity: pdfcpu must accept the fixture, else the test is moot.
-	if _, err := pdfcpu_api.ReadContextFile(path); err != nil {
+	if _, err := pdfcpu_api.ReadContext(context.Background(), bytes.NewReader(content), pdfcpu_model.NewDefaultConfiguration()); err != nil {
 		t.Fatalf("fixture %s rejected by pdfcpu: %v", name, err)
 	}
 	ins := NewInspector()

@@ -8,9 +8,8 @@ import (
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
-// Number trees are read without pdfcpu validation: most malformed shapes here
-// are rejected at Inspector.Open, and a /Kids cycle makes pdfcpu's own
-// validator recurse until the process dies.
+// Number trees are read in memory with openUnvalidated, which parses with the
+// same pdfcpu reader Inspector.Open uses.
 
 const numberTreeWhere = "NT"
 
