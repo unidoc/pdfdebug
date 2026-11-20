@@ -39,7 +39,10 @@ that problem is the one finding, with the object pdfcpu names (for example
 repair, digested violation or skipped object pdfcpu records in its validation
 report is one finding, written as `<disposition> during <phase>: <message>`
 with ` (page N)` and ` (path P)` added when pdfcpu names them, for example `digested during validate: Type1 font CustomFont: missing required
-entries Widths`. The notice list is partial. pdfcpu records only some of its
+entries Widths`. When pdfcpu can only read the file after pdfdebug corrects
+broken Adler-32 checksums of object or cross-reference streams, as `Open`
+does, that correction comes first as a `repaired during parse:` notice, naming
+the object stream when there is one. The notice list is partial. pdfcpu records only some of its
 repairs in that report and writes the rest to its log, which pdfdebug does not
 read; one repair it does not report is the `/Subtype /Form` it infers for an
 XObject that has a `/BBox` and no `/Subtype`. The profile exits 1 when pdfcpu

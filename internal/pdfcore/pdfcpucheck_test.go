@@ -195,6 +195,74 @@ func TestPdfcpuCheck_XRefStreamChecksumFileUsesTheOpenParse(t *testing.T) {
 	assertBothRulesEvaluated(t, res)
 }
 
+// pdfcpu refuses xref-stream-checksum.pdf as written, so the check reports the
+// checksum correction it ran after instead of a clean result.
+func TestPdfcpuCheck_ChecksumCorrectionIsReportedAsANotice(t *testing.T) {
+	res := runCheck(t, "xref-stream-checksum.pdf")
+	notices := problemsOf(res, "pdfcpu-notices")
+	if len(notices) == 0 {
+		t.Fatalf("pdfcpu-notices on xref-stream-checksum.pdf = none, want the checksum correction; problems %+v", res.Problems)
+	}
+	first := notices[0].Message
+	if !strings.HasPrefix(first, "repaired during parse: pdfcpu refuses the file as written") || !strings.Contains(first, "Adler-32") {
+		t.Errorf("first notice = %q, want the repaired-during-parse checksum correction", first)
+	}
+	if res.Summary.Warnings == 0 {
+		t.Errorf("summary = %+v, want at least one warning", res.Summary)
+	}
+}
+
+// A file that parses but whose object stream fails on its Adler-32 trailer
+// gets one repaired notice naming that object stream.
+func TestParseFile_ObjectStreamChecksumCorrectionNamesTheStream(t *testing.T) {
+	b, start := objectStreamFile(t)
+	b = breakObjectStreamTrailer(b, start)
+	_, failed, err := readPDF(context.Background(), bytes.NewReader(b))
+	if err != nil || len(failed) != 1 {
+		t.Fatalf("fixture: readPDF = failed %v, err %v; want one broken object stream", failed, err)
+	}
+	_, repairs, err := parseFile(context.Background(), bytes.NewReader(b), func() ([]byte, error) { return b, nil })
+	if err != nil {
+		t.Fatalf("parseFile: %v", err)
+	}
+	if len(repairs) != 1 {
+		t.Fatalf("repairs = %+v, want one", repairs)
+	}
+	r := repairs[0]
+	if r.ObjectNumber != failed[0] || r.Disposition != pdfcpu_model.NoticeRepaired || r.Phase != pdfcpu_model.NoticePhaseParse {
+		t.Errorf("repair = %+v, want object %d, repaired, parse", r, failed[0])
+	}
+	if !strings.Contains(r.Message, "Adler-32") {
+		t.Errorf("repair message = %q, want it to name the Adler-32 checksum", r.Message)
+	}
+}
+
+// An intact file needs no correction, so parseFile reports none.
+func TestParseFile_IntactFileHasNoRepairs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, repairs, err := parseFile(context.Background(), bytes.NewReader(data), func() ([]byte, error) { return data, nil })
+	if err != nil || len(repairs) != 0 {
+		t.Errorf("parseFile(minimal.pdf) = repairs %+v, err %v; want none", repairs, err)
+	}
+}
+
+// The validator runs in relaxed mode whatever configuration the parse came
+// with, so a strict mode in the user's pdfcpu config.yml cannot change it.
+func TestPdfcpuCheck_ValidatesInRelaxedMode(t *testing.T) {
+	mode := -1
+	swapCheckValidate(t, func(ctx context.Context, pctx *pdfcpu_model.Context) (pdfcpu_model.ValidationReport, error) {
+		mode = pctx.Configuration.ValidationMode
+		return pdfcpu_model.ValidationReport{}, nil
+	})
+	runCheck(t, "minimal.pdf")
+	if mode != pdfcpu_model.ValidationRelaxed {
+		t.Errorf("validation mode = %d, want ValidationRelaxed (%d)", mode, pdfcpu_model.ValidationRelaxed)
+	}
+}
+
 // pdfcpu's validator writes /Subtype /Form into an XObject that has /BBox and
 // no /Subtype, and reports no notice for it. The check must leave the
 // displayed document as written, and the report has no item for the repair.
@@ -602,7 +670,7 @@ func TestParseFile_CancelledParseSkipsTheRepairRead(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	reads := 0
-	pctx, err := parseFile(ctx, bytes.NewReader(data), func() ([]byte, error) {
+	pctx, _, err := parseFile(ctx, bytes.NewReader(data), func() ([]byte, error) {
 		reads++
 		return data, nil
 	})

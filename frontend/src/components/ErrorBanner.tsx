@@ -11,13 +11,15 @@ export interface ErrorBannerProps {
   testId?: string;
   /** Keeps the message on one line, truncated with an ellipsis, with the full text in its title. */
   singleLine?: boolean;
+  /** ARIA role of the root; defaults to alert. A non-urgent notice uses status. */
+  role?: 'alert' | 'status';
 }
 
 /**
  * Dismissible banner for document-level errors and warnings, with an optional
  * action button. Renders with severity-appropriate styling.
  */
-export function ErrorBanner({ message, severity, onDismiss, actionLabel, onAction, testId: testIdProp, singleLine }: ErrorBannerProps) {
+export function ErrorBanner({ message, severity, onDismiss, actionLabel, onAction, testId: testIdProp, singleLine, role = 'alert' }: ErrorBannerProps) {
   const isError = severity === 'error';
   // Use dark tinted text on the pale-tinted background. The brand --color-error
   // / --color-warning tokens are vivid (red-500 / amber-500); on a 50-tinted
@@ -38,7 +40,7 @@ export function ErrorBanner({ message, severity, onDismiss, actionLabel, onActio
   return (
     <div
       data-testid={testId}
-      role="alert"
+      role={role}
       className={`flex items-center gap-2 px-4 py-2 ${bgColor} ${textColor} transition-all duration-150`}
     >
       <span className="text-sm font-medium" aria-hidden="true">{icon}</span>

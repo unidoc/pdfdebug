@@ -113,4 +113,41 @@ describe('ValidateView pdfcpu profile', () => {
     expect(screen.queryByText('stale pdfa-1b finding')).toBeNull();
     expect(screen.getByTestId('validate-run').textContent).toBe('Run checks');
   });
+
+  test('a superseded pdfa-1b run that resolves during a newer pdfa-1b run neither renders nor unlocks the run', async () => {
+    const pending: Array<{ profile: string; resolve: (v: unknown) => void }> = [];
+    mockValidate.mockImplementation((_tab: string, profile: string) =>
+      new Promise((resolve) => {
+        pending.push({ profile, resolve });
+      }),
+    );
+    const pdfaResult = (message: string) => ({
+      ...pdfcpuResult,
+      profile: 'pdfa-1b',
+      summary: { errors: 1, warnings: 0, info: 0 },
+      problems: [{ ruleId: 'no-encryption', profile: 'pdfa-1b', severity: 'error', message, specRef: '6.1.3' }],
+    });
+    render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => expect(pending).toHaveLength(1));
+
+    act(() => requestValidateRun('tab-1', 'pdfcpu'));
+    await waitFor(() => expect(pending).toHaveLength(2));
+    await act(async () => pending[1].resolve(pdfcpuResult));
+    await waitFor(() => expect(screen.getByTestId('validate-run').textContent).toBe('Run checks'));
+
+    fireEvent.change(screen.getByTestId('validate-profile'), { target: { value: 'pdfa-1b' } });
+    fireEvent.click(screen.getByTestId('validate-run'));
+    await waitFor(() => expect(pending).toHaveLength(3));
+
+    await act(async () => pending[0].resolve(pdfaResult('superseded pdfa-1b finding')));
+    expect(screen.queryByText('superseded pdfa-1b finding')).toBeNull();
+    expect(screen.getByTestId('validate-run').textContent).toBe('Running...');
+    expect((screen.getByTestId('validate-profile') as HTMLSelectElement).disabled).toBe(true);
+
+    await act(async () => pending[2].resolve(pdfaResult('latest pdfa-1b finding')));
+    await waitFor(() => expect(screen.getByText('latest pdfa-1b finding')).toBeTruthy());
+    expect(screen.queryByText('superseded pdfa-1b finding')).toBeNull();
+    expect(screen.getByTestId('validate-run').textContent).toBe('Run checks');
+  });
 });

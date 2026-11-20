@@ -46,7 +46,8 @@ func validatePdfcpu(doc *DocumentState) (*ValidationResult, error) {
 }
 
 // runPdfcpuCheck parses doc's file again through the read guard, with the
-// same parse Open uses, and runs pdfcpu's validator on that parse. It waits
+// same parse Open uses, and runs pdfcpu's validator in relaxed mode on that
+// parse. A checksum correction the parse needed comes first in the notices. It waits
 // for the semaphore before opening the file, never holds doc.pdfMu and does
 // not touch the displayed context. Closing the document cancels the wait, the
 // parse and the validation, and returns an error satisfying
@@ -73,7 +74,7 @@ func runPdfcpuCheck(doc *DocumentState) (pdfcpuRun, error) {
 	var run pdfcpuRun
 	rs := &busySeeker{f: f}
 	panicErr := recoverAll(func() {
-		pctx, err := parseFile(ctx, rs, func() ([]byte, error) {
+		pctx, repairs, err := parseFile(ctx, rs, func() ([]byte, error) {
 			if _, err := rs.Seek(0, io.SeekStart); err != nil {
 				return nil, err
 			}
@@ -88,8 +89,9 @@ func runPdfcpuCheck(doc *DocumentState) (pdfcpuRun, error) {
 		if ctx.Err() != nil {
 			return
 		}
+		pctx.Configuration.ValidationMode = pdfcpu_model.ValidationRelaxed
 		report, fatal := pdfcpuCheckValidate(ctx, pctx)
-		run.notices, run.fatal = report.Notices(), fatal
+		run.notices, run.fatal = append(repairs, report.Notices()...), fatal
 	})
 	if panicErr != nil {
 		run = pdfcpuRun{degraded: panicErr}

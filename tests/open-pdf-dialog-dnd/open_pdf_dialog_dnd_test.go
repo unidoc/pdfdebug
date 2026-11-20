@@ -284,8 +284,9 @@ func TestErrorBannerHasAlertRole(t *testing.T) {
 
 	content := readFile(t, "frontend/src/components/ErrorBanner.tsx")
 
-	if !strings.Contains(content, `role="alert"`) {
-		t.Error("ErrorBanner must have role=\"alert\" for accessibility")
+	// The role is written literally or as the default of a role prop.
+	if !strings.Contains(content, `role="alert"`) && !strings.Contains(content, `role = 'alert'`) {
+		t.Error("ErrorBanner must have role=\"alert\" by default for accessibility")
 	}
 }
 

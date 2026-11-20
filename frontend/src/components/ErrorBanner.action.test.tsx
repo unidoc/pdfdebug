@@ -38,6 +38,11 @@ describe('ErrorBanner action and testId props', () => {
     expect(screen.queryByTestId('warning-banner')).toBeNull();
   });
 
+  test('role replaces the alert role on the root', () => {
+    render(<ErrorBanner message="m" severity="warning" onDismiss={() => {}} role="status" />);
+    expect(screen.getByTestId('warning-banner')).toHaveAttribute('role', 'status');
+  });
+
   test('without the new props there is only the Dismiss button and the usual test id', () => {
     render(<ErrorBanner message="Structural errors" severity="warning" onDismiss={() => {}} />);
     expect(screen.getByTestId('warning-banner')).toBeInTheDocument();

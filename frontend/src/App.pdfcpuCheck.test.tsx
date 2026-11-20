@@ -291,6 +291,8 @@ describe('pdfcpu banner', () => {
     expect(banner.textContent).toContain('pdfcpu rejects this file:');
     expect(within(banner).getByTestId('error-banner-message').textContent).toBe(full);
     expect(Array.from(banner.querySelectorAll('[title]')).map((e) => e.getAttribute('title'))).toContain(full);
+    // A background notice is a polite status, so tab switches do not re-announce it as an alert.
+    expect(banner).toHaveAttribute('role', 'status');
   });
 
   test('a fatal problem with notices still shows the rejects text', async () => {

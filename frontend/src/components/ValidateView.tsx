@@ -263,6 +263,8 @@ export function ValidateView({
   tabIdRef.current = tabId;
   const profileRef = useRef(profile);
   profileRef.current = profile;
+  // Number of the latest run started per tab; only that run's handlers apply.
+  const runSeqRef = useRef(new Map<string, number>());
 
   useEffect(() => {
     const saved = savedRef.current.get(tabId);
@@ -276,11 +278,15 @@ export function ValidateView({
   const runChecks = (runProfile: string = profile) => {
     if (!tabId) return;
     const runTabId = tabId;
-    // A run is applied to its document's saved entry unless that document's
-    // profile changed since; the screen follows only while that document is
-    // still shown. Every handler below checks current() first, and the shown
-    // document's profile is its saved profile, so the tab check is enough.
-    const current = () => savedRef.current.get(runTabId)?.profile === runProfile;
+    // A run is applied to its document's saved entry only while it is that
+    // document's latest run and the profile is unchanged; the screen follows
+    // only while that document is still shown. Every handler below checks
+    // current() first, and the shown document's profile is its saved profile,
+    // so the tab check is enough.
+    const seq = (runSeqRef.current.get(runTabId) ?? 0) + 1;
+    runSeqRef.current.set(runTabId, seq);
+    const current = () =>
+      runSeqRef.current.get(runTabId) === seq && savedRef.current.get(runTabId)?.profile === runProfile;
     const shown = () => tabIdRef.current === runTabId;
     save(runTabId, { profile: runProfile, error: null, running: true });
     setRunning(true);
@@ -305,7 +311,7 @@ export function ValidateView({
   };
 
   // A run request for this tab selects its profile and runs it. A run still in
-  // flight for another profile is dropped by its current() check.
+  // flight for the tab is superseded and dropped by its current() check.
   const runRequest = useValidateRequest();
   useEffect(() => {
     if (!runRequest || !tabId || runRequest.tabId !== tabId) return;

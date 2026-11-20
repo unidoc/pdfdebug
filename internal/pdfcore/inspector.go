@@ -189,12 +189,14 @@ func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed []in
 }
 
 // readPDF parses r with pdfcpu, without its validator, and decodes every
-// object-stream object. On success it also returns the object streams whose
+// object-stream object. It uses pdfcpu's built-in configuration, so a
+// config.yml in the user's config directory changes nothing and none is
+// written. On success it also returns the object streams whose
 // objects failed on a broken Adler-32 checksum. Cancelling ctx stops the parse.
 func readPDF(ctx context.Context, r io.ReadSeeker) (pctx *pdfcpu_model.Context, checksumFailed []int, err error) {
 	err = safeCall(func() error {
 		var e error
-		pctx, e = pdfcpu_api.ReadContext(ctx, r, pdfcpu_model.NewDefaultConfiguration())
+		pctx, e = pdfcpu_api.ReadContext(ctx, r, pdfcpu_model.NewStatelessConfiguration())
 		return e
 	})
 	if err != nil {
@@ -365,29 +367,49 @@ func reparse(ctx context.Context, data []byte) (*pdfcpu_model.Context, []int, er
 // corrected, found by their offsets in the parsed cross-reference table. Both
 // corrections apply to one in-memory copy of the file, taken from readAll, and
 // share one inflate budget. The error is the first parse's. A cancelled ctx
-// returns its error without reading the copy or repairing. Open and the pdfcpu
-// check both parse through here, so they see the same objects.
-func parseFile(ctx context.Context, r io.ReadSeeker, readAll func() ([]byte, error)) (*pdfcpu_model.Context, error) {
+// returns its error without reading the copy or repairing. Each correction
+// that let a reparse succeed is returned as a repaired parse notice. Open and
+// the pdfcpu check both parse through here, so they see the same objects.
+func parseFile(ctx context.Context, r io.ReadSeeker, readAll func() ([]byte, error)) (*pdfcpu_model.Context, []pdfcpu_model.ValidationNotice, error) {
 	pctx, checksumFailed, err := readPDF(ctx, r)
 	if cerr := ctx.Err(); cerr != nil {
-		return nil, cerr
+		return nil, nil, cerr
 	}
+	var repairs []pdfcpu_model.ValidationNotice
 	if err != nil || len(checksumFailed) > 0 {
 		if data, e := readAll(); e == nil {
 			budget := filter.DefaultMaxDecodeBytes
 			if err != nil && fixTypedStreamChecksums(data, &budget) {
 				if c, cf, e := reparse(ctx, data); e == nil {
+					repairs = append(repairs, checksumRepair(0, fmt.Sprintf(
+						"pdfcpu refuses the file as written (%v); pdfdebug corrected broken Adler-32 checksums of object or cross-reference streams before pdfcpu read it", err)))
 					pctx, checksumFailed, err = c, cf, nil
 				}
 			}
 			if err == nil && len(checksumFailed) > 0 && fixChecksumsAt(data, objectStreamDataOffsets(pctx.XRefTable, checksumFailed), &budget) {
 				if c, _, e := reparse(ctx, data); e == nil {
+					for _, objNr := range checksumFailed {
+						repairs = append(repairs, checksumRepair(objNr, fmt.Sprintf(
+							"pdfcpu cannot read the objects of object stream %d as written; pdfdebug corrected its broken Adler-32 checksum before pdfcpu read it", objNr)))
+					}
 					pctx = c
 				}
 			}
 		}
 	}
-	return pctx, err
+	return pctx, repairs, err
+}
+
+// checksumRepair returns the repaired parse notice for a checksum correction,
+// naming objNr when it is above 0.
+func checksumRepair(objNr int, message string) pdfcpu_model.ValidationNotice {
+	return pdfcpu_model.ValidationNotice{
+		Severity:     pdfcpu_model.NoticeSeverityWarning,
+		Disposition:  pdfcpu_model.NoticeRepaired,
+		Phase:        pdfcpu_model.NoticePhaseParse,
+		Message:      message,
+		ObjectNumber: objNr,
+	}
 }
 
 // Open parses a PDF file and registers it under the given tab ID. Returns
@@ -422,7 +444,7 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	var ctx *pdfcpu_model.Context
 	f, err := os.Open(filePath)
 	if err == nil {
-		ctx, err = parseFile(context.Background(), f, func() ([]byte, error) { return os.ReadFile(filePath) })
+		ctx, _, err = parseFile(context.Background(), f, func() ([]byte, error) { return os.ReadFile(filePath) })
 		_ = f.Close()
 	}
 	if err != nil {

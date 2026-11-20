@@ -39,6 +39,7 @@ export function PdfcpuBanner({ tabId }: PdfcpuBannerProps) {
         message={text}
         severity="warning"
         testId="pdfcpu-banner"
+        role="status"
         singleLine
         actionLabel="Details"
         onAction={() => {
