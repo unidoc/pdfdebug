@@ -29,7 +29,7 @@ var validateUsage = usageLine("validate")
 func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	profileFlag := fs.String("profile", pdfcore.ProfilePDFA1B, "Rule profile: pdfa-1b (default) or pdfua-1-structural")
+	profileFlag := fs.String("profile", pdfcore.ProfilePDFA1B, "Rule profile: pdfa-1b (default), pdfua-1-structural or pdfcpu")
 	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
 	if err := fs.Parse(args); err != nil {
@@ -134,7 +134,7 @@ var severityOrder = []string{"error", "warning", "info"}
 
 // profileRuleLines returns one help line per profile naming the rules it
 // checks and the standard it is a structural subset of, built from the
-// registry.
+// registry. The pdfcpu profile's line says it runs pdfcpu's validator instead.
 func profileRuleLines() []string {
 	lines := make([]string, 0, len(pdfcore.ValidProfiles))
 	for _, profile := range pdfcore.ValidProfiles {
@@ -143,9 +143,12 @@ func profileRuleLines() []string {
 		for _, r := range rules {
 			ids = append(ids, r.RuleID)
 		}
-		standard := pdfcore.ProfileStandard(profile)
-		lines = append(lines, fmt.Sprintf("  %s checks %d %s: %s (a structural subset of %s, not a %s conformance check)",
-			profile, len(rules), plural(len(rules), "rule"), strings.Join(ids, ", "), standard, standard))
+		what := fmt.Sprintf("a structural subset of %[1]s, not a %[1]s conformance check", pdfcore.ProfileStandard(profile))
+		if profile == pdfcore.ProfilePdfcpu {
+			what = "pdfcpu's own relaxed validator on a separate parse, not a conformance check"
+		}
+		lines = append(lines, fmt.Sprintf("  %s checks %d %s: %s (%s)",
+			profile, len(rules), plural(len(rules), "rule"), strings.Join(ids, ", "), what))
 	}
 	return lines
 }

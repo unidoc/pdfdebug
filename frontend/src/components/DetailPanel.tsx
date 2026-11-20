@@ -19,6 +19,7 @@ import { formatTimestamp } from '../lib/formatTimestamp';
 import { dispatchOpenedDocument } from '../lib/openedDocuments';
 import { reloadActiveTab, reloadedMessage, reloadFailureReason } from '../lib/reloadDocument';
 import { showReloadToast } from './ReloadToast';
+import { useValidateRequest } from '../lib/pdfcpuCheck';
 import { StaleNote } from './StaleNote';
 import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
 import { formatBytes } from '../lib/formatBytes';
@@ -254,6 +255,13 @@ function DetailPanelInner() {
     if (tabId) viewByTabRef.current.set(tabId, view);
     setDetailView(view);
   }, []);
+
+  // A Validate run request for the active tab (the pdfcpu banner's Details)
+  // shows the Validate tab; ValidateView runs the profile and clears it.
+  const validateRequest = useValidateRequest();
+  useEffect(() => {
+    if (validateRequest && validateRequest.tabId === activeTabId) changeDetailView('validate');
+  }, [validateRequest, activeTabId, changeDetailView]);
 
   useEffect(() => {
     // Drop remembered views of closed tabs, then restore this tab's view.

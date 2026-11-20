@@ -143,7 +143,7 @@ synopsis on its reference page shows which of them it takes.
 - `--name NAME` - for `dump embedded`, extract the named file's bytes to stdout.
 - `--export-cms FILE` / `--export-certs DIR` - for `dump signatures`, write the CMS or the chain certificates to files.
 - `--field NAME` - for `dump signatures`, pick the signature field to export.
-- `--profile` - for `validate`, select the profile.
+- `--profile` - for `validate`, select the profile: `pdfa-1b` (default), `pdfua-1-structural`, or `--profile pdfcpu` for pdfcpu's own relaxed validator on a separate parse (its notice list is partial; see [`validate`](cli/validate-and-diff.md#validate)).
 - `--full` - for `diff`, include unchanged nodes in the output.
 - `--help` / `-h` - show usage. Every command also accepts `--help`.
 - `--version` / `-v` - show version information.

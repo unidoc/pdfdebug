@@ -15,6 +15,7 @@ import { closeDocumentTab, dispatchOpenedDocument, type OpenedDocument } from '.
 const mockCloseDocument = vi.fn();
 
 vi.mock('../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
+  Validate: vi.fn().mockResolvedValue({ problems: [] }),
   CloseDocument: (...args: unknown[]) => mockCloseDocument(...args),
 }));
 

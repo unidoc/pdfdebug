@@ -104,6 +104,27 @@ func TestFileBusyCopyOfLockedFile(t *testing.T) {
 	}
 }
 
+// The pdfcpu check of a file another handle holds an exclusive byte-range lock
+// on returns ErrFileBusy uncached: a second call parses again.
+func TestFileBusyPdfcpuCheckOfLockedFile(t *testing.T) {
+	ins, path := openTempCopy(t, "minimal.pdf", "tab-busy-pdfcpu")
+	lockWholeFile(t, path)
+
+	before := pdfcpuCheckParses.Load()
+	for i := 0; i < 2; i++ {
+		res, err := ins.Validate("tab-busy-pdfcpu", ProfilePdfcpu)
+		if !errors.Is(err, ErrFileBusy) {
+			t.Fatalf("Validate(pdfcpu) of a locked file, call %d: err = %v, want ErrFileBusy", i+1, err)
+		}
+		if res != nil {
+			t.Fatalf("Validate(pdfcpu) of a locked file, call %d: got a result %+v, want none", i+1, res)
+		}
+	}
+	if got := pdfcpuCheckParses.Load() - before; got != 2 {
+		t.Errorf("parses = %d, want 2 (a busy run is not cached)", got)
+	}
+}
+
 var procLockFileEx = syscall.NewLazyDLL("kernel32.dll").NewProc("LockFileEx")
 
 // lockWholeFile takes an exclusive byte-range lock on all of path through a

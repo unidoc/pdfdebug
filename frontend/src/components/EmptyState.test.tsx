@@ -19,6 +19,7 @@ vi.mock(
     OpenFile: vi.fn(),
     GetTreeRoot: vi.fn(),
     GetChildren: vi.fn(),
+    Validate: vi.fn().mockResolvedValue({ problems: [] }),
     CloseDocument: vi.fn(),
     OpenFileDialog: vi.fn(),
   })
