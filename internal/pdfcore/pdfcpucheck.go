@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -47,11 +48,13 @@ func validatePdfcpu(doc *DocumentState) (*ValidationResult, error) {
 
 // runPdfcpuCheck parses doc's file again through the read guard, with the
 // same parse Open uses, and runs pdfcpu's validator in relaxed mode on that
-// parse. A checksum correction the parse needed comes first in the notices. It waits
-// for the semaphore before opening the file, never holds doc.pdfMu and does
-// not touch the displayed context. Closing the document cancels the wait, the
-// parse and the validation, and returns an error satisfying
-// errors.Is(err, context.Canceled).
+// parse. A checksum correction the parse needed comes first in the notices.
+// The file is checked against doc's fingerprint and closed once the parse
+// returns, so it is not held open while the validator runs; the result
+// describes the bytes that were parsed. It waits for the semaphore before
+// opening the file, never holds doc.pdfMu and does not touch the displayed
+// context. Closing the document cancels the wait, the parse and the
+// validation, and returns an error satisfying errors.Is(err, context.Canceled).
 func runPdfcpuCheck(doc *DocumentState) (pdfcpuRun, error) {
 	ctx := doc.closeCtx
 	select {
@@ -68,36 +71,34 @@ func runPdfcpuCheck(doc *DocumentState) (pdfcpuRun, error) {
 	if err != nil {
 		return pdfcpuRun{}, err
 	}
+	// The early Close below makes this a no-op on the success path.
 	defer func() { _ = f.Close() }()
 	pdfcpuCheckParses.Add(1)
 
 	var run pdfcpuRun
+	var pctx *pdfcpu_model.Context
+	var repairs []pdfcpu_model.ValidationNotice
 	rs := &busySeeker{f: f}
 	panicErr := recoverAll(func() {
-		pctx, repairs, err := parseFile(ctx, rs, func() ([]byte, error) {
+		var err error
+		pctx, repairs, err = parseFile(ctx, rs, func() ([]byte, error) {
 			if _, err := rs.Seek(0, io.SeekStart); err != nil {
 				return nil, err
 			}
 			return io.ReadAll(rs)
 		})
 		if err != nil {
+			pctx = nil
 			if ctx.Err() == nil {
 				run.degraded = fmt.Errorf("pdfcpu could not parse the file: %w", err)
 			}
-			return
 		}
-		if ctx.Err() != nil {
-			return
-		}
-		pctx.Configuration.ValidationMode = pdfcpu_model.ValidationRelaxed
-		report, fatal := pdfcpuCheckValidate(ctx, pctx)
-		run.notices, run.fatal = append(repairs, report.Notices()...), fatal
 	})
 	if panicErr != nil {
-		run = pdfcpuRun{degraded: panicErr}
+		pctx, run = nil, pdfcpuRun{degraded: panicErr}
 	}
-	// pdfcpu returns a cancel as its parse or fatal error, so a close is
-	// checked before either is read.
+	// pdfcpu returns a cancel as its parse error, so a close is checked
+	// before the parse outcome is read.
 	if err := ctx.Err(); err != nil {
 		return pdfcpuRun{}, err
 	}
@@ -107,6 +108,27 @@ func runPdfcpuCheck(doc *DocumentState) (pdfcpuRun, error) {
 		return pdfcpuRun{}, ErrFileBusy
 	}
 	if err := verifyHandle(f, doc.fingerprint); err != nil {
+		return pdfcpuRun{}, err
+	}
+	_ = f.Close()
+	if pctx == nil {
+		return run, nil
+	}
+
+	// The validator works on the parsed objects only; an empty reader makes
+	// sure nothing reaches the closed file.
+	pctx.Read.RS = bytes.NewReader(nil)
+	pctx.Configuration.ValidationMode = pdfcpu_model.ValidationRelaxed
+	panicErr = recoverAll(func() {
+		report, fatal := pdfcpuCheckValidate(ctx, pctx)
+		run.notices, run.fatal = append(repairs, report.Notices()...), fatal
+	})
+	if panicErr != nil {
+		run = pdfcpuRun{degraded: panicErr}
+	}
+	// pdfcpu returns a cancel as its fatal error, so a close is checked
+	// before it is read.
+	if err := ctx.Err(); err != nil {
 		return pdfcpuRun{}, err
 	}
 	return run, nil

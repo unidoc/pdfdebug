@@ -451,28 +451,30 @@ func TestPdfcpuCheck_ChangedFileReturnsErrFileChangedAndCachesNothing(t *testing
 	}
 }
 
-// A file rewritten while the check parses and validates is refused after the
-// run, and nothing is cached.
-func TestPdfcpuCheck_FileChangedDuringCheckReturnsErrFileChanged(t *testing.T) {
+// The file is verified and closed before the validator runs, so a save that
+// lands during validation leaves the result for the bytes that were parsed,
+// and the validator sees an empty reader.
+func TestPdfcpuCheck_FileChangedDuringValidationKeepsTheParsedResult(t *testing.T) {
 	ins, path := openTempCopy(t, "minimal.pdf", "pdfcpu-midchange")
 	var once sync.Once
+	readerSize := int64(-1)
 	swapCheckValidate(t, func(ctx context.Context, c *pdfcpu_model.Context) (pdfcpu_model.ValidationReport, error) {
 		once.Do(func() { overwriteWithFixture(t, path, "multipage.pdf") })
+		if r, ok := c.Read.RS.(*bytes.Reader); ok {
+			readerSize = r.Size()
+		}
 		return pdfcpu_api.ValidateContextWithReport(ctx, c)
 	})
-	before := pdfcpuCheckParses.Load()
 	res, err := ins.Validate("pdfcpu-midchange", ProfilePdfcpu)
-	if !errors.Is(err, ErrFileChanged) {
-		t.Fatalf("Validate with the file rewritten during the check: err = %v, want ErrFileChanged", err)
+	if err != nil {
+		t.Fatalf("Validate with the file rewritten during validation: %v", err)
 	}
-	if res != nil {
-		t.Errorf("Validate returned a result for bytes that changed: %+v", res)
+	assertBothRulesEvaluated(t, res)
+	if len(res.Problems) != 0 {
+		t.Errorf("problems = %+v, want minimal.pdf's clean result", res.Problems)
 	}
-	if _, err := ins.Validate("pdfcpu-midchange", ProfilePdfcpu); !errors.Is(err, ErrFileChanged) {
-		t.Errorf("second Validate: err = %v, want ErrFileChanged", err)
-	}
-	if got := pdfcpuCheckParses.Load() - before; got != 1 {
-		t.Errorf("parses = %d, want 1 (the refused run cached nothing; the second call stops at openVerified)", got)
+	if readerSize != 0 {
+		t.Errorf("validator reader size = %d, want an empty *bytes.Reader", readerSize)
 	}
 }
 
