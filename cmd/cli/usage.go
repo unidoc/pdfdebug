@@ -47,7 +47,7 @@ var commandSpecs = []commandSpec{
 		"Dump the /Info dictionary fields and the XMP metadata packet"},
 	{"dump signatures", `[--json] [--pretty] [--export-cms FILE] [--export-certs DIR] [--field NAME] <file>`,
 		"Decompose digital-signature fields (signer, chain with key usage and CRL/OCSP URLs, ByteRange coverage; no trust verdict, no URL fetched); --export-cms/--export-certs write the CMS and certificates"},
-	{"validate", `[--profile pdfa-1b|pdfua-1-structural] [--json] [--pretty] <file>`,
+	{"validate", `[--profile pdfa-1b|pdfua-1-structural|pdfcpu] [--json] [--pretty] <file>`,
 		"Run a named subset of structural checks per profile (structural checks only - not full conformance; use veraPDF for authoritative validation)"},
 	{"diff", `[--json] [--pretty] [--full] <left.pdf> <right.pdf>`,
 		"Path-aligned STRUCTURAL diff of two PDFs (object model, not byte/pixel; aligned by structural path, not object number)"},

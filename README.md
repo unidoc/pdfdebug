@@ -189,6 +189,7 @@ pdfdebug dump tree --depth 3 sample.pdf
 pdfdebug dump object --ref "7 0 R" sample.pdf
 pdfdebug dump pages sample.pdf
 pdfdebug validate --profile pdfua-1-structural sample.pdf
+pdfdebug validate --profile pdfcpu sample.pdf
 pdfdebug diff old.pdf new.pdf
 ```
 

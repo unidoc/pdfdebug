@@ -336,11 +336,19 @@ func (a *app) dispatchClick(setup string) {
 func (a *app) click(selector string) {
 	a.t.Helper()
 	sel, _ := json.Marshal(selector)
-	a.dispatchClick(`const target = document.querySelector(` + string(sel) + `);
-	if (!target) return {error: 'no element matches selector ' + ` + string(sel) + `};
+	a.clickFound("selector "+selector, `document.querySelector(`+string(sel)+`)`)
+}
+
+// clickFound clicks the centre of the element the JS expression find returns
+// after scrolling it into view; what names it in errors.
+func (a *app) clickFound(what, find string) {
+	a.t.Helper()
+	name, _ := json.Marshal(what)
+	a.dispatchClick(`const target = ` + find + `;
+	if (!target) return {error: 'no element matches ' + ` + string(name) + `};
 	target.scrollIntoView({block: 'center', inline: 'center'});
 	const r = target.getBoundingClientRect();
-	if (r.width === 0 && r.height === 0) return {error: 'element has zero size: ' + ` + string(sel) + `};
+	if (r.width === 0 && r.height === 0) return {error: 'element has zero size: ' + ` + string(name) + `};
 	const x = r.x + r.width / 2, y = r.y + r.height / 2;`)
 }
 

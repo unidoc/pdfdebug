@@ -38,6 +38,7 @@ vi.mock('@wailsio/runtime', () => ({
 
 const bindings = vi.hoisted(() => ({
   OpenFile: vi.fn(),
+  Validate: vi.fn().mockResolvedValue({ profile: 'pdfcpu', summary: { errors: 0, warnings: 0, info: 0 }, problems: [], disclaimer: '', scope: '', rules: [] }),
   GetTreeRoot: vi.fn(),
   GetChildren: vi.fn(),
   CloseDocument: vi.fn(),
@@ -46,6 +47,7 @@ const bindings = vi.hoisted(() => ({
 
 vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
   OpenFile: (...a: unknown[]) => bindings.OpenFile(...a),
+  Validate: (...a: unknown[]) => bindings.Validate(...a),
   GetTreeRoot: (...a: unknown[]) => bindings.GetTreeRoot(...a),
   GetChildren: (...a: unknown[]) => bindings.GetChildren(...a),
   CloseDocument: (...a: unknown[]) => bindings.CloseDocument(...a),
@@ -559,6 +561,7 @@ describe('on-disk status events', () => {
     focusTarget.focus();
     const rendersBefore = probe.renders;
     const stateBefore = probe.state;
+    const callsBefore = Object.values(bindings).map((fn) => fn.mock.calls.length);
 
     diskStatus(t.a, 1, 'changed');
     diskStatus(t.a, 2, 'missing');
@@ -568,7 +571,7 @@ describe('on-disk status events', () => {
     expect(probe.state).toBe(stateBefore);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByTestId('error-banner')).not.toBeInTheDocument();
-    for (const fn of Object.values(bindings)) expect(fn).not.toHaveBeenCalled();
+    expect(Object.values(bindings).map((fn) => fn.mock.calls.length)).toEqual(callsBefore);
     focusTarget.remove();
   });
 

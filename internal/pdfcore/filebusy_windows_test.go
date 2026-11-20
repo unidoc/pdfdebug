@@ -12,10 +12,15 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 	"unsafe"
+
+	pdfcpu_api "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
 const (
@@ -101,6 +106,52 @@ func TestFileBusyCopyOfLockedFile(t *testing.T) {
 
 	if _, err := ins.CopyDocumentFile("tab-busy-copy", io.Discard); !errors.Is(err, ErrFileBusy) {
 		t.Fatalf("CopyDocumentFile of a locked file: err = %v, want ErrFileBusy", err)
+	}
+}
+
+// The pdfcpu check of a file another handle holds an exclusive byte-range lock
+// on returns ErrFileBusy uncached: a second call parses again.
+func TestFileBusyPdfcpuCheckOfLockedFile(t *testing.T) {
+	ins, path := openTempCopy(t, "minimal.pdf", "tab-busy-pdfcpu")
+	lockWholeFile(t, path)
+
+	before := pdfcpuCheckParses.Load()
+	for i := 0; i < 2; i++ {
+		res, err := ins.Validate("tab-busy-pdfcpu", ProfilePdfcpu)
+		if !errors.Is(err, ErrFileBusy) {
+			t.Fatalf("Validate(pdfcpu) of a locked file, call %d: err = %v, want ErrFileBusy", i+1, err)
+		}
+		if res != nil {
+			t.Fatalf("Validate(pdfcpu) of a locked file, call %d: got a result %+v, want none", i+1, res)
+		}
+	}
+	if got := pdfcpuCheckParses.Load() - before; got != 2 {
+		t.Errorf("parses = %d, want 2 (a busy run is not cached)", got)
+	}
+}
+
+// An editor's atomic-replace save (rename a new file over the open one) is not
+// blocked while pdfcpu's validator runs, because the check has closed the file.
+func TestFileBusyPdfcpuCheckReleasesTheFileBeforeValidating(t *testing.T) {
+	ins, path := openTempCopy(t, "minimal.pdf", "tab-busy-replace")
+	replacement := path + ".new"
+	data, err := os.ReadFile(filepath.Join(testdataDir(t), "multipage.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(replacement, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var renameErr error
+	swapCheckValidate(t, func(ctx context.Context, c *pdfcpu_model.Context) (pdfcpu_model.ValidationReport, error) {
+		renameErr = os.Rename(replacement, path)
+		return pdfcpu_api.ValidateContextWithReport(ctx, c)
+	})
+	if _, err := ins.Validate("tab-busy-replace", ProfilePdfcpu); err != nil {
+		t.Fatalf("Validate(pdfcpu): %v", err)
+	}
+	if renameErr != nil {
+		t.Errorf("replacing the file while the validator ran: %v, want the file released", renameErr)
 	}
 }
 
