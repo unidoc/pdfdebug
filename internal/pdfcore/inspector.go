@@ -368,7 +368,8 @@ func reparse(ctx context.Context, data []byte) (*pdfcpu_model.Context, []int, er
 // corrections apply to one in-memory copy of the file, taken from readAll, and
 // share one inflate budget. The error is the first parse's. A cancelled ctx
 // returns its error without reading the copy or repairing. Each correction
-// that let a reparse succeed is returned as a repaired parse notice. Open and
+// that let a reparse succeed is returned as a repaired parse notice; an object
+// stream whose objects still fail after the reparse gets none. Open and
 // the pdfcpu check both parse through here, so they see the same objects.
 func parseFile(ctx context.Context, r io.ReadSeeker, readAll func() ([]byte, error)) (*pdfcpu_model.Context, []pdfcpu_model.ValidationNotice, error) {
 	pctx, checksumFailed, err := readPDF(ctx, r)
@@ -387,8 +388,12 @@ func parseFile(ctx context.Context, r io.ReadSeeker, readAll func() ([]byte, err
 				}
 			}
 			if err == nil && len(checksumFailed) > 0 && fixChecksumsAt(data, objectStreamDataOffsets(pctx.XRefTable, checksumFailed), &budget) {
-				if c, _, e := reparse(ctx, data); e == nil {
+				if c, stillFailed, e := reparse(ctx, data); e == nil {
 					for _, objNr := range checksumFailed {
+						// A stream the correction skipped still fails and is not reported.
+						if slices.Contains(stillFailed, objNr) {
+							continue
+						}
 						repairs = append(repairs, checksumRepair(objNr, fmt.Sprintf(
 							"pdfcpu cannot read the objects of object stream %d as written; pdfdebug corrected its broken Adler-32 checksum before pdfcpu read it", objNr)))
 					}

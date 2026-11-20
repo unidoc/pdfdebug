@@ -2,8 +2,12 @@ package pdfcore
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -234,6 +238,103 @@ func TestParseFile_ObjectStreamChecksumCorrectionNamesTheStream(t *testing.T) {
 	}
 	if !strings.Contains(r.Message, "Adler-32") {
 		t.Errorf("repair message = %q, want it to name the Adler-32 checksum", r.Message)
+	}
+}
+
+// brokenTrailerZlib returns payload zlib-compressed with its Adler-32 trailer
+// flipped, so the data inflates but the checksum fails.
+func brokenTrailerZlib(t *testing.T, payload string) []byte {
+	t.Helper()
+	var z bytes.Buffer
+	zw := zlib.NewWriter(&z)
+	if _, err := zw.Write([]byte(payload)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b := z.Bytes()
+	b[len(b)-1] ^= 0xFF
+	return b
+}
+
+// twoBrokenObjectStreamsFile builds a file whose page uses font 4 from object
+// stream 10 (/FlateDecode) and font 5 from object stream 11
+// ([/ASCIIHexDecode /FlateDecode]); both streams have a broken Adler-32
+// trailer, and the cross-reference stream is object 12.
+func twoBrokenObjectStreamsFile(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	off := map[int]int{}
+	obj := func(n int, s string) {
+		off[n] = buf.Len()
+		buf.WriteString(s)
+	}
+	stream := func(n int, dict string, data []byte) {
+		obj(n, fmt.Sprintf("%d 0 obj\n<< %s /Length %d >>\nstream\n", n, dict, len(data)))
+		buf.Write(data)
+		buf.WriteString("\nendstream\nendobj\n")
+	}
+	buf.WriteString("%PDF-1.5\n")
+	obj(1, "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+	obj(2, "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+	obj(3, "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>\nendobj\n")
+	stream(10, "/Type /ObjStm /N 1 /First 4 /Filter /FlateDecode",
+		brokenTrailerZlib(t, "4 0 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"))
+	stream(11, "/Type /ObjStm /N 1 /First 4 /Filter [/ASCIIHexDecode /FlateDecode]",
+		[]byte(hex.EncodeToString(brokenTrailerZlib(t, "5 0 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>"))+">"))
+
+	// Cross-reference stream rows: type (1 byte), field 2 (4 bytes), field 3 (2 bytes).
+	var x bytes.Buffer
+	row := func(typ byte, f2 uint32, f3 uint16) {
+		x.WriteByte(typ)
+		_ = binary.Write(&x, binary.BigEndian, f2)
+		_ = binary.Write(&x, binary.BigEndian, f3)
+	}
+	xoff := buf.Len()
+	for n := 0; n <= 12; n++ {
+		switch o, ok := off[n]; {
+		case n == 0:
+			row(0, 0, 65535)
+		case n == 4:
+			row(2, 10, 0)
+		case n == 5:
+			row(2, 11, 0)
+		case n == 12:
+			row(1, uint32(xoff), 0)
+		case ok:
+			row(1, uint32(o), 0)
+		default:
+			row(0, 0, 0)
+		}
+	}
+	stream(12, "/Type /XRef /Size 13 /W [1 4 2] /Root 1 0 R", x.Bytes())
+	fmt.Fprintf(&buf, "startxref\n%d\n%%%%EOF\n", xoff)
+	return buf.Bytes()
+}
+
+// The object-stream correction finds zlib data at the stream's offset only, so
+// a stream behind /ASCIIHexDecode keeps its broken trailer and gets no notice,
+// while the plain /FlateDecode stream next to it does.
+func TestParseFile_ObjectStreamTheCorrectionSkippedGetsNoNotice(t *testing.T) {
+	b := twoBrokenObjectStreamsFile(t)
+	_, failed, err := readPDF(context.Background(), bytes.NewReader(b))
+	if err != nil || !slices.Equal(failed, []int{10, 11}) {
+		t.Fatalf("fixture: readPDF = failed %v, err %v; want object streams 10 and 11 failing", failed, err)
+	}
+	pctx, repairs, err := parseFile(context.Background(), bytes.NewReader(b), func() ([]byte, error) { return bytes.Clone(b), nil })
+	if err != nil {
+		t.Fatalf("parseFile: %v", err)
+	}
+	if still := decodeObjectStreamObjects(pctx.XRefTable); !slices.Equal(still, []int{11}) {
+		t.Fatalf("fixture: object streams failing after the correction = %v, want [11]", still)
+	}
+	var named []int
+	for _, r := range repairs {
+		named = append(named, r.ObjectNumber)
+	}
+	if !slices.Equal(named, []int{10}) {
+		t.Errorf("repair notices name object streams %v, want only 10", named)
 	}
 }
 
