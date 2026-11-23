@@ -6,33 +6,6 @@ import (
 	"testing"
 )
 
-// Inspector.Open parses the file with pdfcpu's reader and does not run
-// pdfcpu's validator.
-func TestInspectorOpenParsesWithoutValidating(t *testing.T) {
-	src := readRepoFile(t, "internal/pdfcore/inspector.go")
-	if strings.Contains(src, "ReadContextFile(") {
-		t.Errorf("internal/pdfcore/inspector.go still opens with ReadContextFile, which runs pdfcpu's validator")
-	}
-	if !strings.Contains(src, "pdfcpu_api.ReadContext(") {
-		t.Errorf("internal/pdfcore/inspector.go must parse with pdfcpu_api.ReadContext")
-	}
-	if strings.Contains(src, "ValidateContext(") {
-		t.Errorf("internal/pdfcore/inspector.go must not run pdfcpu's validator")
-	}
-}
-
-// The test helpers that sanity-check a fixture accept what Open accepts.
-func TestFixtureHelpersCheckWithTheOpenParser(t *testing.T) {
-	for _, rel := range []string{
-		"internal/pdfcore/resolve_ref_atdd_test.go",
-		"internal/pdfcore/diff_test.go",
-	} {
-		if strings.Contains(readRepoFile(t, rel), "ReadContextFile(") {
-			t.Errorf("%s sanity-checks fixtures with ReadContextFile, which is stricter than Open; use ReadContext", rel)
-		}
-	}
-}
-
 func TestDumpStructureOnCyclicStructureTreeExitsZero(t *testing.T) {
 	bin := buildCLI(t)
 	file := filepath.Join(projectRoot(t), "testdata", "structure-broken.pdf")

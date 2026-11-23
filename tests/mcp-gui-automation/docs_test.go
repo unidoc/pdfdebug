@@ -74,19 +74,14 @@ func TestTestsReadmeDescribesTheGoSuites(t *testing.T) {
 	}
 }
 
-func TestChangelogUnreleasedRecordsGUIAutomation(t *testing.T) {
-	changelog := readRepoFile(t, "CHANGELOG.md")
-	start := strings.Index(changelog, "## [Unreleased]")
-	if start < 0 {
-		t.Fatal("CHANGELOG.md has no [Unreleased] section")
-	}
-	rest := changelog[start+len("## [Unreleased]"):]
-	if end := strings.Index(rest, "\n## ["); end >= 0 {
-		rest = rest[:end]
-	}
-	for _, want := range []string{"guictl", "build:mcp"} {
-		if !strings.Contains(rest, want) {
-			t.Errorf("CHANGELOG.md [Unreleased] does not mention %q", want)
+// A CHANGELOG version section records the GUI automation tooling, under
+// [Unreleased] or after its release is cut.
+func TestChangelogRecordsGUIAutomation(t *testing.T) {
+	wants := []string{"guictl", "build:mcp"}
+	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
+		if strings.Contains(sec, wants[0]) && strings.Contains(sec, wants[1]) {
+			return
 		}
 	}
+	t.Errorf("no CHANGELOG.md version section mentions both %q and %q", wants[0], wants[1])
 }

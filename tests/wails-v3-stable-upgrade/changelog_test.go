@@ -5,31 +5,33 @@ import (
 	"testing"
 )
 
-// unreleasedSection returns the CHANGELOG.md text between "## [Unreleased]"
-// and the next "## [" heading.
-func unreleasedSection(t *testing.T) string {
+// changelogSections returns CHANGELOG.md's version sections, newest first,
+// each from its "## [" heading to the next, so an entry is found under
+// [Unreleased] and after its release is cut alike.
+func changelogSections(t *testing.T) []string {
 	t.Helper()
-	src := readRepoFile(t, "CHANGELOG.md")
-	start := strings.Index(src, "## [Unreleased]")
-	if start < 0 {
-		t.Fatal("CHANGELOG.md has no [Unreleased] section")
-	}
-	rest := src[start+len("## [Unreleased]"):]
-	if end := strings.Index(rest, "\n## ["); end >= 0 {
-		rest = rest[:end]
-	}
-	return rest
+	return strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:]
 }
 
-func TestChangelogUnreleasedRecordsTheUpgrade(t *testing.T) {
-	section := unreleasedSection(t)
+func TestChangelogRecordsTheUpgrade(t *testing.T) {
 	pin := goModWailsPin(t)
-	if !strings.Contains(section, pin) && !strings.Contains(section, strings.TrimPrefix(pin, "v")) {
-		t.Errorf("CHANGELOG [Unreleased] does not name the Wails version %s", pin)
+	named := false
+	for _, sec := range changelogSections(t) {
+		named = named || strings.Contains(sec, pin) || strings.Contains(sec, strings.TrimPrefix(pin, "v"))
 	}
-	for _, want := range []string{"1.27.3", "GTK4", "Open Recent"} {
-		if !strings.Contains(section, want) {
-			t.Errorf("CHANGELOG [Unreleased] does not mention %q", want)
+	if !named {
+		t.Errorf("no CHANGELOG version section names the Wails version %s", pin)
+	}
+
+	wants := []string{"GTK4", "Open Recent", "1.27.3"}
+	for _, sec := range changelogSections(t) {
+		all := true
+		for _, w := range wants {
+			all = all && strings.Contains(sec, w)
+		}
+		if all {
+			return
 		}
 	}
+	t.Errorf("no CHANGELOG version section mentions all of %q", wants)
 }

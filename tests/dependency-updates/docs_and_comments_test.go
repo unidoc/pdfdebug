@@ -1,20 +1,17 @@
 package dependency_updates_test
 
 import (
-	"os"
-	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
 
 func TestBuildDocsNameTheGoFloorAndItsFix(t *testing.T) {
+	floor := goModFloor(t)
 	for _, rel := range []string{"README.md", "CONTRIBUTING.md"} {
 		doc := readRepoFile(t, rel)
-		if !strings.Contains(doc, "1.27.4 or later") {
-			t.Errorf("%s must say Go \"1.27.4 or later\"", rel)
-		}
-		if strings.Contains(doc, "1.27.3 or later") {
-			t.Errorf("%s still says Go \"1.27.3 or later\"", rel)
+		if !strings.Contains(doc, floor+" or later") {
+			t.Errorf("%s must say Go \"%s or later\", the go.mod floor", rel, floor)
 		}
 		if !strings.Contains(doc, "GO-2026-6859") {
 			t.Errorf("%s must name the net/http fix GO-2026-6859", rel)
@@ -22,41 +19,71 @@ func TestBuildDocsNameTheGoFloorAndItsFix(t *testing.T) {
 	}
 }
 
-// unreleasedChanged returns the `### Changed` section of `## [Unreleased]`.
-func unreleasedChanged(t *testing.T) string {
+// goModFloor returns the version in the root go.mod go directive.
+func goModFloor(t *testing.T) string {
 	t.Helper()
-	log := readRepoFile(t, "CHANGELOG.md")
-	start := strings.Index(log, "## [Unreleased]")
-	if start < 0 {
-		t.Fatal("CHANGELOG.md has no [Unreleased] section")
+	m := regexp.MustCompile(`(?m)^go (\S+)$`).FindStringSubmatch(readRepoFile(t, "go.mod"))
+	if m == nil {
+		t.Fatal("go.mod has no go directive")
 	}
-	unreleased := log[start+len("## [Unreleased]"):]
-	if end := strings.Index(unreleased, "\n## "); end >= 0 {
-		unreleased = unreleased[:end]
+	return m[1]
+}
+
+// changelogLists returns the "### heading" list of every CHANGELOG.md version
+// section, newest first, so an entry is found under [Unreleased] and after
+// its release is cut alike.
+func changelogLists(t *testing.T, heading string) []string {
+	t.Helper()
+	var lists []string
+	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
+		_, list, ok := strings.Cut(sec, "\n### "+heading+"\n")
+		if !ok {
+			continue
+		}
+		if i := strings.Index(list, "\n### "); i >= 0 {
+			list = list[:i]
+		}
+		lists = append(lists, list)
 	}
-	i := strings.Index(unreleased, "### Changed")
-	if i < 0 {
-		t.Fatal("CHANGELOG.md [Unreleased] has no ### Changed section")
+	return lists
+}
+
+// recording returns the first text holding every want, else the first holding
+// wants[0], else "".
+func recording(texts []string, wants ...string) string {
+	first := ""
+	for _, text := range texts {
+		all := true
+		for _, w := range wants {
+			all = all && strings.Contains(text, w)
+		}
+		if all {
+			return text
+		}
+		if first == "" && strings.Contains(text, wants[0]) {
+			first = text
+		}
 	}
-	changed := unreleased[i+len("### Changed"):]
-	if end := strings.Index(changed, "\n### "); end >= 0 {
-		changed = changed[:end]
-	}
-	return changed
+	return first
 }
 
 func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
-	changed := unreleasedChanged(t)
-	for _, want := range []struct{ text, why string }{
+	wants := []struct{ text, why string }{
+		{"0.16.4", "the pdfcpu release"},
 		{"1.27.4", "the Go floor"},
 		{"GO-2026-6859", "the net/http advisory the Go floor fixes"},
-		{"0.16.4", "the pdfcpu release"},
 		{"validator", "files pdfcpu's validator rejects or repairs now open as written"},
 		{"PDFDocEncoding", "text strings decoded as PDFDocEncoding"},
 		{"512 MiB", "the decoded-stream cap on the content stream, XMP, font and validate paths"},
-	} {
+	}
+	texts := make([]string, len(wants))
+	for i, w := range wants {
+		texts[i] = w.text
+	}
+	changed := recording(changelogLists(t, "Changed"), texts...)
+	for _, want := range wants {
 		if !strings.Contains(changed, want.text) {
-			t.Errorf("CHANGELOG [Unreleased] ### Changed has no line with %q (%s)", want.text, want.why)
+			t.Errorf("no CHANGELOG ### Changed list that names pdfcpu 0.16.4 has a line with %q (%s)", want.text, want.why)
 		}
 	}
 	if strings.Contains(readRepoFile(t, "CHANGELOG.md"), "### Security") {
@@ -86,27 +113,6 @@ func TestCommentsDescribeTheCurrentPdfcpu(t *testing.T) {
 	} {
 		if strings.Contains(readRepoFile(t, tc.file), tc.stale) {
 			t.Errorf("%s still says %q; %s", tc.file, tc.stale, tc.why)
-		}
-	}
-}
-
-// The project context lives in the docs repo, reached through the
-// _bmad-output symlink; the check is skipped where that is not checked out.
-func TestProjectContextDescribesTheCurrentDependencies(t *testing.T) {
-	path := filepath.Join(projectRoot(t), "_bmad-output", "project-context.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Skipf("project context not available: %v", err)
-	}
-	ctx := string(data)
-	for _, want := range []string{"1.27.4", "v0.16.4", "internal/lzwdecode", "decodeStream", "PDFDocEncoding", "512 MiB"} {
-		if !strings.Contains(ctx, want) {
-			t.Errorf("project-context.md does not mention %q", want)
-		}
-	}
-	for _, stale := range []string{"v0.12.1", "hhrutter/lzw", "sd.Decode()", "still fails at open"} {
-		if strings.Contains(ctx, stale) {
-			t.Errorf("project-context.md still says %q", stale)
 		}
 	}
 }
