@@ -77,7 +77,7 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// platformLaunchDeadline returns the per-OS deadline for the boot probe.
+// platformLaunchDeadline returns the per-OS time allowed for the app to start.
 // Linux is slowest because Xvfb + GTK init is heavy; Windows is medium
 // because WebView2 cold-start; macOS is fastest because WKWebView is in-tree.
 func platformLaunchDeadline() time.Duration {
@@ -258,6 +258,21 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	}
 }
 
+// hangReportWait is the time hangDiagnostics gets to attach gdb, print the
+// native backtraces and collect the Go stacks after SIGQUIT.
+const hangReportWait = 30 * time.Second
+
+// probeBudget bounds the alive probes before the test sends SIGTERM.
+const probeBudget = 3 * time.Second
+
+// processDeadline is when the launch context kills the app. It covers the
+// launch, the probes, the shutdown wait and the hang report, so an app that
+// hangs on quit is still running when hangDiagnostics attaches to it rather
+// than killed by the context and passed as a signalled exit.
+func processDeadline() time.Duration {
+	return platformLaunchDeadline() + probeBudget + shutdownWait() + hangReportWait
+}
+
 // shutdownWait is how long the app gets to exit after SIGTERM. Linux gets
 // longer: under Xvfb GTK4 renders with llvmpipe, and a quit queued behind the
 // first layout pass on a cold runner can take more than 3s to run.
@@ -344,8 +359,7 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 		bin = buildSmokeBinary(t)
 	}
 
-	deadline := platformLaunchDeadline()
-	ctx, cancel := context.WithTimeout(t.Context(), deadline)
+	ctx, cancel := context.WithTimeout(t.Context(), processDeadline())
 	defer cancel()
 
 	name, extraArgs := requireXvfbOnLinux(t, bin)
@@ -374,7 +388,6 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 	// two consecutive probes (~400ms after first observation). 1s as a
 	// single sample was too aggressive on cold runners (R5).
 	const probeInterval = 200 * time.Millisecond
-	const probeBudget = 3 * time.Second
 
 	consecutive := 0
 	probeDeadline := time.Now().Add(probeBudget)
