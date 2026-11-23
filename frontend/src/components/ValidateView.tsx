@@ -1,7 +1,9 @@
 /**
  * @file Validate view -- document-level panel for a named subset of structural
  * checks. A "Run checks" action with a profile selector runs the bounded
- * PDF/A-1b or PDF/UA-1-structural rule set. Each result shows either a clean
+ * PDF/A-1b or PDF/UA-1-structural rule set, or pdfcpu's own validator on a
+ * separate parse. A Validate run request for the shown tab (the pdfcpu
+ * banner's Details) selects its profile and runs it. Each result shows either a clean
  * sentence naming the rule count or the problems grouped by severity, then a
  * collapsible section with the profile's scope sentence and the rules checked
  * (id, spec ref, outcome, what each rule checks). Each document tab keeps its
@@ -15,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Validate } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { clearValidateRequest, useValidateRequest } from '../lib/pdfcpuCheck';
 import { SMALL_BUTTON } from './buttonStyles';
 
 /** One structural problem, mirroring `pdfcore.Problem`. */
@@ -74,10 +77,11 @@ interface SavedValidation {
 /** The profile a document starts on before its selector is changed. */
 const DEFAULT_PROFILE = 'pdfa-1b';
 
-/** The two bounded, explicit profiles. */
+/** The bounded, explicit profiles. */
 const PROFILES: { value: string; label: string }[] = [
   { value: 'pdfa-1b', label: 'PDF/A-1b (structural subset)' },
   { value: 'pdfua-1-structural', label: 'PDF/UA-1 (structural subset)' },
+  { value: 'pdfcpu', label: 'pdfcpu validator' },
 ];
 
 /** Severity groups in display order, each with its stable testid. */
@@ -259,6 +263,8 @@ export function ValidateView({
   tabIdRef.current = tabId;
   const profileRef = useRef(profile);
   profileRef.current = profile;
+  // Number of the latest run started per tab; only that run's handlers apply.
+  const runSeqRef = useRef(new Map<string, number>());
 
   useEffect(() => {
     const saved = savedRef.current.get(tabId);
@@ -269,14 +275,19 @@ export function ValidateView({
     setRulesExpanded(saved?.rulesExpanded ?? false);
   }, [tabId]);
 
-  const runChecks = () => {
+  const runChecks = (runProfile: string = profile) => {
     if (!tabId) return;
     const runTabId = tabId;
-    const runProfile = profile;
-    // A run is applied to its document's saved entry unless that document's
-    // profile changed since; the screen follows only while it is still shown.
-    const current = () => savedRef.current.get(runTabId)?.profile === runProfile;
-    const shown = () => tabIdRef.current === runTabId && profileRef.current === runProfile;
+    // A run is applied to its document's saved entry only while it is that
+    // document's latest run and the profile is unchanged; the screen follows
+    // only while that document is still shown. Every handler below checks
+    // current() first, and the shown document's profile is its saved profile,
+    // so the tab check is enough.
+    const seq = (runSeqRef.current.get(runTabId) ?? 0) + 1;
+    runSeqRef.current.set(runTabId, seq);
+    const current = () =>
+      runSeqRef.current.get(runTabId) === seq && savedRef.current.get(runTabId)?.profile === runProfile;
+    const shown = () => tabIdRef.current === runTabId;
     save(runTabId, { profile: runProfile, error: null, running: true });
     setRunning(true);
     setError(null);
@@ -298,6 +309,21 @@ export function ValidateView({
         if (shown()) setRunning(false);
       });
   };
+
+  // A run request for this tab selects its profile and runs it. A run still in
+  // flight for the tab is superseded and dropped by its current() check.
+  const runRequest = useValidateRequest();
+  useEffect(() => {
+    if (!runRequest || !tabId || runRequest.tabId !== tabId) return;
+    clearValidateRequest();
+    profileRef.current = runRequest.profile;
+    setProfile(runRequest.profile);
+    setResult(null);
+    save(tabId, { profile: runRequest.profile, result: null });
+    runChecks(runRequest.profile);
+    // runChecks and save read refs and the current tab only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runRequest, tabId]);
 
   return (
     <div className="h-full flex flex-col" data-testid="validate-view">
@@ -339,7 +365,7 @@ export function ValidateView({
           type="button"
           data-testid="validate-run"
           className={`px-2 py-1 ${SMALL_BUTTON} disabled:opacity-50 disabled:cursor-not-allowed`}
-          onClick={runChecks}
+          onClick={() => runChecks()}
           disabled={running || !tabId}
         >
           {running ? 'Running...' : 'Run checks'}
@@ -363,7 +389,8 @@ export function ValidateView({
         {!error && result && result.problems.length === 0 && (
           <div className="text-text-muted text-sm" data-testid="validate-empty">
             None of the {result.rules.length} rule
-            {result.rules.length === 1 ? '' : 's'} checked found a problem (structural subset only)
+            {result.rules.length === 1 ? '' : 's'} checked found a problem
+            {result.profile === 'pdfcpu' ? '' : ' (structural subset only)'}
           </div>
         )}
 

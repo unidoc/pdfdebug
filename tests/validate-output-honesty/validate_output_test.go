@@ -18,13 +18,16 @@ type run struct {
 	exit    int
 }
 
-// normalRuns cover clean and non-clean results under both profiles. None of
+// normalRuns cover clean and non-clean results under every profile. None of
 // these opens an encrypted file, so every profile rule runs.
 var normalRuns = []run{
 	{name: "tagged under pdfua-1-structural", profile: profilePDFUA, file: "tagged.pdf", exit: 0},
 	{name: "untagged under pdfua-1-structural", profile: profilePDFUA, file: "untagged.pdf", exit: 0},
 	{name: "pdfa-1b-clean under pdfa-1b", profile: profilePDFA, file: "pdfa-1b-clean.pdf", exit: 0},
 	{name: "untagged under pdfa-1b", profile: profilePDFA, file: "untagged.pdf", exit: 1},
+	{name: "minimal under pdfcpu", profile: profilePdfcpu, file: "minimal.pdf", exit: 0},
+	{name: "fonts-mixed under pdfcpu", profile: profilePdfcpu, file: "fonts-mixed.pdf", exit: 0},
+	{name: "structure-broken under pdfcpu", profile: profilePdfcpu, file: "structure-broken.pdf", exit: 1},
 }
 
 // profileRules returns the full rule list of a profile, read from a run over a
@@ -483,6 +486,35 @@ func TestValidateHelp_ListsEveryProfileRules(t *testing.T) {
 						t.Errorf("help line for %s must say %q, got %q", profile, w, line)
 					}
 				}
+			}
+		})
+	}
+}
+
+// The pdfcpu profile's help line names its rules and does not call the profile
+// a structural subset of a standard.
+func TestValidateHelp_PdfcpuLineIsNotAStructuralSubset(t *testing.T) {
+	rules := runJSON(t, profilePdfcpu, fixture(t, "minimal.pdf"), 0).Rules
+	want := fmt.Sprintf("%s checks %d rules: %s", profilePdfcpu, len(rules), strings.Join(ruleIDs(rules), ", "))
+	for _, args := range [][]string{{"--help"}, {"validate", "--help"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			stdout, stderr, _ := runCLI(t, args...)
+			help := stdout + stderr
+			line := ""
+			for l := range strings.SplitSeq(help, "\n") {
+				if strings.Contains(l, want) {
+					line = l
+					break
+				}
+			}
+			if len(rules) == 0 || line == "" {
+				t.Fatalf("help must list pdfcpu rules as %q:\n%s", want, help)
+			}
+			if strings.Contains(line, "structural subset of") {
+				t.Errorf("pdfcpu help line must not say structural subset: %q", line)
+			}
+			if !strings.Contains(line, "not a conformance check") {
+				t.Errorf("pdfcpu help line must say it is not a conformance check: %q", line)
 			}
 		})
 	}

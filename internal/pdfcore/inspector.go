@@ -48,6 +48,15 @@ import (
 //     without pdfMu. Order: imageIndex mutex, then pdfMu, then the pageIndex
 //     cache mutex.
 //
+//   - The pdfcpuCheck cache mutex is the second exception: it is taken BEFORE
+//     pdfMu and held for the whole check. The check waits on the package
+//     pdfcpu check semaphore, parses and validates a separate copy of the
+//     file without pdfMu, and takes pdfMu only at the end, briefly, to look
+//     up generations in the displayed cross-reference table, after the
+//     semaphore is released. Order: pdfcpuCheck mutex, then the semaphore;
+//     pdfMu is taken under the pdfcpuCheck mutex alone. Nothing takes the
+//     pdfcpuCheck mutex or waits on the semaphore while holding pdfMu.
+//
 //   - plainTextMu is DISJOINT from pdfMu; the plaintext path does not call
 //     into pdfcpu inside its critical section.
 //
@@ -103,6 +112,11 @@ type DocumentState struct {
 	objectIndex lazyCache[[]*ObjectIndexEntry]
 	pageIndex   lazyCache[*pageTree]
 	imageIndex  lazyCache[*imageTree]
+
+	// pdfcpuCheck caches the pdfcpu profile's result, built on a separate
+	// parse of the file without pdfMu (see validatePdfcpu). A failed run is
+	// not cached.
+	pdfcpuCheck lazyCache[*ValidationResult]
 
 	// xrefTableCache caches the per-tab GetXRefTable result. Lazy on first
 	// call; invalidated implicitly when the DocumentState pointer is replaced
@@ -175,18 +189,20 @@ func decodeObjectStreamObjects(xrt *pdfcpu_model.XRefTable) (checksumFailed []in
 }
 
 // readPDF parses r with pdfcpu, without its validator, and decodes every
-// object-stream object. On success it also returns the object streams whose
-// objects failed on a broken Adler-32 checksum.
-func readPDF(r io.ReadSeeker) (ctx *pdfcpu_model.Context, checksumFailed []int, err error) {
+// object-stream object. It uses pdfcpu's built-in configuration, so a
+// config.yml in the user's config directory changes nothing and none is
+// written. On success it also returns the object streams whose
+// objects failed on a broken Adler-32 checksum. Cancelling ctx stops the parse.
+func readPDF(ctx context.Context, r io.ReadSeeker) (pctx *pdfcpu_model.Context, checksumFailed []int, err error) {
 	err = safeCall(func() error {
 		var e error
-		ctx, e = pdfcpu_api.ReadContext(context.Background(), r, pdfcpu_model.NewDefaultConfiguration())
+		pctx, e = pdfcpu_api.ReadContext(ctx, r, pdfcpu_model.NewStatelessConfiguration())
 		return e
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	return ctx, decodeObjectStreamObjects(ctx.XRefTable), nil
+	return pctx, decodeObjectStreamObjects(pctx.XRefTable), nil
 }
 
 // pdfName returns a pattern for the PDF name /name in which any character may
@@ -334,12 +350,71 @@ func fixZlibChecksum(b []byte, limit int64) (inflated int64, end int) {
 // reparse parses data, a corrected in-memory copy of the file. The returned
 // context's reader is emptied, since it is not read after the parse, so the
 // copy can be freed.
-func reparse(data []byte) (*pdfcpu_model.Context, []int, error) {
-	ctx, checksumFailed, err := readPDF(bytes.NewReader(data))
+func reparse(ctx context.Context, data []byte) (*pdfcpu_model.Context, []int, error) {
+	pctx, checksumFailed, err := readPDF(ctx, bytes.NewReader(data))
 	if err == nil {
-		ctx.Read.RS = bytes.NewReader(nil)
+		pctx.Read.RS = bytes.NewReader(nil)
 	}
-	return ctx, checksumFailed, err
+	return pctx, checksumFailed, err
+}
+
+// parseFile parses the PDF read from r without pdfcpu's validator. pdfcpu
+// refuses a zlib stream whose Adler-32 trailer is wrong although its data
+// inflates. A file that fails to parse is parsed again with the trailers of
+// its object streams and cross-reference streams corrected, found by their
+// /Type. A file that parses but has object-stream objects that fail on the
+// checksum is parsed again with the trailers of those object streams
+// corrected, found by their offsets in the parsed cross-reference table. Both
+// corrections apply to one in-memory copy of the file, taken from readAll, and
+// share one inflate budget. The error is the first parse's. A cancelled ctx
+// returns its error without reading the copy or repairing. Each correction
+// that let a reparse succeed is returned as a repaired parse notice; an object
+// stream whose objects still fail after the reparse gets none. Open and
+// the pdfcpu check both parse through here, so they see the same objects.
+func parseFile(ctx context.Context, r io.ReadSeeker, readAll func() ([]byte, error)) (*pdfcpu_model.Context, []pdfcpu_model.ValidationNotice, error) {
+	pctx, checksumFailed, err := readPDF(ctx, r)
+	if cerr := ctx.Err(); cerr != nil {
+		return nil, nil, cerr
+	}
+	var repairs []pdfcpu_model.ValidationNotice
+	if err != nil || len(checksumFailed) > 0 {
+		if data, e := readAll(); e == nil {
+			budget := filter.DefaultMaxDecodeBytes
+			if err != nil && fixTypedStreamChecksums(data, &budget) {
+				if c, cf, e := reparse(ctx, data); e == nil {
+					repairs = append(repairs, checksumRepair(0, fmt.Sprintf(
+						"pdfcpu refuses the file as written (%v); pdfdebug corrected broken Adler-32 checksums of object or cross-reference streams before pdfcpu read it", err)))
+					pctx, checksumFailed, err = c, cf, nil
+				}
+			}
+			if err == nil && len(checksumFailed) > 0 && fixChecksumsAt(data, objectStreamDataOffsets(pctx.XRefTable, checksumFailed), &budget) {
+				if c, stillFailed, e := reparse(ctx, data); e == nil {
+					for _, objNr := range checksumFailed {
+						// A stream the correction skipped still fails and is not reported.
+						if slices.Contains(stillFailed, objNr) {
+							continue
+						}
+						repairs = append(repairs, checksumRepair(objNr, fmt.Sprintf(
+							"pdfcpu cannot read the objects of object stream %d as written; pdfdebug corrected its broken Adler-32 checksum before pdfcpu read it", objNr)))
+					}
+					pctx = c
+				}
+			}
+		}
+	}
+	return pctx, repairs, err
+}
+
+// checksumRepair returns the repaired parse notice for a checksum correction,
+// naming objNr when it is above 0.
+func checksumRepair(objNr int, message string) pdfcpu_model.ValidationNotice {
+	return pdfcpu_model.ValidationNotice{
+		Severity:     pdfcpu_model.NoticeSeverityWarning,
+		Disposition:  pdfcpu_model.NoticeRepaired,
+		Phase:        pdfcpu_model.NoticePhaseParse,
+		Message:      message,
+		ObjectNumber: objNr,
+	}
 }
 
 // Open parses a PDF file and registers it under the given tab ID. Returns
@@ -372,34 +447,10 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 	// the file as written. ReadContext reads every object into memory, object
 	// streams included, so the handle is not used after it returns.
 	var ctx *pdfcpu_model.Context
-	var checksumFailed []int
 	f, err := os.Open(filePath)
 	if err == nil {
-		ctx, checksumFailed, err = readPDF(f)
+		ctx, _, err = parseFile(context.Background(), f, func() ([]byte, error) { return os.ReadFile(filePath) })
 		_ = f.Close()
-	}
-	// pdfcpu refuses a zlib stream whose Adler-32 trailer is wrong although its
-	// data inflates. A file that fails to parse is parsed again with the
-	// trailers of its object streams and cross-reference streams corrected,
-	// found by their /Type. A file that parses but has object-stream objects
-	// that fail on the checksum is parsed again with the trailers of those
-	// object streams corrected, found by their offsets in the parsed
-	// cross-reference table. Both corrections apply to one in-memory copy of
-	// the file and share one inflate budget.
-	if err != nil || len(checksumFailed) > 0 {
-		if data, e := os.ReadFile(filePath); e == nil {
-			budget := filter.DefaultMaxDecodeBytes
-			if err != nil && fixTypedStreamChecksums(data, &budget) {
-				if c, cf, e := reparse(data); e == nil {
-					ctx, checksumFailed, err = c, cf, nil
-				}
-			}
-			if err == nil && len(checksumFailed) > 0 && fixChecksumsAt(data, objectStreamDataOffsets(ctx.XRefTable, checksumFailed), &budget) {
-				if c, _, e := reparse(data); e == nil {
-					ctx = c
-				}
-			}
-		}
 	}
 	if err != nil {
 		// The file vanished between the stat and the parse (a delete-then-write

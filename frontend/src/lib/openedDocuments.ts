@@ -2,10 +2,13 @@
  * @file The one path that puts a parsed document into app state and the one
  * path that takes a tab out of it. A re-open of a path already open replaces
  * its tab in place, so the earlier open's backend document is closed here.
+ * Every new tab id that enters app state starts its background pdfcpu check
+ * here, and a released tab id drops its check state.
  */
 import type { Dispatch } from 'react';
 import { CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { AppAction, TabState } from '../hooks/useDocumentState';
+import { releasePdfcpuCheck, startPdfcpuCheck } from './pdfcpuCheck';
 
 /** Payload of the OPEN_DOCUMENT action. */
 export type OpenedDocument = Extract<AppAction, { type: 'OPEN_DOCUMENT' }>['payload'];
@@ -34,6 +37,7 @@ const releasedTabIds = new Set<string>();
  */
 function releaseDocument(tabId: string): void {
   releasedTabIds.add(tabId);
+  releasePdfcpuCheck(tabId);
   Promise.resolve(CloseDocument(tabId)).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     // eslint-disable-next-line no-console -- a failed release has no UI surface
@@ -52,8 +56,9 @@ function releaseDocument(tabId: string): void {
  * doc is recorded as the open of its path and the backend document of an
  * earlier open of the same path is closed first. That earlier id comes from
  * the tab holding the path and from the session map (that tab may not be
- * rendered yet, or belong to a previous session). Every caller that adds a
- * parsed file to app state goes through here.
+ * rendered yet, or belong to a previous session). A new tab id starts its
+ * background pdfcpu check after the dispatch. Every caller that adds a parsed
+ * file to app state goes through here.
  */
 export function dispatchOpenedDocument(dispatch: Dispatch<AppAction>, tabs: readonly Pick<TabState, 'tabId' | 'filePath'>[], doc: OpenedDocument): void {
   if (releasedTabIds.has(doc.tabId)) return;
@@ -66,6 +71,7 @@ export function dispatchOpenedDocument(dispatch: Dispatch<AppAction>, tabs: read
     sessionOpenTabs.set(doc.filePath, doc.tabId);
   }
   dispatch({ type: 'OPEN_DOCUMENT', payload: doc });
+  if (!repeated) startPdfcpuCheck(doc.tabId);
 }
 
 /**

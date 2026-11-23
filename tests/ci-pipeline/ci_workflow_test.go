@@ -5,7 +5,7 @@
 // acceptance criteria: matrix build on ubuntu-24.04/macos-latest/windows-latest,
 // pinned Go 1.27.x and Node 20, Linux native deps install, Wails CLI pin
 // matching go.mod, per-suite test loop for tests/*/go.mod modules, dependency
-// caching, distinct check runs per platform, and 30-minute job timeout.
+// caching, distinct check runs per platform, and 60-minute job timeout.
 //
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks.
 // No browser or API surface exists for this story. Per the test design
@@ -284,8 +284,8 @@ func TestCIWorkflowNoJobNameOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// job-level timeout-minutes is 30.
-// Covers hard 30-minute cap per matrix cell.
+// job-level timeout-minutes is 60.
+// Covers the per-matrix-cell cap, sized for a Linux run on a slow apt mirror.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowJobTimeout(t *testing.T) {
@@ -293,14 +293,14 @@ func TestCIWorkflowJobTimeout(t *testing.T) {
 	job := buildAndTestJob(t)
 	tRaw, ok := job["timeout-minutes"]
 	if !ok {
-		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (requires 30-minute cap)")
+		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (requires 60-minute cap)")
 	}
 	tVal, ok := tRaw.(int)
 	if !ok {
 		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not an integer, got %T", tRaw)
 	}
-	if tVal != 30 {
-		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 30, got %d", tVal)
+	if tVal != 60 {
+		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 60, got %d", tVal)
 	}
 }
 

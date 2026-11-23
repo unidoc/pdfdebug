@@ -117,7 +117,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, no structural errors found (NOT a compliance/valid verdict)")
 	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error, or a gating rule could not be evaluated (the CI compliance-gate signal)")
 	_, _ = fmt.Fprintln(w, "  2  operational or usage error (missing/unreadable file, unknown profile, bad args, view failure)")
-	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural")
+	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural, pdfcpu")
 	for _, line := range profileRuleLines() {
 		_, _ = fmt.Fprintln(w, line)
 	}
@@ -158,6 +158,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump signatures file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate --profile pdfua-1-structural file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug validate --profile pdfcpu file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug diff old.pdf new.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug diff --json old.pdf new.pdf        # structured DiffNode tree + summary")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --json file.pdf       # opt into structured JSON")

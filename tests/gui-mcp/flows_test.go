@@ -134,3 +134,36 @@ func TestCompareThroughTheDialogStub(t *testing.T) {
 		return err == nil && len(q.Elements) > 0 && strings.Contains(q.Elements[0].Text, "Page count: 1 -> 3")
 	})
 }
+
+func TestPdfcpuBannerDetailsNavigatesToTheFatalObject(t *testing.T) {
+	a := launch(t)
+	a.openFixtures("structure-broken.pdf")
+
+	a.waitFor("the pdfcpu banner", func() bool { return a.visible(`[data-testid="pdfcpu-banner"]`) })
+	var text string
+	a.mustJS(`const el = document.querySelector('[data-testid="pdfcpu-banner"] [data-testid="error-banner-message"]'); return el ? el.textContent : '';`, &text)
+	if !strings.HasPrefix(text, "pdfcpu rejects this file:") {
+		t.Fatalf("pdfcpu banner text = %q, want it to start with %q", text, "pdfcpu rejects this file:")
+	}
+
+	a.click(`[data-testid="pdfcpu-banner"] [data-testid="error-banner-action"]`)
+	a.waitFor("the Validate pane", func() bool { return a.visible(`[data-testid="detail-pane-validate"]`) })
+	var profile string
+	a.mustJS(`const el = document.querySelector('[data-testid="validate-profile"]'); return el ? el.value : '';`, &profile)
+	if profile != "pdfcpu" {
+		t.Fatalf("Validate profile after Details = %q, want pdfcpu", profile)
+	}
+	a.waitFor("the fatal pdfcpu problem", func() bool {
+		var found bool
+		err := a.js(`return Array.from(document.querySelectorAll('[data-testid="validate-group-error"] [data-testid="validate-problem"]')).some(r => r.textContent.includes('12 0 R'));`, &found)
+		return err == nil && found
+	})
+
+	a.clickFound("the fatal pdfcpu problem", `Array.from(document.querySelectorAll('[data-testid="validate-group-error"] [data-testid="validate-problem"]')).find(r => r.textContent.includes('12 0 R'))`)
+	a.waitFor("object 12 selected in the tree", func() bool {
+		var id string
+		err := a.js(`const el = document.querySelector('[role="treeitem"][aria-selected="true"] [data-testid="tree-node"]'); return el ? el.getAttribute('data-node-id') : '';`, &id)
+		// Tree node ids are paths from the root; the last segment is the object.
+		return err == nil && (id == "obj:0:12" || strings.HasSuffix(id, ">obj:0:12"))
+	})
+}

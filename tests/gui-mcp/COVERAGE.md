@@ -18,6 +18,7 @@ Two things hold across rows. A synthetic click on a `<select>` opens WebKit's na
 | Drop zone (drag a PDF onto the empty state or a tab) | - | cannot be automated | - | native UI: drop comes from the OS (`WindowFilesDropped`), no seam |
 | Open files into a running instance | second launch | works | `TestOpenFixturesThroughASecondLaunch` | - |
 | Open a file from the command line on cold start | argv | Linux: not driven by hand, the suite flow runs in Linux CI; macOS opens nothing from argv | `TestOpenFixtureFromTheCommandLine` (Linux only) | - |
+| pdfcpu check banner, Details | second launch of `structure-broken.pdf`, click `pdfcpu-banner` `error-banner-action` (Details), click the fatal problem | works (Validate tab on `pdfcpu`, object 12 selected in the tree) | `TestPdfcpuBannerDetailsNavigatesToTheFatalObject` | - |
 | Open error banner (encrypted, malformed) and dismiss | second launch, click `error-banner-dismiss` | works | - | - |
 | Batch open dialog (progress, Cancel) | second launch with several files | cannot be automated | - | timing: committed fixtures open in milliseconds and the dialog never renders long enough to observe |
 | Document tab bar: switch tabs | click `[data-testid="tab-list"] [role="tab"]` | works | `TestSwitchDocuments` | - |

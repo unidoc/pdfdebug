@@ -482,7 +482,7 @@ describe('ValidateView scope and rules checked', () => {
     expect(screen.queryByTestId('validate-rules')).toBeNull();
   });
 
-  test('profile labels say structural subset and keep their values', () => {
+  test('profile options keep their values and labels, pdfcpu validator last', () => {
     render(<ValidateView tabId="tab-1" active onNavigate={vi.fn()} />);
 
     const select = screen.getByTestId('validate-profile') as HTMLSelectElement;
@@ -490,6 +490,7 @@ describe('ValidateView scope and rules checked', () => {
     expect(options).toEqual([
       { value: 'pdfa-1b', label: 'PDF/A-1b (structural subset)' },
       { value: 'pdfua-1-structural', label: 'PDF/UA-1 (structural subset)' },
+      { value: 'pdfcpu', label: 'pdfcpu validator' },
     ]);
   });
 

@@ -32,11 +32,15 @@ const (
 	// balance, uniqueness and nesting rules (warning), ParentTree reachability
 	// and /S rules (error).
 	ProfilePDFUA1Structural = "pdfua-1-structural"
+	// ProfilePdfcpu runs pdfcpu's own relaxed validator on a separate parse of
+	// the file: pdfcpu-validator (error) holds its fatal problem and
+	// pdfcpu-notices (warning) the notices from its validation report.
+	ProfilePdfcpu = "pdfcpu"
 )
 
 // ValidProfiles lists every accepted --profile value, in display order. Used by
 // the CLI to report an unknown profile and by callers to enumerate choices.
-var ValidProfiles = []string{ProfilePDFA1B, ProfilePDFUA1Structural}
+var ValidProfiles = []string{ProfilePDFA1B, ProfilePDFUA1Structural, ProfilePdfcpu}
 
 // DisclaimerText is the always-visible honesty guardrail. It states
 // plainly that the checks are structural only and defers authoritative
@@ -138,7 +142,8 @@ type ruleHit struct {
 // checkStructure is set. check reads the document; checkStructure reads the
 // run's structure report, after the engine has read the catalog. Either
 // returns an error when it could not read what it needs to decide; the rule
-// is then reported as not evaluated.
+// is then reported as not evaluated. The pdfcpu profile's rules set neither:
+// one pdfcpu run decides both (see validatePdfcpu).
 type rule struct {
 	id       string
 	profile  string
@@ -254,6 +259,17 @@ var ruleRegistry = []rule{
 		checks:         "every structure element reached from /StructTreeRoot /K has a non-empty /S name (absent, empty or not a name is reported, and an element that cannot be read is reported as not checked); role mapping to standard types is not checked",
 		checkStructure: checkStructElemType,
 	},
+	// --- pdfcpu's own validator on a separate parse (validator error, notices warning)
+	{
+		id: "pdfcpu-validator", profile: ProfilePdfcpu, severity: "error",
+		specRef: "pdfcpu",
+		checks:  "pdfcpu's relaxed validator accepts the document; it stops at the first problem",
+	},
+	{
+		id: "pdfcpu-notices", profile: ProfilePdfcpu, severity: "warning",
+		specRef: "pdfcpu",
+		checks:  "repairs, digested violations and skipped objects pdfcpu records in its validation report",
+	},
 }
 
 // profileInfo is the per-profile display data: the standard the profile is a
@@ -280,6 +296,13 @@ var profileInfos = map[string]profileInfo{
 			"alternate text, fonts, role mapping and the rest of the structure tree are not examined. This is not " +
 			"a PDF/UA-1 conformance check.",
 	},
+	ProfilePdfcpu: {
+		standard: "pdfcpu validator (relaxed mode)",
+		scope: "pdfcpu's own validator in relaxed mode, run on a separate parse of the file; the displayed " +
+			"document is not changed. Validation stops at the first fatal problem. pdfcpu records only a subset " +
+			"of its repairs in its validation report and writes the rest to its log, so the notice list is " +
+			"partial. This is not a conformance check.",
+	},
 }
 
 // ProfileRules returns the registry rules of profile in registry order, with
@@ -302,7 +325,8 @@ func ProfileScope(profile string) string {
 }
 
 // ProfileStandard returns the display name of the standard profile is a subset
-// of (e.g. "PDF/UA-1"), or "" for an unknown profile.
+// of (e.g. "PDF/UA-1"), or of the validator it runs for pdfcpu, or "" for an
+// unknown profile.
 func ProfileStandard(profile string) string {
 	return profileInfos[profile].standard
 }
@@ -323,7 +347,8 @@ func ruleInfoOf(r rule) RuleInfo {
 // errors.Is(err, context.Canceled), and any other walk failure leaves each
 // structure rule not evaluated. The rules then run under doc.pdfMu; a rule
 // that panics or errors degrades to one info-severity problem rather than
-// failing the whole run.
+// failing the whole run. The pdfcpu profile runs validatePdfcpu instead,
+// without holding doc.pdfMu for the run.
 func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error) {
 	return ins.validate(tabID, profile, newStructureWalker)
 }
@@ -341,6 +366,9 @@ func (ins *Inspector) validate(tabID, profile string, newWalker func(*pdfcpu_mod
 	if err != nil {
 		return nil, err
 	}
+	if profile == ProfilePdfcpu {
+		return validatePdfcpu(doc)
+	}
 	// The walk takes pdfMu itself, so it runs before the run's hold.
 	var rep *StructureReport
 	var repErr error
@@ -355,52 +383,65 @@ func (ins *Inspector) validate(tabID, profile string, newWalker func(*pdfcpu_mod
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	res := &ValidationResult{
+	res := newValidationResult(profile)
+	for _, r := range ruleRegistry {
+		if r.profile != profile {
+			continue
+		}
+		// A rule that errors internally degrades to a single info problem,
+		// never a whole-run failure. runRule catches ANY panic, including a
+		// runtime.Error (nil deref, bad type assertion) that safeCall
+		// deliberately re-panics -- a bug in one rule must not abort the
+		// bounded run.
+		hits, ruleErr := runRule(doc, r, rep, repErr)
+		addRuleOutcome(res, r, hits, ruleErr)
+	}
+	res.Summary = summarize(res.Problems)
+	return res, nil
+}
+
+// newValidationResult returns an empty result for profile with its disclaimer
+// and scope set.
+func newValidationResult(profile string) *ValidationResult {
+	return &ValidationResult{
 		Profile:    profile,
 		Problems:   []Problem{},
 		Disclaimer: DisclaimerText,
 		Scope:      ProfileScope(profile),
 		Rules:      []RuleInfo{},
 	}
-	for _, r := range ruleRegistry {
-		if r.profile != profile {
-			continue
-		}
-		hits, ruleErr := runRule(doc, r, rep, repErr)
-		info := ruleInfoOf(r)
-		if ruleErr != nil {
-			res.Rules = append(res.Rules, info)
-			// A rule that errors internally degrades to a single info
-			// problem, never a whole-run failure. This catches ANY panic,
-			// including a runtime.Error (nil deref, bad type assertion) that
-			// safeCall deliberately re-panics -- a bug in one rule must not
-			// abort the bounded run.
-			res.Problems = append(res.Problems, Problem{
-				RuleID:   r.id,
-				Profile:  profile,
-				Severity: "info",
-				Message:  fmt.Sprintf("rule %q could not be evaluated: %v", r.id, ruleErr),
-				SpecRef:  r.specRef,
-			})
-			continue
-		}
-		info.Evaluated = true
-		info.Findings = len(hits)
+}
+
+// addRuleOutcome appends rule r's RuleInfo and problems to res. A non-nil
+// ruleErr marks the rule not evaluated with one info problem naming the error;
+// otherwise each hit becomes a problem with the rule's registry severity.
+func addRuleOutcome(res *ValidationResult, r rule, hits []ruleHit, ruleErr error) {
+	info := ruleInfoOf(r)
+	if ruleErr != nil {
 		res.Rules = append(res.Rules, info)
-		for _, h := range hits {
-			res.Problems = append(res.Problems, Problem{
-				RuleID:    r.id,
-				Profile:   profile,
-				Severity:  r.severity,
-				Message:   h.message,
-				ObjRef:    h.objRef,
-				ObjNodeID: h.objNodeID,
-				SpecRef:   r.specRef,
-			})
-		}
+		res.Problems = append(res.Problems, Problem{
+			RuleID:   r.id,
+			Profile:  r.profile,
+			Severity: "info",
+			Message:  fmt.Sprintf("rule %q could not be evaluated: %v", r.id, ruleErr),
+			SpecRef:  r.specRef,
+		})
+		return
 	}
-	res.Summary = summarize(res.Problems)
-	return res, nil
+	info.Evaluated = true
+	info.Findings = len(hits)
+	res.Rules = append(res.Rules, info)
+	for _, h := range hits {
+		res.Problems = append(res.Problems, Problem{
+			RuleID:    r.id,
+			Profile:   r.profile,
+			Severity:  r.severity,
+			Message:   h.message,
+			ObjRef:    h.objRef,
+			ObjNodeID: h.objNodeID,
+			SpecRef:   r.specRef,
+		})
+	}
 }
 
 // summarize tallies problems by severity.

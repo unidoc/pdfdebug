@@ -20,6 +20,7 @@ vi.mock(
     OpenFile: (...a: unknown[]) => mockOpenFile(...a),
     GetTreeRoot: vi.fn().mockResolvedValue({ id: 'root', label: 'Catalog' }),
     GetChildren: vi.fn().mockResolvedValue([]),
+    Validate: vi.fn().mockResolvedValue({ problems: [] }),
     CloseDocument: vi.fn().mockResolvedValue(undefined),
     OpenFileDialog: (...a: unknown[]) => mockOpenFileDialog(...a),
     RecordRecentFile: (...a: unknown[]) => {

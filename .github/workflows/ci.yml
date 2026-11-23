@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -46,9 +46,13 @@ jobs:
       - name: Install Linux native deps
         if: runner.os == 'Linux'
         shell: bash
+        # Bounds the apt calls: a stalled mirror fails this step after apt's
+        # retries instead of running out the job.
+        timeout-minutes: 35
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential xvfb
+          sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30
+          # gdb lets the boot-smoke hang report print native thread stacks.
+          sudo apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=30 libgtk-4-dev libwebkitgtk-6.0-dev build-essential xvfb gdb
 
       - name: Install Wails v3 CLI
         shell: bash
@@ -230,8 +234,6 @@ jobs:
         timeout-minutes: 5
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
-            # gdb lets the boot-smoke hang report print native thread stacks.
-            sudo apt-get install -y gdb
             # The runner, like Ubuntu 24.04, blocks unprivileged user
             # namespaces; the installed binary starts only because the
             # package's AppArmor profile allows them for WebKit's sandbox.

@@ -16,6 +16,7 @@ import { getPlatformModifier } from './lib/platform'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
+import { PdfcpuBanner } from './components/PdfcpuBanner'
 import { TabBar } from './components/TabBar'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
 import { AboutDialog } from './components/AboutDialog'
@@ -437,8 +438,11 @@ function AppContent() {
         />
       )}
       {tabs.length > 0 && <TabBar />}
-      <div className="flex-1 min-h-0">
+      {/* relative: the pdfcpu banner overlays this container's corner and
+          takes no layout space. */}
+      <div className="flex-1 min-h-0 relative">
         {hasDocument ? <MainLayout /> : <EmptyState />}
+        {hasDocument && <PdfcpuBanner tabId={activeTabId} />}
       </div>
       <BatchOpenDialog />
       <AboutDialog />

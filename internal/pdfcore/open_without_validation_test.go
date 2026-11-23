@@ -276,7 +276,7 @@ func TestOpen_ObjectStreamWithBrokenChecksumOpens(t *testing.T) {
 	b, start := objectStreamFile(t)
 	b = breakObjectStreamTrailer(b, start)
 
-	if _, checksumFailed, err := readPDF(bytes.NewReader(b)); err != nil || len(checksumFailed) == 0 {
+	if _, checksumFailed, err := readPDF(context.Background(), bytes.NewReader(b)); err != nil || len(checksumFailed) == 0 {
 		t.Fatal("fixture: pdfcpu decodes the broken-checksum object stream, so the fallback is not exercised")
 	}
 	ins, info := openParsedFile(t, "objstm-checksum", b)
@@ -412,7 +412,7 @@ func TestOpen_XRefStreamWithBrokenChecksumOpens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := readPDF(bytes.NewReader(b)); err == nil {
+	if _, _, err := readPDF(context.Background(), bytes.NewReader(b)); err == nil {
 		t.Fatal("fixture: pdfcpu parses the file with the broken cross-reference stream trailer, so the repair is not exercised")
 	}
 	openChecksumFile(t, b, false)
@@ -442,11 +442,11 @@ func TestOpen_BrokenChecksumUnderEveryTypeSpelling(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			intact := tc.opts
 			intact.breakObjStm, intact.breakXRef, intact.breakFontStm = false, false, false
-			if _, _, err := readPDF(bytes.NewReader(checksumFile(intact))); err != nil {
+			if _, _, err := readPDF(context.Background(), bytes.NewReader(checksumFile(intact))); err != nil {
 				t.Fatalf("fixture: pdfcpu refuses the file with intact trailers: %v", err)
 			}
 			b := checksumFile(tc.opts)
-			if _, failed, err := readPDF(bytes.NewReader(b)); err == nil && len(failed) == 0 {
+			if _, failed, err := readPDF(context.Background(), bytes.NewReader(b)); err == nil && len(failed) == 0 {
 				t.Fatal("fixture: pdfcpu reads the file with the broken trailer, so the repair is not exercised")
 			}
 			openChecksumFile(t, b, true)
@@ -457,7 +457,7 @@ func TestOpen_BrokenChecksumUnderEveryTypeSpelling(t *testing.T) {
 // The offset repair leaves object streams with a correct trailer unchanged.
 func TestFixChecksumsAt_LeavesIntactStreamsAlone(t *testing.T) {
 	b := checksumFile(checksumFileOpts{objStmType: "/Type /ObjStm", xrefType: "/Type /XRef"})
-	ctx, _, err := readPDF(bytes.NewReader(b))
+	ctx, _, err := readPDF(context.Background(), bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}

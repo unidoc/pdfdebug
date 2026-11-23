@@ -34,11 +34,15 @@ The three command families use different contracts.
   `pdfua-1-structural` the error rules are `mcid-in-parent-tree` (an MCID
   that does not reach the ParentTree or cannot be read, or page content that
   cannot be read or decoded, so its MCIDs were not checked) and
-  `struct-elem-type` (a structure element without a usable `/S`). An encrypted file under `pdfa-1b` is
+  `struct-elem-type` (a structure element without a usable `/S`). Under
+  `pdfcpu` the error rule is `pdfcpu-validator` (pdfcpu rejects the file, or
+  the check could not run);
+  `pdfcpu-notices` reports warnings. An encrypted file under `pdfa-1b` is
   reported as one `no-encryption` error and also exits 1.
 - 2 - operational or usage error: a missing file, an unknown profile, an
   unknown flag, the wrong number of files, a flag after the file, or an
-  encrypted file under `pdfua-1-structural`.
+  encrypted file under `pdfua-1-structural` or `pdfcpu`, or, under `pdfcpu`,
+  a file that changed on disk or was locked between the open and the check.
 
 The other `pdfua-1-structural` rules report warnings, which exit 0: the
 catalog rules (`marked`, `struct-tree-root`, `lang`) and the marked-content
