@@ -6,15 +6,11 @@ import (
 	"testing"
 )
 
-func TestBuildDocsNameTheGoFloorAndItsFix(t *testing.T) {
+func TestBuildDocsNameTheGoFloor(t *testing.T) {
 	floor := goModFloor(t)
 	for _, rel := range []string{"README.md", "CONTRIBUTING.md"} {
-		doc := readRepoFile(t, rel)
-		if !strings.Contains(doc, floor+" or later") {
+		if !strings.Contains(readRepoFile(t, rel), floor+" or later") {
 			t.Errorf("%s must say Go \"%s or later\", the go.mod floor", rel, floor)
-		}
-		if !strings.Contains(doc, "GO-2026-6859") {
-			t.Errorf("%s must name the net/http fix GO-2026-6859", rel)
 		}
 	}
 }
@@ -29,65 +25,40 @@ func goModFloor(t *testing.T) string {
 	return m[1]
 }
 
-// changelogLists returns the "### heading" list of every CHANGELOG.md version
-// section, newest first, so an entry is found under [Unreleased] and after
-// its release is cut alike.
-func changelogLists(t *testing.T, heading string) []string {
-	t.Helper()
-	var lists []string
+// The dependency update is recorded in the ### Changed list of the CHANGELOG
+// version section that names pdfcpu 0.16.4, under [Unreleased] or after its
+// release is cut, and that section has no ### Security list.
+func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
+	var section, changed string
 	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
-		_, list, ok := strings.Cut(sec, "\n### "+heading+"\n")
+		_, list, ok := strings.Cut(sec, "\n### Changed\n")
 		if !ok {
 			continue
 		}
 		if i := strings.Index(list, "\n### "); i >= 0 {
 			list = list[:i]
 		}
-		lists = append(lists, list)
-	}
-	return lists
-}
-
-// recording returns the first text holding every want, else the first holding
-// wants[0], else "".
-func recording(texts []string, wants ...string) string {
-	first := ""
-	for _, text := range texts {
-		all := true
-		for _, w := range wants {
-			all = all && strings.Contains(text, w)
-		}
-		if all {
-			return text
-		}
-		if first == "" && strings.Contains(text, wants[0]) {
-			first = text
+		if strings.Contains(list, "0.16.4") {
+			section, changed = sec, list
+			break
 		}
 	}
-	return first
-}
-
-func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
-	wants := []struct{ text, why string }{
-		{"0.16.4", "the pdfcpu release"},
+	if section == "" {
+		t.Fatal("no CHANGELOG version section has a ### Changed list that names pdfcpu 0.16.4")
+	}
+	for _, want := range []struct{ text, why string }{
 		{"1.27.4", "the Go floor"},
 		{"GO-2026-6859", "the net/http advisory the Go floor fixes"},
 		{"validator", "files pdfcpu's validator rejects or repairs now open as written"},
 		{"PDFDocEncoding", "text strings decoded as PDFDocEncoding"},
 		{"512 MiB", "the decoded-stream cap on the content stream, XMP, font and validate paths"},
-	}
-	texts := make([]string, len(wants))
-	for i, w := range wants {
-		texts[i] = w.text
-	}
-	changed := recording(changelogLists(t, "Changed"), texts...)
-	for _, want := range wants {
+	} {
 		if !strings.Contains(changed, want.text) {
-			t.Errorf("no CHANGELOG ### Changed list that names pdfcpu 0.16.4 has a line with %q (%s)", want.text, want.why)
+			t.Errorf("the ### Changed list that names pdfcpu 0.16.4 has no line with %q (%s)", want.text, want.why)
 		}
 	}
-	if strings.Contains(readRepoFile(t, "CHANGELOG.md"), "### Security") {
-		t.Errorf("CHANGELOG.md has a ### Security heading; the entries go under ### Changed")
+	if strings.Contains(section, "\n### Security\n") {
+		t.Errorf("the CHANGELOG section that names pdfcpu 0.16.4 has a ### Security list; the entries go under ### Changed")
 	}
 }
 

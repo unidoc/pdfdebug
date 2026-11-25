@@ -14,13 +14,18 @@ func changelogSections(t *testing.T) []string {
 }
 
 func TestChangelogRecordsTheUpgrade(t *testing.T) {
-	pin := goModWailsPin(t)
-	named := false
+	// The newest section that mentions Wails names the go.mod pin, so moving
+	// the pin to a version an older section names needs a new entry.
+	pin := "Wails " + goModWailsPin(t)
+	newest := ""
 	for _, sec := range changelogSections(t) {
-		named = named || strings.Contains(sec, pin) || strings.Contains(sec, strings.TrimPrefix(pin, "v"))
+		if strings.Contains(sec, "Wails") {
+			newest = sec
+			break
+		}
 	}
-	if !named {
-		t.Errorf("no CHANGELOG version section names the Wails version %s", pin)
+	if !strings.Contains(newest, pin) {
+		t.Errorf("the newest CHANGELOG section that mentions Wails does not name %q", pin)
 	}
 
 	wants := []string{"GTK4", "Open Recent", "1.27.3"}
