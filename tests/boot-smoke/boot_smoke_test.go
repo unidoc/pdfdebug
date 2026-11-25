@@ -77,9 +77,10 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// platformLaunchDeadline returns the per-OS time allowed for the app to start.
-// Linux is slowest because Xvfb + GTK init is heavy; Windows is medium
-// because WebView2 cold-start; macOS is fastest because WKWebView is in-tree.
+// platformLaunchDeadline returns the per-OS launch slack in processDeadline.
+// It does not limit startup; the alive probes are bounded by probeBudget.
+// Linux is largest because Xvfb + GTK init is heavy; Windows is medium
+// because WebView2 cold-start; macOS is smallest because WKWebView is in-tree.
 func platformLaunchDeadline() time.Duration {
 	switch runtime.GOOS {
 	case "linux":
@@ -258,8 +259,20 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	}
 }
 
+// gdbTimeout and gdbKillAfter bound the gdb attach in hangDiagnostics: gdb is
+// sent SIGTERM after gdbTimeout and SIGKILL gdbKillAfter later.
+const (
+	gdbTimeout   = 20 * time.Second
+	gdbKillAfter = 5 * time.Second
+)
+
+// goStacksWait is how long hangDiagnostics waits for the app to exit after
+// SIGQUIT, which makes the Go runtime write its goroutine stacks.
+const goStacksWait = 2 * time.Second
+
 // hangReportWait is the time hangDiagnostics gets to attach gdb, print the
-// native backtraces and collect the Go stacks after SIGQUIT.
+// native backtraces and collect the Go stacks after SIGQUIT. It covers the
+// gdb bound and the SIGQUIT wait.
 const hangReportWait = 30 * time.Second
 
 // probeBudget bounds the alive probes before the test sends SIGTERM.
@@ -303,12 +316,15 @@ func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 	var bt []byte
 	if state != "Z" {
 		// sudo -n fails fast where attaching needs a password or gdb is absent.
-		bt, _ = exec.Command("sudo", "-n", "gdb", "-p", strconv.Itoa(p.Pid), "-batch",
-			"-ex", "thread apply all bt 30").CombinedOutput()
+		// timeout runs under sudo so it can stop the root gdb within the
+		// hang-report budget; killing sudo itself would leave gdb attached.
+		bt, _ = exec.Command("sudo", "-n", "timeout",
+			"--kill-after="+strconv.Itoa(int(gdbKillAfter.Seconds())), strconv.Itoa(int(gdbTimeout.Seconds())),
+			"gdb", "-p", strconv.Itoa(p.Pid), "-batch", "-ex", "thread apply all bt 30").CombinedOutput()
 		_ = p.Signal(syscall.SIGQUIT)
 		select {
 		case <-exitCh:
-		case <-time.After(2 * time.Second):
+		case <-time.After(goStacksWait):
 		}
 	}
 	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s\n--- native backtraces ---\n%s", state, ps, bt)

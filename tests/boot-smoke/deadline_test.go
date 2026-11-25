@@ -11,3 +11,12 @@ func TestProcessDeadlineOutlastsTheHangReport(t *testing.T) {
 		t.Errorf("processDeadline() = %s, want more than probes + shutdown wait + hang report = %s", got, need)
 	}
 }
+
+// The gdb bound and the SIGQUIT wait fit inside the hang-report budget, so
+// the launch context does not kill the app while gdb is attached.
+func TestHangReportWaitCoversGdbAndGoStacks(t *testing.T) {
+	need := gdbTimeout + gdbKillAfter + goStacksWait
+	if hangReportWait <= need {
+		t.Errorf("hangReportWait = %s, want more than gdb timeout + kill-after + SIGQUIT wait = %s", hangReportWait, need)
+	}
+}
