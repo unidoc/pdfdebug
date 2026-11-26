@@ -266,6 +266,13 @@ const (
 	gdbKillAfter = 5 * time.Second
 )
 
+// timeoutSeconds formats d as coreutils timeout's duration argument, in
+// seconds with a fraction where needed, so a sub-second bound is not
+// truncated to 0, which timeout reads as no limit.
+func timeoutSeconds(d time.Duration) string {
+	return strconv.FormatFloat(d.Seconds(), 'f', -1, 64)
+}
+
 // goStacksWait is how long hangDiagnostics waits for the app to exit after
 // SIGQUIT, which makes the Go runtime write its goroutine stacks.
 const goStacksWait = 2 * time.Second
@@ -319,8 +326,11 @@ func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 		// timeout runs under sudo so it can stop the root gdb within the
 		// hang-report budget; killing sudo itself would leave gdb attached.
 		bt, _ = exec.Command("sudo", "-n", "timeout",
-			"--kill-after="+strconv.Itoa(int(gdbKillAfter.Seconds())), strconv.Itoa(int(gdbTimeout.Seconds())),
+			"--kill-after="+timeoutSeconds(gdbKillAfter), timeoutSeconds(gdbTimeout),
 			"gdb", "-p", strconv.Itoa(p.Pid), "-batch", "-ex", "thread apply all bt 30").CombinedOutput()
+		// A gdb killed by timeout leaves the app stopped by the ptrace attach;
+		// SIGCONT resumes it so the Go runtime can handle SIGQUIT.
+		_ = p.Signal(syscall.SIGCONT)
 		_ = p.Signal(syscall.SIGQUIT)
 		select {
 		case <-exitCh:
