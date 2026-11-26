@@ -329,8 +329,10 @@ func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 			"--kill-after="+timeoutSeconds(gdbKillAfter), timeoutSeconds(gdbTimeout),
 			"gdb", "-p", strconv.Itoa(p.Pid), "-batch", "-ex", "thread apply all bt 30").CombinedOutput()
 		// A gdb killed by timeout leaves the app stopped by the ptrace attach;
-		// SIGCONT resumes it so the Go runtime can handle SIGQUIT.
-		_ = p.Signal(syscall.SIGCONT)
+		// SIGCONT resumes it so the Go runtime can handle SIGQUIT. 0x12 is
+		// SIGCONT on Linux, the only OS that reaches this; Windows' syscall
+		// package has no SIGCONT name.
+		_ = p.Signal(syscall.Signal(0x12))
 		_ = p.Signal(syscall.SIGQUIT)
 		select {
 		case <-exitCh:
