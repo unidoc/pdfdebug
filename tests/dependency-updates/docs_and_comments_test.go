@@ -7,11 +7,10 @@ import (
 )
 
 // The build docs name the go.mod floor as "<floor> or later", and no other
-// three-part version "or later" is left behind; two-part versions such as an
-// Ubuntu release are not Go floors and are ignored.
+// Go 1.x.y "or later" is left behind; versions of other tools are ignored.
 func TestBuildDocsNameTheGoFloor(t *testing.T) {
 	floor := goModFloor(t)
-	orLater := regexp.MustCompile(`\b(\d+\.\d+\.\d+) or later`)
+	orLater := regexp.MustCompile(`\b(1\.\d+\.\d+) or later`)
 	for _, rel := range []string{"README.md", "CONTRIBUTING.md"} {
 		doc := readRepoFile(t, rel)
 		if !strings.Contains(doc, floor+" or later") {
@@ -38,7 +37,9 @@ func goModFloor(t *testing.T) string {
 // The dependency update is recorded in the ### Changed list of the CHANGELOG
 // version section that records the update to pdfcpu 0.16.4, under
 // [Unreleased] or after its release is cut, and that section has no
-// ### Security list. A later update away from 0.16.4 does not match.
+// ### Security list. The pdfcpu name and "to 0.16.4" must share a line, so a
+// later update away from 0.16.4, or another dependency moving to a 0.16.4
+// release, does not match.
 func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
 	var section, changed string
 	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
@@ -49,7 +50,7 @@ func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
 		if i := strings.Index(list, "\n### "); i >= 0 {
 			list = list[:i]
 		}
-		if strings.Contains(list, "to 0.16.4") {
+		if regexp.MustCompile(`(?m)^.*pdfcpu.*to 0\.16\.4`).MatchString(list) {
 			section, changed = sec, list
 			break
 		}
