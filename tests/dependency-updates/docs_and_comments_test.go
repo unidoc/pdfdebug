@@ -6,11 +6,21 @@ import (
 	"testing"
 )
 
+// The build docs name the go.mod floor as "<floor> or later", and no other
+// three-part version "or later" is left behind; two-part versions such as an
+// Ubuntu release are not Go floors and are ignored.
 func TestBuildDocsNameTheGoFloor(t *testing.T) {
 	floor := goModFloor(t)
+	orLater := regexp.MustCompile(`\b(\d+\.\d+\.\d+) or later`)
 	for _, rel := range []string{"README.md", "CONTRIBUTING.md"} {
-		if !strings.Contains(readRepoFile(t, rel), floor+" or later") {
+		doc := readRepoFile(t, rel)
+		if !strings.Contains(doc, floor+" or later") {
 			t.Errorf("%s must say Go \"%s or later\", the go.mod floor", rel, floor)
+		}
+		for _, m := range orLater.FindAllStringSubmatch(doc, -1) {
+			if m[1] != floor {
+				t.Errorf("%s still says %q; the go.mod floor is %s", rel, m[0], floor)
+			}
 		}
 	}
 }
@@ -26,8 +36,9 @@ func goModFloor(t *testing.T) string {
 }
 
 // The dependency update is recorded in the ### Changed list of the CHANGELOG
-// version section that names pdfcpu 0.16.4, under [Unreleased] or after its
-// release is cut, and that section has no ### Security list.
+// version section that records the update to pdfcpu 0.16.4, under
+// [Unreleased] or after its release is cut, and that section has no
+// ### Security list. A later update away from 0.16.4 does not match.
 func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
 	var section, changed string
 	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
@@ -38,13 +49,13 @@ func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
 		if i := strings.Index(list, "\n### "); i >= 0 {
 			list = list[:i]
 		}
-		if strings.Contains(list, "0.16.4") {
+		if strings.Contains(list, "to 0.16.4") {
 			section, changed = sec, list
 			break
 		}
 	}
 	if section == "" {
-		t.Fatal("no CHANGELOG version section has a ### Changed list that names pdfcpu 0.16.4")
+		t.Fatal("no CHANGELOG version section has a ### Changed list that records the update to pdfcpu 0.16.4")
 	}
 	for _, want := range []struct{ text, why string }{
 		{"1.27.4", "the Go floor"},
@@ -54,11 +65,11 @@ func TestChangelogRecordsTheDependencyUpdate(t *testing.T) {
 		{"512 MiB", "the decoded-stream cap on the content stream, XMP, font and validate paths"},
 	} {
 		if !strings.Contains(changed, want.text) {
-			t.Errorf("the ### Changed list that names pdfcpu 0.16.4 has no line with %q (%s)", want.text, want.why)
+			t.Errorf("the ### Changed list that records the update to pdfcpu 0.16.4 has no line with %q (%s)", want.text, want.why)
 		}
 	}
 	if strings.Contains(section, "\n### Security\n") {
-		t.Errorf("the CHANGELOG section that names pdfcpu 0.16.4 has a ### Security list; the entries go under ### Changed")
+		t.Errorf("the CHANGELOG section that records the update to pdfcpu 0.16.4 has a ### Security list; the entries go under ### Changed")
 	}
 }
 

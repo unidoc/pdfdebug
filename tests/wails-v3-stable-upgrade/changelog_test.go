@@ -1,6 +1,7 @@
 package wails_v3_stable_upgrade_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -14,18 +15,20 @@ func changelogSections(t *testing.T) []string {
 }
 
 func TestChangelogRecordsTheUpgrade(t *testing.T) {
-	// The newest section that mentions Wails names the go.mod pin, so moving
-	// the pin to a version an older section names needs a new entry.
-	pin := "Wails " + goModWailsPin(t)
-	newest := ""
+	// The newest section that names a Wails version names exactly the go.mod
+	// pin, so moving the pin needs a new entry and a passing mention of Wails
+	// without a version is not taken for the upgrade entry.
+	pin := goModWailsPin(t)
+	version := regexp.MustCompile(`Wails (v\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)`)
+	named := ""
 	for _, sec := range changelogSections(t) {
-		if strings.Contains(sec, "Wails") {
-			newest = sec
+		if m := version.FindStringSubmatch(sec); m != nil {
+			named = m[1]
 			break
 		}
 	}
-	if !strings.Contains(newest, pin) {
-		t.Errorf("the newest CHANGELOG section that mentions Wails does not name %q", pin)
+	if named != pin {
+		t.Errorf("the newest CHANGELOG section that names a Wails version names %q, want the go.mod pin %q", named, pin)
 	}
 
 	wants := []string{"GTK4", "Open Recent", "1.27.3"}
