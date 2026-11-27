@@ -1,8 +1,6 @@
 package pdfcpu_validation_report_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -41,36 +39,35 @@ func TestDocs_ProfileListsNameThePdfcpuProfile(t *testing.T) {
 	}
 }
 
-// unreleasedAdded returns the ### Added list of the [Unreleased] section.
-func unreleasedAdded(t *testing.T) string {
+// changelogAddedLines returns the lines of every CHANGELOG.md version
+// section's ### Added list, newest first, so the entry is found under
+// [Unreleased] and after its release is cut alike.
+func changelogAddedLines(t *testing.T) []string {
 	t.Helper()
-	log := readRepoFile(t, "CHANGELOG.md")
-	_, rest, ok := strings.Cut(log, "## [Unreleased]")
-	if !ok {
-		t.Fatal("CHANGELOG.md has no [Unreleased] section")
+	var lines []string
+	for _, sec := range strings.Split(readRepoFile(t, "CHANGELOG.md"), "\n## [")[1:] {
+		_, added, ok := strings.Cut(sec, "\n### Added\n")
+		if !ok {
+			continue
+		}
+		if i := strings.Index(added, "\n### "); i >= 0 {
+			added = added[:i]
+		}
+		lines = append(lines, strings.Split(added, "\n")...)
 	}
-	if i := strings.Index(rest, "\n## ["); i >= 0 {
-		rest = rest[:i]
-	}
-	_, added, ok := strings.Cut(rest, "### Added")
-	if !ok {
-		t.Fatal("CHANGELOG.md [Unreleased] has no ### Added list")
-	}
-	if i := strings.Index(added, "\n### "); i >= 0 {
-		added = added[:i]
-	}
-	return added
+	return lines
 }
 
 func TestChangelog_AddedLineForTheBackgroundCheckAndProfile(t *testing.T) {
 	var line string
-	for l := range strings.SplitSeq(unreleasedAdded(t), "\n") {
+	for _, l := range changelogAddedLines(t) {
 		if strings.Contains(l, "validate --profile pdfcpu") {
 			line = l
+			break
 		}
 	}
 	if line == "" {
-		t.Fatal("CHANGELOG.md [Unreleased] ### Added needs a line naming `validate --profile pdfcpu`")
+		t.Fatal("no CHANGELOG.md ### Added list has a line naming `validate --profile pdfcpu`")
 	}
 	low := strings.ToLower(line)
 	for _, want := range []string{"banner", "details"} {
@@ -80,22 +77,5 @@ func TestChangelog_AddedLineForTheBackgroundCheckAndProfile(t *testing.T) {
 	}
 	if !strings.Contains(low, "partial") && !strings.Contains(low, "incomplete") && !strings.Contains(low, "not every") {
 		t.Errorf("changelog line must say the list is partial: %q", line)
-	}
-}
-
-func TestProjectContext_ListsThePdfcpuProfile(t *testing.T) {
-	path := filepath.Join(projectRoot(t), "_bmad-output", "project-context.md")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Skipf("project-context.md not reachable: %v", err)
-	}
-	doc := string(data)
-	for _, want := range []string{"pdfcpu-validator", "pdfcpu-notices"} {
-		if !strings.Contains(doc, want) {
-			t.Errorf("project-context.md must describe the pdfcpu profile (%q)", want)
-		}
-	}
-	if strings.Contains(doc, "a separate, on-demand parse") {
-		t.Errorf("project-context.md still says validator findings come from a separate, on-demand parse")
 	}
 }

@@ -77,9 +77,10 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// platformLaunchDeadline returns the per-OS deadline for the boot probe.
-// Linux is slowest because Xvfb + GTK init is heavy; Windows is medium
-// because WebView2 cold-start; macOS is fastest because WKWebView is in-tree.
+// platformLaunchDeadline returns the per-OS launch slack in processDeadline.
+// It does not limit startup; the alive probes are bounded by probeBudget.
+// Linux is largest because Xvfb + GTK init is heavy; Windows is medium
+// because WebView2 cold-start; macOS is smallest because WKWebView is in-tree.
 func platformLaunchDeadline() time.Duration {
 	switch runtime.GOOS {
 	case "linux":
@@ -258,6 +259,40 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	}
 }
 
+// gdbTimeout and gdbKillAfter bound the gdb attach in hangDiagnostics: gdb is
+// sent SIGTERM after gdbTimeout and SIGKILL gdbKillAfter later.
+const (
+	gdbTimeout   = 20 * time.Second
+	gdbKillAfter = 5 * time.Second
+)
+
+// timeoutSeconds formats d as coreutils timeout's duration argument, in
+// seconds with a fraction where needed, so a sub-second bound is not
+// truncated to 0, which timeout reads as no limit.
+func timeoutSeconds(d time.Duration) string {
+	return strconv.FormatFloat(d.Seconds(), 'f', -1, 64)
+}
+
+// goStacksWait is how long hangDiagnostics waits for the app to exit after
+// SIGQUIT, which makes the Go runtime write its goroutine stacks.
+const goStacksWait = 2 * time.Second
+
+// hangReportWait is the time hangDiagnostics gets to attach gdb, print the
+// native backtraces and collect the Go stacks after SIGQUIT. It covers the
+// gdb bound and the SIGQUIT wait.
+const hangReportWait = 30 * time.Second
+
+// probeBudget bounds the alive probes before the test sends SIGTERM.
+const probeBudget = 3 * time.Second
+
+// processDeadline is when the launch context kills the app. It covers the
+// launch, the probes, the shutdown wait and the hang report, so an app that
+// hangs on quit is still running when hangDiagnostics attaches to it rather
+// than killed by the context and passed as a signalled exit.
+func processDeadline() time.Duration {
+	return platformLaunchDeadline() + probeBudget + shutdownWait() + hangReportWait
+}
+
 // shutdownWait is how long the app gets to exit after SIGTERM. Linux gets
 // longer: under Xvfb GTK4 renders with llvmpipe, and a quit queued behind the
 // first layout pass on a cold runner can take more than 3s to run.
@@ -288,12 +323,20 @@ func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
 	var bt []byte
 	if state != "Z" {
 		// sudo -n fails fast where attaching needs a password or gdb is absent.
-		bt, _ = exec.Command("sudo", "-n", "gdb", "-p", strconv.Itoa(p.Pid), "-batch",
-			"-ex", "thread apply all bt 30").CombinedOutput()
+		// timeout runs under sudo so it can stop the root gdb within the
+		// hang-report budget; killing sudo itself would leave gdb attached.
+		bt, _ = exec.Command("sudo", "-n", "timeout",
+			"--kill-after="+timeoutSeconds(gdbKillAfter), timeoutSeconds(gdbTimeout),
+			"gdb", "-p", strconv.Itoa(p.Pid), "-batch", "-ex", "thread apply all bt 30").CombinedOutput()
+		// A gdb killed by timeout leaves the app stopped by the ptrace attach;
+		// SIGCONT resumes it so the Go runtime can handle SIGQUIT. 0x12 is
+		// SIGCONT on Linux, the only OS that reaches this; Windows' syscall
+		// package has no SIGCONT name.
+		_ = p.Signal(syscall.Signal(0x12))
 		_ = p.Signal(syscall.SIGQUIT)
 		select {
 		case <-exitCh:
-		case <-time.After(2 * time.Second):
+		case <-time.After(goStacksWait):
 		}
 	}
 	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s\n--- native backtraces ---\n%s", state, ps, bt)
@@ -344,8 +387,7 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 		bin = buildSmokeBinary(t)
 	}
 
-	deadline := platformLaunchDeadline()
-	ctx, cancel := context.WithTimeout(t.Context(), deadline)
+	ctx, cancel := context.WithTimeout(t.Context(), processDeadline())
 	defer cancel()
 
 	name, extraArgs := requireXvfbOnLinux(t, bin)
@@ -374,7 +416,6 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 	// two consecutive probes (~400ms after first observation). 1s as a
 	// single sample was too aggressive on cold runners (R5).
 	const probeInterval = 200 * time.Millisecond
-	const probeBudget = 3 * time.Second
 
 	consecutive := 0
 	probeDeadline := time.Now().Add(probeBudget)

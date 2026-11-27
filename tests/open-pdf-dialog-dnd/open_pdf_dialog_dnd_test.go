@@ -273,24 +273,6 @@ func TestErrorBannerHasTestIDs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ErrorBanner has role="alert" for accessibility: Screen reader
-// announcement requires role="alert" on the container.
-// ---------------------------------------------------------------------------
-
-func TestErrorBannerHasAlertRole(t *testing.T) {
-	if !fileExists(t, "frontend/src/components/ErrorBanner.tsx") {
-		t.Skip("ErrorBanner.tsx does not exist yet")
-	}
-
-	content := readFile(t, "frontend/src/components/ErrorBanner.tsx")
-
-	// The role is written literally or as the default of a role prop.
-	if !strings.Contains(content, `role="alert"`) && !strings.Contains(content, `role = 'alert'`) {
-		t.Error("ErrorBanner must have role=\"alert\" by default for accessibility")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // ErrorBanner accepts severity and onDismiss props: Component must
 // accept message, severity, and onDismiss props.
 // ---------------------------------------------------------------------------

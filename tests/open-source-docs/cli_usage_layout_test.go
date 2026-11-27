@@ -60,8 +60,9 @@ func TestCLIUsageGuideContentsLinksEverySection(t *testing.T) {
 
 // TestCLIUsageGuideCommonTasksPrecedeReference asserts a Common tasks H2 sits
 // above the quick-reference table and any command reference heading on the
-// entry page, holds four `###` tasks, and each task shows a pdfdebug command in
-// a fenced block or links to the section that does.
+// entry page, holds the PDF/UA, compare, extract and CI `###` tasks among any
+// others, and each task shows a pdfdebug command in a fenced block or links to
+// the section that does.
 func TestCLIUsageGuideCommonTasksPrecedeReference(t *testing.T) {
 	cmds := helpCommands(t)
 	lines := mdLines(readFileAtRoot(t, cliGuidePath))
@@ -89,8 +90,14 @@ func TestCLIUsageGuideCommonTasksPrecedeReference(t *testing.T) {
 			taskHeadings = append(taskHeadings, h)
 		}
 	}
-	if len(taskHeadings) != 4 {
-		t.Fatalf("%s Common tasks has %d ### tasks, want 4", cliGuidePath, len(taskHeadings))
+	for _, want := range []string{"pdf/ua", "compare two versions", "pull out one image", "use it in ci"} {
+		found := false
+		for _, th := range taskHeadings {
+			found = found || strings.Contains(strings.ToLower(th.text), want)
+		}
+		if !found {
+			t.Errorf("%s Common tasks has no ### task heading containing %q", cliGuidePath, want)
+		}
 	}
 	for _, th := range taskHeadings {
 		sec := sectionLines(body, bodyHeadings, th)
