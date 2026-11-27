@@ -6,6 +6,7 @@
  */
 import * as Dialog from '@radix-ui/react-dialog';
 import { Events } from '@wailsio/runtime';
+import { DocumentBatchCancel } from '../../bindings/events/index.js';
 import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
 
 export function BatchOpenDialog() {
@@ -19,7 +20,7 @@ export function BatchOpenDialog() {
     dispatch({ type: 'BATCH_OPEN_CANCEL' });
     // Signal the Go-side loop; the JS-side loop in EmptyState reads the
     // cancel state via ref and does not need this event.
-    Events.Emit('document:batch-cancel', null);
+    Events.Emit(DocumentBatchCancel);
   };
 
   const status = batchOpenCancelled

@@ -55,6 +55,8 @@ const mockGetPageIndex = vi.fn();
 
 vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () => ({
   OpenFile: vi.fn(),
+  Validate: vi.fn().mockResolvedValue({ profile: 'pdfcpu', summary: { errors: 0, warnings: 0, info: 0 }, problems: [], disclaimer: '', scope: '', rules: [] }),
+  SetWatchedTabs: vi.fn().mockResolvedValue(undefined),
   GetTreeRoot: vi.fn(),
   GetChildren: vi.fn().mockResolvedValue([]),
   CloseDocument: vi.fn().mockResolvedValue(undefined),
@@ -69,7 +71,7 @@ vi.mock('../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js', () 
   GetSignatures: vi.fn().mockResolvedValue([]),
   GetEmbeddedFileBytes: vi.fn().mockResolvedValue(''),
   GetDocumentMetadata: vi.fn().mockResolvedValue({ info: {}, xmp: '', warning: '' }),
-  SaveBytesToFile: vi.fn().mockResolvedValue(''),
+  SaveEmbeddedFileToFile: vi.fn().mockResolvedValue(''),
   DiffDocuments: vi.fn().mockResolvedValue({ root: null, summary: {} }),
   GetPageIndex: (...args: unknown[]) => mockGetPageIndex(...args),
   GetImageIndex: vi.fn(),

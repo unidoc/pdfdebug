@@ -1,13 +1,14 @@
 /**
  * @file Hooks shared by the left-rail navigator panels: the per-tab fetch
- * cache, the pane size their Tree is drawn at, and the triggers that open the
- * row context menu.
+ * cache, the pane size their Tree is drawn at, and the native row context
+ * menu.
  */
 import { useCallback, useEffect, useReducer, useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
 import type { TreeApi } from 'react-arborist';
 import { useLatest } from '../hooks/useLatest';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
-import type { RowMenuTarget } from './RowContextMenu';
+import { Events } from '@wailsio/runtime';
+import { RowMenuAction } from '../../bindings/events/index.js';
 
 /**
  * Per-tab fetch cache for a navigator panel. The first time the panel is
@@ -87,51 +88,120 @@ export function useContainerSize(ref: RefObject<HTMLElement | null>, remountKey:
   return size;
 }
 
+/** Native row menus registered by the Go side (rowmenus.go). */
+export const ROW_MENU_REVEAL = 'row-reveal';
+export const ROW_MENU_TREE = 'tree-row';
+export const ROW_MENU_TREE_WITH_REF = 'tree-row-ref';
+
+/** Actions the native row menu items send back. */
+export type RowMenuActionName = 'reveal' | 'copy-ref' | 'copy-path';
+
 /**
- * Opens a RowContextMenu for a navigator row from a right-click or from
+ * The menu a row opens and the node its actions apply to, plus the node's
+ * object reference when the row has one.
+ */
+export interface RowMenuHit {
+  menu: string;
+  nodeId: string;
+  objectRef?: string;
+}
+
+// Shared by every panel, so a menu action names exactly one opened row.
+let nextRowMenuToken = 0;
+
+// The contextmenu events the hook dispatches itself for Shift+F10 and the
+// ContextMenu key.
+const keyMenuEvents = new WeakSet<Event>();
+
+// WebKit on macOS sends no contextmenu of its own for the ContextMenu key.
+const webViewEchoesKeyMenu = typeof navigator === 'undefined' || !/Mac/.test(navigator.platform);
+
+/**
+ * Opens the native row menu for a navigator row from a right-click or from
  * Shift+F10 / the ContextMenu key on the focused row. Rows are found by
  * `rowSelector` and identified by their `rowIdAttribute`, which holds the
- * arborist row id. `resolveNodeId` maps that id to the node the menu reveals,
- * or null when the row has nothing to reveal; the menu then stays closed.
+ * arborist row id. `resolve` maps that id to the menu and the node it acts on,
+ * or null when the row has no menu.
+ *
+ * The Wails runtime opens a menu on the DOM contextmenu event from the
+ * --custom-contextmenu CSS property of the event target, so the handler sets
+ * that property on the container, with a fresh token as the menu data. The
+ * keyboard triggers dispatch a contextmenu event at the row. WebView2 (on
+ * keyup) and WebKitGTK also send their own contextmenu for the ContextMenu key
+ * (the keydown's preventDefault stops theirs for Shift+F10), so after that key
+ * the next contextmenu the hook did not dispatch is cancelled; a pointerdown, which a right-click, long-press or pen press starts
+ * with, ends that, so one press opens one menu and a later pointer menu still
+ * opens one. Wire `onPointerDownCapture` on the same container. A clicked item comes back as a
+ * row-menu:action event and calls `onAction` with the row's hit when its token
+ * is the one this panel opened last. `closeMenu` forgets that row.
  */
 export function useRowContextMenu<T>(
   treeRef: RefObject<TreeApi<T> | undefined>,
   rowSelector: string,
   rowIdAttribute: string,
-  resolveNodeId: (rowId: string) => string | null,
+  resolve: (rowId: string) => RowMenuHit | null,
+  onAction: (action: RowMenuActionName, hit: RowMenuHit) => void,
 ) {
-  const [menu, setMenu] = useState<RowMenuTarget | null>(null);
-  const resolveRef = useLatest(resolveNodeId);
+  const pending = useRef<{ token: string; hit: RowMenuHit } | null>(null);
+  const keyMenuOpen = useRef(false);
+  const resolveRef = useLatest(resolve);
+  const onActionRef = useLatest(onAction);
 
-  const openMenu = useCallback((rowId: string, x: number, y: number, returnFocus: HTMLElement | null) => {
-    const nodeId = resolveRef.current(rowId);
-    if (!nodeId) return;
-    treeRef.current?.select(rowId);
-    setMenu({ x, y, nodeId, returnFocus });
-  }, [resolveRef, treeRef]);
+  useEffect(() => Events.On(RowMenuAction, (ev) => {
+    const { action, token } = ev.data;
+    const p = pending.current;
+    if (!p || p.token !== token.trim()) return;
+    pending.current = null;
+    onActionRef.current(action as RowMenuActionName, p.hit);
+  }), [onActionRef]);
 
   const onContextMenu = useCallback((e: MouseEvent<HTMLElement>) => {
-    const row = (e.target as HTMLElement).closest(rowSelector);
-    if (!row) return;
-    e.preventDefault();
-    const id = row.getAttribute(rowIdAttribute);
-    if (!id) return;
-    const item = row.closest<HTMLElement>('[role="treeitem"]') ?? (row as HTMLElement);
-    openMenu(id, e.clientX, e.clientY, item);
-  }, [openMenu, rowSelector, rowIdAttribute]);
+    if (keyMenuOpen.current && !keyMenuEvents.has(e.nativeEvent)) {
+      // Stopping propagation keeps the Wails runtime's window listener from
+      // opening a second menu.
+      keyMenuOpen.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    const container = e.currentTarget;
+    container.style.removeProperty('--custom-contextmenu');
+    container.style.removeProperty('--custom-contextmenu-data');
+    const id = (e.target as HTMLElement).closest(rowSelector)?.getAttribute(rowIdAttribute);
+    const hit = id ? resolveRef.current(id) : null;
+    if (!id || !hit) return;
+    treeRef.current?.select(id);
+    const token = String(++nextRowMenuToken);
+    pending.current = { token, hit };
+    container.style.setProperty('--custom-contextmenu', hit.menu);
+    container.style.setProperty('--custom-contextmenu-data', token);
+  }, [resolveRef, treeRef, rowSelector, rowIdAttribute]);
 
   const onKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
     if (!((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu')) return;
     const item = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
-    const row = item?.querySelector(rowSelector);
-    const id = row?.getAttribute(rowIdAttribute) ?? treeRef.current?.focusedNode?.id;
-    if (!id) return;
+    const row = item?.querySelector<HTMLElement>(rowSelector);
+    if (!item || !row) return;
     e.preventDefault();
-    const rect = (item ?? row)?.getBoundingClientRect();
-    openMenu(id, rect ? rect.left + 16 : 0, rect ? rect.bottom : 0, item ?? null);
-  }, [openMenu, rowSelector, rowIdAttribute, treeRef]);
+    const rect = item.getBoundingClientRect();
+    const menuEvent = new window.MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + 16,
+      clientY: rect.bottom,
+    });
+    keyMenuEvents.add(menuEvent);
+    row.dispatchEvent(menuEvent);
+    keyMenuOpen.current = e.key === 'ContextMenu' && webViewEchoesKeyMenu;
+  }, [rowSelector]);
 
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const onPointerDownCapture = useCallback(() => {
+    keyMenuOpen.current = false;
+  }, []);
 
-  return { menu, closeMenu, onContextMenu, onKeyDown };
+  const closeMenu = useCallback(() => {
+    pending.current = null;
+  }, []);
+
+  return { closeMenu, onContextMenu, onKeyDown, onPointerDownCapture };
 }

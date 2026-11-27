@@ -6,6 +6,11 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
+// afterCLIOpen, when set, runs right after openForCLI succeeds in the dump
+// bytes and dump signatures commands. Nil in production; tests use it to
+// change the file between the parse and the view read.
+var afterCLIOpen func(path string)
+
 // openForCLI creates an Inspector, opens the file under the "cli" tab, and
 // emits the non-fatal structural warning. On failure it classifies the error
 // via handleOpenError and returns a non-zero exit code; the inspector is nil in

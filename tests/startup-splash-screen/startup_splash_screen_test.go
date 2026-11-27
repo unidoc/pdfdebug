@@ -8,8 +8,8 @@
 //     consistent with tests/object-source-and-reverse-refs
 //   - Integration (Go, source-content scans):
 //     (structural single-instance gating guard)
-//   - NO E2E. Wails alpha.85 splash windows are not Playwright-drivable:
-//     Playwright drives browsers, not native frameless OS windows. The
+//   - NO E2E. The splash closes as soon as the main window is ready, so
+//     tests/gui-mcp does not drive it. The
 //     visual rendering, crossfade and font-fallback are MANUAL verification
 //     across three platforms.
 //     Asserting them in CI is out of scope.

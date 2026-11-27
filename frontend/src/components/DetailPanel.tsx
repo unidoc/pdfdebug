@@ -6,10 +6,21 @@
  */
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
-import { ContentStreamData, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
-import { useAppState, useAppDispatch } from '../hooks/useDocumentState';
+import * as Dialog from '@radix-ui/react-dialog';
+import { Events } from '@wailsio/runtime';
+import { DocumentCompareActive } from '../../bindings/events/index.js';
+import { GetObjectDetail, GetContentStream, GetImageData, DescribeImage, SaveImageToFile, GetReverseRefs, GetFontView, GetSignatures, OpenFile, OpenFileDialog, CloseDocument, GetTreeRoot, GetChildren } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { ContentStreamData, DocumentInfo, ImageData as PdfImageData } from '../../bindings/unidoc-pdf-debugger/internal/pdfcore/models.js';
+import { useAppState, useAppDispatch, type TreeNode } from '../hooks/useDocumentState';
 import { extractErrorMessage } from '../lib/extractErrorMessage';
+import { FILE_MISSING_MESSAGE, isFileChangedMessage } from '../lib/fileChange';
+import { checkDiskStatus, markTabFromDiskCheck } from '../lib/diskCheck';
+import { formatTimestamp } from '../lib/formatTimestamp';
+import { dispatchOpenedDocument } from '../lib/openedDocuments';
+import { reloadActiveTab, reloadedMessage, reloadFailureReason } from '../lib/reloadDocument';
+import { showReloadToast } from './ReloadToast';
+import { useValidateRequest } from '../lib/pdfcpuCheck';
+import { StaleNote } from './StaleNote';
 import { IMAGE_WARN_THRESHOLD_BYTES, IMAGE_SLOW_THRESHOLD_SECONDS } from '../lib/imageConstants';
 import { formatBytes } from '../lib/formatBytes';
 import { escapeDisplayValue } from '../lib/escapeDisplayValue';
@@ -31,7 +42,8 @@ import { XRefTableView } from './XRefTableView';
 import { PlainTextView } from './PlainTextView';
 import { EmbeddedDataView } from './EmbeddedDataView';
 import { DocumentMetadataView } from './DocumentMetadataView';
-import { SignaturesView, type SignatureEntryData } from './SignaturesView';
+import { SignaturesView, signaturesIssue, type SignatureEntryData } from './SignaturesView';
+import { TabIssueMarker } from './TabIssueMarker';
 import { ValidateView } from './ValidateView';
 import { DiffView } from './DiffView';
 import { SMALL_BUTTON } from './buttonStyles';
@@ -49,6 +61,25 @@ const INDIRECT_NODE_RE = /^obj:\d+:\d+$/;
  * `ErrReverseRefIndexUnavailable` wording ("reverse-ref index unavailable").
  */
 const REV_REFS_UNAVAILABLE_MARKER = 'reverse-ref index unavailable';
+
+/** Disk size above which Compare asks before loading a second copy. */
+const COMPARE_CONFIRM_BYTES = 500 * 1024 * 1024;
+
+/** A Diff right side parsed by Compare from the active tab's own file. */
+interface DiskCopy {
+  tabId: string;
+  info: DocumentInfo;
+  diskModTime: number;
+}
+
+/** A Compare waiting for confirmation because the file is large. */
+interface CompareConfirm {
+  tabId: string;
+  filePath: string;
+  fileName: string;
+  diskSize: number;
+  diskModTime: number;
+}
 
 /** Maps PDF object type to a human-readable header label. */
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -145,10 +176,15 @@ function DetailPanelInner() {
   const [reverseRefsVisible, setReverseRefsVisible] = useState(false);
   const [reverseRefsLoaded, setReverseRefsLoaded] = useState(false);
 
-  // per-document local state for the active DetailPanel tab.
-  // Resets to 'object' on activeTabId change so a fresh document opens on the
-  // per-selection view. Mirrors the streamViewMode pattern.
+  // The active DetailPanel tab, remembered per document tab: switching back to
+  // a document restores its last view (except Diff), and a document seen for
+  // the first time (a new open, or a reload, which mints a new tabId) opens on
+  // 'object'.
   const [detailView, setDetailView] = useState<DetailView>('object');
+  const viewByTabRef = useRef(new Map<string, DetailView>());
+  // Expanded certificate chains in the Signatures tab, per document tab, so
+  // switching documents and back keeps them expanded.
+  const openChainsByTabRef = useRef(new Map<string, Set<string>>());
   // Entry count from the XREF tab, used in the "XREF (N)" tab label.
   const [xrefEntryCount, setXrefEntryCount] = useState<number | null>(null);
   // Embedded-file count from the Embedded tab, used in the "Embedded (N)" tab
@@ -159,11 +195,32 @@ function DetailPanelInner() {
   // refetch per tab switch); the tab is simply absent until the fetch
   // resolves with >= 1 signature field. null = not yet resolved.
   const [signatures, setSignatures] = useState<SignatureEntryData[] | null>(null);
+  // GetSignatures failure message; shows the tab with an error marker and the
+  // message as the tab body.
+  const [signaturesError, setSignaturesError] = useState<string | null>(null);
+  // The view on screen. A remembered Signatures view shows Object until the
+  // signature list resolves, because the Signatures tab does not exist before
+  // then and Tabs.Root would have no matching tab.
+  const shownView: DetailView =
+    detailView === 'signatures' && signatures === null && signaturesError === null ? 'object' : detailView;
   // The second (comparison) document's tab ID for the Diff tab, and
   // any picker error. Reset on document switch so the diff never carries over a
   // stale comparison from a previously-active tab.
   const [diffRightTabId, setDiffRightTabId] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
+  // Set when the right side came from Compare with File on Disk. It applies
+  // only while its tabId is the current right side, so every path that
+  // replaces or clears diffRightTabId drops it too.
+  const [diskCopy, setDiskCopy] = useState<DiskCopy | null>(null);
+  const rightDiskCopy = diskCopy && diskCopy.tabId === diffRightTabId ? diskCopy : null;
+  const [compareConfirm, setCompareConfirm] = useState<CompareConfirm | null>(null);
+  // The right-side tab id promoted to the app tab by the Diff header Reload.
+  // The cleanup effect skips closing it: the tab owns it now.
+  const promotedRightRef = useRef<string | null>(null);
+  const promotingRef = useRef(false);
+  // True while Compare's OpenFile runs, so a second Compare does not parse
+  // another copy whose tab id could be overwritten before it is ever shown.
+  const comparingRef = useRef(false);
   // Set by Close diff so the compare button takes focus once the picker
   // replaces the unmounted Close diff button. Other paths that clear the
   // comparison (document switch) leave focus alone.
@@ -187,14 +244,45 @@ function DetailPanelInner() {
   // it against a document that is no longer the left-hand side of the diff.
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const diffRightTabIdRef = useRef(diffRightTabId);
+  diffRightTabIdRef.current = diffRightTabId;
+
+  /** Sets the active detail view and remembers it for the active document tab. */
+  const changeDetailView = useCallback((view: DetailView) => {
+    const tabId = activeTabIdRef.current;
+    if (tabId) viewByTabRef.current.set(tabId, view);
+    setDetailView(view);
+  }, []);
+
+  // A Validate run request for the active tab (the pdfcpu banner's Details)
+  // shows the Validate tab; ValidateView runs the profile and clears it.
+  const validateRequest = useValidateRequest();
+  useEffect(() => {
+    if (validateRequest && validateRequest.tabId === activeTabId) changeDetailView('validate');
+  }, [validateRequest, activeTabId, changeDetailView]);
 
   useEffect(() => {
-    setDetailView('object');
+    // Drop remembered views of closed tabs, then restore this tab's view.
+    const open = new Set(tabsRef.current.map((t) => t.tabId));
+    for (const id of viewByTabRef.current.keys()) {
+      if (!open.has(id)) viewByTabRef.current.delete(id);
+    }
+    for (const id of openChainsByTabRef.current.keys()) {
+      if (!open.has(id)) openChainsByTabRef.current.delete(id);
+    }
+    // Diff is not restored: the comparison is cleared below on every switch,
+    // so a remembered Diff would only show the empty picker.
+    const remembered = activeTabId ? viewByTabRef.current.get(activeTabId) : undefined;
+    setDetailView(remembered && remembered !== 'diff' ? remembered : 'object');
     setXrefEntryCount(null);
     setEmbeddedCount(null);
     setSignatures(null);
+    setSignaturesError(null);
     setDiffRightTabId(null);
     setDiffError(null);
+    setCompareConfirm(null);
   }, [activeTabId]);
 
   // The comparison document is opened backend-only (not an app tab),
@@ -203,6 +291,10 @@ function DetailPanelInner() {
   useEffect(() => {
     if (!diffRightTabId) return;
     return () => {
+      if (promotedRightRef.current === diffRightTabId) {
+        promotedRightRef.current = null;
+        return;
+      }
       CloseDocument(diffRightTabId).catch(() => {
         /* best-effort cleanup; a failed close must not break the UI */
       });
@@ -217,20 +309,22 @@ function DetailPanelInner() {
 
   // One signature fetch per document tab. The result is passed
   // down to SignaturesView via the data prop so the view never issues a
-  // second fetch. A fetch failure hides the tab (empty list) and logs.
+  // second fetch. A fetch failure keeps the message so the tab shows it. A
+  // signature whose hole could not be checked because the file changed marks
+  // the tab from a fresh disk check.
   useEffect(() => {
     if (!activeTabId) return;
     let cancelled = false;
     GetSignatures(activeTabId)
       .then((result: unknown) => {
         if (cancelled) return;
-        setSignatures((Array.isArray(result) ? result : []) as SignatureEntryData[]);
+        const list = (Array.isArray(result) ? result : []) as SignatureEntryData[];
+        setSignatures(list);
+        if (list.some((sig) => isFileChangedMessage(sig.holeCheckError ?? ''))) markTabFromDiskCheck(activeTabId);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setSignatures([]);
-        // eslint-disable-next-line no-console
-        console.warn('GetSignatures failed:', err);
+        setSignaturesError(extractErrorMessage(err));
       });
     return () => { cancelled = true; };
   }, [activeTabId]);
@@ -566,9 +660,9 @@ function DetailPanelInner() {
    * the user never sees a flash of "XREF active + new selection".
    */
   const handleXRefNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Embedded "Reveal in tree" handler: switches to the Object tab BEFORE
@@ -576,9 +670,21 @@ function DetailPanelInner() {
    * in one render (mirrors handleXRefNavigate).
    */
   const handleEmbeddedNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
+
+  /** Records a certificate chain expanded or collapsed in the active document. */
+  const handleChainToggle = useCallback((key: string, open: boolean) => {
+    if (!activeTabId) return;
+    let keys = openChainsByTabRef.current.get(activeTabId);
+    if (!keys) {
+      keys = new Set();
+      openChainsByTabRef.current.set(activeTabId, keys);
+    }
+    if (open) keys.add(key);
+    else keys.delete(key);
+  }, [activeTabId]);
 
   /**
    * Signatures "Reveal in tree" handler: switches to the Object tab BEFORE
@@ -586,9 +692,9 @@ function DetailPanelInner() {
    * field node fallback) in one render.
    */
   const handleSignaturesNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Validate "jump to object" handler: switches to the Object tab BEFORE
@@ -596,9 +702,9 @@ function DetailPanelInner() {
    * render (mirrors handleSignaturesNavigate).
    */
   const handleValidateNavigate = useCallback((nodeId: string) => {
-    setDetailView('object');
+    changeDetailView('object');
     dispatch({ type: 'NAVIGATE_TO_REF', payload: { targetNodeId: nodeId } });
-  }, [dispatch]);
+  }, [dispatch, changeDetailView]);
 
   /**
    * Pick a second PDF to diff against the active document. Opens a
@@ -630,6 +736,128 @@ function DetailPanelInner() {
       })
       .catch((err: unknown) => setDiffError(extractErrorMessage(err)));
   }, [activeTabId]);
+
+  /**
+   * Reloads the active tab from disk (the stale note's Reload). Shares the
+   * reload flow with the menu item and F5.
+   */
+  const handleReload = useCallback(() => {
+    reloadActiveTab(dispatch, () => tabsRef.current, activeTabIdRef.current);
+  }, [dispatch]);
+
+  /**
+   * Parses the active tab's file again backend-only and shows it as the Diff
+   * right side. The same discard rule as a picked file applies: if the active
+   * tab changed or the panel unmounted meanwhile, the new document is closed.
+   */
+  const runCompare = useCallback((req: CompareConfirm) => {
+    if (comparingRef.current) return;
+    comparingRef.current = true;
+    setDiffError(null);
+    OpenFile(req.filePath)
+      .then((info: unknown) => {
+        const di = info as DocumentInfo | null;
+        if (!di?.tabId) return;
+        if (mountedRef.current && activeTabIdRef.current === req.tabId) {
+          setDiskCopy({ tabId: di.tabId, info: di, diskModTime: req.diskModTime });
+          setDiffRightTabId(di.tabId);
+          changeDetailView('diff');
+        } else {
+          CloseDocument(di.tabId).catch(() => {});
+        }
+      })
+      .catch((err: unknown) => {
+        if (!mountedRef.current || activeTabIdRef.current !== req.tabId) return;
+        setDiffRightTabId(null);
+        setDiffError(extractErrorMessage(err));
+        changeDetailView('diff');
+      })
+      .finally(() => {
+        comparingRef.current = false;
+      });
+  }, [changeDetailView]);
+
+  /**
+   * Compare with File on Disk for the active tab. Checks the disk first: a
+   * missing file parses nothing, and a file over the size limit asks before a
+   * second copy is loaded.
+   */
+  const handleCompare = useCallback(() => {
+    const tabId = activeTabIdRef.current;
+    const tab = tabsRef.current.find((t) => t.tabId === tabId);
+    if (!tabId || !tab?.filePath) return;
+    // checkDiskStatus stores the result even when the compare itself is
+    // dropped below.
+    checkDiskStatus(tabId)
+      .then((st) => {
+        if (!st) return;
+        if (!mountedRef.current || activeTabIdRef.current !== tabId) return;
+        if (st.state === 'missing') {
+          setDiffRightTabId(null);
+          setDiffError(FILE_MISSING_MESSAGE);
+          changeDetailView('diff');
+          return;
+        }
+        const req = { tabId, filePath: tab.filePath, fileName: tab.fileName, diskSize: st.diskSize, diskModTime: st.diskModTime };
+        if (st.diskSize > COMPARE_CONFIRM_BYTES) {
+          setCompareConfirm(req);
+          return;
+        }
+        runCompare(req);
+      })
+      .catch((err: unknown) => {
+        if (!mountedRef.current || activeTabIdRef.current !== tabId) return;
+        setDiffRightTabId(null);
+        setDiffError(extractErrorMessage(err));
+        changeDetailView('diff');
+      });
+  }, [runCompare, changeDetailView]);
+
+  // File > Compare with File on Disk. DetailPanel owns the Diff state, so it
+  // subscribes here; with no document open the handler does nothing.
+  const handleCompareRef = useRef(handleCompare);
+  handleCompareRef.current = handleCompare;
+  useEffect(() => Events.On(DocumentCompareActive, () => handleCompareRef.current()), []);
+
+  /**
+   * Diff header Reload for a disk copy: promotes the compared document to the
+   * tab without parsing again, so the tab shows exactly the compared version.
+   * The tab's old document is closed by the in-place replace; the promoted id
+   * is skipped by the right-side cleanup and seeded in the disk-status store.
+   */
+  const handlePromote = useCallback(() => {
+    const copy = rightDiskCopy;
+    const leftId = activeTabIdRef.current;
+    if (!copy || !leftId || promotingRef.current) return;
+    promotingRef.current = true;
+    const { info } = copy;
+    Promise.all([GetTreeRoot(copy.tabId), GetChildren(copy.tabId, 'root')])
+      .then(([rootNode, rootChildren]) => {
+        // A right side closed or replaced meanwhile has had its document
+        // closed by the cleanup effect, so it is not promoted.
+        if (!mountedRef.current || activeTabIdRef.current !== leftId || diffRightTabIdRef.current !== copy.tabId) return;
+        promotedRightRef.current = copy.tabId;
+        dispatchOpenedDocument(dispatch, tabsRef.current, {
+          tabId: copy.tabId,
+          fileName: info.fileName,
+          filePath: info.filePath,
+          pageCount: info.pageCount,
+          rootNode,
+          rootChildren: rootChildren as TreeNode[] | null,
+          reload: true,
+          warning: info.error || null,
+        });
+        showReloadToast(reloadedMessage(info.fileName));
+        markTabFromDiskCheck(copy.tabId);
+      })
+      .catch((err: unknown) => {
+        if (!mountedRef.current || diffRightTabIdRef.current !== copy.tabId) return;
+        dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: `Could not reload ${info.fileName}: ${reloadFailureReason(extractErrorMessage(err))}`, reload: true } });
+      })
+      .finally(() => {
+        promotingRef.current = false;
+      });
+  }, [rightDiskCopy, dispatch]);
 
   // --- Object-tab find (Model B: scoped to the active tab). Derives a linear
   // match source from the rendered object text (keys + values) and reuses the
@@ -681,7 +909,7 @@ function DetailPanelInner() {
     spans: objectSpans,
     matcher: substringSpanMatcher,
     caseSensitive: findCaseSensitive,
-    active: detailView === 'object',
+    active: shownView === 'object',
     ready: objectFindable,
     barTestId: 'object-find-bar',
   });
@@ -733,9 +961,20 @@ function DetailPanelInner() {
   }, [objectFind]);
 
   // The Signatures tab exists only when the document has >= 1 signature
-  // field (hidden while unresolved or empty -- a deliberate departure from
-  // the always-visible tabs, avoiding a permanently empty tab).
-  const showSignaturesTab = (signatures?.length ?? 0) > 0;
+  // field or the fetch failed (hidden while unresolved or empty -- a
+  // deliberate departure from the always-visible tabs, avoiding a permanently
+  // empty tab).
+  const showSignaturesTab = (signatures?.length ?? 0) > 0 || signaturesError !== null;
+  const signaturesTabIssue = signaturesError !== null
+    ? { tone: 'error' as const, title: `Could not load signatures: ${signaturesError}` }
+    : signaturesIssue(signatures ?? []);
+  // A restored Signatures view waits for the list; once it resolves with no
+  // signature fields the tab does not exist, so fall back to Object.
+  useEffect(() => {
+    if (detailView === 'signatures' && signatures !== null && !showSignaturesTab) {
+      changeDetailView('object');
+    }
+  }, [detailView, signatures, showSignaturesTab, changeDetailView]);
 
   // FontPreview is active when iconHint='font', detail is a dict, and the
   // fetch resolved to a detail payload (not fallback / error). The header
@@ -769,14 +1008,18 @@ function DetailPanelInner() {
   return (
     <div className="h-full flex flex-col" data-testid="detail-panel">
       <Tabs.Root
-        value={detailView}
-        onValueChange={(v) => setDetailView(v as DetailView)}
+        value={shownView}
+        onValueChange={(v) => changeDetailView(v as DetailView)}
         activationMode="manual"
         className="h-full flex flex-col"
       >
+        {/* The stale note is a sibling of the tab list (a tablist holds only
+          tabs). The row takes the list's border and background; the note
+          fills spare space and truncates first, so the triggers never move. */}
+        <div className="flex border-b border-border bg-surface flex-shrink-0">
         <Tabs.List
           aria-label="Detail view"
-          className="flex border-b border-border bg-surface flex-shrink-0"
+          className="flex flex-shrink-0"
           data-testid="detail-tab-list"
           // Synchronous arrow-key focus movement. Radix's roving-focus group
           // also handles arrows, but it uses setTimeout(focusFirst), which is
@@ -806,7 +1049,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-object"
-              onClick={() => setDetailView('object')}
+              onClick={() => changeDetailView('object')}
             >
               Object
             </button>
@@ -816,7 +1059,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-xref"
-              onClick={() => setDetailView('xref')}
+              onClick={() => changeDetailView('xref')}
             >
               {xrefLabel}
             </button>
@@ -826,7 +1069,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-plaintext"
-              onClick={() => setDetailView('plaintext')}
+              onClick={() => changeDetailView('plaintext')}
             >
               Plain Text
             </button>
@@ -836,7 +1079,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-embedded"
-              onClick={() => setDetailView('embedded')}
+              onClick={() => changeDetailView('embedded')}
             >
               {embeddedLabel}
             </button>
@@ -846,7 +1089,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-metadata"
-              onClick={() => setDetailView('metadata')}
+              onClick={() => changeDetailView('metadata')}
             >
               Metadata
             </button>
@@ -856,7 +1099,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-validate"
-              onClick={() => setDetailView('validate')}
+              onClick={() => changeDetailView('validate')}
             >
               Validate
             </button>
@@ -866,7 +1109,7 @@ function DetailPanelInner() {
               type="button"
               className={tabTriggerClass}
               data-testid="detail-tab-diff"
-              onClick={() => setDetailView('diff')}
+              onClick={() => changeDetailView('diff')}
             >
               Diff
             </button>
@@ -877,13 +1120,22 @@ function DetailPanelInner() {
                 type="button"
                 className={tabTriggerClass}
                 data-testid="detail-tab-signatures"
-                onClick={() => setDetailView('signatures')}
+                onClick={() => changeDetailView('signatures')}
               >
                 Signatures
+                {signaturesTabIssue && (
+                  <TabIssueMarker
+                    tone={signaturesTabIssue.tone}
+                    title={signaturesTabIssue.title}
+                    testid="tab-issue-signatures"
+                  />
+                )}
               </button>
             </Tabs.Trigger>
           )}
         </Tabs.List>
+        <StaleNote tabId={activeTabId} onReload={handleReload} onCompare={handleCompare} />
+        </div>
 
         <Tabs.Content
           value="object"
@@ -1124,7 +1376,7 @@ function DetailPanelInner() {
         >
           <XRefTableView
             tabId={activeTabId ?? ''}
-            active={detailView === 'xref'}
+            active={shownView === 'xref'}
             onNavigate={handleXRefNavigate}
             onLoaded={setXrefEntryCount}
             findCaseSensitive={findCaseSensitive}
@@ -1140,7 +1392,7 @@ function DetailPanelInner() {
         >
           <PlainTextView
             tabId={activeTabId ?? ''}
-            active={detailView === 'plaintext'}
+            active={shownView === 'plaintext'}
           />
         </Tabs.Content>
 
@@ -1152,7 +1404,7 @@ function DetailPanelInner() {
         >
           <EmbeddedDataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'embedded'}
+            active={shownView === 'embedded'}
             onNavigate={handleEmbeddedNavigate}
             onLoaded={setEmbeddedCount}
           />
@@ -1166,7 +1418,7 @@ function DetailPanelInner() {
         >
           <DocumentMetadataView
             tabId={activeTabId ?? ''}
-            active={detailView === 'metadata'}
+            active={shownView === 'metadata'}
           />
         </Tabs.Content>
 
@@ -1178,8 +1430,9 @@ function DetailPanelInner() {
         >
           <ValidateView
             tabId={activeTabId ?? ''}
-            active={detailView === 'validate'}
+            active={shownView === 'validate'}
             onNavigate={handleValidateNavigate}
+            openTabIds={tabs.map((t) => t.tabId)}
           />
         </Tabs.Content>
 
@@ -1215,7 +1468,9 @@ function DetailPanelInner() {
             <DiffView
               leftTabId={activeTabId ?? ''}
               rightTabId={diffRightTabId}
-              active={detailView === 'diff'}
+              active={shownView === 'diff'}
+              rightLabel={rightDiskCopy ? `On disk (${formatTimestamp(rightDiskCopy.diskModTime)})` : undefined}
+              onReload={rightDiskCopy ? handlePromote : undefined}
               onClose={() => {
                 focusPickAfterCloseRef.current = true;
                 setDiffRightTabId(null);
@@ -1227,18 +1482,59 @@ function DetailPanelInner() {
         {showSignaturesTab && (
           <Tabs.Content
             value="signatures"
+            forceMount
             className="flex-1 min-h-0 data-[state=inactive]:hidden"
             data-testid="detail-pane-signatures"
           >
             <SignaturesView
               tabId={activeTabId ?? ''}
-              active={detailView === 'signatures'}
+              active={shownView === 'signatures'}
               onNavigate={handleSignaturesNavigate}
               data={signatures}
+              fetchError={signaturesError}
+              openChains={activeTabId ? openChainsByTabRef.current.get(activeTabId) : undefined}
+              onChainToggle={handleChainToggle}
             />
           </Tabs.Content>
         )}
       </Tabs.Root>
+      <Dialog.Root open={compareConfirm !== null} onOpenChange={(open) => { if (!open) setCompareConfirm(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <Dialog.Content
+            data-testid="compare-confirm"
+            className="fixed left-1/2 top-1/2 z-50 w-80 max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-surface p-4 shadow-lg"
+          >
+            <Dialog.Title className="text-sm font-ui text-text">Compare with File on Disk</Dialog.Title>
+            <Dialog.Description className="mt-1 text-xs text-text-muted">
+              {compareConfirm
+                ? `${compareConfirm.fileName} is ${formatBytes(compareConfirm.diskSize)} on disk. Comparing loads a second copy into memory. Continue?`
+                : ''}
+            </Dialog.Description>
+            <div className="mt-4 flex justify-end gap-2">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1 text-sm font-ui text-text hover:bg-surface-hover"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                className="rounded border border-border bg-bg px-3 py-1 text-sm font-ui text-text hover:bg-surface-hover"
+                onClick={() => {
+                  const req = compareConfirm;
+                  setCompareConfirm(null);
+                  if (req && activeTabIdRef.current === req.tabId) runCompare(req);
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

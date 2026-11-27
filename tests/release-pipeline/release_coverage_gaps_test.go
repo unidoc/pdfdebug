@@ -17,7 +17,7 @@
 //   - Platform-specific GUI build steps invoke `wails3 task <os>:build|package`
 //     with ARCH from matrix
 //   - CLI `--help` smoke-test step per cell
-//   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=6, line-count invariant,
+//   - SHA256SUMS.txt integrity guard: EXPECTED_FILES=8, line-count invariant,
 //     and `shasum -a 256 -c` self-verify
 //   - fail_on_unmatched_files: true + files glob on action-gh-release
 //   - PlistBuddy version step strips BOTH `-pre` and `+build` SemVer suffixes
@@ -400,19 +400,19 @@ func TestCLISmokeTestStep(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// SHA256SUMS integrity guard: asserts EXPECTED_FILES=6, line-count invariant,
-// and `shasum -a 256 -c` self-verify. This enforces the "all 6 assets
-// MUST be attached" invariant: 3 platforms x 2 archives each -- a GUI archive
-// that also embeds the CLI, plus a standalone CLI archive; the bundled-in CLI
-// is not a separate counted file).
+// SHA256SUMS integrity guard: asserts EXPECTED_FILES=8, line-count invariant,
+// and `shasum -a 256 -c` self-verify. This enforces the "all 8 artifacts
+// MUST be attached" invariant: per platform a GUI archive that also embeds the
+// CLI plus a standalone CLI archive, and on Linux a .deb and an .rpm; the
+// bundled-in CLI is not a separate counted file.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsIntegrityGuard(t *testing.T) {
 	run := jobRunBodies(t, "release")
 
-	// Explicit artifact-count assertion (6 = 3 platforms x 2 artifacts).
-	if !strings.Contains(run, "EXPECTED_FILES=6") {
-		t.Errorf("release.yml release job: SHA256SUMS step must assert `EXPECTED_FILES=6` (3 platforms x 2 artifacts)")
+	// Explicit artifact-count assertion (8 = 3 platforms x 2 archives + .deb + .rpm).
+	if !strings.Contains(run, "EXPECTED_FILES=8") {
+		t.Errorf("release.yml release job: SHA256SUMS step must assert `EXPECTED_FILES=8` (3 platforms x 2 archives + Linux .deb and .rpm)")
 	}
 	// Line-count vs file-count consistency check.
 	if !regexp.MustCompile(`\$FILES.*!=.*\$LINES|\$LINES.*!=.*\$FILES`).MatchString(run) {
@@ -695,8 +695,8 @@ func TestAppleSecretsPartialStateEmitsWarning(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Linux native runtime deps are installed in the build job: the Linux artifact
-// must be runnable, which depends on `libgtk-3` and `libwebkit2gtk-4.1` being
-// present on the runner. The install step at release.yml lines 62-63 is also
+// must be runnable, which depends on GTK4 and WebKitGTK 6.0 being
+// present on the runner. The Linux deps install step is also
 // the README's source of truth for the runtime-deps note end users follow.
 // ---------------------------------------------------------------------------
 
@@ -710,7 +710,7 @@ func TestLinuxRuntimeDepsInstalled(t *testing.T) {
 	}
 	run, _ := step["run"].(string)
 
-	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev"} {
+	for _, pkg := range []string{"libgtk-4-dev", "libwebkitgtk-6.0-dev"} {
 		if !strings.Contains(run, pkg) {
 			t.Errorf("release.yml Linux deps step: missing apt package %q (runtime deps documented in README)", pkg)
 		}

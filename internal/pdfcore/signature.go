@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"time"
 
@@ -15,8 +14,11 @@ import (
 )
 
 // CertInfo is the decomposed identity of one X.509 certificate: distinguished
-// names, serial, and the validity window as RFC 3339 strings. It carries
-// structural facts only - no trust evaluation of any kind.
+// names, serial, the validity window as RFC 3339 strings, and the key usage,
+// extended key usage, CRL distribution point and AIA facts. It carries
+// structural facts only - no trust evaluation and no network fetch of any
+// kind. Each extension slice is nil when the extension is absent and non-nil
+// (possibly empty) when it is present.
 type CertInfo struct {
 	// Subject is the certificate subject DN (e.g. "CN=...,O=...").
 	Subject string `json:"subject"`
@@ -28,6 +30,20 @@ type CertInfo struct {
 	NotBefore string `json:"notBefore"`
 	// NotAfter is the validity window end (RFC 3339, UTC).
 	NotAfter string `json:"notAfter"`
+	// KeyUsage lists the key usage bits set, by RFC 5280 name in bit order;
+	// nil when the certificate has no key usage extension.
+	KeyUsage []string `json:"keyUsage"`
+	// ExtKeyUsage lists the extended key usage OIDs in certificate order;
+	// nil when the extension is absent.
+	ExtKeyUsage []ExtKeyUsage `json:"extKeyUsage"`
+	// CRLDistributionPoints lists the URI distribution points; nil when the
+	// extension is absent, empty when it has no URI entries.
+	CRLDistributionPoints []string `json:"crlDistributionPoints"`
+	// OCSPServers lists the AIA OCSP URIs; nil when the AIA extension is absent.
+	OCSPServers []string `json:"ocspServers"`
+	// CAIssuers lists the AIA CA Issuers URIs; nil when the AIA extension is
+	// absent.
+	CAIssuers []string `json:"caIssuers"`
 }
 
 // SignatureField is one signature field decomposed into structural facts:
@@ -94,6 +110,30 @@ type SignatureField struct {
 	HoleMatchesContents bool `json:"holeMatchesContents"`
 	// CoverageError is the malformed-/ByteRange degradation note.
 	CoverageError string `json:"coverageError"`
+	// HoleCheckError is set when the hole could not be read from disk: the
+	// ErrFileChanged or ErrFileBusy text. HoleMatchesContents is then false
+	// and means "not checked"; every other field comes from the parse.
+	HoleCheckError string `json:"holeCheckError"`
+	// CMSEncoding describes the /Contents bytes as found: "DER", or "BER"
+	// when they had to be normalized to DER before parsing (the parse runs on
+	// a normalized copy; the PDF bytes are untouched). Empty for non-CMS
+	// SubFilters and when the payload did not decode to a complete element.
+	CMSEncoding string `json:"cmsEncoding"`
+	// CMSTrailingBytes is set when non-zero bytes follow the CMS element in
+	// /Contents, where only zero padding is expected; nil otherwise. The CMS
+	// is decomposed regardless.
+	CMSTrailingBytes *CMSTrailingBytes `json:"cmsTrailingBytes,omitempty"`
+}
+
+// CMSTrailingBytes locates non-zero bytes after the CMS element in a
+// signature's decoded /Contents.
+type CMSTrailingBytes struct {
+	// Offset is the /Contents byte offset of the first byte after the CMS
+	// element.
+	Offset int `json:"offset"`
+	// Count is the number of bytes from Offset through the last non-zero
+	// byte; zero bytes after that are padding and not counted.
+	Count int `json:"count"`
 }
 
 // SignatureList is the document-level enumeration of signature fields in
@@ -117,8 +157,18 @@ const maxHoleProbeBytes = 4 * 1024 * 1024
 // each CMS-based /Contents into signer/chain/algorithm facts, and measures
 // /ByteRange coverage against the file. Per-signature failures degrade to
 // per-entry error fields; the call itself fails only for unknown tabs or a
-// document-level pdfcpu failure. Runs under doc.pdfMu and inside safeCall.
+// document-level pdfcpu failure. Only the hole check reads the file: a read
+// refused because the file changed (ErrFileChanged) or is locked by another
+// process (ErrFileBusy) sets HoleCheckError on that signature, and later
+// signatures carry the same note without reading. Runs under doc.pdfMu and
+// inside safeCall.
 func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
+	return ins.getSignatures(tabID, nil)
+}
+
+// getSignatures walks the document's signature fields under doc.pdfMu and
+// inside safeCall, passing sink to collectSignatures.
+func (ins *Inspector) getSignatures(tabID string, sink *[]SignatureBytes) (*SignatureList, error) {
 	doc, err := ins.GetDocument(tabID)
 	if err != nil {
 		return nil, err
@@ -130,7 +180,7 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 
 	list := &SignatureList{Signatures: []SignatureField{}}
 	err = safeCall(func() error {
-		list.Signatures = collectSignatures(doc)
+		list.Signatures = collectSignatures(doc, sink)
 		return nil
 	})
 	if err != nil {
@@ -139,9 +189,46 @@ func (ins *Inspector) GetSignatures(tabID string) (*SignatureList, error) {
 	return list, nil
 }
 
-// collectSignatures walks /AcroForm /Fields in document order. Caller MUST
-// hold doc.pdfMu and run inside safeCall.
-func collectSignatures(doc *DocumentState) []SignatureField {
+// SignatureBytes holds the raw bytes of one signature field for export,
+// index-aligned with SignatureList.Signatures. It is all zero for an unsigned
+// field and for a SubFilter that is neither CMS nor adbe.x509.rsa_sha1.
+type SignatureBytes struct {
+	// CMS is the decoded /Contents from offset 0 through the end of the
+	// top-level element, in the encoding found (BER is not normalized). When
+	// no element can be delimited it is every decoded byte and CMSUndelimited
+	// is set. Nil for a non-CMS SubFilter or an unreadable /Contents.
+	CMS []byte
+	// CMSUndelimited is the reader error when /Contents holds no complete
+	// element; empty otherwise.
+	CMSUndelimited string
+	// Certificates is the DER of each entry of SignatureField.Certificates, in
+	// the same order: x509.Certificate.Raw for CMS, the /Cert element as read
+	// for adbe.x509.rsa_sha1.
+	Certificates [][]byte
+}
+
+// GetSignatureBytes returns what GetSignatures returns for the same document
+// plus, index-aligned with its Signatures, the bytes each field can export.
+// It walks the document once, under doc.pdfMu and inside safeCall.
+func (ins *Inspector) GetSignatureBytes(tabID string) (*SignatureList, []SignatureBytes, error) {
+	sink := []SignatureBytes{}
+	list, err := ins.getSignatures(tabID, &sink)
+	if err != nil {
+		return nil, nil, err
+	}
+	return list, sink, nil
+}
+
+// holeRead carries the first refused hole read of one GetSignatures walk, so
+// later signatures skip the read and carry the same note.
+type holeRead struct {
+	refused error
+}
+
+// collectSignatures walks /AcroForm /Fields in document order. When sink is
+// non-nil it receives one SignatureBytes per listed field, in the same order.
+// Caller MUST hold doc.pdfMu and run inside safeCall.
+func collectSignatures(doc *DocumentState, sink *[]SignatureBytes) []SignatureField {
 	sigs := []SignatureField{}
 	cat, err := doc.PDFContext.Catalog()
 	if err != nil {
@@ -151,8 +238,10 @@ func collectSignatures(doc *DocumentState) []SignatureField {
 	if acro == nil {
 		return sigs
 	}
+	hr := &holeRead{}
+	seen := map[int]bool{}
 	for _, elem := range dereferenceArray(doc, acro["Fields"]) {
-		walkSignatureField(doc, elem, "", "", 0, &sigs)
+		walkSignatureField(doc, hr, elem, "", "", 0, seen, &sigs, sink)
 	}
 	return sigs
 }
@@ -160,13 +249,21 @@ func collectSignatures(doc *DocumentState) []SignatureField {
 // walkSignatureField recurses one field-tree node. /FT is inheritable via the
 // kid walk (inheritedFT); a kid carrying its own /T is a child FIELD to
 // recurse into, while /T-less kids are widget annotations of THIS field.
-// Terminal fields whose effective /FT is Sig are appended to out.
-func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, out *[]SignatureField) {
+// Terminal fields whose effective /FT is Sig are appended to out, and, when
+// sink is non-nil, their export bytes to sink at the same index. seen holds
+// the object numbers of the fields already walked: a field reached a second
+// time, through a /Kids cycle or a repeated reference, is skipped, so a
+// crafted field tree cannot make the walk loop or grow exponentially.
+func walkSignatureField(doc *DocumentState, hr *holeRead, obj pdfcpu_types.Object, parentName, inheritedFT string, depth int, seen map[int]bool, out *[]SignatureField, sink *[]SignatureBytes) {
 	if depth > maxNodeIDDepth {
 		return
 	}
 	fieldNodeID := ""
 	if ref, ok := obj.(pdfcpu_types.IndirectRef); ok {
+		if seen[ref.ObjectNumber.Value()] {
+			return
+		}
+		seen[ref.ObjectNumber.Value()] = true
 		fieldNodeID = nodeIDFromRef(ref)
 	}
 	d := asDict(dereference(doc, obj))
@@ -175,7 +272,7 @@ func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName,
 	}
 
 	name := parentName
-	if t := stringValue(dereference(doc, d["T"])); t != "" {
+	if t := textStringOrRaw(dereference(doc, d["T"])); t != "" {
 		if name == "" {
 			name = t
 		} else {
@@ -194,20 +291,28 @@ func walkSignatureField(doc *DocumentState, obj pdfcpu_types.Object, parentName,
 			continue
 		}
 		if _, hasT := kd["T"]; hasT {
-			walkSignatureField(doc, kid, name, ft, depth+1, out)
+			walkSignatureField(doc, hr, kid, name, ft, depth+1, seen, out, sink)
 			recursed = true
 		}
 	}
 	if recursed || ft != "Sig" {
 		return
 	}
-	*out = append(*out, buildSignatureField(doc, d, name, fieldNodeID))
+	var sb *SignatureBytes
+	if sink != nil {
+		sb = &SignatureBytes{}
+	}
+	*out = append(*out, buildSignatureField(doc, hr, d, name, fieldNodeID, sb))
+	if sink != nil {
+		*sink = append(*sink, *sb)
+	}
 }
 
 // buildSignatureField distills one terminal signature field into its
 // structural facts: /V resolution, dictionary entries, coverage measurement,
-// and per-SubFilter decomposition routing.
-func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fieldNodeID string) SignatureField {
+// and per-SubFilter decomposition routing. sb, when non-nil, receives the
+// field's export bytes.
+func buildSignatureField(doc *DocumentState, hr *holeRead, field pdfcpu_types.Dict, name, fieldNodeID string, sb *SignatureBytes) SignatureField {
 	f := SignatureField{
 		FieldName:    name,
 		FieldNodeID:  fieldNodeID,
@@ -245,39 +350,39 @@ func buildSignatureField(doc *DocumentState, field pdfcpu_types.Dict, name, fiel
 	if n, ok := dereference(doc, sig["SubFilter"]).(pdfcpu_types.Name); ok {
 		f.SubFilter = n.Value()
 	}
-	if raw := stringValue(dereference(doc, sig["M"])); raw != "" {
+	if raw := textStringOrRaw(dereference(doc, sig["M"])); raw != "" {
 		f.SigningTimeRaw = raw
 		if t, ok := pdfcpu_types.DateTime(raw, true); ok {
 			f.SigningTime = t.Format(time.RFC3339)
 		}
 	}
-	f.Name = stringValue(dereference(doc, sig["Name"]))
-	f.Reason = stringValue(dereference(doc, sig["Reason"]))
-	f.Location = stringValue(dereference(doc, sig["Location"]))
-	f.ContactInfo = stringValue(dereference(doc, sig["ContactInfo"]))
+	f.Name = textStringOrRaw(dereference(doc, sig["Name"]))
+	f.Reason = textStringOrRaw(dereference(doc, sig["Reason"]))
+	f.Location = textStringOrRaw(dereference(doc, sig["Location"]))
+	f.ContactInfo = textStringOrRaw(dereference(doc, sig["ContactInfo"]))
 
-	computeByteRangeCoverage(doc, sig, &f)
+	computeByteRangeCoverage(doc, hr, sig, &f)
 
 	switch {
-	case isCMSSubFilter(f.SubFilter):
+	case IsCMSSubFilter(f.SubFilter):
 		if f.SubFilter == "ETSI.RFC3161" {
 			// The token's own time lives in TSTInfo (out of scope); /M is
 			// normally absent. Certs/algorithms still decompose as CMS.
 			f.Type = "document-timestamp"
 		}
-		decomposeCMS(doc, sig, &f)
+		decomposeCMS(doc, sig, &f, sb)
 	case f.SubFilter == "adbe.x509.rsa_sha1":
 		// /Contents is PKCS#1, NOT CMS: the chain lives in the /Cert entry.
-		decomposeCertEntry(doc, sig, &f)
+		decomposeCertEntry(doc, sig, &f, sb)
 	default:
 		f.Notes = append(f.Notes, "subFilter not decomposed")
 	}
 	return f
 }
 
-// isCMSSubFilter reports whether sub names a CMS-based signature whose
+// IsCMSSubFilter reports whether sub names a CMS-based signature whose
 // /Contents parses as a ContentInfo(SignedData).
-func isCMSSubFilter(sub string) bool {
+func IsCMSSubFilter(sub string) bool {
 	return strings.HasPrefix(sub, "adbe.pkcs7.") ||
 		strings.HasPrefix(sub, "ETSI.CAdES") ||
 		sub == "ETSI.RFC3161"
@@ -287,9 +392,9 @@ func isCMSSubFilter(sub string) bool {
 //
 // PKCS#7 is not a stdlib type; these are the minimal RFC 5652 structs needed
 // to surface certificates, the signer identity, and the SignerInfo algorithms.
-// encoding/asn1 is strict DER: BER indefinite-length blobs (some CAdES
-// signers) degrade to the per-signature DecomposeError, which is acceptable
-// decompose-and-display behavior.
+// encoding/asn1 is strict DER, so the parse runs on a DER-normalized copy of
+// the /Contents bytes (normalizeBER). The copy never leaves decomposeCMS's
+// call tree; the original bytes stay as read from the PDF.
 
 // oidCMSSignedData is id-signedData (1.2.840.113549.1.7.2).
 var oidCMSSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
@@ -360,18 +465,41 @@ func algorithmName(oid asn1.ObjectIdentifier) string {
 
 // decomposeCMS parses the /Contents CMS blob and surfaces the certificate set,
 // the identified signer, and the SignerInfo algorithms. Failures set the
-// per-signature DecomposeError and leave the structural facts intact.
-func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
+// per-signature DecomposeError and leave the structural facts intact. Non-zero
+// bytes after the CMS set CMSTrailingBytes; bytes after the SignedData inside
+// the ContentInfo become a note. Decomposition goes on in both cases. sb, when
+// non-nil, receives the CMS bytes as found and each certificate's DER.
+func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, sb *SignatureBytes) {
 	raw, err := pdfStringBytes(doc, sig["Contents"])
 	if err != nil {
 		f.DecomposeError = "/Contents unreadable: " + err.Error()
 		return
 	}
-	sd, err := parseCMSSignedData(raw)
+	res, err := parseCMSSignedData(raw)
+	if sb != nil {
+		// A delimited payload is exported even when it is not a SignedData.
+		if res.encoding == "" {
+			sb.CMS = bytes.Clone(raw)
+			if sb.CMS == nil {
+				sb.CMS = []byte{}
+			}
+			sb.CMSUndelimited = err.Error()
+		} else {
+			sb.CMS = bytes.Clone(raw[:res.end])
+		}
+	}
+	f.CMSEncoding = res.encoding
+	if res.tail.count > 0 {
+		f.CMSTrailingBytes = &CMSTrailingBytes{Offset: res.tail.offset, Count: res.tail.count}
+	}
+	if res.innerRest > 0 {
+		f.Notes = append(f.Notes, fmt.Sprintf("%d bytes after the SignedData inside the ContentInfo", res.innerRest))
+	}
 	if err != nil {
 		f.DecomposeError = "CMS parse failed: " + err.Error()
 		return
 	}
+	sd := res.sd
 
 	certs, err := x509.ParseCertificates(sd.Certificates.Bytes)
 	if err != nil {
@@ -380,6 +508,9 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 	}
 	for _, c := range certs {
 		f.Certificates = append(f.Certificates, certInfoFrom(c))
+		if sb != nil {
+			sb.Certificates = append(sb.Certificates, bytes.Clone(c.Raw))
+		}
 	}
 
 	if len(sd.SignerInfos) == 0 {
@@ -401,39 +532,59 @@ func decomposeCMS(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) 
 	}
 }
 
-// parseCMSSignedData unmarshals a ContentInfo(SignedData) DER blob. The
-// /Contents value is zero-padded to its reserved size; DER is length-prefixed
-// so asn1.Unmarshal reads exactly the SignedData and ignores the trailing
-// padding. We deliberately do NOT bytes.TrimRight the 0x00 padding: that would
-// corrupt a CMS blob whose DER legitimately ends in 0x00 (same class of bug as
-// the /Cert path).
-func parseCMSSignedData(raw []byte) (*cmsSignedData, error) {
-	if len(raw) == 0 {
-		return nil, errors.New("empty payload")
-	}
-	return unmarshalCMS(raw)
+// cmsParse is what parseCMSSignedData read from a /Contents payload.
+type cmsParse struct {
+	sd        *cmsSignedData
+	encoding  string  // "DER", "BER", or "" when the payload did not decode
+	end       int     // offset of the first byte after the CMS element
+	tail      berTail // non-zero bytes after the CMS element
+	innerRest int     // bytes after the SignedData inside the [0] wrapper
 }
 
-// unmarshalCMS parses one strict-DER ContentInfo(SignedData).
-func unmarshalCMS(der []byte) (*cmsSignedData, error) {
-	if len(der) == 0 {
-		return nil, errors.New("empty payload")
+// parseCMSSignedData normalizes a BER or DER ContentInfo(SignedData) blob to
+// DER and unmarshals it. The encoding, end and tail are filled in as soon as the
+// normalizer succeeds, even when the CMS parse then fails. The /Contents value
+// is zero-padded to its reserved size; bytes after the ContentInfo are never
+// an error, and non-zero ones are reported in tail. The padding is never
+// stripped with bytes.TrimRight, which would corrupt a CMS blob whose encoding
+// legitimately ends in 0x00. raw is not modified.
+func parseCMSSignedData(raw []byte) (cmsParse, error) {
+	if len(raw) == 0 {
+		return cmsParse{}, errors.New("empty payload")
 	}
+	der, isBER, end, tail, err := normalizeBER(raw)
+	if err != nil {
+		return cmsParse{}, err
+	}
+	res := cmsParse{encoding: "DER", end: end, tail: tail}
+	if isBER {
+		res.encoding = "BER"
+	}
+	res.sd, res.innerRest, err = unmarshalCMS(der)
+	return res, err
+}
+
+// unmarshalCMS parses one strict-DER ContentInfo(SignedData) holding exactly
+// one element, as normalizeBER returns it. innerRest is the number of bytes
+// after the SignedData inside the ContentInfo's [0] wrapper; they are not an
+// error.
+func unmarshalCMS(der []byte) (sd *cmsSignedData, innerRest int, err error) {
 	var ci cmsContentInfo
 	if _, err := asn1.Unmarshal(der, &ci); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if !ci.ContentType.Equal(oidCMSSignedData) {
-		return nil, fmt.Errorf("not a CMS SignedData (content type %s)", ci.ContentType.String())
+		return nil, 0, fmt.Errorf("not a CMS SignedData (content type %s)", ci.ContentType.String())
 	}
 	if len(ci.Content.Bytes) == 0 {
-		return nil, errors.New("ContentInfo carries no content")
+		return nil, 0, errors.New("ContentInfo carries no content")
 	}
-	var sd cmsSignedData
-	if _, err := asn1.Unmarshal(ci.Content.Bytes, &sd); err != nil {
-		return nil, err
+	sd = &cmsSignedData{}
+	rest, err := asn1.Unmarshal(ci.Content.Bytes, sd)
+	if err != nil {
+		return nil, 0, err
 	}
-	return &sd, nil
+	return sd, len(rest), nil
 }
 
 // matchSignerCert resolves SignerInfo's SignerIdentifier CHOICE against the
@@ -464,8 +615,9 @@ func matchSignerCert(si cmsSignerInfo, certs []*x509.Certificate) *x509.Certific
 // decomposeCertEntry reads the certificate chain from the signature dict's
 // /Cert entry (a hex/literal string or an array of them) for the non-CMS
 // adbe.x509.rsa_sha1 SubFilter. Per ISO 32000 the first element is the signing
-// certificate; the labeled note records the provenance.
-func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
+// certificate; the labeled note records the provenance. sb, when non-nil,
+// receives each readable certificate's bytes.
+func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField, sb *SignatureBytes) {
 	f.Notes = append(f.Notes, "subFilter not CMS - certs read from /Cert")
 
 	certObj := dereference(doc, sig["Cert"])
@@ -493,6 +645,9 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 			continue
 		}
 		f.Certificates = append(f.Certificates, certInfoFrom(c))
+		if sb != nil {
+			sb.Certificates = append(sb.Certificates, bytes.Clone(raw.FullBytes))
+		}
 	}
 	if len(f.Certificates) == 0 {
 		f.DecomposeError = "no certificate readable from the /Cert entry"
@@ -504,20 +659,10 @@ func decomposeCertEntry(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureF
 	f.SignerIdentified = true
 }
 
-// certInfoFrom distills the display facts from a parsed certificate.
-func certInfoFrom(c *x509.Certificate) CertInfo {
-	return CertInfo{
-		Subject:   c.Subject.String(),
-		Issuer:    c.Issuer.String(),
-		Serial:    c.SerialNumber.String(),
-		NotBefore: c.NotBefore.UTC().Format(time.RFC3339),
-		NotAfter:  c.NotAfter.UTC().Format(time.RFC3339),
-	}
-}
-
 // pdfStringBytes renders a PDF string object as raw bytes: hex strings are
 // whitespace-stripped and hex-decoded (odd length padded per the PDF spec),
-// literal strings are taken verbatim.
+// literal strings have each unescaped end-of-line (CR, LF or CRLF) read as
+// LF and their backslash escapes resolved (ISO 32000-1 7.3.4.2).
 func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error) {
 	switch v := dereference(doc, obj).(type) {
 	case pdfcpu_types.HexLiteral:
@@ -525,7 +670,12 @@ func pdfStringBytes(doc *DocumentState, obj pdfcpu_types.Object) ([]byte, error)
 		// its Bytes() is the canonical decode.
 		return v.Bytes()
 	case pdfcpu_types.StringLiteral:
-		return []byte(v), nil
+		// pdfcpu keeps a literal string as written, escapes and raw CRs
+		// included. A backslash before a normalized EOL is still a line
+		// continuation, so normalizing first keeps escapes intact.
+		lit := strings.ReplaceAll(string(v), "\r\n", "\n")
+		lit = strings.ReplaceAll(lit, "\r", "\n")
+		return pdfcpu_types.Unescape(lit)
 	case nil:
 		return nil, errors.New("entry missing")
 	default:
@@ -551,7 +701,7 @@ func stripPDFWhitespace(s string) string {
 // coverage, the trailing gap, and whether the excluded hole exactly equals the
 // /Contents hex-string extent. Malformed arrays degrade to CoverageError. This
 // is explicitly a measurement, never a validity verdict.
-func computeByteRangeCoverage(doc *DocumentState, sig pdfcpu_types.Dict, f *SignatureField) {
+func computeByteRangeCoverage(doc *DocumentState, hr *holeRead, sig pdfcpu_types.Dict, f *SignatureField) {
 	brObj, ok := sig["ByteRange"]
 	if !ok {
 		f.CoverageError = "/ByteRange missing"
@@ -608,40 +758,73 @@ func computeByteRangeCoverage(doc *DocumentState, sig pdfcpu_types.Dict, f *Sign
 	}
 	f.TrailingGap = size - (start2 + len2)
 	f.CoversWholeFile = start1 == 0 && f.TrailingGap == 0
-	f.HoleMatchesContents = holeMatchesContents(doc, sig, holeStart, start2)
+	match, err := holeMatchesContents(doc, hr, sig, holeStart, start2)
+	f.HoleMatchesContents = match
+	if err != nil {
+		f.HoleCheckError = err.Error()
+	}
 }
 
 // holeMatchesContents reads the excluded span from disk and reports whether it
-// is exactly the /Contents hex string: '<' + the dict's hex payload + '>'.
-func holeMatchesContents(doc *DocumentState, sig pdfcpu_types.Dict, holeStart, holeEnd int64) bool {
+// is exactly the /Contents hex string: '<' + the dict's hex payload + '>'. A
+// file that changed or is locked by another process returns ErrFileChanged or
+// ErrFileBusy (the bare sentinel) and is recorded in hr, so later holes are
+// not read; any other read failure is a mismatch.
+func holeMatchesContents(doc *DocumentState, hr *holeRead, sig pdfcpu_types.Dict, holeStart, holeEnd int64) (bool, error) {
 	hx, ok := dereference(doc, sig["Contents"]).(pdfcpu_types.HexLiteral)
 	if !ok {
-		return false
+		return false, nil
 	}
 	if holeEnd <= holeStart || holeEnd-holeStart > maxHoleProbeBytes {
-		return false
+		return false, nil
 	}
-	span, err := readFileSpan(doc.FilePath, holeStart, holeEnd)
+	if hr.refused != nil {
+		return false, hr.refused
+	}
+	span, err := readFileSpan(doc.FilePath, doc.fingerprint, holeStart, holeEnd)
+	switch {
+	case errors.Is(err, ErrFileChanged):
+		hr.refused = ErrFileChanged
+		return false, hr.refused
+	case errors.Is(err, ErrFileBusy):
+		hr.refused = ErrFileBusy
+		return false, hr.refused
+	}
 	if err != nil || len(span) < 2 {
-		return false
+		return false, nil
 	}
 	if span[0] != '<' || span[len(span)-1] != '>' {
-		return false
+		return false, nil
 	}
 	inner := stripPDFWhitespace(string(span[1 : len(span)-1]))
 	want := stripPDFWhitespace(string(hx))
-	return strings.EqualFold(inner, want)
+	return strings.EqualFold(inner, want), nil
 }
 
-// readFileSpan reads the byte range [start, end) from the file at path.
-func readFileSpan(path string, start, end int64) ([]byte, error) {
-	fh, err := os.Open(path)
+// beforeFileSpanRead, when set, runs right before readFileSpan opens the file.
+// Nil in production; tests use it to change the file during a walk.
+var beforeFileSpanRead func(path string)
+
+// readFileSpan reads the byte range [start, end) from the file at path. The
+// open handle must match fp before and after the read; otherwise it returns
+// ErrFileChanged. A read refused by another process's lock is ErrFileBusy.
+func readFileSpan(path string, fp FileFingerprint, start, end int64) ([]byte, error) {
+	if beforeFileSpanRead != nil {
+		beforeFileSpanRead(path)
+	}
+	fh, err := openVerified(path, fp)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = fh.Close() }()
 	buf := make([]byte, end-start)
 	if _, err := fh.ReadAt(buf, start); err != nil {
+		if isFileBusy(err) {
+			return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
+		}
+		return nil, err
+	}
+	if err := verifyHandle(fh, fp); err != nil {
 		return nil, err
 	}
 	return buf, nil

@@ -2,27 +2,41 @@
  * @file PDF service layer. Wraps Wails-generated bindings with
  * user-friendly error mapping and a structured open-file workflow.
  */
-import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
+import { OpenFile, GetTreeRoot, GetChildren, CloseDocument, OpenFileDialog as _OpenFileDialog, RecordRecentFile } from '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import type { TreeNode } from './useDocumentState';
+
+/** Failure category of a raw backend open error. */
+export type OpenErrorKind = 'pdfOnly' | 'encrypted' | 'malformed' | 'notFound' | 'unexpected';
+
+/**
+ * Classifies a raw backend open error. The one matcher behind both the open
+ * error messages and the short reload failure reasons.
+ */
+export function openErrorKind(rawMessage: string): OpenErrorKind {
+  if (/only.*pdf/i.test(rawMessage)) return 'pdfOnly';
+  if (/encrypted|password/i.test(rawMessage)) return 'encrypted';
+  if (/malformed/i.test(rawMessage)) return 'malformed';
+  if (/not found/i.test(rawMessage)) return 'notFound';
+  return 'unexpected';
+}
 
 /**
  * Map raw backend error strings to user-facing messages.
  * Matches common failure categories (encrypted, malformed, not found).
  */
 export function mapErrorMessage(rawMessage: string): string {
-  if (/only.*pdf/i.test(rawMessage)) {
-    return rawMessage;
+  switch (openErrorKind(rawMessage)) {
+    case 'pdfOnly':
+      return rawMessage;
+    case 'encrypted':
+      return 'This PDF could not be opened. The file appears to be encrypted.';
+    case 'malformed':
+      return 'This PDF could not be opened. The file appears to be damaged or corrupt.';
+    case 'notFound':
+      return 'The file could not be found. It may have been moved or deleted.';
+    default:
+      return 'This PDF could not be opened. An unexpected error occurred.';
   }
-  if (/encrypted|password/i.test(rawMessage)) {
-    return 'This PDF could not be opened. The file appears to be encrypted.';
-  }
-  if (/malformed/i.test(rawMessage)) {
-    return 'This PDF could not be opened. The file appears to be damaged or corrupt.';
-  }
-  if (/not found/i.test(rawMessage)) {
-    return 'The file could not be found. It may have been moved or deleted.';
-  }
-  return 'This PDF could not be opened. An unexpected error occurred.';
 }
 
 /**
@@ -46,6 +60,16 @@ export interface OpenPDFResult {
   rootNode: TreeNode | null;
   rootChildren: TreeNode[] | null;
   warning: string | null;
+}
+
+/**
+ * Adds a file the user opened as a tab to File > Open Recent. Called after a
+ * successful user open only; reload and compare never record. A recording
+ * failure does not affect the open, and the promise never rejects; awaiting it
+ * keeps a run of records in order.
+ */
+export function recordRecentFile(path: string): Promise<void> {
+  return Promise.resolve().then(() => RecordRecentFile(path)).catch(() => {});
 }
 
 /**

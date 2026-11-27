@@ -2,23 +2,34 @@
  * @file Root application component. Wires Wails runtime events to app state
  * and renders either the empty state or the main three-panel layout.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Events, Screens, Window } from '@wailsio/runtime'
-import { ConsumePendingOpenFiles } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
+import { DocumentBatchComplete, DocumentBatchStart, DocumentDiskStatus, DocumentError, DocumentLoadStart, DocumentOpened, DocumentReloadActive, NavigateBack, NavigateForward, NavigateGoToPage, NavigateStateChanged, PaletteOpen } from '../bindings/events/index.js'
+import { ConsumePendingOpenFiles, SetWatchedTabs } from '../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js'
 import { AppProvider, useAppState, useAppDispatch } from './hooks/useDocumentState'
-import { mapErrorMessage, openPDFFile } from './hooks/usePDFService'
+import { mapErrorMessage, openPDFFile, recordRecentFile } from './hooks/usePDFService'
 import { useWindowPersistence } from './hooks/useWindowPersistence'
+import { isInTextField } from './hooks/useFindBar'
 import { computeRestorePlan } from './lib/windowGeometryGuard'
 import { dispatchOpenedDocument } from './lib/openedDocuments'
 import { getPlatformModifier } from './lib/platform'
 import { EmptyState } from './components/EmptyState'
 import { MainLayout } from './components/MainLayout'
 import { ErrorBanner } from './components/ErrorBanner'
+import { PdfcpuBanner } from './components/PdfcpuBanner'
 import { TabBar } from './components/TabBar'
 import { BatchOpenDialog } from './components/BatchOpenDialog'
+import { AboutDialog } from './components/AboutDialog'
 import { CommandPalette } from './components/CommandPalette/CommandPalette'
 import { UpdateNotifier } from './components/UpdateNotifier'
 import { openPalette, useCommandPalette } from './hooks/useCommandPalette'
+import { ReloadToast } from './components/ReloadToast'
+import { DiskChangeAnnouncer, announceDiskChange } from './components/DiskChangeAnnouncer'
+import { applyDiskStatusEvent, readDiskStatus, retainDiskStatus } from './lib/diskStatusStore'
+import { reloadActiveTab } from './lib/reloadDocument'
+
+/** Window in which a Cmd/Ctrl+R keydown and the menu event count as one press. */
+const SHORTCUT_ECHO_MS = 1000
 
 /**
  * Inner shell that subscribes to Wails backend events and delegates
@@ -46,20 +57,108 @@ function AppContent() {
   // Ref mirrors tabs for use inside event handler closures without stale captures
   const tabsRef = useRef(tabs)
   useEffect(() => { tabsRef.current = tabs }, [tabs])
+  const activeTabIdRef = useRef(activeTabId)
+  useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
 
-  // Sync navigation menu enabled state with backend
-  const prevNavState = useRef({ canGoBack: false, canGoForward: false })
+  // On-disk status entries live only as long as their tab: a closed or
+  // replaced tab id drops its entry, which clears its marker. The backend
+  // watcher polls only the tab ids in the strip, never a backend-only Diff
+  // right side. Keyed on the ids so per-tab state changes (selection,
+  // history) do not call the backend.
+  const tabIdsKey = useMemo(() => tabs.map((t) => t.tabId).join('\n'), [tabs])
   useEffect(() => {
-    if (prevNavState.current.canGoBack !== canGoBack || prevNavState.current.canGoForward !== canGoForward) {
-      prevNavState.current = { canGoBack, canGoForward }
-      Events.Emit('navigate:state-changed', { canGoBack, canGoForward })
+    const ids = tabIdsKey === '' ? [] : tabIdsKey.split('\n')
+    retainDiskStatus(ids)
+    Promise.resolve(SetWatchedTabs(ids)).catch(() => {})
+  }, [tabIdsKey])
+
+  // Reload from disk (File > Reload from Disk, its Cmd/Ctrl+R accelerator, and
+  // F5) always acts on the active tab, stale or not. Cmd/Ctrl+R is also
+  // handled here so it works before the native menu is live and never reaches
+  // the webview's own page reload. One press can arrive both as the keydown
+  // and as the menu event, in either order: a trigger from the other source
+  // within SHORTCUT_ECHO_MS of the last one is that echo and is ignored.
+  useEffect(() => {
+    const reloadActive = () => reloadActiveTab(dispatch, () => tabsRef.current, activeTabIdRef.current)
+    let lastShortcut = { source: '', at: -Infinity }
+    /**
+     * Records a press and reports whether it is new rather than the echo of
+     * one from the other source.
+     * @param {'key' | 'menu'} source
+     */
+    const notePress = (source) => {
+      const now = performance.now()
+      if (lastShortcut.source !== source && now - lastShortcut.at < SHORTCUT_ECHO_MS) return false
+      lastShortcut = { source, at: now }
+      return true
     }
-  }, [canGoBack, canGoForward])
+    const wantsMeta = getPlatformModifier() === 'Cmd'
+    /** @param {KeyboardEvent} e */
+    function onKeyDown(e) {
+      const mod = wantsMeta ? e.metaKey : e.ctrlKey
+      const isModR = mod && !e.shiftKey && !e.altKey && (e.key === 'r' || e.key === 'R')
+      if (e.key !== 'F5' && !isModR) return
+      // Cmd/Ctrl+R never reaches the webview reload, even in a text field.
+      e.preventDefault()
+      const swallowed = e.repeat || isInTextField(e.target)
+      if (isModR) {
+        // A swallowed press is still recorded, so its menu echo is dropped too.
+        if (notePress('key') && !swallowed) reloadActive()
+        return
+      }
+      if (!swallowed) reloadActive()
+    }
+    const offReload = Events.On(DocumentReloadActive, () => {
+      if (notePress('menu')) reloadActive()
+    })
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      offReload()
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [dispatch])
+
+  // Watcher events go to the disk-status store, never to AppState, so a status
+  // update re-renders only the subscribed tab item, note and announcer.
+  // Events for tab ids not in the tab list yet (a reload still fetching its
+  // tree) are ignored; reloadTab checks the new id once its tab exists.
+  useEffect(() => {
+    return Events.On(DocumentDiskStatus, (event) => {
+      const data = event?.data
+      if (!data || typeof data.tabId !== 'string') return
+      const tab = tabsRef.current.find((t) => t.tabId === data.tabId)
+      if (!tab) return
+      const wasChanged = readDiskStatus(data.tabId)?.state === 'changed'
+      const applied = applyDiskStatusEvent({
+        tabId: data.tabId,
+        seq: Number(data.seq) || 0,
+        state: String(data.state ?? ''),
+        loadedModTime: Number(data.loadedModTime) || 0,
+        diskModTime: Number(data.diskModTime) || 0,
+        diskSize: Number(data.diskSize) || 0,
+      })
+      // A refresh of an already changed tab (new times) is not announced again.
+      if (applied && data.state === 'changed' && !wasChanged) announceDiskChange(`${tab.fileName} changed on disk`)
+    })
+  }, [])
+
+  // Sync navigation and document menu enabled state with backend. The first
+  // run always reports, so a reloaded page resets a menu left enabled for
+  // documents the page no longer has.
+  const documentCount = tabs.length
+  const prevNavState = useRef(/** @type {{ canGoBack: boolean, canGoForward: boolean, documentCount: number } | null} */ (null))
+  useEffect(() => {
+    const prev = prevNavState.current
+    if (!prev || prev.canGoBack !== canGoBack || prev.canGoForward !== canGoForward || prev.documentCount !== documentCount) {
+      prevNavState.current = { canGoBack, canGoForward, documentCount }
+      Events.Emit(NavigateStateChanged, { canGoBack, canGoForward, documentCount })
+    }
+  }, [canGoBack, canGoForward, documentCount])
 
   // Subscribe to Wails runtime events for backend-initiated document opens
   // and errors. Returns cleanup functions to unsubscribe on unmount.
   useEffect(() => {
-    const offOpened = Events.On('document:opened', (event) => {
+    const offOpened = Events.On(DocumentOpened, (event) => {
       const data = event?.data
       if (!data || !data.tabId || !data.fileName) return
 
@@ -76,37 +175,31 @@ function AppContent() {
       }
     })
 
-    const offError = Events.On('document:error', (event) => {
+    const offError = Events.On(DocumentError, (event) => {
       const data = event?.data
       const msg = (data && data.message) || 'An unknown error occurred.'
       dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: mapErrorMessage(msg) } })
     })
 
-    const offWarning = Events.On('document:warning', (event) => {
-      const data = event?.data
-      const msg = (data && data.message) || ''
-      if (msg) dispatch({ type: 'SET_DOCUMENT_WARNING', payload: { message: msg } })
-    })
-
-    const offNavBack = Events.On('navigate:back', () => {
+    const offNavBack = Events.On(NavigateBack, () => {
       dispatch({ type: 'NAVIGATE_BACK' })
     })
 
-    const offNavForward = Events.On('navigate:forward', () => {
+    const offNavForward = Events.On(NavigateForward, () => {
       dispatch({ type: 'NAVIGATE_FORWARD' })
     })
 
     // The Navigate > Go to Page menu item opens the Pages navigator's jump
     // field. The reducer ignores it when no document is open.
-    const offGoToPage = Events.On('navigate:goToPage', () => {
+    const offGoToPage = Events.On(NavigateGoToPage, () => {
       dispatch({ type: 'FOCUS_PAGES_JUMP' })
     })
 
-    const offPaletteOpen = Events.On('palette:open', () => {
+    const offPaletteOpen = Events.On(PaletteOpen, () => {
       openPalette()
     })
 
-    const offLoadStart = Events.On('document:load-start', (event) => {
+    const offLoadStart = Events.On(DocumentLoadStart, (event) => {
       const data = event?.data
       const fileName = (data && data.fileName) || ''
       if (fileName) {
@@ -114,12 +207,12 @@ function AppContent() {
       }
     })
 
-    const offBatchStart = Events.On('document:batch-start', (event) => {
+    const offBatchStart = Events.On(DocumentBatchStart, (event) => {
       const total = Number(event?.data?.total) || 0
       if (total > 0) dispatch({ type: 'BATCH_OPEN_START', payload: { total } })
     })
 
-    const offBatchComplete = Events.On('document:batch-complete', () => {
+    const offBatchComplete = Events.On(DocumentBatchComplete, () => {
       dispatch({ type: 'BATCH_OPEN_COMPLETE' })
     })
 
@@ -127,7 +220,7 @@ function AppContent() {
     // above is registered, drain any file-association paths the backend
     // buffered before the frontend was ready (cold start). Ordering is
     // load-bearing: a path delivered between drain and subscribe would be lost,
-    // so this MUST run after Events.On('document:opened', ...). Drain-on-read
+    // so this MUST run after Events.On(DocumentOpened, ...). Drain-on-read
     // (the backend queue stays empty after the first drain) makes StrictMode
     // double-effects and dev reloads safe -- a second drain returns [].
     async function drainPendingOpens() {
@@ -149,26 +242,31 @@ function AppContent() {
       // successful open in the same drain. Surfacing the last error after all
       // opens keeps a failed path visible without blocking the others.
       let lastError = null
-      for (const path of paths) {
-        try {
-          const result = await openPDFFile(path)
-          // A path already open, here or in a still-live previous session
-          // after a dev-mode reload, keeps the new parse and frees the old one.
-          dispatchOpenedDocument(dispatch, tabsRef.current, {
-            tabId: result.tabId,
-            fileName: result.fileName,
-            filePath: result.filePath,
-            pageCount: result.pageCount,
-            rootNode: result.rootNode,
-            rootChildren: result.rootChildren,
-          })
-        } catch (err) {
-          // Keep iterating so one bad file does not block the rest; defer the
-          // error dispatch until after the loop (see lastError above).
-          const msg = err instanceof Error ? err.message : String(err)
-          lastError = mapErrorMessage(msg)
+      const openAll = async () => {
+        for (const path of paths) {
+          try {
+            const result = await openPDFFile(path)
+            // A path already open, here or in a still-live previous session
+            // after a dev-mode reload, keeps the new parse and frees the old one.
+            dispatchOpenedDocument(dispatch, tabsRef.current, {
+              tabId: result.tabId,
+              fileName: result.fileName,
+              filePath: result.filePath,
+              pageCount: result.pageCount,
+              rootNode: result.rootNode,
+              rootChildren: result.rootChildren,
+            })
+            // Awaited so Open Recent keeps the order the files opened in.
+            await recordRecentFile(path)
+          } catch (err) {
+            // Keep iterating so one bad file does not block the rest; defer the
+            // error dispatch until after the loop (see lastError above).
+            const msg = err instanceof Error ? err.message : String(err)
+            lastError = mapErrorMessage(msg)
+          }
         }
       }
+      await openAll()
       if (lastError !== null) {
         dispatch({ type: 'SET_DOCUMENT_ERROR', payload: { message: lastError } })
       }
@@ -178,7 +276,6 @@ function AppContent() {
     return () => {
       offOpened()
       offError()
-      offWarning()
       offNavBack()
       offNavForward()
       offGoToPage()
@@ -309,14 +406,6 @@ function AppContent() {
   // native menu item in main.go also emits navigate:goToPage; this listener
   // exists so the shortcut works even before the menu is opened.
   useEffect(() => {
-    /** @param {EventTarget | null} target */
-    function isInTextField(target) {
-      if (!(target instanceof HTMLElement)) return false
-      const tag = target.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return true
-      if (target.isContentEditable) return true
-      return false
-    }
     const wantsMeta = getPlatformModifier() === 'Cmd'
     /** @param {KeyboardEvent} e */
     function handler(e) {
@@ -349,12 +438,18 @@ function AppContent() {
         />
       )}
       {tabs.length > 0 && <TabBar />}
-      <div className="flex-1 min-h-0">
+      {/* relative: the pdfcpu banner overlays this container's corner and
+          takes no layout space. */}
+      <div className="flex-1 min-h-0 relative">
         {hasDocument ? <MainLayout /> : <EmptyState />}
+        {hasDocument && <PdfcpuBanner tabId={activeTabId} />}
       </div>
       <BatchOpenDialog />
+      <AboutDialog />
       <CommandPalette />
       <UpdateNotifier />
+      <ReloadToast />
+      <DiskChangeAnnouncer />
     </div>
   )
 }

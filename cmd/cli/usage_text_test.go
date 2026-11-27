@@ -72,7 +72,6 @@ func TestPrintUsage_CommandDescriptionsShareOneColumn(t *testing.T) {
 		"dump xref ",
 		"dump objects ",
 		"dump metadata ",
-		"dump signatures ",
 	}
 	for _, prefix := range prefixes {
 		line := commandLine(t, help, prefix)

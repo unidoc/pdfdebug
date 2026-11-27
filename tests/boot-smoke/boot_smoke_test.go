@@ -26,6 +26,10 @@
 // in its skip-list (`case ... continue ;;`) because boot-smoke needs the
 // xvfb-run wrapper that the per-module loop does not provide on Linux.
 //
+// BOOT_SMOKE_BINARY: when set, the test starts that binary instead of building
+// one. CI sets it to the binary the Linux .deb installs, so the run also shows
+// the packaged AppArmor profile lets WebKit's sandbox start.
+//
 // Extending: keep TestAppBootsWithoutPanic as the single high-value smoke. Do
 // NOT add per-feature behavioural assertions here -- those belong in the
 // feature's own suite.
@@ -43,6 +47,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -72,9 +77,10 @@ func projectRoot(t *testing.T) string {
 	}
 }
 
-// platformLaunchDeadline returns the per-OS deadline for the boot probe.
-// Linux is slowest because Xvfb + GTK init is heavy; Windows is medium
-// because WebView2 cold-start; macOS is fastest because WKWebView is in-tree.
+// platformLaunchDeadline returns the per-OS launch slack in processDeadline.
+// It does not limit startup; the alive probes are bounded by probeBudget.
+// Linux is largest because Xvfb + GTK init is heavy; Windows is medium
+// because WebView2 cold-start; macOS is smallest because WKWebView is in-tree.
 func platformLaunchDeadline() time.Duration {
 	switch runtime.GOOS {
 	case "linux":
@@ -118,16 +124,7 @@ func buildSmokeBinary(t *testing.T) string {
 		if info, err := os.Stat(src); err == nil {
 			preMtime = info.ModTime()
 		}
-		// Wails alpha.93 made GTK4 + WebKitGTK 6.0 the Linux default; CI installs
-		// only the GTK3 stack, so opt back into the legacy GTK3 build path here.
-		// `wails3 build -tags gtk3` routes the flag through the Taskfile's
-		// EXTRA_TAGS slot (becomes `-tags production,gtk3`). macOS + Windows
-		// ignore the flag.
-		args := []string{"build"}
-		if runtime.GOOS == "linux" {
-			args = append(args, "-tags", "gtk3")
-		}
-		cmd := exec.Command("wails3", args...)
+		cmd := exec.Command("wails3", "build")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
 		out, err := cmd.CombinedOutput()
@@ -152,12 +149,8 @@ func buildSmokeBinary(t *testing.T) string {
 		return dst
 	}
 
-	// Fallback path mirrors the wails3-build tag choice: production everywhere,
-	// plus gtk3 on Linux where Wails alpha.93+ otherwise tries to link GTK4.
+	// Fallback path mirrors the wails3-build tag choice.
 	tags := "production"
-	if runtime.GOOS == "linux" {
-		tags = "production,gtk3"
-	}
 	t.Logf("[boot-smoke] wails3 not on PATH; falling back to `go build -tags %s`", tags)
 	cmd := exec.Command("go", "build", "-tags", tags, "-o", dst, ".")
 	cmd.Dir = root
@@ -224,8 +217,9 @@ func processAlive(p *os.Process) bool {
 	return err == nil
 }
 
-// shutdownGracefully attempts a clean termination and waits up to 3s for
-// the existing reaper goroutine (signalled via exitCh) to observe the exit.
+// shutdownGracefully attempts a clean termination and waits up to
+// shutdownWait() for the existing reaper goroutine (signalled via exitCh) to
+// observe the exit.
 // On Windows, GUI processes do not honour SIGTERM, so we use taskkill /T.
 // The waitErr pointer is read after exitCh closes; callers must not touch
 // it concurrently.
@@ -257,11 +251,95 @@ func shutdownGracefully(t *testing.T, cmd *exec.Cmd, exitCh <-chan struct{}, wai
 	select {
 	case <-exitCh:
 		return *waitErr
-	case <-time.After(3 * time.Second):
+	case <-time.After(shutdownWait()):
+		diag := hangDiagnostics(cmd.Process, exitCh)
 		_ = cmd.Process.Kill()
 		<-exitCh
-		return fmt.Errorf("[boot-smoke] process did not exit within 3s of SIGTERM/taskkill; SIGKILL'd")
+		return fmt.Errorf("[boot-smoke] process did not exit within %s of SIGTERM/taskkill; SIGKILL'd%s", shutdownWait(), diag)
 	}
+}
+
+// gdbTimeout and gdbKillAfter bound the gdb attach in hangDiagnostics: gdb is
+// sent SIGTERM after gdbTimeout and SIGKILL gdbKillAfter later.
+const (
+	gdbTimeout   = 20 * time.Second
+	gdbKillAfter = 5 * time.Second
+)
+
+// timeoutSeconds formats d as coreutils timeout's duration argument, in
+// seconds with a fraction where needed, so a sub-second bound is not
+// truncated to 0, which timeout reads as no limit.
+func timeoutSeconds(d time.Duration) string {
+	return strconv.FormatFloat(d.Seconds(), 'f', -1, 64)
+}
+
+// goStacksWait is how long hangDiagnostics waits for the app to exit after
+// SIGQUIT, which makes the Go runtime write its goroutine stacks.
+const goStacksWait = 2 * time.Second
+
+// hangReportWait is the time hangDiagnostics gets to attach gdb, print the
+// native backtraces and collect the Go stacks after SIGQUIT. It covers the
+// gdb bound and the SIGQUIT wait.
+const hangReportWait = 30 * time.Second
+
+// probeBudget bounds the alive probes before the test sends SIGTERM.
+const probeBudget = 3 * time.Second
+
+// processDeadline is when the launch context kills the app. It covers the
+// launch, the probes, the shutdown wait and the hang report, so an app that
+// hangs on quit is still running when hangDiagnostics attaches to it rather
+// than killed by the context and passed as a signalled exit.
+func processDeadline() time.Duration {
+	return platformLaunchDeadline() + probeBudget + shutdownWait() + hangReportWait
+}
+
+// shutdownWait is how long the app gets to exit after SIGTERM. Linux gets
+// longer: under Xvfb GTK4 renders with llvmpipe, and a quit queued behind the
+// first layout pass on a cold runner can take more than 3s to run.
+func shutdownWait() time.Duration {
+	if runtime.GOOS == "linux" {
+		return 10 * time.Second
+	}
+	return 3 * time.Second
+}
+
+// hangDiagnostics reports on Linux whether the app process itself is still
+// running or has exited while descendants keep its output pipe open. For a
+// running app it adds native thread backtraces when gdb is available, then
+// sends SIGQUIT so the Go runtime writes its goroutine stacks to the captured
+// output.
+func hangDiagnostics(p *os.Process, exitCh <-chan struct{}) string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	state := "unknown"
+	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", p.Pid)); err == nil {
+		// The state field follows the parenthesised command name.
+		if i := bytes.LastIndexByte(stat, ')'); i >= 0 && i+2 < len(stat) {
+			state = string(stat[i+2])
+		}
+	}
+	ps, _ := exec.Command("ps", "-eo", "pid,ppid,stat,args").CombinedOutput()
+	var bt []byte
+	if state != "Z" {
+		// sudo -n fails fast where attaching needs a password or gdb is absent.
+		// timeout runs under sudo so it can stop the root gdb within the
+		// hang-report budget; killing sudo itself would leave gdb attached.
+		bt, _ = exec.Command("sudo", "-n", "timeout",
+			"--kill-after="+timeoutSeconds(gdbKillAfter), timeoutSeconds(gdbTimeout),
+			"gdb", "-p", strconv.Itoa(p.Pid), "-batch", "-ex", "thread apply all bt 30").CombinedOutput()
+		// A gdb killed by timeout leaves the app stopped by the ptrace attach;
+		// SIGCONT resumes it so the Go runtime can handle SIGQUIT. 0x12 is
+		// SIGCONT on Linux, the only OS that reaches this; Windows' syscall
+		// package has no SIGCONT name.
+		_ = p.Signal(syscall.Signal(0x12))
+		_ = p.Signal(syscall.SIGQUIT)
+		select {
+		case <-exitCh:
+		case <-time.After(goStacksWait):
+		}
+	}
+	return fmt.Sprintf("\n--- app process state: %s ---\n--- processes ---\n%s\n--- native backtraces ---\n%s", state, ps, bt)
 }
 
 // scanForFatalOutput inspects the captured stdout+stderr for known
@@ -304,10 +382,12 @@ func scanForFatalOutput(s string) string {
 // verifies that the boot path -- including pdfservice.NewPDFService
 // registration -- runs to the event loop without panicking.
 func TestAppBootsWithoutPanic(t *testing.T) {
-	bin := buildSmokeBinary(t)
+	bin := os.Getenv("BOOT_SMOKE_BINARY")
+	if bin == "" {
+		bin = buildSmokeBinary(t)
+	}
 
-	deadline := platformLaunchDeadline()
-	ctx, cancel := context.WithTimeout(t.Context(), deadline)
+	ctx, cancel := context.WithTimeout(t.Context(), processDeadline())
 	defer cancel()
 
 	name, extraArgs := requireXvfbOnLinux(t, bin)
@@ -336,7 +416,6 @@ func TestAppBootsWithoutPanic(t *testing.T) {
 	// two consecutive probes (~400ms after first observation). 1s as a
 	// single sample was too aggressive on cold runners (R5).
 	const probeInterval = 200 * time.Millisecond
-	const probeBudget = 3 * time.Second
 
 	consecutive := 0
 	probeDeadline := time.Now().Add(probeBudget)

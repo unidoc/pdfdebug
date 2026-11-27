@@ -2,20 +2,26 @@ package testdata_test
 
 import (
 	"bytes"
+	"compress/zlib"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"math/big"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -275,9 +281,9 @@ func fontsMixedPDFContent() []byte {
 // identification cannot be positional. The malformed-Contents and not-covers
 // variants derive from the same builder by byte surgery.
 
-// sigFixtureContentsHexCap is the reserved /Contents hex capacity; the real
-// DER is ~2.5 KB, the remainder stays zero-padded (exercises the
-// trailing-zero-trim path).
+// sigFixtureContentsHexCap is the reserved /Contents hex capacity; the CMS
+// payloads are ~2-2.5 KB and the remainder of the hole stays zero-padded,
+// which the decomposer accepts after the ContentInfo.
 const sigFixtureContentsHexCap = 6144
 
 type sigFixtureAlgID struct {
@@ -328,6 +334,13 @@ var (
 // validity window (2025-01-01 .. 2027-01-01 UTC).
 func sigFixturePKI(t *testing.T) (caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey) {
 	t.Helper()
+	return sigFixturePKIWith(t, nil)
+}
+
+// sigFixturePKIWith is sigFixturePKI with editLeaf, when non-nil, applied to
+// the leaf template before the leaf is signed.
+func sigFixturePKIWith(t *testing.T, editLeaf func(leaf *x509.Certificate)) (caDER, leafDER []byte, leafCert *x509.Certificate, leafKey *rsa.PrivateKey) {
+	t.Helper()
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("fixture CA key: %v", err)
@@ -361,6 +374,9 @@ func sigFixturePKI(t *testing.T) (caDER, leafDER []byte, leafCert *x509.Certific
 		NotBefore:    nb,
 		NotAfter:     na,
 		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	if editLeaf != nil {
+		editLeaf(leafTmpl)
 	}
 	leafDER, err = x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
 	if err != nil {
@@ -431,15 +447,34 @@ func sigFixtureAssemblePDF(objs []string) []byte {
 	return []byte(body + xref + trailer)
 }
 
-// signedPDFContent builds a one-signature adbe.pkcs7.detached PDF whose
-// ByteRange is computed against the true /Contents hole and whose CMS blob is
-// signed over the actual ByteRange digest. shortfall subtracts from
-// ByteRange[3] (the not-covers variant); corrupt breaks the leading DER bytes
-// (the malformed-Contents variant, still a valid PDF).
-func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
+// sigFixtureOpt selects a signature-fixture variant.
+type sigFixtureOpt struct {
+	// subFilter is the /SubFilter name; empty means adbe.pkcs7.detached.
+	subFilter string
+	// shortfall subtracts from ByteRange[3] (the not-covers variant).
+	shortfall int
+	// corrupt breaks the leading payload bytes (the malformed-Contents
+	// variant, still a valid PDF).
+	corrupt bool
+	// cms builds the /Contents payload over signed, the file bytes outside
+	// the hole; nil means sigFixtureDetachedDER.
+	cms func(t *testing.T, signed []byte) []byte
+}
+
+// signedPDFContent builds a one-signature PDF whose ByteRange is computed
+// against the true /Contents hole and whose CMS payload is built over the
+// bytes that ByteRange covers.
+func signedPDFContent(t *testing.T, o sigFixtureOpt) []byte {
 	t.Helper()
-	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
-	sig := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached" +
+	sub := o.subFilter
+	if sub == "" {
+		sub = "adbe.pkcs7.detached"
+	}
+	build := o.cms
+	if build == nil {
+		build = sigFixtureDetachedDER
+	}
+	sig := "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /" + sub +
 		" /ByteRange [0000000000 0000000000 0000000000 0000000000]" +
 		" /Contents <" + strings.Repeat("0", sigFixtureContentsHexCap) + ">" +
 		" /M (D:20260101120000+00'00') /Name (Fixture Signer) /Reason (Fixture) /Location (Testville) >>"
@@ -458,22 +493,20 @@ func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
 	holeStart := ci + len("/Contents ")
 	holeEnd := holeStart + 1 + sigFixtureContentsHexCap + 1 // '<' + hex + '>'
 
-	br := fmt.Sprintf("[%010d %010d %010d %010d]", 0, holeStart, holeEnd, len(file)-holeEnd-shortfall)
+	br := fmt.Sprintf("[%010d %010d %010d %010d]", 0, holeStart, holeEnd, len(file)-holeEnd-o.shortfall)
 	bi := bytes.Index(file, []byte("/ByteRange ["))
 	if bi < 0 {
 		t.Fatal("signature fixture: no /ByteRange placeholder")
 	}
 	copy(file[bi+len("/ByteRange "):], br)
 
-	// Digest over the two spans around the TRUE hole, then sign for real.
-	h := sha256.New()
-	h.Write(file[:holeStart])
-	h.Write(file[holeEnd:])
-	hx := hex.EncodeToString(sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, h.Sum(nil)))
+	// The payload covers the two spans around the TRUE hole.
+	signed := append(append([]byte{}, file[:holeStart]...), file[holeEnd:]...)
+	hx := hex.EncodeToString(build(t, signed))
 	if len(hx) > sigFixtureContentsHexCap {
 		t.Fatalf("signature fixture: contents capacity exceeded: %d", len(hx))
 	}
-	if corrupt {
+	if o.corrupt {
 		// Break the leading DER tag/length; keep valid hex so the PDF parses.
 		copy(file[holeStart+1:], "FFFFFFFFFFFFFFFF")
 		copy(file[holeStart+1+16:], hx[16:])
@@ -482,6 +515,147 @@ func signedPDFContent(t *testing.T, shortfall int, corrupt bool) []byte {
 	}
 	// The remainder of the hole stays "0"-filled = trailing zero padding.
 	return file
+}
+
+// sigFixtureDetachedDER returns a DER detached ContentInfo(SignedData) over the
+// SHA-256 digest of signed, RSA-signed for real.
+func sigFixtureDetachedDER(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	caDER, leafDER, leafCert, leafKey := sigFixturePKI(t)
+	digest := sha256.Sum256(signed)
+	return sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, digest[:])
+}
+
+// sigFixtureDetachedCertExtensions is sigFixtureDetachedDER with a leaf that
+// carries key usage digitalSignature and nonRepudiation, an EKU list
+// (emailProtection, the Adobe authentic documents OID, 1.2.3.4.5), a CRL
+// distribution point, and AIA OCSP and CA Issuers URLs under the reserved
+// .test TLD.
+func sigFixtureDetachedCertExtensions(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	caDER, leafDER, leafCert, leafKey := sigFixturePKIWith(t, func(leaf *x509.Certificate) {
+		leaf.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageContentCommitment
+		leaf.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection}
+		leaf.UnknownExtKeyUsage = []asn1.ObjectIdentifier{{1, 2, 840, 113583, 1, 1, 5}, {1, 2, 3, 4, 5}}
+		leaf.CRLDistributionPoints = []string{"http://crl.example.test/fixture-ca.crl"}
+		leaf.OCSPServer = []string{"http://ocsp.example.test"}
+		leaf.IssuingCertificateURL = []string{"http://ca.example.test/fixture-ca.cer"}
+	})
+	digest := sha256.Sum256(signed)
+	return sigFixtureCMS(t, caDER, leafDER, leafCert, leafKey, digest[:])
+}
+
+// sigFixtureDetachedBER returns the sigFixtureDetachedDER payload with the
+// ContentInfo SEQUENCE, its [0] wrapper, the SignedData SEQUENCE and the
+// EncapContentInfo SEQUENCE re-encoded with indefinite length; everything
+// inside them stays definite DER. This is the shape DocuSign writes.
+func sigFixtureDetachedBER(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	ci := sigFixtureChildren(t, sigFixtureDetachedDER(t, signed)) // [ContentInfo]
+	ciKids := sigFixtureChildren(t, ci[0].Bytes)                  // OID, [0]
+	wrapKids := sigFixtureChildren(t, ciKids[1].Bytes)            // SignedData
+	sdKids := sigFixtureChildren(t, wrapKids[0].Bytes)            // version, algs, encap, certs, signerInfos
+	parts := make([][]byte, len(sdKids))
+	for i, k := range sdKids {
+		parts[i] = k.FullBytes
+	}
+	parts[2] = sigFixtureIndefinite(0x30, sigFixtureChildBytes(sigFixtureChildren(t, sdKids[2].Bytes))...)
+	sd := sigFixtureIndefinite(0x30, parts...)
+	wrap := sigFixtureIndefinite(0xA0, sd)
+	return sigFixtureIndefinite(0x30, ciKids[0].FullBytes, wrap)
+}
+
+// sigFixtureDetachedBadEOC returns the sigFixtureDetachedBER payload with its
+// final end-of-contents (the ContentInfo's) changed from 00 00 to 00 01.
+func sigFixtureDetachedBadEOC(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	p := sigFixtureDetachedBER(t, signed)
+	p[len(p)-1] = 0x01
+	return p
+}
+
+// sigFixtureDetachedBERTrailing returns the sigFixtureDetachedBER payload
+// followed by DE AD BE EF, so non-zero bytes sit between the CMS and the zero
+// padding.
+func sigFixtureDetachedBERTrailing(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	return append(sigFixtureDetachedBER(t, signed), 0xDE, 0xAD, 0xBE, 0xEF)
+}
+
+// sigFixtureChildren splits concatenated DER elements.
+func sigFixtureChildren(t *testing.T, b []byte) []asn1.RawValue {
+	t.Helper()
+	var out []asn1.RawValue
+	for len(b) > 0 {
+		var rv asn1.RawValue
+		rest, err := asn1.Unmarshal(b, &rv)
+		if err != nil {
+			t.Fatalf("signature fixture: re-encode parse: %v", err)
+		}
+		out = append(out, rv)
+		b = rest
+	}
+	return out
+}
+
+func sigFixtureChildBytes(kids []asn1.RawValue) [][]byte {
+	out := make([][]byte, len(kids))
+	for i, k := range kids {
+		out[i] = k.FullBytes
+	}
+	return out
+}
+
+// sigFixtureIndefinite encodes a one-byte constructed tag with the indefinite
+// length form: tag, 0x80, the content, then the 00 00 end-of-contents.
+func sigFixtureIndefinite(tag byte, content ...[]byte) []byte {
+	out := []byte{tag, 0x80}
+	for _, c := range content {
+		out = append(out, c...)
+	}
+	return append(out, 0x00, 0x00)
+}
+
+// sigFixtureOpenSSLStreamed signs the SHA-1 digest of signed with
+// "openssl cms -sign -stream", which writes BER: indefinite lengths on the
+// outer containers and the digest embedded as a constructed OCTET STRING, plus
+// openssl's default signed attributes. adbe.pkcs7.sha1 carries the SHA-1
+// digest of the signed range as eContent, so the attached output is valid for
+// that SubFilter. The committed signed-ber.pdf was generated with
+// OpenSSL 3.6.4 (25 Aug 2026); LibreSSL builds may lack the cms command.
+func sigFixtureOpenSSLStreamed(t *testing.T, signed []byte) []byte {
+	t.Helper()
+	bin, err := exec.LookPath("openssl")
+	if err != nil {
+		t.Fatalf("openssl not on PATH; needed to generate signed-ber.pdf")
+	}
+	caDER, leafDER, _, leafKey := sigFixturePKI(t)
+	dir := t.TempDir()
+	write := func(name string, data []byte) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, data, 0o600); err != nil {
+			t.Fatalf("signature fixture: write %s: %v", name, err)
+		}
+		return p
+	}
+	digest := sha1.Sum(signed)
+	in := write("digest.bin", digest[:])
+	leaf := write("leaf.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER}))
+	key := write("leafkey.pem", pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafKey)}))
+	ca := write("ca.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}))
+	out := filepath.Join(dir, "cms.der")
+	cmd := exec.Command(bin, "cms", "-sign", "-binary", "-stream", "-nodetach", "-outform", "DER",
+		"-md", "sha1", "-in", in, "-signer", leaf, "-inkey", key, "-certfile", ca, "-out", out)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("openssl cms -sign failed: %v: %s", err, stderr.String())
+	}
+	der, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("signature fixture: read openssl output: %v", err)
+	}
+	return der
 }
 
 // unsignedSigFieldPDFContent builds a /FT /Sig placeholder field with NO /V.
@@ -572,6 +746,119 @@ func taggedPDFContent() []byte {
 	}, "")
 }
 
+// structurePDFContent is a clean tagged two-page document for `dump
+// structure`: a RoleMap, a two-level ParentTree, an inline and a named
+// property list, an MCR kid and an OBJR kid for a Link annotation. Every
+// ParentTree slot, content MCID and tree MCID line up.
+func structurePDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 6 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /StructParents 0 /Resources << >> >>\nendobj\n",
+		"4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [8 0 R 9 0 R] /StructParents 1 /Resources << /Properties << /MC0 << /MCID 1 >> >> >> /Annots [5 0 R] >>\nendobj\n",
+		"5 0 obj\n<< /Type /Annot /Subtype /Link /Rect [72 600 200 620] /Border [0 0 0] /StructParent 2 >>\nendobj\n",
+		"6 0 obj\n<< /Type /StructTreeRoot /K 13 0 R /ParentTree 10 0 R /ParentTreeNextKey 3 /RoleMap << /Heading1 /H1 >> >>\nendobj\n",
+		complStreamObj(7, "", "/Heading1 <</MCID 0>> BDC 0 0 m EMC /P <</MCID 1>> BDC 0 0 m EMC"),
+		complStreamObj(8, "", "/P <</MCID 0>> BDC 0 0 m EMC"),
+		complStreamObj(9, "", "/Span /MC0 BDC 0 0 m EMC"),
+		"10 0 obj\n<< /Kids [11 0 R 12 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Limits [0 1] /Nums [0 [14 0 R 15 0 R] 1 [17 0 R 18 0 R]] >>\nendobj\n",
+		"12 0 obj\n<< /Limits [2 2] /Nums [2 18 0 R] >>\nendobj\n",
+		"13 0 obj\n<< /Type /StructElem /S /Document /P 6 0 R /K [14 0 R 15 0 R 16 0 R 18 0 R] >>\nendobj\n",
+		"14 0 obj\n<< /Type /StructElem /S /Heading1 /P 13 0 R /Pg 3 0 R /Lang (en) /K 0 >>\nendobj\n",
+		"15 0 obj\n<< /Type /StructElem /S /Figure /P 13 0 R /Pg 3 0 R /Alt (Company logo) /K 1 >>\nendobj\n",
+		"16 0 obj\n<< /Type /StructElem /S /Sect /P 13 0 R /Pg 4 0 R /K [17 0 R] >>\nendobj\n",
+		"17 0 obj\n<< /Type /StructElem /S /P /P 16 0 R /ActualText <FEFF00480065006C006C006F00200077006F0072006C0064> /K << /Type /MCR /MCID 0 /Pg 4 0 R >> >>\nendobj\n",
+		"18 0 obj\n<< /Type /StructElem /S /Link /P 13 0 R /Pg 4 0 R /K [1 << /Type /OBJR /Obj 5 0 R >>] >>\nendobj\n",
+	}, "")
+}
+
+// structureBrokenPDFContent plants one finding of each kind `dump structure`
+// reports, all of them shapes pdfcpu's relaxed open accepts: a /K array
+// naming its parent, a /Pg on a non-page, an element with no /S, MCID 0
+// marked twice and MCID 2 with no ParentTree slot on page 1, a ParentTree
+// slot 1 no element claims, an EMC with nothing open and a BDC never closed,
+// a missing named property list, /StructParents naming a missing key, and a
+// ParentTree key outside its leaf's /Limits.
+func structureBrokenPDFContent() []byte {
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 6 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [7 0 R 8 0 R] /StructParents 0 /Resources << /Properties << /MC0 << /MCID 3 >> >> >> >>\nendobj\n",
+		"4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /StructParents 5 /Resources << >> >>\nendobj\n",
+		"5 0 obj\n<< /Note (not a page) >>\nendobj\n",
+		"6 0 obj\n<< /Type /StructTreeRoot /K 12 0 R /ParentTree 10 0 R /ParentTreeNextKey 2 >>\nendobj\n",
+		complStreamObj(7, "", "EMC /P <</MCID 0>> BDC 0 0 m EMC /P <</MCID 0>> BDC 0 0 m EMC"),
+		complStreamObj(8, "", "/P <</MCID 2>> BDC 0 0 m EMC /Span /MC9 BDC 0 0 m EMC /Artifact <</Type /Pagination>> BDC 0 0 m"),
+		complStreamObj(9, "", "/P <</MCID 0>> BDC 0 0 m EMC"),
+		"10 0 obj\n<< /Kids [11 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Limits [0 0] /Nums [0 [13 0 R 15 0 R] 1 16 0 R] >>\nendobj\n",
+		"12 0 obj\n<< /Type /StructElem /S /Document /P 6 0 R /K [13 0 R 14 0 R 15 0 R 16 0 R] >>\nendobj\n",
+		"13 0 obj\n<< /Type /StructElem /S /P /P 12 0 R /Pg 3 0 R /K 0 >>\nendobj\n",
+		"14 0 obj\n<< /Type /StructElem /S /Sect /P 12 0 R /Pg 3 0 R /K [12 0 R] >>\nendobj\n",
+		"15 0 obj\n<< /Type /StructElem /S /Figure /P 12 0 R /Pg 5 0 R /Alt (Chart) >>\nendobj\n",
+		"16 0 obj\n<< /Type /StructElem /P 12 0 R /Pg 4 0 R /K 0 >>\nendobj\n",
+	}, "")
+}
+
+// uaStructuralXMP is the XMP packet of the ua-structural fixtures: dc:title
+// matching /Info /Title and pdfuaid:part 1.
+const uaStructuralXMP = `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">UA structural fixture</rdf:li></rdf:Alt></dc:title>
+   <pdfuaid:part>1</pdfuaid:part>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`
+
+// uaStructuralPDF is a one-page tagged document for the pdfua-1-structural
+// content rules with at most one fault. The clean document has the catalog
+// entries PDF/UA-1 asks for (/MarkInfo, /Lang, /StructTreeRoot,
+// /ViewerPreferences /DisplayDocTitle, an XMP /Metadata with dc:title and
+// pdfuaid:part, a matching /Info /Title), a page whose /Contents is the array
+// [6 0 R 7 0 R] with MCID 0 in the first stream and MCID 1 in the second, and
+// a Document element with two P children, each claiming one MCID through a
+// ParentTree slot. fault is one of "", "unbalanced" (an EMC with nothing open
+// at the start of the content), "duplicate-mcid" (the second stream marks
+// MCID 0 again), "orphan-mcid" (the second stream also marks MCID 2, which has
+// no ParentTree slot), "nested-mcid" (MCID 1 opens inside the open MCID 0
+// sequence) and "empty-s" (the second P has /S with the empty name).
+func uaStructuralPDF(fault string) []byte {
+	first := "/P <</MCID 0>> BDC 0 0 m 100 100 l S EMC"
+	second := "/P <</MCID 1>> BDC 0 100 m 100 0 l S EMC"
+	secondS := "/P"
+	switch fault {
+	case "unbalanced":
+		first = "EMC " + first
+	case "duplicate-mcid":
+		second = "/P <</MCID 0>> BDC 0 100 m 100 0 l S EMC"
+	case "orphan-mcid":
+		second += " /P <</MCID 2>> BDC 50 0 m 50 100 l S EMC"
+	case "nested-mcid":
+		first = "/P <</MCID 0>> BDC 0 0 m 100 100 l S /P <</MCID 1>> BDC 0 100 m 100 0 l S EMC EMC"
+		second = "/Artifact BMC 0 50 m 100 50 l S EMC"
+	case "empty-s":
+		secondS = "/"
+	}
+	return complAssemblePDF([]string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /Lang (en-US) /StructTreeRoot 5 0 R /ViewerPreferences << /DisplayDocTitle true >> /Metadata 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents [6 0 R 7 0 R] /StructParents 0 /Resources << >> >>\nendobj\n",
+		complStreamObj(4, "/Type /Metadata /Subtype /XML ", uaStructuralXMP),
+		"5 0 obj\n<< /Type /StructTreeRoot /K 10 0 R /ParentTree 8 0 R /ParentTreeNextKey 1 >>\nendobj\n",
+		complStreamObj(6, "", first),
+		complStreamObj(7, "", second),
+		"8 0 obj\n<< /Nums [0 [11 0 R 12 0 R]] >>\nendobj\n",
+		"9 0 obj\n<< /Title (UA structural fixture) >>\nendobj\n",
+		"10 0 obj\n<< /Type /StructElem /S /Document /P 5 0 R /K [11 0 R 12 0 R] >>\nendobj\n",
+		"11 0 obj\n<< /Type /StructElem /S /P /P 10 0 R /Pg 3 0 R /K 0 >>\nendobj\n",
+		"12 0 obj\n<< /Type /StructElem /S " + secondS + " /P 10 0 R /Pg 3 0 R /K 1 >>\nendobj\n",
+	}, "/Info 9 0 R ")
+}
+
 // pdfaCleanContent builds a minimal PDF/A-1b file that veraPDF --flavour 1b
 // passes: a PDF/A-identification XMP packet (pdfaid part 1 / conformance B), a
 // document /ID, no fonts, no device color, and a blank page. Provenance:
@@ -600,6 +887,54 @@ func pdfaCleanContent() []byte {
 	}, "/ID [<0123456789ABCDEF0123456789ABCDEF> <0123456789ABCDEF0123456789ABCDEF>] ")
 }
 
+// xrefStreamChecksumPDFContent keeps the catalog, page tree and page in a
+// Flate object stream, indexed by a Flate cross-reference stream with no
+// /DecodeParms whose Adler-32 trailer has its last byte flipped. The deflate
+// data of both streams is intact.
+func xrefStreamChecksumPDFContent() []byte {
+	deflate := func(b []byte) []byte {
+		var z bytes.Buffer
+		zw := zlib.NewWriter(&z)
+		_, _ = zw.Write(b)
+		_ = zw.Close()
+		return z.Bytes()
+	}
+	objs := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+	}
+	var head, body string
+	for i, o := range objs {
+		head += fmt.Sprintf("%d %d ", i+1, len(body))
+		body += o + "\n"
+	}
+	objStm := deflate([]byte(head + body))
+
+	out := []byte("%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+	objStmOff := len(out)
+	out = fmt.Appendf(out, "4 0 obj\n<< /Type /ObjStm /N 3 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", len(head), len(objStm))
+	out = append(out, objStm...)
+	out = append(out, "\nendstream\nendobj\n"...)
+	xrefOff := len(out)
+
+	// /W [1 2 1]: free head, three objects in object stream 4, then the two
+	// top-level streams.
+	rows := []byte{0, 0, 0, 255}
+	for i := range objs {
+		rows = append(rows, 2, 0, 4, byte(i))
+	}
+	rows = append(rows, 1, byte(objStmOff>>8), byte(objStmOff), 0)
+	rows = append(rows, 1, byte(xrefOff>>8), byte(xrefOff), 0)
+	xref := deflate(rows)
+	xref[len(xref)-1] ^= 0xFF
+
+	out = fmt.Appendf(out, "5 0 obj\n<< /Type /XRef /Size 6 /Root 1 0 R /W [1 2 1] /Filter /FlateDecode /Length %d >>\nstream\n", len(xref))
+	out = append(out, xref...)
+	out = append(out, "\nendstream\nendobj\n"...)
+	return fmt.Appendf(out, "startxref\n%d\n%%%%EOF\n", xrefOff)
+}
+
 // TestGenerateFixtures creates test PDF files used by the test suite.
 // Run with: go test -run TestGenerateFixtures -v ./testdata/
 func TestGenerateFixtures(t *testing.T) {
@@ -611,7 +946,7 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("failed to create minimal.pdf: %v", err)
 		}
 		// Verify pdfcpu can read it
-		ctx, err := pdfcpu_api.ReadContextFile("minimal.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "minimal.pdf")
 		if err != nil {
 			os.Remove("minimal.pdf")
 			t.Fatalf("minimal.pdf is not valid according to pdfcpu: %v", err)
@@ -626,7 +961,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("multipage.pdf", multipagePDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create multipage.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("multipage.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "multipage.pdf")
 		if err != nil {
 			os.Remove("multipage.pdf")
 			t.Fatalf("multipage.pdf is not valid according to pdfcpu: %v", err)
@@ -641,7 +976,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("content-stream.pdf", contentStreamPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create content-stream.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("content-stream.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "content-stream.pdf")
 		if err != nil {
 			os.Remove("content-stream.pdf")
 			t.Fatalf("content-stream.pdf is not valid according to pdfcpu: %v", err)
@@ -656,12 +991,23 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("empty-stream.pdf", emptyStreamPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create empty-stream.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("empty-stream.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "empty-stream.pdf")
 		if err != nil {
 			os.Remove("empty-stream.pdf")
 			t.Fatalf("empty-stream.pdf is not valid according to pdfcpu: %v", err)
 		}
 		t.Logf("empty-stream.pdf created: %d pages", ctx.PageCount)
+	})
+
+	// pdfcpu refuses the broken cross-reference stream trailer, so the file
+	// is not checked against it.
+	t.Run("xref-stream-checksum.pdf", func(t *testing.T) {
+		if _, err := os.Stat("xref-stream-checksum.pdf"); err == nil {
+			t.Skip("xref-stream-checksum.pdf already exists")
+		}
+		if err := os.WriteFile("xref-stream-checksum.pdf", xrefStreamChecksumPDFContent(), 0644); err != nil {
+			t.Fatalf("failed to create xref-stream-checksum.pdf: %v", err)
+		}
 	})
 
 	t.Run("malformed.pdf", func(t *testing.T) {
@@ -685,7 +1031,7 @@ func TestGenerateFixtures(t *testing.T) {
 			}
 		}
 		conf := pdfcpu_model.NewAESConfiguration("testpass", "ownerpass", 256)
-		if err := pdfcpu_api.EncryptFile("minimal.pdf", "encrypted.pdf", conf); err != nil {
+		if err := pdfcpu_api.EncryptFile(context.Background(), "minimal.pdf", "encrypted.pdf", conf); err != nil {
 			t.Fatalf("failed to create encrypted.pdf: %v", err)
 		}
 	})
@@ -698,7 +1044,7 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Fatalf("failed to create fonts-mixed.pdf: %v", err)
 		}
 		// Verify pdfcpu can read it.
-		ctx, err := pdfcpu_api.ReadContextFile("fonts-mixed.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "fonts-mixed.pdf")
 		if err != nil {
 			os.Remove("fonts-mixed.pdf")
 			t.Fatalf("fonts-mixed.pdf is not valid according to pdfcpu: %v", err)
@@ -713,7 +1059,7 @@ func TestGenerateFixtures(t *testing.T) {
 		if err := os.WriteFile("image-xobject.pdf", imageXObjectPDFContent(), 0644); err != nil {
 			t.Fatalf("failed to create image-xobject.pdf: %v", err)
 		}
-		ctx, err := pdfcpu_api.ReadContextFile("image-xobject.pdf")
+		ctx, err := pdfcpu_api.ReadContextFile(context.Background(), "image-xobject.pdf")
 		if err != nil {
 			os.Remove("image-xobject.pdf")
 			t.Fatalf("image-xobject.pdf is not valid according to pdfcpu: %v", err)
@@ -722,16 +1068,36 @@ func TestGenerateFixtures(t *testing.T) {
 	})
 
 	// Signature fixtures: a real programmatically signed
-	// adbe.pkcs7.detached PDF plus its byte-surgery variants and the unsigned
-	// placeholder. Each must parse through pdfcpu's default validation.
+	// adbe.pkcs7.detached PDF plus its byte-surgery variants, the unsigned
+	// placeholder, and the BER variants (openssl streamed, the Go-built
+	// indefinite-length detached shape, that shape with a malformed final
+	// end-of-contents, and that shape with non-zero bytes after the CMS), and
+	// a DER detached signature whose leaf carries key usage, EKU, CRL DP and
+	// AIA extensions.
+	// Each must parse through pdfcpu's default validation.
 	sigFixtures := []struct {
 		name    string
 		content func(t *testing.T) []byte
 	}{
-		{"signed.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, false) }},
-		{"signed-notcovers.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 100, false) }},
-		{"signed-badcontents.pdf", func(t *testing.T) []byte { return signedPDFContent(t, 0, true) }},
+		{"signed.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{}) }},
+		{"signed-notcovers.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{shortfall: 100}) }},
+		{"signed-badcontents.pdf", func(t *testing.T) []byte { return signedPDFContent(t, sigFixtureOpt{corrupt: true}) }},
 		{"unsigned-sig-field.pdf", func(t *testing.T) []byte { return unsignedSigFieldPDFContent() }},
+		{"signed-ber.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{subFilter: "adbe.pkcs7.sha1", cms: sigFixtureOpenSSLStreamed})
+		}},
+		{"signed-ber-detached.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBER})
+		}},
+		{"signed-ber-badeoc.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBadEOC})
+		}},
+		{"signed-ber-trailing.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedBERTrailing})
+		}},
+		{"signed-cert-extensions.pdf", func(t *testing.T) []byte {
+			return signedPDFContent(t, sigFixtureOpt{cms: sigFixtureDetachedCertExtensions})
+		}},
 	}
 	for _, fx := range sigFixtures {
 		t.Run(fx.name, func(t *testing.T) {
@@ -741,7 +1107,7 @@ func TestGenerateFixtures(t *testing.T) {
 			if err := os.WriteFile(fx.name, fx.content(t), 0644); err != nil {
 				t.Fatalf("failed to create %s: %v", fx.name, err)
 			}
-			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			ctx, err := pdfcpu_api.ReadContextFile(context.Background(), fx.name)
 			if err != nil {
 				os.Remove(fx.name)
 				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)
@@ -762,6 +1128,14 @@ func TestGenerateFixtures(t *testing.T) {
 		{"untagged.pdf", untaggedPDFContent},
 		{"tagged.pdf", taggedPDFContent},
 		{"pdfa-1b-clean.pdf", pdfaCleanContent},
+		{"structure.pdf", structurePDFContent},
+		{"structure-broken.pdf", structureBrokenPDFContent},
+		{"ua-structural-clean.pdf", func() []byte { return uaStructuralPDF("") }},
+		{"ua-structural-unbalanced.pdf", func() []byte { return uaStructuralPDF("unbalanced") }},
+		{"ua-structural-duplicate-mcid.pdf", func() []byte { return uaStructuralPDF("duplicate-mcid") }},
+		{"ua-structural-orphan-mcid.pdf", func() []byte { return uaStructuralPDF("orphan-mcid") }},
+		{"ua-structural-nested-mcid.pdf", func() []byte { return uaStructuralPDF("nested-mcid") }},
+		{"ua-structural-empty-s.pdf", func() []byte { return uaStructuralPDF("empty-s") }},
 	}
 	for _, fx := range complFixtures {
 		t.Run(fx.name, func(t *testing.T) {
@@ -771,7 +1145,7 @@ func TestGenerateFixtures(t *testing.T) {
 			if err := os.WriteFile(fx.name, fx.content(), 0644); err != nil {
 				t.Fatalf("failed to create %s: %v", fx.name, err)
 			}
-			ctx, err := pdfcpu_api.ReadContextFile(fx.name)
+			ctx, err := pdfcpu_api.ReadContextFile(context.Background(), fx.name)
 			if err != nil {
 				os.Remove(fx.name)
 				t.Fatalf("%s is not valid according to pdfcpu: %v", fx.name, err)

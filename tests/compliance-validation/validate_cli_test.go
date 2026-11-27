@@ -279,19 +279,19 @@ func TestValidate_UnknownProfileExitsTwo(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The PDF/UA-1 structural rules are WARNINGS (non-gating). An untagged doc
-// under pdfua-1-structural yields warnings but ZERO errors -> exit 0. The
-// missing /Lang is a document-level problem (empty objRef) -- the story's
-// canonical "Document" group member.
+// The PDF/UA-1 catalog rules are WARNINGS and do not gate. An untagged doc
+// with no marked content under pdfua-1-structural yields only those warnings
+// and ZERO errors -> exit 0. The missing /Lang is a document-level problem
+// (empty objRef).
 // ---------------------------------------------------------------------------
 
-func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
+func TestValidate_PDFUACatalogWarningsDoNotGate(t *testing.T) {
 	bin := buildCLI(t)
 	pdf := writeTempPDF(t, "untagged.pdf", untaggedPDF())
 
 	stdout, stderr, ec := runCLI(t, bin, "validate", "--profile", "pdfua-1-structural", "--json", pdf)
 	if ec != 0 {
-		t.Fatalf("PDF/UA warnings must NOT gate; expected exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
+		t.Fatalf("PDF/UA catalog warnings must NOT gate; expected exit 0, got %d\nstdout: %s\nstderr: %s", ec, stdout, stderr)
 	}
 	res := validateResult(t, stdout)
 	if got := getStr(res, "profile"); got != "pdfua-1-structural" {
@@ -300,12 +300,12 @@ func TestValidate_PDFUAWarningsDoNotGate(t *testing.T) {
 	ps := problemsOf(t, res)
 	errs, warns := summaryOf(t, res)
 	if errs != 0 {
-		t.Errorf("PDF/UA structural profile must emit zero errors, got %d", errs)
+		t.Errorf("an untagged doc with no marked content must emit zero PDF/UA errors, got %d", errs)
 	}
 	if warns < 1 {
 		t.Errorf("untagged doc should raise >=1 PDF/UA warning, got %d", warns)
 	}
-	// Every emitted PDF/UA problem must be a warning and carry the profile tag.
+	// Every problem on this doc is a catalog warning carrying the profile tag.
 	for _, p := range ps {
 		if getStr(p, "severity") != "warning" {
 			t.Errorf("PDF/UA problem severity = %q, want warning: %v", getStr(p, "severity"), p)

@@ -71,7 +71,7 @@ func runPdfcoreTest(t *testing.T, runPattern string) {
 
 // ---------------------------------------------------------------------------
 // Open() with malformed PDF stores document and populates DocumentInfo.Error
-// with a warning (not a fatal error) when ReadContextFile succeeds but
+// with a warning (not a fatal error) when ReadContext succeeds but
 // EnsurePageCount fails. Delegates to pdfcore unit test.
 // ---------------------------------------------------------------------------
 

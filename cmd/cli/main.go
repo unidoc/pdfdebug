@@ -13,11 +13,6 @@ import (
 // version is overridden via -ldflags "-X main.version=x.y.z" in release builds.
 var version = "dev"
 
-// deprecatedPlaintextNotice is the single stderr line the `dump plaintext`
-// alias writes before running `dump bytes`. Unconditional: no TTY check and no
-// opt-out, because the people who most need it run the command from scripts.
-const deprecatedPlaintextNotice = `pdfdebug: "dump plaintext" is deprecated and will be removed in 0.6.0; use "dump bytes".`
-
 func main() {
 	// Suppress pdfcpu's internal log output so stderr stays clean for JSON errors.
 	log.SetOutput(io.Discard)
@@ -85,13 +80,9 @@ func dispatch(args []string) int {
 			return runObjectsDump(remaining)
 		case "pages":
 			return runPagesDump(remaining)
+		case "structure":
+			return runStructureDump(remaining)
 		case "bytes":
-			return runBytesDump(remaining)
-		case "plaintext":
-			// Deprecated alias. The notice is written here rather than inside the
-			// handler so it fires on a usage error too, and on stderr so piped
-			// stdout (a machine format) stays clean.
-			fmt.Fprintln(os.Stderr, deprecatedPlaintextNotice)
 			return runBytesDump(remaining)
 		case "embedded":
 			return runEmbeddedDump(remaining)
@@ -126,7 +117,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  0  ran successfully, no structural errors found (NOT a compliance/valid verdict)")
 	_, _ = fmt.Fprintln(w, "  1  ran successfully AND found >=1 structural error, or a gating rule could not be evaluated (the CI compliance-gate signal)")
 	_, _ = fmt.Fprintln(w, "  2  operational or usage error (missing/unreadable file, unknown profile, bad args, view failure)")
-	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural")
+	_, _ = fmt.Fprintln(w, "  valid profiles: pdfa-1b (default), pdfua-1-structural, pdfcpu")
 	for _, line := range profileRuleLines() {
 		_, _ = fmt.Fprintln(w, line)
 	}
@@ -157,6 +148,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump xref file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump objects file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump pages file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug dump structure file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump images file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump bytes file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump embedded file.pdf")
@@ -166,6 +158,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump signatures file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug validate --profile pdfua-1-structural file.pdf")
+	_, _ = fmt.Fprintln(w, "  pdfdebug validate --profile pdfcpu file.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug diff old.pdf new.pdf")
 	_, _ = fmt.Fprintln(w, "  pdfdebug diff --json old.pdf new.pdf        # structured DiffNode tree + summary")
 	_, _ = fmt.Fprintln(w, "  pdfdebug dump tree --json file.pdf       # opt into structured JSON")

@@ -45,6 +45,3 @@ one JSON object per operator.
 
 Dumps the document's raw bytes, not the text on its pages; for page prose, use
 `pdftotext`. `--json` wraps the decoded text.
-
-`dump bytes` was called `dump plaintext`. The old spelling still works, prints
-a deprecation notice on stderr, and is removed in 0.6.0.

@@ -9,11 +9,11 @@ import (
 )
 
 // TestRenderValidate_ExitCodeGate locks the three-way exit contract at the point
-// it is decided (renderValidate), including the fail-closed rule: an info-only
-// degraded run under a GATING profile (pdfa-1b) must exit 1, so a required rule
-// that never actually ran cannot silently report a clean exit 0. The same
-// info-only run under the non-gating pdfua-1-structural profile exits 0. The
-// plain-text exit explanation prints exactly when the exit is 1 with no errors.
+// it is decided (renderValidate), including the fail-closed rule: a run where an
+// error-severity rule degraded to info must exit 1, so a required rule that
+// never actually ran cannot silently report a clean exit 0. A run where only a
+// warning-severity rule degraded exits 0. The plain-text exit explanation
+// prints exactly when the exit is 1 with no errors.
 func TestRenderValidate_ExitCodeGate(t *testing.T) {
 	// Silence the plain-text report the function writes to os.Stdout.
 	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
@@ -25,18 +25,22 @@ func TestRenderValidate_ExitCodeGate(t *testing.T) {
 	os.Stdout = devnull
 	defer func() { os.Stdout = old }()
 
+	degraded := func(id string, sev pdfcore.Severity) []pdfcore.RuleInfo {
+		return []pdfcore.RuleInfo{{RuleID: id, Severity: sev, Evaluated: false}}
+	}
 	tests := []struct {
 		name    string
 		profile string
 		summary pdfcore.ValidationSummary
+		rules   []pdfcore.RuleInfo
 		want    int
 	}{
-		{"clean pdfa-1b exits 0", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{}, 0},
-		{"error problem exits 1", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Errors: 1}, 1},
-		{"info-only under gating profile fails closed (exit 1)", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Info: 1}, 1},
-		{"info-only under non-gating profile exits 0", pdfcore.ProfilePDFUA1Structural, pdfcore.ValidationSummary{Info: 1}, 0},
-		{"warnings alone do not gate", pdfcore.ProfilePDFUA1Structural, pdfcore.ValidationSummary{Warnings: 3}, 0},
-		{"errors and info under gating profile exit 1", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Errors: 1, Info: 1}, 1},
+		{"clean pdfa-1b exits 0", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{}, nil, 0},
+		{"error problem exits 1", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Errors: 1}, nil, 1},
+		{"info-only from a degraded error rule fails closed (exit 1)", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Info: 1}, degraded("font-embedding", "error"), 1},
+		{"info-only from a degraded warning rule exits 0", pdfcore.ProfilePDFUA1Structural, pdfcore.ValidationSummary{Info: 1}, degraded("lang", "warning"), 0},
+		{"warnings alone do not gate", pdfcore.ProfilePDFUA1Structural, pdfcore.ValidationSummary{Warnings: 3}, nil, 0},
+		{"errors and a degraded error rule exit 1", pdfcore.ProfilePDFA1B, pdfcore.ValidationSummary{Errors: 1, Info: 1}, degraded("font-embedding", "error"), 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -45,6 +49,7 @@ func TestRenderValidate_ExitCodeGate(t *testing.T) {
 				Summary:    tc.summary,
 				Problems:   []pdfcore.Problem{},
 				Disclaimer: pdfcore.DisclaimerText,
+				Rules:      tc.rules,
 			}
 			got := renderValidate(res, false, false)
 			if got != tc.want {

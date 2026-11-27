@@ -289,7 +289,7 @@ func TestMatrixContainsAllFourPlatforms(t *testing.T) {
 	}{
 		"macos-latest|arm64":   {goos: "darwin", platform: "darwin-arm64"},
 		"windows-latest|amd64": {goos: "windows", platform: "windows-amd64"},
-		"ubuntu-latest|amd64":  {goos: "linux", platform: "linux-amd64"},
+		"ubuntu-24.04|amd64":   {goos: "linux", platform: "linux-amd64"},
 	}
 	seen := map[string]bool{}
 
@@ -568,10 +568,10 @@ func TestTwoJobsBuildAndRelease(t *testing.T) {
 	default:
 		t.Errorf("release.yml: jobs.release.needs has unexpected type %T", needs)
 	}
-	// release job must run on ubuntu-latest (requires shasum on ubuntu)
+	// release job must run on ubuntu-24.04 (requires shasum on ubuntu)
 	runsOn, _ := rel["runs-on"].(string)
-	if runsOn != "ubuntu-latest" {
-		t.Errorf("release.yml: jobs.release.runs-on must be \"ubuntu-latest\", got %q", runsOn)
+	if runsOn != "ubuntu-24.04" {
+		t.Errorf("release.yml: jobs.release.runs-on must be \"ubuntu-24.04\", got %q", runsOn)
 	}
 }
 

@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -9,13 +10,16 @@ import (
 	"strconv"
 	"strings"
 
+	pdfcpu_model "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // Severity classifies a Problem. It is a fixed property declared per rule in
-// the registry (never computed per run): PDF/A-1b structural rules are always
-// "error" and gate the CLI exit code; PDF/UA-1 structural rules are always
-// "warning" and never gate. "info" is reserved for the degraded-rule signal.
+// the registry (never computed per run). An "error" rule gates the CLI exit
+// code, both through its findings and when it could not be evaluated; a
+// "warning" rule never gates. Every PDF/A-1b rule is "error"; PDF/UA-1 rules
+// are "error" or "warning" per rule. "info" is reserved for the degraded-rule
+// signal.
 type Severity = string
 
 // Profile names the bounded, versioned rule subset selected for a run. Exactly
@@ -24,14 +28,19 @@ const (
 	// ProfilePDFA1B is the default profile: the PDF/A-1b structural rule set
 	// (all error severity).
 	ProfilePDFA1B = "pdfa-1b"
-	// ProfilePDFUA1Structural is the PDF/UA-1 structural subset (all warning
-	// severity, non-gating).
+	// ProfilePDFUA1Structural is the PDF/UA-1 structural subset: catalog,
+	// balance, uniqueness and nesting rules (warning), ParentTree reachability
+	// and /S rules (error).
 	ProfilePDFUA1Structural = "pdfua-1-structural"
+	// ProfilePdfcpu runs pdfcpu's own relaxed validator on a separate parse of
+	// the file: pdfcpu-validator (error) holds its fatal problem and
+	// pdfcpu-notices (warning) the notices from its validation report.
+	ProfilePdfcpu = "pdfcpu"
 )
 
 // ValidProfiles lists every accepted --profile value, in display order. Used by
 // the CLI to report an unknown profile and by callers to enumerate choices.
-var ValidProfiles = []string{ProfilePDFA1B, ProfilePDFUA1Structural}
+var ValidProfiles = []string{ProfilePDFA1B, ProfilePDFUA1Structural, ProfilePdfcpu}
 
 // DisclaimerText is the always-visible honesty guardrail. It states
 // plainly that the checks are structural only and defers authoritative
@@ -129,9 +138,12 @@ type ruleHit struct {
 // rule is one entry in the bounded, documented rule registry. Adding a rule is
 // a code change, not a config change. Severity is a fixed property of the rule
 // here, not computed per run. checks is a short plain-ASCII phrase saying what
-// the check tests, including its coverage bound. check returns an error when it
-// could not read what it needs to decide (e.g. the catalog); the rule is then
-// reported as not evaluated.
+// the check tests, including its coverage bound. Exactly one of check and
+// checkStructure is set. check reads the document; checkStructure reads the
+// run's structure report, after the engine has read the catalog. Either
+// returns an error when it could not read what it needs to decide; the rule
+// is then reported as not evaluated. The pdfcpu profile's rules set neither:
+// one pdfcpu run decides both (see validatePdfcpu).
 type rule struct {
 	id       string
 	profile  string
@@ -139,11 +151,16 @@ type rule struct {
 	specRef  string
 	checks   string
 	check    func(doc *DocumentState) ([]ruleHit, error)
+	// checkStructure, when set instead of check, reads the run's structure
+	// report.
+	checkStructure func(doc *DocumentState, rep *StructureReport) ([]ruleHit, error)
 }
 
 // ruleRegistry is the single source of truth for the bounded structural rule
-// set. PDF/A-1b rules are all "error" (they gate the CLI exit code); PDF/UA-1
-// structural rules are all "warning" (informational, never gating).
+// set. PDF/A-1b rules are all "error" (they gate the CLI exit code). PDF/UA-1
+// mcid-in-parent-tree and struct-elem-type are "error" and gate, matching the
+// faults veraPDF fails a file on; the catalog rules and the balance,
+// uniqueness and nesting rules are "warning" (they do not gate).
 //
 // RULE DELTA (veraPDF checks we deliberately do NOT implement - the structural
 // firewall, cross-referenced from tests/compliance-validation/
@@ -193,7 +210,7 @@ var ruleRegistry = []rule{
 		checks:  "trailer has an /ID entry",
 		check:   checkDocumentID,
 	},
-	// --- PDF/UA-1 structural subset (all warning, non-gating) ----------------
+	// --- PDF/UA-1 structural subset (ParentTree and /S error, rest warning) --
 	{
 		id: "marked", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef: "ISO 14289-1:2014, 7.1",
@@ -203,7 +220,7 @@ var ruleRegistry = []rule{
 	{
 		id: "struct-tree-root", profile: ProfilePDFUA1Structural, severity: "warning",
 		specRef: "ISO 14289-1:2014, 7.1",
-		checks:  "catalog has a /StructTreeRoot key (presence only, contents not read)",
+		checks:  "catalog has a /StructTreeRoot that is not null or a reference to a missing object (presence only, contents not read)",
 		check:   checkStructTreeRoot,
 	},
 	{
@@ -211,6 +228,47 @@ var ruleRegistry = []rule{
 		specRef: "ISO 14289-1:2014, 7.2",
 		checks:  "catalog /Lang is a non-empty string",
 		check:   checkLang,
+	},
+	{
+		id: "marked-content-balance", profile: ProfilePDFUA1Structural, severity: "warning",
+		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.6.1",
+		checks:         "every page's content stream (its /Contents, an array read as one stream) closes every BMC/BDC it opens and has no EMC without an open sequence; a content stream that cannot be decoded or a page whose /Contents cannot be read is reported here; form XObjects, annotation appearances and Type3 glyphs not scanned",
+		checkStructure: checkMarkedContentBalance,
+	},
+	{
+		id: "mcid-unique", profile: ProfilePDFUA1Structural, severity: "warning",
+		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.2",
+		checks:         "no MCID marks more than one BDC in a page's content stream (its /Contents read as one stream); unreadable content is reported under marked-content-balance; form XObjects not scanned",
+		checkStructure: checkMCIDUnique,
+	},
+	{
+		id: "mcid-in-parent-tree", profile: ProfilePDFUA1Structural, severity: "error",
+		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.4",
+		checks:         "every MCID in a page's content stream reaches a structure element through the page's /StructParents and its ParentTree array; a BDC whose MCID cannot be read, and page content or a content stream that cannot be decoded, is reported here as not checked; whether that element's /K claims the MCID is not checked; form XObjects not scanned",
+		checkStructure: checkMCIDInParentTree,
+	},
+	{
+		id: "mcid-not-nested", profile: ProfilePDFUA1Structural, severity: "warning",
+		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.4.1",
+		checks:         "no BDC carrying an MCID opens inside another open sequence that carries an MCID in a page's content stream (BMC and MCID-less BDC may wrap one); unreadable content is reported under marked-content-balance; form XObjects not scanned",
+		checkStructure: checkMCIDNotNested,
+	},
+	{
+		id: "struct-elem-type", profile: ProfilePDFUA1Structural, severity: "error",
+		specRef:        "ISO 14289-1:2014, 7.1; ISO 32000-1:2008, 14.7.2",
+		checks:         "every structure element reached from /StructTreeRoot /K has a non-empty /S name (absent, empty or not a name is reported, and an element that cannot be read is reported as not checked); role mapping to standard types is not checked",
+		checkStructure: checkStructElemType,
+	},
+	// --- pdfcpu's own validator on a separate parse (validator error, notices warning)
+	{
+		id: "pdfcpu-validator", profile: ProfilePdfcpu, severity: "error",
+		specRef: "pdfcpu",
+		checks:  "pdfcpu's relaxed validator accepts the document; it stops at the first problem",
+	},
+	{
+		id: "pdfcpu-notices", profile: ProfilePdfcpu, severity: "warning",
+		specRef: "pdfcpu",
+		checks:  "repairs, digested violations and skipped objects pdfcpu records in its validation report",
 	},
 }
 
@@ -232,9 +290,18 @@ var profileInfos = map[string]profileInfo{
 	},
 	ProfilePDFUA1Structural: {
 		standard: "PDF/UA-1",
-		scope: "A structural subset of PDF/UA-1 limited to the catalog-level rules listed. Marked content, the " +
-			"structure tree's contents, alternate text, fonts and the rest of the catalog are not examined. This is " +
-			"not a PDF/UA-1 conformance check.",
+		scope: "A structural subset of PDF/UA-1 limited to the rules listed: catalog entries, the /S of each " +
+			"structure element, and marked-content balance, MCID uniqueness, MCID nesting and ParentTree " +
+			"reachability in page content. Content outside marked content, form XObject and annotation content, " +
+			"alternate text, fonts, role mapping and the rest of the structure tree are not examined. This is not " +
+			"a PDF/UA-1 conformance check.",
+	},
+	ProfilePdfcpu: {
+		standard: "pdfcpu validator (relaxed mode)",
+		scope: "pdfcpu's own validator in relaxed mode, run on a separate parse of the file; the displayed " +
+			"document is not changed. Validation stops at the first fatal problem. pdfcpu records only a subset " +
+			"of its repairs in its validation report and writes the rest to its log, so the notice list is " +
+			"partial. This is not a conformance check.",
 	},
 }
 
@@ -258,7 +325,8 @@ func ProfileScope(profile string) string {
 }
 
 // ProfileStandard returns the display name of the standard profile is a subset
-// of (e.g. "PDF/UA-1"), or "" for an unknown profile.
+// of (e.g. "PDF/UA-1"), or of the validator it runs for pdfcpu, or "" for an
+// unknown profile.
 func ProfileStandard(profile string) string {
 	return profileInfos[profile].standard
 }
@@ -268,29 +336,25 @@ func ruleInfoOf(r rule) RuleInfo {
 	return RuleInfo{RuleID: r.id, SpecRef: r.specRef, Severity: r.severity, Checks: r.checks}
 }
 
-// ProfileGates reports whether a profile's rules gate the CLI exit code, i.e.
-// the profile contains at least one error-severity rule (pdfa-1b does;
-// pdfua-1-structural, all warnings, does not). Used by the CLI so a gating-rule
-// that could not be evaluated (degraded to info) fails closed rather than
-// reporting a clean exit 0.
-func ProfileGates(profile string) bool {
-	for _, r := range ruleRegistry {
-		if r.profile == profile && r.severity == "error" {
-			return true
-		}
-	}
-	return false
-}
-
 // Validate runs the bounded rule set for the selected profile against the
 // document in tabID and returns the problem list, tally, disclaimer, scope
 // sentence and the per-rule outcomes (Rules, registry order; a degraded rule
 // has Evaluated false and Findings 0). An
 // empty profile defaults to pdfa-1b; an unrecognized profile returns
-// ErrUnknownProfile (the CLI maps it to the operational exit). Runs under
-// doc.pdfMu; each rule is safeCall-wrapped so a rule that panics internally
-// degrades to one info-severity problem rather than failing the whole run.
+// ErrUnknownProfile (the CLI maps it to the operational exit). When the
+// profile has structure rules, the structure report is built once before
+// doc.pdfMu is taken: a close during that walk returns an error satisfying
+// errors.Is(err, context.Canceled), and any other walk failure leaves each
+// structure rule not evaluated. The rules then run under doc.pdfMu; a rule
+// that panics or errors degrades to one info-severity problem rather than
+// failing the whole run. The pdfcpu profile runs validatePdfcpu instead,
+// without holding doc.pdfMu for the run.
 func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error) {
+	return ins.validate(tabID, profile, newStructureWalker)
+}
+
+// validate is Validate with the structure walker factory as a parameter.
+func (ins *Inspector) validate(tabID, profile string, newWalker func(*pdfcpu_model.Context) *structureWalker) (*ValidationResult, error) {
 	if profile == "" {
 		profile = ProfilePDFA1B
 	}
@@ -302,57 +366,82 @@ func (ins *Inspector) Validate(tabID, profile string) (*ValidationResult, error)
 	if err != nil {
 		return nil, err
 	}
+	if profile == ProfilePdfcpu {
+		return validatePdfcpu(doc)
+	}
+	// The walk takes pdfMu itself, so it runs before the run's hold.
+	var rep *StructureReport
+	var repErr error
+	if profileReadsStructure(profile) {
+		rep, repErr = buildValidateStructure(doc, newWalker)
+		if errors.Is(repErr, context.Canceled) {
+			return nil, repErr
+		}
+	}
 	// Serialize pdfcpu access: every rule dereferences catalog/trailer/object
 	// entries that touch pdfcpu's XRefTable.
 	doc.pdfMu.Lock()
 	defer doc.pdfMu.Unlock()
 
-	res := &ValidationResult{
+	res := newValidationResult(profile)
+	for _, r := range ruleRegistry {
+		if r.profile != profile {
+			continue
+		}
+		// A rule that errors internally degrades to a single info problem,
+		// never a whole-run failure. runRule catches ANY panic, including a
+		// runtime.Error (nil deref, bad type assertion) that safeCall
+		// deliberately re-panics -- a bug in one rule must not abort the
+		// bounded run.
+		hits, ruleErr := runRule(doc, r, rep, repErr)
+		addRuleOutcome(res, r, hits, ruleErr)
+	}
+	res.Summary = summarize(res.Problems)
+	return res, nil
+}
+
+// newValidationResult returns an empty result for profile with its disclaimer
+// and scope set.
+func newValidationResult(profile string) *ValidationResult {
+	return &ValidationResult{
 		Profile:    profile,
 		Problems:   []Problem{},
 		Disclaimer: DisclaimerText,
 		Scope:      ProfileScope(profile),
 		Rules:      []RuleInfo{},
 	}
-	for _, r := range ruleRegistry {
-		if r.profile != profile {
-			continue
-		}
-		hits, ruleErr := runRule(doc, r)
-		info := ruleInfoOf(r)
-		if ruleErr != nil {
-			res.Rules = append(res.Rules, info)
-			// A rule that errors internally degrades to a single info
-			// problem, never a whole-run failure. This catches ANY panic,
-			// including a runtime.Error (nil deref, bad type assertion) that
-			// safeCall deliberately re-panics -- a bug in one rule must not
-			// abort the bounded run.
-			res.Problems = append(res.Problems, Problem{
-				RuleID:   r.id,
-				Profile:  profile,
-				Severity: "info",
-				Message:  fmt.Sprintf("rule %q could not be evaluated: %v", r.id, ruleErr),
-				SpecRef:  r.specRef,
-			})
-			continue
-		}
-		info.Evaluated = true
-		info.Findings = len(hits)
+}
+
+// addRuleOutcome appends rule r's RuleInfo and problems to res. A non-nil
+// ruleErr marks the rule not evaluated with one info problem naming the error;
+// otherwise each hit becomes a problem with the rule's registry severity.
+func addRuleOutcome(res *ValidationResult, r rule, hits []ruleHit, ruleErr error) {
+	info := ruleInfoOf(r)
+	if ruleErr != nil {
 		res.Rules = append(res.Rules, info)
-		for _, h := range hits {
-			res.Problems = append(res.Problems, Problem{
-				RuleID:    r.id,
-				Profile:   profile,
-				Severity:  r.severity,
-				Message:   h.message,
-				ObjRef:    h.objRef,
-				ObjNodeID: h.objNodeID,
-				SpecRef:   r.specRef,
-			})
-		}
+		res.Problems = append(res.Problems, Problem{
+			RuleID:   r.id,
+			Profile:  r.profile,
+			Severity: "info",
+			Message:  fmt.Sprintf("rule %q could not be evaluated: %v", r.id, ruleErr),
+			SpecRef:  r.specRef,
+		})
+		return
 	}
-	res.Summary = summarize(res.Problems)
-	return res, nil
+	info.Evaluated = true
+	info.Findings = len(hits)
+	res.Rules = append(res.Rules, info)
+	for _, h := range hits {
+		res.Problems = append(res.Problems, Problem{
+			RuleID:    r.id,
+			Profile:   r.profile,
+			Severity:  r.severity,
+			Message:   h.message,
+			ObjRef:    h.objRef,
+			ObjNodeID: h.objNodeID,
+			SpecRef:   r.specRef,
+		})
+	}
 }
 
 // summarize tallies problems by severity.
@@ -372,21 +461,34 @@ func summarize(problems []Problem) ValidationSummary {
 }
 
 // runRule runs one rule's check and returns its hits, or the error the check
-// returned when it could not read what it needs (no hits then). It also
+// returned when it could not read what it needs (no hits then). A structure
+// rule reads the catalog first, so an unreadable catalog reads the same under
+// every rule; then a failed structure walk (repErr) leaves it not evaluated;
+// else its checkStructure reads rep. It also
 // converts ANY panic (including a runtime.Error that safeCall re-panics) into
 // an error so the caller can degrade the rule to an info problem rather than
 // crashing the whole run. This is a deliberate exception to the project-wide
 // "runtime.Error surfaces loudly" rule: a read-only inspector over arbitrary
 // PDFs must keep evaluating the remaining rules when one rule trips on
 // malformed input.
-func runRule(doc *DocumentState, r rule) (hits []ruleHit, err error) {
+func runRule(doc *DocumentState, r rule, rep *StructureReport, repErr error) (hits []ruleHit, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			hits = nil
 			err = fmt.Errorf("%v", rec)
 		}
 	}()
-	hits, err = r.check(doc)
+	if r.checkStructure != nil {
+		if _, err := readCatalog(doc); err != nil {
+			return nil, err
+		}
+		if repErr != nil {
+			return nil, fmt.Errorf("structure walk failed: %w", repErr)
+		}
+		hits, err = r.checkStructure(doc, rep)
+	} else {
+		hits, err = r.check(doc)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -731,17 +833,18 @@ func checkMarked(doc *DocumentState) ([]ruleHit, error) {
 }
 
 // checkStructTreeRoot flags a document whose catalog lacks a /StructTreeRoot
-// (PDF/UA-1 requires a structure tree). Document-level. An unreadable catalog
-// leaves the rule not evaluated.
+// (PDF/UA-1 requires a structure tree). A /StructTreeRoot that is null or a
+// reference to a missing object is absent (ISO 32000-1 7.3.10).
+// Document-level. An unreadable catalog leaves the rule not evaluated.
 func checkStructTreeRoot(doc *DocumentState) ([]ruleHit, error) {
 	cat, err := readCatalog(doc)
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := cat["StructTreeRoot"]; ok {
+	if dereference(doc, cat["StructTreeRoot"]) != nil {
 		return nil, nil
 	}
-	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent)"}}, nil
+	return []ruleHit{{message: "document has no structure tree root (/StructTreeRoot absent, null or a reference to a missing object)"}}, nil
 }
 
 // checkLang flags a document whose catalog lacks a natural-language /Lang entry
@@ -950,7 +1053,7 @@ func pageContentStreams(doc *DocumentState, page pdfcpu_types.Dict) []pdfcpu_typ
 // it sets a device color, or the decode error when the stream cannot be
 // decoded.
 func streamUsesDeviceColor(sd pdfcpu_types.StreamDict) (bool, error) {
-	if e := safeCall(func() error { return sd.Decode() }); e != nil {
+	if e := safeCall(func() error { return decodeStream(&sd) }); e != nil {
 		return false, e
 	}
 	for _, t := range tokenizeContentStream(string(sd.Content)) {

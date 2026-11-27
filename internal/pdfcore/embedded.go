@@ -131,7 +131,7 @@ func collectEmbeddedFiles(doc *DocumentState) []EmbeddedFile {
 		namesDict := asDict(dereference(doc, namesObj))
 		if namesDict != nil {
 			if efObj, ok := namesDict["EmbeddedFiles"]; ok {
-				walkNameTree(doc, efObj, 0, func(resolved pdfcpu_types.Object, fsRef string) {
+				walkNameTree(doc, efObj, 0, map[int]bool{}, func(resolved pdfcpu_types.Object, fsRef string) {
 					add(resolved, fsRef)
 				})
 			}
@@ -245,10 +245,18 @@ func embeddedFileStreamRef(doc *DocumentState, fs pdfcpu_types.Dict) (pdfcpu_typ
 // the resolved filespec object and its "N G R" ref ("" for a direct, inline
 // filespec - rare but legal, kept). A malformed node (unresolvable ref, wrong
 // shape) degrades silently so the rest of the enumeration proceeds. depth
-// guards against pathological nesting.
-func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit func(resolved pdfcpu_types.Object, fsRef string)) {
+// guards against pathological nesting, and seen holds the object numbers of
+// the nodes already walked, so a /Kids cycle or a node reached twice is walked
+// once.
+func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, seen map[int]bool, visit func(resolved pdfcpu_types.Object, fsRef string)) {
 	if depth > maxNodeIDDepth {
 		return
+	}
+	if ref, ok := node.(pdfcpu_types.IndirectRef); ok {
+		if seen[ref.ObjectNumber.Value()] {
+			return
+		}
+		seen[ref.ObjectNumber.Value()] = true
 	}
 	d := asDict(dereference(doc, node))
 	if d == nil {
@@ -276,7 +284,7 @@ func walkNameTree(doc *DocumentState, node pdfcpu_types.Object, depth int, visit
 	// Intermediate: /Kids is an array of child name-tree node refs.
 	if kidsObj, ok := d["Kids"]; ok {
 		for _, kid := range dereferenceArray(doc, kidsObj) {
-			walkNameTree(doc, kid, depth+1, visit)
+			walkNameTree(doc, kid, depth+1, seen, visit)
 		}
 	}
 }
@@ -313,8 +321,8 @@ func dereferenceArray(doc *DocumentState, obj pdfcpu_types.Object) pdfcpu_types.
 //
 // Used for two kinds of field. Decoding would corrupt the first: filespec
 // /Params /CheckSum, signature /Contents and /Cert, trailer /ID. The second is
-// only unwired: /Params /ModDate and the /Info date keys (legally text strings),
-// catalog /Lang, and the signature /T, /Name, /Reason, /Location, /ContactInfo.
+// only unwired: /Params /ModDate and the /Info date keys (legally text strings)
+// and catalog /Lang.
 //
 // Text fields use textStringOrRaw, which also falls back to this, so it must
 // not be re-pointed at the decoder.

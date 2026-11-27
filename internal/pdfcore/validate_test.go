@@ -392,23 +392,6 @@ func TestValidate_XMPInfo_GenuineMismatchStillFires(t *testing.T) {
 	}
 }
 
-// --- ProfileGates: fail-closed gate foundation (review #2) --------------------
-
-// ProfileGates is the pdfcore decision the CLI uses to fail closed when a gating
-// rule degrades to info. pdfa-1b has error rules (gates); pdfua-1-structural is
-// all warnings (never gates); an unknown profile matches nothing.
-func TestProfileGates(t *testing.T) {
-	if !ProfileGates(ProfilePDFA1B) {
-		t.Errorf("ProfileGates(%q) = false, want true (has error rules)", ProfilePDFA1B)
-	}
-	if ProfileGates(ProfilePDFUA1Structural) {
-		t.Errorf("ProfileGates(%q) = true, want false (all warnings)", ProfilePDFUA1Structural)
-	}
-	if ProfileGates("bogus-profile") {
-		t.Errorf("ProfileGates(unknown) = true, want false")
-	}
-}
-
 // --- Type0 / CIDFont double-report skip (review #1) --------------------------
 
 // A non-embedded Type0 composite font must be reported ONCE (on the Type0

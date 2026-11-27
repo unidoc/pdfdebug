@@ -3,13 +3,23 @@ export interface ErrorBannerProps {
   message: string;
   severity: 'error' | 'warning';
   onDismiss: () => void;
+  /** Label of an action button rendered before Dismiss; shown only with onAction. */
+  actionLabel?: string;
+  /** Called when the action button is clicked. */
+  onAction?: () => void;
+  /** Root test id; defaults to error-banner or warning-banner by severity. */
+  testId?: string;
+  /** Keeps the message on one line, truncated with an ellipsis, with the full text in its title. */
+  singleLine?: boolean;
+  /** ARIA role of the root; defaults to alert. A non-urgent notice uses status. */
+  role?: 'alert' | 'status';
 }
 
 /**
- * Dismissible banner for document-level errors and warnings.
- * Renders at the top of the app shell with severity-appropriate styling.
+ * Dismissible banner for document-level errors and warnings, with an optional
+ * action button. Renders with severity-appropriate styling.
  */
-export function ErrorBanner({ message, severity, onDismiss }: ErrorBannerProps) {
+export function ErrorBanner({ message, severity, onDismiss, actionLabel, onAction, testId: testIdProp, singleLine, role = 'alert' }: ErrorBannerProps) {
   const isError = severity === 'error';
   // Use dark tinted text on the pale-tinted background. The brand --color-error
   // / --color-warning tokens are vivid (red-500 / amber-500); on a 50-tinted
@@ -24,19 +34,33 @@ export function ErrorBanner({ message, severity, onDismiss }: ErrorBannerProps) 
   const bgColor = isError ? 'bg-red-100' : 'bg-amber-100';
   const textColor = isError ? 'text-red-900' : 'text-amber-900';
   const icon = isError ? '(x)' : '(!)';
-  const testId = isError ? 'error-banner' : 'warning-banner';
+  const testId = testIdProp ?? (isError ? 'error-banner' : 'warning-banner');
   const dismissLabel = isError ? 'Dismiss error' : 'Dismiss warning';
 
   return (
     <div
       data-testid={testId}
-      role="alert"
+      role={role}
       className={`flex items-center gap-2 px-4 py-2 ${bgColor} ${textColor} transition-all duration-150`}
     >
       <span className="text-sm font-medium" aria-hidden="true">{icon}</span>
-      <span className="text-sm flex-1" data-testid="error-banner-message">
+      <span
+        className={singleLine ? 'text-sm flex-1 min-w-0 truncate' : 'text-sm flex-1'}
+        data-testid="error-banner-message"
+        title={singleLine ? message : undefined}
+      >
         {message}
       </span>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          data-testid="error-banner-action"
+          className="px-2 py-0.5 text-sm font-medium underline hover:opacity-70 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none rounded"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
+      )}
       <button
         data-testid="error-banner-dismiss"
         className="p-1 hover:opacity-70 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none rounded"

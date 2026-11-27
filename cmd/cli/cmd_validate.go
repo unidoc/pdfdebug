@@ -21,7 +21,7 @@ var validateUsage = usageLine("validate")
 //
 //	0  ran successfully, ZERO error-severity problems (warnings/info allowed)
 //	1  ran successfully AND found >=1 error-severity problem (the CI gate), or
-//	   a rule of a gating profile could not be evaluated
+//	   an error-severity rule could not be evaluated
 //	2  operational or usage error (missing/unreadable file, unknown profile, bad
 //	   args, view failure)
 //
@@ -29,7 +29,7 @@ var validateUsage = usageLine("validate")
 func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	profileFlag := fs.String("profile", pdfcore.ProfilePDFA1B, "Rule profile: pdfa-1b (default) or pdfua-1-structural")
+	profileFlag := fs.String("profile", pdfcore.ProfilePDFA1B, "Rule profile: pdfa-1b (default), pdfua-1-structural or pdfcpu")
 	jsonFlag := fs.Bool("json", false, "Output structured JSON (default is human-readable plain text)")
 	prettyFlag := fs.Bool("pretty", false, "Indent JSON output (no effect on plain text)")
 	if err := fs.Parse(args); err != nil {
@@ -97,10 +97,11 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 
 // renderValidate writes the result (plain text default, --json opts in) and
 // returns the compliance-gate exit code: 1 when any error-severity problem was
-// found, else 0. It ALSO returns 1 (fail closed) when a gating-profile rule
-// could not be evaluated (degraded to an info problem) - reporting exit 0 "no
-// structural errors" for a file whose required rule never actually ran would
-// silently pass a CI gate on an unverified document.
+// found, else 0. It ALSO returns 1 (fail closed) when a rule whose registry
+// severity is error could not be evaluated (degraded to an info problem) -
+// reporting exit 0 "no structural errors" for a file whose required rule never
+// actually ran would silently pass a CI gate on an unverified document. A
+// warning-severity rule that could not be evaluated does not gate.
 func renderValidate(res *pdfcore.ValidationResult, jsonOut, pretty bool) int {
 	if jsonOut {
 		if err := emit(os.Stdout, res, pretty); err != nil {
@@ -111,13 +112,21 @@ func renderValidate(res *pdfcore.ValidationResult, jsonOut, pretty bool) int {
 		writeJSONError(os.Stderr, fmt.Sprintf("failed to write output: %v", err))
 		return 2
 	}
-	if res.Summary.Errors > 0 {
-		return 1
-	}
-	if res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+	if res.Summary.Errors > 0 || errorRuleNotEvaluated(res) {
 		return 1
 	}
 	return 0
+}
+
+// errorRuleNotEvaluated reports whether a rule whose registry severity is
+// error could not be evaluated in res.
+func errorRuleNotEvaluated(res *pdfcore.ValidationResult) bool {
+	for _, r := range res.Rules {
+		if !r.Evaluated && r.Severity == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 // severityOrder is the display order for the grouped plain-text problem list.
@@ -125,7 +134,7 @@ var severityOrder = []string{"error", "warning", "info"}
 
 // profileRuleLines returns one help line per profile naming the rules it
 // checks and the standard it is a structural subset of, built from the
-// registry.
+// registry. The pdfcpu profile's line says it runs pdfcpu's validator instead.
 func profileRuleLines() []string {
 	lines := make([]string, 0, len(pdfcore.ValidProfiles))
 	for _, profile := range pdfcore.ValidProfiles {
@@ -134,9 +143,12 @@ func profileRuleLines() []string {
 		for _, r := range rules {
 			ids = append(ids, r.RuleID)
 		}
-		standard := pdfcore.ProfileStandard(profile)
-		lines = append(lines, fmt.Sprintf("  %s checks %d %s: %s (a structural subset of %s, not a %s conformance check)",
-			profile, len(rules), plural(len(rules), "rule"), strings.Join(ids, ", "), standard, standard))
+		what := fmt.Sprintf("a structural subset of %[1]s, not a %[1]s conformance check", pdfcore.ProfileStandard(profile))
+		if profile == pdfcore.ProfilePdfcpu {
+			what = "pdfcpu's own relaxed validator on a separate parse, not a conformance check"
+		}
+		lines = append(lines, fmt.Sprintf("  %s checks %d %s: %s (%s)",
+			profile, len(rules), plural(len(rules), "rule"), strings.Join(ids, ", "), what))
 	}
 	return lines
 }
@@ -207,9 +219,9 @@ func printValidatePlain(out io.Writer, res *pdfcore.ValidationResult) error {
 		fmt.Fprintf(&b, ", %d %s", res.Summary.Info, plural(res.Summary.Info, "info problem"))
 	}
 	b.WriteString("\n")
-	// renderValidate exits 1 on an info problem under a gating profile even with
-	// no errors; name that cause next to the summary.
-	if res.Summary.Errors == 0 && res.Summary.Info > 0 && pdfcore.ProfileGates(res.Profile) {
+	// renderValidate exits 1 when an error-severity rule could not be
+	// evaluated even with no errors; name that cause next to the summary.
+	if res.Summary.Errors == 0 && errorRuleNotEvaluated(res) {
 		b.WriteString("Exit status 1: a rule that gates the exit code could not be evaluated\n")
 	}
 	_, err := io.WriteString(out, b.String())

@@ -41,7 +41,7 @@ obj 5: 37                                            (the resolved length)
 
 Note: pdfcpu's reader observed during this story does populate
 `StreamDict.StreamLength` for this fixture (it dereferences the indirect
-length during `ReadContextFile`). The fallback path still pins
+length during `ReadContext`). The fallback path still pins
 the contract for any malformed PDF where pdfcpu leaves `StreamLength == nil`
 but the dict carries `/Length`. The unit test
 `TestExtractStreamInfoIndirectLength` exercises that fallback path with a

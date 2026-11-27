@@ -15,25 +15,41 @@ The three command families use different contracts.
 - 1 - usage error: wrong number of files, an unknown flag, a flag after the
   file, an unknown resource, `--help`, a flag value it rejects such as
   `--page 0`, `--depth x` or a malformed `--ref`, or flags that exclude each
-  other such as `--raw --json` or `dump embedded --ref` with `--name`.
+  other such as `--raw --json` or `dump embedded --ref` with `--name`,
+  `dump signatures --field` without `--export-cms` or `--export-certs`, or an
+  empty `--export-cms` / `--export-certs` path or `--field` name.
 - 2 - operational error: the file is missing or unreadable, the page or object
-  asked for is not in it, or `dump embedded --name` matches no attachment, more
-  than one, or one with no `/EmbeddedFile` stream.
+  asked for is not in it, `dump embedded --name` matches no attachment, more
+  than one, or one with no `/EmbeddedFile` stream, or a `dump signatures`
+  export has no signature to pick, more than one, a `--field` that matches no
+  signed field, a `--export-cms` field whose SubFilter is not CMS or whose
+  `/Contents` cannot be read, nothing to write, an export path that is the
+  input PDF or that both exports would write, or a file it cannot write.
 
 `validate`:
 
 - 0 - it ran and found no errors. This is not a conformance verdict.
-- 1 - it found at least one error. Under `pdfa-1b` it also exits 1 when a rule
-  could not be evaluated, and for an encrypted file, which is reported as one
-  `no-encryption` error.
+- 1 - it found at least one error, or a rule whose severity is error could
+  not be evaluated. Every `pdfa-1b` rule is an error rule. Under
+  `pdfua-1-structural` the error rules are `mcid-in-parent-tree` (an MCID
+  that does not reach the ParentTree or cannot be read, or page content that
+  cannot be read or decoded, so its MCIDs were not checked) and
+  `struct-elem-type` (a structure element without a usable `/S`). Under
+  `pdfcpu` the error rule is `pdfcpu-validator` (pdfcpu rejects the file, or
+  the check could not run);
+  `pdfcpu-notices` reports warnings. An encrypted file under `pdfa-1b` is
+  reported as one `no-encryption` error and also exits 1.
 - 2 - operational or usage error: a missing file, an unknown profile, an
   unknown flag, the wrong number of files, a flag after the file, or an
-  encrypted file under `pdfua-1-structural`.
+  encrypted file under `pdfua-1-structural` or `pdfcpu`, or, under `pdfcpu`,
+  a file that changed on disk or was locked between the open and the check.
 
-Every `pdfua-1-structural` rule reports a warning, so that profile exits 0 no
-matter what it finds. A rule that could not be evaluated reports an info
-problem and also exits 0. A job that should fail on either has to read
-`summary.warnings` and `summary.info` from `--json`.
+The other `pdfua-1-structural` rules report warnings, which exit 0: the
+catalog rules (`marked`, `struct-tree-root`, `lang`) and the marked-content
+rules `marked-content-balance` (which also reports a page content stream that
+cannot be decoded), `mcid-unique` and `mcid-not-nested`. One of them that could
+not be evaluated reports an info problem and also exits 0. A job that should
+fail on those has to read `summary.warnings` and `summary.info` from `--json`.
 
 `diff`:
 
@@ -42,12 +58,15 @@ problem and also exits 0. A job that should fail on either has to read
 - 2 - operational or usage error.
 
 `pdfdebug` with no arguments or an unknown command prints the help and exits
-1; `dump` with no resource prints its one-line usage and also exits 1.
+1; `dump` with no resource prints its one-line usage and also exits 1; `dump`
+with an unknown resource prints `Unknown resource: <name>` and the help, and
+exits 1.
 `pdfdebug --help` exits 0, but `--help` on a subcommand exits non-zero: 1 for
 `dump`, 2 for `validate` and `diff`.
 
-This script fails a CI step when `validate` cannot run or reports anything. It
-is plain `sh` and needs `jq`; it drops into any CI system that runs shell steps.
+This script fails a CI step when `validate` cannot run, exits 1 on an error,
+or reports anything else. It is plain `sh` and needs `jq`; it drops into any
+CI system that runs shell steps.
 
 ```sh
 rc=0
@@ -80,9 +99,9 @@ number of files or a flag after the file prints the plain usage line, an
 unknown `validate` profile is a plain sentence, `dump embedded` prints
 `error: ...` when given both `--ref` and `--name` or when `--name` does not
 pick out one attachment, `dump stream --ops` on a page with no content
-stream prints `page has no content stream`, the `dump plaintext` deprecation
-notice is plain text, and so is the update notice. A script should branch on
-the exit code and treat stderr as text to show, not to parse.
+stream prints `page has no content stream`, and the update notice is plain
+text too. A script should branch on the exit code and treat stderr as text to
+show, not to parse.
 
 Three outputs are separate machine formats rather than JSON: `dump stream
 --raw` (the decoded stream bytes), `dump stream --ops` (one JSON object per

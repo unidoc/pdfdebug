@@ -10,8 +10,8 @@ import (
 	"unidoc-pdf-debugger/internal/pdfcore"
 )
 
-// pdfcpu refuses to open a document whose root /Count disagrees with its
-// leaves, so these drive writePagesDump with a hand-built index instead.
+// These drive writePagesDump with a hand-built index, so each row shape is set
+// by the test rather than by a page walk.
 
 // countMismatchIndex has two page leaves and one unnumbered error row.
 func countMismatchIndex() []*pdfcore.PageIndexEntry {

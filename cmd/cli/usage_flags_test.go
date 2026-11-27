@@ -73,6 +73,9 @@ var flagValues = map[string]string{
 	"--section":       "geometry",
 	"--profile":       "pdfa-1b",
 	"--name":          "x",
+	"--export-cms":    "x.p7s",
+	"--export-certs":  "x-certs",
+	"--field":         "x",
 }
 
 // requiredArgs holds the flags a command needs before it gets past argument

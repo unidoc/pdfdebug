@@ -2,7 +2,7 @@
  * Platform detection utility for keyboard shortcut hints.
  *
  * Uses navigator.platform as the primary detection method because Wails WebViews
- * (WebKit on macOS, WebKit2GTK on Linux, Chromium-based on Windows) do not
+ * (WebKit on macOS, WebKitGTK on Linux, Chromium-based on Windows) do not
  * reliably support navigator.userAgentData.
  *
  * Note: navigator.platform is deprecated but remains the most reliable

@@ -28,9 +28,12 @@ pdfdebug validate --profile pdfua-1-structural file.pdf
 
 After the profile name and its scope sentence, the output lists the rules it
 checked with `0 found` or `N found` beside each, then the problems and a
-summary line. The profile checks catalog-level entries only, such as whether
-the document is marked as tagged. A file that passes every one of them can
-still fail PDF/UA, so a clean run is not a verdict; use veraPDF for that.
+summary line. The profile checks catalog entries such as whether the document
+is marked as tagged, that every structure element has a usable `/S`, and the
+marked content of each page: balanced BMC/BDC and EMC, MCIDs that are unique,
+not nested and reachable through the ParentTree. A file with no finding from
+any of them can still fail PDF/UA, so a clean run is not a verdict; use
+veraPDF for that.
 `pdfdebug --help` lists the current rules of each profile.
 
 ### Compare two versions of a file
@@ -69,9 +72,11 @@ or `--ref` for any stream object. An attachment comes out with
 pdfdebug validate --json --profile pdfua-1-structural file.pdf > report.json
 ```
 
-Branch on the exit code first and read `summary` from the JSON second, because
-`pdfua-1-structural` findings are warnings and a rule that could not run is
-info, and both exit 0. The full script is under
+Branch on the exit code first and read `summary` from the JSON second. Under
+`pdfua-1-structural`, `mcid-in-parent-tree` and `struct-elem-type` report
+errors and exit 1; the other rules report warnings, and one of those that could
+not run reports info; both exit 0. An error rule that could not run also
+reports info but exits 1. The full script is under
 [Exit codes](cli/scripting.md#exit-codes).
 
 ## Commands
@@ -86,6 +91,7 @@ Each description links to the command's section on its reference page.
 | `dump source` | [The reserialized object source (PDF syntax)](cli/structure.md#dump-source) | `--ref`, `--raw` |
 | `dump reverserefs` | [Inbound references (who points at this object)](cli/structure.md#dump-reverserefs) | `--ref` |
 | `dump xref` | [The cross-reference table](cli/structure.md#dump-xref) | - |
+| `dump structure` | [The structure tree and per-page ParentTree vs content MCIDs](cli/structure.md#dump-structure) | - |
 | `dump pages` | [The page index (every page leaf of the page tree, in document order)](cli/pages-and-content.md#dump-pages) | - |
 | `dump page` | [Assembled per-page render info **(EXPERIMENTAL)**](cli/pages-and-content.md#dump-page) | `--info N`, `--section`, `--forms-recursive` |
 | `dump stream` | [A decoded content stream (page, object, or XObject)](cli/pages-and-content.md#dump-stream) | `--page`/`--ref`/`--xobject`, `--raw`, `--ops` |
@@ -95,7 +101,7 @@ Each description links to the command's section on its reference page.
 | `dump font` | [A font view (encoding, CMap, glyph mapping, health)](cli/images-and-fonts.md#dump-font) | `--ref`, `--glyphs` |
 | `dump embedded` | [Embedded/associated files; extracts one's bytes to stdout](cli/document-data.md#dump-embedded) | `--ref`/`--name` |
 | `dump metadata` | [The `/Info` dictionary fields and the XMP packet](cli/document-data.md#dump-metadata) | - |
-| `dump signatures` | [Digital-signature decomposition (signer, chain, ByteRange coverage; no trust verdict)](cli/document-data.md#dump-signatures) | - |
+| `dump signatures` | [Digital-signature decomposition (signer, chain with key usage and CRL/OCSP URLs, ByteRange coverage; no trust verdict)](cli/document-data.md#dump-signatures) | `--export-cms`, `--export-certs`, `--field` |
 | `validate` | [A named subset of structural checks per profile, listed on every run](cli/validate-and-diff.md#validate) | `--profile` |
 | `diff` | [Path-aligned structural diff of two PDFs](cli/validate-and-diff.md#diff) | `--full` |
 
@@ -135,7 +141,9 @@ synopsis on its reference page shows which of them it takes.
 - `--metadata` - for `dump image`, report metadata and omit the base64 payload in JSON.
 - `--glyphs` - for `dump font`, print the full per-code mapping table.
 - `--name NAME` - for `dump embedded`, extract the named file's bytes to stdout.
-- `--profile` - for `validate`, select the profile.
+- `--export-cms FILE` / `--export-certs DIR` - for `dump signatures`, write the CMS or the chain certificates to files.
+- `--field NAME` - for `dump signatures`, pick the signature field to export.
+- `--profile` - for `validate`, select the profile: `pdfa-1b` (default), `pdfua-1-structural`, or `--profile pdfcpu` for pdfcpu's own relaxed validator on a separate parse (its notice list is partial; see [`validate`](cli/validate-and-diff.md#validate)).
 - `--full` - for `diff`, include unchanged nodes in the output.
 - `--help` / `-h` - show usage. Every command also accepts `--help`.
 - `--version` / `-v` - show version information.
@@ -143,7 +151,7 @@ synopsis on its reference page shows which of them it takes.
 ## Reference pages
 
 - [Structure](cli/structure.md): `dump tree`, `dump object`, `dump objects`,
-  `dump source`, `dump reverserefs` and `dump xref`.
+  `dump source`, `dump reverserefs`, `dump xref` and `dump structure`.
 - [Pages and content](cli/pages-and-content.md): `dump pages`, `dump page`,
   `dump stream` and `dump bytes`.
 - [Images and fonts](cli/images-and-fonts.md): `dump images`, `dump image` and

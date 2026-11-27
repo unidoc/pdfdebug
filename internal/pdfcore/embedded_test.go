@@ -9,9 +9,10 @@
 //
 // Fixtures are hand-rolled raw PDF bytes assembled via the existing assemblexref
 // helper (resolve_ref_atdd_test.go) and opened through writeTempPDF, which uses
-// the SAME Inspector.Open path the app uses (pdfcpu_api.ReadContextFile under
-// default validation). The embedded-file Subtype MUST be a Name with #2F
-// hex-escapes (/text#2Fxml) or pdfcpu's default validator rejects the document.
+// the SAME Inspector.Open path the app uses (pdfcpu_api.ReadContext, which
+// parses without pdfcpu's validator). The embedded-file Subtype is written as a
+// Name with #2F hex-escapes (/text#2Fxml), the form PDF requires for a slash in
+// a name.
 package pdfcore
 
 import (

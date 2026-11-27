@@ -27,6 +27,14 @@ var (
 	// generic DictView when iconHint='font' fires on a non-Font dict (the
 	// /Resources /Font resource-map false positive).
 	ErrNotAFont = errors.New("not a font")
+	// ErrFileChanged indicates the file on disk no longer matches the one
+	// parsed at Open (size, mtime or file identity differ, or it is gone).
+	// The text carries the marker the frontend matches.
+	ErrFileChanged = errors.New("file changed on disk since it was opened")
+	// ErrFileBusy indicates another process holds the file without read
+	// sharing or holds a byte-range lock over it (Windows sharing or lock
+	// violation). The text carries the marker the frontend matches.
+	ErrFileBusy = errors.New("file is busy: another process has it open")
 )
 
 // safeCall executes fn inside a panic-recovery wrapper. pdfcpu can panic on

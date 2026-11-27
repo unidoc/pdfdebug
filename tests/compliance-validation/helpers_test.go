@@ -371,9 +371,9 @@ func nonEmbeddedFontPDF() []byte {
 	})
 }
 
-// untaggedPDF builds a one-page PDF with NO /MarkInfo, NO /StructTreeRoot, and
-// NO /Lang -- the PDF/UA-1 structural warnings (all non-gating). The missing
-// /Lang is the story's canonical document-level (no object ref) problem.
+// untaggedPDF builds a one-page PDF with NO /MarkInfo, NO /StructTreeRoot, NO
+// /Lang and no content -- the three PDF/UA-1 catalog warnings, which do not
+// gate. The missing /Lang is a document-level (no object ref) problem.
 func untaggedPDF() []byte {
 	return assemblePDF([]string{
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",

@@ -33,10 +33,10 @@ func TestDecoding_TreeJSONCarriesTheDecodedText(t *testing.T) {
 	}
 }
 
-func TestDecoding_HexTextStringInheritsTheUpstreamEscapeQuirk(t *testing.T) {
-	// pdfcpu runs escape processing over already-decoded bytes, so the 0x5C in
-	// <415C42> is dropped. The decoder's behaviour is inherited whole, and it
-	// is pinned here so a future decoder change is a visible decision.
+func TestDecoding_HexTextStringKeepsItsBackslashByte(t *testing.T) {
+	// A 0x5C byte in a hex text string is a plain backslash in the decoded
+	// text: <415C42> reads A\B. Pinned so a decoder change is a visible
+	// decision.
 	root := treeJSON(t, fixturePath(t, "scalar-values.pdf"))
 	node := nodeAt(t, root, "/Scalars", "/Backslash")
 

@@ -372,17 +372,17 @@ func TestGitattributesBinaryPatterns(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// This new ci-pipeline module is picked up by the per-suite loop. The loop
-// skips `e2e` and `support`; ci-pipeline is neither,
-// so its tests must be invoked by `go test ./...` inside `tests/ci-pipeline/`.
+// This ci-pipeline module is picked up by the per-suite loop. The loop skips
+// only `boot-smoke`, so the ci-pipeline tests are invoked by `go test ./...`
+// inside `tests/ci-pipeline/`.
 // Catch future regressions where someone adds `ci-pipeline` to the skip list.
 // ---------------------------------------------------------------------------
 
 func TestCIPipelineSuiteNotSkipped(t *testing.T) {
 	raw := readCIWorkflow(t)
-	// The loop uses `case "$(basename "$dir")" in e2e|support) continue ;;`.
-	// Guard against anyone extending the pattern to include ci-pipeline.
-	re := regexp.MustCompile(`e2e\|[^)]*ci-pipeline|ci-pipeline[^)]*\|`)
+	// The loop uses `case "$name" in boot-smoke) continue ;;`. Guard against
+	// anyone extending the pattern to include ci-pipeline.
+	re := regexp.MustCompile(`(?m)^\s*[\w|-]*ci-pipeline[\w|-]*\)\s*continue`)
 	if re.MatchString(raw) {
 		t.Errorf("ci.yml: per-suite loop skip list must NOT include `ci-pipeline` (these tests self-validate the pipeline)")
 	}

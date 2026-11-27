@@ -1,6 +1,7 @@
 package pdfcore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -411,11 +412,9 @@ func TestGetPageContentStreamNodeID_NoContentsEntry(t *testing.T) {
 // `[ref null]` all enumerate to 1 stream; a genuine multi-ref array `[ref ref]`
 // enumerates 2; a page with no /Contents enumerates 0.
 //
-// The `[ref null]` case is built by an in-memory page-dict mutation, not a disk
-// fixture: pdfcpu rejects an on-disk /Contents array containing a null element
-// at read time (DereferenceStreamDict: wrong type <nil>), so the only way to
-// drive that degenerate array into pageContentStreamNodeIDs is to inject it
-// after a valid open. This still exercises the production enumeration verbatim.
+// The `[ref null]` case is built by an in-memory page-dict mutation after a
+// valid open, which drives that degenerate array into pageContentStreamNodeIDs
+// directly. This still exercises the production enumeration verbatim.
 // ---------------------------------------------------------------------------
 
 // contentStreamObj builds a minimal, valid content-stream object body numbered
@@ -476,8 +475,8 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 	}
 
 	// Anti-false-positive: a degenerate [ref null] array must count 1, not 2.
-	// pdfcpu rejects this shape on disk, so open a valid [ref] fixture and inject
-	// the trailing null into the live page dict before the count call.
+	// Open a valid [ref] fixture and inject the trailing null into the live
+	// page dict before the count call.
 	t.Run("degenerate array [ref null] is not truncation", func(t *testing.T) {
 		objs := []string{
 			catalog,
@@ -490,7 +489,7 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetDocument: %v", err)
 		}
-		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		pageDict, _, _, err := doc.PDFContext.PageDict(context.Background(), 1, false)
 		if err != nil {
 			t.Fatalf("PageDict: %v", err)
 		}
@@ -526,7 +525,7 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetDocument: %v", err)
 		}
-		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		pageDict, _, _, err := doc.PDFContext.PageDict(context.Background(), 1, false)
 		if err != nil {
 			t.Fatalf("PageDict: %v", err)
 		}
@@ -550,7 +549,7 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 	// A non-null, non-ref element is malformed rather than empty: /Contents
 	// elements are refs to streams (7.8.2) and streams are always indirect
 	// (7.3.8). Skipping it could omit real page content, so it must be reported.
-	// Same in-memory injection as above - pdfcpu rejects the shape on disk.
+	// Same in-memory injection as above.
 	t.Run("[ref junk] errors instead of silently skipping", func(t *testing.T) {
 		objs := []string{
 			catalog,
@@ -563,7 +562,7 @@ func TestPageContentStreamNodeIDs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetDocument: %v", err)
 		}
-		pageDict, _, _, err := doc.PDFContext.PageDict(1, false)
+		pageDict, _, _, err := doc.PDFContext.PageDict(context.Background(), 1, false)
 		if err != nil {
 			t.Fatalf("PageDict: %v", err)
 		}

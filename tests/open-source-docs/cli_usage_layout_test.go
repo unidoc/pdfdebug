@@ -60,8 +60,9 @@ func TestCLIUsageGuideContentsLinksEverySection(t *testing.T) {
 
 // TestCLIUsageGuideCommonTasksPrecedeReference asserts a Common tasks H2 sits
 // above the quick-reference table and any command reference heading on the
-// entry page, holds four `###` tasks, and each task shows a pdfdebug command in
-// a fenced block or links to the section that does.
+// entry page, holds the PDF/UA, compare, extract and CI `###` tasks among any
+// others, and each task shows a pdfdebug command in a fenced block or links to
+// the section that does.
 func TestCLIUsageGuideCommonTasksPrecedeReference(t *testing.T) {
 	cmds := helpCommands(t)
 	lines := mdLines(readFileAtRoot(t, cliGuidePath))
@@ -89,8 +90,14 @@ func TestCLIUsageGuideCommonTasksPrecedeReference(t *testing.T) {
 			taskHeadings = append(taskHeadings, h)
 		}
 	}
-	if len(taskHeadings) != 4 {
-		t.Fatalf("%s Common tasks has %d ### tasks, want 4", cliGuidePath, len(taskHeadings))
+	for _, want := range []string{"pdf/ua", "compare two versions", "pull out one image", "use it in ci"} {
+		found := false
+		for _, th := range taskHeadings {
+			found = found || strings.Contains(strings.ToLower(th.text), want)
+		}
+		if !found {
+			t.Errorf("%s Common tasks has no ### task heading containing %q", cliGuidePath, want)
+		}
 	}
 	for _, th := range taskHeadings {
 		sec := sectionLines(body, bodyHeadings, th)
@@ -168,7 +175,7 @@ func TestCLIUsageGuideCIExampleFailsOnFindingsAndOperationalErrors(t *testing.T)
 		t.Fatalf("%s CI example does not use the file.pdf placeholder:\n%s", where, snippet)
 	}
 	if !strings.Contains(snippet, "pdfua-1-structural") {
-		t.Fatalf("%s CI example does not run the pdfua-1-structural profile, whose findings are warnings with exit 0:\n%s",
+		t.Fatalf("%s CI example does not run the pdfua-1-structural profile, whose structure rules can fail the run:\n%s",
 			where, snippet)
 	}
 
@@ -244,22 +251,6 @@ func TestCLIUsageGuideUpdateNoticeOpensWithOptOuts(t *testing.T) {
 			t.Errorf("%s: first paragraph of %q does not name %s:\n%s", d.path, h.text, tok, first)
 		}
 	}
-}
-
-// TestCLIUsageGuideBytesReferenceKeepsAliasStatement asserts the `dump bytes`
-// reference subsection carries the `dump plaintext` alias and its 0.6.0
-// removal in one paragraph.
-func TestCLIUsageGuideBytesReferenceKeepsAliasStatement(t *testing.T) {
-	d, h, ok := guideCommandHeading(guideDocs(t), "dump bytes")
-	if !ok {
-		t.Fatalf("no page of the CLI guide has a ### `dump bytes` reference heading")
-	}
-	for _, p := range paragraphs(sectionLines(d.lines, d.headings, h)) {
-		if strings.Contains(p, "dump plaintext") && strings.Contains(p, "removed in 0.6.0") {
-			return
-		}
-	}
-	t.Errorf("%s ### `dump bytes` has no paragraph naming `dump plaintext` with \"removed in 0.6.0\"", d.path)
 }
 
 // TestCLIUsageGuideImageReferenceNamesSampleInterpretationFields asserts the

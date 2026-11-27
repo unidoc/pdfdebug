@@ -1,0 +1,13 @@
+{
+  "veraPDFVersion": "1.30.2",
+  "flavour": "ua1",
+  "compliant": false,
+  "failedRules": [
+    {
+      "clause": "7.1",
+      "testNumber": 5,
+      "failedChecks": 1
+    }
+  ],
+  "logs": []
+}

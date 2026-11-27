@@ -174,9 +174,15 @@ func TestValidate_RulesAndScopeOnUntaggedDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Validate: %v", err)
 	}
+	// The catalog rules each find their missing entry; the structure rules
+	// find nothing in a document with no marked content and no structure tree.
 	for _, r := range res.Rules {
-		if r.Findings != 1 {
-			t.Errorf("untagged doc: rule %q Findings = %d, want 1", r.RuleID, r.Findings)
+		want := 0
+		if r.RuleID == "marked" || r.RuleID == "struct-tree-root" || r.RuleID == "lang" {
+			want = 1
+		}
+		if r.Findings != want {
+			t.Errorf("untagged doc: rule %q Findings = %d, want %d", r.RuleID, r.Findings, want)
 		}
 	}
 }

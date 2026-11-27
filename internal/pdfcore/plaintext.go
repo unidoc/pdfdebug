@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -67,17 +66,17 @@ func (ins *Inspector) GetPlainText(ctx context.Context, tabID string) (*PlainTex
 	var out *PlainTextDocument
 	err = safeCall(func() error {
 		var e error
-		out, e = readPlainText(readCtx, doc.FilePath, doc.FileSize, tabID)
+		out, e = readPlainText(readCtx, doc.FilePath, doc.FileSize, doc.fingerprint, tabID)
 		return e
 	})
 	if err != nil {
-		// Bypass wrapPDFError for the context termination sentinels AND
-		// ErrUnsupportedPDF (the 4 GiB ceiling guard) so errors.Is survives across
-		// the boundary. The wrapper's %v verb stringifies the inner error and
-		// severs the chain; a context termination would otherwise read as a
-		// misleading "malformed PDF", and the ErrUnsupportedPDF sentinel contract
-		// would break.
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrUnsupportedPDF) {
+		// Bypass wrapPDFError for the context termination sentinels,
+		// ErrUnsupportedPDF (the 4 GiB ceiling guard), ErrFileChanged and
+		// ErrFileBusy so errors.Is survives across the boundary. The wrapper's
+		// %v verb stringifies the inner error and severs the chain; a context
+		// termination, a changed file or a busy file would otherwise read as a
+		// misleading "malformed PDF", and the sentinel contracts would break.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrUnsupportedPDF) || errors.Is(err, ErrFileChanged) || errors.Is(err, ErrFileBusy) {
 			return nil, err
 		}
 		return nil, wrapPDFError(err)
@@ -106,11 +105,12 @@ func (ins *Inspector) GetPlainTextSize(tabID string) (int64, error) {
 // is observed between chunks -- the caller must NOT wrap this through
 // wrapPDFError.
 //
-// If the underlying file grows between Open and this call, the buffer cap
-// under-allocates and append() handles reallocation correctly (the 4 GiB
-// ceiling still uses the cached size, so a file that grows past the ceiling
-// post-Open is read up to whatever bytes are produced by the read loop).
-func readPlainText(ctx context.Context, path string, size int64, tabID string) (*PlainTextDocument, error) {
+// The open handle is checked against fp before the first chunk and again after
+// the last one, so bytes from a file that changed since Open (or during the
+// read), including one that grew or shrank, are never returned; a mismatch or
+// a missing file returns ErrFileChanged. A read refused by another process's
+// lock returns ErrFileBusy.
+func readPlainText(ctx context.Context, path string, size int64, fp FileFingerprint, tabID string) (*PlainTextDocument, error) {
 	totalBytes := size
 
 	// 4 GiB ceiling: protect 32-bit int overflow + single-allocation OOM.
@@ -126,7 +126,7 @@ func readPlainText(ctx context.Context, path string, size int64, tabID string) (
 		totalBytes = 0
 	}
 
-	f, err := os.Open(path)
+	f, err := openVerified(path, fp)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +152,9 @@ func readPlainText(ctx context.Context, path string, size int64, tabID string) (
 			break
 		}
 		if readErr != nil {
+			if isFileBusy(readErr) {
+				return nil, fmt.Errorf("%w: %w", ErrFileBusy, readErr)
+			}
 			return nil, fmt.Errorf("read %s: %w", path, readErr)
 		}
 		// Defensive: a Reader returning (0, nil) is allowed by io.Reader's
@@ -159,6 +162,11 @@ func readPlainText(ctx context.Context, path string, size int64, tabID string) (
 		if n == 0 {
 			break
 		}
+	}
+
+	// A rewrite that overlapped the read changes the handle's stat.
+	if err := verifyHandle(f, fp); err != nil {
+		return nil, err
 	}
 
 	// One final cancel check after the read loop. Closes the race window

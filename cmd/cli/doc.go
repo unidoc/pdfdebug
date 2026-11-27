@@ -2,9 +2,10 @@
 //
 // The CLI consumes internal/pdfcore directly (zero Wails dependency) and
 // exposes these dump subcommands: tree, object, stream, page, font, image,
-// source, reverserefs, xref, objects, pages, images, bytes, embedded, metadata,
-// and signatures, plus the top-level `validate` command (a named subset of
-// structural PDF/A-1b and PDF/UA-1 checks per profile).
+// source, reverserefs, xref, objects, pages, structure, images, bytes, embedded,
+// metadata, and signatures, plus the top-level `validate` command (per profile,
+// a named subset of structural PDF/A-1b or PDF/UA-1 checks, or pdfcpu's own
+// validator run on a separate parse of the file).
 //
 // Output is human-readable PLAIN TEXT on stdout by default; pass --json to emit
 // structured JSON instead. The plain-text form is for reading and is NOT a
@@ -20,8 +21,10 @@
 //	    warning object, and so does `dump pages` when the page tree's leaf
 //	    count disagrees with the root /Count; a non-fatal degradation draws a plain-text line - a
 //	    `warning:` for a failed --resolve in `dump tree` / `dump object` and
-//	    for an unavailable Do classification in `dump stream --ops`, and a bare
-//	    "page has no content stream" note from `dump stream --ops`
+//	    for an unavailable Do classification in `dump stream --ops`, a bare
+//	    "page has no content stream" note from `dump stream --ops`, and a JSON
+//	    warning from `dump signatures --export-cms` when no complete CMS
+//	    element could be read from /Contents and every decoded byte was written
 //	1 - plain text when the argument SHAPE is wrong (unparseable flags, a
 //	    missing --ref or <file>, an extra positional): the usage line, with the
 //	    flag list below it in `dump font`. A rejected flag VALUE is JSON
@@ -33,9 +36,12 @@
 //	    is a rejected combination reported as plain text, an `error:` line
 //	    above the usage line. An absent mode selector is a missing flag
 //	    reported as JSON: no --info on `dump page`, no --page / --ref /
-//	    --xobject on `dump stream`, and no --page or --ref to own a
-//	    `dump stream --xobject`. On every command the shape check runs ahead
-//	    of every flag-value check, so an invocation wrong in both ways draws
+//	    --xobject on `dump stream`, no --page or --ref to own a
+//	    `dump stream --xobject`, and no --export-cms or --export-certs for
+//	    `dump signatures --field` to select for. An empty --export-cms or
+//	    --export-certs path or --field name is a rejected value, also JSON.
+//	    On every command the shape check runs ahead of every flag-value
+//	    check, so an invocation wrong in both ways draws
 //	    the usage line: `dump page file.pdf --info 1` leaves the selector
 //	    behind the file, where the parser never sees it, and is reported as
 //	    the shape error it is rather than as an absent --info, and
@@ -45,22 +51,24 @@
 //	    path reports its own failure as plain text: the write failures of the
 //	    raw `dump bytes`, of `dump source` on both --raw and the plain-text
 //	    default, and of `dump stream` on --raw and the no-content-stream note;
-//	    and `dump embedded --name` when the name matches no attachment, matches
-//	    several, or matches one carrying no /EmbeddedFile stream
-//
-// The deprecated `dump plaintext` alias prefixes a one-line deprecation notice
-// to stderr on every one of those paths, so under that spelling stderr taken as
-// a whole never parses as JSON.
+//	    `dump embedded --name` when the name matches no attachment, matches
+//	    several, or matches one carrying no /EmbeddedFile stream; and the
+//	    `dump signatures` export selection errors (no CMS signature, several
+//	    without --field, an unknown, shared or unsigned --field, a non-CMS
+//	    SubFilter, an unreadable /Contents, no certificates to export, an
+//	    export path that is the input PDF, a CMS file that is also one of the
+//	    certificate files), each an `error:` line. A failed export file
+//	    write is a JSON error object
 //
 // On any exit path, of any command, an interactive session may also end stderr
 // with the update notice: a framed "Update available" box, or the same two
 // lines unframed on a narrow terminal. It is never written under --json,
-// --ops or --raw, a raw `dump bytes` / `dump plaintext` or `dump embedded`
-// extraction, when CI, PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set,
-// or when stdout or stderr is not a terminal, and it never changes the exit
-// code. `--version` / `-v` keeps stdout to the version line; in a terminal it
-// also states the update-check outcome on stderr, and outside one (a pipe, a
-// redirect or CI) it writes nothing else.
+// --ops or --raw, a raw `dump bytes` or `dump embedded` extraction, when CI,
+// PDFDEBUG_NO_UPDATE_CHECK or NO_UPDATE_NOTIFIER is set, or when stdout or
+// stderr is not a terminal, and it never changes the exit code. `--version` /
+// `-v` keeps stdout to the version line; in a terminal it also states the
+// update-check outcome on stderr, and outside one (a pipe, a redirect or CI)
+// it writes nothing else.
 //
 // Exit codes (dump subcommands):
 //

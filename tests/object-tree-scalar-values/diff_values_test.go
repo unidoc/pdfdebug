@@ -66,15 +66,16 @@ func TestDiff_ByteDifferentStringsThatDecodeAlikeShowTheirStoredForms(t *testing
 			alt.LeftSummary, alt.RightSummary, "<FEFF0041>", "(A)")
 	}
 
-	// <415C42> against <4142>: the upstream escape quirk makes both decode to "AB".
-	quirk := diffNodeAt(t, result, "/Root/StructTreeRoot/Quirk")
-	if quirk.Status != "changed" {
-		t.Errorf("/Quirk status = %q, want %q: the bytes differ even though both decode to %q",
-			quirk.Status, "changed", backslashText)
+	// <9F41> against <AD41>: two undefined PDFDocEncoding bytes, both decode to
+	// U+FFFD then "A".
+	undefined := diffNodeAt(t, result, "/Root/StructTreeRoot/Undefined")
+	if undefined.Status != "changed" {
+		t.Errorf("/Undefined status = %q, want %q: the bytes differ even though both decode to %q",
+			undefined.Status, "changed", "\uFFFDA")
 	}
-	if quirk.LeftSummary != "<"+backslashHex+">" || quirk.RightSummary != "<4142>" {
-		t.Errorf("/Quirk summaries = %q / %q, want the byte-exact %q / %q",
-			quirk.LeftSummary, quirk.RightSummary, "<"+backslashHex+">", "<4142>")
+	if undefined.LeftSummary != "<9F41>" || undefined.RightSummary != "<AD41>" {
+		t.Errorf("/Undefined summaries = %q / %q, want the byte-exact %q / %q",
+			undefined.LeftSummary, undefined.RightSummary, "<9F41>", "<AD41>")
 	}
 }
 

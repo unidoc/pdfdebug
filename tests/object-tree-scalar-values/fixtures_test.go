@@ -30,11 +30,10 @@ const (
 	// eText is what eLiteral decodes to.
 	eText = "Exp"
 
-	// backslashHex carries a 0x5C byte inside a hex text string. pdfcpu runs
-	// escape processing over the already-decoded bytes and drops it, so this
-	// decodes to "AB" rather than "A\B".
+	// backslashHex carries a 0x5C byte inside a hex text string. The decoded
+	// text keeps it.
 	backslashHex  = "415C42"
-	backslashText = "AB"
+	backslashText = `A\B`
 
 	// langLiteral is all-ASCII: decoding is a no-op and no raw counterpart is
 	// emitted for it.
@@ -110,8 +109,10 @@ func scalarValuesPDF() []byte {
 		"/Backslash <" + backslashHex + "> " +
 		">>\nendobj\n"
 
-	// Control characters. Each decodes to a character that must never reach the
-	// terminal unescaped, so each row must stay exactly one line.
+	// Control characters. Each of these except /Curly decodes to a character
+	// that must never reach the terminal unescaped, so each row must stay
+	// exactly one line. /C1 is UTF-16BE carrying U+0092; /Curly's 0x92 byte is
+	// PDFDocEncoding's trade mark sign, U+2122.
 	controls := "6 0 obj\n<< " +
 		`/Newline (a\nb) ` +
 		`/Return (a\rb) ` +
@@ -119,6 +120,7 @@ func scalarValuesPDF() []byte {
 		`/Backslash2 (a\\b) ` +
 		`/Nul (a\000b) ` +
 		`/Curly (don\222t) ` +
+		`/C1 <FEFF0064006F006E00920074> ` +
 		">>\nendobj\n"
 
 	// Cap boundaries, measured over the escaped value.
@@ -169,20 +171,22 @@ func scalarValuesPDF() []byte {
 
 // decodeCollisionPDF pairs two documents whose strings are byte-different but
 // decode identically, so the diff's equality decision can be pinned. side "a"
-// stores /Alt as UTF-16BE hex and /Quirk with an embedded 0x5C; side "b" stores
-// the same two values as a plain literal and as plain hex.
+// stores /Alt as UTF-16BE hex and /Undefined as 0x9F then "A"; side "b" stores
+// /Alt as a plain literal and /Undefined as 0xAD then "A". 0x9F and 0xAD are
+// both undefined in PDFDocEncoding, so both /Undefined values decode to U+FFFD
+// then "A".
 func decodeCollisionPDF(side string) []byte {
 	alt := "<FEFF0041>"
-	quirk := "<415C42>"
+	undefined := "<9F41>"
 	if side == "b" {
 		alt = "(A)"
-		quirk = "<4142>"
+		undefined = "<AD41>"
 	}
 	return assemblePDF([]string{
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /StructTreeRoot 4 0 R >>\nendobj\n",
 		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
 		"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n",
-		"4 0 obj\n<< /Type /StructTreeRoot /Alt " + alt + " /Quirk " + quirk + " >>\nendobj\n",
+		"4 0 obj\n<< /Type /StructTreeRoot /Alt " + alt + " /Undefined " + undefined + " >>\nendobj\n",
 	})
 }
 

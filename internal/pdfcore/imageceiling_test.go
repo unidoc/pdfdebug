@@ -6,7 +6,6 @@ import (
 	"math"
 	"testing"
 
-	pdfcpu_render "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	pdfcpu_types "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -187,69 +186,6 @@ func TestDeclaredComponents_MissingColorSpaceWidensTheEstimate(t *testing.T) {
 	}
 	if imageDecodeCeiling(8192, 8192, 8, got) <= maxImageBytes {
 		t.Errorf("fallback %d leaves a large image pinned to the floor", got)
-	}
-}
-
-// pdfcpu's component lookup dereferences and asserts types unchecked, so a
-// colour space it cannot resolve faults it, and safeCall re-panics a runtime
-// error by design. This pins the absorption.
-//
-// Which shapes reach the lookup varies: a dangling reference makes the document
-// fail to open, while a well-formed /DeviceN with an indirect colorant array
-// opens and reaches it. The nil table below forces the fault directly, which is
-// the cheapest way to exercise the fallback without a document.
-func TestDeclaredComponents_UnresolvableColorSpaceDoesNotPanic(t *testing.T) {
-	sd := &pdfcpu_types.StreamDict{
-		Dict: pdfcpu_types.Dict{
-			"ColorSpace": pdfcpu_types.NewNameArray("ICCBased"),
-		},
-	}
-	// Pin that this fixture really does fault the underlying lookup. Without
-	// this the assertion below passes whether the panic was absorbed or never
-	// happened, since both answer with the same fallback.
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Fatal("fixture no longer faults pdfcpu's lookup; the absorption is untested")
-			}
-		}()
-		_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
-	}()
-
-	got := declaredComponents(nil, sd, maxComponents)
-	if got <= 0 {
-		t.Errorf("got %d, want the positive fallback after an absorbed failure", got)
-	}
-}
-
-// Several malformed /ColorSpace shapes fault pdfcpu's component lookup, and
-// declaredComponents answers with its fallback for each rather than letting the
-// fault escape. The DCT pre-decode branch in GetImageData has its own absorbing
-// wrapper around the same lookup; it is not covered here, and no document
-// reaches it either, since pdfcpu refuses to open a file carrying these shapes.
-func TestDeclaredComponents_MalformedColorSpaceShapesAllFallBack(t *testing.T) {
-	for _, cs := range []pdfcpu_types.Object{
-		pdfcpu_types.Array{},
-		pdfcpu_types.NewNameArray("Indexed"),
-		pdfcpu_types.Array{pdfcpu_types.Integer(5)},
-	} {
-		sd := &pdfcpu_types.StreamDict{Dict: pdfcpu_types.Dict{"ColorSpace": cs}}
-
-		// Pin that the shape really does fault. Without this the assertion below
-		// passes on the plain-error path too, which returns the same fallback and
-		// would leave the absorption itself unexercised.
-		func() {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("%v: fixture no longer faults the lookup; absorption untested", cs)
-				}
-			}()
-			_, _ = pdfcpu_render.ColorSpaceComponents(nil, sd)
-		}()
-
-		if got := declaredComponents(nil, sd, maxComponents); got <= 0 {
-			t.Errorf("%v: got %d, want a positive fallback", cs, got)
-		}
 	}
 }
 

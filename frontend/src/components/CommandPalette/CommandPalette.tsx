@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GetAncestorPath } from '../../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js';
 import { useAppDispatch, useAppState } from '../../hooks/useDocumentState';
+import { formatBreadcrumb } from '../../lib/formatBreadcrumb';
 import { closePalette, useCommandPalette } from '../../hooks/useCommandPalette';
 import { useObjectIndex } from '../../hooks/useObjectIndex';
 import { parseQuery } from '../../lib/palette/parseQuery';
@@ -108,7 +109,7 @@ export function CommandPalette() {
         if (cancelled) return;
         if (path && path.length > 1) {
           // Drop the final element (the target itself) and join with arrows.
-          setBreadcrumb(path.slice(0, -1).join(' > '));
+          setBreadcrumb(formatBreadcrumb(path.slice(0, -1)));
         }
       } catch {
         // Silent: missing/loading breadcrumb renders as nothing.

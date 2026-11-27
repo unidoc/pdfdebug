@@ -362,21 +362,21 @@ func TestLinuxStandaloneCLIArchiveRetained(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The net artifact count stays 6 -- the bundled-in CLI is not a separate
-// counted file. EXPECTED_FILES=6 is unchanged.
+// The artifact count is 8: a GUI archive and a standalone CLI archive per
+// platform, plus the Linux .deb and .rpm. The bundled-in CLI is not a separate
+// counted file.
 // ---------------------------------------------------------------------------
 
-func TestArtifactCountStaysSix(t *testing.T) {
+func TestArtifactCountIsEight(t *testing.T) {
 	run := jobRunBodies(t, "release")
-	if !strings.Contains(run, "EXPECTED_FILES=6") {
-		t.Errorf("release.yml release job: EXPECTED_FILES must remain 6 (3 GUI archives + 3 standalone CLI archives; the bundled-in CLI is not a separate file)")
+	if !strings.Contains(run, "EXPECTED_FILES=8") {
+		t.Errorf("release.yml release job: EXPECTED_FILES must be 8 (3 GUI archives + 3 standalone CLI archives + Linux .deb and .rpm; the bundled-in CLI is not a separate file)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// The SHA256SUMS integrity-guard comment no longer references the stale "8
-// assets" / "4 matrix cells" rationale; it must state the real 6-asset
-// invariant (3 platforms x 2 archives each).
+// The SHA256SUMS integrity-guard comment lists the release artifacts by name
+// and carries no "8 assets" / "4 matrix cells" rationale.
 // ---------------------------------------------------------------------------
 
 func TestSHA256SumsCommentHasNoStaleEightAssets(t *testing.T) {
@@ -386,9 +386,9 @@ func TestSHA256SumsCommentHasNoStaleEightAssets(t *testing.T) {
 	// cells x 2 artifacts/cell)`. Both the literal "8 assets" token and the
 	// "4 matrix cells" rationale must be gone.
 	if strings.Contains(raw, `"8 assets"`) || strings.Contains(raw, "8 assets") {
-		t.Errorf("release.yml: stale `8 assets` reference must be corrected to the real 6-asset invariant")
+		t.Errorf("release.yml: stale `8 assets` reference must be replaced by the real artifact list")
 	}
 	if strings.Contains(raw, "4 matrix cells") {
-		t.Errorf("release.yml: stale `4 matrix cells x 2 artifacts/cell` rationale must be corrected to `3 platforms x 2 archives each`")
+		t.Errorf("release.yml: stale `4 matrix cells x 2 artifacts/cell` rationale must be replaced by the real artifact list")
 	}
 }

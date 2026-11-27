@@ -1,5 +1,5 @@
 // Deleted TestOpenFileButtonOnClickBehavior (source-grep on EmptyState.tsx
-// console.log fallback; real behaviour covered by Playwright E2E).
+// console.log fallback; real behaviour covered by Vitest and tests/gui-mcp).
 
 // Package empty_state_test provides acceptance tests for Empty State with
 // Drag-and-Drop Zone.
@@ -9,8 +9,8 @@
 // implemented by parsing source files.
 //
 // Test Levels: Integration (Go) -- source file content parsing.
-// Drag-and-drop behavior requiring real browser interaction is covered
-// by Playwright E2E tests in tests/e2e/empty-state.spec.ts.
+// The empty state's Open button is checked through guictl (see
+// tests/gui-mcp/COVERAGE.md); drag and drop is a manual check.
 //
 // Run: cd tests/empty-state && go test -v -count=1 ./...
 package empty_state_test
@@ -147,7 +147,7 @@ func TestPlatformDetectionUtilityExists(t *testing.T) {
 // TestOpenFileButtonOnClickBehavior was a source-grep asserting
 // EmptyState.tsx still calls `console.log` as a fallback when no
 // onOpenFile prop is supplied. The console.log was placeholder scaffolding;
-// real file-open behaviour is covered by tests/e2e/open-pdf-dialog-dnd.spec.ts.
+// real file-open behaviour is covered by Vitest and tests/gui-mcp.
 // Delete-only, no replacement.
 
 // ---------------------------------------------------------------------------

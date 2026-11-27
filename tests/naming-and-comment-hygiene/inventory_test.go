@@ -11,8 +11,7 @@ import (
 var (
 	goTestFuncDecl = regexp.MustCompile(`^func ((Test|Benchmark|Fuzz)[A-Za-z0-9_]*)`)
 
-	vitestFile     = regexp.MustCompile(`^frontend/src/.*\.test\.tsx?$`)
-	playwrightFile = regexp.MustCompile(`^tests/e2e/.*\.spec\.ts$`)
+	vitestFile = regexp.MustCompile(`^frontend/src/.*\.test\.tsx?$`)
 
 	// the title argument of a describe / it / test call, up to its closing quote.
 	specTitle = regexp.MustCompile("(^|[^\\w.$])(describe|it|test)(\\.(each|skip|only|todo|concurrent|sequential|fails|runIf|skipIf))*\\([ \t]*(['\"`])([^'\"`]*)")
@@ -119,17 +118,13 @@ func residueInSpecTitles(t *testing.T, root string, pick *regexp.Regexp) []hit {
 }
 
 // TestFrontendTestInventoryPreserved is the frontend half of the naming rule. A
-// Vitest or Playwright title is a test name, so the same rule applies to it, and
+// Vitest title is a test name, so the same rule applies to it, and
 // nothing else watches this surface: the flat ESLint config ignores test files and
-// the TypeScript compiler does not read string contents.
-//
-// The Vitest and Playwright case, describe and file counts used to be asserted
-// against frozen baselines here. Those were migration-only, for the same reason
-// the Go count was, and were removed deliberately along with the call-site
-// counting patterns that fed them. Retitling is what this gate watches now.
+// the TypeScript compiler does not read string contents. It checks spec
+// titles only, not test counts.
 func TestFrontendTestInventoryPreserved(t *testing.T) {
 	root := projectRoot(t)
-	titleHits := append(residueInSpecTitles(t, root, vitestFile), residueInSpecTitles(t, root, playwrightFile)...)
+	titleHits := residueInSpecTitles(t, root, vitestFile)
 	if len(titleHits) > 0 {
 		t.Errorf("spec titles still carrying a scenario ID, a story, epic or task number, a priority tag, a risk ID or an\n"+
 			"acceptance-criterion citation. Rewrite the title to state the behaviour; do not touch the block structure,\n"+

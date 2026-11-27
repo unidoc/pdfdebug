@@ -33,8 +33,8 @@ func TestThreeRunnerBuildSmoke(t *testing.T) {
 // desktop smoke (launch with no white screen, load a real PDF round trip,
 // exercise one method per binding category, surface one error path in the UI,
 // clean quit) runs out-of-band on real macOS and Windows hardware with a human
-// observer. Headless CI cannot see the WebView and Playwright cannot drive it, so
-// the evidence is dated screenshots and recordings.
+// observer. Headless CI cannot see the WebView, so the evidence is dated
+// screenshots and recordings.
 func TestDesktopWebViewSmoke(t *testing.T) {
 	t.Skip("DEFERRED human/hardware gate -- 5-step WebView smoke on real macOS + Windows, run out-of-band by a human, evidence in the Dev Agent Record (pending-human). Not automatable; no E2E authored per the test-pyramid directive.")
 }

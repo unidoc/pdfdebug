@@ -37,6 +37,8 @@ import (
 const (
 	profilePDFA  = "pdfa-1b"
 	profilePDFUA = "pdfua-1-structural"
+	// profilePdfcpu runs pdfcpu's own relaxed validator on a separate parse.
+	profilePdfcpu = "pdfcpu"
 )
 
 // projectRoot walks up from the test directory to the main module's go.mod.

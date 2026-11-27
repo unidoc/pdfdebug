@@ -223,6 +223,26 @@ body {
   --color-error: var(--color-error-on-selected);
 }
 
+/* Reload confirmation pill: one fade in, hold, one fade out over 3s */
+@keyframes reload-toast {
+  0% { opacity: 0; }
+  5% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.reload-toast {
+  animation: reload-toast 3s ease-in-out forwards;
+}
+
+/* On-disk change dot: one fade-in, no pulse */
+@keyframes disk-dot-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.disk-dot-in {
+  animation: disk-dot-in 150ms ease-out;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -232,5 +252,10 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  /* The pill's fade ends at opacity 0 and holds it; with no fade it stays
+     fully visible until the store removes it. */
+  .reload-toast {
+    animation: none !important;
   }
 }

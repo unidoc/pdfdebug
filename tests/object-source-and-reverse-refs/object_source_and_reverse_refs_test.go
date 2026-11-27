@@ -14,7 +14,7 @@
 //     via structural checks that the right files/exports/data-testids exist,
 //     because behavior is best asserted in the component tests themselves.
 //
-// No Playwright/E2E layer: every acceptance criterion in this story is fully
+// No GUI-level layer: every acceptance criterion in this story is fully
 // observable at the API level (Object Source string, ReverseRef list) or the
 // component level (state + dispatched actions). Adding a browser layer would
 // repeat what the component tests already cover and contradict the test

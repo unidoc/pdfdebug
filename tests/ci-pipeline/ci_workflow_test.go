@@ -2,10 +2,10 @@
 // Pipeline.
 //
 // These tests verify that .github/workflows/ci.yml is structured per the
-// acceptance criteria: matrix build on ubuntu-latest/macos-latest/windows-latest,
+// acceptance criteria: matrix build on ubuntu-24.04/macos-latest/windows-latest,
 // pinned Go 1.27.x and Node 20, Linux native deps install, Wails CLI pin
 // matching go.mod, per-suite test loop for tests/*/go.mod modules, dependency
-// caching, distinct check runs per platform, and 30-minute job timeout.
+// caching, distinct check runs per platform, and 60-minute job timeout.
 //
 // Test Levels: Integration (Go) -- YAML parsing + filesystem checks.
 // No browser or API surface exists for this story. Per the test design
@@ -210,7 +210,7 @@ func TestCIWorkflowTriggers(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // matrix strategy includes all 3 OS runners.
-// Covers "matrix strategy with macos-latest, windows-latest, ubuntu-latest".
+// Covers "matrix strategy with macos-latest, windows-latest, ubuntu-24.04".
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowMatrixOS(t *testing.T) {
@@ -245,7 +245,7 @@ func TestCIWorkflowMatrixOS(t *testing.T) {
 			found[s] = true
 		}
 	}
-	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest"} {
+	for _, required := range []string{"ubuntu-24.04", "macos-latest", "windows-latest"} {
 		if !found[required] {
 			t.Errorf("ci.yml: matrix.os missing %q", required)
 		}
@@ -284,8 +284,8 @@ func TestCIWorkflowNoJobNameOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// job-level timeout-minutes is 30.
-// Covers hard 30-minute cap per matrix cell.
+// job-level timeout-minutes is 60.
+// Covers the per-matrix-cell cap, sized for a Linux run on a slow apt mirror.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowJobTimeout(t *testing.T) {
@@ -293,14 +293,14 @@ func TestCIWorkflowJobTimeout(t *testing.T) {
 	job := buildAndTestJob(t)
 	tRaw, ok := job["timeout-minutes"]
 	if !ok {
-		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (requires 30-minute cap)")
+		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not set (requires 60-minute cap)")
 	}
 	tVal, ok := tRaw.(int)
 	if !ok {
 		t.Fatalf("ci.yml: build-and-test.timeout-minutes is not an integer, got %T", tRaw)
 	}
-	if tVal != 30 {
-		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 30, got %d", tVal)
+	if tVal != 60 {
+		t.Errorf("ci.yml: build-and-test.timeout-minutes must be 60, got %d", tVal)
 	}
 }
 
@@ -487,7 +487,7 @@ func TestCIWorkflowSetupNodePinAndCache(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Linux-guarded step installs apt native deps.
-// Covers libgtk-3-dev, libwebkit2gtk-4.1-dev, build-essential on Linux.
+// Covers libgtk-4-dev, libwebkitgtk-6.0-dev, build-essential on Linux.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
@@ -515,7 +515,7 @@ func TestCIWorkflowLinuxNativeDeps(t *testing.T) {
 	}
 
 	run := linuxStep["run"].(string)
-	for _, pkg := range []string{"libgtk-3-dev", "libwebkit2gtk-4.1-dev", "build-essential"} {
+	for _, pkg := range []string{"libgtk-4-dev", "libwebkitgtk-6.0-dev", "build-essential"} {
 		if !strings.Contains(run, pkg) {
 			t.Errorf("ci.yml: Linux apt-get step missing package %q", pkg)
 		}
@@ -601,7 +601,8 @@ func TestCIWorkflowGoTestRootStep(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // per-suite tests/*/go.mod loop step exists and is correct.
-// Covers iterating the tests/*/go.mod modules, skipping e2e and support.
+// Covers iterating the tests/*/go.mod modules, skipping boot-smoke, which has
+// its own step.
 // ---------------------------------------------------------------------------
 
 func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
@@ -635,9 +636,9 @@ func TestCIWorkflowPerSuiteModuleLoop(t *testing.T) {
 
 	run := loopStep["run"].(string)
 
-	// Must skip e2e and support
-	if !strings.Contains(run, "e2e") || !strings.Contains(run, "support") {
-		t.Errorf("ci.yml: per-suite loop must skip tests/e2e and tests/support")
+	// Must skip boot-smoke, which runs in its own step against the packaged binary
+	if !regexp.MustCompile(`(?m)^\s*boot-smoke\)\s*continue\s*;;`).MatchString(run) {
+		t.Errorf("ci.yml: per-suite loop must skip tests/boot-smoke")
 	}
 
 	// Must fail when no modules found (count guard)
@@ -675,8 +676,8 @@ func TestPerSuiteGoModuleCount(t *testing.T) {
 		if !e.IsDir() {
 			continue
 		}
-		// e2e and support are excluded by the loop, but the count here is the raw
-		// total of tests/<name>/go.mod files so the story's "20" number can be asserted.
+		// The count is the raw total of tests/<name>/go.mod files, including
+		// boot-smoke, which the loop skips.
 		if _, err := os.Stat(filepath.Join(testsDir, e.Name(), "go.mod")); err == nil {
 			count++
 		}

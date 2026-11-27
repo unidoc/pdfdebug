@@ -6,7 +6,7 @@
  * A dedicated "Metadata" tab beside Embedded (NOT crammed into Embedded).
  *
  * The four new bound methods (GetEmbeddedFiles, GetEmbeddedFileBytes,
- * GetDocumentMetadata, SaveBytesToFile) are added to the binding mock here so
+ * GetDocumentMetadata, SaveEmbeddedFileToFile) are added to the binding mock here so
  * DetailPanel's new tabs do not widen the App.test.tsx vi.mock gap.
  *
  * Run: cd frontend && npx vitest run src/components/DetailPanel.embeddedMetadata.test.tsx
@@ -31,7 +31,7 @@ vi.mock('allotment/dist/style.css', () => ({}));
 const mockGetEmbeddedFiles = vi.fn();
 const mockGetEmbeddedFileBytes = vi.fn();
 const mockGetDocumentMetadata = vi.fn();
-const mockSaveBytesToFile = vi.fn();
+const mockSaveEmbeddedFileToFile = vi.fn();
 vi.mock(
   '../../bindings/unidoc-pdf-debugger/internal/pdfservice/pdfservice.js',
   () => ({
@@ -55,7 +55,7 @@ vi.mock(
     GetSignatures: vi.fn().mockResolvedValue([]),
     GetEmbeddedFileBytes: (...a: unknown[]) => mockGetEmbeddedFileBytes(...a),
     GetDocumentMetadata: (...a: unknown[]) => mockGetDocumentMetadata(...a),
-    SaveBytesToFile: (...a: unknown[]) => mockSaveBytesToFile(...a),
+    SaveEmbeddedFileToFile: (...a: unknown[]) => mockSaveEmbeddedFileToFile(...a),
   })
 );
 

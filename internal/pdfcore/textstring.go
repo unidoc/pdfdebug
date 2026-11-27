@@ -19,18 +19,21 @@ import (
 // signature /Contents and /Cert, trailer /ID) must stay on stringValue;
 // decoding them corrupts the bytes.
 //
-// The semantics are pdfcpu's, and the two literal types differ:
+// The semantics are pdfcpu's. A StringLiteral is unescaped and a HexLiteral
+// hex-decoded, then both byte sequences decode the same way:
 //
-//   - StringLiteral: unescape, then UTF-16BE if the bytes start FE FF and the
-//     length is even; else strip a UTF-8 BOM and pass through; else map each
-//     byte to the codepoint of the same value (Latin-1, despite pdfcpu naming
-//     that function CP1252ToUTF8 - 0x80 decodes to U+0080, not U+20AC).
-//   - HexLiteral: hex-decode, then UTF-16BE under the same test; else return the
-//     bytes verbatim. No encoding fallback, so the result may be invalid UTF-8.
+//   - bytes starting FE FF are UTF-16BE and must have an even length, else the
+//     decode fails;
+//   - bytes starting EF BB BF are UTF-8 with the BOM stripped and must be valid
+//     UTF-8, else the decode fails;
+//   - a string whose bytes are all ASCII outside 0x18-0x1F passes through
+//     unchanged;
+//   - any other string is PDFDocEncoding (ISO 32000-1 Annex D) byte by byte:
+//     0x80 is U+2022 and 0x92 is U+2122, and a code the encoding leaves
+//     undefined becomes U+FFFD, ASCII control codes such as 0x00 included.
 //
-// Upstream quirk: HexLiteralToString unescapes the already-decoded bytes, so a
-// 0x5C byte inside a hex text string is dropped - HexLiteral("415C42") gives
-// "AB".
+// A successful decode is always valid UTF-8, and a 0x5C byte in a hex string
+// is kept: HexLiteral("415C42") gives "A\B".
 //
 // Callers that RENDER a field use textStringOrRaw instead.
 func decodeTextString(obj pdfcpu_types.Object) string {
@@ -59,10 +62,12 @@ func decodeTextStringOK(obj pdfcpu_types.Object) (string, bool) {
 // renders as the literal text "FEFF".
 //
 // The result is always valid UTF-8: json.Marshal replaces invalid bytes with
-// U+FFFD, which destroys the value. A decode yielding invalid UTF-8 counts as a
-// failure, and a raw fallback that is not valid UTF-8 is rendered as uppercase
-// hex digits so the bytes stay recoverable. Hex is not re-decoded through a
-// byte-to-codepoint map, which would produce plausible-looking wrong text.
+// U+FFFD, which destroys the value. pdfcpu's decoder returns valid UTF-8 when
+// it succeeds; a decode yielding invalid UTF-8 would still count as a failure,
+// since the decoder is outside this package. A raw fallback that is not valid
+// UTF-8 is rendered as uppercase hex digits so the bytes stay recoverable.
+// Hex is not re-decoded through a byte-to-codepoint map, which would produce
+// plausible-looking wrong text.
 //
 // Indirect objects are not dereferenced; an indirect /Title or /UF yields "".
 func textStringOrRaw(obj pdfcpu_types.Object) string {

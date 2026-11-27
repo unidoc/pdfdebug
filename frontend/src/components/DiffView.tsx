@@ -59,6 +59,10 @@ export interface DiffViewProps {
   active: boolean;
   /** Ends this comparison so another document can be picked. */
   onClose: () => void;
+  /** Label naming the right side, e.g. `On disk (14:05)`. */
+  rightLabel?: string;
+  /** When set, the header shows Reload, which makes the right side the tab's document. */
+  onReload?: () => void;
 }
 
 /** Reports whether a node or any descendant is not "unchanged", or is a
@@ -149,7 +153,7 @@ function flatten(node: DiffNodeData, depth: number, expanded: Set<string>, out: 
  * one selection; the LEFT pane also owns expand/collapse. A Close diff button
  * in every state hands control back through onClose.
  */
-export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewProps) {
+export function DiffView({ leftTabId, rightTabId, active, onClose, rightLabel, onReload }: DiffViewProps) {
   const [result, setResult] = useState<DiffResultData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -409,7 +413,24 @@ export function DiffView({ leftTabId, rightTabId, active, onClose }: DiffViewPro
         >
           Next change
         </button>
-        <div className="ml-auto">{closeButton}</div>
+        <div className="ml-auto flex items-center gap-2">
+          {rightLabel && (
+            <span className="text-xs text-text-secondary" data-testid="diff-right-label">
+              Right: {rightLabel}
+            </span>
+          )}
+          {onReload && (
+            <button
+              type="button"
+              data-testid="diff-reload"
+              className={`px-2 py-0.5 ${SMALL_BUTTON}`}
+              onClick={onReload}
+            >
+              Reload
+            </button>
+          )}
+          {closeButton}
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
