@@ -21,7 +21,7 @@ func openForCLI(filePath string) (ins *pdfcore.Inspector, info *pdfcore.Document
 
 	info, err := ins.Open("cli", filePath)
 	if err != nil {
-		return nil, nil, handleOpenError(err)
+		return nil, nil, handleOpenError(err, "")
 	}
 
 	// Non-fatal warning for structurally damaged but parseable PDFs.

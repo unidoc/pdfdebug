@@ -57,11 +57,11 @@ func execDiff(leftPath, rightPath string, jsonOut, pretty, full bool) (exitCode 
 
 	ins := pdfcore.NewInspector()
 	if _, err := ins.Open("left", leftPath); err != nil {
-		return handleOpenError(err) // operational: exit 2
+		return handleOpenError(err, leftPath) // operational: exit 2
 	}
 	defer func() { _ = ins.Close("left") }()
 	if _, err := ins.Open("right", rightPath); err != nil {
-		return handleOpenError(err) // operational: exit 2
+		return handleOpenError(err, rightPath) // operational: exit 2
 	}
 	defer func() { _ = ins.Close("right") }()
 

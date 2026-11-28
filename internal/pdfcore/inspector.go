@@ -461,6 +461,10 @@ func (ins *Inspector) Open(tabID, filePath string) (*DocumentInfo, error) {
 		if isFileBusy(err) {
 			return nil, fmt.Errorf("%w: %w", ErrFileBusy, err)
 		}
+		// A file the process may not read is not a malformed PDF.
+		if errors.Is(err, fs.ErrPermission) {
+			return nil, err
+		}
 		return nil, wrapPDFError(err)
 	}
 	fileSize := fi.Size()

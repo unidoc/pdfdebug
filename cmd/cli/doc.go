@@ -60,6 +60,12 @@
 //	    certificate files), each an `error:` line. A failed export file
 //	    write is a JSON error object
 //
+// A file that cannot be parsed, on any command, draws exit 2 and
+// {"error":"malformed PDF: file is corrupt or invalid","detail":"<reason>"},
+// where "detail" is the parser's reason. `diff` also adds "file", the path of
+// the side that failed, as given. Encrypted and missing files carry only
+// "error".
+//
 // On any exit path, of any command, an interactive session may also end stderr
 // with the update notice: a framed "Update available" box, or the same two
 // lines unframed on a narrow terminal. It is never written under --json,

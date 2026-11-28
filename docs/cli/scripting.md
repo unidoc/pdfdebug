@@ -103,6 +103,13 @@ stream prints `page has no content stream`, and the update notice is plain
 text too. A script should branch on the exit code and treat stderr as text to
 show, not to parse.
 
+A file that cannot be parsed exits 2 on every command with
+`{"error":"malformed PDF: file is corrupt or invalid","detail":"..."}`. The
+`"error"` text stays fixed; `"detail"` is the parser's reason and changes with
+the file and the pdfcpu version. `diff` also adds `"file"`, the path of the
+side that failed, as you gave it. Encrypted and missing files carry `"error"`
+only.
+
 Three outputs are separate machine formats rather than JSON: `dump stream
 --raw` (the decoded stream bytes), `dump stream --ops` (one JSON object per
 operator, newline-delimited) and the raw output of `dump bytes`. `--raw --json`

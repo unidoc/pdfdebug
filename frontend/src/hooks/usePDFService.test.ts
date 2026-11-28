@@ -48,6 +48,12 @@ describe('mapErrorMessage', () => {
     );
   });
 
+  test('a permission error is not reported as a damaged file', () => {
+    expect(mapErrorMessage('open /home/u/report.pdf: permission denied')).toBe(
+      'This PDF could not be opened. An unexpected error occurred.'
+    );
+  });
+
   test('matching is case-insensitive', () => {
     expect(mapErrorMessage('ENCRYPTED')).toBe(
       'This PDF could not be opened. The file appears to be encrypted.'
