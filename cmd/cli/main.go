@@ -193,6 +193,18 @@ func writeJSONError(w io.Writer, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// openErrorJSON is the stderr object for a file that could not be parsed.
+type openErrorJSON struct {
+	Error  string `json:"error"`
+	Detail string `json:"detail,omitempty"`
+	File   string `json:"file,omitempty"`
+}
+
+// writeOpenErrorJSON writes an open error object to w.
+func writeOpenErrorJSON(w io.Writer, e openErrorJSON) {
+	_ = json.NewEncoder(w).Encode(e)
+}
+
 // writeJSONWarning writes a JSON warning object to w.
 func writeJSONWarning(w io.Writer, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"warning": msg})

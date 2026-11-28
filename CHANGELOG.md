@@ -2,6 +2,16 @@
 
 All notable changes to UniDoc PDF Debugger are recorded here. Format follows Keep a Changelog with an added Refactored section; versions use semantic versioning.
 
+## [Unreleased]
+
+### Changed
+
+- When the CLI cannot parse a file, its JSON error keeps `"error":"malformed PDF: file is corrupt or invalid"` and adds the parser's reason in `"detail"`, so a refused file can be diagnosed without another tool. `diff` also names the file that failed in `"file"`
+
+### Fixed
+
+- A file the CLI is not allowed to read is reported with the system's error, such as `{"error":"open <path>: permission denied"}`, instead of as a malformed PDF, and the app no longer calls such a file damaged or corrupt
+
 ## [0.6.0] - 2026-11-27
 
 Reload from disk and change detection for open files, a structure tree command lined up with page content, PDF/UA checks on marked content, certificate details and CMS export for signatures, and pdfcpu's verdict on demand. Linux moves to GTK4 with .deb and .rpm packages, and the app runtime to Wails v3.0.0.

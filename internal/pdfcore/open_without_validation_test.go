@@ -809,3 +809,126 @@ func TestGetImageData_BrokenChecksumSoftMaskIsAPerImageError(t *testing.T) {
 		t.Errorf("image with a broken-checksum /SMask = kind %q, %d base64 bytes; want no preview", data.Kind, len(data.Base64))
 	}
 }
+
+// Shapes found in UniPDF output. Each opens through Inspector.Open with no
+// warning, and the object that carries the shape reads back as written. For a
+// case with validatorRejects set, pdfcpu's relaxed validator run on its own
+// parse of the same bytes must refuse the file with an error naming that
+// shape (validatorSays), so the case keeps covering a shape the validator
+// rejects and not some other defect of the hand-built file.
+func TestOpen_ShapesThePdfcpuValidatorRejectsOpen(t *testing.T) {
+	page := "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>\nendobj\n"
+	pages := "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+	cases := []struct {
+		name             string
+		pdf              []byte
+		validatorRejects bool
+		validatorSays    string   // substring of the validator's error for this shape
+		nodeID           string   // object whose source carries the shape
+		want             []string // substrings the source must contain
+		absent           []string // substrings the source must not contain
+	}{
+		{
+			name: "catalog associated files in a PDF 2.0 file",
+			pdf: assemblexref("%PDF-2.0\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AF [4 0 R] >>\nendobj\n",
+				pages, page,
+				"4 0 obj\n<< /Type /Filespec /F (a.txt) /UF (a.txt) /AFRelationship /Data >>\nendobj\n",
+			),
+			validatorRejects: true,
+			validatorSays:    "AF: PDF 2.0 associated files not supported",
+			nodeID:           "obj:0:1",
+			want:             []string{"/AF"},
+		},
+		{
+			name: "font without Subtype in the page resources",
+			pdf: assemblexref("%PDF-1.7\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+				pages,
+				"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+				"4 0 obj\n<< /Type /Font /BaseFont /Helvetica >>\nendobj\n",
+				"5 0 obj\n"+rawStreamObj("", "BT /F1 12 Tf 10 10 Td (a) Tj ET")+"\nendobj\n",
+			),
+			validatorRejects: true,
+			validatorSays:    "Font resource F1: font: missing Subtype",
+			nodeID:           "obj:0:4",
+			want:             []string{"/BaseFont", "/Helvetica"},
+			absent:           []string{"/Subtype"},
+		},
+		{
+			name: "text field widget kid with no DA set or inherited",
+			pdf: assemblexref("%PDF-1.7\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>\nendobj\n",
+				pages,
+				"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots [5 0 R] >>\nendobj\n",
+				"4 0 obj\n<< /FT /Tx /T (name) /Kids [5 0 R] >>\nendobj\n",
+				"5 0 obj\n<< /Type /Annot /Subtype /Widget /Parent 4 0 R /Rect [10 10 100 30] /P 3 0 R >>\nendobj\n",
+			),
+			validatorRejects: true,
+			validatorSays:    "required entry=DA missing",
+			nodeID:           "obj:0:4",
+			want:             []string{"/FT", "/Tx"},
+			absent:           []string{"/DA"},
+		},
+		{
+			name: "name-typed catalog Version 1.1 in a PDF 1.1 file",
+			pdf: assemblexref("%PDF-1.1\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Version /1.1 >>\nendobj\n",
+				pages, page,
+			),
+			nodeID: "obj:0:1",
+			want:   []string{"/Version", "/1.1"},
+		},
+		{
+			name: "structure element whose K holds an annotation dict",
+			pdf: assemblexref("%PDF-1.7\n",
+				"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /StructTreeRoot 4 0 R /MarkInfo << /Marked true >> >>\nendobj\n",
+				pages,
+				"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots [6 0 R] /StructParents 0 >>\nendobj\n",
+				"4 0 obj\n<< /Type /StructTreeRoot /K 5 0 R >>\nendobj\n",
+				"5 0 obj\n<< /Type /StructElem /S /Link /P 4 0 R /Pg 3 0 R /K 6 0 R >>\nendobj\n",
+				"6 0 obj\n<< /Type /Annot /Subtype /Link /Rect [10 10 100 30] /P 3 0 R /StructParent 1 >>\nendobj\n",
+			),
+			nodeID: "obj:0:5",
+			want:   []string{"/StructElem", "/K 6 0 R"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.validatorRejects {
+				ctx, err := pdfcpu_api.ReadContext(context.Background(), bytes.NewReader(tc.pdf), pdfcpu_model.NewStatelessConfiguration())
+				if err != nil {
+					t.Fatalf("fixture: pdfcpu's reader refuses the file: %v", err)
+				}
+				err = pdfcpu_api.ValidateContext(context.Background(), ctx)
+				if err == nil {
+					t.Fatal("pdfcpu's relaxed validator accepts this shape; replace it with a shape the validator still rejects or mark the case as not rejected")
+				}
+				if !strings.Contains(err.Error(), tc.validatorSays) {
+					t.Fatalf("pdfcpu's relaxed validator refuses the file for another reason: %v; want an error containing %q", err, tc.validatorSays)
+				}
+			}
+			ins, info := openParsedFile(t, "validator-shape", tc.pdf)
+			if info.Error != "" {
+				t.Errorf("open warning = %q, want none", info.Error)
+			}
+			if info.PageCount != 1 {
+				t.Errorf("page count = %d, want 1", info.PageCount)
+			}
+			src, err := ins.GetObjectSource("validator-shape", tc.nodeID)
+			if err != nil {
+				t.Fatalf("GetObjectSource %s: %v", tc.nodeID, err)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(src, w) {
+					t.Errorf("source of %s lacks %q as written in the file:\n%s", tc.nodeID, w, src)
+				}
+			}
+			for _, a := range tc.absent {
+				if strings.Contains(src, a) {
+					t.Errorf("source of %s shows %q, which the file does not have:\n%s", tc.nodeID, a, src)
+				}
+			}
+		})
+	}
+}

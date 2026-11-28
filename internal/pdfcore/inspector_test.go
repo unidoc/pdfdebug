@@ -2,7 +2,10 @@ package pdfcore
 
 import (
 	"errors"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -155,6 +158,35 @@ func TestOpenDirectoryPath(t *testing.T) {
 	}
 	if !errors.Is(err, ErrDocumentNotFound) {
 		t.Errorf("expected ErrDocumentNotFound, got %v", err)
+	}
+}
+
+// A file without read permission is reported as a permission error, not as a
+// malformed, missing or encrypted PDF.
+func TestOpenUnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file read permission is a Unix mode bit")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	path := filepath.Join(t.TempDir(), "unreadable.pdf")
+	data, err := os.ReadFile(filepath.Join(testdataDir(t), "minimal.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	ins := NewInspector()
+	_, err = ins.Open("tab-x", path)
+	if !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("err = %v, want a permission error", err)
+	}
+	for _, sentinel := range []error{ErrMalformedPDF, ErrDocumentNotFound, ErrEncryptedPDF} {
+		if errors.Is(err, sentinel) {
+			t.Errorf("err = %v, must not match %v", err, sentinel)
+		}
 	}
 }
 

@@ -83,7 +83,7 @@ func execValidate(filePath, profile string, jsonOut, pretty bool) (exitCode int)
 			// one, so an unopenable encrypted file there is operational (exit 2).
 			return renderValidate(pdfcore.EncryptedResult(), jsonOut, pretty)
 		}
-		return handleOpenError(err) // operational: exit 2
+		return handleOpenError(err, "") // operational: exit 2
 	}
 	defer func() { _ = ins.Close("cli") }()
 

@@ -197,12 +197,22 @@ func treeNodeTypeMeta(n *treeNodeOutput) string {
 }
 
 // handleOpenError classifies an Open error and writes a JSON error to stderr.
-func handleOpenError(err error) int {
+// A malformed-PDF error keeps its fixed text and adds the parser's reason as
+// detail; file, when not empty, names the file that failed to parse.
+func handleOpenError(err error, file string) int {
 	switch {
 	case errors.Is(err, pdfcore.ErrEncryptedPDF):
 		writeJSONError(os.Stderr, "encrypted PDF: password required")
 	case errors.Is(err, pdfcore.ErrMalformedPDF):
-		writeJSONError(os.Stderr, "malformed PDF: file is corrupt or invalid")
+		detail := strings.TrimPrefix(err.Error(), pdfcore.ErrMalformedPDF.Error()+": ")
+		if detail == err.Error() {
+			detail = ""
+		}
+		writeOpenErrorJSON(os.Stderr, openErrorJSON{
+			Error:  "malformed PDF: file is corrupt or invalid",
+			Detail: detail,
+			File:   file,
+		})
 	case errors.Is(err, pdfcore.ErrDocumentNotFound):
 		writeJSONError(os.Stderr, "file not found")
 	default:
